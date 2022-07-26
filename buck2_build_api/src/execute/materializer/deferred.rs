@@ -278,8 +278,6 @@ enum ArtifactMaterializationStage {
     /// When the the artifact was declared, we spawn a deletion future to delete
     /// all existing paths that conflict with the output paths.
     Declared,
-    /// The materialization has started and it hasn't finished yet.
-    Materializing,
     /// This artifact was materialized
     Materialized {
         // Artifact may need its dependencies checked as they might have changed
@@ -721,16 +719,6 @@ impl DeferredMaterializerCommandProcessor {
         };
 
         let entry = match &data.stage {
-            ArtifactMaterializationStage::Materializing => {
-                // TODO(scottcao): Since ProcessingEvent has enough information about whether we are
-                // materializing or not, we can refactor this code to be a little simpler by getting rid of
-                // the Materializing stage and always deferring to ProcessingEvent for whether we are
-                // actively cleaning/materializing.
-                tracing::debug!(
-                        path = %path,
-                        "processing_fut is not materializing but stage is still materializing. Shouldn't reach here");
-                return None;
-            }
             ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
             ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
                 true => None,
@@ -837,7 +825,6 @@ impl DeferredMaterializerCommandProcessor {
         .shared();
 
         let data = tree.prefix_get_mut(&mut path.iter()).unwrap();
-        data.stage = ArtifactMaterializationStage::Materializing;
         data.processing_fut = Some(ProcessingFuture::Materializing(task.clone()));
 
         Some(task)
