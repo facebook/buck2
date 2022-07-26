@@ -355,6 +355,10 @@ impl CellResolver {
         }))
     }
 
+    pub fn contains(&self, cell: &CellName) -> bool {
+        self.0.cells.contains_key(cell)
+    }
+
     /// Get a `Cell` from the `CellMap`
     pub fn get(&self, cell: &CellName) -> anyhow::Result<&CellInstance> {
         self.0.cells.get(cell).ok_or_else(|| {
