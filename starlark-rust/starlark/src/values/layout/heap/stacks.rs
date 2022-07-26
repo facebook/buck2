@@ -20,7 +20,6 @@
 use std::cell::RefCell;
 use std::collections::hash_map;
 use std::collections::HashMap;
-use std::io::Write;
 use std::ops::AddAssign;
 use std::rc::Rc;
 use std::time::Instant;
@@ -283,12 +282,11 @@ impl Stacks {
     }
 
     /// Write this out recursively to a file.
-    pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
+    pub(crate) fn write(&self) -> String {
         let mut writer = FlameGraphWriter::new();
         self.root
             .write(&mut writer, &mut vec![], &self.ids.invert());
-        file.write_all(writer.finish().as_bytes())?;
-        Ok(())
+        writer.finish()
     }
 }
 

@@ -17,8 +17,7 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fs::File;
-use std::io::Write;
+use std::fs;
 use std::path::Path;
 
 use anyhow::Context;
@@ -85,29 +84,27 @@ impl HeapProfile {
         heap: &Heap,
         format: HeapProfileFormat,
     ) -> anyhow::Result<()> {
-        let file = File::create(filename).with_context(|| {
-            format!("When creating profile output file `{}`", filename.display())
-        })?;
+        let profile = match format {
+            HeapProfileFormat::Summary => Self::write_summarized_heap_profile(heap),
+            HeapProfileFormat::FlameGraph => Self::write_flame_heap_profile(heap),
+        };
 
-        match format {
-            HeapProfileFormat::Summary => Self::write_summarized_heap_profile_to(file, heap),
-            HeapProfileFormat::FlameGraph => Self::write_flame_heap_profile_to(file, heap),
-        }
-        .with_context(|| {
+        fs::write(filename, profile).with_context(|| {
             format!(
                 "When writing to profile output file `{}`",
                 filename.display()
             )
-        })
-    }
+        })?;
 
-    fn write_flame_heap_profile_to(mut file: impl Write, heap: &Heap) -> anyhow::Result<()> {
-        let stacks = Stacks::collect(heap, None);
-        stacks.write_to(&mut file)?;
         Ok(())
     }
 
-    fn write_summarized_heap_profile_to(mut file: impl Write, heap: &Heap) -> anyhow::Result<()> {
+    fn write_flame_heap_profile(heap: &Heap) -> String {
+        let stacks = Stacks::collect(heap, None);
+        stacks.write()
+    }
+
+    fn write_summarized_heap_profile(heap: &Heap) -> String {
         use summary::FuncInfo;
         use summary::Info;
 
@@ -175,8 +172,7 @@ impl HeapProfile {
             }
             csv.finish_row();
         }
-        file.write_all(csv.finish().as_bytes())?;
-        Ok(())
+        csv.finish()
     }
 }
 
@@ -303,16 +299,16 @@ f
         eval.enable_profile(&ProfileMode::HeapSummary);
         let f = eval.eval_module(ast, &globals)?;
         // first check module profiling works
-        HeapProfile::write_summarized_heap_profile_to(&mut Vec::new(), module.heap())?;
-        HeapProfile::write_flame_heap_profile_to(&mut Vec::new(), module.heap())?;
+        HeapProfile::write_summarized_heap_profile(module.heap());
+        HeapProfile::write_flame_heap_profile(module.heap());
 
         // second check function profiling works
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
         eval.enable_profile(&ProfileMode::HeapSummary);
         eval.eval_function(f, &[Value::new_int(100)], &[])?;
-        HeapProfile::write_summarized_heap_profile_to(&mut Vec::new(), module.heap())?;
-        HeapProfile::write_flame_heap_profile_to(&mut Vec::new(), module.heap())?;
+        HeapProfile::write_summarized_heap_profile(module.heap());
+        HeapProfile::write_flame_heap_profile(module.heap());
 
         // finally, check a user can add values into the heap before/after
         let module = Module::new();
@@ -321,8 +317,8 @@ f
         eval.enable_profile(&ProfileMode::HeapSummary);
         eval.eval_function(f, &[Value::new_int(100)], &[])?;
         module.heap().alloc("Thing that goes after");
-        HeapProfile::write_summarized_heap_profile_to(&mut Vec::new(), module.heap())?;
-        HeapProfile::write_flame_heap_profile_to(&mut Vec::new(), module.heap())?;
+        HeapProfile::write_summarized_heap_profile(module.heap());
+        HeapProfile::write_flame_heap_profile(module.heap());
 
         Ok(())
     }
