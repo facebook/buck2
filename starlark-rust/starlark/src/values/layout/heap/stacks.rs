@@ -29,6 +29,7 @@ use std::time::Instant;
 
 use either::Either;
 use gazebo::dupe::Dupe;
+use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
@@ -113,8 +114,8 @@ impl AddAssign for AllocCounts {
 
 /// A stack frame, its caller and the functions it called, and the allocations it made itself.
 struct StackFrameData {
-    callees: HashMap<FunctionId, StackFrameBuilder>,
-    allocs: HashMap<&'static str, AllocCounts>,
+    callees: SmallMap<FunctionId, StackFrameBuilder>,
+    allocs: SmallMap<&'static str, AllocCounts>,
     /// Time spent in this frame excluding callees.
     /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
     time_x2: SmallDuration,
@@ -241,8 +242,8 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
 }
 
 pub(crate) struct StackFrame {
-    pub(crate) callees: HashMap<FunctionId, StackFrame>,
-    pub(crate) allocs: HashMap<&'static str, AllocCounts>,
+    pub(crate) callees: SmallMap<FunctionId, StackFrame>,
+    pub(crate) allocs: SmallMap<&'static str, AllocCounts>,
     pub(crate) time_x2: SmallDuration,
     pub(crate) calls_x2: u32,
 }
