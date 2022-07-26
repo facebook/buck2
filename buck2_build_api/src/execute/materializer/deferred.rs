@@ -1102,6 +1102,34 @@ impl<V: 'static> FileTree<V> {
         );
         artifacts
     }
+
+    /// Removes path from FileTree. Returns an iterator of pairs of path and entry removed
+    /// from the tree.
+    #[allow(dead_code)]
+    fn remove_path(
+        &mut self,
+        path: &ProjectRelativePath,
+    ) -> Box<dyn Iterator<Item = (ProjectRelativePathBuf, V)>> {
+        let mut path_iter = path.iter();
+        let removed = self.remove(&mut path_iter);
+
+        let mut path = path;
+        // Rewind the `path` up to the entry we *actually* found.
+        for _ in path_iter {
+            path = path
+                .parent()
+                .expect("Path iterator cannot cause us to rewind past the last parent");
+        }
+        let path = path.to_owned();
+
+        match removed {
+            Some(tree) => box tree
+                .into_iter()
+                .with_paths()
+                .map(move |(k, v)| ((&path).join_unnormalized(k), v)),
+            None => box std::iter::empty(),
+        }
+    }
 }
 
 trait WithPathsIterator<K, V>: Iterator<Item = (VecDeque<K>, V)>
@@ -1191,6 +1219,8 @@ fn clean_output_paths(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use buck2_common::file_ops::FileMetadata;
 
     use super::*;
@@ -1236,5 +1266,32 @@ mod tests {
         let found_artifacts: HashSet<_> = tree.find_artifacts(&builder).into_iter().collect();
         assert_eq!(found_artifacts, expected_artifacts);
         Ok(())
+    }
+
+    #[test]
+    pub fn test_remove_path() {
+        fn insert(tree: &mut FileTree<String>, path: &str) {
+            tree.insert(
+                ProjectRelativePath::unchecked_new(path)
+                    .iter()
+                    .map(|f| f.to_owned()),
+                path.to_owned(),
+            );
+        }
+
+        let mut tree: FileTree<String> = FileTree::new();
+        insert(&mut tree, "a/b/c/d");
+        insert(&mut tree, "a/b/c/e");
+        insert(&mut tree, "a/c");
+
+        let removed_subtree = tree.remove_path(ProjectRelativePath::unchecked_new("a/b"));
+        // Convert to HashMap<String, String> so it's easier to test
+        let removed_subtree: HashMap<String, String> = removed_subtree
+            .map(|(k, v)| (k.as_str().to_owned(), v))
+            .collect();
+
+        assert_eq!(removed_subtree.len(), 2);
+        assert_eq!(removed_subtree.get("a/b/c/d"), Some(&"a/b/c/d".to_owned()));
+        assert_eq!(removed_subtree.get("a/b/c/e"), Some(&"a/b/c/e".to_owned()));
     }
 }
