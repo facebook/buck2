@@ -26,12 +26,18 @@ def build_junit_test(
     junit_toolchain = ctx.attrs._junit_toolchain[JUnitToolchainInfo]
 
     cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attrs.vm_args
+    classpath = []
 
-    classpath = [junit_toolchain.junit_test_runner_library_jar] + [
+    if junit_toolchain.use_java_custom_class_loader:
+        cmd.append("-Djava.system.class.loader=" + junit_toolchain.java_custom_class_loader_class)
+        cmd.extend(junit_toolchain.java_custom_class_loader_vm_args)
+        classpath.append(junit_toolchain.java_custom_class_loader_library_jar)
+
+    classpath.extend([junit_toolchain.junit_test_runner_library_jar] + [
         packaging_dep.jar
         for packaging_dep in get_all_java_packaging_deps_from_packaging_infos(ctx, [tests_java_packaging_info])
         if packaging_dep.jar
-    ] + extra_classpath_entries
+    ] + extra_classpath_entries)
 
     run_from_cell_root = "buck2_run_from_cell_root" in (ctx.attrs.labels or [])
 

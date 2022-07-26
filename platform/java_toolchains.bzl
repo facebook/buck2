@@ -1,6 +1,7 @@
 load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "source_list_attr", "string_attr", "string_list_attr")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 
 _buckconfig_java_toolchain_attrs = {
     "abi_generation_mode": (string_attr, "class"),
@@ -161,9 +162,15 @@ def _parse_src_roots(src_roots: [str.type]) -> ([str.type], [str.type]):
     return elements, prefixes
 
 def junit_toolchain(name, **kwargs):
+    use_custom_class_loader_for_junit_test = read_bool("test", "use_custom_class_loader_for_junit_test", False)
+
+    kwargs["java_custom_class_loader_class"] = "com.facebook.IndexClassLoader" if use_custom_class_loader_for_junit_test else None
+    kwargs["java_custom_class_loader_library_jar"] = "fbsource//xplat/buck2/tools/android/index_classloader:index_classloader" if use_custom_class_loader_for_junit_test else None
+    kwargs["java_custom_class_loader_vm_args"] = [] if use_custom_class_loader_for_junit_test else None
     kwargs["junit_test_runner_library_jar"] = "buck//src/com/facebook/buck/testrunner:testrunner-bin-fixed"
     kwargs["junit_test_runner_main_class"] = "com.facebook.buck.testrunner.JUnitMain"
     kwargs["list_class_names"] = "fbsource//xplat/buck2/tools/java:list_class_names"
+    kwargs["use_java_custom_class_loader"] = use_custom_class_loader_for_junit_test
 
     _junit_toolchain_rule(name = name, **kwargs)
 
@@ -171,17 +178,25 @@ def _junit_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         JUnitToolchainInfo(
+            java_custom_class_loader_class = ctx.attrs.java_custom_class_loader_class,
+            java_custom_class_loader_library_jar = ctx.attrs.java_custom_class_loader_library_jar,
+            java_custom_class_loader_vm_args = ctx.attrs.java_custom_class_loader_vm_args,
             junit_test_runner_library_jar = ctx.attrs.junit_test_runner_library_jar,
             junit_test_runner_main_class = ctx.attrs.junit_test_runner_main_class,
             list_class_names = ctx.attrs.list_class_names,
+            use_java_custom_class_loader = ctx.attrs.use_java_custom_class_loader,
         ),
     ]
 
 _junit_toolchain_rule = rule(
     attrs = {
+        "java_custom_class_loader_class": attrs.option(attrs.string(), default = None),
+        "java_custom_class_loader_library_jar": attrs.option(attrs.source(), default = None),
+        "java_custom_class_loader_vm_args": attrs.option(attrs.list(attrs.string()), default = None),
         "junit_test_runner_library_jar": attrs.source(),
         "junit_test_runner_main_class": attrs.string(),
         "list_class_names": attrs.dep(providers = [RunInfo]),
+        "use_java_custom_class_loader": attrs.bool(),
     },
     impl = _junit_toolchain_rule_impl,
 )
