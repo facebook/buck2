@@ -13,9 +13,9 @@ use std::time::Instant;
 
 use anyhow::Context;
 use gazebo::dupe::Dupe;
+use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileMode;
-use starlark::values::FrozenHeapRef;
 
 /// When profiling Starlark file, all dependencies of that file must be
 /// "instrumented" otherwise the profiler won't work.
@@ -62,7 +62,7 @@ pub trait StarlarkProfiler: Send + Sync {
     /// Post-analysis, produce the output of this profiler.
     fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
 
-    fn visit_heap(&mut self, heap: Option<&FrozenHeapRef>) -> anyhow::Result<()>;
+    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()>;
 }
 
 /// A profiler that does nothing.
@@ -79,7 +79,7 @@ impl StarlarkProfiler for Disabled {
         Ok(())
     }
 
-    fn visit_heap(&mut self, _: Option<&FrozenHeapRef>) -> anyhow::Result<()> {
+    fn visit_frozen_module(&mut self, _: Option<&FrozenModule>) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -133,9 +133,11 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
         Ok(())
     }
 
-    fn visit_heap(&mut self, heap: Option<&FrozenHeapRef>) -> anyhow::Result<()> {
-        let total_allocated_bytes = heap.map_or(0, |heap| {
-            heap.allocated_summary()
+    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
+        let total_allocated_bytes = module.map_or(0, |module| {
+            module
+                .frozen_heap()
+                .allocated_summary()
                 .summary
                 .values()
                 .map(|(_, bytes)| bytes)
@@ -189,9 +191,9 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         }
     }
 
-    pub fn visit_heap(&mut self, heap: Option<&FrozenHeapRef>) -> anyhow::Result<()> {
+    pub fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
         if let Some(profiler) = &mut self.profiler {
-            profiler.visit_heap(heap)?;
+            profiler.visit_frozen_module(module)?;
         }
         Ok(())
     }

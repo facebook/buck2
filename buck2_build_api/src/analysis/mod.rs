@@ -292,7 +292,7 @@ fn run_analysis_with_env(
     let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
 
     profiler
-        .visit_heap(Some(frozen_env.frozen_heap()))
+        .visit_frozen_module(Some(&frozen_env))
         .context("Profiler heap visitation failed")?;
 
     let res = frozen_env.get("").unwrap();

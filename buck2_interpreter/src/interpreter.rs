@@ -593,7 +593,7 @@ impl InterpreterForCell {
                     .context("Profiler finalization failed")?;
 
                 profiler
-                    .visit_heap(None)
+                    .visit_frozen_module(None)
                     .context("Profiler heap visitation failed")?;
 
                 Ok(extra.additional)
