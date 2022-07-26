@@ -549,8 +549,17 @@ impl ServerCommandContext {
         let cwd = &self.working_dir;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
-        let configuror =
-            get_interpreter_configuror(self.host_platform_override, self.record_target_call_stacks);
+        let (interpreter_platform, interpreter_architecture) =
+            get_host_info(self.host_platform_override);
+        let configuror = BuildInterpreterConfiguror::new(
+            Some(prelude_path()),
+            interpreter_platform,
+            interpreter_architecture,
+            self.record_target_call_stacks,
+            configure_build_file_globals,
+            configure_extension_file_globals,
+            configure_bxl_file_globals,
+        );
         let (cell_resolver, legacy_configs) =
             parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)?;
 
@@ -639,10 +648,9 @@ impl Drop for ServerCommandContext {
     }
 }
 
-fn get_interpreter_configuror(
+fn get_host_info(
     host_platform: HostPlatformOverride,
-    record_target_call_stacks: bool,
-) -> Arc<BuildInterpreterConfiguror> {
+) -> (InterpreterHostPlatform, InterpreterHostArchitecture) {
     let linux = InterpreterHostPlatform::Linux;
     let mac = InterpreterHostPlatform::MacOS;
     let windows = InterpreterHostPlatform::Windows;
@@ -665,15 +673,7 @@ fn get_interpreter_configuror(
         "x86_64" => InterpreterHostArchitecture::X86_64,
         v => unimplemented!("no support yet for architecture `{}`", v),
     };
-    BuildInterpreterConfiguror::new(
-        Some(prelude_path()),
-        interpreter_platform,
-        interpreter_architecture,
-        record_target_call_stacks,
-        configure_build_file_globals,
-        configure_extension_file_globals,
-        configure_bxl_file_globals,
-    )
+    (interpreter_platform, interpreter_architecture)
 }
 
 impl DaemonState {
