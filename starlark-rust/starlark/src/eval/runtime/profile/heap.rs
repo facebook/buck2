@@ -86,15 +86,16 @@ impl HeapProfile {
         use summary::FuncInfo;
         use summary::Info;
 
-        let mut stacks = Stacks::collect(heap, None);
+        let stacks = Stacks::collect(heap, None);
         let mut info = Info { info: Vec::new() };
-        info.init(&mut stacks);
+        info.init(&stacks);
 
         // Add a totals column
-        let total_id = stacks.ids.get_string("TOTALS");
+        let total_id = stacks.totals_id;
+        let blank_id = stacks.blank_id;
         info.ensure(total_id);
         let Info { mut info } = info;
-        let mut ids = stacks.ids;
+        let ids = stacks.ids;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
             totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
@@ -119,7 +120,6 @@ impl HeapProfile {
             .copied()
             .chain(columns.iter().map(|c| c.0)),
         );
-        let blank = ids.get_string("");
         let un_ids = ids.invert();
         for (rowname, info) in info {
             let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
@@ -127,7 +127,7 @@ impl HeapProfile {
                 .callers
                 .iter()
                 .max_by_key(|x| x.1)
-                .unwrap_or((&blank, &0));
+                .unwrap_or((&blank_id, &0));
             assert!(
                 info.calls % 2 == 0,
                 "we enter calls twice, for drop and non_drop"
@@ -208,9 +208,8 @@ mod summary {
             &mut self.info[x.0]
         }
 
-        pub(crate) fn init(&mut self, stacks: &mut Stacks) {
-            let root = stacks.ids.get_string("(root)");
-            self.init_children(&stacks.root, root);
+        pub(crate) fn init(&mut self, stacks: &Stacks) {
+            self.init_children(&stacks.root, stacks.root_id);
         }
 
         fn init_children(&mut self, frame: &StackFrame, name: FunctionId) -> SmallDuration {
@@ -319,10 +318,10 @@ _ignore = str([1])     # allocate a string in non_drop
 
         eval.eval_module(ast, &globals).unwrap();
 
-        let mut stacks = Stacks::collect(eval.heap(), None);
+        let stacks = Stacks::collect(eval.heap(), None);
 
         let mut info = Info { info: Vec::new() };
-        info.init(&mut stacks);
+        info.init(&stacks);
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap

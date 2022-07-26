@@ -266,6 +266,12 @@ impl StackFrame {
 pub(crate) struct Stacks {
     pub(crate) ids: FunctionIds,
     pub(crate) root: StackFrame,
+    /// String `"TOTALS"`. It is needed in heap summary output.
+    pub(crate) totals_id: FunctionId,
+    /// String `"(root)"`. It is needed in heap summary output.
+    pub(crate) root_id: FunctionId,
+    /// String `""`. It is needed in heap summary output.
+    pub(crate) blank_id: FunctionId,
 }
 
 impl Stacks {
@@ -275,9 +281,15 @@ impl Stacks {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
+        let totals_id = collector.ids.get_string("TOTALS");
+        let root_id = collector.ids.get_string("(root)");
+        let blank_id = collector.ids.get_string("");
         Stacks {
             ids: collector.ids,
             root: collector.current.pop().unwrap().build(),
+            totals_id,
+            root_id,
+            blank_id,
         }
     }
 
