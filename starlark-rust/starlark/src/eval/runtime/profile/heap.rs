@@ -22,7 +22,6 @@ use gazebo::dupe::Dupe;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::values::layout::heap::stacks::AllocCounts;
-use crate::values::layout::heap::stacks::FunctionIds;
 use crate::values::layout::heap::stacks::Stacks;
 use crate::values::Heap;
 use crate::values::Value;
@@ -88,11 +87,8 @@ impl HeapProfile {
         use summary::Info;
 
         let mut stacks = Stacks::collect(heap, None);
-        let mut ids = FunctionIds::default();
-        let root = ids.get_string("(root)");
         let mut info = Info { info: Vec::new() };
         info.init(&mut stacks);
-        info.ensure(root);
 
         // Add a totals column
         let total_id = stacks.ids.get_string("TOTALS");
