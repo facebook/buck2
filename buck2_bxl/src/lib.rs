@@ -12,5 +12,4 @@
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 
-pub mod bql;
 pub mod bxl;

@@ -43,7 +43,3 @@ buck2_query_parser = { path = "../buck2_query_parser" }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { version = "0.3.2", features = ["profiling"] }
-
-[[bin]]
-name = "bql"
-path = "bin/bql.rs"

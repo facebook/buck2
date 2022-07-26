@@ -1,4 +1,4 @@
-load("//build_infra:buck_e2e.bzl", "buck2_e2e_test", "buck_e2e_test")
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
 
 buck2_e2e_test(
     name = "test_audit",
@@ -59,18 +59,6 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_run_inplace",
     srcs = ["test_run_inplace.py"],
-)
-
-buck_e2e_test(
-    name = "test_bql",
-    srcs = ["test_bql.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
-    },
-    executable = "$(location //buck2/buck2_bxl:bql)",
-    executable_type = "buck2_build_api_binary",
 )
 
 buck2_e2e_test(
