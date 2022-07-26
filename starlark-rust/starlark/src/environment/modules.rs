@@ -59,6 +59,12 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum ModuleError {
+    #[error("Retained memory profiling is not enabled")]
+    RetainedMemoryProfileNotEnabled,
+}
+
 /// The result of freezing a [`Module`], making it and its contained values immutable.
 ///
 /// The values of this [`FrozenModule`] are stored on a frozen heap, a reference to which
@@ -96,7 +102,6 @@ pub(crate) struct FrozenModuleData {
     pub(crate) slots: FrozenSlots,
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
-    #[allow(dead_code)] // TODO(nga): use it somewhere.
     stacks: Option<Stacks>,
 }
 
@@ -202,6 +207,28 @@ impl FrozenModule {
             module: self.documentation(),
             members,
         }
+    }
+
+    /// Write heap flame profile of retained memory if heap profiling enabled.
+    pub fn gen_heap_flame_profile(&self) -> anyhow::Result<String> {
+        Ok(self
+            .module
+            .0
+            .stacks
+            .as_ref()
+            .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
+            .write())
+    }
+
+    /// Write heap summary profile of retained memory if heap profiling enabled.
+    pub fn gen_heap_summary_profile(&self) -> anyhow::Result<String> {
+        Ok(self
+            .module
+            .0
+            .stacks
+            .as_ref()
+            .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
+            .gen_summary_csv())
     }
 }
 
@@ -466,4 +493,41 @@ fn test_send_sync()
 where
     FrozenModule: Send + Sync,
 {
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::environment::Globals;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileMode;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    #[test]
+    fn test_gen_heap_summary_profile() {
+        let module = Module::new();
+        let mut eval = Evaluator::new(&module);
+        eval.enable_profile(&ProfileMode::HeapSummaryRetained);
+        eval.eval_module(
+            AstModule::parse(
+                "x.star",
+                r"
+def f(x):
+    return list([x])
+
+x = f(1)
+"
+                .to_owned(),
+                &Dialect::Extended,
+            )
+            .unwrap(),
+            &Globals::standard(),
+        )
+        .unwrap();
+        let module = module.freeze().unwrap();
+        let heap_summary = module.gen_heap_summary_profile().unwrap();
+        // Smoke test.
+        assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
+    }
 }
