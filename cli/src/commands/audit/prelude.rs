@@ -43,8 +43,9 @@ impl AuditSubcommand for AuditPreludeCommand {
         let mut stdout = server_ctx.stdout()?;
         // Print out all the Prelude-like stuff that is loaded into each module
         let global_interpreter_state = ctx.get_global_interpreter_state().await?;
+        let prelude_path = prelude_path();
         let interpreter_calculation = ctx
-            .get_interpreter_calculator(prelude_path().cell(), prelude_path().build_file_cell())
+            .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
             .await?;
         // Slightly odd that to get the build_file_global_env out of global_interpreter_state
         // we first have to wrap it in an InterpreterConfig with a fake CellAliasResolver
@@ -65,7 +66,7 @@ impl AuditSubcommand for AuditPreludeCommand {
             stdout,
             "{}",
             interpreter_calculation
-                .eval_module(StarlarkModulePath::LoadFile(&prelude_path()))
+                .eval_module(StarlarkModulePath::LoadFile(&prelude_path))
                 .await?
                 .env()
                 .describe()
