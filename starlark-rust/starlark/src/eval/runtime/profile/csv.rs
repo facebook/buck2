@@ -32,6 +32,10 @@ pub(crate) struct CsvWriter {
     buf: String,
 }
 
+fn quote_str_for_csv(s: &str) -> String {
+    format!("\"{}\"", s.replace('\"', "\"\""))
+}
+
 impl CsvWriter {
     pub(crate) fn new<'c>(columns: impl IntoIterator<Item = &'c str>) -> CsvWriter {
         let mut buf = String::new();
@@ -65,8 +69,7 @@ impl CsvWriter {
 
         impl<V: Display> CsvValue for Impl<V> {
             fn format_for_csv(&self) -> String {
-                // TODO(nga): escape
-                self.0.to_string()
+                quote_str_for_csv(&self.0.to_string())
             }
         }
 
@@ -78,8 +81,7 @@ impl CsvWriter {
 
         impl<V: Debug> CsvValue for Impl<V> {
             fn format_for_csv(&self) -> String {
-                // TODO(nga): escape
-                format!("{:?}", &self.0)
+                quote_str_for_csv(&format!("{:?}", &self.0))
             }
         }
 
@@ -116,8 +118,7 @@ impl<V: CsvValue + ?Sized> CsvValue for &'_ V {
 
 impl CsvValue for str {
     fn format_for_csv(&self) -> String {
-        // TODO: escape
-        format!("\"{}\"", self)
+        quote_str_for_csv(self)
     }
 }
 
@@ -147,6 +148,7 @@ impl CsvValue for u128 {
 
 #[cfg(test)]
 mod tests {
+    use crate::eval::runtime::profile::csv::quote_str_for_csv;
     use crate::eval::runtime::profile::csv::CsvWriter;
     use crate::eval::runtime::small_duration::SmallDuration;
 
@@ -169,5 +171,11 @@ File,Count,Duration
 ",
             csv.finish()
         )
+    }
+
+    #[test]
+    fn test_quote_str_for_csv() {
+        assert_eq!("\"a\"", quote_str_for_csv("a"));
+        assert_eq!("\"a\"\"\"", quote_str_for_csv("a\""));
     }
 }

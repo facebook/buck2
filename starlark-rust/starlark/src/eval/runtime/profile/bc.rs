@@ -218,7 +218,7 @@ mod tests {
         .unwrap();
         let csv = eval.bc_profile.gen_csv().unwrap();
         assert!(
-            csv.contains(&format!("\n{:?},1,", BcOpcode::CallFrozenNativePos)),
+            csv.contains(&format!("\n\"{:?}\",1,", BcOpcode::CallFrozenNativePos)),
             "{:?}",
             csv
         );
@@ -238,7 +238,7 @@ mod tests {
         let csv = eval.bc_profile.gen_csv().unwrap();
         assert!(
             csv.contains(&format!(
-                "\n{:?},{:?},1",
+                "\n\"{:?}\",\"{:?}\",1",
                 BcOpcode::ListOfConsts,
                 BcOpcode::CallFrozenNativePos
             )),

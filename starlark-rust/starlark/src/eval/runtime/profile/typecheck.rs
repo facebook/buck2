@@ -54,7 +54,7 @@ impl TypecheckProfile {
         by_function.sort_by_key(|(name, t)| (u64::MAX - t.nanos, *name));
 
         for (name, t) in by_function {
-            w.write_display(name);
+            w.write_display(name.as_str());
             w.write_value(t);
             w.finish_row();
         }
@@ -105,8 +105,8 @@ g()
         let csv = eval.typecheck_profile.gen_csv();
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!("Function,Time (s)", lines[0]);
-        assert!(lines[1].starts_with("TOTAL,"));
-        assert!(lines[2].starts_with("\"f\","));
+        assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);
+        assert!(lines[2].starts_with("\"f\","), "{:?}", lines[2]);
         assert_eq!(3, lines.len());
 
         Ok(())
