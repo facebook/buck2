@@ -102,7 +102,7 @@ impl HeapProfile {
     }
 
     fn write_flame_heap_profile_to(mut file: impl Write, heap: &Heap) -> anyhow::Result<()> {
-        let stacks = Stacks::collect(heap);
+        let stacks = Stacks::collect(heap, None);
         stacks.write_to(&mut file)?;
         Ok(())
     }
@@ -111,7 +111,7 @@ impl HeapProfile {
         use summary::FuncInfo;
         use summary::Info;
 
-        let stacks = Stacks::collect(heap);
+        let stacks = Stacks::collect(heap, None);
         let mut ids = FunctionIds::default();
         let root = ids.get_string("(root)");
         let mut info = Info {
@@ -353,7 +353,7 @@ _ignore = str([1])     # allocate a string in non_drop
 
         eval.eval_module(ast, &globals).unwrap();
 
-        let stacks = Stacks::collect(eval.heap());
+        let stacks = Stacks::collect(eval.heap(), None);
 
         let mut info = Info {
             stacks,

@@ -25,6 +25,7 @@ use std::ops::AddAssign;
 use std::rc::Rc;
 use std::time::Instant;
 
+use either::Either;
 use gazebo::dupe::Dupe;
 use starlark_map::small_set::SmallSet;
 
@@ -172,24 +173,33 @@ pub struct StackCollector {
     last_time: Option<Instant>,
     ids: FunctionIds,
     current: Vec<StackFrame>,
+    /// What we are collecting.
+    /// When unset, we are collecting allocated memory (not retained).
+    /// When set, must be set to correct heap type (unfrozen or frozen), we are traversing.
+    retained: Option<HeapKind>,
 }
 
 impl StackCollector {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(retained: Option<HeapKind>) -> Self {
         Self {
             ids: FunctionIds::default(),
             current: vec![StackFrame::new()],
             last_time: None,
+            retained,
         }
     }
 }
 
 impl<'v> ArenaVisitor<'v> for StackCollector {
     fn regular_value(&mut self, value: &'v AValueOrForward) {
-        let value = match value.unpack_header() {
-            Some(header) => unsafe { header.unpack_value(HeapKind::Unfrozen) },
-            None => return,
+        let value = match (value.unpack(), self.retained) {
+            (Either::Left(header), None) => unsafe { header.unpack_value(HeapKind::Unfrozen) },
+            (Either::Right(forward), Some(retained)) => unsafe {
+                forward.forward_ptr().unpack_value(retained)
+            },
+            _ => return,
         };
+
         let frame = match self.current.last() {
             Some(frame) => frame,
             None => return,
@@ -240,8 +250,8 @@ pub(crate) struct Stacks {
 }
 
 impl Stacks {
-    pub(crate) fn collect(heap: &Heap) -> Stacks {
-        let mut collector = StackCollector::new();
+    pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> Stacks {
+        let mut collector = StackCollector::new(retained);
         unsafe {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
@@ -267,8 +277,11 @@ mod tests {
     use gazebo::dupe::Dupe;
 
     use crate::const_frozen_string;
+    use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::stacks::StackFrame;
     use crate::values::layout::heap::stacks::Stacks;
+    use crate::values::Freezer;
+    use crate::values::FrozenHeap;
     use crate::values::Heap;
 
     fn total_alloc_count(frame: StackFrame) -> usize {
@@ -296,9 +309,47 @@ mod tests {
         heap.alloc_str("zzww");
         heap.record_call_exit();
 
-        let stacks = Stacks::collect(&heap);
+        let stacks = Stacks::collect(&heap, None);
         assert!(stacks.root.0.borrow().allocs.is_empty());
         assert_eq!(1, stacks.root.0.borrow().callees.len());
+        assert_eq!(2, total_alloc_count(stacks.root.dupe()));
+    }
+
+    #[test]
+    fn test_stacks_collect_retained() {
+        let heap = Heap::new();
+        heap.record_call_enter(const_frozen_string!("enter").to_value());
+        let s0 = heap.alloc_str("xxyy");
+        let s1 = heap.alloc_str("zzww");
+        heap.alloc_str("rrtt");
+        heap.record_call_exit();
+
+        let freezer = Freezer::new(FrozenHeap::new());
+        freezer.freeze(s0.to_value()).unwrap();
+        freezer.freeze(s1.to_value()).unwrap();
+
+        let stacks = Stacks::collect(&heap, Some(HeapKind::Frozen));
+        assert!(stacks.root.0.borrow().allocs.is_empty());
+        assert_eq!(1, stacks.root.0.borrow().callees.len());
+        // 3 allocated, 2 retained.
+        // TODO(nga): this is less ugly in the following diff D37674011.
+        assert_eq!(
+            2,
+            stacks
+                .root
+                .0
+                .borrow()
+                .callees
+                .values()
+                .next()
+                .unwrap()
+                .0
+                .borrow()
+                .allocs
+                .get("string")
+                .unwrap()
+                .count
+        );
         assert_eq!(2, total_alloc_count(stacks.root.dupe()));
     }
 }
