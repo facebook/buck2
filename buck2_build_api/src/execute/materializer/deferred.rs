@@ -195,10 +195,10 @@ enum MaterializerCommand {
         Box<ArtifactMaterializationMethod>, // Boxed to avoid growing all variants
     ),
 
-    /// Declares that a given path is no longer eligible to be materialized by this materializer.
+    /// Declares that given paths are no longer eligible to be materialized by this materializer.
     /// This typically should reflect a change made to the underlying filesystem, either because
     /// the file was created, or because it was removed..
-    InvalidateFilePath(ProjectRelativePathBuf),
+    InvalidateFilePaths(Vec<ProjectRelativePathBuf>),
 
     /// Takes a list of artifact paths, and materializes all artifacts in the
     /// list that have been declared but not yet been materialized. When the
@@ -232,8 +232,8 @@ impl std::fmt::Debug for MaterializerCommand {
             MaterializerCommand::Declare(path, value, method) => {
                 write!(f, "Declare({:?}, {:?}, {:?})", path, value, method,)
             }
-            MaterializerCommand::InvalidateFilePath(path) => {
-                write!(f, "InvalidateFilePath({:?})", path)
+            MaterializerCommand::InvalidateFilePaths(paths) => {
+                write!(f, "InvalidateFilePaths({:?})", paths)
             }
             MaterializerCommand::Ensure(paths, _) => write!(f, "Ensure({:?}, _)", paths,),
             MaterializerCommand::MaterializationFinished {
@@ -445,10 +445,8 @@ impl Materializer for DeferredMaterializer {
     }
 
     async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
-        for path in paths {
-            self.command_sender
-                .send(MaterializerCommand::InvalidateFilePath(path))?;
-        }
+        self.command_sender
+            .send(MaterializerCommand::InvalidateFilePaths(paths))?;
 
         Ok(())
     }
@@ -580,12 +578,14 @@ impl DeferredMaterializerCommandProcessor {
                         tree.insert(path.iter().map(|f| f.to_owned()), data);
                     }
                 }
-                MaterializerCommand::InvalidateFilePath(path) => {
+                MaterializerCommand::InvalidateFilePaths(paths) => {
                     tracing::trace!(
-                        path = %path,
-                        "invalidate path",
+                        paths = ?paths,
+                        "invalidate paths",
                     );
-                    tree.remove(path.iter());
+                    for path in paths.into_iter() {
+                        tree.remove(path.iter());
+                    }
                 }
                 // Entry point for `ensure_materialized` calls
                 MaterializerCommand::Ensure(paths, fut_sender) => {
