@@ -558,10 +558,8 @@ impl DeferredMaterializerCommandProcessor {
                         // Always invalidate materializer state before actual deleting from filesystem
                         // so there will never be a moment where artifact is deleted but materializer
                         // thinks it still exists.
-                        let processing_fut = tree.remove(path.iter()).and_then(|tree| match tree {
-                            FileTree::Data(data) => data.processing_fut,
-                            _ => None,
-                        });
+                        let (_, existing_futs) =
+                            tree.remove_paths_and_collect_futures(vec![path.clone()]);
                         let data = box ArtifactMaterializationData {
                             value,
                             method: Arc::new(*method),
@@ -570,7 +568,12 @@ impl DeferredMaterializerCommandProcessor {
                             processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
                                 self.io_executor.dupe(),
                                 path.clone(),
-                                processing_fut.clone(),
+                                // In order to make sure we don't have any race conditions when deleting,
+                                // we need to wait for all existing I/O futures to finish before
+                                // running out own cleaning future. In the case `remove_paths_and_collect_futures`
+                                // removed an entire sub-trie, we need to wait for all futures from that
+                                // sub-trie to finish first.
+                                Some(existing_futs),
                             ))),
                         };
                         next_version += 1;
@@ -1089,6 +1092,29 @@ impl ArtifactTree {
             }
         }
     }
+
+    /// Removes paths from tree and returns a pair of two vecs.
+    /// First vec is a list of paths removed. Second vec is a list of
+    /// pairs of removed paths to futures that haven't finished.
+    fn remove_paths_and_collect_futures(
+        &mut self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> (
+        Vec<ProjectRelativePathBuf>,
+        Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
+    ) {
+        let mut removed_paths = Vec::new();
+        let mut futs = Vec::new();
+        for path in paths {
+            for (path, data) in self.remove_path(&path) {
+                if let Some(processing_fut) = data.processing_fut {
+                    futs.push((path.clone(), processing_fut));
+                }
+                removed_paths.push(path);
+            }
+        }
+        (removed_paths, futs)
+    }
 }
 
 impl<V: 'static> FileTree<V> {
@@ -1136,7 +1162,6 @@ impl<V: 'static> FileTree<V> {
 
     /// Removes path from FileTree. Returns an iterator of pairs of path and entry removed
     /// from the tree.
-    #[allow(dead_code)]
     fn remove_path(
         &mut self,
         path: &ProjectRelativePath,
@@ -1223,31 +1248,44 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
     Ok(digest)
 }
 
+/// Wait on all futures in `futs` to finish. Return Error for first future that failed
+/// in the Vec.
+async fn join_all_existing_futs(
+    existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
+) -> SharedResult<()> {
+    // We can await inside a loop here because all ProcessingFuture's are spawned.
+    for (path, fut) in existing_futs.into_iter() {
+        match fut {
+            ProcessingFuture::Materializing(f) => {
+                // We don't care about errors from previous materializations.
+                // We are trying to delete anything that has been materialized,
+                // so these errors can be ignored.
+                f.await.ok();
+            }
+            ProcessingFuture::Cleaning(f) => {
+                f.await.with_context(|| {
+                    format!(
+                        "Error waiting for a previous future to finish cleaning output path {}",
+                        path
+                    )
+                })?;
+            }
+        };
+    }
+
+    Ok(())
+}
+
 /// Spawns a future to clean output paths while waiting for any
 /// pending future to finish.
 fn clean_output_paths(
     io_executor: Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
-    processing_fut: Option<ProcessingFuture>,
+    existing_futs: Option<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>,
 ) -> CleaningFuture {
     tokio::task::spawn(async move {
-        if let Some(processing_fut) = processing_fut {
-            match processing_fut {
-                ProcessingFuture::Materializing(f) => {
-                    // We don't care about errors from previous materializations.
-                    // We are trying to delete anything that has been materialized,
-                    // so these errors can be ignored.
-                    f.await.ok();
-                }
-                ProcessingFuture::Cleaning(f) => {
-                    f.await.with_context(|| {
-                        format!(
-                            "Error waiting for a previous future to finish cleaning output path {}",
-                            &path
-                        )
-                    })?;
-                }
-            };
+        if let Some(existing_futs) = existing_futs {
+            join_all_existing_futs(existing_futs).await?;
         }
         io_executor
             .dupe()
