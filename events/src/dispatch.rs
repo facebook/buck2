@@ -397,24 +397,24 @@ macro_rules! info {
 #[macro_export]
 macro_rules! warn {
     ( $fmt_str:literal ) => {
-        warn($fmt_str, file!(), line!(), column!());
+        $crate::dispatch::warn($fmt_str, file!(), line!(), column!());
     };
 
     ( $fmt_str:literal, $( $arg:tt ),* ) => {
         let msg: String = format!($fmt_str, $($arg),*);
-        warn(&msg, file!(), line!(), column!());
+        $crate::dispatch::warn(&msg, file!(), line!(), column!());
     };
 }
 
 #[macro_export]
 macro_rules! error {
     ( $fmt_str:literal ) => {
-        error($fmt_str, file!(), line!(), column!());
+        $crate::dispatch::error($fmt_str, file!(), line!(), column!());
     };
 
     ( $fmt_str:literal, $( $arg:tt ),* ) => {
         let msg: String = format!($fmt_str, $($arg),*);
-        error(&msg, file!(), line!(), column!());
+        $crate::dispatch::error(&msg, file!(), line!(), column!());
     };
 }
 
