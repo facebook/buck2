@@ -23,7 +23,7 @@ use buck2_build_api::bxl::calculation::BxlCalculationNoBxl;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
-use buck2_build_api::interpreter::context::fbcode_prelude;
+use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::interpreter::module_internals::EvaluationResult;
 use buck2_build_api::interpreter::module_internals::ModuleInternals;
@@ -255,7 +255,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             });
 
             let configuror = BuildInterpreterConfiguror::new(
-                Some(fbcode_prelude()),
+                Some(prelude_path()),
                 InterpreterHostPlatform::Linux,
                 InterpreterHostArchitecture::X86_64,
                 false,

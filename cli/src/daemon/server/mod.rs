@@ -53,7 +53,7 @@ use buck2_build_api::execute::materializer::Materializer;
 use buck2_build_api::execute::materializer::SetMaterializer;
 use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
-use buck2_build_api::interpreter::context::fbcode_prelude;
+use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
@@ -666,7 +666,7 @@ fn get_interpreter_configuror(
         v => unimplemented!("no support yet for architecture `{}`", v),
     };
     BuildInterpreterConfiguror::new(
-        Some(fbcode_prelude()),
+        Some(prelude_path()),
         interpreter_platform,
         interpreter_architecture,
         record_target_call_stacks,
@@ -722,7 +722,7 @@ impl DaemonState {
             .collect::<anyhow::Result<_>>()?;
 
         let configuror = BuildInterpreterConfiguror::new(
-            Some(fbcode_prelude()),
+            Some(prelude_path()),
             InterpreterHostPlatform::Linux,
             InterpreterHostArchitecture::X86_64,
             false,

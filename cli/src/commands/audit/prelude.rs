@@ -11,7 +11,7 @@ use std::io::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::interpreter::context::fbcode_prelude;
+use buck2_build_api::interpreter::context::prelude_path;
 use buck2_core::cells::*;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasCalculationDelegate;
@@ -44,7 +44,7 @@ impl AuditSubcommand for AuditPreludeCommand {
         // Print out all the Prelude-like stuff that is loaded into each module
         let global_interpreter_state = ctx.get_global_interpreter_state().await?;
         let interpreter_calculation = ctx
-            .get_interpreter_calculator(fbcode_prelude().cell(), fbcode_prelude().build_file_cell())
+            .get_interpreter_calculator(prelude_path().cell(), prelude_path().build_file_cell())
             .await?;
         // Slightly odd that to get the build_file_global_env out of global_interpreter_state
         // we first have to wrap it in an InterpreterConfig with a fake CellAliasResolver
@@ -65,7 +65,7 @@ impl AuditSubcommand for AuditPreludeCommand {
             stdout,
             "{}",
             interpreter_calculation
-                .eval_module(StarlarkModulePath::LoadFile(&fbcode_prelude()))
+                .eval_module(StarlarkModulePath::LoadFile(&prelude_path()))
                 .await?
                 .env()
                 .describe()

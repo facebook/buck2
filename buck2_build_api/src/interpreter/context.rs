@@ -92,7 +92,7 @@ impl BuildInterpreterConfiguror {
 }
 
 // TODO(cjhopman): We need to figure out some other way to deal with this.
-pub fn fbcode_prelude() -> ImportPath {
+pub fn prelude_path() -> ImportPath {
     facebook_only();
     let prelude_cell = CellName::unchecked_new("fbcode".to_owned());
     let prelude_dir = CellRelativePath::unchecked_new("buck2/prelude");
