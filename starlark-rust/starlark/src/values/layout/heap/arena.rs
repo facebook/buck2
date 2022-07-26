@@ -296,7 +296,7 @@ impl Arena {
 
     // Iterate over the values in the heap in the order they
     // were added.
-    pub fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
+    pub fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueOrForward)) {
         // We get the chunks from most newest to oldest as per the bumpalo spec.
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
@@ -307,9 +307,7 @@ impl Arena {
             for chunk in chunks.iter().rev() {
                 buffer.extend(Arena::iter_chunk(chunk));
                 for x in buffer.iter().rev() {
-                    if let Some(x) = x.unpack_header() {
-                        f(x);
-                    }
+                    f(x);
                 }
                 buffer.clear();
             }
@@ -318,10 +316,9 @@ impl Arena {
 
     pub(crate) unsafe fn for_each_value_ordered<'v>(&'v mut self, mut f: impl FnMut(Value<'v>)) {
         self.for_each_ordered(|x| {
-            // Otherwise the Value is constrainted by the borrow_mut, when
-            // we consider values to be kept alive permanently, other than
-            // when a GC happens
-            f(Value::new_ptr_query_is_str(cast::ptr_lifetime(x)))
+            if let Some(x) = x.unpack_header() {
+                f(Value::new_ptr_query_is_str(cast::ptr_lifetime(x)))
+            }
         })
     }
 
@@ -456,8 +453,10 @@ mod tests {
         );
         let mut j = 0;
         arena.for_each_ordered(|i| {
-            assert_eq!(to_repr(i), j.to_string());
-            j += 1;
+            if let Some(i) = i.unpack_header() {
+                assert_eq!(to_repr(i), j.to_string());
+                j += 1;
+            }
         });
         assert_eq!(j, LIMIT);
         j = 0;
@@ -474,7 +473,11 @@ mod tests {
         reserve_str(&arena, &mk_str(""));
         arena.alloc(mk_str("hello"));
         let mut res = Vec::new();
-        arena.for_each_ordered(|x| res.push(x));
+        arena.for_each_ordered(|x| {
+            if let Some(x) = x.unpack_header() {
+                res.push(x);
+            }
+        });
         assert_eq!(res.len(), 3);
         assert_eq!(to_repr(res[0]), "test");
         assert_eq!(to_repr(res[2]), "hello");
