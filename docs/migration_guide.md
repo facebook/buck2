@@ -100,6 +100,7 @@ With Buck2 there are two main changes to the `genrule` mechanism (often used via
 3. The `$GEN_DIR` environment variable is not available. This environment variable allows `custom_rule` with [`strict=False`](https://fb.workplace.com/groups/fbcode/permalink/1188158247887679/) to access the `fbcode` directory, which does not work with Buck2. If you see your build mention `GEN_DIR_DEPRECATED` in its error message, you're affected by this.
 4. The algorithm for generating file names when a list is used as the `srcs` attribute is significantly simpler, which may sometimes result in name clash errors (you will see `genrule srcs include duplicative name`). If you see such clashes, use the dictionary `{name: artifact}` to provide explicit names.
 5. In Buck1, symlinks in `genrule` outputs are _followed_, but in Buck2, they are cached as symlinks, which may require fixes (e.g. [D29739337](https://www.internalfb.com/diff/D29739337), [D29766735](https://www.internalfb.com/diff/D29766735)).
+6. In Buck1, the `SRCS` environment variable is only set if you use `SRCS` in your command line. We believe this behavior is error-prone so in Buck2 it's consistently present. However, some genrules have so many `SRCS` that the list is too large and you get an exec failure ("Argument list too long"). If you hit this, you can add the following label to your genrule to omit the `SRCS` environment variable: `no_srcs_environment`.
 
 Some common changes that resolve the issues above include:
 
