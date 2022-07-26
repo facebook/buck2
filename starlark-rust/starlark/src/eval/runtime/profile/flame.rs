@@ -17,9 +17,7 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io;
-use std::io::Write;
+use std::fs;
 use std::path::Path;
 use std::slice;
 use std::time::Instant;
@@ -129,11 +127,11 @@ impl<'a> Stacks<'a> {
         stack.pop().unwrap();
     }
 
-    fn render(&self, mut file: impl Write) -> io::Result<()> {
+    fn render(&self) -> String {
         let mut stack = Vec::new();
         let mut writer = FlameGraphWriter::new();
         self.render_with_buffer(&mut writer, &mut stack);
-        file.write_all(writer.finish().as_bytes())
+        writer.finish()
     }
 }
 
@@ -179,22 +177,21 @@ impl<'v> FlameProfile<'v> {
     }
 
     fn write_enabled(x: &FlameData, filename: &Path) -> anyhow::Result<()> {
-        let file = File::create(filename).with_context(|| {
-            format!("When creating profile output file `{}`", filename.display())
-        })?;
-        Self::write_profile_to(x, file).with_context(|| {
+        let profile = Self::gen_profile(x);
+        fs::write(filename, profile).with_context(|| {
             format!(
                 "When writing to profile output file `{}`",
                 filename.display()
             )
-        })
+        })?;
+        Ok(())
     }
 
-    fn write_profile_to(x: &FlameData, file: impl Write) -> io::Result<()> {
+    fn gen_profile(x: &FlameData) -> String {
         // Need to write out lines which look like:
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
         let names = x.values.map(|x| x.to_repr());
-        Stacks::new(&names, &x.frames).render(file)
+        Stacks::new(&names, &x.frames).render()
     }
 }
