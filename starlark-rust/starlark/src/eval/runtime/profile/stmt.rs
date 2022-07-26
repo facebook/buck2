@@ -18,8 +18,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::Write;
+use std::fs;
 use std::iter;
 use std::path::Path;
 use std::time::Instant;
@@ -106,21 +105,17 @@ impl StmtProfileData {
     }
 
     fn write(&self, filename: &Path, now: Instant) -> anyhow::Result<()> {
-        let file = File::create(filename).with_context(|| {
-            format!(
-                "When creating line profile output file `{}`",
-                filename.display()
-            )
-        })?;
-        self.write_to(file, now).with_context(|| {
+        let profile = self.write_to_string(now);
+        fs::write(filename, profile).with_context(|| {
             format!(
                 "When writing to line profile output file `{}`",
                 filename.display()
             )
-        })
+        })?;
+        Ok(())
     }
 
-    fn write_to(&self, mut file: impl Write, now: Instant) -> anyhow::Result<()> {
+    fn write_to_string(&self, now: Instant) -> String {
         // The statement that was running last won't have been properly updated.
         // However, at this point, we have probably run some post-execution code,
         // so it probably wouldn't have a "fair" timing anyway.
@@ -165,9 +160,7 @@ impl StmtProfileData {
             csv.finish_row();
         }
 
-        file.write_all(csv.finish().as_bytes())?;
-
-        Ok(())
+        csv.finish()
     }
 
     fn coverage(&self) -> HashSet<ResolvedFileSpan> {
