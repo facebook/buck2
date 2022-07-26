@@ -91,7 +91,7 @@ my_links = dedupe(flatten([x[PascalLibraryInfo].links for x in ctx.attrs.deps]))
 my_info = PascalLibraryInfo(links = my_links)
 ```
 
-We expect such patterns to get replaced with an explicit set type at some point in the future.
+However, this `flatten`/`dupe` pattern can get expensive, especially when you have a deep dependency graph. To fix that we recommend using [transitive sets](transitive_sets.md).
 
 ### Actions
 
