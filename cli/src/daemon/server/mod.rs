@@ -2229,7 +2229,9 @@ impl DaemonApi for BuckdServer {
 
                 let profile_mode = match profiler_proto {
                     Profiler::HeapFlame => ProfileMode::HeapFlame,
+                    Profiler::HeapFlameRetained => ProfileMode::HeapFlameRetained,
                     Profiler::HeapSummary => ProfileMode::HeapSummary,
+                    Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
                     Profiler::TimeFlame => ProfileMode::TimeFlame,
                     Profiler::Statement => ProfileMode::Statement,
                     Profiler::Bytecode => ProfileMode::Bytecode,

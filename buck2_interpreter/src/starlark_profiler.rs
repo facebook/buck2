@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
@@ -21,6 +22,11 @@ use starlark::eval::ProfileMode;
 enum StarlarkProfilerError {
     #[error("will_freeze field was initialized incorrectly (internal error)")]
     IncorrectWillFreeze,
+    #[error(
+        "Retained memory profiling is available only for analysis profile \
+        (which freezes the module)"
+    )]
+    RetainedMemoryNotFrozen,
 }
 
 /// When profiling Starlark file, all dependencies of that file must be
@@ -142,8 +148,13 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
 
     fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         self.finalized_at = Some(Instant::now());
-        eval.write_profile(&self.profile_mode, &self.path)
-            .context("Failed to write profile")?;
+        if !matches!(
+            self.profile_mode,
+            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
+        ) {
+            eval.write_profile(&self.profile_mode, &self.path)
+                .context("Failed to write profile")?;
+        }
         Ok(())
     }
 
@@ -151,6 +162,21 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
         if self.will_freeze != module.is_some() {
             return Err(StarlarkProfilerError::IncorrectWillFreeze.into());
         }
+
+        match self.profile_mode {
+            ProfileMode::HeapSummaryRetained => {
+                let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
+                let profile = module.gen_heap_summary_profile()?;
+                fs::write(&self.path, profile).context("Failed to write heap summary profile")?;
+            }
+            ProfileMode::HeapFlameRetained => {
+                let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
+                let profile = module.gen_heap_flame_profile()?;
+                fs::write(&self.path, profile).context("Failed to write heap flame profile")?;
+            }
+            _ => {}
+        }
+
         let total_allocated_bytes = module.map_or(0, |module| {
             module
                 .frozen_heap()

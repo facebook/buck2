@@ -62,7 +62,9 @@ impl ProfileCommand {
 enum BuckProfileMode {
     TimeFlame,
     HeapFlame,
+    HeapFlameRetained,
     HeapSummary,
+    HeapSummaryRetained,
     Statement,
     Bytecode,
     BytecodePairs,
@@ -74,7 +76,9 @@ impl BuckProfileMode {
         match self {
             BuckProfileMode::TimeFlame => ProfileMode::TimeFlame,
             BuckProfileMode::HeapFlame => ProfileMode::HeapFlame,
+            BuckProfileMode::HeapFlameRetained => ProfileMode::HeapFlameRetained,
             BuckProfileMode::HeapSummary => ProfileMode::HeapSummary,
+            BuckProfileMode::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
             BuckProfileMode::Statement => ProfileMode::Statement,
             BuckProfileMode::Bytecode => ProfileMode::Bytecode,
             BuckProfileMode::BytecodePairs => ProfileMode::BytecodePairs,
@@ -113,14 +117,13 @@ fn profile_mode_to_profile(mode: &ProfileMode) -> Profiler {
     match mode {
         ProfileMode::TimeFlame => Profiler::TimeFlame,
         ProfileMode::HeapFlame => Profiler::HeapFlame,
+        ProfileMode::HeapFlameRetained => Profiler::HeapFlameRetained,
         ProfileMode::HeapSummary => Profiler::HeapSummary,
+        ProfileMode::HeapSummaryRetained => Profiler::HeapSummaryRetained,
         ProfileMode::Statement => Profiler::Statement,
         ProfileMode::Bytecode => Profiler::Bytecode,
         ProfileMode::BytecodePairs => Profiler::BytecodePairs,
         ProfileMode::Typecheck => Profiler::Typecheck,
-        ProfileMode::HeapFlameRetained | ProfileMode::HeapSummaryRetained => {
-            unreachable!("used in the following diffs")
-        }
     }
 }
 
