@@ -177,6 +177,14 @@ impl AValueForward {
 }
 
 impl AValueHeader {
+    /// Alignment of values in Starlark heap.
+    pub(crate) const ALIGN: usize = mem::align_of::<AValueHeader>();
+
+    /// Align value size to the allocation alignment.
+    pub(crate) fn align_up(size: usize) -> usize {
+        (size + AValueHeader::ALIGN - 1) & !(AValueHeader::ALIGN - 1)
+    }
+
     pub(crate) fn new<'v, T: AValue<'v>>() -> AValueHeader {
         let header = AValueHeader::new_const::<T>();
 

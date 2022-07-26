@@ -121,6 +121,31 @@ pub(crate) trait ArenaVisitor<'v> {
     fn call_exit(&mut self, time: Instant);
 }
 
+/// Iterate over chunk contents.
+struct ChunkIter<'c> {
+    chunk: &'c [MaybeUninit<u8>],
+}
+
+impl<'c> Iterator for ChunkIter<'c> {
+    type Item = &'c AValueOrForward;
+
+    fn next(&mut self) -> Option<&'c AValueOrForward> {
+        unsafe {
+            if self.chunk.is_empty() {
+                None
+            } else {
+                let or_forward = &*(self.chunk.as_ptr() as *const AValueOrForward);
+                let n = or_forward.alloc_size();
+                debug_assert!(n <= self.chunk.len());
+                let n = AValueHeader::align_up(n);
+                let n = cmp::min(n, self.chunk.len());
+                self.chunk = self.chunk.split_at(n).1;
+                Some(or_forward)
+            }
+        }
+    }
+}
+
 impl Arena {
     pub fn allocated_bytes(&self) -> usize {
         self.drop.allocated_bytes() + self.non_drop.allocated_bytes()
@@ -265,22 +290,8 @@ impl Arena {
         })
     }
 
-    fn iter_chunk<'a>(chunk: &'a [MaybeUninit<u8>], mut f: impl FnMut(&'a AValueOrForward)) {
-        unsafe {
-            // We only allocate trait ptr then a payload immediately after
-            // so find the first trait ptr, see how big it is, and keep skipping.
-            let mut p = chunk.as_ptr();
-            let end = chunk.as_ptr().add(chunk.len());
-            while p < end {
-                let or_forward = &*(p as *const AValueOrForward);
-                f(or_forward);
-                let n = or_forward.alloc_size();
-                p = p.add(n);
-                // We know the alignment requirements will never be greater than AValuePtr
-                // since we check that in allocate_empty
-                p = p.add(p.align_offset(mem::align_of::<AValueHeader>()));
-            }
-        }
+    fn iter_chunk<'a>(chunk: &'a [MaybeUninit<u8>]) -> ChunkIter<'a> {
+        ChunkIter { chunk }
     }
 
     // Iterate over the values in the heap in the order they
@@ -294,7 +305,7 @@ impl Arena {
             // Use a single buffer to reduce allocations, but clear it after use
             let mut buffer = Vec::new();
             for chunk in chunks.iter().rev() {
-                Self::iter_chunk(chunk, |x| buffer.push(x));
+                buffer.extend(Arena::iter_chunk(chunk));
                 for x in buffer.iter().rev() {
                     if let Some(x) = x.unpack_header() {
                         f(x);
@@ -333,11 +344,11 @@ impl Arena {
     // Iterate over the values in the drop bump in any order
     pub fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
         for chunk in self.drop.iter_allocated_chunks() {
-            Self::iter_chunk(chunk, |x| {
+            for x in Arena::iter_chunk(chunk) {
                 if let Some(x) = x.unpack_header() {
                     f(x);
                 }
-            })
+            }
         }
     }
 
@@ -347,11 +358,11 @@ impl Arena {
             // SAFE: We're consuming the iterator immediately and not allocating from the arena during.
             unsafe {
                 bump.iter_allocated_chunks_raw().for_each(|(data, len)| {
-                    Arena::iter_chunk(slice::from_raw_parts(data as *const _, len), |x| {
+                    for x in Arena::iter_chunk(slice::from_raw_parts(data as *const _, len)) {
                         if let Some(x) = x.unpack_header() {
                             f(x);
                         }
-                    })
+                    }
                 })
             }
         }
