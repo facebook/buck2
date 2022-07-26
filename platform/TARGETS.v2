@@ -7,7 +7,7 @@ load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_too
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
 load(":java_toolchains.bzl", "config_backed_java_toolchain", "prebuilt_jar_toolchain")
-load(":ocaml_toolchains.bzl", "config_backed_ocaml_toolchain")
+load(":ocaml_toolchains.bzl", "ocaml_fbcode_toolchain")
 load(":python_bootstrap_toolchains.bzl", "config_backed_python_bootstrap_toolchain")
 load(":python_toolchains.bzl", "config_backed_python_toolchain")
 load(":rust_toolchains.bzl", "config_backed_rust_toolchain")
@@ -177,14 +177,12 @@ go_fbcode_toolchain(
     visibility = ["PUBLIC"],
 ) for flavor in _rust_flavors]
 
-[
-    config_backed_ocaml_toolchain(
-        flavor = flavor,
-        visibility = ["PUBLIC"],
-    )
-    for flavor in _fbcode_cxx_flavors
-    if read_config("ocaml#" + flavor, "ocaml.compiler")
-]
+ocaml_fbcode_toolchain(
+    name = "ocaml-fbcode",
+    ocaml_compiler_flags = ["-opaque"],
+    warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
+    visibility = ["PUBLIC"],
+)
 
 [
     config_backed_haskell_toolchain(

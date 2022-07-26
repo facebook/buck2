@@ -129,8 +129,5 @@ def default_rust_toolchain_inner():
         _get_fbcode_select_map("rust"),
     ]))
 
-def default_ocaml_toolchain_inner():
-    return select(_get_fbcode_select_map("ocaml"))
-
 def default_haskell_toolchain_inner():
     return select(_get_fbcode_select_map("haskell"))

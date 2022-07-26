@@ -20,6 +20,7 @@ OCamlToolchainInfo = provider(fields = [
     # So far I've found `fbcode//.../binutils:bin/ld` to be a choice that works.
     # It's in `_mk_ocaml_opt` in `ocaml.bzl` where we make use of this.
     "binutils_ld",
+    "binutils_as",
     "dep_tool",
     "yacc_compiler",
     "lex_compiler",

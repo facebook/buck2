@@ -152,9 +152,11 @@ def _mk_env(ctx: "context"):
     # -o`. This is the `ld` that will be invoked. See [Note: What is
     # `binutils_ld`?] in `providers.bzl`.
     binutils_ld = ocaml_toolchain.binutils_ld[DefaultInfo].default_outputs[0]
+    binutils_as = ocaml_toolchain.binutils_as[DefaultInfo].default_outputs[0]
 
     # A local bin directory. Soft link `ld`.
     bin = ctx.actions.symlinked_dir("bin", {
+        "as": binutils_as,
         "ld": binutils_ld,
     })
 
