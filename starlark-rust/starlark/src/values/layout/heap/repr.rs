@@ -29,7 +29,9 @@ use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
+use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 
 #[derive(Clone)]
 #[repr(transparent)]
@@ -59,6 +61,33 @@ pub(crate) struct AValueRepr<T> {
     pub(crate) payload: T,
 }
 
+/// "Forward" pointer (pointer to another heap during GC).
+///
+/// This pointer has `TAG_STR` bit set if it points to a string.
+///
+/// Lower bit (which is the same bit as `TAG_UNFROZEN`) is always unset
+/// regardless of whether it points to frozen or unfrozen value.
+/// User of this struct must set this bit explicitly if needed.
+#[derive(Copy, Clone, Dupe)]
+pub(crate) struct ForwardPtr(usize);
+
+impl ForwardPtr {
+    pub(crate) fn new(ptr: usize) -> ForwardPtr {
+        debug_assert!(ptr & 1 == 0);
+        ForwardPtr(ptr)
+    }
+
+    /// It's caller responsibility to ensure that forward pointer points to a frozen value.
+    pub(crate) unsafe fn unpack_frozen_value(self) -> FrozenValue {
+        FrozenValue::new_ptr_usize_with_str_tag(self.0)
+    }
+
+    /// It's caller responsibility to ensure that forward pointer points to an unfrozen value.
+    pub(crate) unsafe fn unpack_unfrozen_value<'v>(self) -> Value<'v> {
+        Value::new_ptr_usize_with_str_tag(self.0)
+    }
+}
+
 /// This is object written over [`AValueRepr`] during GC.
 #[repr(C)]
 pub(crate) struct AValueForward {
@@ -69,18 +98,17 @@ pub(crate) struct AValueForward {
 }
 
 impl AValueForward {
-    pub(crate) fn new(forward_ptr: usize, object_size: usize) -> AValueForward {
-        debug_assert!(forward_ptr & 1 == 0);
+    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: usize) -> AValueForward {
         AValueForward {
-            forward_ptr: forward_ptr | 1,
+            forward_ptr: forward_ptr.0 | 1,
             object_size,
         }
     }
 
     /// Unpack forward pointer.
-    fn forward_ptr(&self) -> usize {
+    fn forward_ptr(&self) -> ForwardPtr {
         debug_assert!((self.forward_ptr & 1) != 0);
-        self.forward_ptr & !1
+        ForwardPtr(self.forward_ptr & !1)
     }
 }
 
@@ -110,7 +138,7 @@ impl AValueOrForward {
     }
 
     /// Unpack something that might have been overwritten.
-    pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<usize, AValueDyn<'v>> {
+    pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<ForwardPtr, AValueDyn<'v>> {
         match self.unpack() {
             Either::Left(header) => Either::Right(header.unpack()),
             Either::Right(forward) => Either::Left(forward.forward_ptr()),
@@ -193,10 +221,8 @@ impl AValueHeader {
     /// are corrupted.
     pub unsafe fn overwrite_with_forward<'v, T: AValue<'v>>(
         me: *mut AValueRepr<T>,
-        forward_ptr: usize,
+        forward_ptr: ForwardPtr,
     ) -> T {
-        assert!(forward_ptr & 1 == 0, "Can't have the lowest bit set");
-
         // TODO(nga): we don't need to do virtual call to obtain memory size
         let sz = (*me).header.unpack().memory_size();
         let p = me as *const AValueRepr<T>;

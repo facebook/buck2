@@ -462,7 +462,7 @@ impl Freezer {
         // Case 2: We have already been replaced with a forwarding, or need to freeze
         let value = value.0.unpack_ptr().unwrap();
         match value.unpack_overwrite() {
-            Either::Left(x) => Ok(FrozenValue::new_ptr_usize_with_str_tag(x)),
+            Either::Left(x) => Ok(unsafe { x.unpack_frozen_value() }),
             Either::Right(v) => unsafe { v.heap_freeze(self) },
         }
     }
@@ -778,7 +778,7 @@ impl<'v> Tracer<'v> {
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
         let res = match old_val.unpack_overwrite() {
-            Either::Left(x) => Value::new_ptr_usize_with_str_tag(x),
+            Either::Left(x) => unsafe { x.unpack_unfrozen_value() },
             Either::Right(v) => unsafe { v.heap_copy(self) },
         };
 
