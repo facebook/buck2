@@ -18,11 +18,10 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
-use buck2_core::fs::paths::FileName;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::ExtraContextDyn;
@@ -96,13 +95,10 @@ impl BuildInterpreterConfiguror {
 pub fn prelude_path(_cells: &CellResolver) -> ImportPath {
     facebook_only();
     let prelude_cell = CellName::unchecked_new("fbcode".to_owned());
-    let prelude_dir = CellRelativePath::unchecked_new("buck2/prelude");
+    let prelude_file = CellRelativePathBuf::unchecked_new("buck2/prelude/prelude.bzl".to_owned());
 
     ImportPath::new(
-        CellPath::new(
-            prelude_cell.clone(),
-            prelude_dir.join_unnormalized(FileName::unchecked_new("prelude.bzl")),
-        ),
+        CellPath::new(prelude_cell.clone(), prelude_file),
         BuildFileCell::new(prelude_cell),
     )
     .unwrap()
