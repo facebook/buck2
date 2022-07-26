@@ -63,12 +63,20 @@ pub(crate) struct AValueRepr<T> {
 #[repr(C)]
 pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
-    pub(crate) forward_ptr: usize,
+    forward_ptr: usize,
     /// Size of `<T>`. Does not include [`AValueHeader`].
-    pub(crate) object_size: usize,
+    object_size: usize,
 }
 
 impl AValueForward {
+    pub(crate) fn new(forward_ptr: usize, object_size: usize) -> AValueForward {
+        debug_assert!(forward_ptr & 1 == 0);
+        AValueForward {
+            forward_ptr: forward_ptr | 1,
+            object_size,
+        }
+    }
+
     /// Unpack forward pointer.
     fn forward_ptr(&self) -> usize {
         debug_assert!((self.forward_ptr & 1) != 0);
@@ -194,10 +202,7 @@ impl AValueHeader {
         let p = me as *const AValueRepr<T>;
         let res = ptr::read(p).payload;
         let p = me as *mut AValueForward;
-        *p = AValueForward {
-            forward_ptr: forward_ptr | 1,
-            object_size: sz,
-        };
+        *p = AValueForward::new(forward_ptr, sz);
         res
     }
 
