@@ -255,3 +255,44 @@ impl Stacks {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use gazebo::dupe::Dupe;
+
+    use crate::const_frozen_string;
+    use crate::values::layout::heap::stacks::StackFrame;
+    use crate::values::layout::heap::stacks::Stacks;
+    use crate::values::Heap;
+
+    fn total_alloc_count(frame: StackFrame) -> usize {
+        frame
+            .0
+            .borrow()
+            .allocs
+            .values()
+            .map(|v| v.count)
+            .sum::<usize>()
+            + frame
+                .0
+                .borrow()
+                .callees
+                .values()
+                .map(|c| total_alloc_count(c.dupe()))
+                .sum::<usize>()
+    }
+
+    #[test]
+    fn test_stacks_collect() {
+        let heap = Heap::new();
+        heap.record_call_enter(const_frozen_string!("enter").to_value());
+        heap.alloc_str("xxyy");
+        heap.alloc_str("zzww");
+        heap.record_call_exit();
+
+        let stacks = Stacks::collect(&heap);
+        assert!(stacks.root.0.borrow().allocs.is_empty());
+        assert_eq!(1, stacks.root.0.borrow().callees.len());
+        assert_eq!(2, total_alloc_count(stacks.root.dupe()));
+    }
+}
