@@ -680,14 +680,29 @@ where
     /// Insert if vacant.
     #[inline]
     pub fn or_insert(self, default: V) -> &'a mut V {
-        self.or_insert_entry(default).1
+        self.or_insert_with(|| default)
+    }
+
+    /// Insert if vacant.
+    #[inline]
+    pub fn or_insert_with(self, default: impl FnOnce() -> V) -> &'a mut V {
+        self.or_insert_entry_with(default).1
+    }
+
+    /// Insert if vacant.
+    #[inline]
+    pub fn or_default(self) -> &'a mut V
+    where
+        V: Default,
+    {
+        self.or_insert_with(V::default)
     }
 
     #[inline]
-    pub(crate) fn or_insert_entry(self, default: V) -> (&'a K, &'a mut V) {
+    pub(crate) fn or_insert_entry_with(self, default: impl FnOnce() -> V) -> (&'a K, &'a mut V) {
         match self {
             Entry::Occupied(e) => e.into_mut_entry(),
-            Entry::Vacant(e) => e.insert_entry(default),
+            Entry::Vacant(e) => e.insert_entry(default()),
         }
     }
 }
