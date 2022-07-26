@@ -20,6 +20,8 @@
 // TODO(nga): document it
 #![allow(missing_docs)]
 
+pub mod markdown;
+
 use std::collections::HashMap;
 
 use gazebo::prelude::*;
