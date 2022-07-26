@@ -37,6 +37,7 @@ use std::slice;
 use std::time::Instant;
 
 use bumpalo::Bump;
+use either::Either;
 use gazebo::prelude::*;
 
 use crate::collections::StarlarkHashValue;
@@ -116,7 +117,7 @@ pub struct HeapSummary {
 }
 
 pub(crate) trait ArenaVisitor<'v> {
-    fn regular_value(&mut self, value: Value<'v>);
+    fn regular_value(&mut self, value: &'v AValueOrForward);
     fn call_enter(&mut self, function: Value<'v>, time: Instant);
     fn call_exit(&mut self, time: Instant);
 }
@@ -314,36 +315,55 @@ impl Arena {
         }
     }
 
-    pub(crate) unsafe fn for_each_value_ordered<'v>(
-        &'v mut self,
-        heap_kind: HeapKind,
-        mut f: impl FnMut(Value<'v>),
-    ) {
-        self.for_each_ordered(|x| {
-            if let Some(x) = x.unpack_header() {
-                f(x.unpack_value(heap_kind));
-            }
-        })
-    }
-
     pub(crate) unsafe fn visit_arena<'v>(
         &'v mut self,
         heap_kind: HeapKind,
-        v: &mut impl ArenaVisitor<'v>,
+        forward_heap_kind: HeapKind,
+        visitor: &mut impl ArenaVisitor<'v>,
     ) {
-        self.for_each_value_ordered(heap_kind, |x| {
-            if let Some(call_enter) = x.downcast_ref::<CallEnter<NeedsDrop>>() {
-                v.call_enter(call_enter.function, call_enter.time);
-            } else if let Some(call_enter) = x.downcast_ref::<CallEnter<NoDrop>>() {
-                v.call_enter(call_enter.function, call_enter.time);
-            } else if let Some(call_exit) = x.downcast_ref::<CallExit<NeedsDrop>>() {
-                v.call_exit(call_exit.time);
-            } else if let Some(call_exit) = x.downcast_ref::<CallExit<NoDrop>>() {
-                v.call_exit(call_exit.time);
-            } else {
-                v.regular_value(x);
+        fn fix_function<'v>(function: Value<'v>, forward_heap_kind: HeapKind) -> Value<'v> {
+            if let Some(function) = function.unpack_frozen() {
+                return function.to_value();
             }
-        })
+
+            unsafe {
+                match function
+                    .0
+                    .unpack_ptr()
+                    .expect("int cannot be stored in heap")
+                    .unpack_forward()
+                {
+                    None => function,
+                    Some(forward) => forward.forward_ptr().unpack_value(forward_heap_kind),
+                }
+            }
+        }
+
+        self.for_each_ordered(|x| match x.unpack() {
+            Either::Left(header) => {
+                let value = header.unpack_value(heap_kind);
+                if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
+                    visitor.call_enter(
+                        fix_function(call_enter.function, forward_heap_kind),
+                        call_enter.time,
+                    );
+                } else if let Some(call_enter) = value.downcast_ref::<CallEnter<NoDrop>>() {
+                    visitor.call_enter(
+                        fix_function(call_enter.function, forward_heap_kind),
+                        call_enter.time,
+                    );
+                } else if let Some(call_exit) = value.downcast_ref::<CallExit<NeedsDrop>>() {
+                    visitor.call_exit(call_exit.time);
+                } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
+                    visitor.call_exit(call_exit.time);
+                } else {
+                    visitor.regular_value(x);
+                }
+            }
+            Either::Right(_forward) => {
+                visitor.regular_value(x);
+            }
+        });
     }
 
     // Iterate over the values in the drop bump in any order

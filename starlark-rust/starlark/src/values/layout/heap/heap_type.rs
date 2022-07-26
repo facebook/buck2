@@ -672,8 +672,12 @@ impl Heap {
         self.alloc_raw(complex_no_freeze(x))
     }
 
-    pub(crate) unsafe fn visit_arena<'v>(&'v self, v: &mut impl ArenaVisitor<'v>) {
-        (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, v)
+    pub(crate) unsafe fn visit_arena<'v>(
+        &'v self,
+        forward_heap_kind: HeapKind,
+        v: &mut impl ArenaVisitor<'v>,
+    ) {
+        (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v)
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in

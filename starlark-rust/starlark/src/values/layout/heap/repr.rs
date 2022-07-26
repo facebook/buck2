@@ -88,6 +88,13 @@ impl ForwardPtr {
     pub(crate) unsafe fn unpack_unfrozen_value<'v>(self) -> Value<'v> {
         Value::new_ptr_usize_with_str_tag(self.0)
     }
+
+    pub(crate) unsafe fn unpack_value<'v>(self, heap_kind: HeapKind) -> Value<'v> {
+        match heap_kind {
+            HeapKind::Unfrozen => self.unpack_unfrozen_value(),
+            HeapKind::Frozen => self.unpack_frozen_value().to_value(),
+        }
+    }
 }
 
 /// This is object written over [`AValueRepr`] during GC.
@@ -108,7 +115,7 @@ impl AValueForward {
     }
 
     /// Unpack forward pointer.
-    fn forward_ptr(&self) -> ForwardPtr {
+    pub(crate) fn forward_ptr(&self) -> ForwardPtr {
         debug_assert!((self.forward_ptr & 1) != 0);
         ForwardPtr(self.forward_ptr & !1)
     }
@@ -155,6 +162,10 @@ impl AValueOrForward {
 
     pub(crate) fn unpack_header(&self) -> Option<&AValueHeader> {
         self.unpack().left()
+    }
+
+    pub(crate) fn unpack_forward(&self) -> Option<&AValueForward> {
+        self.unpack().right()
     }
 
     /// Size of allocation for this object:

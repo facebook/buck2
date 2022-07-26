@@ -31,6 +31,8 @@ use starlark_map::small_set::SmallSet;
 use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
+use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
 use crate::values::Value;
@@ -183,7 +185,11 @@ impl StackCollector {
 }
 
 impl<'v> ArenaVisitor<'v> for StackCollector {
-    fn regular_value(&mut self, value: Value<'v>) {
+    fn regular_value(&mut self, value: &'v AValueOrForward) {
+        let value = match value.unpack_header() {
+            Some(header) => unsafe { header.unpack_value(HeapKind::Unfrozen) },
+            None => return,
+        };
         let frame = match self.current.last() {
             Some(frame) => frame,
             None => return,
@@ -237,7 +243,7 @@ impl Stacks {
     pub(crate) fn collect(heap: &Heap) -> Stacks {
         let mut collector = StackCollector::new();
         unsafe {
-            heap.visit_arena(&mut collector);
+            heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
         Stacks {
