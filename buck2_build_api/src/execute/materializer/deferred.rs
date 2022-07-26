@@ -20,6 +20,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
@@ -198,7 +199,7 @@ enum MaterializerCommand {
     /// Declares that given paths are no longer eligible to be materialized by this materializer.
     /// This typically should reflect a change made to the underlying filesystem, either because
     /// the file was created, or because it was removed..
-    InvalidateFilePaths(Vec<ProjectRelativePathBuf>),
+    InvalidateFilePaths(Vec<ProjectRelativePathBuf>, oneshot::Sender<CleaningFuture>),
 
     /// Takes a list of artifact paths, and materializes all artifacts in the
     /// list that have been declared but not yet been materialized. When the
@@ -232,7 +233,7 @@ impl std::fmt::Debug for MaterializerCommand {
             MaterializerCommand::Declare(path, value, method) => {
                 write!(f, "Declare({:?}, {:?}, {:?})", path, value, method,)
             }
-            MaterializerCommand::InvalidateFilePaths(paths) => {
+            MaterializerCommand::InvalidateFilePaths(paths, _) => {
                 write!(f, "InvalidateFilePaths({:?})", paths)
             }
             MaterializerCommand::Ensure(paths, _) => write!(f, "Ensure({:?}, _)", paths,),
@@ -445,10 +446,14 @@ impl Materializer for DeferredMaterializer {
     }
 
     async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
-        self.command_sender
-            .send(MaterializerCommand::InvalidateFilePaths(paths))?;
+        let (sender, recv) = oneshot::channel();
 
-        Ok(())
+        self.command_sender
+            .send(MaterializerCommand::InvalidateFilePaths(paths, sender))?;
+
+        // Wait on future to finish before invalidation can continue.
+        let invalidate_fut = recv.await?;
+        invalidate_fut.await.unshared_error()
     }
 
     async fn materialize_many(
@@ -578,14 +583,25 @@ impl DeferredMaterializerCommandProcessor {
                         tree.insert(path.iter().map(|f| f.to_owned()), data);
                     }
                 }
-                MaterializerCommand::InvalidateFilePaths(paths) => {
+                MaterializerCommand::InvalidateFilePaths(paths, sender) => {
                     tracing::trace!(
                         paths = ?paths,
                         "invalidate paths",
                     );
-                    for path in paths.into_iter() {
-                        tree.remove(path.iter());
-                    }
+                    let (_removed_paths, existing_futs) =
+                        tree.remove_paths_and_collect_futures(paths);
+                    let invalidation_fut = tokio::task::spawn(async move {
+                        join_all_existing_futs(existing_futs).await?;
+                        // Once we have disk state, invalidate disk state here.
+                        Ok(())
+                    })
+                    .map(|r| match r {
+                        Ok(r) => r,
+                        Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
+                    })
+                    .boxed()
+                    .shared();
+                    sender.send(invalidation_fut).ok();
                 }
                 // Entry point for `ensure_materialized` calls
                 MaterializerCommand::Ensure(paths, fut_sender) => {
