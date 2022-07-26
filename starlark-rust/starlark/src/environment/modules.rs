@@ -47,7 +47,7 @@ use crate::values::docs::DocItem;
 use crate::values::docs::DocString;
 use crate::values::docs::DocStringKind;
 use crate::values::layout::heap::heap_type::HeapKind;
-use crate::values::layout::heap::stacks::Stacks;
+use crate::values::layout::heap::stacks::AggregateHeapProfileInfo;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -102,7 +102,7 @@ pub(crate) struct FrozenModuleData {
     pub(crate) slots: FrozenSlots,
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
-    stacks: Option<Stacks>,
+    heap_profile: Option<AggregateHeapProfileInfo>,
 }
 
 /// Container for the documentation for a module
@@ -214,7 +214,7 @@ impl FrozenModule {
         Ok(self
             .module
             .0
-            .stacks
+            .heap_profile
             .as_ref()
             .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
             .write())
@@ -225,7 +225,7 @@ impl FrozenModule {
         Ok(self
             .module
             .0
-            .stacks
+            .heap_profile
             .as_ref()
             .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
             .gen_summary_csv())
@@ -366,7 +366,10 @@ impl Module {
         let freezer = Freezer::new(frozen_heap);
         let slots = slots.freeze(&freezer)?;
         let stacks = if heap_profile_on_freeze.get() {
-            Some(Stacks::collect(&heap, Some(HeapKind::Frozen)))
+            Some(AggregateHeapProfileInfo::collect(
+                &heap,
+                Some(HeapKind::Frozen),
+            ))
         } else {
             None
         };
@@ -374,7 +377,7 @@ impl Module {
             names: names.freeze(),
             slots,
             docstring: docstring.into_inner(),
-            stacks,
+            heap_profile: stacks,
         }));
         let frozen_module_ref = freezer.heap.alloc_any(rest.dupe());
         for frozen_def in freezer.frozen_defs.borrow().as_slice() {

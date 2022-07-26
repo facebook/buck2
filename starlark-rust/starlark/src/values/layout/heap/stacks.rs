@@ -267,8 +267,7 @@ impl StackFrame {
     }
 }
 
-// TODO(nga): rename to `AggregatedProfileInfo`.
-pub(crate) struct Stacks {
+pub(crate) struct AggregateHeapProfileInfo {
     pub(crate) ids: FunctionIds,
     pub(crate) root: StackFrame,
     /// String `"TOTALS"`. It is needed in heap summary output.
@@ -279,14 +278,15 @@ pub(crate) struct Stacks {
     pub(crate) blank_id: FunctionId,
 }
 
-impl Debug for Stacks {
+impl Debug for AggregateHeapProfileInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Stacks").finish_non_exhaustive()
+        f.debug_struct("AggregateHeapProfileInfo")
+            .finish_non_exhaustive()
     }
 }
 
-impl Stacks {
-    pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> Stacks {
+impl AggregateHeapProfileInfo {
+    pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> AggregateHeapProfileInfo {
         let mut collector = StackCollector::new(retained);
         unsafe {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
@@ -295,7 +295,7 @@ impl Stacks {
         let totals_id = collector.ids.get_string("TOTALS");
         let root_id = collector.ids.get_string("(root)");
         let blank_id = collector.ids.get_string("");
-        Stacks {
+        AggregateHeapProfileInfo {
             ids: collector.ids,
             root: collector.current.pop().unwrap().build(),
             totals_id,
@@ -377,7 +377,7 @@ mod summary {
             &mut self.info[x.0]
         }
 
-        pub(crate) fn init(stacks: &Stacks) -> Info {
+        pub(crate) fn init(stacks: &AggregateHeapProfileInfo) -> Info {
             let mut info = Info { info: Vec::new() };
             info.init_children(&stacks.root, stacks.root_id);
             info
@@ -409,7 +409,7 @@ mod summary {
             time_rec
         }
 
-        pub(crate) fn gen_csv(&self, stacks: &Stacks) -> String {
+        pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
             // Add a totals column
             let Info { info } = self;
             let ids = &stacks.ids;
@@ -484,8 +484,8 @@ mod tests {
     use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::stacks::summary::FuncInfo;
     use crate::values::layout::heap::stacks::summary::Info;
+    use crate::values::layout::heap::stacks::AggregateHeapProfileInfo;
     use crate::values::layout::heap::stacks::StackFrame;
-    use crate::values::layout::heap::stacks::Stacks;
     use crate::values::Freezer;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
@@ -507,7 +507,7 @@ mod tests {
         heap.alloc_str("zzww");
         heap.record_call_exit();
 
-        let stacks = Stacks::collect(&heap, None);
+        let stacks = AggregateHeapProfileInfo::collect(&heap, None);
         assert!(stacks.root.allocs.is_empty());
         assert_eq!(1, stacks.root.callees.len());
         assert_eq!(2, total_alloc_count(&stacks.root));
@@ -526,7 +526,7 @@ mod tests {
         freezer.freeze(s0.to_value()).unwrap();
         freezer.freeze(s1.to_value()).unwrap();
 
-        let stacks = Stacks::collect(&heap, Some(HeapKind::Frozen));
+        let stacks = AggregateHeapProfileInfo::collect(&heap, Some(HeapKind::Frozen));
         assert!(stacks.root.allocs.is_empty());
         assert_eq!(1, stacks.root.callees.len());
         // 3 allocated, 2 retained.
@@ -567,7 +567,7 @@ _ignore = str([1])     # allocate a string in non_drop
 
         eval.eval_module(ast, &globals).unwrap();
 
-        let stacks = Stacks::collect(eval.heap(), None);
+        let stacks = AggregateHeapProfileInfo::collect(eval.heap(), None);
 
         let info = Info::init(&stacks);
 
