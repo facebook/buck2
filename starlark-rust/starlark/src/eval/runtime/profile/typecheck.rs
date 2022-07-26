@@ -17,8 +17,6 @@
 
 //! Runtime typecheck profile.
 
-use std::fs;
-use std::path::Path;
 use std::time::Duration;
 
 use crate::collections::SmallMap;
@@ -62,16 +60,11 @@ impl TypecheckProfile {
         w.finish()
     }
 
-    fn do_write(&self, filename: &Path) -> anyhow::Result<()> {
-        fs::write(filename, self.gen_csv())?;
-        Ok(())
-    }
-
-    pub(crate) fn write(&self, filename: &Path) -> Option<anyhow::Result<()>> {
+    pub(crate) fn gen(&self) -> Option<String> {
         if !self.enabled {
             return None;
         }
-        Some(self.do_write(filename))
+        Some(self.gen_csv())
     }
 }
 

@@ -17,12 +17,9 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 use std::slice;
 use std::time::Instant;
 
-use anyhow::Context;
 use gazebo::prelude::*;
 
 use crate as starlark;
@@ -170,21 +167,8 @@ impl<'v> FlameProfile<'v> {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn write(&self, filename: &Path) -> Option<anyhow::Result<()>> {
-        self.0
-            .as_ref()
-            .map(|box x| Self::write_enabled(x, filename))
-    }
-
-    fn write_enabled(x: &FlameData, filename: &Path) -> anyhow::Result<()> {
-        let profile = Self::gen_profile(x);
-        fs::write(filename, profile).with_context(|| {
-            format!(
-                "When writing to profile output file `{}`",
-                filename.display()
-            )
-        })?;
-        Ok(())
+    pub(crate) fn gen(&self) -> Option<String> {
+        self.0.as_ref().map(|box x| Self::gen_profile(x))
     }
 
     fn gen_profile(x: &FlameData) -> String {

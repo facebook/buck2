@@ -17,10 +17,7 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fs;
-use std::path::Path;
 
-use anyhow::Context;
 use gazebo::dupe::Dupe;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
@@ -66,37 +63,19 @@ impl HeapProfile {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn write(
-        &self,
-        filename: &Path,
-        heap: &Heap,
-        format: HeapProfileFormat,
-    ) -> Option<anyhow::Result<()>> {
+    pub(crate) fn gen(&self, heap: &Heap, format: HeapProfileFormat) -> Option<String> {
         if !self.enabled {
             None
         } else {
-            Some(Self::write_enabled(filename, heap, format))
+            Some(Self::gen_enabled(heap, format))
         }
     }
 
-    pub(crate) fn write_enabled(
-        filename: &Path,
-        heap: &Heap,
-        format: HeapProfileFormat,
-    ) -> anyhow::Result<()> {
-        let profile = match format {
+    pub(crate) fn gen_enabled(heap: &Heap, format: HeapProfileFormat) -> String {
+        match format {
             HeapProfileFormat::Summary => Self::write_summarized_heap_profile(heap),
             HeapProfileFormat::FlameGraph => Self::write_flame_heap_profile(heap),
-        };
-
-        fs::write(filename, profile).with_context(|| {
-            format!(
-                "When writing to profile output file `{}`",
-                filename.display()
-            )
-        })?;
-
-        Ok(())
+        }
     }
 
     fn write_flame_heap_profile(heap: &Heap) -> String {

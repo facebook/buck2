@@ -18,12 +18,9 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fs;
 use std::iter;
-use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Context;
 use gazebo::prelude::*;
 
 use crate::codemap::CodeMap;
@@ -102,17 +99,6 @@ impl StmtProfileData {
                 x.insert(codemap.dupe());
             }
         }
-    }
-
-    fn write(&self, filename: &Path, now: Instant) -> anyhow::Result<()> {
-        let profile = self.write_to_string(now);
-        fs::write(filename, profile).with_context(|| {
-            format!(
-                "When writing to line profile output file `{}`",
-                filename.display()
-            )
-        })?;
-        Ok(())
     }
 
     fn write_to_string(&self, now: Instant) -> String {
@@ -195,9 +181,9 @@ impl StmtProfile {
     }
 
     // None = not applicable because not enabled
-    pub(crate) fn write(&self, filename: &Path) -> Option<anyhow::Result<()>> {
+    pub(crate) fn gen(&self) -> Option<String> {
         let now = Instant::now();
-        self.0.as_ref().map(|data| data.write(filename, now))
+        self.0.as_ref().map(|data| data.write_to_string(now))
     }
 
     pub(crate) fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {

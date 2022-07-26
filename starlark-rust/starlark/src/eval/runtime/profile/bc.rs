@@ -18,9 +18,7 @@
 //! Bytecode profiler.
 
 use std::collections::HashMap;
-use std::fs;
 use std::iter::Sum;
-use std::path::Path;
 
 use gazebo::prelude::*;
 
@@ -170,17 +168,12 @@ impl BcProfile {
         }
     }
 
-    fn gen_csv(&self) -> anyhow::Result<String> {
+    pub(crate) fn gen_csv(&self) -> anyhow::Result<String> {
         match &self.data {
             BcProfileDataMode::Bc(data) => Ok(data.gen_csv()),
             BcProfileDataMode::BcPairs(data) => Ok(data.gen_csv()),
             BcProfileDataMode::Disabled => Err(EvaluatorError::BcProfilingNotEnabled.into()),
         }
-    }
-
-    pub(crate) fn write_csv(&self, path: &Path) -> anyhow::Result<()> {
-        fs::write(path, self.gen_csv()?.as_bytes())?;
-        Ok(())
     }
 
     /// Called from bytecode.

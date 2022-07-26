@@ -17,10 +17,12 @@
 
 use std::cell::Cell;
 use std::collections::HashSet;
+use std::fs;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::path::Path;
 
+use anyhow::Context;
 use gazebo::any::AnyLifetime;
 use gazebo::cast;
 use thiserror::Error;
@@ -271,34 +273,37 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         mode: &ProfileMode,
         filename: P,
     ) -> anyhow::Result<()> {
+        let profile = self.gen_profile(mode)?;
+        fs::write(filename.as_ref(), profile)
+            .with_context(|| format!("writing profile to `{}`", filename.as_ref().display()))?;
+        Ok(())
+    }
+
+    /// Generate profile for a given mode.
+    /// Only valid if corresponding profiler was enabled.
+    pub fn gen_profile(&self, mode: &ProfileMode) -> anyhow::Result<String> {
         match mode {
             ProfileMode::HeapSummary => self
                 .heap_profile
-                .write(filename.as_ref(), self.heap(), HeapProfileFormat::Summary)
-                .unwrap_or_else(|| Err(EvaluatorError::HeapProfilingNotEnabled.into())),
+                .gen(self.heap(), HeapProfileFormat::Summary)
+                .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
             ProfileMode::HeapFlame => self
                 .heap_profile
-                .write(
-                    filename.as_ref(),
-                    self.heap(),
-                    HeapProfileFormat::FlameGraph,
-                )
-                .unwrap_or_else(|| Err(EvaluatorError::HeapProfilingNotEnabled.into())),
+                .gen(self.heap(), HeapProfileFormat::FlameGraph)
+                .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
             ProfileMode::Statement => self
                 .stmt_profile
-                .write(filename.as_ref())
-                .unwrap_or_else(|| Err(EvaluatorError::StmtProfilingNotEnabled.into())),
-            ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
-                self.bc_profile.write_csv(filename.as_ref())
-            }
+                .gen()
+                .ok_or_else(|| EvaluatorError::StmtProfilingNotEnabled.into()),
+            ProfileMode::Bytecode | ProfileMode::BytecodePairs => self.bc_profile.gen_csv(),
             ProfileMode::TimeFlame => self
                 .flame_profile
-                .write(filename.as_ref())
-                .unwrap_or_else(|| Err(EvaluatorError::FlameProfilingNotEnabled.into())),
+                .gen()
+                .ok_or_else(|| EvaluatorError::FlameProfilingNotEnabled.into()),
             ProfileMode::Typecheck => self
                 .typecheck_profile
-                .write(filename.as_ref())
-                .unwrap_or_else(|| Err(EvaluatorError::TypecheckProfilingNotEnabled.into())),
+                .gen()
+                .ok_or_else(|| EvaluatorError::TypecheckProfilingNotEnabled.into()),
         }
     }
 
