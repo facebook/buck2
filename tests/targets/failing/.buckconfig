@@ -9,5 +9,6 @@ root = .
 fbcode = fbcode
 fbsource = fbsource
 buck = buck
+toolchains = toolchains
 special = special
 cell = cell

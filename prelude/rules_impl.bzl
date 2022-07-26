@@ -205,7 +205,7 @@ def _cxx_binary_and_test_attrs():
     }
 
 def _toolchain(lang: str.type, providers: [""]) -> "attribute":
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:" + lang, providers = providers)
+    return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
 
 def _cxx_toolchain():
     return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])

@@ -6,6 +6,7 @@ root = .
 fbcode = fbcode
 fbsource = fbsource
 buck = buck
+toolchains = toolchains
 
 [buck2]
 materializations = eden
