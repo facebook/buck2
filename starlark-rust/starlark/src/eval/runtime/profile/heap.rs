@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::iter;
 
 use gazebo::dupe::Dupe;
 
@@ -87,22 +88,20 @@ impl HeapProfile {
         use summary::Info;
 
         let stacks = Stacks::collect(heap, None);
-        let mut info = Info::init(&stacks);
+        let info = Info::init(&stacks);
 
         // Add a totals column
-        let total_id = stacks.totals_id;
-        let blank_id = stacks.blank_id;
-        info.ensure(total_id);
-        let Info { mut info } = info;
+        let Info { info } = info;
         let ids = stacks.ids;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
             totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
-        info[total_id.0] = totals;
         let mut info = info.iter().enumerate().collect::<Vec<_>>();
 
         columns.sort_by_key(|x| -(x.1.count as isize));
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
+
+        let info = iter::once((stacks.totals_id.0, &totals)).chain(info);
 
         let mut csv = CsvWriter::new(
             [
@@ -126,7 +125,7 @@ impl HeapProfile {
                 .callers
                 .iter()
                 .max_by_key(|x| x.1)
-                .unwrap_or((&blank_id, &0));
+                .unwrap_or((&stacks.blank_id, &0));
             assert!(
                 info.calls % 2 == 0,
                 "we enter calls twice, for drop and non_drop"
