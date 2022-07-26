@@ -25,7 +25,7 @@ pub(crate) async fn uquery(
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
-        cell_resolver,
+        &cell_resolver,
         &request.output_attributes,
         request.unstable_output_format,
     )?;

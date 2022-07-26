@@ -48,8 +48,8 @@ pub(crate) trait ProviderLookUp<T: QueryTarget>: Send + Sync {
 }
 
 #[derive(Debug)]
-pub(crate) struct QueryResultPrinter {
-    resolver: CellResolver,
+pub(crate) struct QueryResultPrinter<'a> {
+    resolver: &'a CellResolver,
     attributes: Option<RegexSet>,
     output_format: QueryOutputFormat,
 }
@@ -188,10 +188,10 @@ impl<'a> Serialize for FileSetJsonPrinter<'a> {
     }
 }
 
-impl QueryResultPrinter {
+impl<'a> QueryResultPrinter<'a> {
     /// Utility for creating from the options in their protobuf form.
     pub(crate) fn from_request_options(
-        resolver: CellResolver,
+        resolver: &'a CellResolver,
         attributes: &[String],
         output_format: i32,
     ) -> anyhow::Result<Self> {
@@ -204,7 +204,7 @@ impl QueryResultPrinter {
     }
 
     pub(crate) fn from_options(
-        resolver: CellResolver,
+        resolver: &'a CellResolver,
         attributes: &[String],
         output_format: QueryOutputFormat,
     ) -> anyhow::Result<Self> {
@@ -227,12 +227,12 @@ impl QueryResultPrinter {
         })
     }
 
-    pub(crate) async fn print_multi_output<'a, T: QueryTarget, W: std::io::Write>(
+    pub(crate) async fn print_multi_output<'b, T: QueryTarget, W: std::io::Write>(
         &self,
         mut output: W,
         multi_result: MultiQueryResult<T>,
         target_call_stacks: bool,
-        print_providers: ShouldPrintProviders<'a, T>,
+        print_providers: ShouldPrintProviders<'b, T>,
     ) -> anyhow::Result<()> {
         match (self.output_format, &self.attributes) {
             // A multi-query only has interesting output with --json output. For non-json output it gets merged together.
@@ -261,7 +261,7 @@ impl QueryResultPrinter {
                             QueryEvaluationValue::FileSet(files) => seq.serialize_entry(
                                 &arg,
                                 &FileSetJsonPrinter {
-                                    resolver: &self.resolver,
+                                    resolver: self.resolver,
                                     value: &files,
                                 },
                             )?,
@@ -293,12 +293,12 @@ impl QueryResultPrinter {
         }
     }
 
-    pub(crate) async fn print_single_output<'a, T: QueryTarget, W: std::io::Write>(
+    pub(crate) async fn print_single_output<'b, T: QueryTarget, W: std::io::Write>(
         &self,
         mut output: W,
         result: QueryEvaluationValue<T>,
         call_stack: bool,
-        print_providers: ShouldPrintProviders<'a, T>,
+        print_providers: ShouldPrintProviders<'b, T>,
     ) -> anyhow::Result<()> {
         match result {
             QueryEvaluationValue::TargetSet(targets) => match self.output_format {
@@ -356,7 +356,7 @@ impl QueryResultPrinter {
                     QueryOutputFormat::Json => {
                         let mut ser = serde_json::Serializer::pretty(&mut output);
                         FileSetJsonPrinter {
-                            resolver: &self.resolver,
+                            resolver: self.resolver,
                             value: &files,
                         }
                         .serialize(&mut ser)?;
