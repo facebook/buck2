@@ -588,6 +588,7 @@ impl CellsConfigParser {
 
 /// Aggregates cell information as we parse cell configs and keeps state to
 /// generate a final 'CellResolver'
+#[derive(Debug)]
 pub struct CellsAggregator {
     cell_infos: HashMap<CellRootPathBuf, CellAggregatorInfo>,
 }
@@ -596,7 +597,7 @@ fn default_buildfiles() -> Vec<FileNameBuf> {
     (&["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct CellAggregatorInfo {
     all_aliases: BTreeSet<String>,
     alias_mapping: HashMap<CellAlias, CellRootPathBuf>,
