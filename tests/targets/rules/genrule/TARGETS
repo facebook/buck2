@@ -10,6 +10,7 @@ bzl_native.genrule(
     srcs = [],
     out = "out.txt",
     bash = "echo HELLO > $OUT",
+    cmd_exe = "echo HELLO> %OUT%",
 )
 
 # Using the fbcode wrapper
@@ -18,6 +19,7 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     bash = "echo HELLO > $OUT",
+    cmd_exe = "echo HELLO> %OUT%",
 )
 
 # Add a `srcs`
@@ -26,6 +28,7 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "cat $SRCDIR/src.txt > $OUT",
+    cmd_exe = "cat %SRCDIR%\\src.txt > %OUT%",
 )
 
 # Add a dependency
@@ -34,6 +37,7 @@ buck_genrule(
     srcs = [":my_genrule1"],
     out = "out.txt",
     bash = "cat $SRCDIR/out.txt > $OUT",
+    cmd_exe = "cat %SRCDIR%\\out.txt > %OUT%",
 )
 
 # Use `.` as the output directory
@@ -42,6 +46,7 @@ buck_genrule(
     srcs = [],
     out = ".",
     bash = "echo HELLO > $OUT/out.txt",
+    cmd_exe = "echo HELLO> %OUT%\\out.txt",
 )
 
 # Use cmd to invoke restricted_bin logic
@@ -50,6 +55,7 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     cmd = "echo HELLO > $OUT",
+    cmd_exe = "echo HELLO> %OUT%",
 )
 
 # $(location) needs to be relative to the cd location
@@ -58,6 +64,7 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     bash = "cat $(location :my_genrule1) > $OUT",
+    cmd_exe = "cat $(location :my_genrule1) > %OUT%",
 )
 
 # use srcs as a map
@@ -66,6 +73,7 @@ buck_genrule(
     srcs = {"src_renamed": "src.txt"},
     out = "out.txt",
     bash = "cat src_renamed > $OUT",
+    cmd_exe = "cat src_renamed > %OUT%",
 )
 
 # use GVFS
@@ -83,6 +91,7 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "stat fbcode/buck2/tests/targets/rules/genrule/src.txt && echo Hello > $OUT",
+    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && echo Hello> %OUT%",
     labels = ["buck2_test_build_root"],
 )
 
@@ -92,6 +101,7 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "stat fbcode/buck2/tests/targets/rules/genrule/src.txt && cat $SRCS > $OUT",
+    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && cat %SRCS% > %OUT%",
     labels = ["buck2_test_build_root"],
 )
 
@@ -101,12 +111,16 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "stat fbcode/buck2/tests/targets/rules/genrule/src.txt && cat $(location :my_genrule1) > $OUT",
+    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && cat $(location :my_genrule1) > %OUT%",
     labels = ["buck2_test_build_root"],
 )
 
 bzl_native.sh_binary(
     name = "run",
-    main = "run.sh",
+    main = select({
+        "DEFAULT": "run.sh",
+        "ovr_config//os:windows": "run.bat",
+    }),
 )
 
 # Uses $(location-platform). Has the same effect as $(exe)
@@ -115,6 +129,7 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     bash = "$(location-platform :run) > $OUT",
+    cmd_exe = "$(location-platform :run) > %OUT%",
 )
 
 # Srcs which are inside directories
@@ -123,6 +138,7 @@ buck_genrule(
     srcs = ["directory/another.txt"],
     out = "out.txt",
     bash = "cat directory/another.txt > $OUT",
+    cmd_exe = "cat directory\\another.txt > %OUT%",
 )
 
 # Both globs and src files in nested directories
@@ -131,6 +147,7 @@ buck_genrule(
     srcs = glob(["directory/**/*.txt"]),
     out = "out.txt",
     bash = "(cat directory/another.txt && cat directory/inner/inner.txt) > $OUT",
+    cmd_exe = "(cat directory\\another.txt && cat directory\\inner\\inner.txt) > %OUT%",
 )
 
 # Used to test we cleanup things properly
@@ -140,13 +157,18 @@ buck_genrule(
     srcs = [],
     out = "dir1/dir2/output.txt",
     bash = "echo x > $OUT",
+    cmd_exe = "echo x> %OUT%",
 )
 
 buck_genrule(
     name = "executable_helper",
     srcs = [],
-    out = "output.sh",
-    cmd = "python3 -c \"import os; path = os.getenv('OUT'); fp = open(path, 'w'); print('#!/usr/bin/env bash\\necho hello', file=fp); fp.close(); os.chmod(path, 0o755)\"",
+    out = select({
+        "DEFAULT": "output.sh",
+        "ovr_config//os:windows": "output.bat",
+    }),
+    bash = "echo '#!/usr/bin/env bash\necho hello' > $OUT && chmod +x $OUT",
+    cmd_exe = "echo @echo off ^&^& echo hello> %OUT%",
     executable = True,
 )
 
@@ -155,8 +177,12 @@ buck_genrule(
 buck_genrule(
     name = "executable_echo_args",
     srcs = [],
-    out = "output.sh",
+    out = select({
+        "DEFAULT": "output.sh",
+        "ovr_config//os:windows": "output.bat",
+    }),
     bash = "echo '#!/usr/bin/env bash\necho \"${@:1}\"' > $OUT && chmod +x $OUT",
+    cmd_exe = "echo @echo off ^&^& echo %*> %OUT%",
     executable = True,
 )
 
@@ -166,6 +192,7 @@ buck_genrule(
     srcs = [],
     out = "output.txt",
     bash = "$(exe :executable_helper) > $OUT",
+    cmd_exe = "$(exe :executable_helper) > %OUT%",
 )
 
 # Ensure that mktemp works
@@ -173,7 +200,7 @@ buck_genrule(
     name = "mktemp",
     srcs = [],
     out = "output.txt",
-    bash = "echo $TMPDIR && mktemp && touch $OUT",
+    cmd = "python3 -c \"import os, tempfile; print(os.getenv('TMPDIR')); tempfile.mkstemp(); open(os.getenv('OUT'), 'w')\"",
     labels = ["buck2_test_local_exec"],
 )
 
@@ -182,7 +209,7 @@ buck_genrule(
     name = "verbose",
     srcs = [],
     out = "out.txt",
-    bash = "python3 -c 'print(chr(97) * 1024 * 1024)' >&2 && touch $OUT",
+    cmd = "python3 -c \"import os, sys; print(chr(97) * 1024 * 1024, file=sys.stderr); open(os.getenv('OUT'), 'w')\"",
 )
 
 # Ensure that 10MB of output doesn't break either.
@@ -190,7 +217,7 @@ buck_genrule(
     name = "very-verbose",
     srcs = [],
     out = "out.txt",
-    bash = "python3 -c 'print(chr(97) * 1024 * 1024 * 10)' >&2 && touch $OUT",
+    cmd = "python3 -c \"import os, sys; print(chr(97) * 1024 * 1024 * 10, file=sys.stderr); open(os.getenv('OUT'), 'w')\"",
 )
 
 # Ensure that output '.' doesn't break subsequent uses
@@ -199,6 +226,7 @@ buck_genrule(
     srcs = [],
     out = ".",
     bash = "echo HELLO > $OUT/out.txt",
+    cmd_exe = "echo HELLO> %OUT%\\out.txt",
 )
 
 buck_genrule(
@@ -206,4 +234,5 @@ buck_genrule(
     srcs = [":genrule-dot-output"],
     out = "out.txt",
     bash = "echo HELLO > $OUT",
+    cmd_exe = "echo HELLO> %OUT%",
 )

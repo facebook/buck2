@@ -410,9 +410,12 @@ async def test_show_full_output(buck: Buck) -> None:
 @buck_test(inplace=True)
 @env("BUCK_LOG", "info")
 async def test_consistent_build(buck: Buck) -> None:
-    result0 = await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
+    args = ["fbcode//buck2/tests/targets/rules/genrule:"]
+    if sys.platform == "win32":
+        args.append("@mode/win")
+    result0 = await buck.build(*args)
     await buck.kill()
-    result1 = await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
+    result1 = await buck.build(*args)
     # Don't know if action key should stay consistent between clean builds,
     # but number of cache misses should.
     assert sum(result0.get_action_to_cache_miss_count().values()) == sum(
@@ -423,8 +426,11 @@ async def test_consistent_build(buck: Buck) -> None:
 @buck_test(inplace=True)
 @env("BUCK_LOG", "info")
 async def test_cached_build(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
-    result = await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
+    args = ["fbcode//buck2/tests/targets/rules/genrule:"]
+    if sys.platform == "win32":
+        args.append("@mode/win")
+    await buck.build(*args)
+    result = await buck.build(*args)
     # Should be empty since nothing needs to be rebuilt
     assert sum(result.get_action_to_cache_miss_count().values()) == 0
 
