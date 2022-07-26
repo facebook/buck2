@@ -1,0 +1,15 @@
+load("//:rules.bzl", "cpp_binary")
+load("//:toolchain.bzl", "cpp_local_toolchain")
+
+cpp_local_toolchain(
+    name = "clang",
+    command = "clang++",
+)
+
+cpp_binary(
+    name = "main",
+    srcs = glob(["src/**/*.cpp"]),
+    headers = glob(["src/**/*.hpp"]),
+    toolchain = ":clang",
+    deps = [],
+)
