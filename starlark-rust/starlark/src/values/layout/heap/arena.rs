@@ -37,7 +37,6 @@ use std::slice;
 use std::time::Instant;
 
 use bumpalo::Bump;
-use gazebo::cast;
 use gazebo::prelude::*;
 
 use crate::collections::StarlarkHashValue;
@@ -48,6 +47,7 @@ use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
+use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
@@ -314,16 +314,24 @@ impl Arena {
         }
     }
 
-    pub(crate) unsafe fn for_each_value_ordered<'v>(&'v mut self, mut f: impl FnMut(Value<'v>)) {
+    pub(crate) unsafe fn for_each_value_ordered<'v>(
+        &'v mut self,
+        heap_kind: HeapKind,
+        mut f: impl FnMut(Value<'v>),
+    ) {
         self.for_each_ordered(|x| {
             if let Some(x) = x.unpack_header() {
-                f(Value::new_ptr_query_is_str(cast::ptr_lifetime(x)))
+                f(x.unpack_value(heap_kind));
             }
         })
     }
 
-    pub(crate) unsafe fn visit_arena<'v>(&'v mut self, v: &mut impl ArenaVisitor<'v>) {
-        self.for_each_value_ordered(|x| {
+    pub(crate) unsafe fn visit_arena<'v>(
+        &'v mut self,
+        heap_kind: HeapKind,
+        v: &mut impl ArenaVisitor<'v>,
+    ) {
+        self.for_each_value_ordered(heap_kind, |x| {
             if let Some(call_enter) = x.downcast_ref::<CallEnter<NeedsDrop>>() {
                 v.call_enter(call_enter.function, call_enter.time);
             } else if let Some(call_enter) = x.downcast_ref::<CallEnter<NoDrop>>() {

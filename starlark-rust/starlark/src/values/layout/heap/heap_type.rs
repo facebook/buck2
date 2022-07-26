@@ -87,6 +87,12 @@ use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::ValueTyped;
 
+#[derive(Copy, Clone, Dupe)]
+pub(crate) enum HeapKind {
+    Unfrozen,
+    Frozen,
+}
+
 /// A heap on which [`Value`]s can be allocated. The values will be annotated with the heap lifetime.
 #[derive(Default)]
 pub struct Heap {
@@ -667,7 +673,7 @@ impl Heap {
     }
 
     pub(crate) unsafe fn visit_arena<'v>(&'v self, v: &mut impl ArenaVisitor<'v>) {
-        (*self.arena.get_mut()).visit_arena(v)
+        (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, v)
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in

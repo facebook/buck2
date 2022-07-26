@@ -827,6 +827,12 @@ impl FrozenValue {
     }
 
     #[inline]
+    pub(crate) fn new_ptr_query_is_str(x: &'static AValueHeader) -> Self {
+        let is_string = x.unpack().is_str();
+        Self::new_ptr(x, is_string)
+    }
+
+    #[inline]
     pub(crate) fn new_repr<'a, T: AValue<'a>>(x: &'static AValueRepr<T>) -> Self {
         Self::new_ptr(&x.header, T::IS_STR)
     }

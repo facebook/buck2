@@ -23,10 +23,12 @@ use std::ptr;
 
 use either::Either;
 use gazebo::any::AnyLifetime;
+use gazebo::cast;
 use gazebo::dupe::Dupe;
 
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::MIN_ALLOC;
+use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::FrozenValue;
@@ -208,6 +210,15 @@ impl AValueHeader {
     pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
         debug_assert_eq!(self.unpack().static_type_of_value(), T::static_type_id());
         &*(self.payload_ptr() as *const T)
+    }
+
+    pub(crate) unsafe fn unpack_value<'v>(&'v self, heap_kind: HeapKind) -> Value<'v> {
+        match heap_kind {
+            HeapKind::Unfrozen => Value::new_ptr_query_is_str(self),
+            HeapKind::Frozen => {
+                FrozenValue::new_ptr_query_is_str(cast::ptr_lifetime(self)).to_value()
+            }
+        }
     }
 
     pub(crate) fn unpack<'v>(&'v self) -> AValueDyn<'v> {
