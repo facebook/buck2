@@ -111,20 +111,17 @@ impl HeapProfile {
         use summary::FuncInfo;
         use summary::Info;
 
-        let stacks = Stacks::collect(heap, None);
+        let mut stacks = Stacks::collect(heap, None);
         let mut ids = FunctionIds::default();
         let root = ids.get_string("(root)");
-        let mut info = Info {
-            stacks,
-            info: Vec::new(),
-        };
-        info.init();
+        let mut info = Info { info: Vec::new() };
+        info.init(&mut stacks);
         info.ensure(root);
 
         // Add a totals column
-        let total_id = info.stacks.ids.get_string("TOTALS");
+        let total_id = stacks.ids.get_string("TOTALS");
         info.ensure(total_id);
-        let Info { mut info, stacks } = info;
+        let Info { mut info } = info;
         let mut ids = stacks.ids;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
@@ -228,8 +225,6 @@ mod summary {
     /// However, we are always updating the top of the call stack,
     /// so pull out top_stack/top_info as a cache.
     pub(super) struct Info {
-        pub(crate) stacks: Stacks,
-
         /// Information about all functions
         pub info: Vec<FuncInfo>,
     }
@@ -242,15 +237,15 @@ mod summary {
             &mut self.info[x.0]
         }
 
-        pub(crate) fn init(&mut self) {
-            let root = self.stacks.ids.get_string("(root)");
-            self.init_children(self.stacks.root.dupe(), root);
+        pub(crate) fn init(&mut self, stacks: &mut Stacks) {
+            let root = stacks.ids.get_string("(root)");
+            self.init_children(&stacks.root, root);
         }
 
-        fn init_children(&mut self, frame: StackFrame, name: FunctionId) -> SmallDuration {
+        fn init_children(&mut self, frame: &StackFrame, name: FunctionId) -> SmallDuration {
             let mut time_rec = SmallDuration::default();
-            for (func, child) in &frame.0.borrow().callees {
-                time_rec += self.init_child(*func, child.dupe(), name);
+            for (func, child) in &frame.callees {
+                time_rec += self.init_child(*func, child, name);
             }
             time_rec
         }
@@ -258,17 +253,17 @@ mod summary {
         fn init_child(
             &mut self,
             func: FunctionId,
-            frame: StackFrame,
+            frame: &StackFrame,
             caller: FunctionId,
         ) -> SmallDuration {
-            self.ensure(func).time += frame.0.borrow().time_x2;
-            self.ensure(func).calls += frame.0.borrow().calls_x2 as usize;
+            self.ensure(func).time += frame.time_x2;
+            self.ensure(func).calls += frame.calls_x2 as usize;
             *self.ensure(func).callers.entry(caller).or_insert(0) += 1;
-            for (t, allocs) in &frame.0.borrow().allocs {
+            for (t, allocs) in &frame.allocs {
                 *self.ensure(func).alloc.entry(t).or_default() += *allocs;
             }
 
-            let time_rec = frame.0.borrow().time_x2 + self.init_children(frame.dupe(), func);
+            let time_rec = frame.time_x2 + self.init_children(frame, func);
             self.ensure(func).time_rec += time_rec;
             time_rec
         }
@@ -353,13 +348,10 @@ _ignore = str([1])     # allocate a string in non_drop
 
         eval.eval_module(ast, &globals).unwrap();
 
-        let stacks = Stacks::collect(eval.heap(), None);
+        let mut stacks = Stacks::collect(eval.heap(), None);
 
-        let mut info = Info {
-            stacks,
-            info: Vec::new(),
-        };
-        info.init();
+        let mut info = Info { info: Vec::new() };
+        info.init(&mut stacks);
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap

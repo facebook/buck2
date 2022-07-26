@@ -109,21 +109,21 @@ impl AddAssign for AllocCounts {
 }
 
 /// A stack frame, its caller and the functions it called, and the allocations it made itself.
-pub(crate) struct StackFrameData {
-    pub(crate) callees: HashMap<FunctionId, StackFrame>,
-    pub(crate) allocs: HashMap<&'static str, AllocCounts>,
+struct StackFrameData {
+    callees: HashMap<FunctionId, StackFrameBuilder>,
+    allocs: HashMap<&'static str, AllocCounts>,
     /// Time spent in this frame excluding callees.
     /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
-    pub(crate) time_x2: SmallDuration,
+    time_x2: SmallDuration,
     /// How many times this function was called (with this stack).
     /// Double.
-    pub(crate) calls_x2: u32,
+    calls_x2: u32,
 }
 
 #[derive(Clone, Dupe)]
-pub(crate) struct StackFrame(pub(crate) Rc<RefCell<StackFrameData>>);
+struct StackFrameBuilder(pub(crate) Rc<RefCell<StackFrameData>>);
 
-impl StackFrame {
+impl StackFrameBuilder {
     fn new() -> Self {
         Self(Rc::new(RefCell::new(StackFrameData {
             callees: Default::default(),
@@ -137,32 +137,26 @@ impl StackFrame {
     fn push(&self, function: FunctionId) -> Self {
         let mut this = self.0.borrow_mut();
 
-        let callee = this.callees.entry(function).or_insert_with(StackFrame::new);
+        let callee = this
+            .callees
+            .entry(function)
+            .or_insert_with(StackFrameBuilder::new);
 
         callee.dupe()
     }
 
-    /// Write this stack frame's data to a file in a format flamegraph.pl understands
-    /// (each line is: `func1:func2:func3 BYTES`).
-    fn write<'a>(
-        &self,
-        writer: &mut FlameGraphWriter,
-        stack: &'_ mut Vec<&'a str>,
-        ids: &[&'a str],
-    ) {
-        let this = self.0.borrow();
-
-        for (k, v) in this.allocs.iter() {
-            writer.write(
-                stack.iter().copied().chain(std::iter::once(*k)),
-                v.bytes as u64,
-            );
-        }
-
-        for (id, frame) in this.callees.iter() {
-            stack.push(ids[id.0]);
-            frame.write(writer, stack, ids);
-            stack.pop();
+    fn build(&self) -> StackFrame {
+        StackFrame {
+            callees: self
+                .0
+                .borrow()
+                .callees
+                .iter()
+                .map(|(f, s)| (*f, s.build()))
+                .collect(),
+            allocs: self.0.borrow().allocs.clone(),
+            time_x2: self.0.borrow().time_x2,
+            calls_x2: self.0.borrow().calls_x2,
         }
     }
 }
@@ -172,7 +166,7 @@ pub struct StackCollector {
     /// Timestamp of last call enter or exit.
     last_time: Option<Instant>,
     ids: FunctionIds,
-    current: Vec<StackFrame>,
+    current: Vec<StackFrameBuilder>,
     /// What we are collecting.
     /// When unset, we are collecting allocated memory (not retained).
     /// When set, must be set to correct heap type (unfrozen or frozen), we are traversing.
@@ -183,7 +177,7 @@ impl StackCollector {
     pub(crate) fn new(retained: Option<HeapKind>) -> Self {
         Self {
             ids: FunctionIds::default(),
-            current: vec![StackFrame::new()],
+            current: vec![StackFrameBuilder::new()],
             last_time: None,
             retained,
         }
@@ -243,6 +237,32 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
     }
 }
 
+pub(crate) struct StackFrame {
+    pub(crate) callees: HashMap<FunctionId, StackFrame>,
+    pub(crate) allocs: HashMap<&'static str, AllocCounts>,
+    pub(crate) time_x2: SmallDuration,
+    pub(crate) calls_x2: u32,
+}
+
+impl StackFrame {
+    /// Write this stack frame's data to a file in a format flamegraph.pl understands
+    /// (each line is: `func1:func2:func3 BYTES`).
+    fn write<'a>(&self, file: &mut FlameGraphWriter, stack: &'_ mut Vec<&'a str>, ids: &[&'a str]) {
+        for (k, v) in &self.allocs {
+            file.write(
+                stack.iter().copied().chain(std::iter::once(*k)),
+                v.bytes as u64,
+            );
+        }
+
+        for (id, frame) in &self.callees {
+            stack.push(ids[id.0]);
+            frame.write(file, stack, ids);
+            stack.pop();
+        }
+    }
+}
+
 // TODO(nga): rename to `AggregatedProfileInfo`.
 pub(crate) struct Stacks {
     pub(crate) ids: FunctionIds,
@@ -258,7 +278,7 @@ impl Stacks {
         assert_eq!(1, collector.current.len());
         Stacks {
             ids: collector.ids,
-            root: collector.current.pop().unwrap(),
+            root: collector.current.pop().unwrap().build(),
         }
     }
 
@@ -284,17 +304,9 @@ mod tests {
     use crate::values::FrozenHeap;
     use crate::values::Heap;
 
-    fn total_alloc_count(frame: StackFrame) -> usize {
-        frame
-            .0
-            .borrow()
-            .allocs
-            .values()
-            .map(|v| v.count)
-            .sum::<usize>()
+    fn total_alloc_count(frame: &StackFrame) -> usize {
+        frame.allocs.values().map(|v| v.count).sum::<usize>()
             + frame
-                .0
-                .borrow()
                 .callees
                 .values()
                 .map(|c| total_alloc_count(c.dupe()))
@@ -310,9 +322,9 @@ mod tests {
         heap.record_call_exit();
 
         let stacks = Stacks::collect(&heap, None);
-        assert!(stacks.root.0.borrow().allocs.is_empty());
-        assert_eq!(1, stacks.root.0.borrow().callees.len());
-        assert_eq!(2, total_alloc_count(stacks.root.dupe()));
+        assert!(stacks.root.allocs.is_empty());
+        assert_eq!(1, stacks.root.callees.len());
+        assert_eq!(2, total_alloc_count(&stacks.root));
     }
 
     #[test]
@@ -329,27 +341,22 @@ mod tests {
         freezer.freeze(s1.to_value()).unwrap();
 
         let stacks = Stacks::collect(&heap, Some(HeapKind::Frozen));
-        assert!(stacks.root.0.borrow().allocs.is_empty());
-        assert_eq!(1, stacks.root.0.borrow().callees.len());
+        assert!(stacks.root.allocs.is_empty());
+        assert_eq!(1, stacks.root.callees.len());
         // 3 allocated, 2 retained.
-        // TODO(nga): this is less ugly in the following diff D37674011.
         assert_eq!(
             2,
             stacks
                 .root
-                .0
-                .borrow()
                 .callees
                 .values()
                 .next()
                 .unwrap()
-                .0
-                .borrow()
                 .allocs
                 .get("string")
                 .unwrap()
                 .count
         );
-        assert_eq!(2, total_alloc_count(stacks.root.dupe()));
+        assert_eq!(2, total_alloc_count(&stacks.root));
     }
 }
