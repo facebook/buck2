@@ -196,7 +196,7 @@ def _compiler(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_args
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     cmd = cmd_args(compiler)
-    cmd.add("-absname", "-g", "-noautolink", "-nostdlib")
+    cmd.add("-g", "-noautolink", "-nostdlib")
     cmd.add("-cc", cc)
 
     # Add the compiler's lib directory to the search path for .cmi
