@@ -14,6 +14,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::values::docs::StarlarkDocs;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
@@ -25,7 +26,7 @@ use starlark::values::ValueOf;
 /// An artifact that will be materialized to buck-out at the end of the bxl invocation.
 /// These artifacts can be printed to bxl's results. Doing so will print the path of the artifact
 /// rather than the standard representation.
-#[derive(Clone, Debug, Coerce, Trace, Freeze, ProvidesStaticType)]
+#[derive(Clone, Debug, Coerce, Trace, Freeze, ProvidesStaticType, StarlarkDocs)]
 #[repr(C)]
 pub struct EnsuredArtifactGen<V> {
     pub artifact: V,
