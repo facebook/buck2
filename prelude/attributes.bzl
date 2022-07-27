@@ -1,6 +1,8 @@
-# @generated
+# @generated SignedSource<<ef8587045530be8fdf1aa52624d88959>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
+# Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
+# instead of modifying this file.
 #
 # This contains attribute information for all buck's builtin rules.
 
