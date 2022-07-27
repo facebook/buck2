@@ -327,7 +327,6 @@ macro_rules! impl_has_error_disposition {
 }
 
 impl_has_error_disposition!(GetAttributesFromFilesError);
-impl_has_error_disposition!(GetFileInformationError);
 impl_has_error_disposition!(GlobFilesError);
 impl_has_error_disposition!(ListMountsError);
 impl_has_error_disposition!(SynchronizeWorkingCopyError);

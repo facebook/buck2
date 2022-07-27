@@ -24,9 +24,9 @@ use edenfs::types::Dtype;
 use edenfs::types::EdenErrorType;
 use edenfs::types::FileAttributeDataOrError;
 use edenfs::types::FileAttributes;
-use edenfs::types::FileInformationOrError;
 use edenfs::types::GetAttributesFromFilesParams;
 use edenfs::types::GlobParams;
+use edenfs::types::SourceControlType;
 use edenfs::types::SyncBehavior;
 use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
@@ -151,8 +151,11 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>> {
-        let requested_attributes =
-            i64::from(i32::from(FileAttributes::SHA1_HASH) | i32::from(FileAttributes::FILE_SIZE));
+        let requested_attributes = i64::from(
+            i32::from(FileAttributes::SHA1_HASH)
+                | i32::from(FileAttributes::FILE_SIZE)
+                | i32::from(FileAttributes::SOURCE_CONTROL_TYPE),
+        );
 
         let params = GetAttributesFromFilesParams {
             mountPoint: self.manager.get_mount_point(),
@@ -191,8 +194,8 @@ impl IoProvider for EdenIoProvider {
 
                 let digest = TrackedFileDigest::new(digest);
 
-                let is_executable =
-                    fetch_is_executable(self, self.manager.get_root(), &path).await?;
+                let is_executable = data.r#type.context("Eden did not return a type")?
+                    == SourceControlType::EXECUTABLE_FILE;
 
                 let meta = FileMetadata {
                     digest,
@@ -262,35 +265,6 @@ impl IoProvider for EdenIoProvider {
 
     fn fs(&self) -> &Arc<ProjectFilesystem> {
         self.fs.fs()
-    }
-}
-
-/// This is a hack. For the time being, Eden does no allow us to get file modes via FileAttributes
-/// so we have to get it separately (T117809710 tracks adding this to FileAttributes in Eden).
-async fn fetch_is_executable(
-    provider: &EdenIoProvider,
-    root: &str,
-    path: &ProjectRelativePathBuf,
-) -> anyhow::Result<bool> {
-    let root = root.as_bytes().to_vec();
-    let paths = vec![path.to_string().into_bytes()];
-
-    let attrs = provider
-        .manager
-        .with_eden(move |eden| eden.getFileInformation(&root, &paths, &no_sync()))
-        .await?;
-
-    let attr = attrs.into_iter().next().context("No attrs")?;
-
-    match attr {
-        FileInformationOrError::info(info) => {
-            let mode = nix::sys::stat::Mode::from_bits_truncate(
-                info.mode.try_into().context("invalid mode")?,
-            );
-            Ok(mode.intersects(nix::sys::stat::Mode::S_IXUSR))
-        }
-        FileInformationOrError::error(e) => Err(EdenError(e).into()),
-        FileInformationOrError::UnknownField(f) => Err(UnknownField(f).into()),
     }
 }
 
