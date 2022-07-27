@@ -31,6 +31,7 @@ use regex::Regex;
 use regex::RegexBuilder;
 use serde::Deserialize;
 use serde::Serialize;
+pub use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::codemap::Spanned;
