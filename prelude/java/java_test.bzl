@@ -39,17 +39,33 @@ def build_junit_test(
         if packaging_dep.jar
     ] + extra_classpath_entries)
 
-    run_from_cell_root = "buck2_run_from_cell_root" in (ctx.attrs.labels or [])
+    labels = ctx.attrs.labels or []
+    run_from_cell_root = "buck2_run_from_cell_root" in labels
+    uses_java8 = "run_with_java8" in labels
 
     classpath_args = cmd_args()
     if run_from_cell_root:
         classpath_args.relative_to(ctx.label.cell_root)
-    classpath_args.add("-classpath")
-    classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
-    classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
-    cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
-    cmd.append(junit_toolchain.junit_test_runner_main_class)
+    if uses_java8:
+        # Java 8 does not support using argfiles, and these tests can have huge classpaths so we need another
+        # mechanism to write the classpath to a file.
+        # We add "FileClassPathRunner" to the classpath, and then write a line-separated classpath file which we pass
+        # to the "FileClassPathRunner" as a system variable. The "FileClassPathRunner" then loads all the jars
+        # from that file onto the classpath, and delegates running the test to the junit test runner.
+        cmd.extend(["-classpath", cmd_args(junit_toolchain.junit_test_runner_library_jar)])
+        classpath_args.add(cmd_args(classpath))
+        classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
+        cmd.append(cmd_args(classpath_args_file, format = "-Dbuck.classpath_file={}").hidden(classpath_args))
+    else:
+        # Java 9+ supports argfiles, so just write the classpath to an argsfile. "FileClassPathRunner" will delegate
+        # immediately to the junit test runner.
+        classpath_args.add("-classpath")
+        classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
+        classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
+        cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
+
+    cmd.extend(junit_toolchain.junit_test_runner_main_class_args)
     if ctx.attrs.test_case_timeout_ms:
         cmd.extend(["--default_test_timeout", ctx.attrs.test_case_timeout_ms])
 

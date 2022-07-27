@@ -168,7 +168,7 @@ def junit_toolchain(name, **kwargs):
     kwargs["java_custom_class_loader_library_jar"] = "fbsource//xplat/buck2/tools/android/index_classloader:index_classloader" if use_custom_class_loader_for_junit_test else None
     kwargs["java_custom_class_loader_vm_args"] = [] if use_custom_class_loader_for_junit_test else None
     kwargs["junit_test_runner_library_jar"] = "buck//src/com/facebook/buck/testrunner:testrunner-bin-fixed"
-    kwargs["junit_test_runner_main_class"] = "com.facebook.buck.testrunner.JUnitMain"
+    kwargs["junit_test_runner_main_class_args"] = ["com.facebook.buck.jvm.java.runner.FileClassPathRunner", "com.facebook.buck.testrunner.JUnitMain"]
     kwargs["list_class_names"] = "fbsource//xplat/buck2/tools/java:list_class_names"
     kwargs["use_java_custom_class_loader"] = use_custom_class_loader_for_junit_test
 
@@ -182,7 +182,7 @@ def _junit_toolchain_rule_impl(ctx):
             java_custom_class_loader_library_jar = ctx.attrs.java_custom_class_loader_library_jar,
             java_custom_class_loader_vm_args = ctx.attrs.java_custom_class_loader_vm_args,
             junit_test_runner_library_jar = ctx.attrs.junit_test_runner_library_jar,
-            junit_test_runner_main_class = ctx.attrs.junit_test_runner_main_class,
+            junit_test_runner_main_class_args = ctx.attrs.junit_test_runner_main_class_args,
             list_class_names = ctx.attrs.list_class_names,
             use_java_custom_class_loader = ctx.attrs.use_java_custom_class_loader,
         ),
@@ -194,7 +194,7 @@ _junit_toolchain_rule = rule(
         "java_custom_class_loader_library_jar": attrs.option(attrs.source(), default = None),
         "java_custom_class_loader_vm_args": attrs.option(attrs.list(attrs.string()), default = None),
         "junit_test_runner_library_jar": attrs.source(),
-        "junit_test_runner_main_class": attrs.string(),
+        "junit_test_runner_main_class_args": attrs.list(attrs.string()),
         "list_class_names": attrs.dep(providers = [RunInfo]),
         "use_java_custom_class_loader": attrs.bool(),
     },

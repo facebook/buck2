@@ -9,6 +9,17 @@ native.java_test(
 )
 
 native.java_test(
+    name = "simple_java_test_with_java8",
+    srcs = ["com/example/SimpleJavaTest.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "8"},
+    labels = ["run_with_java8"],
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+)
+
+native.java_test(
     name = "java_test_running_from_cell_root",
     srcs = ["com/example/SimpleJavaTest.java"],
     # fbcode java wrapper requires this env var.

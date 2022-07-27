@@ -44,7 +44,7 @@ JUnitToolchainInfo = provider(
         "java_custom_class_loader_library_jar",
         "java_custom_class_loader_vm_args",
         "junit_test_runner_library_jar",
-        "junit_test_runner_main_class",
+        "junit_test_runner_main_class_args",
         "list_class_names",
         "use_java_custom_class_loader",
     ],
