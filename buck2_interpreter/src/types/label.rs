@@ -24,6 +24,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_complex_value;
 use starlark::starlark_type;
+use starlark::values::docs::StarlarkDocs;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -44,7 +45,16 @@ impl<V> LabelGen<V> {
 }
 
 /// Container for `ConfiguredProvidersLabel` that gives users access to things like package, cell, etc. This can also be properly stringified by our forthcoming `CommandLine` object
-#[derive(Clone, Debug, Coerce, Display, Trace, Freeze, ProvidesStaticType)]
+#[derive(
+    Clone,
+    Debug,
+    Coerce,
+    Display,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    StarlarkDocs
+)]
 #[display(fmt = "{}", label)]
 #[repr(C)]
 pub struct LabelGen<V> {
