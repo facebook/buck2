@@ -386,10 +386,6 @@ impl BaseCommandContext {
 
     /// Provides a DiceComputations. This may be missing some data or injected keys that
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    fn unsafe_dice_ctx(&self) -> DiceTransaction {
-        self.unsafe_dice_ctx_with_more_data(|v| v)
-    }
-
     fn unsafe_dice_ctx_with_more_data<F: FnOnce(UserComputationData) -> UserComputationData>(
         &self,
         func: F,
@@ -585,17 +581,6 @@ impl ServerCommandContext {
             }
         };
 
-        let dice_ctx = self.base_context.unsafe_dice_ctx();
-        setup_interpreter(
-            &dice_ctx,
-            cell_resolver,
-            configuror,
-            legacy_configs,
-            self.starlark_profiler_instrumentation_override.dupe(),
-            self.disable_starlark_types,
-        );
-        dice_ctx.commit();
-
         let executor_config =
             get_executor_config_for_strategy(execution_strategy, self.host_platform_override);
         let blocking_executor: Arc<_> = self.base_context.blocking_executor.dupe();
@@ -605,7 +590,7 @@ impl ServerCommandContext {
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
 
-        Ok(self
+        let dice_ctx = self
             .base_context
             .unsafe_dice_ctx_with_more_data(move |mut data| {
                 set_fallback_executor_config(&mut data.data, executor_config);
@@ -623,7 +608,17 @@ impl ServerCommandContext {
                 data.set_run_action_knobs(run_action_knobs);
                 data.spawner = Arc::new(BuckSpawner::default());
                 data
-            }))
+            });
+
+        setup_interpreter(
+            &dice_ctx,
+            cell_resolver,
+            configuror,
+            legacy_configs,
+            self.starlark_profiler_instrumentation_override.dupe(),
+            self.disable_starlark_types,
+        );
+        Ok(dice_ctx.commit())
     }
 
     pub(crate) fn file_system(&self) -> ProjectFilesystem {
