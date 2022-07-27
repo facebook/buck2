@@ -34,3 +34,17 @@ html[data-theme='dark'] .docusaurus-highlight-code-line {
 .button {
   margin: 0px 10px;
 }
+
+table.starlark_members_table td:nth-child(1) {
+  width: 20%;
+  max-width: 0;
+}
+
+table.starlark_members_table td:nth-child(2) {
+  width: 45%;
+}
+
+table.starlark_members_table td:nth-child(3) {
+  width: 30%;
+  max-width: 0;
+}

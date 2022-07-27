@@ -184,7 +184,7 @@ impl<'a> FunctionDetailsRenderer<'a> {
             .map(|(name, docs)| TableRow(vec![box Code(box name), box docs]))
             .collect();
 
-        let table = Table(header, rows);
+        let table = Table(Some("starlark_parameters_table"), header, rows);
         table.generate_markdown(flavor)
     }
 }
@@ -305,7 +305,7 @@ impl<'a> AsMarkdown for ObjectRenderer<'a> {
                     .map(|s| format!("\n\n{}", s))
                     .unwrap_or_default();
 
-                let members_header = TableHeader(&["Member", "Type", "Description"]);
+                let members_header = TableHeader(&["Member", "Description", "Type"]);
 
                 let (members_rows, member_details): (Vec<TableRow>, Vec<String>) = self
                     .object
@@ -319,16 +319,19 @@ impl<'a> AsMarkdown for ObjectRenderer<'a> {
                                 &f.docs,
                                 TypeRenderer::Function {
                                     function_name: None,
-                                    show_param_details: false,
-                                    max_args_before_multiline: None,
+                                    show_param_details: true,
+                                    max_args_before_multiline: Some(0),
                                     f,
                                 },
                             ),
                         };
                         let row = TableRow(vec![
                             box name.clone(),
-                            box Code(box typ),
                             box DocStringRenderer(DSOpts::Summary, summary),
+                            box CodeBlock {
+                                language: Some("python".to_owned()),
+                                contents: box typ,
+                            },
                         ]);
                         let details = MemberDetails {
                             name: name.clone(),
@@ -340,7 +343,8 @@ impl<'a> AsMarkdown for ObjectRenderer<'a> {
                     .unzip();
 
                 let members_table =
-                    Table(members_header, members_rows).generate_markdown_or_empty(flavor);
+                    Table(Some("starlark_members_table"), members_header, members_rows)
+                        .generate_markdown_or_empty(flavor);
                 let members_details = member_details.join("\n\n---\n");
 
                 let page_body = format!(
@@ -492,7 +496,7 @@ impl<'a> AsMarkdown for TypeRenderer<'a> {
                     };
                     match max_args_per_line {
                         Some(i) if *i < f.params.len() => {
-                            let chunked_params = params.join(",\n    ");
+                            let chunked_params = params.join(",\n  ");
                             Some(format!(
                                 "{}(\n    {}\n) -> {}",
                                 prefix, chunked_params, ret_type
@@ -544,22 +548,26 @@ impl<'a> AsMarkdown for CodeBlock<'a> {
     }
 }
 
-/// A table.
-pub struct Table<'a>(TableHeader<'a>, Vec<TableRow<'a>>);
+/// A table with an optional css class to be applied.
+pub struct Table<'a>(Option<&'a str>, TableHeader<'a>, Vec<TableRow<'a>>);
 
 impl<'a> AsMarkdown for Table<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 let rows = self
-                    .1
+                    .2
                     .iter()
                     .filter_map(|row| row.generate_markdown(flavor))
                     .join("\n");
 
-                self.0
-                    .generate_markdown(flavor)
-                    .map(|header| format!("{}\n{}", header, rows))
+                self.1.generate_markdown(flavor).map(|header| {
+                    let css_class = format!("starlark_table{}", self.0.map(|c| format!(" {}", c)).unwrap_or_default());
+                    format!(
+                        "<table class=\"{}\">\n<thead>\n{}\n</thead>\n<tbody>\n{}\n</tbody>\n</table>",
+                        css_class, header, rows
+                    )
+                })
             }
             MarkdownFlavor::LspSummary => None,
         }
@@ -572,22 +580,13 @@ pub struct TableHeader<'a>(&'a [&'a str]);
 impl<'a> AsMarkdown for TableHeader<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
-            MarkdownFlavor::DocFile => {
-                let (header_row, dashes_row): (Vec<_>, Vec<_>) = self
-                    .0
+            MarkdownFlavor::DocFile => Some(format!(
+                "<tr>\n{}\n</tr>",
+                self.0
                     .iter()
-                    .map(|col| {
-                        let header_cell = col.generate_markdown_or_empty(flavor);
-                        let dashes_cell = "-".repeat(header_cell.len());
-                        (header_cell, dashes_cell)
-                    })
-                    .unzip();
-                Some(format!(
-                    "| {} |\n|-{}-|",
-                    header_row.join(" | "),
-                    dashes_row.join("-|-")
-                ))
-            }
+                    .map(|col| format!("<th>{}</th>", col))
+                    .join("\n")
+            )),
             MarkdownFlavor::LspSummary => None,
         }
     }
@@ -600,14 +599,20 @@ pub struct TableRow<'a>(Vec<Box<dyn AsMarkdown + 'a>>);
 impl<'a> AsMarkdown for TableRow<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
-            MarkdownFlavor::DocFile => {
-                let inner = self
-                    .0
+            MarkdownFlavor::DocFile => Some(format!(
+                "<tr>\n{}\n</tr>",
+                self.0
                     .iter()
-                    .map(|cell| cell.generate_markdown_or_empty(flavor))
-                    .join(" | ");
-                Some(format!("| {} |", inner))
-            }
+                    .map(|col| {
+                        let text = col.generate_markdown(flavor).unwrap_or_default();
+                        if text.is_empty() {
+                            "<td></td>".to_owned()
+                        } else {
+                            format!("<td>\n\n{}\n\n</td>", text)
+                        }
+                    })
+                    .join("\n")
+            )),
             MarkdownFlavor::LspSummary => None,
         }
     }
@@ -846,6 +851,7 @@ mod test {
         let f4_prototype = prototype("f4", &f4);
 
         let rendered_params = render(&Table(
+            Some("starlark_parameters_table"),
             TableHeader(&["Name", "Details"]),
             vec![
                 TableRow(vec![
@@ -984,27 +990,37 @@ mod test {
         };
 
         let member_table = render(&Table(
-            TableHeader(&["Member", "Type", "Description"]),
+            Some("starlark_members_table"),
+            TableHeader(&["Member", "Description", "Type"]),
             vec![
                 TableRow(vec![
                     box "f1".to_owned(),
-                    box Code(box TypeRenderer::Function {
-                        show_param_details: false,
-                        max_args_before_multiline: None,
-                        function_name: None,
-                        f: &f1,
-                    }),
                     box render_ds_summary(&ds),
+                    box CodeBlock {
+                        language: Some("python".to_owned()),
+                        contents: box TypeRenderer::Function {
+                            show_param_details: true,
+                            max_args_before_multiline: Some(0),
+                            function_name: None,
+                            f: &f1,
+                        },
+                    },
                 ]),
                 TableRow(vec![
                     box "p1".to_owned(),
-                    box Code(box TypeRenderer::Type(&p1.typ)),
                     box render_ds_summary(&ds),
+                    box CodeBlock {
+                        language: Some("python".to_owned()),
+                        contents: box TypeRenderer::Type(&p1.typ),
+                    },
                 ]),
                 TableRow(vec![
                     box "p2".to_owned(),
-                    box Code(box TypeRenderer::Type(&p2.typ)),
                     box render_ds_summary(&ds),
+                    box CodeBlock {
+                        language: Some("python".to_owned()),
+                        contents: box TypeRenderer::Type(&p2.typ),
+                    },
                 ]),
             ],
         ));
@@ -1156,20 +1172,20 @@ mod test {
             ]),
         ];
         let expected = format!(
-            "{}\n{}\n{}",
+            "<table class=\"starlark_table css_class\">\n<thead>\n{}\n</thead>\n<tbody>\n{}\n{}\n</tbody>\n</table>",
             render(&header),
             render(rows.get(0).unwrap()),
             render(rows.get(1).unwrap())
         );
 
-        let table = Table(header, rows);
+        let table = Table(Some("css_class"), header, rows);
 
         assert_eq!(expected, render(&table));
     }
 
     #[test]
     fn doc_file_table_header() {
-        let expected = "| column1 | col2 | column3 |\n|---------|------|---------|";
+        let expected = "<tr>\n<th>column1</th>\n<th>col2</th>\n<th>column3</th>\n</tr>";
         let header = TableHeader(&["column1", "col2", "column3"]);
 
         assert_eq!(expected, render(&header));
@@ -1177,11 +1193,11 @@ mod test {
 
     #[test]
     fn doc_file_table_row() {
-        let expected = "| h1 | h2 | `h3` |";
+        let expected = "<tr>\n<td>\n\nh1\n\n</td>\n<td>\n\n`h2`\n\n</td>\n<td></td>\n</tr>";
         let row = TableRow(vec![
             box "h1".to_owned(),
-            box "h2".to_owned(),
-            box Code(box "h3".to_owned()),
+            box Code(box "h2".to_owned()),
+            box String::new(),
         ]);
 
         assert_eq!(expected, render(&row));
