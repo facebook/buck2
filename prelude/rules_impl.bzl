@@ -326,6 +326,9 @@ extra_attributes = struct(
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
     },
+    prebuilt_cxx_library_group = {
+        "preferred_linkage": attrs.option(attrs.enum(Linkage), default = None),
+    },
 
     # go
     go_binary = {
