@@ -333,3 +333,4 @@ impl_has_error_handling_strategy!(SynchronizeWorkingCopyError);
 impl_has_error_handling_strategy!(SetPathObjectIdError);
 impl_has_error_handling_strategy!(RemoveRecursivelyError);
 impl_has_error_handling_strategy!(EnsureMaterializedError);
+impl_has_error_handling_strategy!(ReaddirError);
