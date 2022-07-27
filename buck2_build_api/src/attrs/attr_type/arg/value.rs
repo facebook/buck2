@@ -81,7 +81,7 @@ pub fn add_output_to_arg(
     artifact: &StarlarkArtifact,
 ) -> anyhow::Result<()> {
     let path = builder
-        .resolve_artifact(&artifact.get_bound()?)?
+        .resolve_artifact(&artifact.get_bound_deprecated()?)?
         .into_string();
     builder.push_str(&path);
     Ok(())

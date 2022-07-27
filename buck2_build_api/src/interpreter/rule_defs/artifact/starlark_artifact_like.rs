@@ -42,7 +42,7 @@ pub trait StarlarkArtifactLike: Display {
     fn output_artifact(&self) -> anyhow::Result<OutputArtifact>;
 
     /// Gets the bound artifact, or errors if the artifact is not bound
-    fn get_bound(&self) -> anyhow::Result<Artifact>;
+    fn get_bound_deprecated(&self) -> anyhow::Result<Artifact>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {

@@ -210,7 +210,7 @@ impl FrozenDefaultInfo {
                 value
                     .as_artifact()
                     .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                    .get_bound()?,
+                    .get_bound_deprecated()?,
             )
         })
     }
@@ -287,7 +287,7 @@ impl ArtifactTraversable for &dyn StarlarkArtifactLike {
         &self,
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
-        processor(ArtifactGroup::Artifact(self.get_bound()?))?;
+        processor(ArtifactGroup::Artifact(self.get_bound_deprecated()?))?;
         Ok(())
     }
 }

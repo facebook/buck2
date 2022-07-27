@@ -88,7 +88,7 @@ impl UnregisteredSymlinkedDirAction {
             .iter()
             .map(|(k, v)| {
                 Some((
-                    ArtifactGroup::Artifact(v.as_artifact()?.get_bound().ok()?),
+                    ArtifactGroup::Artifact(v.as_artifact()?.get_bound_deprecated().ok()?),
                     PathBuf::from(k.unpack_str()?),
                 ))
             })

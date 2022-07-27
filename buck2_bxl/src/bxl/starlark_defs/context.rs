@@ -191,7 +191,7 @@ impl<'v> BxlContext<'v> {
                 .as_ref()
                 .take_artifacts()
                 .into_iter()
-                .map(|v| v.as_artifact().unwrap().get_bound())
+                .map(|v| v.as_artifact().unwrap().get_bound_deprecated())
                 .collect::<anyhow::Result<_>>()?,
         ))
     }

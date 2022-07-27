@@ -54,7 +54,7 @@ impl FrozenInstallInfo {
                 k.unpack_str().expect("should be a string"),
                 v.as_artifact()
                     .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                    .get_bound()?,
+                    .get_bound_deprecated()?,
             );
         }
         Ok(artifacts)

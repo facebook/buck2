@@ -179,7 +179,7 @@ impl<'v> RelativeOrigin<'v> {
             Self::Artifact(artifact) => {
                 // Shame we require the artifact to be bound here, we really just needs its
                 // path even if it is unbound.
-                let artifact = artifact.get_bound()?;
+                let artifact = artifact.get_bound_deprecated()?;
                 ctx.resolve_artifact(&artifact)?
             }
             Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,

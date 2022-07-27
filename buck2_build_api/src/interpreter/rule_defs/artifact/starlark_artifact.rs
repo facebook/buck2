@@ -66,7 +66,7 @@ impl<'v> UnpackValue<'v> for StarlarkArtifact {
         if let Some(x) = value.downcast_ref::<StarlarkArtifact>() {
             Some(x.dupe())
         } else if let Some(x) = value.downcast_ref::<StarlarkDeclaredArtifact>() {
-            x.get_bound().ok().map(StarlarkArtifact::new)
+            x.get_bound_deprecated().ok().map(StarlarkArtifact::new)
         } else {
             None
         }
@@ -135,7 +135,8 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         }
     }
 
-    fn get_bound(&self) -> anyhow::Result<Artifact> {
+    // All uses of this are to be migrated in upcoming changes
+    fn get_bound_deprecated(&self) -> anyhow::Result<Artifact> {
         Ok(self.artifact.dupe())
     }
 

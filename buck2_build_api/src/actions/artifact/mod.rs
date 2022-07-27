@@ -273,7 +273,7 @@ impl DeclaredArtifact {
     /// Ensure that the artifact is bound.
     ///
     /// This is called before we freeze the artifacts by the artifact registry.
-    /// When we freeze `DeclaredArtifact`, we then just call `get_bound()`, and `expect`
+    /// When we freeze `DeclaredArtifact`, we then just call `get_bound_deprecated()`, and `expect`
     /// it to be valid. We have the `ensure_bound` method to make sure that we can return
     /// a friendlier message to users because `freeze()` does not return error messages
     pub(crate) fn ensure_bound(self) -> anyhow::Result<BoundBuildArtifact> {

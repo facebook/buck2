@@ -373,7 +373,7 @@ fn copy_file<'v>(
     let (output_value, output_artifact) = this.get_or_declare_output(eval, dest, "dest")?;
 
     this.register_action(
-        indexset![ArtifactGroup::Artifact(src.get_bound()?)],
+        indexset![ArtifactGroup::Artifact(src.get_bound_deprecated()?)],
         indexset![output_artifact],
         UnregisteredCopyAction::new(copy),
         None,
