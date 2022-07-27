@@ -63,16 +63,39 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
         })
         .collect();
 
+    // Complex values take a generic `V`, so we cannot call their impl's __generated_documentation
+    // function directly. We need to have a different getter, and to avoid requiring a lifetime,
+    // we just use FrozenValue.
+    //
+    // For now, we just assume if the struct ends in "Gen", it is a starlark_complex_value.
+    // It would be simple enough to make this configurable in the future if required.
+    let is_complex_value = name.to_string().ends_with("Gen");
+    let getter_call = match is_complex_value {
+        true => {
+            let frozen = Ident::new(
+                &format!(
+                    "Frozen{}",
+                    name_str.strip_suffix("Gen").unwrap_or(&name_str)
+                ),
+                name.span(),
+            );
+            quote_spanned! {span=> super::#frozen::__generated_documentation}
+        }
+        false => quote_spanned! {span=> super::#name::__generated_documentation },
+    };
+
     Ok(quote_spanned! {span=>
-        impl #generics #name #generics {
+        impl #generics #name #generics  {
+            // Use 'docs here instead of 'v because someone might have 'v in th eir generics'
+            // constraints, and we'd end up with duplicate lifetime definition errors.
             #[doc(hidden)]
-            pub fn __generated_documentation() -> Option<starlark::values::docs::Doc> {
-                let name = <#name as starlark::values::StarlarkValue>::get_type_value_static().as_str().to_owned();
+            pub fn __generated_documentation<'docs>() -> Option<starlark::values::docs::Doc> where Self: StarlarkValue<'docs> {
+                let name = <Self as starlark::values::StarlarkValue>::get_type_value_static().as_str().to_owned();
                 let id = starlark::values::docs::Identifier {
                     name,
                     location: None,
                 };
-                let item = <#name as starlark::values::StarlarkValue>::get_methods()?.documentation();
+                let item = <Self as starlark::values::StarlarkValue>::get_methods()?.documentation();
                 let custom_attrs = std::collections::HashMap::from([
                     #(#custom_attrs),*
                 ]);
@@ -95,7 +118,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 #[allow(unknown_lints)]
                 #[allow(gazebo_lint_use_box)]
                 self::starlark::values::docs::RegisteredDoc {
-                    getter: Box::new(super::#name::__generated_documentation)
+                    getter: Box::new(#getter_call)
                 }
             }
         }

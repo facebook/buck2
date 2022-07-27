@@ -17,6 +17,9 @@
 
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use serde::Serialize;
+use serde::Serializer;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
@@ -29,6 +32,7 @@ use crate::values::docs::DocString;
 use crate::values::docs::DocStringKind;
 use crate::values::docs::Member;
 use crate::values::StarlarkValue;
+use crate::values::ValueLike;
 
 /// Main module docs
 #[starlark_module]
@@ -47,6 +51,48 @@ starlark_simple_value!(TestExample);
 
 impl<'v> StarlarkValue<'v> for TestExample {
     starlark_type!("TestExample");
+
+    fn get_methods() -> Option<&'static Methods>
+    where
+        Self: Sized,
+    {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(object_docs_1)
+    }
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Coerce,
+    Display,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    StarlarkDocs
+)]
+#[repr(C)]
+struct ComplexTestExampleGen<V>(V);
+
+impl<V> Serialize for ComplexTestExampleGen<V>
+where
+    V: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+starlark_complex_value!(ComplexTestExample);
+
+impl<'v, T: ValueLike<'v> + 'v + ProvidesStaticType> StarlarkValue<'v> for ComplexTestExampleGen<T>
+where
+    Self: ProvidesStaticType,
+{
+    starlark_type!("ComplexTestExample");
 
     fn get_methods() -> Option<&'static Methods>
     where
@@ -83,6 +129,35 @@ fn test_derive_docs() {
             .unwrap()
     );
     assert!(docs.custom_attrs.is_empty());
+}
+
+#[test]
+fn test_derive_docs_on_complex_values() {
+    let complex_docs = get_registered_docs()
+        .into_iter()
+        .find(|d| d.id.name == "ComplexTestExample")
+        .unwrap();
+    let complex_obj = match complex_docs.item {
+        DocItem::Object(o) => o,
+        _ => panic!("Expected object as docitem"),
+    };
+
+    assert_eq!(
+        DocString::from_docstring(DocStringKind::Rust, "Main module docs"),
+        complex_obj.docs
+    );
+    assert_eq!(
+        DocString::from_docstring(DocStringKind::Rust, "Returns the string \"foo\""),
+        complex_obj
+            .members
+            .iter()
+            .find_map(|(name, m)| match m {
+                Member::Property(p) if name == "foo" => Some(p.docs.clone()),
+                _ => None,
+            })
+            .unwrap()
+    );
+    assert!(complex_docs.custom_attrs.is_empty());
 }
 
 /// Main module docs
