@@ -19,8 +19,6 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derivative::Derivative;
-use edenfs::types::EdenErrorType;
-use edenfs::types::FileAttributeDataOrError;
 use edenfs::types::FileAttributes;
 use edenfs::types::GetAttributesFromFilesParams;
 use edenfs::types::ReaddirParams;
@@ -35,7 +33,6 @@ use tokio::sync::Semaphore;
 use crate::eden::EdenConnectionManager;
 use crate::eden::EdenDataIntoResult;
 use crate::eden::EdenError;
-use crate::eden::UnknownField;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
 use crate::file_ops::FileType;
@@ -200,8 +197,9 @@ impl IoProvider for EdenIoProvider {
             .into_iter()
             .next()
             .context("Eden did not return file info")?
+            .into_result()
         {
-            FileAttributeDataOrError::data(data) => {
+            Ok(data) => {
                 tracing::debug!("getAttributesFromFiles({}): ok", path,);
                 let digest = FileDigest {
                     sha1: data
@@ -229,34 +227,27 @@ impl IoProvider for EdenIoProvider {
 
                 Ok(Some(PathMetadata::File(meta).into()))
             }
-            FileAttributeDataOrError::error(e) => {
-                tracing::debug!("getAttributesFromFiles({}): {} ()", e.errorType, e.message);
-
-                match e.errorType {
-                    EdenErrorType::POSIX_ERROR => {
-                        match e.errorCode.map(nix::errno::Errno::from_i32) {
-                            Some(nix::errno::Errno::EISDIR) => {
-                                return Ok(Some(PathMetadata::Directory.into()));
-                            }
-                            Some(nix::errno::Errno::ENOENT) => {
-                                return Ok(None);
-                            }
-                            // If we get EINVAL it means the target wasn't a file, and since we know it
-                            // existed and it wasn't a dir, then that means it must be a symlink. If we get
-                            // ENOTDIR, that means we tried to traverse a path component that was a
-                            // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
-                            // look through to the target, so we do that.
-                            // TODO: It would be better to read the link then ask Eden for the SHA1.
-                            Some(nix::errno::Errno::EINVAL) | Some(nix::errno::Errno::ENOTDIR) => {
-                                self.fs.read_path_metadata_if_exists(path).await
-                            }
-                            _ => Err(EdenError(e).into()),
-                        }
-                    }
-                    _ => Err(EdenError(e).into()),
-                }
+            Err(EdenError::PosixError { code, .. }) if code == nix::errno::Errno::EISDIR => {
+                tracing::debug!("getAttributesFromFiles({}): EISDIR", path);
+                Ok(Some(PathMetadata::Directory.into()))
             }
-            FileAttributeDataOrError::UnknownField(f) => Err(UnknownField(f).into()),
+            Err(EdenError::PosixError { code, .. }) if code == nix::errno::Errno::ENOENT => {
+                tracing::debug!("getAttributesFromFiles({}): ENOENT", path);
+                Ok(None)
+            }
+            Err(EdenError::PosixError { code, .. })
+                if code == nix::errno::Errno::EINVAL || code == nix::errno::Errno::ENOTDIR =>
+            {
+                // If we get EINVAL it means the target wasn't a file, and since we know it
+                // existed and it wasn't a dir, then that means it must be a symlink. If we get
+                // ENOTDIR, that means we tried to traverse a path component that was a
+                // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
+                // look through to the target, so we do that.
+                // TODO: It would be better to read the link then ask Eden for the SHA1.
+                tracing::debug!("getAttributesFromFiles({}): fallthrough", path);
+                self.fs.read_path_metadata_if_exists(path).await
+            }
+            Err(err) => Err(err.into()),
         }
     }
 

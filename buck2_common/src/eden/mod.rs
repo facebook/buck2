@@ -22,6 +22,8 @@ use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
+use edenfs::types::EdenErrorType;
+use edenfs::types::FileAttributeData;
 use edenfs::types::FileAttributeDataOrErrorV2;
 use edenfs::types::FileAttributeDataV2;
 use edenfs::types::MountState;
@@ -365,17 +367,39 @@ impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
 
 #[derive(Debug, Error)]
-#[error("Eden returned an error: {}", .0.message)]
-pub struct EdenError(pub edenfs::types::EdenError);
+pub enum EdenError {
+    #[error("Eden POSIX error: {}", .error.message)]
+    PosixError {
+        error: edenfs::types::EdenError,
+        code: nix::errno::Errno,
+    },
 
-#[derive(Debug, Error)]
-#[error("Eden returned an unexpected field: {0}")]
-pub struct UnknownField(pub i32);
+    #[error("Eden service error: {}", .error.message)]
+    ServiceError { error: edenfs::types::EdenError },
+
+    #[error("Eden returned an unexpected field: {}", .field)]
+    UnknownField { field: i32 },
+}
+
+impl From<edenfs::types::EdenError> for EdenError {
+    fn from(error: edenfs::types::EdenError) -> Self {
+        if error.errorType == EdenErrorType::POSIX_ERROR {
+            if let Some(error_code) = error.errorCode {
+                return Self::PosixError {
+                    error,
+                    code: nix::errno::Errno::from_i32(error_code),
+                };
+            }
+        }
+
+        Self::ServiceError { error }
+    }
+}
 
 pub trait EdenDataIntoResult {
     type Data;
 
-    fn into_result(self) -> anyhow::Result<Self::Data>;
+    fn into_result(self) -> Result<Self::Data, EdenError>;
 }
 
 macro_rules! impl_eden_data_into_result {
@@ -383,11 +407,11 @@ macro_rules! impl_eden_data_into_result {
         impl EdenDataIntoResult for ::edenfs::types::$typ {
             type Data = $data;
 
-            fn into_result(self) -> anyhow::Result<Self::Data> {
+            fn into_result(self) -> Result<Self::Data, EdenError> {
                 match self {
                     Self::$ok_variant(data) => Ok(data),
-                    Self::error(e) => Err(EdenError(e).into()),
-                    Self::UnknownField(f) => Err(UnknownField(f).into()),
+                    Self::error(e) => Err(e.into()),
+                    Self::UnknownField(field) => Err(EdenError::UnknownField { field }),
                 }
             }
         }
@@ -399,6 +423,8 @@ impl_eden_data_into_result!(
     SourceControlType,
     sourceControlType
 );
+
+impl_eden_data_into_result!(FileAttributeDataOrError, FileAttributeData, data);
 
 impl_eden_data_into_result!(
     FileAttributeDataOrErrorV2,
