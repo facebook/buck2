@@ -16,6 +16,8 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 INSTALL_DATA_SUB_TARGET = "install-data"
 _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
 
+_XCTOOLCHAIN_SUB_TARGET = "xctoolchain"
+
 AppleBundlePartListConstructorParams = record(
     # The binaries/executables, required to create a bundle
     binaries = field([AppleBundlePart.type]),
@@ -113,6 +115,8 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
     installer_run_info = ctx.attrs._apple_installer[RunInfo]
 
+    sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
+
     # Define the xcode data sub target
     sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
     install_data = generate_install_data(ctx)
@@ -132,9 +136,14 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         ),
     ]
 
+def _has_xctoolchain(ctx: "context") -> bool.type:
+    default_info = ctx.attrs._apple_xctoolchain[DefaultInfo]
+    return len(default_info.default_outputs) > 0
+
 def _xcode_populate_attributes(ctx) -> {str.type: ""}:
     return {
         "deployment_version": get_bundle_min_target_version(ctx),
+        "has_xctoolchain": _has_xctoolchain(ctx),
         "info_plist": ctx.attrs.info_plist,
         "product_name": get_product_name(ctx),
         "sdk": get_apple_sdk_name(ctx),

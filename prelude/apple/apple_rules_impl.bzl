@@ -51,6 +51,7 @@ extra_attributes = {
         "_apple_installer": attrs.exec_dep(default = "buck//src/com/facebook/buck/installer/apple:apple_installer", providers = [RunInfo]),
         "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_xctoolchain": attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain"),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attrs.bool(),

@@ -43,6 +43,27 @@ def resources_apple_toolchain():
     select_map = _get_apple_select_map(include_default = True, rule_type = _APPLE_TOOLCHAIN_RULE_TYPE, usage_type = _RESOURCES_USAGE_TYPE)
     return select(select_map)
 
+def default_apple_xctoolchain():
+    select_map = {"DEFAULT": None}
+
+    toolchain_type_to_name_map = {
+        _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE: "pika-13.3",
+        _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE: "pika-13.3",
+        _META_PIKA_14_LINUX_TOOLCHAIN_TYPE: "pika-14",
+        _META_PIKA_14_MACOS_TOOLCHAIN_TYPE: "pika-14",
+    }
+
+    for (toolchain_type, toolchain_name) in toolchain_type_to_name_map.items():
+        config_key = _get_toolchain_select_config(toolchain_type = toolchain_type, usage_type = _GENERIC_USAGE_TYPE)
+        toolchain_target = _get_xctoolchain_target(toolchain_name = toolchain_name)
+        select_map[config_key] = toolchain_target
+
+    return select(select_map)
+
+def _get_xctoolchain_target(toolchain_name: str.type) -> str.type:
+    # xctoolchain is an Xcode-specific toolchain bundle, so we always pick macOS-hosted ones, as Xcode only runs on macOS.
+    return "fbsource//xplat/toolchains/facebook-dt:{}-macos-noasserts-focus-xctoolchain".format(toolchain_name)
+
 def _get_apple_select_map(include_default: bool.type, rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     default_arch = _get_default_arch_for_macos_and_simulator_targets()
     select_map = {
