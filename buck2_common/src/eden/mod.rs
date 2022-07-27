@@ -112,7 +112,7 @@ impl EdenConnectionManager {
 
     pub async fn with_eden<F, Fut, T, E>(&self, f: F) -> Result<T, ConnectAndRequestError<E>>
     where
-        F: Fn(&(dyn EdenService + Send + Sync)) -> Fut + 'static,
+        F: Fn(&(dyn EdenService + Send + Sync)) -> Fut,
         Fut: Future<Output = Result<T, E>>,
         E: HasErrorHandlingStrategy + Display,
     {

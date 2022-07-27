@@ -121,7 +121,10 @@ impl IoProvider for EdenIoProvider {
 
         let res = self
             .manager
-            .with_eden(move |eden| eden.readdir(&params))
+            .with_eden(|eden| {
+                tracing::trace!("readdir({})", path);
+                eden.readdir(&params)
+            })
             .await?
             .dirLists;
 
@@ -131,7 +134,7 @@ impl IoProvider for EdenIoProvider {
             .context("Eden did not return a directory result")?
             .into_result()?;
 
-        tracing::trace!("readdir({}): {} entries", path, data.len(),);
+        tracing::debug!("readdir({}): {} entries", path, data.len(),);
 
         let entries = data
             .into_iter()
@@ -186,7 +189,10 @@ impl IoProvider for EdenIoProvider {
 
         let attrs = self
             .manager
-            .with_eden(move |eden| eden.getAttributesFromFiles(&params))
+            .with_eden(|eden| {
+                tracing::trace!("getAttributesFromFiles({})", path);
+                eden.getAttributesFromFiles(&params)
+            })
             .await?;
 
         match attrs
@@ -196,7 +202,7 @@ impl IoProvider for EdenIoProvider {
             .context("Eden did not return file info")?
         {
             FileAttributeDataOrError::data(data) => {
-                tracing::trace!("getAttributesFromFiles({}): ok", path,);
+                tracing::debug!("getAttributesFromFiles({}): ok", path,);
                 let digest = FileDigest {
                     sha1: data
                         .sha1
@@ -224,7 +230,7 @@ impl IoProvider for EdenIoProvider {
                 Ok(Some(PathMetadata::File(meta).into()))
             }
             FileAttributeDataOrError::error(e) => {
-                tracing::trace!("getAttributesFromFiles({}): {} ()", e.errorType, e.message);
+                tracing::debug!("getAttributesFromFiles({}): {} ()", e.errorType, e.message);
 
                 match e.errorType {
                     EdenErrorType::POSIX_ERROR => {
