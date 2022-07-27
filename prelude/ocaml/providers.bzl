@@ -47,6 +47,8 @@ OCamlLinkInfo = provider(
 OCamlLibraryInfo = record(
     # The library target name: e.g. "`foo`"
     name = str.type,
+    # The full library target: e.g. "`fbcode//...:foo`"
+    target = "label",
     # .a (C archives e.g. `libfoo_stubs.a`)
     c_libs = ["artifact"],
     # .o (Native compiler produced stubs)

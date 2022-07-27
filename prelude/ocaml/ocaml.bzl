@@ -228,7 +228,29 @@ def _compiler_compile(ctx: "context", compiler: "cmd_args", cc: "cmd_args", incl
     cmd.add("-annot", "-bin-annot")
     cmd.add(ocaml_toolchain.ocaml_compiler_flags)
 
-    for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
+    # All ocaml libs in context
+    ocaml_libs = merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info
+
+    # Targets immediately depended upon
+    accessible_deps = [d.label for d in ctx.attrs.deps]
+
+    # External deps come through 'platform_deps'
+    accessible_deps.extend([d.label for d in _by_platform(ctx, ctx.attrs.platform_deps)])
+
+    # Harvest include paths.
+    for lib in ocaml_libs:
+        # Generate -I's to the library's .cmi directories iff the library is
+        # immediately depended upon by the current target (i.e. ctx.target).
+        #
+        # The effect of this is to make use of modules only indirectly depended
+        # upon (or completely missing) generate unbound module errors.
+        #
+        # This means a library used by a target, must be an explicit dependency
+        # of that target. That is, a library only transitively depended on can't
+        # be used by the target.
+        if lib.target not in accessible_deps:
+            continue
+
         # [Note]: Include path calculations
         # ---------------------------------
         # For libraries that we produce:
@@ -569,6 +591,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     infos.append(
         OCamlLinkInfo(info = [OCamlLibraryInfo(
             name = ctx.attrs.name,
+            target = ctx.label,
             c_libs = [],
             stbs_nat = stbs_nat,
             stbs_byt = stbs_byt,
@@ -763,6 +786,7 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
 
     info = OCamlLibraryInfo(
         name = name,
+        target = ctx.label,
         c_libs = c_libs,
         cmas = cmas,
         cmxas = cmxas,
