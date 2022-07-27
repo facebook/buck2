@@ -83,11 +83,7 @@ fn maybe_dice_dump(daemon_state: &Arc<DaemonStateData>, info: &PanicInfo, panic_
             "Buck2 panicked and DICE may be responsible. Please be patient as we try to dump DICE graph to `{:?}`",
             dice_dump_folder
         );
-        if let Err(e) = crate::daemon::dice_dump::dice_dump(
-            &daemon_state.dice(),
-            &dice_dump_folder,
-            DiceDumpFormat::Serde,
-        ) {
+        if let Err(e) = daemon_state.dice_dump(&dice_dump_folder, DiceDumpFormat::Serde) {
             eprintln!("Failed to dump DICE graph: {:#}", e);
         } else {
             let maybe_report_msg = if cfg!(fbcode_build) {

@@ -19,14 +19,12 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use gazebo::dupe::Dupe;
 
-use crate::daemon::server::BaseCommandContext;
-
 pub(crate) async fn dice_dump_spawn(
-    server_ctx: BaseCommandContext,
+    dice: &Arc<Dice>,
     path: &Path,
     format: DiceDumpFormat,
 ) -> anyhow::Result<()> {
-    let dice = server_ctx.dice().dupe();
+    let dice = dice.dupe();
     let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || dice_dump(&dice, &path, format))
         .await

@@ -93,6 +93,7 @@ use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
+use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::*;
 use dice::cycles::DetectCycles;
 use dice::data::DiceData;
@@ -144,7 +145,6 @@ use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::common::ToProtoDuration;
-use crate::daemon::dice_dump::dice_dump_spawn;
 use crate::daemon::install::install;
 use crate::daemon::materialize::materialize;
 use crate::daemon::profile::generate_profile;
@@ -223,8 +223,16 @@ pub(crate) struct DaemonStateData {
 }
 
 impl DaemonStateData {
-    pub(crate) fn dice(&self) -> Arc<Dice> {
-        self.dice.dupe()
+    pub(crate) fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+        crate::daemon::dice_dump::dice_dump(&self.dice, path, format)
+    }
+
+    pub(crate) async fn spawn_dice_dump(
+        &self,
+        path: &Path,
+        format: DiceDumpFormat,
+    ) -> anyhow::Result<()> {
+        crate::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
     }
 }
 
@@ -380,10 +388,6 @@ impl BaseCommandContext {
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
     fn unsafe_dice_ctx(&self) -> DiceTransaction {
         self.unsafe_dice_ctx_with_more_data(|v| v)
-    }
-
-    pub(crate) fn dice(&self) -> &Arc<Dice> {
-        &self.dice
     }
 
     fn unsafe_dice_ctx_with_more_data<F: FnOnce(UserComputationData) -> UserComputationData>(
@@ -2164,19 +2168,15 @@ impl DaemonApi for BuckdServer {
         let inner = req.into_inner();
         let path = inner.destination_path;
         let res: anyhow::Result<_> = try {
-            let (_, dispatch) = self.daemon_state.prepare_events(TraceId::new()).await?;
-            let ctx = with_dispatcher_async(
-                dispatch.dupe(),
-                self.daemon_state.prepare_command(dispatch.dupe()),
-            )
-            .await?;
-
             let path = Path::new(&path);
             let format_proto =
                 cli_proto::unstable_dice_dump_request::DiceDumpFormat::from_i32(inner.format)
                     .context("Invalid DICE dump format")?;
 
-            dice_dump_spawn(ctx, path, format_proto)
+            self.daemon_state
+                .data()
+                .await?
+                .spawn_dice_dump(path, format_proto)
                 .await
                 .with_context(|| format!("Failed to perform dice dump to {}", path.display()))?;
 
