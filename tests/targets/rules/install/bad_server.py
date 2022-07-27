@@ -82,7 +82,10 @@ def parse_args(args=None):
         action="store_true",
         help="flag that if set then need to produce a wrong install id response",
     )
-    return parser.parse_args(args)
+
+    # no need to parse --tcp-port and other not related params
+    args, _ = parser.parse_known_args(args)
+    return args
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@
  */
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::net::TcpListener;
 use std::process::Stdio;
 
 use anyhow::Context;
@@ -62,7 +64,6 @@ use crate::daemon::common::resolve_patterns;
 use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::server::ServerCommandContext;
 
-pub static DEFAULT_PORT: &str = "50055";
 pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, Error)]
@@ -165,6 +166,13 @@ pub(crate) async fn install(
     Ok(InstallResponse {})
 }
 
+fn get_random_tcp_port() -> anyhow::Result<u16> {
+    let bind_address = std::net::Ipv4Addr::LOCALHOST.into();
+    let socket_addr = SocketAddr::new(bind_address, 0);
+    let tcp_port = TcpListener::bind(socket_addr)?.local_addr()?.port();
+    Ok(tcp_port)
+}
+
 async fn build_install(
     ctx: &DiceComputations,
     target_label: &buck2_core::target::ConfiguredTargetLabel,
@@ -179,13 +187,27 @@ async fn build_install(
     };
     let build_installer_and_connect = async move {
         let tmp_dir = Builder::new().tempdir()?;
-        let filename = format!("{}/installer.sock", tmp_dir.into_path().to_str().unwrap());
-        installer_run_args.extend(vec!["--named-pipe".to_owned(), filename.to_owned()]);
+        let uds_socket_filename =
+            format!("{}/installer.sock", tmp_dir.into_path().to_str().unwrap());
+
+        // FIXME: The random unused tcp port might be available when get_random_tcp_port() is called,
+        // but when the installer tries to bind on it, someone else might bind on it.
+        // TODO: choose unused tcp port on installer side.
+        // The way communication may happen:
+        // 1. buck2 passes a temp file for a tcp port output.
+        // 2. installer app choose unused tcp port and writes it into the passed file.
+        // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
+        let tcp_port = get_random_tcp_port()?;
+        installer_run_args.extend(vec![
+            "--named-pipe".to_owned(),
+            uds_socket_filename.to_owned(),
+            "--tcp-port".to_owned(),
+            tcp_port.to_string(),
+        ]);
         build_launch_installer(ctx, install_info, installer_run_args).await?;
 
-        // These numbers might need to be configured based on the installer
-        // Current time seems to be 0m0.727s for run from buck2
-        let client: InstallerClient<Channel> = connect_to_installer(filename.to_owned()).await?;
+        let client: InstallerClient<Channel> =
+            connect_to_installer(uds_socket_filename.to_owned(), tcp_port).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
         let install_id = format!("{}", target_label);
 
@@ -362,13 +384,17 @@ async fn materialize_artifact_group(
 }
 
 #[cfg(unix)]
-async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerClient<Channel>> {
+async fn connect_to_installer(
+    unix_socket: String,
+    tcp_port: u16,
+) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
     use super::client_utils::get_channel;
     use super::client_utils::retrying;
     use super::client_utils::ConnectionType;
 
+    // These numbers might need to be configured based on the installer
     let initial_delay = Duration::from_millis(100);
     let max_delay = Duration::from_millis(500);
     let timeout = Duration::from_secs(5);
@@ -387,12 +413,15 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
     let channel = match attempt_channel {
         Ok(channel) => channel,
         Err(err) => {
-            println!("Failed to connect with UDS: {:#} Falling back to TCP", err);
+            println!(
+                "Failed to connect with UDS: {:#} Falling back to TCP on port: {}",
+                err, tcp_port
+            );
             retrying(initial_delay, max_delay, timeout, async || {
                 get_channel(
                     ConnectionType::Tcp {
                         socket: DEFAULT_SOCKET_ADDR.to_owned(),
-                        port: DEFAULT_PORT.to_owned(),
+                        port: tcp_port.to_string(),
                     },
                     false,
                 )
@@ -402,14 +431,19 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
             .context("Failed to connect to with TCP and UDS")?
         }
     };
-    let client = InstallerClient::new(channel);
-    Ok(client)
+    Ok(InstallerClient::new(channel))
 }
 
 #[cfg(windows)]
-async fn connect_to_installer(_unix_socket: String) -> anyhow::Result<InstallerClient<Channel>> {
+async fn connect_to_installer(
+    _unix_socket: String,
+    tcp_port: u16,
+) -> anyhow::Result<InstallerClient<Channel>> {
     use tonic::transport::Endpoint;
-    let channel = Endpoint::try_from("http://0.0.0.0:50055")?
+    let url = format!("http://{}:{}", DEFAULT_SOCKET_ADDR, tcp_port);
+    println!("Trying to connect using TCP port: {}", tcp_port);
+
+    let channel = Endpoint::try_from(url)?
         .connect()
         .await
         .context("Failed to connect to installer domain socket file")?;

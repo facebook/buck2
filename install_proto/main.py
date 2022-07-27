@@ -126,7 +126,9 @@ def parse_args(args=None):
         help="named pipe for installer to connect to",
         required=True,
     )
-    return parser.parse_args(args)
+    # no need to parse --tcp-port and other not related params
+    args, _ = parser.parse_known_args(args)
+    return args
 
 
 if __name__ == "__main__":
