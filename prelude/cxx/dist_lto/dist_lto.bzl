@@ -514,6 +514,9 @@ def cxx_dist_link(
             category_suffix = category_suffix,
             referenced_objects = final_link_inputs,
             dwp_output = dwp_output,
+            # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
+            # ensure all dwo source files are available
+            local_only = True,
         )
 
     return LinkedObject(

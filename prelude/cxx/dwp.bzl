@@ -11,7 +11,8 @@ def run_dwp_action(
         identifier: [str.type, None],
         category_suffix: [str.type, None],
         referenced_objects: ["_arglike", ["artifact"]],
-        dwp_output: "artifact"):
+        dwp_output: "artifact",
+        local_only: bool.type):
     args = cmd_args()
     dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
     args.add("/bin/sh", "-c", '"$1" -o "$2" -e "$3" && touch "$2"', "")
@@ -29,10 +30,7 @@ def run_dwp_action(
         args,
         category = category,
         identifier = identifier,
-        # dwp produces ELF files on the same size scale as the corresponding @obj.
-        # The files are a concatentation of input DWARF debug info.
-        # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
-        local_only = link_cxx_binary_locally(ctx),
+        local_only = local_only,
     )
 
 def dwp(
@@ -52,5 +50,16 @@ def dwp(
         referenced_objects: ["_arglike", ["artifact"]]) -> "artifact":
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
-    run_dwp_action(ctx, obj, identifier, category_suffix, referenced_objects, output)
+    run_dwp_action(
+        ctx,
+        obj,
+        identifier,
+        category_suffix,
+        referenced_objects,
+        output,
+        # dwp produces ELF files on the same size scale as the corresponding @obj.
+        # The files are a concatentation of input DWARF debug info.
+        # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
+        local_only = link_cxx_binary_locally(ctx),
+    )
     return output
