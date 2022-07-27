@@ -48,10 +48,12 @@ pub async fn create_io_provider(
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(all(unix, feature = "eden_io"))]
     {
+        let allow_eden_io_by_default = cfg!(target_os = "macos");
+
         let allow_eden_io = root_config
             .and_then(|c| c.parse::<bool>("buck2", "allow_eden_io").transpose())
             .transpose()?
-            .unwrap_or_default();
+            .unwrap_or(allow_eden_io_by_default);
 
         if allow_eden_io {
             if let Some(eden) = eden::EdenIoProvider::new(fb, &project_fs).await? {
