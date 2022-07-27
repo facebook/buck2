@@ -378,7 +378,7 @@ impl BaseCommandContext {
 
     /// Provides a DiceComputations. This may be missing some data or injected keys that
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    pub(crate) fn unsafe_dice_ctx(&self) -> DiceTransaction {
+    fn unsafe_dice_ctx(&self) -> DiceTransaction {
         self.unsafe_dice_ctx_with_more_data(|v| v)
     }
 
