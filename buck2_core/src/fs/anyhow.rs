@@ -154,6 +154,28 @@ pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn remove_symlink<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    remove_symlink_impl(path.as_ref())
+        .with_context(|| format!("remove_symlink({})", P::as_ref(&path).display()))?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn remove_symlink_impl(path: &Path) -> anyhow::Result<()> {
+    remove_file(path)
+}
+
+#[cfg(windows)]
+fn remove_symlink_impl(path: &Path) -> anyhow::Result<()> {
+    // For windows, follow the symlink to get the underlying type
+    let metadata = metadata(&path)?;
+    if metadata.is_dir() {
+        remove_dir(&path)
+    } else {
+        remove_file(&path)
+    }
+}
+
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     fs::read_to_string(&path)
         .with_context(|| format!("read_to_string({})", P::as_ref(&path).display()))
@@ -165,4 +187,65 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
 
 pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     fs::remove_dir(&path).with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+
+    use assert_matches::assert_matches;
+
+    use crate::fs::anyhow::create_dir_all;
+    use crate::fs::anyhow::remove_dir_all;
+    use crate::fs::anyhow::remove_symlink;
+    use crate::fs::anyhow::symlink;
+    use crate::fs::anyhow::symlink_metadata;
+
+    #[test]
+    fn create_and_remove_symlink_dir() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = tempdir.path().join("root");
+        create_dir_all(&root)?;
+        let dir1 = root.join("dir1");
+        let symlink_dir1 = root.join("symlink_dir1");
+
+        // Create dir1 and link symlink_dir1 to dir1
+        create_dir_all(&dir1)?;
+        assert!(symlink_metadata(&dir1)?.is_dir());
+        symlink(&dir1, &symlink_dir1)?;
+        assert!(symlink_metadata(&symlink_dir1)?.is_symlink());
+
+        // Remove the symlink, dir1 should still be in tact
+        remove_symlink(&symlink_dir1)?;
+        assert!(symlink_metadata(&dir1)?.is_dir());
+        assert_matches!(symlink_metadata(&symlink_dir1), Err(..));
+
+        // Clean up
+        remove_dir_all(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn create_and_remove_symlink_file() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = tempdir.path().join("root");
+        create_dir_all(&root)?;
+        let file1 = root.join("file1");
+        let symlink_file1 = root.join("symlink_file1");
+
+        // Create file1 and link symlink_file1 to file1
+        File::create(&file1)?;
+        assert!(symlink_metadata(&file1)?.is_file());
+        symlink(&file1, &symlink_file1)?;
+        assert!(symlink_metadata(&symlink_file1)?.is_symlink());
+
+        // Remove the symlink, file1 should still be in tact
+        remove_symlink(&symlink_file1)?;
+        assert!(symlink_metadata(&file1)?.is_file());
+        assert_matches!(symlink_metadata(&symlink_file1), Err(..));
+
+        // Clean up
+        remove_dir_all(&root)?;
+        Ok(())
+    }
 }

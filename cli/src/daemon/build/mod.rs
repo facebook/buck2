@@ -319,10 +319,12 @@ fn create_unhashed_link(
 
     match fs::symlink_metadata(&abs_unhashed_path) {
         Ok(metadata) => {
-            if metadata.is_file() {
-                fs::remove_file(&abs_unhashed_path)?
-            } else {
+            if metadata.is_dir() {
                 fs::remove_dir_all(&abs_unhashed_path)?
+            } else if metadata.is_symlink() {
+                fs::remove_symlink(&abs_unhashed_path)?
+            } else {
+                fs::remove_file(&abs_unhashed_path)?
             }
         }
         Err(_) => {}
