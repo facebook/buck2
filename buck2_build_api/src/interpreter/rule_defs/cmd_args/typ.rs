@@ -31,6 +31,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
+use starlark::values::docs::StarlarkDocs;
 use starlark::values::list::List;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -216,7 +217,15 @@ unsafe impl<'v> Coerce<StarlarkCommandLineDataGen<'v, Value<'v>>>
 {
 }
 
-#[derive(Debug, Default, Clone, Trace, ProvidesStaticType, Serialize)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Trace,
+    ProvidesStaticType,
+    Serialize,
+    StarlarkDocs
+)]
 #[serde(bound = "V : Serialize", transparent)]
 pub struct StarlarkCommandLineGen<V>(V);
 
