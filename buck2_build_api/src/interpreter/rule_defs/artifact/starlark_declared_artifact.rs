@@ -19,6 +19,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
@@ -100,6 +101,16 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     // All uses of this are to be migrated in upcoming changes
     fn get_bound_deprecated(&self) -> anyhow::Result<Artifact> {
         Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
+    }
+
+    fn get_bound_artifact(&self) -> anyhow::Result<Artifact> {
+        Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
+    }
+
+    fn get_bound_artifact_and_additional_artifacts(
+        &self,
+    ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)> {
+        Ok((self.get_bound_artifact()?, IndexSet::new()))
     }
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {

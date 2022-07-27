@@ -10,6 +10,7 @@
 use std::fmt::Display;
 use std::hash::Hash;
 
+use indexmap::IndexSet;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -17,6 +18,7 @@ use starlark::values::ValueLike;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactPath;
 use crate::actions::artifact::OutputArtifact;
+use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -42,7 +44,16 @@ pub trait StarlarkArtifactLike: Display {
     fn output_artifact(&self) -> anyhow::Result<OutputArtifact>;
 
     /// Gets the bound artifact, or errors if the artifact is not bound
+    /// This is deprecated in favour of either `get_bound_artifact` or `get_bound_artifact_and_additional_artifacts`
     fn get_bound_deprecated(&self) -> anyhow::Result<Artifact>;
+
+    /// Gets the bound main artifact, or errors if the artifact is not bound
+    fn get_bound_artifact(&self) -> anyhow::Result<Artifact>;
+
+    /// Gets the main artifact and any other additional entities that should be materialized along with it
+    fn get_bound_artifact_and_additional_artifacts(
+        &self,
+    ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {
