@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::process::Stdio;
@@ -22,6 +25,7 @@ use buck2_build_api::actions::directory::ActionDirectoryMember;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::execute::materializer::ArtifactMaterializer;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -30,7 +34,9 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::*;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
@@ -39,6 +45,9 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::execute::config::PathSeparatorKind;
+use chrono::DateTime;
+use chrono::NaiveDateTime;
+use chrono::Utc;
 use cli_proto::InstallRequest;
 use cli_proto::InstallResponse;
 use dice::DiceComputations;
@@ -85,6 +94,20 @@ pub(crate) enum InstallError {
     InternalInstallerFailure { install_id: String, err: String },
     #[error("Communication with the installer failed with `{err}`")]
     InstallerCommunicationFailure { err: String },
+}
+
+async fn get_installer_log_directory(
+    server_ctx: &ServerCommandContext,
+    ctx: &DiceComputations,
+) -> anyhow::Result<AbsPathBuf> {
+    let out_path = ctx.get_buck_out_path().await?;
+    let filesystem = server_ctx.file_system();
+    let buck_out_path = (*out_path).resolve(&filesystem.root);
+    let install_log_dir = buck_out_path.join_unnormalized(ForwardRelativePathBuf::unchecked_new(
+        "installer".to_owned(),
+    ));
+    fs::create_dir_all(&install_log_dir)?;
+    Ok(install_log_dir)
 }
 
 pub(crate) async fn install(
@@ -145,8 +168,10 @@ pub(crate) async fn install(
                     for arg in &request.installer_run_args {
                         installer_run_args.push(arg.clone());
                     }
+                    let install_log_dir = get_installer_log_directory(&server_ctx, ctx).await?;
                     build_install(
                         ctx,
+                        &install_log_dir,
                         providers_label.target(),
                         install_info,
                         installer_run_args,
@@ -173,8 +198,21 @@ fn get_random_tcp_port() -> anyhow::Result<u16> {
     Ok(tcp_port)
 }
 
+fn get_timestamp_as_string() -> String {
+    let nt = NaiveDateTime::from_timestamp(Utc::now().timestamp(), 0);
+    let dt: DateTime<Utc> = DateTime::from_utc(nt, Utc);
+    dt.format("%Y%m%d-%H%M%S").to_string()
+}
+
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
+
 async fn build_install(
     ctx: &DiceComputations,
+    install_log_dir: &AbsPathBuf,
     target_label: &buck2_core::target::ConfiguredTargetLabel,
     install_info: FrozenRef<'static, FrozenInstallInfo>,
     mut installer_run_args: Vec<String>,
@@ -186,6 +224,8 @@ async fn build_install(
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
+        let install_id = format!("{}", target_label);
+
         let tmp_dir = Builder::new().tempdir()?;
         let uds_socket_filename =
             format!("{}/installer.sock", tmp_dir.into_path().to_str().unwrap());
@@ -198,18 +238,27 @@ async fn build_install(
         // 2. installer app choose unused tcp port and writes it into the passed file.
         // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
         let tcp_port = get_random_tcp_port()?;
+
+        let installer_log_filename = format!(
+            "{}/installer_{}_{}.log",
+            install_log_dir,
+            get_timestamp_as_string(),
+            calculate_hash(&install_id)
+        );
+
         installer_run_args.extend(vec![
             "--named-pipe".to_owned(),
             uds_socket_filename.to_owned(),
             "--tcp-port".to_owned(),
             tcp_port.to_string(),
+            "--log-path".to_owned(),
+            installer_log_filename.to_owned(),
         ]);
         build_launch_installer(ctx, install_info, installer_run_args).await?;
 
         let client: InstallerClient<Channel> =
             connect_to_installer(uds_socket_filename.to_owned(), tcp_port).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
-        let install_id = format!("{}", target_label);
 
         send_install_info(client.clone(), &install_id, install_files, &artifact_fs).await?;
 
