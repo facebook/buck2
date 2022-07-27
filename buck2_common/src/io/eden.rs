@@ -19,24 +19,23 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derivative::Derivative;
-use edenfs::types::DirListAttributeDataOrError;
 use edenfs::types::EdenErrorType;
 use edenfs::types::FileAttributeDataOrError;
-use edenfs::types::FileAttributeDataOrErrorV2;
 use edenfs::types::FileAttributes;
 use edenfs::types::GetAttributesFromFilesParams;
 use edenfs::types::ReaddirParams;
 use edenfs::types::SourceControlType;
-use edenfs::types::SourceControlTypeOrError;
 use edenfs::types::SyncBehavior;
 use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
-use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::eden::EdenConnectionManager;
+use crate::eden::EdenDataIntoResult;
+use crate::eden::EdenError;
+use crate::eden::UnknownField;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
 use crate::file_ops::FileType;
@@ -46,14 +45,6 @@ use crate::file_ops::SimpleDirEntry;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::fs::FsIoProvider;
 use crate::io::IoProvider;
-
-#[derive(Debug, Error)]
-#[error("Eden returned an error: {}", .0.message)]
-struct EdenError(edenfs::types::EdenError);
-
-#[derive(Debug, Error)]
-#[error("Eden returned an unexpected field: {0}")]
-struct UnknownField(i32);
 
 #[derive(Derivative)]
 #[derivative(PartialEq)]
@@ -106,62 +97,45 @@ impl IoProvider for EdenIoProvider {
             .await?
             .dirLists;
 
-        match res
+        let data = res
             .into_iter()
             .next()
             .context("Eden did not return a directory result")?
-        {
-            DirListAttributeDataOrError::dirListAttributeData(data) => {
-                tracing::trace!("readdir({}): {} entries", path, data.len(),);
-                let entries = data
-                    .into_iter()
-                    .map(|(file_name, attrs)| {
-                        let file_name = String::from_utf8(file_name)
-                            .context("Filename is not UTF-8")
-                            .and_then(TryInto::try_into)
-                            .context("Filename is invalid")?;
+            .into_result()?;
 
-                        let attrs = match attrs {
-                            FileAttributeDataOrErrorV2::fileAttributeData(attrs) => attrs,
-                            FileAttributeDataOrErrorV2::error(e) => return Err(EdenError(e).into()),
-                            FileAttributeDataOrErrorV2::UnknownField(f) => {
-                                return Err(UnknownField(f).into());
-                            }
-                        };
+        tracing::trace!("readdir({}): {} entries", path, data.len(),);
 
-                        let source_control_type = match attrs
-                            .sourceControlType
-                            .context("Missing sourceControlType")?
-                        {
-                            SourceControlTypeOrError::sourceControlType(data) => data,
-                            SourceControlTypeOrError::error(e) => return Err(EdenError(e).into()),
-                            SourceControlTypeOrError::UnknownField(f) => {
-                                return Err(UnknownField(f).into());
-                            }
-                        };
+        let entries = data
+            .into_iter()
+            .map(|(file_name, attrs)| {
+                let file_name = String::from_utf8(file_name)
+                    .context("Filename is not UTF-8")
+                    .and_then(TryInto::try_into)
+                    .context("Filename is invalid")?;
 
-                        let file_type = match source_control_type {
-                            SourceControlType::TREE => FileType::Directory,
-                            SourceControlType::REGULAR_FILE
-                            | SourceControlType::EXECUTABLE_FILE => FileType::File,
-                            SourceControlType::SYMLINK => FileType::Symlink,
-                            _ => FileType::Unknown,
-                        };
+                let source_control_type = attrs
+                    .into_result()?
+                    .sourceControlType
+                    .context("Missing sourceControlType")?
+                    .into_result()?;
 
-                        anyhow::Ok(SimpleDirEntry {
-                            file_type,
-                            file_name,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok(entries)
-            }
-            DirListAttributeDataOrError::error(e) => {
-                tracing::trace!("readdir({}): {} ({})", path, e.errorType, e.message);
-                Err(EdenError(e).into())
-            }
-            DirListAttributeDataOrError::UnknownField(f) => Err(UnknownField(f).into()),
-        }
+                let file_type = match source_control_type {
+                    SourceControlType::TREE => FileType::Directory,
+                    SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
+                        FileType::File
+                    }
+                    SourceControlType::SYMLINK => FileType::Symlink,
+                    _ => FileType::Unknown,
+                };
+
+                anyhow::Ok(SimpleDirEntry {
+                    file_type,
+                    file_name,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(entries)
     }
 
     async fn read_path_metadata_if_exists(

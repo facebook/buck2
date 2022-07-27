@@ -21,7 +21,11 @@ use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
+use edenfs::types::FileAttributeDataOrErrorV2;
+use edenfs::types::FileAttributeDataV2;
 use edenfs::types::MountState;
+use edenfs::types::PathString;
+use edenfs::types::SourceControlType;
 use fbinit::FacebookInit;
 use futures::future::BoxFuture;
 use futures::future::Future;
@@ -29,6 +33,7 @@ use futures::future::FutureExt;
 use futures::future::Shared;
 use gazebo::prelude::*;
 use parking_lot::Mutex;
+use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
@@ -334,3 +339,51 @@ impl_has_error_handling_strategy!(SetPathObjectIdError);
 impl_has_error_handling_strategy!(RemoveRecursivelyError);
 impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
+
+#[derive(Debug, Error)]
+#[error("Eden returned an error: {}", .0.message)]
+pub struct EdenError(pub edenfs::types::EdenError);
+
+#[derive(Debug, Error)]
+#[error("Eden returned an unexpected field: {0}")]
+pub struct UnknownField(pub i32);
+
+pub trait EdenDataIntoResult {
+    type Data;
+
+    fn into_result(self) -> anyhow::Result<Self::Data>;
+}
+
+macro_rules! impl_eden_data_into_result {
+    ($typ: ident, $data: ty, $ok_variant: ident) => {
+        impl EdenDataIntoResult for ::edenfs::types::$typ {
+            type Data = $data;
+
+            fn into_result(self) -> anyhow::Result<Self::Data> {
+                match self {
+                    Self::$ok_variant(data) => Ok(data),
+                    Self::error(e) => Err(EdenError(e).into()),
+                    Self::UnknownField(f) => Err(UnknownField(f).into()),
+                }
+            }
+        }
+    };
+}
+
+impl_eden_data_into_result!(
+    SourceControlTypeOrError,
+    SourceControlType,
+    sourceControlType
+);
+
+impl_eden_data_into_result!(
+    FileAttributeDataOrErrorV2,
+    FileAttributeDataV2,
+    fileAttributeData
+);
+
+impl_eden_data_into_result!(
+    DirListAttributeDataOrError,
+    SortedVectorMap<PathString, FileAttributeDataOrErrorV2>,
+    dirListAttributeData
+);

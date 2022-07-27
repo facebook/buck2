@@ -36,6 +36,8 @@ derivative = "2.0"
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
+sorted_vector_map.version = "0.1"
+# @oss-disable: sorted_vector_map.path = "../../common/rust/shed/sorted_vector_map"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 xattr = "0.2.2"
