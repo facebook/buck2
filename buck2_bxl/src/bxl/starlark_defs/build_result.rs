@@ -63,7 +63,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
 starlark_simple_value!(StarlarkBxlBuildResult);
 
 impl<'v> StarlarkValue<'v> for StarlarkBxlBuildResult {
-    starlark_type!("bxl-build-result");
+    starlark_type!("bxl_build_result");
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

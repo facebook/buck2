@@ -48,7 +48,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactI
 where
     Self: ProvidesStaticType,
 {
-    starlark_type!("bxl-built-artifacts-iterable");
+    starlark_type!("bxl_built_artifacts_iterable");
 
     fn iterate<'a>(
         &'a self,
@@ -97,7 +97,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIter
 where
     Self: ProvidesStaticType,
 {
-    starlark_type!("bxl-failed-artifacts-iterable");
+    starlark_type!("bxl_failed_artifacts_iterable");
 
     fn iterate<'a>(
         &'a self,

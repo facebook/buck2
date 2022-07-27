@@ -65,7 +65,7 @@ pub(crate) struct CliArgs {
 starlark_simple_value!(CliArgs);
 
 impl<'v> StarlarkValue<'v> for CliArgs {
-    starlark_type!("bxl-cli-args");
+    starlark_type!("bxl_cli_args");
 }
 
 impl CliArgs {
