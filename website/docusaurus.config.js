@@ -72,7 +72,7 @@ const itemFilter = require('./sidebars.js').itemFilter;
             items: [
               {
                 label: 'User guide',
-                to: '/docs/index',
+                to: '/docs',
               },
             ],
           },
