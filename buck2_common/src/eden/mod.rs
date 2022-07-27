@@ -312,7 +312,7 @@ impl HasErrorHandlingStrategy for IsMountReadyError {
     }
 }
 
-macro_rules! impl_has_error_disposition {
+macro_rules! impl_has_error_handling_strategy {
     ($err: ident) => {
         impl HasErrorHandlingStrategy for ::edenfs::errors::eden_service::$err {
             fn error_handling_strategy(&self) -> ErrorHandlingStrategy {
@@ -326,10 +326,10 @@ macro_rules! impl_has_error_disposition {
     };
 }
 
-impl_has_error_disposition!(GetAttributesFromFilesError);
-impl_has_error_disposition!(GlobFilesError);
-impl_has_error_disposition!(ListMountsError);
-impl_has_error_disposition!(SynchronizeWorkingCopyError);
-impl_has_error_disposition!(SetPathObjectIdError);
-impl_has_error_disposition!(RemoveRecursivelyError);
-impl_has_error_disposition!(EnsureMaterializedError);
+impl_has_error_handling_strategy!(GetAttributesFromFilesError);
+impl_has_error_handling_strategy!(GlobFilesError);
+impl_has_error_handling_strategy!(ListMountsError);
+impl_has_error_handling_strategy!(SynchronizeWorkingCopyError);
+impl_has_error_handling_strategy!(SetPathObjectIdError);
+impl_has_error_handling_strategy!(RemoveRecursivelyError);
+impl_has_error_handling_strategy!(EnsureMaterializedError);
