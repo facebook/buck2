@@ -9,6 +9,7 @@ rust_library(
     features = ["eden_io"],
     named_deps = {
         "edenfs": "//eden/fs/service:thrift-rust",
+        "fb303_core": "//fb303/thrift:fb303_core-rust",
     },
     os_deps = [
         (

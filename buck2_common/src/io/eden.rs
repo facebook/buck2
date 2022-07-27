@@ -55,22 +55,50 @@ pub struct EdenIoProvider {
 }
 
 impl EdenIoProvider {
-    pub fn new(fb: FacebookInit, fs: &Arc<ProjectFilesystem>) -> anyhow::Result<Option<Self>> {
+    pub async fn new(
+        fb: FacebookInit,
+        fs: &Arc<ProjectFilesystem>,
+    ) -> anyhow::Result<Option<Self>> {
         if cfg!(not(fbcode_build)) {
-            tracing::warn!("Cargo build detected: disabling Eden I/O");
+            tracing::warn!("Disabling Eden I/O: Cargo build detected");
             return Ok(None);
         }
+
+        const MINIMUM_SUPPORTED_EDEN_VERSION: &str = "20220720-094125";
 
         static EDEN_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_SEMAPHORE");
         let eden_semaphore = EDEN_SEMAPHORE.get()?.unwrap_or(2048);
 
-        match EdenConnectionManager::new(fb, &fs.root, Semaphore::new(eden_semaphore))? {
-            Some(manager) => Ok(Some(Self {
-                manager,
-                fs: FsIoProvider::new(fs.dupe()),
-            })),
-            None => Ok(None),
+        let manager =
+            match EdenConnectionManager::new(fb, &fs.root, Semaphore::new(eden_semaphore))? {
+                Some(manager) => manager,
+                None => return Ok(None),
+            };
+
+        let eden_version = manager
+            .get_eden_version()
+            .await
+            .context("Error querying Eden version")?;
+
+        if let Some(eden_version) = &eden_version {
+            if eden_version.as_str() < MINIMUM_SUPPORTED_EDEN_VERSION {
+                tracing::warn!(
+                    "Disabling Eden I/O: \
+                    your Eden version ({}) is too old to support Eden I/O (minimum required: {}). \
+                    Update Eden then restart Buck2 to use Eden I/O.",
+                    eden_version,
+                    MINIMUM_SUPPORTED_EDEN_VERSION
+                );
+                return Ok(None);
+            }
+        } else {
+            tracing::warn!("You are using a development version of Eden, enabling Eden I/O");
         }
+
+        Ok(Some(Self {
+            manager,
+            fs: FsIoProvider::new(fs.dupe()),
+        }))
     }
 }
 

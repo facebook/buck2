@@ -31,6 +31,7 @@ thiserror = "1.0.24"
 tokio = { version = "1.5", features = ["full"] }
 tracing = "0.1"
 # @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
+# @oss-disable: fb303_core = { package = "fb303_core", path = "../../fb303/thrift", optional = true }
 nix = "0.22"
 derivative = "2.0"
 fbinit.version = "0.1"
@@ -47,7 +48,7 @@ xattr = "0.2.2"
 
 [features]
 # @oss-disable: default = ["gazebo_lint", "eden_io"]
-# @oss-disable: eden_io = ["edenfs"]
+# @oss-disable: eden_io = ["edenfs", "fb303_core"]
 eden_io = [] # @oss-enable
 
 [dev-dependencies]

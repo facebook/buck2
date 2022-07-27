@@ -10,6 +10,7 @@
 // Eden's Thrift API does sometime want &Vec<...>.
 #![allow(clippy::useless_vec)]
 
+use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -26,6 +27,7 @@ use edenfs::types::FileAttributeDataV2;
 use edenfs::types::MountState;
 use edenfs::types::PathString;
 use edenfs::types::SourceControlType;
+use fb303_core::client::BaseService;
 use fbinit::FacebookInit;
 use futures::future::BoxFuture;
 use futures::future::Future;
@@ -88,6 +90,24 @@ impl EdenConnectionManager {
 
     pub fn get_mount_point(&self) -> Vec<u8> {
         self.connector.root.as_bytes().to_vec()
+    }
+
+    /// Returns a string like "20220102-030405", assuming this is a release version. This is
+    /// pattern-matched off of what the Eden CLI does.
+    pub async fn get_eden_version(&self) -> anyhow::Result<Option<String>> {
+        let fb303 = self.connector.connect_fb303()?;
+        let values = fb303.getRegexExportedValues("^build_.*").await?;
+
+        fn join_version(values: &BTreeMap<String, String>) -> Option<String> {
+            let version = values.get("build_package_version")?;
+            let release = values.get("build_package_release")?;
+            if version.is_empty() || release.is_empty() {
+                return None;
+            }
+            Some(format!("{}-{}", version, release))
+        }
+
+        Ok(join_version(&values))
     }
 
     pub async fn with_eden<F, Fut, T, E>(&self, f: F) -> Result<T, ConnectAndRequestError<E>>
@@ -188,14 +208,7 @@ impl EdenConnector {
 
             #[cfg(fbcode_build)]
             {
-                // NOTE: This timeout is absurdly high, but bear in mind that what we're
-                // "comparing" to is a FS call that has no timeouts at all.
-                const EDEN_THRIFT_TIMEOUT_MS: u32 = 120_000;
-
-                eden = ::thriftclient::ThriftChannelBuilder::from_path(fb, socket)?
-                    .with_conn_timeout(EDEN_THRIFT_TIMEOUT_MS)
-                    .with_recv_timeout(EDEN_THRIFT_TIMEOUT_MS)
-                    .with_secure(false)
+                eden = fbcode::thrift_builder(fb, socket)?
                     .build_client(::edenfs::client::make_EdenService);
             }
 
@@ -218,6 +231,17 @@ impl EdenConnector {
         })
         .boxed()
         .shared()
+    }
+
+    #[cfg(fbcode_build)]
+    fn connect_fb303(&self) -> anyhow::Result<Arc<dyn BaseService + Send + Sync>> {
+        fbcode::thrift_builder(self.fb, &self.socket)?
+            .build_client(::fb303_core::client::make_BaseService)
+    }
+
+    #[cfg(not(fbcode_build))]
+    fn connect_fb303(&self) -> anyhow::Result<Arc<dyn BaseService + Send + Sync>> {
+        Err(anyhow::anyhow!("Eden I/O is not available in Cargo builds"))
     }
 }
 
@@ -387,3 +411,24 @@ impl_eden_data_into_result!(
     SortedVectorMap<PathString, FileAttributeDataOrErrorV2>,
     dirListAttributeData
 );
+
+#[cfg(fbcode_build)]
+mod fbcode {
+    use std::path::Path;
+
+    use super::*;
+
+    pub fn thrift_builder<P: AsRef<Path>>(
+        fb: FacebookInit,
+        socket: P,
+    ) -> anyhow::Result<::thriftclient::ThriftChannelBuilder> {
+        // NOTE: This timeout is absurdly high, but bear in mind that what we're
+        // "comparing" to is a FS call that has no timeouts at all.
+        const THRIFT_TIMEOUT_MS: u32 = 120_000;
+
+        Ok(::thriftclient::ThriftChannelBuilder::from_path(fb, socket)?
+            .with_conn_timeout(THRIFT_TIMEOUT_MS)
+            .with_recv_timeout(THRIFT_TIMEOUT_MS)
+            .with_secure(false))
+    }
+}

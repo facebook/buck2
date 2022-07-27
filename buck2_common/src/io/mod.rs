@@ -41,7 +41,7 @@ impl PartialEq for dyn IoProvider {
     }
 }
 
-pub fn create_io_provider(
+pub async fn create_io_provider(
     fb: fbinit::FacebookInit,
     project_fs: Arc<ProjectFilesystem>,
     root_config: Option<&LegacyBuckConfig>,
@@ -54,7 +54,7 @@ pub fn create_io_provider(
             .unwrap_or_default();
 
         if allow_eden_io {
-            if let Some(eden) = eden::EdenIoProvider::new(fb, &project_fs)? {
+            if let Some(eden) = eden::EdenIoProvider::new(fb, &project_fs).await? {
                 return Ok(Arc::new(eden));
             }
         }

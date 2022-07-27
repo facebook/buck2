@@ -740,7 +740,8 @@ impl DaemonState {
             fb,
             Arc::new(fs),
             legacy_configs.get(cells.root_cell()).ok(),
-        )?;
+        )
+        .await?;
 
         let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(
             (**io.fs()).clone(),
