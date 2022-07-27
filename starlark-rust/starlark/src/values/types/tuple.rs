@@ -27,6 +27,7 @@ use std::slice;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
 
@@ -57,18 +58,16 @@ pub struct TupleGen<V> {
 
 impl<'v, V: ValueLike<'v>> Display for TupleGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
-        for (i, v) in self.content().iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            Display::fmt(&v, f)?;
-        }
-
+        // For single-item tuples we need to add a trailing ',' and easier to just handle that ourself than configure display_container correctly
         if self.len() == 1 {
-            write!(f, ",")?;
+            if f.alternate() {
+                write!(f, "( {:#}, )", self.content()[0])
+            } else {
+                write!(f, "({},)", self.content()[0])
+            }
+        } else {
+            display_container(f, "(", ")", self.content().iter())
         }
-        write!(f, ")")
     }
 }
 
