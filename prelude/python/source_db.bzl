@@ -24,7 +24,11 @@ def create_source_db_deps(
     # Pass manifests for transitive deps.
     dep_manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in python_deps])
 
-    cmd.add(cmd_args(dep_manifests.project_as_args("source_type_manifests"), format = "--dependency={}"))
+    dependencies = cmd_args(dep_manifests.project_as_args("source_type_manifests"), format = "--dependency={}")
+    dependencies_file = ctx.actions.write("source_db_dependencies", dependencies)
+    dependencies_file = cmd_args(dependencies_file, format = "@{}").hidden(dependencies)
+
+    cmd.add(dependencies_file)
     artifacts.append(dep_manifests.project_as_args("source_type_artifacts"))
 
     ctx.actions.run(cmd, category = "py_source_db")

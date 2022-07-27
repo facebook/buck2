@@ -41,7 +41,7 @@ def _load(path):
 
 
 def main(argv):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("--sources")
     parser.add_argument("--dependency", action="append", default=[])
