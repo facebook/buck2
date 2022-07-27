@@ -330,7 +330,6 @@ impl Component for TimedList {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
     use std::time::SystemTime;
 
     use buck2_data::FakeStart;

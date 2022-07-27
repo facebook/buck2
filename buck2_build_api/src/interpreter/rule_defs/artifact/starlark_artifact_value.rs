@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
 use std::fs::File;

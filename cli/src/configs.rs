@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::convert::TryInto;
-
 use buck2_common::legacy_configs::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;

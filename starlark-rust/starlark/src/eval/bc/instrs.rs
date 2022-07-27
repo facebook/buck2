@@ -18,7 +18,6 @@
 //! Instructions serialized in byte array.
 
 use std::collections::HashSet;
-use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;

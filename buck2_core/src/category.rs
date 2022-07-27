@@ -14,7 +14,6 @@
 //! category of all actions that invoke a C++ compiler, of which there are potentially many in a single C++ rule
 //! implementation.
 
-use std::convert::TryFrom;
 use std::fmt;
 
 use once_cell::sync::Lazy;
@@ -71,8 +70,6 @@ pub enum CategoryParseError {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use super::Category;
 
     #[test]

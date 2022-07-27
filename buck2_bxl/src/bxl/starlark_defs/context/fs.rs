@@ -2,7 +2,6 @@
 //! detect simple properties of artifacts, and source directories.
 
 use std::borrow::Cow;
-use std::convert::TryFrom;
 use std::path::Path;
 
 use buck2_common::dice::cells::HasCellResolver;

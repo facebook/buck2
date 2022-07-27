@@ -139,7 +139,6 @@ pub mod paths;
 use std::borrow::Borrow;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fs::File;

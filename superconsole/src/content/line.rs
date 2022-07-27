@@ -8,8 +8,6 @@
  */
 
 use std::cmp::Ordering;
-use std::convert::TryFrom;
-use std::iter::FromIterator;
 
 use crossterm::cursor::MoveToColumn;
 use crossterm::queue;
@@ -207,8 +205,6 @@ macro_rules! line {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use crossterm::style::Stylize;
 
     use super::*;

@@ -45,8 +45,6 @@ enum ArtifactError {
 
 #[cfg(test)]
 pub mod testing {
-    use std::convert::TryFrom;
-
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;

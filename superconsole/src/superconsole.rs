@@ -201,8 +201,6 @@ impl SuperConsole {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use anyhow::Context as _;
     use derive_more::AsRef;
 

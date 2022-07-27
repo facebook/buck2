@@ -160,8 +160,6 @@ impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;

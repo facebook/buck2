@@ -543,7 +543,6 @@ impl IoRequest for CleanOutputPaths {
 mod tests {
     use std::borrow::Cow;
     use std::collections::HashMap;
-    use std::convert::TryFrom;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;

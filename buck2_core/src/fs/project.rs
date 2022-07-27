@@ -55,7 +55,6 @@
 //!
 use std::borrow::Borrow;
 use std::borrow::Cow;
-use std::convert::TryFrom;
 use std::fs::File;
 use std::fs::Metadata;
 use std::ops::Deref;
@@ -1096,7 +1095,6 @@ mod internals {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
     use std::path::Path;
     use std::path::PathBuf;
 

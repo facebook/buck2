@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::convert::TryFrom;
 use std::sync::Arc;
 
 use async_trait::async_trait;

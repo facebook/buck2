@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::convert::TryFrom;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
 use std::ops::Try;

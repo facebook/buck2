@@ -584,8 +584,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use assert_matches::assert_matches;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;

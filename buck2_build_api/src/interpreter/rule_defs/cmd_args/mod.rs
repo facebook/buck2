@@ -152,8 +152,6 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 pub mod tester {
-    use std::convert::TryFrom;
-
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;

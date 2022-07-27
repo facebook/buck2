@@ -15,7 +15,6 @@
 
 //! Example that demonstrates finalization.
 
-use std::convert::TryInto;
 use std::time::Duration;
 
 use derive_more::Display;

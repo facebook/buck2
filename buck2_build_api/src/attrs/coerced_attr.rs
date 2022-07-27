@@ -149,7 +149,6 @@ impl CoercedAttrExr for CoercedAttr {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::iter::FromIterator;
     use std::sync::Arc;
 
     use buck2_core::configuration::constraints::ConstraintKey;

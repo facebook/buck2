@@ -214,8 +214,6 @@ mod tests {
     }
 
     mod horizontal {
-        use std::convert::TryInto;
-
         use super::*;
         use crate::Dimensions;
         #[test]
@@ -361,7 +359,6 @@ mod tests {
     }
 
     mod vertical {
-        use std::convert::TryInto;
 
         use super::*;
         use crate::Dimensions;

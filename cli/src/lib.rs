@@ -23,7 +23,6 @@
 #[macro_use]
 extern crate maplit;
 
-use std::convert::TryFrom;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;

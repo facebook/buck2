@@ -87,8 +87,6 @@ impl Component for Padded {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use derive_more::AsRef;
 
     use crate::components::Echo;

@@ -10,8 +10,6 @@
 #![feature(min_specialization)]
 #![allow(clippy::large_enum_variant)]
 
-use std::convert::TryFrom;
-
 use thiserror::Error;
 
 use crate::BuckDaemonProtoError::MissingClientContext;

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;

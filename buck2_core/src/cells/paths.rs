@@ -14,7 +14,6 @@
 //! represents a resolvable path, which can be resolved into a 'ProjectRelativePath'.
 
 use std::borrow::Borrow;
-use std::convert::TryFrom;
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;

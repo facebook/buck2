@@ -15,7 +15,6 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 use std::collections::HashSet;
-use std::convert::TryFrom;
 use std::sync::Arc;
 
 use anyhow::Context as _;

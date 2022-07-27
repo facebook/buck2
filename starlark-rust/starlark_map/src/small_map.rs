@@ -25,7 +25,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::iter::FromIterator;
 use std::mem;
 
 use gazebo::coerce::Coerce;

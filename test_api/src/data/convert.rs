@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-use std::convert::TryInto;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
@@ -755,9 +753,7 @@ impl TryFrom<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExec
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::PartialEq;
     use std::collections::HashMap;
-    use std::convert::TryInto;
     use std::fmt::Debug;
     use std::time::Duration;
 

@@ -420,9 +420,6 @@ macro_rules! error {
 
 #[cfg(test)]
 mod tests {
-    use std::result::Result::Err;
-    use std::result::Result::Ok;
-
     use buck2_data::CommandEnd;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;

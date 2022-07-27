@@ -15,7 +15,6 @@ pub mod rule_defs;
 
 #[cfg(test)]
 pub mod testing {
-    use std::convert::TryFrom;
     use std::sync::Arc;
 
     use buck2_common::legacy_configs::testing::TestConfigParserFileOps;

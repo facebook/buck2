@@ -9,8 +9,6 @@
 
 //! Parses imports for load_file() calls in build files.
 
-use std::convert::TryFrom;
-
 use anyhow::anyhow;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;

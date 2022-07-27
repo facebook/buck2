@@ -128,7 +128,6 @@ pub fn register_globals(_env: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
     use std::sync::Arc;
 
     use buck2_common::legacy_configs::testing::TestConfigParserFileOps;

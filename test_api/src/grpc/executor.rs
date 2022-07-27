@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use anyhow::Context as _;
 use test_proto::test_executor_client;
 use test_proto::test_executor_server;

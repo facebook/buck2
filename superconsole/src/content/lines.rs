@@ -290,8 +290,6 @@ impl LinesExt for Vec<Line> {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use crossterm::style::Attribute;
     use crossterm::style::Color;
     use gazebo::prelude::*;

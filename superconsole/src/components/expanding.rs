@@ -50,8 +50,6 @@ impl Component for Expanding {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use super::*;
     use crate::components::Echo;
     use crate::content::LinesExt;

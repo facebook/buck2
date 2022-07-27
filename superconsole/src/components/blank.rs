@@ -33,8 +33,6 @@ impl Component for Blank {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use derive_more::AsRef;
 
     use crate::components::DrawMode;

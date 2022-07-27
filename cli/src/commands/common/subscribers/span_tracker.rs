@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::iter::ExactSizeIterator;
 use std::time::Instant;
 
 use async_trait::async_trait;

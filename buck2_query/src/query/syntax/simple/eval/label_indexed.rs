@@ -8,7 +8,6 @@
  */
 
 use std::hash::Hash;
-use std::iter::FromIterator;
 
 use gazebo::prelude::*;
 use starlark_map::small_set::SmallSet;

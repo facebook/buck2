@@ -22,7 +22,6 @@ pub mod sink;
 pub mod source;
 pub mod subscriber;
 
-use std::convert::TryFrom;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;

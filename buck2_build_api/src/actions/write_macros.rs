@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::convert::TryFrom;
 use std::time::Instant;
 
 use anyhow::Context;

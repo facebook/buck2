@@ -459,7 +459,6 @@ impl HashedPlatformConfigurationData {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::iter::FromIterator;
 
     use gazebo::dupe::Dupe;
 

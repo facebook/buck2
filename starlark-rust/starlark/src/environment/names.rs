@@ -16,8 +16,6 @@
  */
 
 use std::cell::RefCell;
-use std::convert::TryInto;
-use std::iter::Iterator;
 
 use crate::collections::Hashed;
 use crate::collections::SmallMap;

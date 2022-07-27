@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::convert::TryFrom;
 
 use crossterm::queue;
 use crossterm::style::ContentStyle;

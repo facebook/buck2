@@ -12,7 +12,6 @@
 //! Do not make this somewhere down the component hierarchy unless you have a good reason for it.
 
 use std::cell::Cell;
-use std::convert::TryInto;
 
 use crossterm::cursor::MoveToColumn;
 use crossterm::cursor::MoveUp;

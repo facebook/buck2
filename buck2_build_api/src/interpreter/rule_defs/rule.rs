@@ -10,7 +10,6 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
-use std::iter::Iterator;
 use std::sync::Arc;
 
 use buck2_core::bzl::ImportPath;

@@ -15,7 +15,6 @@
 
 //! A basic example of using components and emitting content.
 
-use std::convert::TryInto;
 use std::time::Duration;
 use std::time::Instant;
 

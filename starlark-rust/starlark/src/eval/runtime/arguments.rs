@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::convert::TryInto;
 use std::intrinsics::unlikely;
 use std::iter;
 use std::marker::PhantomData;

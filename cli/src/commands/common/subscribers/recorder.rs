@@ -15,7 +15,6 @@ use crate::CommandContext;
 
 #[cfg(fbcode_build)]
 mod imp {
-    use std::convert::Into;
     use std::future::Future;
     use std::sync::Arc;
     use std::time::Duration;

@@ -141,7 +141,6 @@ impl Paths {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
     use std::ffi::OsStr;
 
     use buck2_core::fs::paths::AbsPath;
