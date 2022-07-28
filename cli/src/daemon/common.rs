@@ -19,7 +19,7 @@ use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
 use buck2_build_api::execute::commands::hybrid::HybridExecutor;
 use buck2_build_api::execute::commands::local::LocalExecutor;
-use buck2_build_api::execute::commands::re::cache_check::CacheCheckingExecutor;
+use buck2_build_api::execute::commands::re::caching_executor::CachingExecutor;
 use buck2_build_api::execute::commands::re::manager::ReConnectionHandle;
 use buck2_build_api::execute::commands::re::ReExecutionPlatform;
 use buck2_build_api::execute::commands::re::ReExecutor;
@@ -331,7 +331,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             return Ok(inner_executor);
         }
 
-        Ok(Arc::new(CacheCheckingExecutor::new(
+        Ok(Arc::new(CachingExecutor::new(
             inner_executor,
             self.materializer.dupe(),
             self.re_connection.get_client(),

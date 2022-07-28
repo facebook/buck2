@@ -49,7 +49,7 @@ use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
 
-pub mod cache_check;
+pub mod caching_executor;
 pub mod client;
 pub mod download;
 pub mod manager;

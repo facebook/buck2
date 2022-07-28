@@ -31,7 +31,7 @@ use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
 
 /// A PreparedCommandExecutor that will check the action cache before executing any actions using the underlying executor.
-pub struct CacheCheckingExecutor {
+pub struct CachingExecutor {
     pub inner: Arc<dyn PreparedCommandExecutor>,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
@@ -40,7 +40,7 @@ pub struct CacheCheckingExecutor {
     pub knobs: ReExecutorGlobalKnobs,
 }
 
-impl CacheCheckingExecutor {
+impl CachingExecutor {
     pub fn new(
         inner: Arc<dyn PreparedCommandExecutor>,
         materializer: Arc<dyn Materializer>,
@@ -132,7 +132,7 @@ impl CacheCheckingExecutor {
 }
 
 #[async_trait]
-impl PreparedCommandExecutor for CacheCheckingExecutor {
+impl PreparedCommandExecutor for CachingExecutor {
     async fn exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
