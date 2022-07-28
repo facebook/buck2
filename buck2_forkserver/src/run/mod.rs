@@ -38,7 +38,7 @@ pub enum GatherOutputStatus {
     TimedOut(Duration),
 }
 
-enum CommandEvent {
+pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
     Exit(GatherOutputStatus),
@@ -110,20 +110,12 @@ where
     }
 }
 
-async fn stream_command_events(
-    mut cmd: Command,
+pub fn stream_command_events(
+    mut child: Child,
     timeout: Option<Duration>,
 ) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>> {
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    let mut child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
-        .await
-        .context("Failed to start command")?;
-
-    let stdout = child.stdout.take().expect("piped() above");
-    let stderr = child.stderr.take().expect("piped() above");
+    let stdout = child.stdout.take().context("Child stdout is not piped")?;
+    let stderr = child.stderr.take().context("Child stderr is not piped")?;
 
     #[cfg(unix)]
     type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
@@ -188,10 +180,18 @@ where
 }
 
 pub async fn gather_output(
-    cmd: Command,
+    mut cmd: Command,
     timeout: Option<Duration>,
 ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
-    let stream = stream_command_events(cmd, timeout).await?;
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
+        .await
+        .context("Failed to start command")?;
+
+    let stream = stream_command_events(child, timeout)?;
     decode_command_event_stream(stream).await
 }
 
