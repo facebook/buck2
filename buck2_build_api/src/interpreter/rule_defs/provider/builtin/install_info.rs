@@ -21,6 +21,7 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
 use crate::actions::artifact::Artifact;
@@ -32,6 +33,7 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 #[internal_provider(install_info_creator)]
 #[derive(Clone, Coerce, Debug, Freeze, Trace, ProvidesStaticType)]
 #[repr(C)]
+#[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
 pub struct InstallInfoGen<V> {
     // RunInfo for the installer
     #[provider(field_type = "RunInfo")]
@@ -54,7 +56,7 @@ impl FrozenInstallInfo {
                 k.unpack_str().expect("should be a string"),
                 v.as_artifact()
                     .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                    .get_bound_deprecated()?,
+                    .get_bound_artifact()?,
             );
         }
         Ok(artifacts)
@@ -71,11 +73,34 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
             v.as_artifact().ok_or(ValueError::IncorrectParameterType)?;
         }
         let files = files.value;
-        Ok(InstallInfo {
+        let info = InstallInfo {
             installer: *installer,
             files,
-        })
+        };
+        validate_install_info(&info)?;
+        Ok(info)
     }
+}
+
+fn validate_install_info<'v, V>(info: &InstallInfoGen<V>) -> anyhow::Result<()>
+where
+    V: ValueLike<'v>,
+{
+    let files = Dict::from_value(info.files.to_value()).expect("Value is a Dict");
+    for (k, v) in files.deref().iter() {
+        let (artifact, other_artifacts) = v
+            .as_artifact()
+            .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
+            .get_bound_artifact_and_additional_artifacts()?;
+        if !other_artifacts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "File with key `{}`: `{}` should not have any associated artifacts",
+                k,
+                artifact
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -85,6 +110,7 @@ mod tests {
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
+    use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
     use crate::interpreter::testing::Tester;
 
@@ -96,6 +122,27 @@ mod tests {
         let content = indoc!(
             r#"
             c = create_collection([InstallInfo(installer=RunInfo(), files={}), DefaultInfo(), RunInfo()])
+            def test():
+                assert_eq(True, contains_provider(c, InstallInfo))
+            "#
+        );
+
+        tester.run_starlark_bzl_test(content)
+    }
+
+    #[test]
+    fn info_validator_succeeds_for_artifacts_without_additional_artifacts() -> SharedResult<()> {
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(Arc::new(|builder| {
+            collection_creator(builder);
+            artifactory(builder);
+        }));
+
+        let content = indoc!(
+            r#"
+            a1 = source_artifact("foo/bar", "baz.h")
+            a2 = bound_artifact("//:dep1", "dir/baz.h")
+            c = create_collection([InstallInfo(installer=RunInfo(), files={"a1": a1, "a2": a2}), DefaultInfo(), RunInfo()])
             def test():
                 assert_eq(True, contains_provider(c, InstallInfo))
             "#
