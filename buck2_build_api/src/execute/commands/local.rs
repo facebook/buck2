@@ -252,21 +252,22 @@ impl LocalExecutor {
 
         let (timing, res) = manager
             .stage_async(
-                buck2_data::LocalStage {
-                    stage: Some(
-                        buck2_data::LocalExecute {
-                            command: Some(buck2_data::LocalCommand {
-                                argv: args.to_vec(),
-                                env: iter_env()
-                                    .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
-                                        key: k.to_owned(),
-                                        value: v.into_string_lossy(),
-                                    })
-                                    .collect(),
-                            }),
-                        }
-                        .into(),
-                    ),
+                {
+                    let env = iter_env()
+                        .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
+                            key: k.to_owned(),
+                            value: v.into_string_lossy(),
+                        })
+                        .collect();
+                    let stage = buck2_data::LocalExecute {
+                        command: Some(buck2_data::LocalCommand {
+                            argv: args.to_vec(),
+                            env,
+                        }),
+                    };
+                    buck2_data::LocalStage {
+                        stage: Some(stage.into()),
+                    }
                 },
                 async move {
                     let execution_start = Instant::now();
