@@ -725,6 +725,7 @@ pub mod testing {
 
     use super::default_buildfiles;
     use crate::cells::cell_root_path::CellRootPathBuf;
+    use crate::cells::CellAlias;
     use crate::cells::CellAliasResolver;
     use crate::cells::CellInstance;
     use crate::cells::CellName;
@@ -734,6 +735,10 @@ pub mod testing {
         /// name, cell path). The 'CellAliasResolver' of each cell is
         /// empty. i.e. no aliases are defined for any of the cells.
         fn of_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver;
+
+        fn with_names_and_paths_with_alias(
+            cells: &[(CellName, CellRootPathBuf, HashMap<CellAlias, CellName>)],
+        ) -> CellResolver;
     }
 
     impl CellResolverExt for CellResolver {
@@ -753,6 +758,31 @@ pub mod testing {
                 );
 
                 path_mappings.insert(path.iter(), name.clone());
+            }
+
+            Self::new(cell_mappings, path_mappings)
+        }
+
+        fn with_names_and_paths_with_alias(
+            cells: &[(CellName, CellRootPathBuf, HashMap<CellAlias, CellName>)],
+        ) -> CellResolver {
+            let mut cell_mappings = HashMap::new();
+            let mut path_mappings = SequenceTrie::new();
+
+            for (name, path, alias) in cells {
+                let prev = cell_mappings.insert(
+                    name.clone(),
+                    CellInstance::new(
+                        name.clone(),
+                        path.clone(),
+                        default_buildfiles(),
+                        CellAliasResolver(Arc::new(alias.clone())),
+                    ),
+                );
+                assert!(prev.is_none());
+
+                let prev = path_mappings.insert(path.iter(), name.clone());
+                assert!(prev.is_none());
             }
 
             Self::new(cell_mappings, path_mappings)
