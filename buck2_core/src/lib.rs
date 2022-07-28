@@ -27,6 +27,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
+#[cfg(test)]
 #[macro_use]
 extern crate maplit;
 

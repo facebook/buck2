@@ -137,10 +137,7 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fs::File;
 use std::hash::Hash;
-use std::io::BufRead;
-use std::io::BufReader;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -159,7 +156,6 @@ use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::fs::paths::AbsPath;
 use crate::fs::paths::AbsPathBuf;
 use crate::fs::paths::FileNameBuf;
-use crate::fs::paths::ForwardRelativePath;
 use crate::fs::paths::RelativePath;
 use crate::fs::project::ProjectFilesystem;
 use crate::fs::project::ProjectRelativePath;
@@ -489,62 +485,6 @@ impl CellResolver {
     }
 }
 
-/// Provides all the 'CellInstance' information about the current buck
-/// invocation.
-pub struct CellsConfigParser;
-impl CellsConfigParser {
-    /// Create a cell map from a config file located at the given `path` for the
-    /// current project filesystem `fs`.
-    pub fn parse_cells_from_path(
-        path: CellRootPathBuf,
-        fs: &ProjectFilesystem,
-        config_file: &ForwardRelativePath,
-    ) -> anyhow::Result<CellResolver> {
-        let mut aggregator = CellsAggregator::new();
-        let mut cell_paths_to_parse = vec![path.clone()];
-        let mut scheduled = hashset![path];
-
-        while let Some(to_parse) = cell_paths_to_parse.pop() {
-            let f = File::open(&fs.resolve(&to_parse.join_unnormalized(config_file)))
-                .with_context(|| {
-                    format!(
-                        "Attempting to read cell config file at `{}`",
-                        fs.resolve(&to_parse.join_unnormalized(&config_file))
-                    )
-                })?;
-
-            let file = BufReader::new(&f);
-            for line in file.lines() {
-                let l = line?;
-                let (left, right) = l.split1('=');
-
-                match (left, right) {
-                    ("", _) => return Err(anyhow!(CellError::ParsingError(l))),
-                    (_, "") => return Err(anyhow!(CellError::ParsingError(l))),
-                    _ => {}
-                };
-
-                let alias = CellAlias::new(left.into());
-                let path = to_parse
-                    .join_normalized(RelativePath::new(right))
-                    .with_context(|| {
-                        format!("expected path to be a relative path, but found `{}`", right)
-                    })?;
-
-                let path = CellRootPathBuf::new(path);
-
-                aggregator.add_cell_alias_entry(to_parse.clone(), alias, path.clone())?;
-
-                if scheduled.insert(path.clone()) {
-                    cell_paths_to_parse.push(path);
-                }
-            }
-        }
-
-        aggregator.make_cell_resolver()
-    }
-}
-
 /// Aggregates cell information as we parse cell configs and keeps state to
 /// generate a final 'CellResolver'
 #[derive(Debug)]
@@ -765,12 +705,11 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::file;
 
     use super::*;
     use crate::cells::testing::CellResolverExt;
+    use crate::fs::paths::ForwardRelativePath;
     use crate::fs::paths::ForwardRelativePathBuf;
-    use crate::fs::project::ProjectFilesystemTemp;
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {
@@ -926,56 +865,6 @@ mod tests {
                 CellName::unchecked_new("cell2".to_owned()),
                 ForwardRelativePathBuf::unchecked_new("fake/cell3".to_owned()).into()
             )
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn parsing_error() -> anyhow::Result<()> {
-        let config_path = ForwardRelativePathBuf::unchecked_new("bar".into());
-
-        let fs = ProjectFilesystemTemp::new()?;
-        let file = fs.path().resolve(
-            &ProjectRelativePathBuf::unchecked_new("".into()).join_unnormalized(&config_path),
-        );
-
-        file::create_dirs_and_write(&file, "cell1=\ncell2=.\n")?;
-
-        assert_eq!(
-            CellsConfigParser::parse_cells_from_path(
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
-                fs.path(),
-                &config_path
-            )
-            .is_err(),
-            true
-        );
-
-        let fs = ProjectFilesystemTemp::new()?;
-        file::create_dirs_and_write(&file, "=hi\ncell2=.\n")?;
-
-        assert_eq!(
-            CellsConfigParser::parse_cells_from_path(
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
-                fs.path(),
-                &config_path
-            )
-            .is_err(),
-            true
-        );
-
-        let fs = ProjectFilesystemTemp::new()?;
-        file::create_dirs_and_write(&file, "asdf\ncell2=.\n")?;
-
-        assert_eq!(
-            CellsConfigParser::parse_cells_from_path(
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
-                fs.path(),
-                &config_path
-            )
-            .is_err(),
-            true
         );
 
         Ok(())
