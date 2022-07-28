@@ -274,7 +274,6 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     archive = Archive(artifact = lib),
                     linker_type = linker_type,
                     link_whole = ctx.attrs.link_whole,
-                    do_not_inspect_for_thinlto = True,
                 )
 
             if link_style == LinkStyle("static"):

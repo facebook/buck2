@@ -159,10 +159,6 @@ def cxx_dist_link(
                     )
                     objects.append(data)
             elif linkable._type == LinkableType("archive"):
-                # This linkable is known to not contain any lto-able artifacts. There's no need to inspect it any further.
-                if linkable.do_not_inspect_for_thinlto:
-                    continue
-
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
                 # archives might still contain LTO-able bitcode, we first extract the objects within the archive into
                 # another directory and write a "manifest" containing the list of objects that the archive contained.
@@ -457,11 +453,6 @@ def cxx_dist_link(
                     # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
                     append_linkable_args(link_args, linkable, use_link_groups = False)
                 elif linkable._type == LinkableType("archive"):
-                    if linkable.do_not_inspect_for_thinlto:
-                        append_linkable_args(link_args, linkable, use_link_groups = False)
-                        archives.append(linkable.archive.artifact)
-                        continue
-
                     manifest = archive_manifests[current_archive_index]
                     current_archive_index += 1
                     opt_manifest = ctx.artifacts[manifest.opt_manifest].read_string().splitlines()

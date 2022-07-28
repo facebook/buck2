@@ -173,8 +173,7 @@ the contents of the archive are, or even if they contain bitcode at all.
 
 Future steps (particularly `thin_lto_index`) are defined to only operate on a list of object files - a limitation [inherited from LLVM](https://lists.llvm.org/pipermail/llvm-dev/2019-June/133145.html). Therefore, it is the job of `thin_lto_prepare` to turn an archive into a list of objects - namely, by extracting the archive into a directory.
 
-Buck2 dispatches a `thin_lto_prepare` action for every archive that has not been expliclty excluded from ThinLTO
-(see [here](#pre-built-libraries)). Each prepare action has two outputs:
+Buck2 dispatches a `thin_lto_prepare` action for every archive. Each prepare action has two outputs:
 
 1. An **output directory** (called `objects` in the code), a directory that contains the unextracted contents of the archive.
 2. A **archive manifest**, a JSON document containing a list of object files that are contained in the output directory.
@@ -252,8 +251,3 @@ via the optimization manifest (`opt_manifest`).
 
 The final link step. Similar to `thin_lto_index`, this involves creating a link line to feed to the linker that uses the optimized artifacts that we just calculated. In cases where Buck2
 would put an archive on the link line, it instead inserts `-Wl,--start-lib`, `-Wl,--end-lib`, and references to the objects in `opt_objects`.
-
-## Pre-built Libraries
-
-Pre-built libraries (particularly ones originating from `third-party`) are known not to contain bitcode and thus do not benefit from being processed at all during ThinLTO. Linkables annotated
-with `do_not_inspect_for_thinlto` are ignored by any archive-manipulating code in `dist_lto.bzl` and are instead plumbed through verbatim to the final link line.

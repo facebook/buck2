@@ -47,7 +47,6 @@ ArchiveLinkable = record(
     archive = field(Archive.type),
     linker_type = field(str.type),
     link_whole = field(bool.type, False),
-    do_not_inspect_for_thinlto = field(bool.type, False),
     _type = field(LinkableType.type, LinkableType("archive")),
 )
 
