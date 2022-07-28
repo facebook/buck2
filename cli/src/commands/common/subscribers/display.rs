@@ -414,6 +414,7 @@ fn failure_reason_for_command_execution(
     use buck2_data::command_execution::Status;
     use buck2_data::command_execution::Success;
     use buck2_data::command_execution::Timeout;
+    use buck2_data::command_execution_details::Command;
 
     let command = command_execution
         .details
@@ -425,10 +426,19 @@ fn failure_reason_for_command_execution(
         .as_ref()
         .context("CommandExecution did not include a `status`")?;
 
+    let locality = match command.command {
+        Some(Command::RemoteCommand(..)) => "Remote ",
+        Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
+        None => "",
+    };
+
     Ok(match status {
         Status::Success(Success {}) => "Unexpected command status".to_owned(),
         Status::Failure(Failure {}) => {
-            format!("Command returned non-zero exit code {}", command.exit_code)
+            format!(
+                "{}command returned non-zero exit code {}",
+                locality, command.exit_code
+            )
         }
         Status::Timeout(Timeout { duration }) => {
             let duration = duration

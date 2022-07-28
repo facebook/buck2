@@ -475,8 +475,8 @@ async def test_multiple_errors_print_with_simple_console(buck: Buck) -> None:
     assert_occurrences(execution_error.format("root//:foo"), e.stderr, 2)
     assert_occurrences(execution_error.format("root//:bar"), e.stderr, 2)
 
-    exit_code = "Command returned non-zero exit code 1"
-    assert_occurrences(exit_code, e.stderr, 6)
+    exit_code = "(Local|Remote) command returned non-zero exit code 1"
+    assert_occurrences_regex(exit_code, e.stderr, 6)
 
     build_error = "Failed to build artifact(s) for '{} (<unspecified>)'"
     assert_occurrences(build_error.format("root//:foo"), e.stderr, 1)
@@ -510,7 +510,7 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
     execution_error = "Action failed: "
     assert_occurrences_regex(execution_error, e.stderr, 3)
 
-    exit_code = "Command returned non-zero exit code 1"
+    exit_code = "(Local|Remote) command returned non-zero exit code 1"
     assert_occurrences_regex(exit_code, e.stderr, 3)
 
     # These will eventually be red.
