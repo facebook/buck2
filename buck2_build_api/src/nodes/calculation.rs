@@ -801,7 +801,6 @@ impl NodeCalculation for DiceComputations {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
@@ -919,11 +918,8 @@ mod tests {
         let mut data = UserComputationData::new();
         set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
         let mut computations = DiceBuilder::new()
-            .mock_and_return(
-                InterpreterResultsKey(pkg),
-                SharedResult::Ok(Arc::new(eval_result)),
-            )
-            .mock_and_return(ExecutionPlatformsKey, SharedResult::Ok(None))
+            .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
+            .mock_and_return(ExecutionPlatformsKey, Ok(None))
             .build(data);
         computations = computations.commit();
 

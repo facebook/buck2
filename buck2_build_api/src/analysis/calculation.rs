@@ -392,7 +392,6 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
-    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -522,7 +521,7 @@ mod tests {
                 InterpreterResultsKey(Package::testing_new("cell", "pkg")),
                 Ok(Arc::new(eval_res)),
             )
-            .mock_and_return(ExecutionPlatformsKey, SharedResult::Ok(None))
+            .mock_and_return(ExecutionPlatformsKey, Ok(None))
             .set_data(|data| data.set_testing_io_provider(&fs))
             .build({
                 let mut data = UserComputationData::new();

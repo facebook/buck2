@@ -457,7 +457,7 @@ impl ConfigurationCalculation for DiceComputations {
                     configuration_matches(ctx, &self.target_cfg, &self.target_cell, &result)
                         .await?;
 
-                SharedResult::Ok(ConfigurationNode::new(
+                Ok(ConfigurationNode::new(
                     self.target_cfg.dupe(),
                     self.cfg_target.dupe(),
                     result,
