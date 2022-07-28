@@ -20,6 +20,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectRelativePath;
 use gazebo::prelude::*;
 use prost::Message;
 use remote_execution::GetDigestsTtlRequest;
@@ -83,6 +84,7 @@ impl Uploader {
     pub(crate) async fn upload(
         client: &REClient,
         materializer: Arc<dyn Materializer>,
+        dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
         metadata: RemoteExecutionMetadata,
@@ -203,7 +205,7 @@ impl Uploader {
                             upload_blobs.push(directory_to_blob(d));
                         }
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) => {
-                            upload_file_paths.push(path.get().into());
+                            upload_file_paths.push(dir_path.join_unnormalized(path.get()));
                             upload_file_digests.push(digest.to_re());
                         }
                         DirectoryEntry::Leaf(..) => unreachable!(), // TODO: Better representation of this.

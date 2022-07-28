@@ -18,6 +18,7 @@ use std::sync::Weak;
 use anyhow::Context as _;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
@@ -291,6 +292,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
+        dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
@@ -298,7 +300,7 @@ impl ManagedRemoteExecutionClient {
         self.lock()?
             .get()
             .await?
-            .upload(materializer, blobs, input_dir, use_case, knobs)
+            .upload(materializer, blobs, dir_path, input_dir, use_case, knobs)
             .await
     }
 

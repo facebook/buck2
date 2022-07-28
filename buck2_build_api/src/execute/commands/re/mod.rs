@@ -14,6 +14,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
@@ -165,6 +166,7 @@ impl ReExecutor {
                 re_client.upload(
                     self.materializer.dupe(),
                     blobs,
+                    ProjectRelativePath::unchecked_new(""),
                     &action_paths.inputs,
                     self.re_use_case.clone(),
                     &self.knobs,

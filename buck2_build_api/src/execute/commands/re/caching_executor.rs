@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use remote_execution as RE;
@@ -82,6 +83,7 @@ impl CachingExecutor {
                 .upload(
                     self.materializer.dupe(),
                     action_blobs,
+                    ProjectRelativePath::unchecked_new(""),
                     &action_paths.inputs,
                     self.re_use_case.clone(),
                     &self.knobs,

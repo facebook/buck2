@@ -17,6 +17,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use futures::stream;
 use futures::stream::BoxStream;
@@ -109,6 +110,7 @@ impl Materializer for EdenMaterializer {
             .upload(
                 Arc::clone(&self.delegator),
                 &ActionBlobs::new(),
+                ProjectRelativePath::unchecked_new(""),
                 &input_dir,
                 Default::default(),
                 &ReExecutorGlobalKnobs {

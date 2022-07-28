@@ -15,6 +15,7 @@ use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::Display;
 use either::Either;
@@ -214,13 +215,14 @@ impl RemoteExecutionClient {
         &self,
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
+        dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.data
             .client
-            .upload(materializer, blobs, input_dir, use_case, knobs)
+            .upload(materializer, blobs, dir_path, input_dir, use_case, knobs)
             .await
             .map_err(|e| self.decorate_error(e))
     }
@@ -551,6 +553,7 @@ impl RemoteExecutionClientImpl {
         &self,
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
+        dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
@@ -560,6 +563,7 @@ impl RemoteExecutionClientImpl {
         Uploader::upload(
             self.client().get_cas_client(),
             materializer,
+            dir_path,
             input_dir,
             blobs,
             RemoteExecutionMetadata {
