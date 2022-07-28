@@ -39,15 +39,24 @@ enum Out {
 #[async_trait]
 impl SyncableQueryProcessor for TestQueryProcessor {
     type Output = Out;
+    type Payload = ();
 
-    async fn process_events(&self, events: Vec<WatchmanEvent>) -> anyhow::Result<Self::Output> {
-        Ok(Out::Files(
-            events.into_map(|e| e.path.display().to_string()),
+    async fn process_events(
+        &self,
+        payload: Self::Payload,
+        events: Vec<WatchmanEvent>,
+    ) -> anyhow::Result<(Self::Output, Self::Payload)> {
+        Ok((
+            Out::Files(events.into_map(|e| e.path.display().to_string())),
+            payload,
         ))
     }
 
-    async fn on_fresh_instance(&self) -> anyhow::Result<Self::Output> {
-        Ok(Out::FreshInstance)
+    async fn on_fresh_instance(
+        &self,
+        payload: Self::Payload,
+    ) -> anyhow::Result<(Self::Output, Self::Payload)> {
+        Ok((Out::FreshInstance, payload))
     }
 }
 
@@ -185,25 +194,25 @@ async fn test_syncable_query() -> anyhow::Result<()> {
     )?;
 
     // Startup
-    assert_eq!(watchman_query.sync().await?, Out::FreshInstance);
-    assert_eq!(watchman_query.sync().await?, Out::Files(vec![]));
+    assert_eq!(watchman_query.sync(()).await?.0, Out::FreshInstance);
+    assert_eq!(watchman_query.sync(()).await?.0, Out::Files(vec![]));
 
     // Create a file, see that we receive it.
     let test = root.join("test");
     File::create(&test)?;
     assert_eq!(
-        watchman_query.sync().await?,
+        watchman_query.sync(()).await?.0,
         Out::Files(vec!["test".into()])
     );
 
     // Kill Watchman, see that we're broken now
     watchman_instance.shutdown().await?;
-    assert_matches!(watchman_query.sync().await, Err(..));
+    assert_matches!(watchman_query.sync(()).await, Err(..));
 
     // Restart Watchman, we should be fixed now, and get a fresh instance.
     let mut watchman_instance = spawn_watchman(&watchman_dir).await?;
-    assert_eq!(watchman_query.sync().await?, Out::FreshInstance);
-    assert_eq!(watchman_query.sync().await?, Out::Files(vec![]));
+    assert_eq!(watchman_query.sync(()).await?.0, Out::FreshInstance);
+    assert_eq!(watchman_query.sync(()).await?.0, Out::Files(vec![]));
 
     // Clean up
     watchman_instance.shutdown().await?;

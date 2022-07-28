@@ -8,14 +8,13 @@
  */
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
-use dice::Dice;
+use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
 
 use crate::paths::Paths;
@@ -24,7 +23,11 @@ mod watchman;
 
 #[async_trait]
 pub(crate) trait FileWatcher: Send + Sync + 'static {
-    async fn sync(&self, dispatcher: &EventDispatcher) -> anyhow::Result<()>;
+    async fn sync(
+        &self,
+        dice: DiceTransaction,
+        dispatcher: &EventDispatcher,
+    ) -> anyhow::Result<DiceTransaction>;
 }
 
 impl dyn FileWatcher {
@@ -33,7 +36,6 @@ impl dyn FileWatcher {
     pub(crate) fn new(
         paths: &Paths,
         root_config: &LegacyBuckConfig,
-        dice: Arc<Dice>,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Box<dyn FileWatcher>> {
@@ -41,7 +43,6 @@ impl dyn FileWatcher {
             Some("watchman") | None => Ok(box watchman::WatchmanFileWatcher::new(
                 paths,
                 root_config,
-                dice,
                 cells,
                 ignore_specs,
             )?),

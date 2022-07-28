@@ -158,17 +158,25 @@ impl WatchmanClient {
 #[async_trait]
 pub(crate) trait SyncableQueryProcessor: Send + Sync {
     type Output;
+    type Payload;
 
     /// Process a set of filesystem change events.
-    async fn process_events(&self, events: Vec<WatchmanEvent>) -> anyhow::Result<Self::Output>;
+    async fn process_events(
+        &self,
+        payload: Self::Payload,
+        events: Vec<WatchmanEvent>,
+    ) -> anyhow::Result<(Self::Output, Self::Payload)>;
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
-    async fn on_fresh_instance(&self) -> anyhow::Result<Self::Output>;
+    async fn on_fresh_instance(
+        &self,
+        dice: Self::Payload,
+    ) -> anyhow::Result<(Self::Output, Self::Payload)>;
 }
 
 /// commands to be sent to the SyncableQueryHandler.
-enum SyncableQueryCommand<T> {
-    Sync(oneshot::Sender<anyhow::Result<T>>),
+enum SyncableQueryCommand<T, P> {
+    Sync(P, oneshot::Sender<anyhow::Result<(T, P)>>),
 }
 
 /// A SyncableQuery is similar to a subscription. When created, it accepts a query expression
@@ -181,8 +189,8 @@ enum SyncableQueryCommand<T> {
 ///
 /// In the background, the SyncableQuery may use a subscription to eagerly process updates, but this is
 /// only an optimization and users should use `sync()` when they want events to have been processed.
-pub(crate) struct SyncableQuery<T> {
-    control_tx: UnboundedSender<SyncableQueryCommand<T>>,
+pub(crate) struct SyncableQuery<T, P> {
+    control_tx: UnboundedSender<SyncableQueryCommand<T, P>>,
 }
 
 pub(crate) enum WatchmanSyncResult {
@@ -202,20 +210,21 @@ pub(crate) enum WatchmanSyncResult {
 /// processing will happen in a linear order.
 ///
 /// The SyncableQueryHandler maintains the clock and last mergebase and updates them with each request.
-struct SyncableQueryHandler<T> {
+struct SyncableQueryHandler<T, P> {
     connector: Connector,
     path: CanonicalPath,
-    processor: Box<dyn SyncableQueryProcessor<Output = T>>,
+    processor: Box<dyn SyncableQueryProcessor<Output = T, Payload = P>>,
     query: QueryRequestCommon,
     last_clock: ClockSpec,
     last_mergebase: Option<String>,
     mergebase_with: Option<String>,
-    control_rx: UnboundedReceiver<SyncableQueryCommand<T>>,
+    control_rx: UnboundedReceiver<SyncableQueryCommand<T, P>>,
 }
 
-impl<T> SyncableQueryHandler<T>
+impl<T, P> SyncableQueryHandler<T, P>
 where
     T: Send + 'static,
+    P: Send + 'static,
 {
     async fn run_loop(&mut self) {
         // We discard the first error here, if there is one. It's a bit unfortunate but it makes
@@ -228,8 +237,8 @@ where
 
         loop {
             match self.control_rx.recv().await {
-                Some(SyncableQueryCommand::Sync(sync_tx)) => {
-                    let res = self.sync(&mut client).await;
+                Some(SyncableQueryCommand::Sync(dice, sync_tx)) => {
+                    let res = self.sync(dice, &mut client).await;
 
                     // NOTE: If the receiver is gone, then they won't be told we finished their
                     // job. That's fine.
@@ -269,7 +278,11 @@ where
 
     /// sync() will send a since query to watchman and invoke the processor
     /// with either the received events or a fresh instance call.
-    async fn sync(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<T> {
+    async fn sync(
+        &mut self,
+        payload: P,
+        client: &mut Option<WatchmanClient>,
+    ) -> anyhow::Result<(T, P)> {
         let sync_res = match self.sync_query(client).await {
             Ok(res) => Ok(res),
             Err(e) => self.reconnect_and_sync_query(client).await.context(e),
@@ -285,17 +298,23 @@ where
                     || self.last_mergebase.is_some() && self.last_mergebase == merge_base
                 {
                     (
-                        self.processor.process_events(events).await?,
+                        self.processor.process_events(payload, events).await?,
                         merge_base,
                         clock,
                     )
                 } else {
-                    (self.processor.on_fresh_instance().await?, merge_base, clock)
+                    (
+                        self.processor.on_fresh_instance(payload).await?,
+                        merge_base,
+                        clock,
+                    )
                 }
             }
-            WatchmanSyncResult::FreshInstance { merge_base, clock } => {
-                (self.processor.on_fresh_instance().await?, merge_base, clock)
-            }
+            WatchmanSyncResult::FreshInstance { merge_base, clock } => (
+                self.processor.on_fresh_instance(payload).await?,
+                merge_base,
+                clock,
+            ),
         };
 
         self.last_mergebase = new_mergebase;
@@ -378,16 +397,20 @@ fn unpack_clock(clock: Clock) -> (Option<String>, ClockSpec) {
     }
 }
 
-impl<T> SyncableQuery<T>
+impl<T, P> SyncableQuery<T, P>
 where
     T: Send + 'static,
+    P: Send + 'static,
 {
     /// Ensures that the processor has been sent all changes that watchman has seen.
-    pub(crate) fn sync(&self) -> impl Future<Output = anyhow::Result<T>> + Send + 'static {
+    pub(crate) fn sync(
+        &self,
+        dice: P,
+    ) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx
-            .send(SyncableQueryCommand::Sync(sync_done_tx));
+            .send(SyncableQueryCommand::Sync(dice, sync_done_tx));
 
         async move {
             tx_res.ok().context("SyncableQueryHandler has exited")?;
@@ -405,9 +428,9 @@ where
         connector: Connector,
         path: impl AsRef<Path>,
         expr: Expr,
-        processor: Box<dyn SyncableQueryProcessor<Output = T>>,
+        processor: Box<dyn SyncableQueryProcessor<Output = T, Payload = P>>,
         mergebase_with: Option<String>,
-    ) -> anyhow::Result<SyncableQuery<T>> {
+    ) -> anyhow::Result<SyncableQuery<T, P>> {
         let path = path.as_ref();
         let path = CanonicalPath::canonicalize(&path)
             .with_context(|| format!("Error canonicalizing: `{}`", path.display()))?;
@@ -428,7 +451,7 @@ where
         };
 
         let (control_tx, control_rx) =
-            tokio::sync::mpsc::unbounded_channel::<SyncableQueryCommand<T>>();
+            tokio::sync::mpsc::unbounded_channel::<SyncableQueryCommand<T, P>>();
 
         tokio::spawn(async move {
             let mut handler = SyncableQueryHandler {

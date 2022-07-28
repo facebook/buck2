@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::context::HasBuildContextData;
@@ -24,7 +23,7 @@ use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
 use buck2_interpreter::dice::HasInterpreterContext;
-use dice::Dice;
+use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
 use tracing::info;
 use tracing::warn;
@@ -43,7 +42,6 @@ use crate::watchman::WatchmanKind;
 const MAX_WATCHMAN_MESSAGES: u64 = 3;
 
 pub(crate) struct WatchmanQueryProcessor {
-    pub dice: Arc<Dice>,
     pub cells: CellResolver,
     pub ignore_specs: HashMap<CellName, IgnoreSet>,
 }
@@ -51,11 +49,11 @@ pub(crate) struct WatchmanQueryProcessor {
 impl WatchmanQueryProcessor {
     pub(crate) async fn process_events_impl(
         &self,
+        ctx: DiceTransaction,
         events: Vec<WatchmanEvent>,
-    ) -> anyhow::Result<buck2_data::WatchmanStats> {
+    ) -> anyhow::Result<(buck2_data::WatchmanStats, DiceTransaction)> {
         let mut stats = buck2_data::WatchmanStats::default();
 
-        let ctx = self.dice.ctx();
         let handler = ctx.get_file_change_handler();
         let mut iter = events.into_iter();
 
@@ -123,23 +121,29 @@ impl WatchmanQueryProcessor {
                 }
             }
         }
-        ctx.commit();
-        Ok(stats)
+        Ok((stats, ctx.commit()))
     }
 }
 
 #[async_trait]
 impl SyncableQueryProcessor for WatchmanQueryProcessor {
     type Output = buck2_data::WatchmanStats;
+    type Payload = DiceTransaction;
 
-    async fn process_events(&self, events: Vec<WatchmanEvent>) -> anyhow::Result<Self::Output> {
-        self.process_events_impl(events).await
+    async fn process_events(
+        &self,
+        dice: DiceTransaction,
+        events: Vec<WatchmanEvent>,
+    ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
+        self.process_events_impl(dice, events).await
     }
 
-    async fn on_fresh_instance(&self) -> anyhow::Result<Self::Output> {
+    async fn on_fresh_instance(
+        &self,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
         eprintln!("watchman fresh instance event, clearing cache");
 
-        let ctx = self.dice.ctx();
         let buck_out_path = ctx.get_buck_out_path().await?;
         let cells = ctx.get_cell_resolver().await?;
         let configuror = ctx.get_interpreter_configuror().await?;
@@ -147,7 +151,6 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         let starlark_profiler_instrumentation_override =
             ctx.get_starlark_profiler_instrumentation_override().await?;
         let disable_starlark_types = ctx.get_disable_starlark_types().await?;
-        ctx.commit();
 
         buck2_build_api::actions::run::dep_files::flush_dep_files();
 
@@ -155,10 +158,9 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
         // it. So, we just send it off to its own thread.
-        let (_, map) = self.dice.ctx().unstable_take();
+        let (ctx, map) = ctx.unstable_take();
         std::thread::spawn(|| drop(map));
 
-        let ctx = self.dice.ctx();
         ctx.set_buck_out_path(Some((*buck_out_path).to_buf()));
         setup_interpreter(
             &ctx,
@@ -168,16 +170,18 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             starlark_profiler_instrumentation_override,
             disable_starlark_types,
         );
-        ctx.commit();
-        Ok(buck2_data::WatchmanStats {
-            fresh_instance: true,
-            ..Default::default()
-        })
+        Ok((
+            buck2_data::WatchmanStats {
+                fresh_instance: true,
+                ..Default::default()
+            },
+            ctx.commit(),
+        ))
     }
 }
 
 pub(crate) struct WatchmanFileWatcher {
-    query: SyncableQuery<buck2_data::WatchmanStats>,
+    query: SyncableQuery<buck2_data::WatchmanStats, DiceTransaction>,
 }
 
 /// The watchman query is constructed once on daemon startup. It is an unfiltered watchman query
@@ -188,7 +192,6 @@ impl WatchmanFileWatcher {
     pub(crate) fn new(
         paths: &Paths,
         root_config: &LegacyBuckConfig,
-        dice: Arc<Dice>,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Self> {
@@ -205,7 +208,6 @@ impl WatchmanFileWatcher {
                 Expr::FileType(FileType::Symlink),
             ]),
             box WatchmanQueryProcessor {
-                dice,
                 cells,
                 ignore_specs,
             },
@@ -218,11 +220,15 @@ impl WatchmanFileWatcher {
 
 #[async_trait]
 impl FileWatcher for WatchmanFileWatcher {
-    async fn sync(&self, dispatcher: &EventDispatcher) -> anyhow::Result<()> {
+    async fn sync(
+        &self,
+        dice: DiceTransaction,
+        dispatcher: &EventDispatcher,
+    ) -> anyhow::Result<DiceTransaction> {
         dispatcher
             .span_async(buck2_data::WatchmanStart {}, async {
-                let (stats, res) = match self.query.sync().await {
-                    Ok(stats) => ((Some(stats)), Ok(())),
+                let (stats, res) = match self.query.sync(dice).await {
+                    Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
                     Err(e) => (None, Err(e)),
                 };
                 (res, buck2_data::WatchmanEnd { stats })

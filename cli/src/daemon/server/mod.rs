@@ -805,9 +805,8 @@ impl DaemonState {
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
         // this list should be safe until we can revert it to Expr::True.
 
-        let file_watcher =
-            <dyn FileWatcher>::new(paths, root_config, dice.dupe(), cells.dupe(), ignore_specs)
-                .context("Error creating a FileWatcher")?;
+        let file_watcher = <dyn FileWatcher>::new(paths, root_config, cells.dupe(), ignore_specs)
+            .context("Error creating a FileWatcher")?;
 
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).
@@ -960,7 +959,7 @@ impl DaemonState {
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
         // Sync any FS changes and invalidate DICE state if necessary.
-        data.file_watcher.sync(&dispatcher).await?;
+        data.file_watcher.sync(data.dice.ctx(), &dispatcher).await?;
         data.io.settle().await?;
 
         Ok(BaseCommandContext {
