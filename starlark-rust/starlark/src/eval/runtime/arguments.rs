@@ -46,7 +46,7 @@ pub(crate) enum FunctionError {
     MissingParameter { name: String, function: String },
     #[error("Found {count} extra positional argument(s) for call to {function}")]
     ExtraPositionalArg { count: usize, function: String },
-    #[error("Found {} extra named parameter(s) for call to {function}", .names.join(" "))]
+    #[error("Found extra named parameter(s) ({}) for call to {function}", .names.join(", "))]
     ExtraNamedArg {
         names: Vec<String>,
         function: String,
