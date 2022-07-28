@@ -14,6 +14,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use clap::Args;
+use clap::FromArgMatches;
 use clap::Parser;
 use quickcheck::Gen;
 use quickcheck::QuickCheck;
@@ -56,7 +58,7 @@ fn execution_order_from_path(filepath: &Path) -> anyhow::Result<DiceExecutionOrd
         .context(format!("While parsing {}", &cleaned_up))
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(clap::Parser)]
 #[clap(
     name = "fuzzy-dice",
     about = "a tool for finding bugs in DICE by simulating many different computations"
@@ -66,36 +68,48 @@ struct Opts {
     command: Commands,
 }
 
-#[derive(Debug, clap::Subcommand)]
+#[derive(clap::Subcommand)]
 enum Commands {
     #[clap(about = "Replays an existing failure.")]
-    Replay {
-        #[clap(
-            value_parser,
-            help = "the path to the file containing the execution to replay"
-        )]
-        path: PathBuf,
-        #[clap(
-            long,
-            default_value_t = false,
-            help = "If set, prints a DICE-dump as JSON to stderr after each operation."
-        )]
-        print_dumps: bool,
-    },
+    Replay(SubCommandCommon<Replay>),
     #[clap(about = "Searches for new failures.")]
-    Fuzz {
-        #[clap(
-            default_value_t = 2_000_000,
-            help = "The maximum number of tests for fuzzing. The actual number may be lower due to\
+    Fuzz(SubCommandCommon<Fuzz>),
+}
+
+#[derive(Parser)]
+struct SubCommandCommon<T: FromArgMatches + Args> {
+    #[clap(flatten)]
+    cmd: T,
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "If set, prints a DICE-dump as JSON to stderr after each operation."
+    )]
+    print_dumps: bool,
+}
+
+#[derive(Parser)]
+struct Replay {
+    #[clap(
+        value_parser,
+        help = "the path to the file containing the execution to replay"
+    )]
+    path: PathBuf,
+}
+
+#[derive(Parser)]
+struct Fuzz {
+    #[clap(
+        default_value_t = 2_000_000,
+        help = "The maximum number of tests for fuzzing. The actual number may be lower due to\
             discarded test cases"
-        )]
-        max_tests: u64,
-        #[clap(
-            default_value_t = 2_000_000,
-            help = "The number of passes to hit before stopping and considering it as a pass"
-        )]
-        num_tests: u64,
-    },
+    )]
+    max_tests: u64,
+    #[clap(
+        default_value_t = 2_000_000,
+        help = "The number of passes to hit before stopping and considering it as a pass"
+    )]
+    num_tests: u64,
 }
 
 #[allow(deprecated)] // TODO(nga): use non-deprecated API.
@@ -129,23 +143,22 @@ fn main() -> anyhow::Result<()> {
     let cmd = Opts::parse();
 
     match cmd.command {
-        Commands::Fuzz {
-            max_tests,
-            num_tests,
-        } => {
+        Commands::Fuzz(fuzz) => {
             QuickCheck::new()
-                .max_tests(max_tests)
-                .tests(num_tests)
+                .max_tests(fuzz.cmd.max_tests)
+                .tests(fuzz.cmd.num_tests)
                 .gen(Gen::new(10))
                 .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> TestResult);
         }
-        Commands::Replay { path, print_dumps } => {
+        Commands::Replay(replay_cmd) => {
             tracing_subscriber::registry()
                 .with(fmt::layer())
                 .with(EnvFilter::from_default_env())
                 .init();
-            let execution = execution_order_from_path(&path)?;
-            let options = DiceExecutionOrderOptions { print_dumps };
+            let execution = execution_order_from_path(&replay_cmd.cmd.path)?;
+            let options = DiceExecutionOrderOptions {
+                print_dumps: replay_cmd.print_dumps,
+            };
             replay(&options, execution)?;
         }
     }
