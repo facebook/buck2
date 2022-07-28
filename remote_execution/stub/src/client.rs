@@ -64,6 +64,14 @@ impl REClient {
         stub()
     }
 
+    pub async fn write_action_result(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: WriteActionResultRequest,
+    ) -> anyhow::Result<WriteActionResultResponse> {
+        stub()
+    }
+
     pub async fn execute(
         &self,
         metadata: RemoteExecutionMetadata,

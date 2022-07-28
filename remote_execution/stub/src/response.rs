@@ -81,6 +81,9 @@ pub struct ActionResultResponse {
 }
 
 #[derive(Clone, Default)]
+pub struct WriteActionResultResponse {}
+
+#[derive(Clone, Default)]
 pub struct DownloadResponse {
     pub inlined_blobs: Option<Vec<InlinedDigestWithStatus>>,
     pub directories: Option<Vec<DigestWithStatus>>,

@@ -50,6 +50,8 @@ pub use re_client_lib::TProperty;
 pub use re_client_lib::TResultsCachePolicy;
 pub use re_client_lib::TTimestamp;
 pub use re_client_lib::UploadRequest;
+pub use re_client_lib::WriteActionResultRequest;
+pub use re_client_lib::WriteActionResultResponse;
 pub use re_grpc::remote_execution::command::EnvironmentVariable;
 pub use re_grpc::remote_execution::platform::Property;
 pub use re_grpc::remote_execution::Action;

@@ -8,6 +8,7 @@
  */
 
 pub use crate::digest::*;
+use crate::response::TActionResult2;
 
 #[derive(Default)]
 pub struct ActionResultRequest {
@@ -90,5 +91,12 @@ pub struct TExecutionPolicy {
 #[derive(Clone, Default)]
 pub struct TResultsCachePolicy {
     pub priority: i32,
+    pub _dot_dot: (),
+}
+
+#[derive(Clone, Default)]
+pub struct WriteActionResultRequest {
+    pub action_digest: TDigest,
+    pub action_result: TActionResult2,
     pub _dot_dot: (),
 }
