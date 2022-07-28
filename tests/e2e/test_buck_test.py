@@ -41,7 +41,7 @@ async def test_test_build_fail(buck: Buck) -> None:
         buck.test(
             "hewwo_buck",
         ),
-        stderr_regex="(there was no buildfile|No such file or directory)",
+        stderr_regex="No such file or directory",
     )
 
     await buck.test("fbcode//buck2/tests/targets/rules/sh_test:test")
