@@ -10,9 +10,11 @@
 #![feature(exclusive_range_pattern)]
 #![feature(async_closure)]
 
+use std::path::Path;
+use std::path::PathBuf;
+
 use anyhow::Context;
-use clap::Arg;
-use clap::Command;
+use clap::Parser;
 use quickcheck::Gen;
 use quickcheck::QuickCheck;
 use quickcheck::TestResult;
@@ -43,7 +45,7 @@ fn magical_cleanup(stderr: &str) -> anyhow::Result<&str> {
         .ok_or_else(|| DiceFuzzError::UnparsableReplay.into())
 }
 
-fn execution_order_from_path(filepath: &str) -> anyhow::Result<DiceExecutionOrder> {
+fn execution_order_from_path(filepath: &Path) -> anyhow::Result<DiceExecutionOrder> {
     let buf = std::fs::read_to_string(filepath)?;
     if let Ok(ex) = serde_json::from_reader::<_, DiceExecutionOrder>(&mut buf.as_bytes()) {
         return Ok(ex);
@@ -52,6 +54,36 @@ fn execution_order_from_path(filepath: &str) -> anyhow::Result<DiceExecutionOrde
     let cleaned_up = magical_cleanup(&buf)?;
     serde_json::from_reader::<_, DiceExecutionOrder>(&mut cleaned_up.as_bytes())
         .context(format!("While parsing {}", &cleaned_up))
+}
+
+#[derive(Debug, clap::Parser)]
+#[clap(
+    name = "fuzzy-dice",
+    about = "a tool for finding bugs in DICE by simulating many different computations"
+)]
+struct Opts {
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum Commands {
+    #[clap(about = "Replays an existing failure.")]
+    Replay {
+        #[clap(
+            value_parser,
+            help = "the path to the file containing the execution to replay"
+        )]
+        path: PathBuf,
+        #[clap(
+            long,
+            default_value_t = false,
+            help = "If set, prints a DICE-dump as JSON to stderr after each operation."
+        )]
+        print_dumps: bool,
+    },
+    #[clap(about = "Searches for new failures.")]
+    Fuzz {},
 }
 
 #[allow(deprecated)] // TODO(nga): use non-deprecated API.
@@ -82,45 +114,25 @@ fn main() -> anyhow::Result<()> {
         res
     }
 
-    let cmd = Command::new("fuzzy-dice")
-        .version("0.1")
-        .about("a tool for finding bugs in DICE by simulating many different computations")
-        .subcommand(Command::new("fuzz").about("Searches for new failures."))
-        .subcommand(
-            Command::new("replay")
-                .about("Replays an existing failure.")
-                .arg(Arg::new("path").required(true).takes_value(true))
-                .arg(
-                    Arg::new("print-dumps")
-                        .long("print-dumps")
-                        .takes_value(false)
-                        .help("If set, prints a DICE-dump as JSON to stderr after each operation."),
-                ),
-        )
-        .arg_required_else_help(true);
+    let cmd = Opts::parse();
 
-    let matches = cmd.get_matches();
-
-    match matches.subcommand() {
-        Some(("fuzz", _submatches)) => {
+    match cmd.command {
+        Commands::Fuzz {} => {
             QuickCheck::new()
                 .max_tests(2_000_000)
                 .tests(2_000_000)
                 .gen(Gen::new(10))
                 .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> TestResult);
         }
-        Some(("replay", submatches)) => {
+        Commands::Replay { path, print_dumps } => {
             tracing_subscriber::registry()
                 .with(fmt::layer())
                 .with(EnvFilter::from_default_env())
                 .init();
-            let execution = execution_order_from_path(submatches.value_of("path").unwrap())?;
-            let options = DiceExecutionOrderOptions {
-                print_dumps: submatches.is_present("print-dumps"),
-            };
+            let execution = execution_order_from_path(&path)?;
+            let options = DiceExecutionOrderOptions { print_dumps };
             replay(&options, execution)?;
         }
-        _ => unreachable!("clap should ensure we don't get here"),
     }
 
     println!("Fuzzing complete.");
