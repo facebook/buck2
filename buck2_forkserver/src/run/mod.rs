@@ -117,8 +117,6 @@ async fn stream_command_events(
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    #[cfg(windows)]
-    cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
     let mut child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
         .await
