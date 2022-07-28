@@ -203,7 +203,7 @@ pub async fn gather_output(
     decode_command_event_stream(stream).await
 }
 
-pub fn kill_process(child: &Child) -> anyhow::Result<()> {
+fn kill_process(child: &Child) -> anyhow::Result<()> {
     let pid = match child.id() {
         Some(pid) => pid,
         None => {
