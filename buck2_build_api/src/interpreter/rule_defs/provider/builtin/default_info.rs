@@ -14,6 +14,7 @@ use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
+use gazebo::dupe::Dupe;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -201,7 +202,7 @@ impl FrozenDefaultInfo {
         self.sub_targets
     }
 
-    pub fn for_each_default_output(
+    pub fn for_each_default_output_artifact_only(
         &self,
         processor: &mut dyn FnMut(Artifact) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
@@ -210,11 +211,28 @@ impl FrozenDefaultInfo {
                 value
                     .as_artifact()
                     .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                    .get_bound_deprecated()?,
+                    .get_bound_artifact()?,
             )
         })
     }
 
+    pub fn for_each_default_output_other_artifacts_only(
+        &self,
+        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        self.for_each_in_list(self.default_outputs, |value| {
+            let (_, others) = value
+                .as_artifact()
+                .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
+                .get_bound_artifact_and_additional_artifacts()?;
+            others
+                .iter()
+                .for_each(|other| processor(other.dupe()).unwrap());
+            Ok(())
+        })
+    }
+
+    // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly
     pub fn for_each_other_output(
         &self,
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
@@ -231,7 +249,9 @@ impl FrozenDefaultInfo {
         &self,
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
-        self.for_each_default_output(&mut |a| processor(ArtifactGroup::Artifact(a)))?;
+        self.for_each_default_output_artifact_only(&mut |a| processor(ArtifactGroup::Artifact(a)))?;
+        self.for_each_default_output_other_artifacts_only(processor)?;
+        // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly
         self.for_each_other_output(processor)
     }
 
@@ -287,7 +307,7 @@ impl ArtifactTraversable for &dyn StarlarkArtifactLike {
         &self,
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
-        processor(ArtifactGroup::Artifact(self.get_bound_deprecated()?))?;
+        processor(ArtifactGroup::Artifact(self.get_bound_artifact()?))?;
         Ok(())
     }
 }

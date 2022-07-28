@@ -206,7 +206,7 @@ async fn retrieve_artifacts_for_provider_label(
     let mut artifacts = Vec::new();
     collection
         .default_info()
-        .for_each_default_output(&mut |o| {
+        .for_each_default_output_artifact_only(&mut |o| {
             artifacts.push(o);
             Ok(())
         })?;
