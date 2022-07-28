@@ -56,6 +56,7 @@ use gazebo::display::display_keyed_container;
 use gazebo::prelude::*;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
@@ -73,7 +74,6 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::{self as starlark};
 
 /// The result of `field()`.
 #[derive(Clone, Debug, Dupe, Trace, Freeze, NoSerialize, ProvidesStaticType)]

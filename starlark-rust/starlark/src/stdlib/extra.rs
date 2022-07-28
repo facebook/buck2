@@ -25,6 +25,7 @@ use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
+use crate as starlark;
 use crate::collections::symbol_map::Symbol;
 use crate::environment::GlobalsBuilder;
 use crate::eval::runtime::arguments::ArgNames;
@@ -48,7 +49,6 @@ use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::{self as starlark};
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {

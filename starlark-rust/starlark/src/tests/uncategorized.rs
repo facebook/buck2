@@ -21,6 +21,7 @@ use std::fmt::Write;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 
+use crate as starlark;
 use crate::assert;
 use crate::assert::Assert;
 use crate::collections::SmallMap;
@@ -39,7 +40,6 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::{self as starlark};
 
 #[test]
 fn alias_test() {

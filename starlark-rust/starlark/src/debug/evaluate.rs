@@ -112,10 +112,10 @@ mod tests {
     use itertools::Itertools;
 
     use super::*;
+    use crate as starlark;
     use crate::assert;
     use crate::environment::GlobalsBuilder;
     use crate::syntax::Dialect;
-    use crate::{self as starlark};
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {

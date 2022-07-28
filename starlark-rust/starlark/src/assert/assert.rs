@@ -28,6 +28,7 @@ use anyhow::anyhow;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
+use crate as starlark;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Pos;
@@ -50,7 +51,6 @@ use crate::values::structs::Struct;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;
-use crate::{self as starlark};
 
 fn mk_environment() -> GlobalsBuilder {
     GlobalsBuilder::extended().with(test_functions)

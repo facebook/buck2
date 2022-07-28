@@ -31,6 +31,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
+use crate as starlark;
 use crate::codemap::CodeMap;
 use crate::collections::Hashed;
 use crate::const_frozen_string;
@@ -83,7 +84,6 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::{self as starlark};
 
 #[derive(thiserror::Error, Debug)]
 enum DefError {

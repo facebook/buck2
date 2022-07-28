@@ -593,11 +593,11 @@ mod tests {
     use gazebo::any::ProvidesStaticType;
 
     use super::*;
+    use crate as starlark;
     use crate::assert::Assert;
     use crate::starlark_type;
     use crate::values::NoSerialize;
     use crate::values::StarlarkValue;
-    use crate::{self as starlark};
 
     #[test]
     fn test_send_sync()

@@ -19,6 +19,7 @@
 
 use anyhow::anyhow;
 
+use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::stdlib::util::convert_index;
 use crate::stdlib::util::convert_indices;
@@ -29,7 +30,6 @@ use crate::values::none::NoneType;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::{self as starlark};
 
 #[starlark_module]
 pub(crate) fn list_methods(builder: &mut MethodsBuilder) {

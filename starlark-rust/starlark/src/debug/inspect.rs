@@ -77,12 +77,12 @@ mod tests {
     use gazebo::coerce::coerce;
     use gazebo::prelude::*;
 
+    use crate as starlark;
     use crate::assert;
     use crate::collections::SmallMap;
     use crate::environment::GlobalsBuilder;
     use crate::eval::Evaluator;
     use crate::values::dict::Dict;
-    use crate::{self as starlark};
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {

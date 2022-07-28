@@ -131,6 +131,7 @@ mod tests {
     use gazebo::any::ProvidesStaticType;
     use gazebo::prelude::*;
 
+    use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Methods;
@@ -141,7 +142,6 @@ mod tests {
     use crate::values::UnpackValue;
     use crate::values::Value;
     use crate::values::ValueLike;
-    use crate::{self as starlark};
 
     #[test]
     fn test_no_arg() {

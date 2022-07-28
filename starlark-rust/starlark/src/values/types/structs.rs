@@ -47,6 +47,7 @@ use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
@@ -68,7 +69,6 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueOf;
-use crate::{self as starlark};
 
 impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     /// The result of calling `type()` on a struct.

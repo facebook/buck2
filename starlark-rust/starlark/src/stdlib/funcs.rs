@@ -24,6 +24,7 @@ use std::num::NonZeroI32;
 
 use anyhow::anyhow;
 
+use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
@@ -43,7 +44,6 @@ use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
-use crate::{self as starlark};
 
 fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>, Value<'v>)> {
     pair.with_iterator(heap, |it| {

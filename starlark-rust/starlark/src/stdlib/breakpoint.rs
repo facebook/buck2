@@ -22,13 +22,13 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
+use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::read_line::ReadLine;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
-use crate::{self as starlark};
 
 // A breakpoint takes over the console UI, so having two going at once confuses everything.
 // Have a global mutex to ensure one at a time.
