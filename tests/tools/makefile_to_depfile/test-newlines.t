@@ -1,4 +1,4 @@
-  $ "$MAKEFILE_TO_DEP_FILE" "$TESTDIR/fixtures/newlines.mk" "$CRAMTMP/newlines" true
+  $ $MAKEFILE_TO_DEP_FILE "$TESTDIR/fixtures/newlines.mk" "$CRAMTMP/newlines" true
   $ cat "$CRAMTMP/newlines"
   xplat/third-party/gmock/googletest-1.10.0/googletest/src/gtest-all.cc
   xplat/third-party/gmock/googletest-1.10.0/googletest/src/gtest.cc
