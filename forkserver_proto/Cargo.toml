@@ -1,0 +1,13 @@
+[package]
+name = "forkserver_proto"
+
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+prost = "0.10"
+prost-types = "0.10"
+tonic = "0.7.2"
+
+[build-dependencies]
+tonic-build = {version = "0.7.2", features = ["prost"]}
