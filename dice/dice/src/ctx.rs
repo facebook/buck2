@@ -137,8 +137,9 @@ impl DiceTransaction {
         DiceTransaction(self.0.0.commit())
     }
 
-    pub fn unstable_take(self) -> DiceMap {
-        self.0.0.unstable_take()
+    pub fn unstable_take(self) -> (Self, DiceMap) {
+        let map = self.0.0.unstable_take();
+        (self, map)
     }
 }
 
@@ -423,7 +424,7 @@ impl DiceComputationImpl {
         this.dice.make_ctx(this.extra)
     }
 
-    pub(super) fn unstable_take(self: Arc<Self>) -> DiceMap {
+    pub(super) fn unstable_take(self: &Arc<Self>) -> DiceMap {
         self.dice.unstable_take()
     }
 }
