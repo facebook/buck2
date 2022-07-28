@@ -185,6 +185,18 @@ pub(crate) struct SyncableQuery<T> {
     control_tx: UnboundedSender<SyncableQueryCommand<T>>,
 }
 
+pub(crate) enum WatchmanSyncResult {
+    FreshInstance {
+        merge_base: Option<String>,
+        clock: ClockSpec,
+    },
+    Events {
+        events: Vec<WatchmanEvent>,
+        merge_base: Option<String>,
+        clock: ClockSpec,
+    },
+}
+
 /// The SyncableQueryHandler runs a processing loop that communicates with watchman and invokes the SyncableQueryProcessor. As
 /// these only happen within the handler's run loop, for a particular SyncableQuery all watchman invocations and processor
 /// processing will happen in a linear order.
@@ -261,6 +273,41 @@ where
     /// sync() will send a since query to watchman and invoke the processor
     /// with either the received events or a fresh instance call.
     async fn sync(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<T> {
+        let sync_res = self.sync_query(client).await?;
+
+        let (res, new_mergebase, clock) = match sync_res {
+            WatchmanSyncResult::Events {
+                events,
+                merge_base,
+                clock,
+            } => {
+                if self.mergebase_with.is_none()
+                    || self.last_mergebase.is_some() && self.last_mergebase == merge_base
+                {
+                    (
+                        self.processor.process_events(events).await?,
+                        merge_base,
+                        clock,
+                    )
+                } else {
+                    (self.processor.on_fresh_instance().await?, merge_base, clock)
+                }
+            }
+            WatchmanSyncResult::FreshInstance { merge_base, clock } => {
+                (self.processor.on_fresh_instance().await?, merge_base, clock)
+            }
+        };
+
+        self.last_mergebase = new_mergebase;
+        self.last_clock = clock;
+
+        Ok(res)
+    }
+
+    async fn sync_query(
+        &mut self,
+        client: &mut Option<WatchmanClient>,
+    ) -> anyhow::Result<WatchmanSyncResult> {
         let client = client.as_mut().context("No Watchman connection")?;
 
         let mut query = self.query.clone();
@@ -293,27 +340,22 @@ where
         // While we use scm-based queries, the processor api doesn't really support them yet so we just treat it as a fresh instance.
         let (new_mergebase, clock) = unpack_clock(clock);
 
-        let res = if !is_fresh_instance
-            && (self.mergebase_with.is_none()
-                || self.last_mergebase.is_some() && self.last_mergebase == new_mergebase)
-        {
-            // For regular watchman queries, we process files when there are not fresh instances.
-            // For scm aware queries, only process the files when it's not a fresh instance or mergebase change.
-            let events: Vec<_> = files
-                .ok_or_else(|| anyhow::anyhow!(""))?
-                .into_iter()
-                .filter_map(|f| f.into_event())
-                .collect();
-
-            self.processor.process_events(events).await?
+        Ok(if is_fresh_instance {
+            WatchmanSyncResult::FreshInstance {
+                merge_base: new_mergebase,
+                clock,
+            }
         } else {
-            self.processor.on_fresh_instance().await?
-        };
-
-        self.last_mergebase = new_mergebase;
-        self.last_clock = clock;
-
-        Ok(res)
+            WatchmanSyncResult::Events {
+                events: files
+                    .ok_or_else(|| anyhow::anyhow!(""))?
+                    .into_iter()
+                    .filter_map(|f| f.into_event())
+                    .collect(),
+                merge_base: new_mergebase,
+                clock,
+            }
+        })
     }
 }
 
