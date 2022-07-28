@@ -533,10 +533,6 @@ impl ServerCommandContext {
     }
 
     async fn construct_dice_ctx(&self) -> SharedResult<DiceTransaction> {
-        let concurrency = self.build_options.as_ref().map_or_else(
-            || parse_concurrency(0),
-            |opts| parse_concurrency(opts.concurrency),
-        )?;
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -572,11 +568,21 @@ impl ServerCommandContext {
             configure_bxl_file_globals,
         );
 
-        let re_global_knobs = {
-            let root_config = legacy_configs
-                .get(cell_resolver.root_cell())
-                .context("No config for root cell")?;
+        let root_config = legacy_configs
+            .get(cell_resolver.root_cell())
+            .context("No config for root cell")?;
+        let config_threads = root_config.parse("build", "threads")?.unwrap_or(0);
 
+        let concurrency = self
+            .build_options
+            .as_ref()
+            .and_then(|opts| opts.concurrency.as_ref())
+            .map_or_else(
+                || parse_concurrency(config_threads),
+                |obj| parse_concurrency(obj.concurrency),
+            )?;
+
+        let re_global_knobs = {
             ReExecutorGlobalKnobs {
                 always_check_ttls: root_config
                     .parse("buck2", "re_always_check_ttls")?

@@ -200,12 +200,15 @@ message ConfigOverride {
   }
   ConfigType config_type = 2;
 }
-
+message Concurrency {
+  // (Optional) How many builds to run concurrently on the local executor. If
+  // this is zero, then the concurrency will be inferred by the daemon based on
+  // the number of cores available.
+  uint32 concurrency = 1;
+}
 message CommonBuildOptions {
-  // How many builds to run concurrently on the local executor. If this is
-  // zero, then the concurrency will be inferred by the daemon based on the
-  // number of cores available.
-  uint32 concurrency = 5;
+  reserved 5;
+  Concurrency concurrency = 10;
   enum ExecutionStrategy {
     Default = 0;
     LocalOnly = 1;

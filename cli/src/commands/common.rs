@@ -333,8 +333,12 @@ impl CommonBuildOptions {
 
     pub(crate) fn to_proto(&self) -> cli_proto::CommonBuildOptions {
         let (unstable_print_build_report, unstable_build_report_filename) = self.build_report();
+        let concurrency = self
+            .num_threads
+            .map(|num| cli_proto::Concurrency { concurrency: num });
+
         cli_proto::CommonBuildOptions {
-            concurrency: self.num_threads.unwrap_or(0),
+            concurrency,
             execution_strategy: if self.local_only {
                 ExecutionStrategy::LocalOnly as i32
             } else if self.remote_only {
