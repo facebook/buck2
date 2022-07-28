@@ -285,6 +285,10 @@ impl DiceError {
             cyclic_keys,
         }))
     }
+
+    pub fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
+    }
 }
 
 #[derive(Debug, Error)]
@@ -294,6 +298,8 @@ enum DiceErrorImpl {
         trigger: Arc<dyn RequestedKey>,
         cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
     },
+    #[error("Key `{0}` was marked as changed multiple times on the same transaction.")]
+    DuplicateChange(Arc<dyn RequestedKey>),
 }
 
 pub type DiceResult<T> = Result<T, DiceError>;

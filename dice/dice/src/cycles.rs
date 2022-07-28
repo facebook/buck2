@@ -183,6 +183,9 @@ mod tests {
                         ]
                     )
                 }
+                _ => {
+                    panic!("wrong error type")
+                }
             },
         }
 
