@@ -77,34 +77,30 @@
 //!
 //! e.g.
 //! ```
-//! use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf};
-//! use buck2_core::fs::paths::{ForwardRelativePathBuf, AbsPathBuf};
-//! use buck2_core::cells::{CellsConfigParser, CellResolver, CellName};
+//! use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+//! use buck2_core::fs::paths::ForwardRelativePathBuf;
+//! use buck2_core::cells::{CellResolver, CellName, CellAlias};
 //! use std::convert::TryFrom;
+//! use maplit::hashmap;
 //! use buck2_core::cells::cell_root_path::CellRootPathBuf;
-//!
-//! let temp_dir = tempfile::tempdir()?;
-//! let temp_dir = AbsPathBuf::try_from(temp_dir.path().to_owned())?;
-//! let fs = ProjectFilesystem::new(temp_dir);
+//! use buck2_core::cells::testing::CellResolverExt;
 //!
 //! let cell_config = ForwardRelativePathBuf::try_from(".buckconfig".to_owned())?;
 //! let fbsource = ProjectRelativePath::new("")?;
 //! let fbcode = ProjectRelativePath::new("fbcode")?;
 //!
-//! # gazebo::file::create_dirs_and_write(
-//! #     fs.resolve(&fbsource.join_unnormalized(&cell_config)),
-//! #     "fbsource=.\nfbcode=fbcode\n",
-//! # );
-//! # gazebo::file::create_dirs_and_write(
-//! #     fs.resolve(&fbcode.join_unnormalized(&cell_config)),
-//! #     "fbsource=..\nfbcode=.\n",
-//! # );
-//!
-//! let cells = CellsConfigParser::parse_cells_from_path(
-//!     CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
-//!     &fs,
-//!     &cell_config
-//! )?;
+//! let cells = CellResolver::with_names_and_paths_with_alias(&[
+//!     (CellName::unchecked_new("fbsource".to_owned()), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
+//!         CellAlias::new("fbsource".to_owned()) => CellName::unchecked_new("fbsource".to_owned()),
+//!         CellAlias::new("".to_owned()) => CellName::unchecked_new("fbsource".to_owned()),
+//!         CellAlias::new("fbcode".to_owned()) => CellName::unchecked_new("fbcode".to_owned()),
+//!     ]),
+//!     (CellName::unchecked_new("fbcode".to_owned()), CellRootPathBuf::new(fbcode.to_buf()), hashmap![
+//!         CellAlias::new("fbcode".to_owned()) => CellName::unchecked_new("fbcode".to_owned()),
+//!         CellAlias::new("".to_owned()) => CellName::unchecked_new("fbcode".to_owned()),
+//!         CellAlias::new("fbsource".to_owned()) => CellName::unchecked_new("fbsource".to_owned()),
+//!     ])
+//! ]);
 //!
 //! let fbsource_cell_name = cells.find(ProjectRelativePath::new("something/in/fbsource")?)?;
 //! assert_eq!(fbsource_cell_name, &CellName::unchecked_new("fbsource".into()));
@@ -463,29 +459,19 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::{CellResolver, CellsConfigParser, CellName};
-    /// use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf};
-    /// use buck2_core::fs::paths::{ForwardRelativePathBuf, ForwardRelativePath, AbsPathBuf};
-    /// use gazebo::file;
+    /// use buck2_core::cells::{CellResolver, CellName};
+    /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+    /// use buck2_core::fs::paths::{ForwardRelativePathBuf, ForwardRelativePath};
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::testing::CellResolverExt;
     ///
-    /// let temp = tempfile::tempdir()?;
-    /// let fs = ProjectFilesystem::new(
-    ///     AbsPathBuf::try_from(temp.into_path())?
-    /// );
-    /// let cell_config = ForwardRelativePathBuf::unchecked_new("myconfig".into());
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
-    ///
-    /// file::create_dirs_and_write(
-    ///     fs.resolve(&cell_path.join_unnormalized(&cell_config)),
-    ///     "mycell=.\n",
-    /// )?;
-    ///
-    /// let cells = CellsConfigParser::parse_cells_from_path(
-    ///     CellRootPathBuf::new(cell_path.to_buf()), &fs, &cell_config)?;
+    /// let cells = CellResolver::of_names_and_paths(&[
+    ///     (CellName::unchecked_new("mycell".to_owned()), CellRootPathBuf::new(cell_path.to_buf()))
+    /// ]);
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::unchecked_new("mycell".into()),
@@ -782,37 +768,48 @@ mod tests {
     use gazebo::file;
 
     use super::*;
+    use crate::cells::testing::CellResolverExt;
     use crate::fs::paths::ForwardRelativePathBuf;
     use crate::fs::project::ProjectFilesystemTemp;
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
-
-        let cell_config = ForwardRelativePathBuf::unchecked_new("myconfig".into());
         let cell1_path = CellRootPath::new(ProjectRelativePath::new("my/cell1")?);
         let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
         let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);
 
-        file::create_dirs_and_write(
-            fs.path()
-                .resolve(&cell2_path.join_unnormalized(&cell_config)),
-            "cell1=../my/cell1\ncell2=.\ncell3=../my/cell3\n",
-        )
-        .unwrap();
-        file::create_dirs_and_write(
-            fs.path()
-                .resolve(&cell1_path.join_unnormalized(&cell_config)),
-            "cell1=.\ncell2=../../cell2\ncell3=../cell3\n",
-        )?;
-        file::create_dirs_and_write(
-            fs.path()
-                .resolve(&cell3_path.join_unnormalized(&cell_config)),
-            "z_cell1=../cell1\nz_cell2=../../cell2\nz_cell3=.\n",
-        )?;
-
-        let cells =
-            CellsConfigParser::parse_cells_from_path(cell1_path.to_buf(), fs.path(), &cell_config)?;
+        let cells = CellResolver::with_names_and_paths_with_alias(&[
+            (
+                CellName::unchecked_new("cell1".to_owned()),
+                cell1_path.to_buf(),
+                hashmap![
+                    CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
+                    CellAlias::new("".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
+                    CellAlias::new("cell2".to_owned()) => CellName::unchecked_new("cell2".to_owned()),
+                    CellAlias::new("cell3".to_owned()) => CellName::unchecked_new("cell3".to_owned()),
+                ],
+            ),
+            (
+                CellName::unchecked_new("cell2".to_owned()),
+                cell2_path.to_buf(),
+                hashmap![
+                    CellAlias::new("cell2".to_owned()) => CellName::unchecked_new("cell2".to_owned()),
+                    CellAlias::new("".to_owned()) => CellName::unchecked_new("cell2".to_owned()),
+                    CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
+                    CellAlias::new("cell3".to_owned()) => CellName::unchecked_new("cell3".to_owned()),
+                ],
+            ),
+            (
+                CellName::unchecked_new("cell3".to_owned()),
+                cell3_path.to_buf(),
+                hashmap![
+                    CellAlias::new("z_cell3".to_owned()) => CellName::unchecked_new("cell3".to_owned()),
+                    CellAlias::new("".to_owned()) => CellName::unchecked_new("cell3".to_owned()),
+                    CellAlias::new("z_cell1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
+                    CellAlias::new("z_cell2".to_owned()) => CellName::unchecked_new("cell2".to_owned()),
+                ],
+            ),
+        ]);
 
         {
             let cell1 = cells.get(&CellName::unchecked_new("cell1".into())).unwrap();

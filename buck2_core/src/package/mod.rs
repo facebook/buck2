@@ -168,29 +168,20 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::{CellResolver, CellsConfigParser, CellName};
-    /// use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf};
-    /// use buck2_core::fs::paths::{ForwardRelativePathBuf, ForwardRelativePath, AbsPathBuf};
+    /// use buck2_core::cells::{CellResolver, CellName};
+    /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+    /// use buck2_core::fs::paths::{ForwardRelativePathBuf, ForwardRelativePath};
     /// use buck2_core::package::Package;
-    /// use gazebo::file;
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::paths::CellRelativePath;
+    /// use buck2_core::cells::testing::CellResolverExt;
     ///
-    /// let temp = tempfile::tempdir()?;
-    /// let fs = ProjectFilesystem::new(
-    ///     AbsPathBuf::try_from(temp.into_path())?
-    /// );
-    /// let cell_config = ForwardRelativePathBuf::unchecked_new("myconfig".into());
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     ///
-    /// file::create_dirs_and_write(
-    ///     fs.resolve(&cell_path.join_unnormalized(&cell_config)),
-    ///     "mycell=.\n",
-    /// )?;
-    ///
-    /// let cells = CellsConfigParser::parse_cells_from_path(
-    ///     CellRootPathBuf::new(cell_path.to_buf()), &fs, &cell_config)?;
+    /// let cells = CellResolver::of_names_and_paths(&[
+    ///     (CellName::unchecked_new("mycell".to_owned()), CellRootPathBuf::new(cell_path.to_buf()))
+    /// ]);
     ///
     /// let pkg = Package::new(
     ///     &CellName::unchecked_new("mycell".into()),
