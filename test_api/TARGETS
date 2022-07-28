@@ -22,6 +22,7 @@ rust_library(
         "fbsource//third-party/rust:tower",
         "fbsource//third-party/rust:tracing",
         "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_grpc:buck2_grpc",
         "//buck2/downward_api:downward_api",
         "//buck2/downward_api_proto:downward_api_proto",
         "//buck2/gazebo/gazebo:gazebo",

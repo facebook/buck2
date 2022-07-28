@@ -33,3 +33,4 @@ downward_api = { path = "../downward_api" }
 events = { path = "../events" }
 host_sharing = { path = "../host_sharing" }
 test_api = { path = "../test_api" }
+buck2_grpc = { path = "../buck2_grpc" }

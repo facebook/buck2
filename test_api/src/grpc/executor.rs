@@ -1,4 +1,8 @@
 use anyhow::Context as _;
+use buck2_grpc::make_channel;
+use buck2_grpc::spawn_oneshot;
+use buck2_grpc::to_tonic;
+use buck2_grpc::ServerHandle;
 use test_proto::test_executor_client;
 use test_proto::test_executor_server;
 use test_proto::Empty;
@@ -8,10 +12,6 @@ use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
 
 use crate::data::ExternalRunnerSpec;
-use crate::grpc::channel;
-use crate::grpc::server::spawn_oneshot;
-use crate::grpc::server::ServerHandle;
-use crate::grpc::util::to_tonic;
 use crate::protocol::TestExecutor;
 
 pub struct TestExecutorClient {
@@ -23,7 +23,7 @@ impl TestExecutorClient {
     where
         T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let channel = channel::make_channel(io, "executor").await?;
+        let channel = make_channel(io, "executor").await?;
 
         Ok(Self {
             client: test_executor_client::TestExecutorClient::new(channel),

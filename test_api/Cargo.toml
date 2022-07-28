@@ -26,6 +26,7 @@ tower = "0.4"
 http = "0.2"
 tracing = "0.1.22"
 prost-types = "0.10"
+buck2_grpc = { path = "../buck2_grpc" }
 
 [dev-dependencies]
 assert_matches = "1.5"

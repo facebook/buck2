@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_grpc::make_channel;
+use buck2_grpc::spawn_oneshot;
+use buck2_grpc::to_tonic;
+use buck2_grpc::ServerHandle;
 use downward_api::DownwardApi;
 use downward_api_proto::downward_api_client;
 use downward_api_proto::downward_api_server;
@@ -34,10 +38,6 @@ use crate::data::ExecutorConfigOverride;
 use crate::data::PrepareForLocalExecutionResult;
 use crate::data::TestExecutable;
 use crate::data::TestResult;
-use crate::grpc::channel;
-use crate::grpc::server::spawn_oneshot;
-use crate::grpc::server::ServerHandle;
-use crate::grpc::util::to_tonic;
 use crate::protocol::TestOrchestrator;
 
 pub struct TestOrchestratorClient {
@@ -50,7 +50,7 @@ impl TestOrchestratorClient {
     where
         T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let channel = channel::make_channel(io, "orchestrator").await?;
+        let channel = make_channel(io, "orchestrator").await?;
 
         Ok(Self {
             test_orchestrator_client: test_orchestrator_client::TestOrchestratorClient::new(

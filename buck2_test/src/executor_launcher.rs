@@ -11,13 +11,13 @@ use std::pin::Pin;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_grpc::DuplexChannel;
+use buck2_grpc::ServerHandle;
 use derive_more::Display;
 use futures::future::try_join3;
 use futures::future::Future;
 use futures::future::FutureExt;
 use test_api::grpc::spawn_orchestrator_server;
-use test_api::grpc::DuplexChannel;
-use test_api::grpc::ServerHandle;
 use test_api::grpc::TestExecutorClient;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;

@@ -1,0 +1,22 @@
+[package]
+name = "buck2_grpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.51"
+futures = { version = "0.3.13", features = ["async-await", "compat"] }
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
+http = "0.2"
+pin-project = "0.4"
+tokio = {version = "1.5", features = ["full"]}
+tonic = "0.7.2"
+tower = "0.4"
+
+[dev-dependencies]
+assert_matches = "1.5"
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]
