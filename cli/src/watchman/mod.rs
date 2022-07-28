@@ -297,7 +297,7 @@ where
             && (self.mergebase_with.is_none()
                 || self.last_mergebase.is_some() && self.last_mergebase == new_mergebase)
         {
-            // For regular wathcman queries, we process files when there are not fresh instances.
+            // For regular watchman queries, we process files when there are not fresh instances.
             // For scm aware queries, only process the files when it's not a fresh instance or mergebase change.
             let events: Vec<_> = files
                 .ok_or_else(|| anyhow::anyhow!(""))?
