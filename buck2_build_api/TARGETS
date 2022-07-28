@@ -19,9 +19,11 @@ rust_library(
     ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:tokio-util",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

@@ -11,6 +11,9 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
+use std::io::Cursor;
+use std::io::Read;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -38,6 +41,7 @@ use faccess::PathExt;
 use futures::channel::oneshot;
 use futures::future;
 use futures::future::try_join3;
+use futures::future::BoxFuture;
 use futures::future::FusedFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -509,15 +513,16 @@ async fn gather_output(
     let stdout = child.stdout.take().expect("piped() above");
     let stderr = child.stderr.take().expect("piped() above");
 
-    let stdout = InterruptibleAsyncRead {
-        read: stdout,
-        interrupt: reads_stoped.clone(),
-    };
+    #[cfg(unix)]
+    type Drainer<R> = unix_non_blocking_drainer::UnixNonBlockingDrainer<R>;
 
-    let stderr = InterruptibleAsyncRead {
-        read: stderr,
-        interrupt: reads_stoped.clone(),
-    };
+    // On Windows, for the time being we just give ourselves a timeout to finish reading.
+    // Ideally this would perform a non-blocking read on self instead like we do on Unix.
+    #[cfg(not(unix))]
+    type Drainer<R> = TimeoutDrainer<R>;
+
+    let stdout = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stdout, reads_stoped.clone());
+    let stderr = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stderr, reads_stoped.clone());
 
     let status = async move {
         let exit_status_result = match timeout {
@@ -631,80 +636,93 @@ where
     }
 }
 
-/// An [AsyncRead] that can be interrupted. The underlyng [AsyncRead] will be polled while the the
-/// [Future] provided in interrupt hasn't completed. When said future completes, if it returns
-/// true, we stop reading and return EOF. If it return false, we keep reading until EOF.
+/// An [AsyncRead] that can be interrupted. The underlying [AsyncRead] will be polled while the
+/// [Future] provided in interrupt hasn't completed. When said future completes, then we will
+/// proceed to "drain" the reader, which means reading the data that is there but not waiting for
+/// any further data to get written.
 #[pin_project]
-struct InterruptibleAsyncRead<I, R> {
+struct InterruptibleAsyncRead<I, R, D> {
     #[pin]
     interrupt: I,
-    #[pin]
-    read: R,
+    state: InterruptibleAsyncReadState<R, D>,
 }
 
-impl<I, R> InterruptibleAsyncRead<I, R>
+enum InterruptibleAsyncReadState<R, D> {
+    Reading(R),
+    Draining(D),
+}
+
+impl<I, R, D> InterruptibleAsyncRead<I, R, D>
+where
+    D: DrainerFromReader<R>,
+{
+    pub fn new(reader: R, interrupt: I) -> Self {
+        Self {
+            state: InterruptibleAsyncReadState::Reading(reader),
+            interrupt,
+        }
+    }
+}
+
+impl<I, R, D> InterruptibleAsyncRead<I, R, D>
 where
     I: Future<Output = ()> + FusedFuture,
-    R: AsyncRead + AsyncReadReady,
+    R: AsyncRead + Unpin,
+    D: AsyncRead + Unpin + DrainerFromReader<R>,
 {
     async fn drain(mut self) -> anyhow::Result<Vec<u8>>
     where
         R: Unpin,
         I: Unpin,
     {
-        // First, read until we are told to stop (or hit EOF).
         let mut ret = Vec::new();
         self.read_to_end(&mut ret).await?;
-
-        // Then, read whatever is left on the pipe.
-        self.read
-            .read_ready(&mut ret)
-            .await
-            .context("Error draining pipe")?;
-
         Ok(ret)
     }
 }
 
-impl<I, R> AsyncRead for InterruptibleAsyncRead<I, R>
+impl<I, R, D> AsyncRead for InterruptibleAsyncRead<I, R, D>
 where
     I: Future<Output = ()> + FusedFuture,
-    R: AsyncRead,
+    R: AsyncRead + Unpin,
+    D: AsyncRead + Unpin + DrainerFromReader<R>,
 {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let this = self.project();
+        let mut this = self.project();
 
-        if !this.interrupt.is_terminated() {
-            match this.interrupt.poll(cx) {
-                Poll::Ready(()) => {
-                    // The future resolved and we were told to stop reading. Report EOF.
-                    return Poll::Ready(Ok(()));
+        // If we are Reading, check whether we were interupting, and if we are then switch to
+        // draining.
+        if matches!(this.state, InterruptibleAsyncReadState::Reading(..))
+            && this.interrupt.poll(cx).is_ready()
+        {
+            take_mut::take(this.state, |state| match state {
+                InterruptibleAsyncReadState::Reading(reader) => {
+                    InterruptibleAsyncReadState::Draining(D::from_reader(reader))
                 }
-                Poll::Pending => {
-                    // We haven't been interrupted yet.
-                }
-            }
+                _ => unreachable!(),
+            });
         }
 
-        this.read.poll_read(cx, buf)
+        match &mut this.state {
+            InterruptibleAsyncReadState::Reading(reader) => Pin::new(reader).poll_read(cx, buf),
+            InterruptibleAsyncReadState::Draining(drainer) => Pin::new(drainer).poll_read(cx, buf),
+        }
     }
 }
 
-/// A trait that allows reading what is left on a given readable.
-#[async_trait]
-trait AsyncReadReady {
-    /// Read what is left on self.
-    async fn read_ready(&mut self, buff: &mut Vec<u8>) -> anyhow::Result<()>;
+/// This trait represents the ability to transition a Reader (R) to a Drainer (Self). Both are
+/// [AsyncRead], but we expect the Drainer (which implements this trait) to not wait longer for
+/// more data to be produced.
+trait DrainerFromReader<R> {
+    fn from_reader(reader: R) -> Self;
 }
 
 #[cfg(unix)]
-mod unix_async_read_ready {
-    use std::io::Read;
-    use std::marker::PhantomData;
+mod unix_non_blocking_drainer {
     use std::os::unix::io::AsRawFd;
     use std::os::unix::prelude::RawFd;
 
@@ -712,83 +730,114 @@ mod unix_async_read_ready {
 
     use super::*;
 
-    /// Borrow something to perform sync reads on it. We use this to bypass Tokio when draining an
+    /// Perform sync reads on an existing reader. We use this to bypass Tokio when draining an
     /// InterruptibleAsyncRead after it's been interrupted. This lets us ensure that even if Tokio
     /// hasn't completed `select()` on the pipe we want to drain, we'll stil get to execute
     /// `read()` (and potentially get WouldBlock if there is nothing to read and the pipe isn't
     /// ready).
-    pub trait AsSyncReader {
-        type SyncReader<'a>: Read + 'a
-        where
-            Self: 'a;
-
-        fn as_sync_reader(&mut self) -> Self::SyncReader<'_>;
-    }
-
-    pub struct RawFdReader<'a> {
+    pub struct UnixNonBlockingDrainer<R> {
         fd: RawFd,
-        _phantom: PhantomData<&'a ()>,
+        // Kept so this is dropped and closed properly.
+        _owner: R,
     }
 
-    impl<'a> Read for RawFdReader<'a> {
-        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-            unistd::read(self.fd, buf).map_err(|e| e.into())
-        }
-    }
-
-    impl<T> AsSyncReader for T
+    impl<R> DrainerFromReader<R> for UnixNonBlockingDrainer<R>
     where
-        T: AsRawFd + Send + 'static,
+        R: AsRawFd + Send + 'static,
     {
-        type SyncReader<'a> = RawFdReader<'a>;
-
-        fn as_sync_reader(&mut self) -> Self::SyncReader<'_> {
-            RawFdReader {
-                fd: self.as_raw_fd(),
-                _phantom: PhantomData,
+        fn from_reader(reader: R) -> Self {
+            UnixNonBlockingDrainer {
+                fd: reader.as_raw_fd(),
+                _owner: reader,
             }
         }
     }
 
-    #[async_trait]
-    impl<T> AsyncReadReady for T
-    where
-        T: AsSyncReader + Send,
-    {
-        async fn read_ready(&mut self, buff: &mut Vec<u8>) -> anyhow::Result<()> {
-            match self.as_sync_reader().read_to_end(buff) {
-                Err(e) if e.kind() != io::ErrorKind::WouldBlock => Err(e.into()),
-                Err(..) => {
-                    tracing::debug!("pipe was not closed");
-                    Ok(())
-                }
-                Ok(..) => Ok(()),
-            }
+    impl<R> AsyncRead for UnixNonBlockingDrainer<R> {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(
+                match unistd::read(self.fd, buf.initialize_unfilled()).map_err(io::Error::from) {
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::WouldBlock {
+                            tracing::debug!("Child did not close its pipe");
+                            Ok(())
+                        } else {
+                            Err(e)
+                        }
+                    }
+                    Ok(n) => {
+                        buf.advance(n);
+                        Ok(())
+                    }
+                },
+            )
         }
     }
 }
 
-#[cfg(not(unix))]
-mod windows_async_read_ready {
-    use super::*;
+#[pin_project]
+struct TimeoutDrainer<R> {
+    state: TimeoutDrainerState,
+    // To have a generic parameter like UnixNonBlockingDrainer does.
+    _phantom: PhantomData<R>,
+}
 
-    #[async_trait]
-    impl<T> AsyncReadReady for T
-    where
-        T: AsyncRead + Send + Unpin,
-    {
-        /// On Windows, for the time being we just give ourselves a timeout to finish reading.
-        /// Ideally this would perform a non-blocking read on self instead like we do on Unix.
-        async fn read_ready(&mut self, buff: &mut Vec<u8>) -> anyhow::Result<()> {
-            let read = self.read_to_end(buff);
-            futures::pin_mut!(read);
-            match tokio::time::timeout(Duration::from_millis(1), read).await {
-                Ok(Err(e)) => Err(e.into()),
-                Err(..) => {
-                    tracing::debug!("pipe was not closed");
-                    Ok(())
+enum TimeoutDrainerState {
+    Waiting(BoxFuture<'static, io::Result<Vec<u8>>>),
+    Draining(Cursor<Vec<u8>>),
+}
+
+impl<R> DrainerFromReader<R> for TimeoutDrainer<R>
+where
+    R: AsyncRead + Unpin + Send + 'static,
+{
+    fn from_reader(mut reader: R) -> Self {
+        let fut = async move {
+            let mut buff = Vec::new();
+            {
+                let do_read = reader.read_to_end(&mut buff);
+                futures::pin_mut!(do_read);
+                match tokio::time::timeout(Duration::from_secs(1), do_read).await {
+                    Ok(Err(e)) => return Err(e),
+                    Err(..) => {
+                        tracing::debug!("Child did not close its pipe");
+                    }
+                    Ok(Ok(..)) => {}
                 }
-                Ok(Ok(..)) => Ok(()),
+            }
+            Ok(buff)
+        };
+
+        Self {
+            state: TimeoutDrainerState::Waiting(fut.boxed()),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<R> AsyncRead for TimeoutDrainer<R> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let mut this = self.project();
+
+        loop {
+            match &mut this.state {
+                TimeoutDrainerState::Waiting(fut) => {
+                    let bytes = futures::ready!(Pin::new(fut).poll(cx))?;
+                    *this.state = TimeoutDrainerState::Draining(Cursor::new(bytes));
+                }
+                TimeoutDrainerState::Draining(bytes) => {
+                    let n = Read::read(bytes, buf.initialize_unfilled())?;
+                    buf.advance(n);
+                    break Poll::Ready(Ok(()));
+                }
             }
         }
     }
@@ -949,6 +998,8 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use bytes::Bytes;
+    use futures::stream::StreamExt;
     use host_sharing::HostSharingStrategy;
 
     use super::*;
@@ -1155,14 +1206,11 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
     mod interruptible_async_read {
-        use std::io::Read;
         use std::sync::Mutex;
 
         use assert_matches::assert_matches;
         use gazebo::prelude::*;
-        use unix_async_read_ready::AsSyncReader;
 
         use super::*;
 
@@ -1178,12 +1226,23 @@ mod tests {
         #[pin_project]
         struct StubAsyncRead {
             state: Arc<Mutex<StubAsyncReadState>>,
+            drainer: bool,
+        }
+
+        impl DrainerFromReader<StubAsyncRead> for StubAsyncRead {
+            fn from_reader(reader: StubAsyncRead) -> Self {
+                Self {
+                    state: reader.state,
+                    drainer: true,
+                }
+            }
         }
 
         impl StubAsyncRead {
             fn new() -> Self {
                 Self {
                     state: Arc::new(Mutex::new(StubAsyncReadState::Pending)),
+                    drainer: false,
                 }
             }
 
@@ -1200,14 +1259,6 @@ mod tests {
             }
         }
 
-        impl AsSyncReader for StubAsyncRead {
-            type SyncReader<'a> = &'a mut Self;
-
-            fn as_sync_reader(&mut self) -> Self::SyncReader<'_> {
-                self
-            }
-        }
-
         impl AsyncRead for StubAsyncRead {
             /// A poll_read implementation for our stub. Note that this never stores any wakers,
             /// that's OK because our tests do explicit poll!().
@@ -1221,7 +1272,13 @@ mod tests {
 
                 match *state {
                     StubAsyncReadState::Done => Poll::Ready(Ok(())),
-                    StubAsyncReadState::Pending => Poll::Pending,
+                    StubAsyncReadState::Pending => {
+                        if *this.drainer {
+                            Poll::Ready(Ok(()))
+                        } else {
+                            Poll::Pending
+                        }
+                    }
                     StubAsyncReadState::Ready(b) => {
                         buf.put_slice(&[b]);
                         *state = StubAsyncReadState::Pending;
@@ -1231,30 +1288,12 @@ mod tests {
             }
         }
 
-        impl Read for StubAsyncRead {
-            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-                let mut state = self.state.lock().unwrap();
-
-                match *state {
-                    StubAsyncReadState::Done => Ok(0),
-                    StubAsyncReadState::Pending => Err(io::ErrorKind::WouldBlock.into()),
-                    StubAsyncReadState::Ready(b) => {
-                        buf[0] = b;
-                        *state = StubAsyncReadState::Pending;
-                        Ok(1)
-                    }
-                }
-            }
-        }
-
         #[tokio::test]
         async fn test_drain_eof() {
             let read = StubAsyncRead::new();
             let (_close, closed) = oneshot::channel::<()>();
-            let interruptible = InterruptibleAsyncRead {
-                read: read.dupe(),
-                interrupt: closed.map(|_| ()),
-            };
+            let interruptible =
+                InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), closed.map(|_| ()));
 
             let drain = interruptible.drain();
             futures::pin_mut!(drain);
@@ -1277,10 +1316,8 @@ mod tests {
         async fn test_drain_interrupt() {
             let read = StubAsyncRead::new();
             let (close, recv) = oneshot::channel::<()>();
-            let interruptible = InterruptibleAsyncRead {
-                read: read.dupe(),
-                interrupt: recv.map(|_| ()),
-            };
+            let interruptible =
+                InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), recv.map(|_| ()));
 
             let drain = interruptible.drain();
             futures::pin_mut!(drain);
@@ -1305,10 +1342,8 @@ mod tests {
         async fn test_drain_finish() {
             let read = StubAsyncRead::new();
             let (close, recv) = oneshot::channel::<()>();
-            let interruptible = InterruptibleAsyncRead {
-                read: read.dupe(),
-                interrupt: recv.map(|_| ()),
-            };
+            let interruptible =
+                InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), recv.map(|_| ()));
 
             let drain = interruptible.drain();
             futures::pin_mut!(drain);
@@ -1331,5 +1366,50 @@ mod tests {
                 assert_eq!(&ret, "fo".as_bytes());
             });
         }
+    }
+
+    #[tokio::test]
+    async fn test_timeout_drainer() -> anyhow::Result<()> {
+        // 64 bytes of a. Tokio allocates a 32 byte buffer for read_to_end so this is good to
+        //    ensure we get 2 reads.
+        let s = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let reader = tokio_util::io::StreamReader::new(
+            tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(s.as_bytes()))])
+                .chain(futures::stream::pending()),
+        );
+
+        let mut drainer = TimeoutDrainer::from_reader(reader);
+        let mut buff = Vec::new();
+        tokio::time::timeout(Duration::from_secs(5), drainer.read_to_end(&mut buff)).await??;
+        assert_eq!(s.as_bytes(), buff.as_slice());
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_unix_non_blocking_drainer() -> anyhow::Result<()> {
+        // See above.
+        let s = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let mut command = async_background_command("sh");
+        command
+            .args(&["-c", &format!("((sleep 10 && echo extra) &) && echo {}", s)])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        let mut command = command.spawn()?;
+
+        let stdout = command.stdout.take().unwrap();
+        let mut drainer = unix_non_blocking_drainer::UnixNonBlockingDrainer::from_reader(stdout);
+
+        command.wait().await?;
+
+        let mut buff = String::new();
+        drainer.read_to_string(&mut buff).await?;
+        assert_eq!(format!("{}\n", s), buff.as_str());
+
+        Ok(())
     }
 }

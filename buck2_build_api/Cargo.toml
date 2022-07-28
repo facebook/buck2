@@ -96,6 +96,10 @@ jemallocator = { version = "0.3.2", features = ["profiling"] }
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["everything"] }
 
+[dev-dependencies]
+tokio-util = { version = "0.7", features = ["full"] }
+bytes = "1.0"
+
 [[bin]]
 name = "interpret"
 path = "bin/interpret.rs"
