@@ -82,10 +82,10 @@ struct SubCommandCommon<T: FromArgMatches + Args> {
     cmd: T,
     #[clap(
         long,
-        default_value_t = false,
-        help = "If set, prints a DICE-dump as JSON to stderr after each operation."
+        value_parser,
+        help = "If set, prints a DICE-dump as JSON to given location after each operation."
     )]
-    print_dumps: bool,
+    print_dumps: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -130,7 +130,7 @@ fn main() -> anyhow::Result<()> {
     #[tokio::main]
     async fn qc_fuzz(execution: DiceExecutionOrder) -> TestResult {
         let res = execution
-            .execute(&DiceExecutionOrderOptions { print_dumps: false })
+            .execute(&DiceExecutionOrderOptions { print_dumps: None })
             .await;
 
         if res.is_error() || res.is_failure() {

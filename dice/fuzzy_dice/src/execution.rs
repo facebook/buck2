@@ -12,9 +12,10 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::io::stderr;
-use std::io::Write;
+use std::fs;
+use std::fs::File;
 use std::panic;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -209,7 +210,7 @@ impl Debug for DiceExecutionOrder {
 }
 
 pub struct DiceExecutionOrderOptions {
-    pub print_dumps: bool,
+    pub print_dumps: Option<PathBuf>,
 }
 
 impl DiceExecutionOrder {
@@ -329,7 +330,12 @@ impl DiceExecutionOrder {
             }
             Arc::new(state)
         };
-        for op in self.init_vars.iter().chain(self.timeline.iter()) {
+        for (step_count, op) in self
+            .init_vars
+            .iter()
+            .chain(self.timeline.iter())
+            .enumerate()
+        {
             match &op {
                 Operation::Query { ctx_id, var } => {
                     if let Some(ctx) = dice_ctxs.get(ctx_id) {
@@ -388,7 +394,8 @@ impl DiceExecutionOrder {
                     let ctx = dice.ctx();
                     ctx.set_equation(*var, expr.clone());
                     dice_ctxs.insert(*new_ctx_id, ctx.commit());
-                    Self::maybe_dump_dice(options, &dice).expect("couldn't dump DICE to stderr");
+                    Self::maybe_dump_dice(options, step_count, &dice)
+                        .expect("couldn't dump DICE to stderr");
                 }
                 Operation::EnqueueStep(var, steps) => {
                     let queue = state.steps.get(var).unwrap();
@@ -404,15 +411,16 @@ impl DiceExecutionOrder {
 
     fn maybe_dump_dice(
         options: &DiceExecutionOrderOptions,
+        step_count: usize,
         dice: &Arc<Dice>,
     ) -> anyhow::Result<()> {
-        if options.print_dumps {
-            let mut stderr = stderr();
+        if let Some(loc) = options.print_dumps.as_ref() {
+            fs::create_dir_all(loc)?;
+            let mut dump_loc = File::create(loc.join(&format!("step-{}", step_count)))?;
             serialize_dense_graph(
                 &dice.to_introspectable(),
-                &mut serde_json::Serializer::pretty(&mut stderr),
+                &mut serde_json::Serializer::pretty(&mut dump_loc),
             )?;
-            writeln!(stderr)?;
         }
         Ok(())
     }
