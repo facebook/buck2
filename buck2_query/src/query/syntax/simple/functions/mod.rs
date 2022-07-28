@@ -282,8 +282,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.kind(&regex, &targets)?.into())
     }
 
-    async fn labels(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        self.implementation.labels(&targets)
+    async fn labels(&self, attr: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
+        self.implementation.labels(&attr, &targets)
     }
 
     async fn owner(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
@@ -455,6 +455,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 
     pub fn labels(
         &self,
+        _attr: &str,
         _targets: &TargetSet<Env::Target>,
     ) -> Result<QueryValue<Env::Target>, QueryError> {
         Err(QueryError::FunctionUnimplemented("labels"))
