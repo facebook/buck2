@@ -121,7 +121,7 @@ impl WatchmanQueryProcessor {
                 }
             }
         }
-        Ok((stats, ctx.commit()))
+        Ok((stats, ctx))
     }
 }
 
@@ -175,7 +175,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
                 fresh_instance: true,
                 ..Default::default()
             },
-            ctx.commit(),
+            ctx,
         ))
     }
 }

@@ -959,7 +959,9 @@ impl DaemonState {
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
         // Sync any FS changes and invalidate DICE state if necessary.
-        data.file_watcher.sync(data.dice.ctx(), &dispatcher).await?;
+        let ctx = data.file_watcher.sync(data.dice.ctx(), &dispatcher).await?;
+        ctx.commit();
+
         data.io.settle().await?;
 
         Ok(BaseCommandContext {
