@@ -83,7 +83,19 @@ enum Commands {
         print_dumps: bool,
     },
     #[clap(about = "Searches for new failures.")]
-    Fuzz {},
+    Fuzz {
+        #[clap(
+            default_value_t = 2_000_000,
+            help = "The maximum number of tests for fuzzing. The actual number may be lower due to\
+            discarded test cases"
+        )]
+        max_tests: u64,
+        #[clap(
+            default_value_t = 2_000_000,
+            help = "The number of passes to hit before stopping and considering it as a pass"
+        )]
+        num_tests: u64,
+    },
 }
 
 #[allow(deprecated)] // TODO(nga): use non-deprecated API.
@@ -117,10 +129,13 @@ fn main() -> anyhow::Result<()> {
     let cmd = Opts::parse();
 
     match cmd.command {
-        Commands::Fuzz {} => {
+        Commands::Fuzz {
+            max_tests,
+            num_tests,
+        } => {
             QuickCheck::new()
-                .max_tests(2_000_000)
-                .tests(2_000_000)
+                .max_tests(max_tests)
+                .tests(num_tests)
                 .gen(Gen::new(10))
                 .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> TestResult);
         }
