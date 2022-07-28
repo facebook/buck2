@@ -106,7 +106,7 @@ mod tests {
         let dice = Dice::builder().build(DetectCycles::Enabled);
         let cache = map.find_cache(|| IncrementalEngine::new(StoragePropertiesForKey::new(&dice)));
         {
-            cache.update(MyKey, VersionNumber::new(0), Bar);
+            cache.update_injected_value(MyKey, VersionNumber::new(0), Bar);
             assert_eq!(
                 cache
                     .get_cached(MyKey, VersionNumber::new(0), MinorVersion::testing_new(0))

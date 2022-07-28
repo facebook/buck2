@@ -214,7 +214,12 @@ where
 
     /// Updates the value at K
     #[instrument(level = "info", skip(self, res, ), fields(k = %k, version = %version))]
-    pub(crate) fn update(self: &Arc<Self>, k: K::Key, version: VersionNumber, res: K::Value) {
+    pub(crate) fn update_injected_value(
+        self: &Arc<Self>,
+        k: K::Key,
+        version: VersionNumber,
+        res: K::Value,
+    ) {
         // It is crucial that we `dirty` first before updating the `rdeps`.
         // See `IncrementalEngine::dirty` below for details.
         let node = self
@@ -1453,7 +1458,7 @@ mod tests {
         ));
 
         eval_result.store(10, Ordering::SeqCst);
-        engine.update(1, VersionNumber::new(1), 100);
+        engine.update_injected_value(1, VersionNumber::new(1), 100);
         *dep.lock().unwrap() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
             (1, VersionNumber::new(1)),
@@ -1502,7 +1507,7 @@ mod tests {
         );
 
         // now force the dependency to have version numbers [1, 2]
-        engine.update(1, VersionNumber::new(2), 100);
+        engine.update_injected_value(1, VersionNumber::new(2), 100);
         is_ran.store(false, Ordering::SeqCst);
         *dep.lock().unwrap() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
@@ -1537,7 +1542,7 @@ mod tests {
         );
 
         // now force the dependency to be different and have versions [3]
-        engine.update(1, VersionNumber::new(3), 200);
+        engine.update_injected_value(1, VersionNumber::new(3), 200);
         eval_result.store(20, Ordering::SeqCst);
         *dep.lock().unwrap() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
