@@ -229,10 +229,7 @@ where
         loop {
             match self.control_rx.recv().await {
                 Some(SyncableQueryCommand::Sync(sync_tx)) => {
-                    let res = match self.sync(&mut client).await {
-                        Ok(res) => Ok(res),
-                        Err(e) => self.reconnect_and_sync(&mut client).await.context(e),
-                    };
+                    let res = self.sync(&mut client).await;
 
                     // NOTE: If the receiver is gone, then they won't be told we finished their
                     // job. That's fine.
@@ -257,15 +254,15 @@ where
         Ok(())
     }
 
-    async fn reconnect_and_sync(
+    async fn reconnect_and_sync_query(
         &mut self,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<WatchmanSyncResult> {
         self.reconnect(client)
             .await
             .context("Error reconnecting to Watchman")?;
 
-        let out = self.sync(client).await?;
+        let out = self.sync_query(client).await?;
 
         Ok(out)
     }
@@ -273,7 +270,10 @@ where
     /// sync() will send a since query to watchman and invoke the processor
     /// with either the received events or a fresh instance call.
     async fn sync(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<T> {
-        let sync_res = self.sync_query(client).await?;
+        let sync_res = match self.sync_query(client).await {
+            Ok(res) => Ok(res),
+            Err(e) => self.reconnect_and_sync_query(client).await.context(e),
+        }?;
 
         let (res, new_mergebase, clock) = match sync_res {
             WatchmanSyncResult::Events {
