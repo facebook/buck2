@@ -507,36 +507,6 @@ impl CellResolver {
 /// invocation.
 pub struct CellsConfigParser;
 impl CellsConfigParser {
-    /// Create a cell map with only a mapping from `""` to the current
-    /// directory, and the current aliases
-    pub fn empty_cell() -> anyhow::Result<CellResolver> {
-        let root = CellName::unchecked_new("".into());
-        let aliases = CellAliasResolver::new(Arc::new(
-            hashmap![CellAlias::new("".into()) => root.clone()],
-        ))?;
-        let cells = CellResolver::new(
-            hashmap![
-                root.clone() =>
-                CellInstance::new(
-                    root.clone(),
-                    CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
-                    default_buildfiles(),
-                    aliases,
-                )
-            ],
-            {
-                let mut mapping = SequenceTrie::new();
-                mapping.insert(
-                    ProjectRelativePathBuf::try_from("".to_owned())?.iter(),
-                    root,
-                );
-                mapping
-            },
-        );
-
-        Ok(cells)
-    }
-
     /// Create a cell map from a config file located at the given `path` for the
     /// current project filesystem `fs`.
     pub fn parse_cells_from_path(
