@@ -20,9 +20,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use bytes::Bytes;
-use futures::channel::oneshot;
 use futures::future::BoxFuture;
-use futures::future::FusedFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream::Stream;
@@ -34,7 +32,8 @@ use tokio::io::AsyncReadExt;
 use tokio::io::ReadBuf;
 use tokio::process::Child;
 use tokio::process::Command;
-use tokio_util::io::ReaderStream;
+use tokio_util::codec::BytesCodec;
+use tokio_util::codec::FramedRead;
 
 pub enum GatherOutputStatus {
     Finished(ExitStatus),
@@ -89,15 +88,16 @@ where
 impl<Status, Stdio> Stream for CommandEventStream<Status, Stdio>
 where
     Status: Future<Output = anyhow::Result<GatherOutputStatus>>,
-    Stdio: Stream<Item = anyhow::Result<StdioEvent>>,
+    Stdio: Stream<Item = anyhow::Result<StdioEvent>> + InterruptNotifiable,
 {
     type Item = anyhow::Result<CommandEvent>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
+        let mut this = self.project();
 
         if let Poll::Ready(status) = this.status.poll(cx) {
             *this.exit = Some(status);
+            this.stdio.as_mut().get_pin_mut().notify_interrupt();
         }
 
         if let Some(stdio) = futures::ready!(this.stdio.poll_next(cx)) {
@@ -110,6 +110,10 @@ where
 
         Poll::Pending
     }
+}
+
+trait InterruptNotifiable {
+    fn notify_interrupt(self: Pin<&mut Self>);
 }
 
 async fn stream_command_events(
@@ -126,9 +130,6 @@ async fn stream_command_events(
         .await
         .context("Failed to start command")?;
 
-    let (stop_reads, reads_stopped) = oneshot::channel::<()>();
-    let reads_stopped = reads_stopped.map(|_| ()).boxed().shared();
-
     let stdout = child.stdout.take().expect("piped() above");
     let stderr = child.stderr.take().expect("piped() above");
 
@@ -140,8 +141,8 @@ async fn stream_command_events(
     #[cfg(not(unix))]
     type Drainer<R> = TimeoutDrainer<R>;
 
-    let stdout = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stdout, reads_stopped.clone());
-    let stderr = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stderr, reads_stopped.clone());
+    let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
+    let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
 
     let status = async move {
         let exit_status_result = match timeout {
@@ -160,15 +161,10 @@ async fn stream_command_events(
             .map_err(anyhow::Error::from)
     };
 
-    // Stop reads once the child is done.
-    let status = async move {
-        let exit = status.await;
-        let _ = stop_reads.send(());
-        exit
-    };
-
-    let stdout = ReaderStream::new(stdout).map(|data| anyhow::Ok(StdioEvent::Stdout(data?)));
-    let stderr = ReaderStream::new(stderr).map(|data| anyhow::Ok(StdioEvent::Stderr(data?)));
+    let stdout = FramedRead::new(stdout, BytesCodec::new())
+        .map(|data| anyhow::Ok(StdioEvent::Stdout(data?.freeze())));
+    let stderr = FramedRead::new(stderr, BytesCodec::new())
+        .map(|data| anyhow::Ok(StdioEvent::Stderr(data?.freeze())));
 
     let stdio = futures::stream::select(stdout, stderr);
 
@@ -293,9 +289,7 @@ where
 /// proceed to "drain" the reader, which means reading the data that is there but not waiting for
 /// any further data to get written.
 #[pin_project]
-struct InterruptibleAsyncRead<I, R, D> {
-    #[pin]
-    interrupt: I,
+struct InterruptibleAsyncRead<R, D> {
     state: InterruptibleAsyncReadState<R, D>,
 }
 
@@ -304,21 +298,19 @@ enum InterruptibleAsyncReadState<R, D> {
     Draining(D),
 }
 
-impl<I, R, D> InterruptibleAsyncRead<I, R, D>
+impl<R, D> InterruptibleAsyncRead<R, D>
 where
     D: DrainerFromReader<R>,
 {
-    pub fn new(reader: R, interrupt: I) -> Self {
+    pub fn new(reader: R) -> Self {
         Self {
             state: InterruptibleAsyncReadState::Reading(reader),
-            interrupt,
         }
     }
 }
 
-impl<I, R, D> AsyncRead for InterruptibleAsyncRead<I, R, D>
+impl<R, D> AsyncRead for InterruptibleAsyncRead<R, D>
 where
-    I: Future<Output = ()> + FusedFuture,
     R: AsyncRead + Unpin,
     D: AsyncRead + Unpin + DrainerFromReader<R>,
 {
@@ -329,23 +321,56 @@ where
     ) -> Poll<io::Result<()>> {
         let mut this = self.project();
 
-        // If we are Reading, check whether we were interupting, and if we are then switch to
-        // draining.
-        if matches!(this.state, InterruptibleAsyncReadState::Reading(..))
-            && this.interrupt.poll(cx).is_ready()
-        {
-            take_mut::take(this.state, |state| match state {
-                InterruptibleAsyncReadState::Reading(reader) => {
-                    InterruptibleAsyncReadState::Draining(D::from_reader(reader))
-                }
-                _ => unreachable!(),
-            });
-        }
-
         match &mut this.state {
             InterruptibleAsyncReadState::Reading(reader) => Pin::new(reader).poll_read(cx, buf),
             InterruptibleAsyncReadState::Draining(drainer) => Pin::new(drainer).poll_read(cx, buf),
         }
+    }
+}
+
+impl<R, D> InterruptNotifiable for InterruptibleAsyncRead<R, D>
+where
+    D: DrainerFromReader<R>,
+{
+    fn notify_interrupt(self: Pin<&mut Self>) {
+        let this = self.project();
+
+        take_mut::take(this.state, |state| match state {
+            InterruptibleAsyncReadState::Reading(reader) => {
+                InterruptibleAsyncReadState::Draining(D::from_reader(reader))
+            }
+            _ => unreachable!(),
+        });
+    }
+}
+
+impl<S1, S2> InterruptNotifiable for futures::stream::Select<S1, S2>
+where
+    S1: InterruptNotifiable,
+    S2: InterruptNotifiable,
+{
+    fn notify_interrupt(self: Pin<&mut Self>) {
+        let (s1, s2) = self.get_pin_mut();
+        s1.notify_interrupt();
+        s2.notify_interrupt();
+    }
+}
+
+impl<S, F> InterruptNotifiable for futures::stream::Map<S, F>
+where
+    S: InterruptNotifiable,
+{
+    fn notify_interrupt(self: Pin<&mut Self>) {
+        self.get_pin_mut().notify_interrupt();
+    }
+}
+
+impl<T, D> InterruptNotifiable for FramedRead<T, D>
+where
+    T: InterruptNotifiable,
+{
+    fn notify_interrupt(self: Pin<&mut Self>) {
+        self.get_pin_mut().notify_interrupt();
     }
 }
 
@@ -686,27 +711,60 @@ mod tests {
             }
         }
 
-        async fn read_to_end<I, R, D>(
-            mut read: InterruptibleAsyncRead<I, R, D>,
-        ) -> anyhow::Result<Vec<u8>>
+        #[pin_project]
+        struct ReadAll<R, D> {
+            #[pin]
+            inner: FramedRead<InterruptibleAsyncRead<R, D>, BytesCodec>,
+
+            buff: Vec<u8>,
+        }
+
+        impl<R, D> InterruptNotifiable for ReadAll<R, D>
         where
-            I: Future<Output = ()> + FusedFuture + Unpin,
+            D: DrainerFromReader<R>,
+        {
+            fn notify_interrupt(self: Pin<&mut Self>) {
+                let this = self.project();
+                this.inner.get_pin_mut().notify_interrupt()
+            }
+        }
+
+        impl<R, D> Future for ReadAll<R, D>
+        where
             R: AsyncRead + Unpin,
             D: AsyncRead + Unpin + DrainerFromReader<R>,
         {
-            let mut ret = Vec::new();
-            read.read_to_end(&mut ret).await?;
-            Ok(ret)
+            type Output = anyhow::Result<Vec<u8>>;
+
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut this = self.project();
+
+                loop {
+                    match futures::ready!(this.inner.as_mut().poll_next(cx)?) {
+                        Some(bytes) => this.buff.extend(bytes.as_ref()),
+                        None => return Poll::Ready(Ok(std::mem::take(this.buff))),
+                    }
+                }
+            }
+        }
+
+        fn read_all<R, D>(read: InterruptibleAsyncRead<R, D>) -> ReadAll<R, D>
+        where
+            R: AsyncRead + Unpin,
+            D: AsyncRead + Unpin + DrainerFromReader<R>,
+        {
+            ReadAll {
+                inner: FramedRead::new(read, BytesCodec::new()),
+                buff: Vec::new(),
+            }
         }
 
         #[tokio::test]
         async fn test_drain_eof() {
             let read = StubAsyncRead::new();
-            let (_close, closed) = oneshot::channel::<()>();
-            let interruptible =
-                InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), closed.map(|_| ()));
+            let interruptible = InterruptibleAsyncRead::<_, StubAsyncRead>::new(read.dupe());
 
-            let drain = read_to_end(interruptible);
+            let drain = read_all(interruptible);
             futures::pin_mut!(drain);
 
             // No bytes, it's pending.
@@ -726,11 +784,9 @@ mod tests {
         #[tokio::test]
         async fn test_drain_interrupt() {
             let read = StubAsyncRead::new();
-            let (close, recv) = oneshot::channel::<()>();
-            let interruptible =
-                InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), recv.map(|_| ()));
+            let interruptible = InterruptibleAsyncRead::<_, StubAsyncRead>::new(read.dupe());
 
-            let drain = read_to_end(interruptible);
+            let drain = read_all(interruptible);
             futures::pin_mut!(drain);
 
             // No bytes, it's pending.
@@ -741,7 +797,7 @@ mod tests {
             assert_matches!(futures::poll!(drain.as_mut()), Poll::Pending);
 
             // Close the reader.
-            close.send(()).unwrap();
+            drain.as_mut().notify_interrupt();
 
             // Mark our reader done, we expect this to be ready.
             assert_matches!(futures::poll!(drain.as_mut()), Poll::Ready(Ok(ret)) => {
@@ -752,11 +808,9 @@ mod tests {
         #[tokio::test]
         async fn test_drain_finish() {
             let read = StubAsyncRead::new();
-            let (close, recv) = oneshot::channel::<()>();
-            let interruptible =
-                InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), recv.map(|_| ()));
+            let interruptible = InterruptibleAsyncRead::<_, StubAsyncRead>::new(read.dupe());
 
-            let drain = read_to_end(interruptible);
+            let drain = read_all(interruptible);
             futures::pin_mut!(drain);
 
             // No bytes, it's pending.
@@ -767,7 +821,7 @@ mod tests {
             assert_matches!(futures::poll!(drain.as_mut()), Poll::Pending);
 
             // Close the reader.
-            close.send(()).unwrap();
+            drain.as_mut().notify_interrupt();
 
             // But! Add more stuff.
             read.push(b'o');
