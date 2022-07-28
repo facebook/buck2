@@ -21,7 +21,7 @@ pub struct StdStreamPair<T> {
     _private: (),
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, Clone)]
 pub enum CommandStdStreams {
     Local { stdout: Vec<u8>, stderr: Vec<u8> },
 
@@ -104,7 +104,7 @@ impl CommandStdStreams {
     }
 }
 
-#[derive(Derivative)]
+#[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct RemoteCommandStdStreams {
     #[derivative(Debug = "ignore")]
@@ -137,6 +137,7 @@ impl RemoteCommandStdStreams {
     }
 }
 
+#[derive(Clone)]
 enum ReStdStream {
     /// Raw bytes received inline from RE.
     Raw(Vec<u8>),
