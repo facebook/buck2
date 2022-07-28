@@ -260,8 +260,11 @@ impl ActiveCommandDropGuard {
             // we use eprintln here on purpose so that this message goes to ALL commands, since
             // concurrent commands can affect correctness of ALL commands.
             eprintln!(
-                "Warning! Concurrent commands detected! Concurrent commands are not supported and likely results in crashes and incorrect builds.\n    Currently running command uuids are `{}`",
-                active_commands.iter().join(",")
+                "Warning! Concurrent commands detected! Concurrent commands are not supported and likely results in crashes and incorrect builds.\n    Currently running commands are `{}`",
+                active_commands
+                    .iter()
+                    .map(|id| format!("https://www.internalfb.com/buck2/{}", id))
+                    .join(" ")
             );
         }
         Self { trace_id }
