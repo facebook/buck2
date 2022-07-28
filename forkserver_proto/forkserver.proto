@@ -1,5 +1,54 @@
 syntax = "proto3";
 
+import "google/protobuf/duration.proto";
+
 package buck.forkserver;
 
-service Forkserver {}
+message CommandRequest {
+  // The executable that should be run.
+  bytes exe = 1;
+  // The arguments to give the executable.
+  repeated bytes argv = 2;
+  // Environment variables to add.
+  repeated EnvVar env = 3;
+  // Whether or not we clear the environment before adding env vars.
+  bool env_clear = 4;
+  // The working directory of the commmand as it's being spawned.
+  WorkingDirectory cwd = 5;
+  // The max duration this command should be allowed to run for.
+  google.protobuf.Duration timeout = 6;
+}
+
+message WorkingDirectory {
+  bytes path = 1;
+}
+
+message EnvVar {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message CommandEvent {
+  oneof data {
+    ExitEvent exit = 1;
+    TimeoutEvent timeout = 2;
+    StreamEvent stdout = 4;
+    StreamEvent stderr = 5;
+  }
+}
+
+message ExitEvent {
+  int32 exit_code = 1;
+}
+
+message TimeoutEvent {
+  google.protobuf.Duration duration = 1;
+}
+
+message StreamEvent {
+  bytes data = 1;
+}
+
+service Forkserver {
+  rpc Run(CommandRequest) returns (stream CommandEvent) {}
+}
