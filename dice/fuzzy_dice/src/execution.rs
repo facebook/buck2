@@ -394,8 +394,6 @@ impl DiceExecutionOrder {
                     let ctx = dice.ctx();
                     ctx.set_equation(*var, expr.clone());
                     dice_ctxs.insert(*new_ctx_id, ctx.commit());
-                    Self::maybe_dump_dice(options, step_count, &dice)
-                        .expect("couldn't dump DICE to stderr");
                 }
                 Operation::EnqueueStep(var, steps) => {
                     let queue = state.steps.get(var).unwrap();
@@ -404,6 +402,9 @@ impl DiceExecutionOrder {
                     }
                 }
             }
+
+            Self::maybe_dump_dice(options, step_count, &dice)
+                .expect("couldn't dump DICE to stderr");
         }
 
         ExecutionResult::Correct
