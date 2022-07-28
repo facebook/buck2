@@ -20,7 +20,6 @@ use crate::incremental::versions::VersionNumber;
 /// and contains all the dependency and version tracking information.
 ///
 /// TODO express validity with lifetimes
-/// TODO make pub(crate) when 'Dependency' is pub(crate)
 pub(crate) struct TransactionCtx {
     version: VersionNumber,
     minor_version: MinorVersionGuard,
