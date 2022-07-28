@@ -104,6 +104,7 @@ use dice::DiceTransaction;
 use dice::UserComputationData;
 use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
+use events::metadata;
 use events::ControlEvent;
 use events::Event;
 use events::EventSource;
@@ -152,7 +153,6 @@ use crate::daemon::server::file_watcher::FileWatcher;
 use crate::daemon::server::lsp::run_lsp_server;
 use crate::daemon::test::test;
 use crate::daemon::uquery::uquery;
-use crate::metadata;
 use crate::paths::Paths;
 
 mod file_watcher;
@@ -1920,7 +1920,6 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(
                     buck2_data::CQueryCommandStart {
-                        // Rust char = 4 bytes. Truncate query to 200KB
                         query: truncate(&req.query, 50000),
                         query_args: truncate(&req.query_args.join(","), 1000),
                         target_universe: truncate(&req.target_universe.join(","), 1000),

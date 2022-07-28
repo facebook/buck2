@@ -54,10 +54,9 @@ mod imp {
 
     use backtrace::Backtrace;
     use buck2_data::Location;
+    use events::metadata;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
-
-    use crate::metadata;
 
     fn get_stack() -> Vec<buck2_data::panic::StackFrame> {
         fn ptr_to_string<T>(ptr: *mut T) -> String {

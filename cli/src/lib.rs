@@ -101,7 +101,6 @@ pub mod commands;
 pub mod configs;
 pub mod daemon;
 pub mod dot;
-pub mod metadata;
 pub mod paths;
 pub mod query;
 pub mod roots;

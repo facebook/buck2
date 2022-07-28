@@ -12,13 +12,14 @@ use std::collections::HashMap;
 use std::env;
 
 use buck2_core::facebook_only;
-use events::TraceId;
 use once_cell::sync::Lazy;
+
+use crate::TraceId;
 
 static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
-pub(crate) fn collect() -> HashMap<String, String> {
+pub fn collect() -> HashMap<String, String> {
     facebook_only();
     fn add_env_var(map: &mut HashMap<String, String>, key: &'static str, var: &'static str) {
         if let Ok(data) = env::var(var) {

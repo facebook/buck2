@@ -16,7 +16,6 @@ buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
 buck2_node = { path = "../buck2_node" }
 buck2_test = { path = "../buck2_test" }
-# @oss-disable: build_info = { path = "../../common/rust/build_info", optional = true }
 bytes = { version = "1.1.0" }
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -35,7 +34,6 @@ gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 hex = "0.4.3"
-# @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
 # @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps", optional = true }
 host_sharing = { path = "../host_sharing" }
 humantime = "2.0.1"
@@ -72,7 +70,6 @@ siphasher = "0.3.5"
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 sync_wrapper = "0.1.0"
-sys-info = "0.8.0"
 tempfile = "3.1"
 termimad = "0.20.1"
 termwiz = "0.15"
@@ -121,5 +118,5 @@ path = "bin/buck2.rs"
 [features]
 # @oss-disable: default = ["gazebo_lint", "eden_materializer", "extra_logging"]
 eden_materializer = ["buck2_build_api/eden_materializer"]
-# @oss-disable: extra_logging = ["build_info", "hostname", "hostcaps", "user"]
+# @oss-disable: extra_logging = ["hostcaps"]
 extra_logging = [] # @oss-enable

@@ -18,6 +18,7 @@
 //!    points. All events are parented to a span that was currently active at the location the event was emitted.
 
 pub mod dispatch;
+pub mod metadata;
 pub mod sink;
 pub mod source;
 pub mod subscriber;
@@ -124,7 +125,7 @@ impl SpanId {
 /// Some events are special in that they represent points in time where an operation started or ended. These events
 /// introduce new "spans". All events belong to a span except the first and last events of a trace. All spans except
 /// the span created by the first and last events of the trace have a parent; as such, spans form a tree.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BuckEvent {
     /// A timestamp for when this event was emitted.
     pub timestamp: SystemTime,
