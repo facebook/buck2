@@ -10,7 +10,7 @@
 use crate::digest::*;
 use crate::error::*;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct TTimestamp {
     pub seconds: i64,
     pub nanos: i32,
@@ -43,6 +43,7 @@ impl TTimestamp {
     }
 }
 
+#[derive(Clone, Default)]
 pub struct TExecutedActionMetadata {
     pub worker: String,
     pub queued_timestamp: TTimestamp,
@@ -61,6 +62,7 @@ pub struct TExecutedActionMetadata {
     pub last_queued_timestamp: TTimestamp,
 }
 
+#[derive(Clone, Default)]
 pub struct TActionResult2 {
     pub output_files: Vec<TFile>,
     pub output_directories: Vec<TDirectory2>,
@@ -71,45 +73,55 @@ pub struct TActionResult2 {
     pub stderr_digest: Option<TDigest>,
     pub execution_metadata: TExecutedActionMetadata,
 }
+
+#[derive(Clone, Default)]
 pub struct ActionResultResponse {
     pub action_result: TActionResult2,
     pub ttl: i64,
 }
 
+#[derive(Clone, Default)]
 pub struct DownloadResponse {
     pub inlined_blobs: Option<Vec<InlinedDigestWithStatus>>,
     pub directories: Option<Vec<DigestWithStatus>>,
 }
 
+#[derive(Clone, Default)]
 pub struct InlinedDigestWithStatus {
     pub digest: TDigest,
     pub status: TStatus,
     pub blob: Vec<u8>,
 }
 
+#[derive(Clone, Default)]
 pub struct DigestWithStatus {
     pub digest: TDigest,
     pub status: TStatus,
 }
 
+#[derive(Clone, Default)]
 pub struct TStatus {
     pub code: TCode,
     pub message: String,
 }
 
+#[derive(Clone, Default)]
 pub struct FindMissingBlobsResponse {
     pub missing_digests: Vec<TDigest>,
 }
 
+#[derive(Clone, Default)]
 pub struct DigestWithTtl {
     pub digest: TDigest,
     pub ttl: i64,
 }
 
+#[derive(Clone, Default)]
 pub struct GetDigestsTtlResponse {
     pub digests_with_ttl: Vec<DigestWithTtl>,
 }
 
+#[derive(Clone, Default)]
 pub struct ExecuteResponse {
     pub action_result: TActionResult2,
     pub error: REError,
@@ -119,7 +131,7 @@ pub struct ExecuteResponse {
     pub action_result_ttl: i64,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub struct Stage(pub i32);
 
 impl Stage {
@@ -133,19 +145,23 @@ impl Stage {
     pub const KEEP_ALIVE: Self = Stage(102i32);
 }
 
+#[derive(Clone, Default)]
 pub struct ExecuteWithProgressResponse {
     pub stage: Stage,
     pub execute_response: Option<ExecuteResponse>,
 }
 
+#[derive(Clone, Default)]
 pub struct UploadResponse {}
 
+#[derive(Clone, Default)]
 pub struct TDirectory2 {
     pub path: String,
     pub tree_digest: TDigest,
     pub root_directory_digest: TDigest,
 }
 
+#[derive(Clone, Default)]
 pub struct TFile {
     pub digest: DigestWithStatus,
     pub name: String,
@@ -154,7 +170,7 @@ pub struct TFile {
     pub ttl: i64,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct NetworkStatisticsResponse {
     pub uploaded: i64,
     pub downloaded: i64,

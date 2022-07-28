@@ -12,21 +12,21 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, Default)]
 #[error("{}", .message)]
 pub struct REClientError {
     pub message: String,
     pub code: TCode,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct REError {
     pub code: TCode,
     pub message: String,
     pub error_location: ErrorLocation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct ErrorLocation(pub ::std::primitive::i32);
 
 impl Display for ErrorLocation {
@@ -35,7 +35,7 @@ impl Display for ErrorLocation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct TCode(pub i32);
 
 impl TCode {
