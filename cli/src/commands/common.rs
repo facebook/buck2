@@ -317,6 +317,9 @@ pub(crate) struct CommonBuildOptions {
     /// be produced and stored.
     #[clap(long)]
     hash_all_commands: bool,
+
+    #[clap(long)]
+    upload_all_actions: bool,
 }
 
 impl CommonBuildOptions {
@@ -349,6 +352,7 @@ impl CommonBuildOptions {
             unstable_build_report_filename,
             eager_dep_files: self.eager_dep_files,
             hash_all_commands: self.hash_all_commands,
+            upload_all_actions: self.upload_all_actions,
         }
     }
 }

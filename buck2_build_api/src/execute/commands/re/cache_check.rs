@@ -19,7 +19,9 @@ use tracing::info;
 use crate::execute::commands::re::client::ActionDigest;
 use crate::execute::commands::re::download::download_action_results;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
+use crate::execute::commands::re::uploader::ActionBlobs;
 use crate::execute::commands::re::ActionPaths;
+use crate::execute::commands::re::ReExecutorGlobalKnobs;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
@@ -34,6 +36,8 @@ pub struct CacheCheckingExecutor {
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
+    pub upload_all_actions: bool,
+    pub knobs: ReExecutorGlobalKnobs,
 }
 
 impl CacheCheckingExecutor {
@@ -42,12 +46,16 @@ impl CacheCheckingExecutor {
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
         re_use_case: RemoteExecutorUseCase,
+        upload_all_actions: bool,
+        knobs: ReExecutorGlobalKnobs,
     ) -> Self {
         Self {
             inner,
             materializer,
             re_client,
             re_use_case,
+            upload_all_actions,
+            knobs,
         }
     }
 
@@ -57,6 +65,7 @@ impl CacheCheckingExecutor {
         request: &CommandExecutionRequest,
         action_paths: &ActionPaths,
         action_digest: &ActionDigest,
+        action_blobs: &ActionBlobs,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
         let action_cache_response = manager
@@ -67,6 +76,24 @@ impl CacheCheckingExecutor {
                 re_client.action_cache(action_digest.dupe(), self.re_use_case.clone()),
             )
             .await;
+
+        if self.upload_all_actions {
+            match re_client
+                .upload(
+                    self.materializer.dupe(),
+                    action_blobs,
+                    &action_paths.inputs,
+                    self.re_use_case.clone(),
+                    &self.knobs,
+                )
+                .await
+            {
+                Err(e) => {
+                    return ControlFlow::Break(manager.error("upload".into(), e));
+                }
+                Ok(()) => {}
+            };
+        }
 
         let response = match action_cache_response {
             Err(e) => return ControlFlow::Break(manager.error("remote_action_cache".into(), e)),
@@ -117,6 +144,7 @@ impl PreparedCommandExecutor for CacheCheckingExecutor {
                 command.request,
                 &command.action_paths,
                 &command.prepared_action.action,
+                &command.prepared_action.blobs,
             )
             .await?;
 

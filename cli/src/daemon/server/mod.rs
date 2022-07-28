@@ -590,6 +590,11 @@ impl ServerCommandContext {
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
 
+        let upload_all_actions = self
+            .build_options
+            .as_ref()
+            .map_or(false, |opts| opts.upload_all_actions);
+
         let dice_ctx = self
             .base_context
             .unsafe_dice_ctx_with_more_data(move |mut data| {
@@ -601,6 +606,7 @@ impl ServerCommandContext {
                     blocking_executor.dupe(),
                     execution_strategy,
                     re_global_knobs,
+                    upload_all_actions,
                 ));
                 data.set_blocking_executor(blocking_executor);
                 data.set_materializer(materializer);

@@ -215,6 +215,7 @@ pub struct CommandExecutorFactory {
     pub blocking_executor: Arc<dyn BlockingExecutor>,
     pub strategy: ExecutionStrategy,
     pub re_global_knobs: ReExecutorGlobalKnobs,
+    pub upload_all_actions: bool,
 }
 
 impl CommandExecutorFactory {
@@ -225,6 +226,7 @@ impl CommandExecutorFactory {
         blocking_executor: Arc<dyn BlockingExecutor>,
         strategy: ExecutionStrategy,
         re_global_knobs: ReExecutorGlobalKnobs,
+        upload_all_actions: bool,
     ) -> Self {
         Self {
             re_connection,
@@ -233,6 +235,7 @@ impl CommandExecutorFactory {
             blocking_executor,
             strategy,
             re_global_knobs,
+            upload_all_actions,
         }
     }
 }
@@ -333,6 +336,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
             self.materializer.dupe(),
             self.re_connection.get_client(),
             Default::default(), // TODO: This should probably use the RemoteExecutor's use case.
+            self.upload_all_actions,
+            self.re_global_knobs.dupe(),
         )))
     }
 }

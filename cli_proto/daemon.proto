@@ -222,6 +222,8 @@ message CommonBuildOptions {
   /// Whether to hash all commands as if they had dep files.
   bool hash_all_commands = 8;
 
+  bool upload_all_actions = 9;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if
