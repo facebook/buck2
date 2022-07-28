@@ -7,6 +7,7 @@ import re
 import shutil
 import socket
 import string
+import subprocess
 import sys
 import tempfile
 import typing
@@ -849,7 +850,7 @@ async def test_modify_file_during_build(buck: Buck, tmpdir: LocalPath) -> None:
     # have to attempt to upload it to RE (which will fail because by that time
     # we will have overwritten it with other content).
     with open(buck.cwd / "text", "w", encoding="utf-8") as f:
-        f.write("".join(random.choice(string.ascii_lowercase) for i in range(256)))
+        f.write(random_string())
 
     await expect_failure(
         buck.build("//:check"),
@@ -875,7 +876,6 @@ async def test_hybrid_executor_threshold(buck: Buck) -> None:
     await buck.build("root//executor_threshold_tests/...")
     out = await read_what_ran(buck)
 
-    # pyre-ignore[16]
     executors = {line["identity"]: line["reproducer"]["executor"] for line in out}
     expected = {
         "root//executor_threshold_tests:big (<unspecified>) (head)": "Local",
@@ -1305,13 +1305,33 @@ async def test_symlinks(buck: Buck) -> None:
     expect_exec_count(buck, 1)
 
 
+@buck_test(inplace=False, data_dir="upload_all_actions")
+async def test_upload_all_actions(buck: Buck) -> None:
+    with open(buck.cwd / "src", "w") as src:
+        src.write(random_string())
+
+    # This action includes `src` and is forced to run locally. This means RE
+    # can never have seen it (and we'll check that later by asserting there is
+    # only 1 cache query, excluding local actions).
+    await buck.build("//:cp", "--upload-all-actions")
+
+    what_ran = await read_what_ran(
+        buck, "--emit-cache-queries", "--skip-local-executions"
+    )
+    assert len(what_ran) == 1
+
+    # Now, download the action. This will succeed only if we uploaded it.
+    digest = what_ran[0]["reproducer"]["details"]["digest"]
+    subprocess.check_call([os.environ["RECLI"], "cas", "download-action", digest])
+
+
 async def expect_exec_count(buck: Buck, n: int) -> None:
     out = await read_what_ran(buck)
     assert len(out) == n, "unexpected actions: %s" % (out,)
 
 
-async def read_what_ran(buck: Buck) -> typing.List[typing.Dict[str, object]]:
-    out = await buck.debug("what-ran", "--format", "json")
+async def read_what_ran(buck: Buck, *args) -> typing.List[typing.Dict[str, typing.Any]]:
+    out = await buck.debug("what-ran", "--format", "json", *args)
     out = [line.strip() for line in out.stdout.splitlines()]
     out = [json.loads(line) for line in out if line]
     return out
@@ -1338,3 +1358,7 @@ def json_get(data, *key):
             break
 
     return data
+
+
+def random_string():
+    return "".join(random.choice(string.ascii_lowercase) for i in range(256))

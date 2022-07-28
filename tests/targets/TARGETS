@@ -80,5 +80,7 @@ buck_filegroup(
         "lsp/**/.*",
         "symlinks/**",
         "symlinks/**/.*",
+        "upload_all_actions/**",
+        "upload_all_actions/**/.*",
     ]),
 )

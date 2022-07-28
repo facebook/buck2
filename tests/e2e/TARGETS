@@ -17,6 +17,7 @@ buck2_e2e_test(
     env = {
         "OVR_CONFIG": "1",
         "PRELUDE": "$(location //buck2:prelude)",
+        "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
     },
 )
 
