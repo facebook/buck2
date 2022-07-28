@@ -175,7 +175,6 @@ pub(crate) trait BuckdServerDelegate: Send + Sync {
 }
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
-
 pub(crate) struct DaemonState {
     fb: fbinit::FacebookInit,
 
