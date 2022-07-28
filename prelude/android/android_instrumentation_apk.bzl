@@ -49,7 +49,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
         ctx,
         android_packageable_info,
         deps_by_platform,
-        native_libs_from_prebuilt_aars_to_exclude = apk_under_test_info.native_libs_from_prebuilt_aars,
+        prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs,
         shared_libraries_to_exclude = apk_under_test_info.shared_libraries,
     )
 

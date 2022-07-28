@@ -13,7 +13,7 @@ Aapt2LinkInfo = provider(
 
 AndroidBinaryNativeLibsInfo = provider(
     fields = [
-        "apk_under_test_native_libs_from_prebuilt_aars",  # ["NativeLibraryFromPrebuiltAar"]
+        "apk_under_test_prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
         "apk_under_test_shared_libraries",  # ["SharedLibrary"]
         "native_libs",  # ["artifact"]
         "native_lib_assets",  # ["artifact"]
@@ -74,7 +74,7 @@ AndroidApkUnderTestInfo = provider(
     fields = [
         "java_packaging_deps",  # ["JavaPackagingDep"]
         "keystore",  # "KeystoreInfo"
-        "native_libs_from_prebuilt_aars",  # ["NativeLibraryFromPrebuiltAar"]
+        "prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
         "platforms",  # [str.type]
         "primary_platform",  # str.type
         "resource_infos",  # ["ResourceInfos"]
@@ -95,7 +95,7 @@ CPU_FILTER_TO_ABI_DIRECTORY = {
     "x86_64": "x86_64",
 }
 
-NativeLibraryFromPrebuiltAar = record(
+PrebuiltNativeLibraryDir = record(
     sub_dirs = {str.type: "artifact"},  # map of cpu-type to ABI directory artifact.
     use_system_library_loader = bool.type,
 )
@@ -105,14 +105,14 @@ def _artifacts(args: "cmd_args", value: "artifact"):
 
 AndroidBuildConfigInfoTSet = transitive_set()
 ManifestTSet = transitive_set(args_projections = {"artifacts": _artifacts})
-NativeLibraryFromPrebuiltAarTSet = transitive_set()
+PrebuiltNativeLibraryDirTSet = transitive_set()
 ResourceInfoTSet = transitive_set()
 
 AndroidPackageableInfo = provider(
     fields = [
         "build_config_infos",  # ["AndroidBuildConfigInfoTSet", None]
         "manifests",  # ["ManifestTSet", None]
-        "native_libs_from_prebuilt_aars",  # ["NativeLibraryFromPrebuiltAarTSet", None]
+        "prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDirTSet", None]
         "resource_infos",  # ["AndroidResourceInfoTSet", None]
     ],
 )
@@ -157,7 +157,7 @@ def merge_android_packageable_info(
         deps: ["dependency"],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,
         manifest: ["artifact", None] = None,
-        native_lib_from_prebuilt_aar: [NativeLibraryFromPrebuiltAar.type, None] = None,
+        prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
         resource_info: ["AndroidResourceInfo", None] = None) -> "AndroidPackageableInfo":
     android_packageable_deps = filter_and_map_idx(AndroidPackageableInfo, deps)
 
@@ -175,11 +175,11 @@ def merge_android_packageable_info(
         ManifestTSet,
     )
 
-    native_libs_from_prebuilt_aars = _get_transitive_set(
+    prebuilt_native_library_dirs = _get_transitive_set(
         actions,
-        filter(None, [dep.native_libs_from_prebuilt_aars for dep in android_packageable_deps]),
-        native_lib_from_prebuilt_aar,
-        NativeLibraryFromPrebuiltAarTSet,
+        filter(None, [dep.prebuilt_native_library_dirs for dep in android_packageable_deps]),
+        prebuilt_native_library_dir,
+        PrebuiltNativeLibraryDirTSet,
     )
 
     resource_infos = _get_transitive_set(
@@ -192,7 +192,7 @@ def merge_android_packageable_info(
     return AndroidPackageableInfo(
         build_config_infos = build_config_infos,
         manifests = manifests,
-        native_libs_from_prebuilt_aars = native_libs_from_prebuilt_aars,
+        prebuilt_native_library_dirs = prebuilt_native_library_dirs,
         resource_infos = resource_infos,
     )
 

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "CPU_FILTER_TO_ABI_DIRECTORY", "NativeLibraryFromPrebuiltAar", "merge_android_packageable_info")
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "CPU_FILTER_TO_ABI_DIRECTORY", "PrebuiltNativeLibraryDir", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load(
@@ -75,7 +75,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         is_prebuilt_jar = True,
     )
 
-    native_library = NativeLibraryFromPrebuiltAar(
+    native_library = PrebuiltNativeLibraryDir(
         sub_dirs = sub_dir_paths,
         use_system_library_loader = ctx.attrs.use_system_library_loader,
     )
@@ -86,7 +86,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         shared_library_info,
         cxx_resource_info,
         template_placeholder_info,
-        merge_android_packageable_info(ctx.actions, ctx.attrs.deps, manifest = manifest, native_lib_from_prebuilt_aar = native_library, resource_info = resource_info),
+        merge_android_packageable_info(ctx.actions, ctx.attrs.deps, manifest = manifest, prebuilt_native_library_dir = native_library, resource_info = resource_info),
         resource_info,
         DefaultInfo(default_outputs = [all_classes_jar]),
     ]

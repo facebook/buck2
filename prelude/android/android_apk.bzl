@@ -112,7 +112,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         AndroidApkUnderTestInfo(
             java_packaging_deps = java_packaging_deps,
             keystore = keystore,
-            native_libs_from_prebuilt_aars = native_library_info.apk_under_test_native_libs_from_prebuilt_aars,
+            prebuilt_native_library_dirs = native_library_info.apk_under_test_prebuilt_native_library_dirs,
             platforms = deps_by_platform.keys(),
             primary_platform = primary_platform,
             resource_infos = resources_info.unfiltered_resource_infos,
