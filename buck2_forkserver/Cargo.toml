@@ -4,12 +4,32 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gazebo.version = "0.8.0"
+anyhow = "1.0.51"
+async-trait = "0.1.24"
+futures = "0.3"
 gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
-gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo.version = "0.8.0"
+libc = "0.2"
+nix = "0.22"
+pin-project = "0.4"
+take_mut = "0.2.2"
+tokio = { version = "1.5", features = ["full"]}
+tracing = "0.1.22"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["everything"] }
+
+[dev-dependencies]
+assert_matches = "1.5"
+buck2_core = { path = "../buck2_core" }
+bytes = "1.0"
+tempfile = "3.1"
+tokio-util = { version = "0.7", features = ["full"] }
+tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

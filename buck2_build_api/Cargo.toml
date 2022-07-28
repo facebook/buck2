@@ -74,14 +74,11 @@ reqwest = { version = "0.11.4", features = ["stream"] }
 sha-1 = "0.10"
 sha2 = "0.10"
 hex = "0.4.2"
-pin-project = "0.4"
-libc = "0.2"
 num_cpus = "1.11"
 smallvec = "1.7"
 assert_matches = "1.5"
 toml = "=0.5.8"
 # @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
-nix = "0.22"
 crossbeam-channel = "0.5"
 # 0.9.8 is only compatible with nightly 1.61
 crossbeam-epoch = "=0.9.7"
@@ -89,16 +86,10 @@ more_futures = { path = "../shed/more_futures" }
 http = "0.2"
 parking_lot = { version = "0.11.2" }
 zstd = "0.11.1"
+buck2_forkserver = { path = "../buck2_forkserver" }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { version = "0.3.2", features = ["profiling"] }
-
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["everything"] }
-
-[dev-dependencies]
-tokio-util = { version = "0.7", features = ["full"] }
-bytes = "1.0"
 
 [[bin]]
 name = "interpret"
