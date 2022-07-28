@@ -30,7 +30,10 @@ pub fn parse_package(
         .split_once("//")
         .ok_or_else(|| ParsePackageError::NoSlashSlash(package.to_owned()))?;
 
-    let cell = cell_alias_resolver.resolve(cell)?;
+    let cell = cell_alias_resolver.resolve(cell).with_context(|| format!(
+        "when trying to resolve cell alias `{}` for path {}",
+        cell, package
+    ))?;
     let cell_relative =
         ForwardRelativePath::new(cell_relative).context("Parsing package argument")?;
     let cell_relative = CellRelativePath::new(cell_relative);

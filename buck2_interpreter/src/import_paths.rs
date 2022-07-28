@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -46,7 +47,15 @@ impl ImportPaths {
                 let (cell_alias, path): (&str, &str) = i.split_once("//").unwrap_or(("", i));
                 let path = CellRelativePathBuf::try_from(path.to_owned())?;
                 let path = CellPath::new(
-                    cell_alias_resolver.resolve(cell_alias)?.clone(),
+                    cell_alias_resolver
+                        .resolve(cell_alias)
+                        .with_context(|| {
+                            format!(
+                                "when trying to resolve cell alias `{}` for path {}",
+                                cell_alias, i
+                            )
+                        })?
+                        .clone(),
                     path.to_buf(),
                 );
 

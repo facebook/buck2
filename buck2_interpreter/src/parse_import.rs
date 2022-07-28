@@ -9,6 +9,7 @@
 
 //! Parses imports for load_file() calls in build files.
 
+use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -114,7 +115,12 @@ pub fn parse_import_with_config(
                     }
                 }
                 Some((alias, cell_relative_path)) => {
-                    let cell = cell_resolver.resolve(alias)?;
+                    let cell = cell_resolver.resolve(alias).with_context(|| {
+                        format!(
+                            "when trying to resolve cell alias `{}` for path {}",
+                            import, alias
+                        )
+                    })?;
                     Ok(CellPath::new(
                         cell.clone(),
                         CellRelativePathBuf::try_from(cell_relative_path.to_owned())?,
@@ -144,7 +150,12 @@ pub fn parse_import_with_config(
                 let (alias, cell_relative_path) =
                     parse_import_cell_path_parts(path, opts.allow_missing_at_symbol)
                         .ok_or_else(|| ImportParseError::MatchFailed(import.to_owned()))?;
-                let cell = cell_resolver.resolve(alias)?;
+                let cell = cell_resolver.resolve(alias).with_context(|| {
+                    format!(
+                        "when trying to resolve cell alias `{}` for path {}",
+                        alias, path
+                    )
+                })?;
                 Ok(CellPath::new(
                     cell.clone(),
                     <&CellRelativePath>::try_from(cell_relative_path)?.join(filename),
