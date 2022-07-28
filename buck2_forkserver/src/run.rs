@@ -19,28 +19,103 @@ use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use bytes::Bytes;
 use futures::channel::oneshot;
-use futures::future::try_join3;
 use futures::future::BoxFuture;
 use futures::future::FusedFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
+use futures::stream::Stream;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use pin_project::pin_project;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 use tokio::io::ReadBuf;
 use tokio::process::Child;
 use tokio::process::Command;
+use tokio_util::io::ReaderStream;
 
 pub enum GatherOutputStatus {
     Finished(ExitStatus),
     TimedOut(Duration),
 }
 
-pub async fn gather_output(
+enum CommandEvent {
+    Stdout(Bytes),
+    Stderr(Bytes),
+    Exit(GatherOutputStatus),
+}
+
+enum StdioEvent {
+    Stdout(Bytes),
+    Stderr(Bytes),
+}
+
+impl From<StdioEvent> for CommandEvent {
+    fn from(stdio: StdioEvent) -> Self {
+        match stdio {
+            StdioEvent::Stdout(bytes) => CommandEvent::Stdout(bytes),
+            StdioEvent::Stderr(bytes) => CommandEvent::Stderr(bytes),
+        }
+    }
+}
+
+#[pin_project]
+struct CommandEventStream<Status, Stdio> {
+    exit: Option<anyhow::Result<GatherOutputStatus>>,
+
+    #[pin]
+    status: futures::future::Fuse<Status>,
+
+    #[pin]
+    stdio: futures::stream::Fuse<Stdio>,
+}
+
+impl<Status, Stdio> CommandEventStream<Status, Stdio>
+where
+    Status: Future,
+    Stdio: Stream,
+{
+    fn new(status: Status, stdio: Stdio) -> Self {
+        Self {
+            exit: None,
+            status: status.fuse(),
+            stdio: stdio.fuse(),
+        }
+    }
+}
+
+impl<Status, Stdio> Stream for CommandEventStream<Status, Stdio>
+where
+    Status: Future<Output = anyhow::Result<GatherOutputStatus>>,
+    Stdio: Stream<Item = anyhow::Result<StdioEvent>>,
+{
+    type Item = anyhow::Result<CommandEvent>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+
+        if let Poll::Ready(status) = this.status.poll(cx) {
+            *this.exit = Some(status);
+        }
+
+        if let Some(stdio) = futures::ready!(this.stdio.poll_next(cx)) {
+            return Poll::Ready(Some(stdio.map(|event| event.into())));
+        }
+
+        if let Some(exit) = this.exit.take() {
+            return Poll::Ready(Some(exit.map(CommandEvent::Exit)));
+        }
+
+        Poll::Pending
+    }
+}
+
+async fn stream_command_events(
     mut cmd: Command,
     timeout: Option<Duration>,
-) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>> {
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -51,8 +126,8 @@ pub async fn gather_output(
         .await
         .context("Failed to start command")?;
 
-    let (stop_reads, reads_stoped) = oneshot::channel::<()>();
-    let reads_stoped = reads_stoped.map(|_| ()).boxed().shared();
+    let (stop_reads, reads_stopped) = oneshot::channel::<()>();
+    let reads_stopped = reads_stopped.map(|_| ()).boxed().shared();
 
     let stdout = child.stdout.take().expect("piped() above");
     let stderr = child.stderr.take().expect("piped() above");
@@ -65,8 +140,8 @@ pub async fn gather_output(
     #[cfg(not(unix))]
     type Drainer<R> = TimeoutDrainer<R>;
 
-    let stdout = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stdout, reads_stoped.clone());
-    let stderr = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stderr, reads_stoped.clone());
+    let stdout = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stdout, reads_stopped.clone());
+    let stderr = InterruptibleAsyncRead::<_, _, Drainer<_>>::new(stderr, reads_stopped.clone());
 
     let status = async move {
         let exit_status_result = match timeout {
@@ -87,16 +162,49 @@ pub async fn gather_output(
 
     // Stop reads once the child is done.
     let status = async move {
-        let ret = status.await;
+        let exit = status.await;
         let _ = stop_reads.send(());
-        ret
+        exit
     };
 
-    let (status, stdout, stderr) = try_join3(status, stdout.drain(), stderr.drain())
-        .await
-        .context("Failed to wait for command to exit")?;
+    let stdout = ReaderStream::new(stdout).map(|data| anyhow::Ok(StdioEvent::Stdout(data?)));
+    let stderr = ReaderStream::new(stderr).map(|data| anyhow::Ok(StdioEvent::Stderr(data?)));
 
-    Ok((status, stdout, stderr))
+    let stdio = futures::stream::select(stdout, stderr);
+
+    Ok(CommandEventStream::new(status, stdio))
+}
+
+async fn decode_command_event_stream<S>(
+    stream: S,
+) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+where
+    S: Stream<Item = anyhow::Result<CommandEvent>>,
+{
+    futures::pin_mut!(stream);
+
+    let mut stdout = Vec::<u8>::new();
+    let mut stderr = Vec::<u8>::new();
+
+    while let Some(event) = stream.try_next().await? {
+        match event {
+            CommandEvent::Stdout(bytes) => stdout.extend(&bytes),
+            CommandEvent::Stderr(bytes) => stderr.extend(&bytes),
+            CommandEvent::Exit(exit) => return Ok((exit, stdout, stderr)),
+        }
+    }
+
+    Err(anyhow::Error::msg(
+        "Stream did not yield CommandEvent::Exit",
+    ))
+}
+
+pub async fn gather_output(
+    cmd: Command,
+    timeout: Option<Duration>,
+) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+    let stream = stream_command_events(cmd, timeout).await?;
+    decode_command_event_stream(stream).await
 }
 
 pub fn kill_process(child: &Child) -> anyhow::Result<()> {
@@ -205,23 +313,6 @@ where
             state: InterruptibleAsyncReadState::Reading(reader),
             interrupt,
         }
-    }
-}
-
-impl<I, R, D> InterruptibleAsyncRead<I, R, D>
-where
-    I: Future<Output = ()> + FusedFuture,
-    R: AsyncRead + Unpin,
-    D: AsyncRead + Unpin + DrainerFromReader<R>,
-{
-    async fn drain(mut self) -> anyhow::Result<Vec<u8>>
-    where
-        R: Unpin,
-        I: Unpin,
-    {
-        let mut ret = Vec::new();
-        self.read_to_end(&mut ret).await?;
-        Ok(ret)
     }
 }
 
@@ -595,6 +686,19 @@ mod tests {
             }
         }
 
+        async fn read_to_end<I, R, D>(
+            mut read: InterruptibleAsyncRead<I, R, D>,
+        ) -> anyhow::Result<Vec<u8>>
+        where
+            I: Future<Output = ()> + FusedFuture + Unpin,
+            R: AsyncRead + Unpin,
+            D: AsyncRead + Unpin + DrainerFromReader<R>,
+        {
+            let mut ret = Vec::new();
+            read.read_to_end(&mut ret).await?;
+            Ok(ret)
+        }
+
         #[tokio::test]
         async fn test_drain_eof() {
             let read = StubAsyncRead::new();
@@ -602,7 +706,7 @@ mod tests {
             let interruptible =
                 InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), closed.map(|_| ()));
 
-            let drain = interruptible.drain();
+            let drain = read_to_end(interruptible);
             futures::pin_mut!(drain);
 
             // No bytes, it's pending.
@@ -626,7 +730,7 @@ mod tests {
             let interruptible =
                 InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), recv.map(|_| ()));
 
-            let drain = interruptible.drain();
+            let drain = read_to_end(interruptible);
             futures::pin_mut!(drain);
 
             // No bytes, it's pending.
@@ -652,7 +756,7 @@ mod tests {
             let interruptible =
                 InterruptibleAsyncRead::<_, _, StubAsyncRead>::new(read.dupe(), recv.map(|_| ()));
 
-            let drain = interruptible.drain();
+            let drain = read_to_end(interruptible);
             futures::pin_mut!(drain);
 
             // No bytes, it's pending.

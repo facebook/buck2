@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.51"
-async-trait = "0.1.24"
+bytes = "1.0"
 futures = "0.3"
 gazebo.features = ["str_pattern_extensions"]
 gazebo_lint.optional = true
@@ -17,6 +17,7 @@ libc = "0.2"
 nix = "0.22"
 pin-project = "0.4"
 take_mut = "0.2.2"
+tokio-util = { version = "0.7", features = ["full"] }
 tokio = { version = "1.5", features = ["full"]}
 tracing = "0.1.22"
 
@@ -28,7 +29,6 @@ assert_matches = "1.5"
 buck2_core = { path = "../buck2_core" }
 bytes = "1.0"
 tempfile = "3.1"
-tokio-util = { version = "0.7", features = ["full"] }
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 
 [features]
