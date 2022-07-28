@@ -14,13 +14,16 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::testing::CellResolverExt;
+use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::CellsConfigParser;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::project::ProjectFilesystemTemp;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::package::Package;
 use dice::cycles::DetectCycles;
 use dice::Dice;
@@ -29,6 +32,7 @@ use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 use indoc::indoc;
+use maplit::hashmap;
 use serde_json::json;
 
 use crate::common::StarlarkModulePath;
@@ -75,7 +79,13 @@ fn calculation(fs: &ProjectFilesystemTemp) -> anyhow::Result<DiceTransaction> {
     per_transaction_data.data.set(EventDispatcher::null());
     let ctx = dice.with_ctx_data(per_transaction_data);
 
-    let resolver = CellsConfigParser::empty_cell()?;
+    let resolver = CellResolver::with_names_and_paths_with_alias(&[(
+        CellName::unchecked_new("".to_owned()),
+        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
+        hashmap![
+            CellAlias::new("".to_owned()) => CellName::unchecked_new("".to_owned())
+        ],
+    )]);
     let cell_configs = empty_configs(&resolver);
 
     ctx.set_cell_resolver(resolver.dupe());
