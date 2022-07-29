@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 rust_binary(
-    name = "dice-fuzzing",
+    name = "fuzzy_dice",
     srcs = glob(
         ["src/**/*.rs"],
     ),
