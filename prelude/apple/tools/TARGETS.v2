@@ -1,48 +1,34 @@
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
-fb_native.export_file(
-    name = "make_modulemap.py",
-    src = "make_modulemap.py",
-)
+prelude = native
 
-fb_native.command_alias(
+prelude.python_bootstrap_binary(
     name = "make_modulemap",
-    exe = ":make_modulemap.py",
+    main = "make_modulemap.py",
     visibility = ["PUBLIC"],
 )
 
-fb_native.export_file(
+prelude.export_file(
     name = "swift_exec.sh",
     src = "swift_exec.sh",
 )
 
-fb_native.command_alias(
+prelude.command_alias(
     name = "swift_exec",
     exe = ":swift_exec.sh",
     visibility = ["PUBLIC"],
 )
 
-fb_native.export_file(
-    name = "make_vfsoverlay.py",
-    src = "make_vfsoverlay.py",
-)
-
-fb_native.command_alias(
+prelude.python_bootstrap_binary(
     name = "make_vfsoverlay",
-    exe = ":make_vfsoverlay.py",
+    main = "make_vfsoverlay.py",
     visibility = ["PUBLIC"],
 )
 
-fb_native.export_file(
-    name = "swift_objc_header_postprocess.py",
-    src = "swift_objc_header_postprocess.py",
-)
-
-fb_native.command_alias(
+prelude.python_bootstrap_binary(
     name = "swift_objc_header_postprocess",
-    exe = ":swift_objc_header_postprocess.py",
+    main = "swift_objc_header_postprocess.py",
     visibility = ["PUBLIC"],
 )
 
