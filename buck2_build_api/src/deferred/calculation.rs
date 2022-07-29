@@ -252,6 +252,10 @@ async fn compute_deferred(
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             false
         }
+
+        fn validity(x: &Self::Value) -> bool {
+            x.is_ok()
+        }
     }
 
     dice.compute(&DeferredCompute(deferred.dupe())).await?
