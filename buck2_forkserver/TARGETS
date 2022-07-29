@@ -19,7 +19,6 @@ rust_library(
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio-stream",
         "//buck2/buck2_core:buck2_core",
-        "//buck2/gazebo/gazebo:gazebo",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -35,5 +34,6 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/buck2_common:buck2_common",
         "//buck2/forkserver_proto:forkserver_proto",
+        "//buck2/gazebo/gazebo:gazebo",
     ],
 )

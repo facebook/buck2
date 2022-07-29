@@ -155,7 +155,7 @@ pub fn stream_command_events(
     Ok(CommandEventStream::new(status, stdio))
 }
 
-async fn decode_command_event_stream<S>(
+pub(crate) async fn decode_command_event_stream<S>(
     stream: S,
 ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
 where
