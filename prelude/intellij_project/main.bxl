@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_library_json_contents", "get_project_library_json_file_name")
-load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_aggregated_ij_module_target_nodes", "get_module_file_contents", "get_module_file_name")
+load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_aggregated_ij_module_target_nodes", "get_module_file_json_contents", "get_module_json_file_name")
 
 def _impl(ctx):
     all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1, "target_deps()")
@@ -14,9 +14,9 @@ def _impl(ctx):
 
     for ij_module in ij_modules:
         module = ij_module.ij_target_node
-        file_name = get_module_file_name(module)
+        file_name = get_module_json_file_name(module)
         module_output = _create_output(action_factory, file_name, final_output_dir_dict)
-        action_factory.write(module_output, get_module_file_contents(ij_module))
+        action_factory.write_json(module_output, get_module_file_json_contents(ij_module))
 
     for library in project_libraries:
         file_name = get_project_library_json_file_name(library.label)

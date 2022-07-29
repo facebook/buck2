@@ -1,4 +1,3 @@
-load("@fbcode//buck2/prelude/intellij_project:utils.bxl", "get_artifact_path")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjLibrary = record(
@@ -59,28 +58,3 @@ def get_library_json_contents(ij_library: IjLibrary.type) -> dict.type:
         "sourceJars": [ij_library.source_jar] if ij_library.source_jar else [],
         "type": "DEFAULT",
     }
-
-def get_library_xml(ij_library: IjLibrary.type, base_indentation: str.type) -> str.type:
-    return """
-{base_indentation}<library name="{name}">
-{base_indentation}  <CLASSES>
-{base_indentation}    <root url="jar://$PROJECT_DIR$/{jar}!/" />
-{base_indentation}  </CLASSES>{sources}
-{base_indentation}  <JAVADOC />
-{base_indentation}</library>""".format(
-        base_indentation = base_indentation,
-        name = ij_library.name,
-        jar = get_artifact_path(ij_library.jar),
-        sources = _get_sources_xml(ij_library, base_indentation + "  "),
-    )
-
-def _get_sources_xml(ij_library: IjLibrary.type, base_indentation: str.type) -> str.type:
-    source_jar = ij_library.source_jar
-    if not source_jar:
-        return ""
-
-    source_jar_path = get_artifact_path(source_jar)
-    return """
-{base_indentation}<SOURCES>
-{base_indentation}  <root url="jar://$PROJECT_DIR$/{source_jar}!/" />
-{base_indentation}</SOURCES>""".format(base_indentation = base_indentation, source_jar = source_jar_path)

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_library_xml")
+load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_library_json_contents")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryIntellijInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
 
@@ -97,63 +97,39 @@ def _aggregate_ij_target_nodes(ij_target_nodes: [IjTargetNode.type]) -> [Aggrega
 
     return aggregated_ij_target_nodes
 
-def get_module_file_name(ij_target_node: AggregatedIjTargetNode.type) -> str.type:
-    return "modules/{}.iml".format(ij_target_node.name)
+def get_module_json_file_name(ij_target_node: AggregatedIjTargetNode.type) -> str.type:
+    return "modules/{}.json".format(ij_target_node.name)
 
 # TODO(T124403530) Fill this in correctly
-def get_module_file_contents(ij_module: IjModule.type) -> str.type:
-    return """\
-<?xml version="1.0" encoding="UTF-8"?>
-<module type="JAVA_MODULE" version="4">
-  <component name="NewModuleRootManager" inherit-compiler-output="false">\
-{module_dependencies}\
-{module_libraries}\
-{project_libraries}
-  </component>
-</project>
-""".format(
-        module_dependencies = _get_module_dependencies_xml(ij_module.module_dependencies, base_indentation = "    "),
-        module_libraries = _get_module_libraries_xml(ij_module.module_libraries, base_indentation = "    "),
-        project_libraries = _get_project_libraries_xml(ij_module.project_libraries, base_indentation = "    "),
-    )
+def get_module_file_json_contents(ij_module: IjModule.type) -> dict.type:
+    return {
+        "dependencies": {
+            "LIBRARY": _get_project_libraries_json(ij_module.project_libraries),
+            "MODULE": _get_module_dependencies_json(ij_module.module_dependencies),
+            "MODULE-LIBRARY": _get_module_libraries_json(ij_module.module_libraries),
+        },
+    }
 
-def _get_module_dependencies_xml(module_dependencies: [AggregatedIjTargetNode.type], base_indentation: str.type) -> str.type:
-    xml = ""
-    for module_dependency in module_dependencies:
-        xml += _get_module_dependency_xml(module_dependency, base_indentation)
+def _get_module_dependencies_json(module_dependencies: [AggregatedIjTargetNode.type]) -> [dict.type]:
+    return [_get_module_dependency_json(module_dependency) for module_dependency in module_dependencies]
 
-    return xml
+def _get_module_dependency_json(module_dependency: AggregatedIjTargetNode.type) -> dict.type:
+    return {
+        "name": module_dependency.name,
+    }
 
-def _get_module_dependency_xml(module_dependency: AggregatedIjTargetNode.type, base_indentation: str.type) -> str.type:
-    return """
-{base_indentation}<orderEntry type="module" module-name="{name}" scope="COMPILE" />""".format(
-        base_indentation = base_indentation,
-        name = module_dependency.name,
-    )
+def _get_module_libraries_json(libraries: ["IjLibrary"]) -> [dict.type]:
+    return [_get_module_library_json(module_library) for module_library in libraries]
 
-def _get_module_libraries_xml(libraries: ["IjLibrary"], base_indentation: str.type) -> str.type:
-    xml = ""
-    for module_library in libraries:
-        xml += _get_module_library_xml(module_library, base_indentation)
+def _get_module_library_json(module_library: "IjLibrary") -> dict.type:
+    return {
+        "library": get_library_json_contents(module_library),
+    }
 
-    return xml
+def _get_project_libraries_json(libraries: ["IjLibrary"]) -> [dict.type]:
+    return [_get_project_library_json(project_library) for project_library in libraries]
 
-def _get_module_library_xml(module_library: "IjLibrary", base_indentation: str.type) -> str.type:
-    library_xml = get_library_xml(module_library, base_indentation = base_indentation + "  ")
-    return """
-{base_indentation}<orderEntry type="module-library" scope="COMPILE">{library_xml}
-{base_indentation}</orderEntry>""".format(library_xml = library_xml, base_indentation = base_indentation)
-
-def _get_project_libraries_xml(libraries: ["IjLibrary"], base_indentation: str.type) -> str.type:
-    xml = ""
-    for project_library in libraries:
-        xml += _get_project_library_xml(project_library, base_indentation)
-
-    return xml
-
-def _get_project_library_xml(project_library: "IjLibrary", base_indentation: str.type) -> str.type:
-    return """
-{base_indentation}<orderEntry type="library" name="{name}" scope="COMPILE" level="project" />""".format(
-        base_indentation = base_indentation,
-        name = project_library.name,
-    )
+def _get_project_library_json(project_library: "IjLibrary") -> dict.type:
+    return {
+        "name": project_library.name,
+    }
