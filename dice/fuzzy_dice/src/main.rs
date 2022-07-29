@@ -11,6 +11,7 @@
 #![feature(async_closure)]
 
 use std::fs;
+use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -176,6 +177,13 @@ fn main() -> anyhow::Result<()> {
         execution: &DiceExecutionOrder,
         options: &DiceExecutionOrderOptions,
     ) -> TestResult {
+        if let Some(dump_loc) = execution.get_dump_dir(options) {
+            fs::create_dir_all(&dump_loc).unwrap();
+            let writer = File::create(dump_loc.join("execution_order"))
+                .expect("failed to create execution file");
+            serde_json::to_writer_pretty(writer, &execution)
+                .expect("failed to serialized execution");
+        }
         let res = execution.execute(options).await;
 
         if !(res.is_error() || res.is_failure()) {
