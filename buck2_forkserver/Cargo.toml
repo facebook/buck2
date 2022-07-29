@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.51"
+buck2_common = { path = "../buck2_common" }
 bytes = "1.0"
+forkserver_proto = { path = "../forkserver_proto" }
 futures = "0.3"
 gazebo.features = ["str_pattern_extensions"]
 gazebo_lint.optional = true
@@ -19,6 +21,7 @@ pin-project = "0.4"
 take_mut = "0.2.2"
 tokio-util = { version = "0.7", features = ["full"] }
 tokio = { version = "1.5", features = ["full"]}
+tonic = "0.7"
 tracing = "0.1.22"
 
 [target.'cfg(windows)'.dependencies]
