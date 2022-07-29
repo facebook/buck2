@@ -570,11 +570,12 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         }))
     }
 
-    fn label(
+    fn label<'v>(
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::attr(eval, None, doc, AttrType::label())
+        Attribute::attr(eval, default, doc, AttrType::label())
     }
 
     fn dict<'v>(
