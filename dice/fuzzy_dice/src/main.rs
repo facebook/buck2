@@ -113,7 +113,6 @@ struct Fuzz {
     num_tests: u64,
 }
 
-#[allow(deprecated)] // TODO(nga): use non-deprecated API.
 fn main() -> anyhow::Result<()> {
     #[tokio::main]
     async fn replay(
