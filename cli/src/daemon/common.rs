@@ -43,6 +43,7 @@ use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::TargetLabel;
+use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -216,6 +217,7 @@ pub struct CommandExecutorFactory {
     pub strategy: ExecutionStrategy,
     pub re_global_knobs: ReExecutorGlobalKnobs,
     pub upload_all_actions: bool,
+    pub forkserver: Option<ForkserverClient>,
 }
 
 impl CommandExecutorFactory {
@@ -227,6 +229,7 @@ impl CommandExecutorFactory {
         strategy: ExecutionStrategy,
         re_global_knobs: ReExecutorGlobalKnobs,
         upload_all_actions: bool,
+        forkserver: Option<ForkserverClient>,
     ) -> Self {
         Self {
             re_connection,
@@ -236,6 +239,7 @@ impl CommandExecutorFactory {
             strategy,
             re_global_knobs,
             upload_all_actions,
+            forkserver,
         }
     }
 }
@@ -254,7 +258,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.blocking_executor.dupe(),
                 self.host_sharing_broker.dupe(),
                 project_fs.root.clone(),
-                None,
+                self.forkserver.dupe(),
             )
         };
 

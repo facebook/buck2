@@ -79,6 +79,7 @@ use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_data::*;
+use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter::dice::HasEvents;
@@ -214,6 +215,8 @@ pub(crate) struct DaemonStateData {
     /// live for the entire lifetime of the daemon, in order to allow deferred
     /// materializations to work properly between distinct build commands.
     materializer: Arc<dyn Materializer>,
+
+    forkserver: Option<ForkserverClient>,
 
     /// Data pertaining to event logging, which controls the ways that event data is written throughout the course of
     /// a command.
@@ -373,6 +376,8 @@ pub(crate) struct BaseCommandContext {
     pub blocking_executor: Arc<dyn BlockingExecutor>,
     /// Object responsible for handling most materializations.
     pub materializer: Arc<dyn Materializer>,
+    /// Forkserver connection, if any was started
+    pub forkserver: Option<ForkserverClient>,
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
     /// Event logging configuration for this command context.
@@ -597,6 +602,7 @@ impl ServerCommandContext {
         let build_signals = self.build_signals.dupe();
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
+        let forkserver = self.base_context.forkserver.dupe();
 
         let upload_all_actions = self
             .build_options
@@ -615,6 +621,7 @@ impl ServerCommandContext {
                     execution_strategy,
                     re_global_knobs,
                     upload_all_actions,
+                    forkserver,
                 ));
                 data.set_blocking_executor(blocking_executor);
                 data.set_materializer(materializer);
@@ -801,6 +808,8 @@ impl DaemonState {
         setup_interpreter_basic(&ctx, cells.dupe(), configuror, legacy_configs.dupe());
         ctx.commit();
 
+        let forkserver = maybe_launch_forkserver(root_config).await?;
+
         // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
         // this list should be safe until we can revert it to Expr::True.
@@ -820,6 +829,7 @@ impl DaemonState {
             re_client_manager,
             blocking_executor,
             materializer,
+            forkserver,
             event_logging_data,
         }))
     }
@@ -973,6 +983,7 @@ impl DaemonState {
             blocking_executor: data.blocking_executor.dupe(),
             materializer: data.materializer.dupe(),
             events: dispatcher,
+            forkserver: data.forkserver.dupe(),
             _event_config: data.event_logging_data.dupe(),
             _drop_guard: drop_guard,
         })
@@ -2541,4 +2552,26 @@ async fn canonicalize_patterns_for_logging(
     });
 
     Ok(patterns)
+}
+
+#[cfg(unix)]
+async fn maybe_launch_forkserver(
+    root_config: &LegacyBuckConfig,
+) -> anyhow::Result<Option<ForkserverClient>> {
+    if !root_config
+        .parse::<bool>("buck2", "forkserver")?
+        .unwrap_or_default()
+    {
+        return Ok(None);
+    }
+
+    let exe = std::env::current_exe().context("Cannot access current_exe")?;
+    Some(buck2_forkserver::unix::launch_forkserver(exe, &["forkserver"]).await).transpose()
+}
+
+#[cfg(not(unix))]
+async fn maybe_launch_forkserver(
+    _root_config: &LegacyBuckConfig,
+) -> anyhow::Result<Option<ForkserverClient>> {
+    Ok(None)
 }
