@@ -74,6 +74,7 @@ use crate::commands::cquery::CqueryCommand;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::debug::DebugCommand;
 use crate::commands::docs::DocsCommand;
+use crate::commands::forkserver::ForkserverCommand;
 use crate::commands::install::InstallCommand;
 use crate::commands::kill::KillCommand;
 use crate::commands::log::LogCommand;
@@ -282,6 +283,8 @@ pub(crate) trait StreamingCommand: Sized + Send + Sync {
 pub(crate) enum CommandKind {
     #[clap(setting(AppSettings::Hidden))]
     Daemon(DaemonCommand),
+    #[clap(setting(AppSettings::Hidden))]
+    Forkserver(ForkserverCommand),
     #[clap(subcommand)]
     Audit(AuditCommand),
     Aquery(AqueryCommand),
@@ -528,6 +531,7 @@ impl CommandKind {
         };
         match self {
             CommandKind::Daemon(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Forkserver(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),

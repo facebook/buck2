@@ -17,6 +17,7 @@ pub mod cquery;
 pub mod daemon;
 pub mod debug;
 pub mod docs;
+pub mod forkserver;
 pub mod install;
 pub mod kill;
 pub mod log;

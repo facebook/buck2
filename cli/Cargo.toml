@@ -95,6 +95,7 @@ shlex = "1.1"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip"] }
 crossterm = "0.23"
 crossbeam-channel = "0.5"
+buck2_forkserver = { path = "../buck2_forkserver" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 daemonize = "0.5"
