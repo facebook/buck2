@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -136,7 +135,7 @@ enum ExecutionResult {
     Correct,
     IncorrectResult { expected: bool, actual: bool },
     ExpectedPanic(bool),
-    UnexpectedPanic(Box<dyn Any + Send>),
+    UnexpectedPanic(String),
 }
 
 impl Display for ExecutionResult {
@@ -156,17 +155,7 @@ impl Display for ExecutionResult {
                 )
             }
             ExecutionResult::UnexpectedPanic(p) => {
-                write!(
-                    f,
-                    "Expected result but panicked `{}`",
-                    if let Some(s) = p.downcast_ref::<&str>() {
-                        s
-                    } else if let Some(info) = p.downcast_ref::<String>() {
-                        info.as_str()
-                    } else {
-                        "unknown panic"
-                    }
-                )
+                write!(f, "Expected result but panicked `{}`", p)
             }
         }
     }
@@ -396,7 +385,15 @@ impl DiceExecutionOrder {
                                     // There's a known bug where DICE sometimes uses injected keys from versions prior to the current query.
                                     // These computations should panic, but don't, and the fuzzer keeps finding them.
                                     // This environment variable disables this class of bugs, so other errors are easier to find.
-                                    return ExecutionResult::UnexpectedPanic(panic);
+                                    return ExecutionResult::UnexpectedPanic(
+                                        if let Some(s) = panic.downcast_ref::<&str>() {
+                                            (*s).to_owned()
+                                        } else if let Some(info) = panic.downcast_ref::<String>() {
+                                            info.clone()
+                                        } else {
+                                            "unknown panic".to_owned()
+                                        },
+                                    );
                                 }
                             }
                             (None, Err(_panic)) => {
