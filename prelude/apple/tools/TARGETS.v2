@@ -1,6 +1,3 @@
-load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
-
 prelude = native
 
 prelude.python_bootstrap_binary(
@@ -29,11 +26,5 @@ prelude.python_bootstrap_binary(
 prelude.python_bootstrap_binary(
     name = "swift_objc_header_postprocess",
     main = "swift_objc_header_postprocess.py",
-    visibility = ["PUBLIC"],
-)
-
-python_library(
-    name = "lib_for_pyre",
-    srcs = glob(["**/*.py"]),
     visibility = ["PUBLIC"],
 )
