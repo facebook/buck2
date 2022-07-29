@@ -15,6 +15,7 @@ use crate::CommandContext;
 
 #[cfg(fbcode_build)]
 mod imp {
+    use std::collections::HashMap;
     use std::future::Future;
     use std::sync::Arc;
     use std::time::Duration;
@@ -30,6 +31,7 @@ mod imp {
     use events::TraceId;
     use futures::FutureExt;
     use gazebo::dupe::Dupe;
+    use termwiz::istty::IsTty;
 
     use crate::AsyncCleanupContext;
 
@@ -73,6 +75,7 @@ mod imp {
                     re_session_id: self.re_session_id.take().unwrap_or_default(),
                     cli_args: std::env::args().collect::<Vec<String>>(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
+                    client_metadata: Some(Self::collect_client_metadata()),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -94,6 +97,14 @@ mod imp {
             } else {
                 None
             }
+        }
+
+        // Collects client-side state and data, suitable for telemetry.
+        // NOTE: If data is visible from the daemon, put it in cli::metadata::collect()
+        fn collect_client_metadata() -> buck2_data::TypedMetadata {
+            let mut ints = HashMap::new();
+            ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
+            buck2_data::TypedMetadata { ints }
         }
     }
 

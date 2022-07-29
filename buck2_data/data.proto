@@ -961,6 +961,10 @@ message RecordEvent {
   }
 }
 
+message TypedMetadata {
+  map<string, int64> ints = 1;
+}
+
 message InvocationRecord {
   // Optional - present if ever sent to client.
   CommandStart command_start = 1;
@@ -976,4 +980,6 @@ message InvocationRecord {
   google.protobuf.Duration client_walltime = 6;
   // Optional - present if BuildGraphExecutionInfo sent to client.
   google.protobuf.Duration critical_path_duration = 7;
+  // Optional - any contents are copied directly to scuba buck2_builds.
+  TypedMetadata client_metadata = 8;
 }
