@@ -1,19 +1,15 @@
-export_file(
-    name = "compile_wrapper.py",
-)
+prelude = native
 
-buck_command_alias(
+prelude.python_bootstrap_binary(
     name = "compile_wrapper",
-    exe = ":compile_wrapper.py",
+    main = "compile_wrapper.py",
+    visibility = ["PUBLIC"],
 )
 
-export_file(
-    name = "filter_srcs.py",
-)
-
-buck_command_alias(
+prelude.python_bootstrap_binary(
     name = "filter_srcs",
-    exe = ":filter_srcs.py",
+    main = "filter_srcs.py",
+    visibility = ["PUBLIC"],
 )
 
 native.go_binary(

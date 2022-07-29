@@ -2,36 +2,21 @@ load("@fbcode//buck2/prelude/python:make_pex.bzl", "make_pex_inplace_binary", "m
 
 prelude = native
 
-prelude.export_file(
-    name = "extract.py",
-    src = "extract.py",
-)
-
-prelude.command_alias(
+prelude.python_bootstrap_binary(
     name = "extract",
-    exe = ":extract.py",
+    main = "extract.py",
     visibility = ["PUBLIC"],
 )
 
-prelude.export_file(
-    name = "create_manifest_for_source_dir.py",
-    src = "create_manifest_for_source_dir.py",
-)
-
-prelude.command_alias(
+prelude.python_bootstrap_binary(
     name = "create_manifest_for_source_dir",
-    exe = ":create_manifest_for_source_dir.py",
+    main = "create_manifest_for_source_dir.py",
     visibility = ["PUBLIC"],
 )
 
-prelude.export_file(
-    name = "make_source_db.py",
-    src = "make_source_db.py",
-)
-
-prelude.command_alias(
+prelude.python_bootstrap_binary(
     name = "make_source_db",
-    exe = ":make_source_db.py",
+    main = "make_source_db.py",
     visibility = ["PUBLIC"],
 )
 
