@@ -87,9 +87,12 @@ fn maybe_dice_dump(daemon_state: &Arc<DaemonStateData>, info: &PanicInfo, panic_
             eprintln!("Failed to dump DICE graph: {:#}", e);
         } else {
             let maybe_report_msg = if cfg!(fbcode_build) {
-                "Please report to https://fb.workplace.com/groups/buck2users. "
+                format!(
+                    "Please upload the report via `jf upload {}` and then report to https://fb.workplace.com/groups/buck2users. ",
+                    dice_dump_folder.display()
+                )
             } else {
-                ""
+                "".to_owned()
             };
             eprintln!(
                 "DICE graph dumped to `{:?}`. {}DICE dumps can take up a lot of disk space, you should delete the dump after reporting.",
