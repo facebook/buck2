@@ -87,6 +87,7 @@ http = "0.2"
 parking_lot = { version = "0.11.2" }
 zstd = "0.11.1"
 buck2_forkserver = { path = "../buck2_forkserver" }
+forkserver_proto = { path = "../forkserver_proto" }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { version = "0.3.2", features = ["profiling"] }

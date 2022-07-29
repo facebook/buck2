@@ -27,6 +27,7 @@ use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::process::async_background_command;
+use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
 use buck2_forkserver::run::GatherOutputStatus;
 use derive_more::From;
@@ -81,6 +82,8 @@ pub struct LocalExecutor {
     blocking_executor: Arc<dyn BlockingExecutor>,
     host_sharing_broker: Arc<HostSharingBroker>,
     root: AbsPathBuf,
+    #[cfg_attr(not(unix), allow(unused))]
+    forkserver: Option<ForkserverClient>,
 }
 
 impl LocalExecutor {
@@ -90,6 +93,7 @@ impl LocalExecutor {
         blocking_executor: Arc<dyn BlockingExecutor>,
         host_sharing_broker: Arc<HostSharingBroker>,
         root: AbsPathBuf,
+        forkserver: Option<ForkserverClient>,
     ) -> Self {
         Self {
             artifact_fs,
@@ -97,6 +101,7 @@ impl LocalExecutor {
             blocking_executor,
             host_sharing_broker,
             root,
+            forkserver,
         }
     }
 
@@ -109,21 +114,50 @@ impl LocalExecutor {
         timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
-        let root = match working_directory {
+        let working_directory = match working_directory {
             Some(d) => Cow::Owned(self.root.join_unnormalized(d)),
             None => Cow::Borrowed(&self.root),
         };
 
-        let root: &Path = root.as_ref();
+        let working_directory: &Path = working_directory.as_ref();
 
-        let mut cmd = async_background_command(exe);
-        cmd.current_dir(root);
-        cmd.args(args);
-        apply_local_execution_environment(&mut cmd, root, env, env_inheritance);
+        match &self.forkserver {
+            Some(forkserver) => {
+                #[cfg(unix)]
+                {
+                    unix::exec_via_forkserver(
+                        forkserver,
+                        exe,
+                        args,
+                        env,
+                        working_directory,
+                        timeout,
+                        env_inheritance,
+                    )
+                    .await
+                }
 
-        gather_output(cmd, timeout)
-            .await
-            .with_context(|| format!("Failed to gather output from command: {}", exe))
+                #[cfg(not(unix))]
+                {
+                    let _unused = forkserver;
+                    Err(anyhow::anyhow!("Forkserver is not supported off-UNIX"))
+                }
+            }
+
+            None => {
+                let mut cmd = async_background_command(exe);
+                cmd.current_dir(working_directory);
+                cmd.args(args);
+                apply_local_execution_environment(
+                    &mut cmd,
+                    working_directory,
+                    env,
+                    env_inheritance,
+                );
+                gather_output(cmd, timeout).await
+            }
+            .with_context(|| format!("Failed to gather output from command: {}", exe)),
+        }
     }
 
     async fn exec_request(
@@ -573,7 +607,7 @@ pub async fn create_output_dirs(
 
 pub fn apply_local_execution_environment(
     builder: &mut impl EnvironmentBuilder,
-    root: &Path,
+    working_directory: &Path,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
     env_inheritance: Option<&EnvironmentInheritance>,
 ) {
@@ -586,7 +620,7 @@ pub fn apply_local_execution_environment(
     for (key, val) in env {
         builder.set(key, val);
     }
-    builder.set("PWD", root);
+    builder.set("PWD", working_directory);
 }
 
 pub trait EnvironmentBuilder {
@@ -609,6 +643,58 @@ impl EnvironmentBuilder for Command {
         V: AsRef<OsStr>,
     {
         Command::env(self, key, val);
+    }
+}
+
+#[cfg(unix)]
+mod unix {
+    use std::os::unix::ffi::OsStrExt;
+
+    use super::*;
+
+    pub async fn exec_via_forkserver(
+        forkserver: &ForkserverClient,
+        exe: impl AsRef<OsStr>,
+        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+        env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
+        working_directory: &Path,
+        comand_timeout: Option<Duration>,
+        env_inheritance: Option<&EnvironmentInheritance>,
+    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+        let exe = exe.as_ref();
+
+        let mut req = forkserver_proto::CommandRequest {
+            exe: exe.as_bytes().to_vec(),
+            argv: args
+                .into_iter()
+                .map(|s| s.as_ref().as_bytes().to_vec())
+                .collect(),
+            env: vec![],
+            env_clear: false,
+            cwd: Some(forkserver_proto::WorkingDirectory {
+                path: working_directory.as_os_str().as_bytes().to_vec(),
+            }),
+            timeout: comand_timeout.map(|d| d.into()),
+        };
+        apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
+        forkserver.execute(req).await
+    }
+
+    impl EnvironmentBuilder for forkserver_proto::CommandRequest {
+        fn clear(&mut self) {
+            self.env_clear = true;
+        }
+
+        fn set<K, V>(&mut self, key: K, val: V)
+        where
+            K: AsRef<OsStr>,
+            V: AsRef<OsStr>,
+        {
+            self.env.push(forkserver_proto::EnvVar {
+                key: key.as_ref().as_bytes().to_vec(),
+                value: val.as_ref().as_bytes().to_vec(),
+            })
+        }
     }
 }
 
@@ -726,6 +812,7 @@ mod tests {
                 1,
             )),
             root.clone(),
+            None,
         );
 
         Ok((executor, root, dir))

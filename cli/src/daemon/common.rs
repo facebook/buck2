@@ -254,6 +254,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.blocking_executor.dupe(),
                 self.host_sharing_broker.dupe(),
                 project_fs.root.clone(),
+                None,
             )
         };
 
