@@ -40,6 +40,10 @@ Roman looked at [payments Contbuilds for a month](https://fb.workplace.com/group
 
 > DEV mode: Average improvement over 59 contbuilds: 67.60%. OPT mode: Average improvement over 59 contbuilds: 39.79%. ... those are very great results!
 
+Edgar looked at [developer payments builds for a month](https://fb.workplace.com/permalink.php?story_fbid=pfbid02E5ZVRZ6TUuTGoSPoA9P5HxLLiKBzcUNfLi4W8e5c4wPzDgRQbZxM2qB8XNmCrXzbl&id=100001234709253):
+
+> we have saved 50 engineering days this half! (nearly an engineering month just in July). ... Use buck2! You will save time and have a better experience while working at payments.
+
 Timotej and Ke [moved the FAUSTA WhatsApp CI jobs to Buck2](https://fb.workplace.com/groups/695833467664477/posts/1066729297241557):
 
 > Fausta skycastle jobs are now using buck2 to compile waserver. This speeds up the fausta signal by ~7 minutes (about 25%).
@@ -51,6 +55,14 @@ The Meta Financial Technologies team [moved to Buck2](https://fb.workplace.com/n
 WhatsApp server [moved their canaries to Buck2](https://fb.workplace.com/groups/wainfratools/permalink/3201355640124512/):
 
 > With buck2, most canary experiments could be started under 2 minutes even with cold checkout while before it could require waiting up to 7 minutes.
+
+Robert Quitt [moved the Contbuild Indexing Service to Buck2](https://fb.workplace.com/groups/1473739712817308/posts/1911725572352051/):
+
+> Now creating the hotfix index set takes ~4 minutes (was ~11m) and creating the entire index set takes about 9 minutes (was ~30m). Memory usage has decreased as well
+
+The GMB team [finalised their migration](https://fb.workplace.com/groups/1161130867291230/posts/7811781675559416):
+
+> ~30-40% improvement to build times across the board. Tangible operation cost savings can be noted here as well due to engineers having to wait less time for their tests to complete.
 
 ## Good UX
 
