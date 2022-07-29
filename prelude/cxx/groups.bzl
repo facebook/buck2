@@ -4,11 +4,11 @@ load(
     "parse_build_target_pattern",
 )
 
-# Types of link group traversal
+# Types of group traversal
 Traversal = enum(
-    # Includes the target and all of it's transitive dependencies in the link group.
+    # Includes the target and all of it's transitive dependencies in the group.
     "tree",
-    # Includes only the target in the link group.
+    # Includes only the target in the group.
     "node",
 )
 
@@ -20,13 +20,13 @@ FilterType = enum(
     "pattern",
 )
 
-# Label for special link group mapping which makes every target associated with it to be linked against all groups
+# Label for special group mapping which makes every target associated with it to be included in all groups
 MATCH_ALL_LABEL = "MATCH_ALL"
 
-# Label for excluding targets from all link group mapping
+# Label for excluding targets from all group mapping
 NO_MATCH_LABEL = "NO_MATCH"
 
-# Representation of a parsed link group mapping
+# Representation of a parsed group mapping
 GroupMapping = record(
     # The target to which to apply this mapping.
     target = "dependency",
@@ -43,11 +43,11 @@ GroupMapping = record(
     build_target_pattern = field([BuildTargetPattern.type, None], None),
 )
 
-# Representation of a parsed link group
-LinkGroup = record(
-    # The name for this link group.
+# Representation of a parsed group
+Group = record(
+    # The name for this group.
     name = str.type,
-    # The mappings that are part of this link group.
+    # The mappings that are part of this group.
     mappings = [GroupMapping.type],
 )
 
@@ -58,7 +58,7 @@ ResourceGraph = provider(fields = [
     "nodes",  # {"label", ResourceNode.type}
 ])
 
-def parse_link_groups_definitions(map: list.type) -> [LinkGroup.type]:
+def parse_groups_definitions(map: list.type) -> [Group.type]:
     link_groups = []
     for name, mappings in map:
         parsed_mappings = []
@@ -68,7 +68,7 @@ def parse_link_groups_definitions(map: list.type) -> [LinkGroup.type]:
             mapping = GroupMapping(target = entry[0], traversal = traversal, filter_type = filter_type, label_regex = label_regex, build_target_pattern = build_target_pattern)
             parsed_mappings.append(mapping)
 
-        link_group = LinkGroup(name = name, mappings = parsed_mappings)
+        link_group = Group(name = name, mappings = parsed_mappings)
         link_groups.append(link_group)
 
     return link_groups

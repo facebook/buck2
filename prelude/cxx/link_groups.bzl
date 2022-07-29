@@ -22,13 +22,13 @@ load(
 load(
     ":groups.bzl",
     "FilterType",  # @unused Used as a type
+    "Group",  # @unused Used as a type
     "GroupMapping",  # @unused Used as a type
-    "LinkGroup",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
     "ResourceGraph",  # @unused Used as a type
     "Traversal",  # @unused Used as a type
-    "parse_link_groups_definitions",
+    "parse_groups_definitions",
 )
 
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
@@ -37,7 +37,7 @@ LINK_GROUP_MAP_FILE_NAME = "link_group_map.json"
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
 
-def get_link_groups(ctx: "context") -> [LinkGroup.type]:
+def get_link_groups(ctx: "context") -> [Group.type]:
     """
     Parses the currently analyzed context for any link group definitions
     and returns a list of all link groups with their mappings.
@@ -47,9 +47,9 @@ def get_link_groups(ctx: "context") -> [LinkGroup.type]:
     if not link_group_map:
         return []
 
-    return parse_link_groups_definitions(link_group_map)
+    return parse_groups_definitions(link_group_map)
 
-def get_link_group_mappings(link_groups: [LinkGroup.type], linkable_graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
+def get_link_group_mappings(link_groups: [Group.type], linkable_graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
     """
     Returns the link group mappings {target label -> link group name}
     based on the provided link groups and linkable graph.
