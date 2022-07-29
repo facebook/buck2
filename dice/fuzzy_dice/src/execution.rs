@@ -232,8 +232,8 @@ impl DiceExecutionOrder {
         };
 
         let mut ignored_failure = vec![];
-        for _ in 0..ntimes {
-            match self.execute_once(&answer_key, options).await {
+        for run_count in 0..ntimes {
+            match self.execute_once(&answer_key, run_count, options).await {
                 ExecutionResult::Correct => {}
                 ExecutionResult::ExpectedPanic(r) => {
                     let mut first_failure = self.first_failure.lock().unwrap();
@@ -298,6 +298,18 @@ impl DiceExecutionOrder {
                     }
                 }
             }
+
+            if let Some(dump_loc) = options.print_dumps.as_ref() {
+                // we don't keep dump of any runs that are not a failure
+                fs::remove_dir_all(dump_loc.join(&format!("run-{}", run_count)))
+                    .expect("failed to remove dump");
+            }
+        }
+
+        if let Some(dump_loc) = options.print_dumps.as_ref() {
+            // we don't keep dump of any runs that are not a failure
+            fs::remove_dir_all(dump_loc.join(&format!("run-{}", ntimes - 1)))
+                .expect("failed to remove dump");
         }
 
         if self.first_failure.lock().unwrap().is_some() && !ignored_failure.is_empty() {
@@ -315,6 +327,7 @@ impl DiceExecutionOrder {
     async fn execute_once(
         &self,
         answer_key: &MathAnswerKey,
+        run_count: usize,
         options: &DiceExecutionOrderOptions,
     ) -> ExecutionResult {
         let dice = Dice::builder().build(DetectCycles::Disabled);
@@ -403,7 +416,7 @@ impl DiceExecutionOrder {
                 }
             }
 
-            Self::maybe_dump_dice(options, step_count, &dice)
+            Self::maybe_dump_dice(options, run_count, step_count, &dice)
                 .expect("couldn't dump DICE to stderr");
         }
 
@@ -412,12 +425,17 @@ impl DiceExecutionOrder {
 
     fn maybe_dump_dice(
         options: &DiceExecutionOrderOptions,
+        run_count: usize,
         step_count: usize,
         dice: &Arc<Dice>,
     ) -> anyhow::Result<()> {
         if let Some(loc) = options.print_dumps.as_ref() {
-            fs::create_dir_all(loc)?;
-            let mut dump_loc = File::create(loc.join(&format!("step-{}", step_count)))?;
+            let mut dump_loc = File::create(
+                loc.join(&format!("run-{}", run_count))
+                    .join(&format!("step-{}", step_count)),
+            )?;
+
+            fs::create_dir_all(loc.parent().unwrap())?;
             serialize_dense_graph(
                 &dice.to_introspectable(),
                 &mut serde_json::Serializer::pretty(&mut dump_loc),
