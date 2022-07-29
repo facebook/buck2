@@ -79,7 +79,7 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
-    "LinkGroupInfo",  # @unused Used as a type
+    "LinkGroupLinkInfo",  # @unused Used as a type
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -204,7 +204,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             deps = filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
         )
 
-        def is_link_group_shlib(label: "label", labels_to_links_map: {"label": LinkGroupInfo.type}):
+        def is_link_group_shlib(label: "label", labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
             # if using link_groups, only materialize the link_group shlibs
             return label in labels_to_links_map and labels_to_links_map[label].link_style == LinkStyle("shared")  # buildifier: disable=uninitialized
 

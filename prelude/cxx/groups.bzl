@@ -27,7 +27,7 @@ MATCH_ALL_LABEL = "MATCH_ALL"
 NO_MATCH_LABEL = "NO_MATCH"
 
 # Representation of a parsed link group mapping
-LinkGroupMapping = record(
+GroupMapping = record(
     # The target to which to apply this mapping.
     target = "dependency",
     # The type of traversal to use.
@@ -48,7 +48,7 @@ LinkGroup = record(
     # The name for this link group.
     name = str.type,
     # The mappings that are part of this link group.
-    mappings = [LinkGroupMapping.type],
+    mappings = [GroupMapping.type],
 )
 
 ResourceGraph = provider(fields = [
@@ -65,7 +65,7 @@ def parse_link_groups_definitions(map: list.type) -> [LinkGroup.type]:
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             filter_type, label_regex, build_target_pattern = _parse_filter_from_mapping(entry[2])
-            mapping = LinkGroupMapping(target = entry[0], traversal = traversal, filter_type = filter_type, label_regex = label_regex, build_target_pattern = build_target_pattern)
+            mapping = GroupMapping(target = entry[0], traversal = traversal, filter_type = filter_type, label_regex = label_regex, build_target_pattern = build_target_pattern)
             parsed_mappings.append(mapping)
 
         link_group = LinkGroup(name = name, mappings = parsed_mappings)

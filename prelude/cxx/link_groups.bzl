@@ -22,8 +22,8 @@ load(
 load(
     ":groups.bzl",
     "FilterType",  # @unused Used as a type
+    "GroupMapping",  # @unused Used as a type
     "LinkGroup",  # @unused Used as a type
-    "LinkGroupMapping",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
     "ResourceGraph",  # @unused Used as a type
@@ -65,7 +65,7 @@ def get_link_group_mappings(link_groups: [LinkGroup.type], linkable_graph: [Link
 
     return target_to_link_group_map
 
-LinkGroupInfo = record(
+LinkGroupLinkInfo = record(
     link_info = field(LinkInfo.type),
     link_style = field(LinkStyle.type),
 )
@@ -77,7 +77,7 @@ def get_filtered_labels_to_links_map(
         link_style: LinkStyle.type,
         non_exported_deps: ["dependency"],
         prefer_stripped: bool.type = False,
-        is_library: bool.type = True) -> {"label": LinkGroupInfo.type}:
+        is_library: bool.type = True) -> {"label": LinkGroupLinkInfo.type}:
     """
     Given a linkable graph, link style and link group mappings, finds all links
     to consider for linking traversing the graph as necessary and then
@@ -116,7 +116,7 @@ def get_filtered_labels_to_links_map(
     linkable_map = {}
 
     def add_link(target: "label", link_style: LinkStyle.type):
-        linkable_map[target] = LinkGroupInfo(
+        linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info(linkable_graph.nodes[target], link_style, prefer_stripped),
             link_style = link_style,
         )  # buildifier: disable=uninitialized
@@ -148,10 +148,10 @@ def get_filtered_labels_to_links_map(
 
     return linkable_map
 
-def get_filtered_links(labels_to_links_map: {"label": LinkGroupInfo.type}):
+def get_filtered_links(labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
     return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
 
-def get_filtered_targets(labels_to_links_map: {"label": LinkGroupInfo.type}):
+def get_filtered_targets(labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
 def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
@@ -160,7 +160,7 @@ def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> Defaul
 
 def _find_targets_in_mapping(
         linkable_graph: [LinkableGraph.type, ResourceGraph.type],
-        mapping: LinkGroupMapping.type) -> ["label"]:
+        mapping: GroupMapping.type) -> ["label"]:
     # If we have no filtering, we don't need to do any traversal to find targets to link.
     if mapping.filter_type == None:
         return [mapping.target.label]
@@ -194,7 +194,7 @@ def _update_target_to_group_mapping(
         target_to_link_group_map: {"label": str.type},
         node_traversed_targets: {"label": None},
         link_group: str.type,
-        mapping: LinkGroupMapping.type,
+        mapping: GroupMapping.type,
         target: "label"):
     def assign_target_to_link_group(
             target: "label",
