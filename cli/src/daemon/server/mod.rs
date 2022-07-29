@@ -2558,9 +2558,12 @@ async fn canonicalize_patterns_for_logging(
 async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
+    static DEFAULT_TO_FORKSERVER: EnvHelper<bool> = EnvHelper::new("BUCK2_DEFAULT_TO_FORKSERVER");
+    let default = DEFAULT_TO_FORKSERVER.get()?.unwrap_or(false);
+
     if !root_config
         .parse::<bool>("buck2", "forkserver")?
-        .unwrap_or_default()
+        .unwrap_or(default)
     {
         return Ok(None);
     }
