@@ -18,9 +18,11 @@ use anyhow::Context;
 use clap::Args;
 use clap::FromArgMatches;
 use clap::Parser;
+use quickcheck::Arbitrary;
 use quickcheck::Gen;
 use quickcheck::QuickCheck;
 use quickcheck::TestResult;
+use quickcheck::Testable;
 use thiserror::Error;
 use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
@@ -127,16 +129,62 @@ fn main() -> anyhow::Result<()> {
             Ok(())
         }
     }
-    #[tokio::main]
-    async fn qc_fuzz(execution: DiceExecutionOrder) -> TestResult {
-        let options = DiceExecutionOrderOptions { print_dumps: None };
-        let res = execution.execute(&options).await;
 
-        if res.is_error() || res.is_failure() {
-            println!("fuzzing found failure. shrinking...");
-        } else if let Some(dump_loc) = execution.get_dump_dir(&options) {
-            // we don't keep dump of anything that are not a failure
-            fs::remove_dir_all(dump_loc).expect("failed to remove dump");
+    struct Fuzzer {
+        options: DiceExecutionOrderOptions,
+    }
+
+    impl Fuzzer {
+        async fn shrink_failure(&self, execution: DiceExecutionOrder) -> Option<TestResult> {
+            let mut res = None;
+            let mut executions = execution.shrink();
+
+            while let Some(exec) = executions.next() {
+                let r_new = qc_fuzz(&exec, &self.options).await;
+                if r_new.is_failure() {
+                    eprintln!("Found failure at {}... continuing to shrink", exec.uuid);
+
+                    res = Some(r_new);
+
+                    executions = exec.shrink();
+                }
+            }
+
+            res
+        }
+    }
+
+    impl Testable for Fuzzer {
+        #[tokio::main]
+        async fn result(&self, g: &mut Gen) -> TestResult {
+            let execution = DiceExecutionOrder::arbitrary(g);
+            let r = qc_fuzz(&execution, &self.options).await;
+
+            if r.is_failure() {
+                eprintln!(
+                    "Found failure at execution {}. Beginning shrinking...",
+                    execution.uuid
+                );
+                self.shrink_failure(execution).await.unwrap_or(r)
+            } else {
+                r
+            }
+        }
+    }
+
+    async fn qc_fuzz(
+        execution: &DiceExecutionOrder,
+        options: &DiceExecutionOrderOptions,
+    ) -> TestResult {
+        let res = execution.execute(options).await;
+
+        if !(res.is_error() || res.is_failure()) {
+            if let Some(dump_loc) = execution.get_dump_dir(options) {
+                // we don't keep dump of anything that are not a failure
+                if dump_loc.exists() {
+                    fs::remove_dir_all(dump_loc).expect("failed to remove dump");
+                }
+            }
         }
 
         res
@@ -146,11 +194,17 @@ fn main() -> anyhow::Result<()> {
 
     match cmd.command {
         Commands::Fuzz(fuzz) => {
+            let fuzzer = Fuzzer {
+                options: DiceExecutionOrderOptions {
+                    print_dumps: fuzz.print_dumps,
+                },
+            };
+
             QuickCheck::new()
                 .max_tests(fuzz.cmd.max_tests)
                 .tests(fuzz.cmd.num_tests)
                 .gen(Gen::new(10))
-                .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> TestResult);
+                .quickcheck(fuzzer);
         }
         Commands::Replay(replay_cmd) => {
             tracing_subscriber::registry()

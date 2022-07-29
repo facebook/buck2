@@ -201,7 +201,7 @@ where
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DiceExecutionOrder {
     #[serde(skip_deserializing, serialize_with = "uuid_serializer")]
-    uuid: Uuid,
+    pub uuid: Uuid,
     /// A list of operations that initialize each var, in order, to a literal.
     init_vars: Vec<Operation>,
     /// A list of updates, queries, and enqueued "steps" that tweak computation.
@@ -230,6 +230,10 @@ impl DiceExecutionOrder {
     const AVG_OPS_PER_VAR: usize = 4;
     const VARS_PER_XOR: usize = 5;
 
+    fn make_failure(&self, msg: String) -> TestResult {
+        TestResult::error(format!("Execution: {:?}\nFailure: `{}`", self, msg))
+    }
+
     /// If a repro is nondeterministic, shrunk testcases that contain the
     /// same bug may not repro, so shrinking might stop early.
     /// Since shrinking a big testcase takes multiple consecutive failures,
@@ -251,12 +255,12 @@ impl DiceExecutionOrder {
                     match &*first_failure {
                         None => {
                             *first_failure = Some(Arc::new(ExecutionResult::ExpectedPanic(r)));
-                            return TestResult::error(first_failure.as_ref().unwrap().to_string());
+                            return self.make_failure(first_failure.as_ref().unwrap().to_string());
                         }
                         Some(prev) => {
                             match &**prev {
                                 ExecutionResult::ExpectedPanic(prev_r) if *prev_r == r => {
-                                    return TestResult::error(prev.to_string());
+                                    return self.make_failure(prev.to_string());
                                 }
                                 _ => {
                                     // keep going because the error doesn't match
@@ -274,14 +278,14 @@ impl DiceExecutionOrder {
                                 expected,
                                 actual,
                             }));
-                            return TestResult::error(first_failure.as_ref().unwrap().to_string());
+                            return self.make_failure(first_failure.as_ref().unwrap().to_string());
                         }
                         Some(prev) => match &**prev {
                             ExecutionResult::IncorrectResult {
                                 expected: prev_expected,
                                 actual: prev_actual,
                             } if *prev_expected == expected && *prev_actual == actual => {
-                                return TestResult::error(prev.to_string());
+                                return self.make_failure(prev.to_string());
                             }
                             _ => ignored_failure
                                 .push(ExecutionResult::IncorrectResult { expected, actual }),
@@ -293,7 +297,7 @@ impl DiceExecutionOrder {
                     match &*first_failure {
                         None => {
                             *first_failure = Some(Arc::new(ExecutionResult::UnexpectedPanic(p)));
-                            return TestResult::error(first_failure.as_ref().unwrap().to_string());
+                            return self.make_failure(first_failure.as_ref().unwrap().to_string());
                         }
                         Some(prev) => {
                             match &**prev {
@@ -317,15 +321,9 @@ impl DiceExecutionOrder {
             }
         }
 
-        if let Some(dump_loc) = self.get_dump_dir(options) {
-            // we don't keep dump of any runs that are not a failure
-            fs::remove_dir_all(dump_loc.join(&format!("run-{}", ntimes - 1)))
-                .expect("failed to remove dump");
-        }
-
         if self.first_failure.lock().unwrap().is_some() && !ignored_failure.is_empty() {
             // we were supposed to find a particular failure but we didn't.
-            println!(
+            eprintln!(
                 "warning: supposed to find a specific error `{}` but didn't find any",
                 self.first_failure.lock().unwrap().as_ref().unwrap()
             );
@@ -428,7 +426,7 @@ impl DiceExecutionOrder {
             }
 
             self.maybe_dump_dice(options, run_count, step_count, &dice)
-                .expect("couldn't dump DICE to stderr");
+                .expect("couldn't dump DICE to disk");
         }
 
         ExecutionResult::Correct
@@ -449,12 +447,12 @@ impl DiceExecutionOrder {
         dice: &Arc<Dice>,
     ) -> anyhow::Result<()> {
         if let Some(loc) = self.get_dump_dir(options) {
-            let mut dump_loc = File::create(
-                loc.join(&format!("run-{}", run_count))
-                    .join(&format!("step-{}", step_count)),
-            )?;
+            let dump_path = loc
+                .join(&format!("run-{}", run_count))
+                .join(&format!("step-{}", step_count));
 
-            fs::create_dir_all(loc.parent().unwrap())?;
+            fs::create_dir_all(dump_path.parent().unwrap())?;
+            let mut dump_loc = File::create(&dump_path)?;
             serialize_dense_graph(
                 &dice.to_introspectable(),
                 &mut serde_json::Serializer::pretty(&mut dump_loc),
@@ -542,7 +540,7 @@ impl Arbitrary for DiceExecutionOrder {
             });
         }
         DiceExecutionOrder {
-            uuid: Default::default(),
+            uuid: Uuid::new_v4(),
             is_shrinking: false,
             init_vars,
             timeline,
@@ -551,12 +549,6 @@ impl Arbitrary for DiceExecutionOrder {
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-        eprintln!(
-            "Trying to shrink (init_vars.len()={}, timeline.len()={}): {:?}",
-            self.init_vars.len(),
-            self.timeline.len(),
-            self
-        );
         Box::new(DiceExecutionOrderShrinker::new(self.clone()))
     }
 }
@@ -585,7 +577,7 @@ impl Iterator for DiceExecutionOrderShrinker {
 
         self.pos -= 1;
         Some(DiceExecutionOrder {
-            uuid: Default::default(),
+            uuid: Uuid::new_v4(),
             is_shrinking: true,
             init_vars: self.seed.init_vars.clone(),
             timeline: [
