@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.51"
+async-trait = "0.1.24"
 buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_grpc = { path = "../buck2_grpc" }
 bytes = "1.0"
 forkserver_proto = { path = "../forkserver_proto" }
 futures = "0.3"
@@ -29,7 +32,6 @@ winapi = { version = "0.3", features = ["everything"] }
 
 [dev-dependencies]
 assert_matches = "1.5"
-buck2_core = { path = "../buck2_core" }
 bytes = "1.0"
 tempfile = "3.1"
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }

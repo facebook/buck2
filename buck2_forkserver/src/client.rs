@@ -21,7 +21,7 @@ struct ForkserverClientInner {
 }
 
 impl ForkserverClient {
-    #[allow(unused)]
+    #[allow(unused)] // Unused on Windows
     pub(crate) fn new(child: Child, channel: Channel) -> Self {
         let rpc = forkserver_proto::forkserver_client::ForkserverClient::new(channel);
         Self {
