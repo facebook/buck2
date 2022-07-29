@@ -45,6 +45,7 @@ async def test_generate_intellij_project(buck: Buck) -> None:
             "binaryJars": [
                 "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar"
             ],
+            "javadocUrls": ["http://prebuilt_jar_javadoc.url"],
             "sourceJars": [
                 "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar"
             ],
@@ -73,6 +74,9 @@ async def test_generate_intellij_project(buck: Buck) -> None:
                     {
                         "library": {
                             "binaryJars": [
+                                "buck-out-path",
+                            ],
+                            "classPaths": [
                                 "buck-out-path",
                             ],
                             "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/android_prebuilt_aar:aar",

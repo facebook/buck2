@@ -1,8 +1,11 @@
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjLibrary = record(
     jar = "artifact",
+    class_paths = ["artifact"],
+    javadoc_urls = [str.type],
     label = "configured_target_label",
     name = str.type,
     rule_type = str.type,
@@ -43,9 +46,12 @@ def get_libraries(all_nodes: "target_set", analysis: dict.type) -> [IjLibrary.ty
 
 def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
     expect(node.rule_type == _PREBUILT_JAR_RULE_TYPE, "Rule type must be {} but was {}".format(_PREBUILT_JAR_RULE_TYPE, node.rule_type))
+    javadoc_url = node.attrs().javadoc_url.value()
     return IjLibrary(
         name = str(node.label.raw_target()),
         jar = node.attrs().binary_jar.value(),
+        class_paths = [],
+        javadoc_urls = [javadoc_url] if javadoc_url else [],
         label = node.label,
         rule_type = _PREBUILT_JAR_RULE_TYPE,
         source_jar = node.attrs().source_jar.value(),
@@ -53,10 +59,14 @@ def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
 
 def _get_android_prebuilt_aar_ij_library(node: "target_node", providers: "provider_collection") -> IjLibrary.type:
     expect(node.rule_type == _ANDROID_PREBUILT_AAR_RULE_TYPE, "Rule type must be {} but was {}".format(_ANDROID_PREBUILT_AAR_RULE_TYPE, node.rule_type))
+    android_resource_info = providers[AndroidResourceInfo]
     java_library_info = providers[JavaLibraryInfo]
+    javadoc_url = node.attrs().javadoc_url.value()
     return IjLibrary(
         name = str(node.label.raw_target()),
         jar = java_library_info.library_output.full_library,
+        class_paths = [android_resource_info.res],
+        javadoc_urls = [javadoc_url] if javadoc_url else [],
         label = node.label,
         rule_type = _ANDROID_PREBUILT_AAR_RULE_TYPE,
         source_jar = node.attrs().source_jar.value(),
@@ -68,9 +78,16 @@ def get_project_library_json_file_name(library_label: "configured_target_label")
 
 def get_library_json_contents(ij_library: IjLibrary.type) -> dict.type:
     # TODO(T124405159) name should also include the config
-    return {
+    contents = {
         "binaryJars": [ij_library.jar],
         "name": ij_library.name,
         "sourceJars": [ij_library.source_jar] if ij_library.source_jar else [],
         "type": "DEFAULT",
     }
+
+    if ij_library.class_paths:
+        contents["classPaths"] = ij_library.class_paths
+    if ij_library.javadoc_urls:
+        contents["javadocUrls"] = ij_library.javadoc_urls
+
+    return contents
