@@ -20,6 +20,7 @@ rust_binary(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing-subscriber",
+        "fbsource//third-party/rust:uuid",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/gazebo:gazebo",
     ],

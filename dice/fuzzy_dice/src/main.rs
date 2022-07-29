@@ -10,6 +10,7 @@
 #![feature(exclusive_range_pattern)]
 #![feature(async_closure)]
 
+use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -129,12 +130,14 @@ fn main() -> anyhow::Result<()> {
     }
     #[tokio::main]
     async fn qc_fuzz(execution: DiceExecutionOrder) -> TestResult {
-        let res = execution
-            .execute(&DiceExecutionOrderOptions { print_dumps: None })
-            .await;
+        let options = DiceExecutionOrderOptions { print_dumps: None };
+        let res = execution.execute(&options).await;
 
         if res.is_error() || res.is_failure() {
             println!("fuzzing found failure. shrinking...");
+        } else if let Some(dump_loc) = execution.get_dump_dir(&options) {
+            // we don't keep dump of anything that are not a failure
+            fs::remove_dir_all(dump_loc).expect("failed to remove dump");
         }
 
         res

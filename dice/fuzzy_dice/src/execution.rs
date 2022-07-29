@@ -31,6 +31,8 @@ use quickcheck::Gen;
 use quickcheck::TestResult;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::Serializer;
+use uuid::Uuid;
 
 use crate::computation::ComputationStep;
 use crate::computation::Expr;
@@ -189,8 +191,17 @@ pub enum Operation {
     EnqueueStep(Var, Vec<ComputationStep>),
 }
 
+fn uuid_serializer<S>(uuid: &Uuid, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&uuid.to_string())
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DiceExecutionOrder {
+    #[serde(skip_deserializing, serialize_with = "uuid_serializer")]
+    uuid: Uuid,
     /// A list of operations that initialize each var, in order, to a literal.
     init_vars: Vec<Operation>,
     /// A list of updates, queries, and enqueued "steps" that tweak computation.
@@ -299,14 +310,14 @@ impl DiceExecutionOrder {
                 }
             }
 
-            if let Some(dump_loc) = options.print_dumps.as_ref() {
+            if let Some(dump_loc) = self.get_dump_dir(options) {
                 // we don't keep dump of any runs that are not a failure
                 fs::remove_dir_all(dump_loc.join(&format!("run-{}", run_count)))
                     .expect("failed to remove dump");
             }
         }
 
-        if let Some(dump_loc) = options.print_dumps.as_ref() {
+        if let Some(dump_loc) = self.get_dump_dir(options) {
             // we don't keep dump of any runs that are not a failure
             fs::remove_dir_all(dump_loc.join(&format!("run-{}", ntimes - 1)))
                 .expect("failed to remove dump");
@@ -416,20 +427,28 @@ impl DiceExecutionOrder {
                 }
             }
 
-            Self::maybe_dump_dice(options, run_count, step_count, &dice)
+            self.maybe_dump_dice(options, run_count, step_count, &dice)
                 .expect("couldn't dump DICE to stderr");
         }
 
         ExecutionResult::Correct
     }
 
+    pub fn get_dump_dir(&self, options: &DiceExecutionOrderOptions) -> Option<PathBuf> {
+        options
+            .print_dumps
+            .as_ref()
+            .map(|loc| loc.join(self.uuid.to_string()))
+    }
+
     fn maybe_dump_dice(
+        &self,
         options: &DiceExecutionOrderOptions,
         run_count: usize,
         step_count: usize,
         dice: &Arc<Dice>,
     ) -> anyhow::Result<()> {
-        if let Some(loc) = options.print_dumps.as_ref() {
+        if let Some(loc) = self.get_dump_dir(options) {
             let mut dump_loc = File::create(
                 loc.join(&format!("run-{}", run_count))
                     .join(&format!("step-{}", step_count)),
@@ -523,6 +542,7 @@ impl Arbitrary for DiceExecutionOrder {
             });
         }
         DiceExecutionOrder {
+            uuid: Default::default(),
             is_shrinking: false,
             init_vars,
             timeline,
@@ -565,6 +585,7 @@ impl Iterator for DiceExecutionOrderShrinker {
 
         self.pos -= 1;
         Some(DiceExecutionOrder {
+            uuid: Default::default(),
             is_shrinking: true,
             init_vars: self.seed.init_vars.clone(),
             timeline: [
@@ -584,6 +605,7 @@ mod tests {
     #[test]
     fn answer_key() {
         let order = DiceExecutionOrder {
+            uuid: Default::default(),
             init_vars: vec![],
             timeline: vec![
                 Operation::SetValue {
