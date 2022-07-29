@@ -183,7 +183,7 @@ def _python_test_attrs():
         "bundled_runtime": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_python_toolchain": _python_toolchain(),
@@ -234,6 +234,9 @@ def _target_os_type() -> "attribute":
         "ovr_config//os:macos": "macos",
         "ovr_config//os:windows": "windows",
     }))
+
+def _create_manifest_for_source_dir():
+    return attrs.exec_dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir")
 
 extra_attributes = struct(
     export_file = {
@@ -392,20 +395,20 @@ extra_attributes = struct(
 
     #python
     prebuilt_python_library = {
-        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_extract": attrs.dep(default = "fbcode//buck2/prelude/python/tools:extract"),
         "_python_toolchain": _python_toolchain(),
     },
     python_library = {
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_python_toolchain": _python_toolchain(),
     },
     python_binary = {
         "bundled_runtime": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
-        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_python_toolchain": _python_toolchain(),
