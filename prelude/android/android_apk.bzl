@@ -153,7 +153,7 @@ def build_apk(
 
     all_native_libs = (
         native_library_info.native_libs +
-        native_library_info.native_libs_for_system_library_loader +
+        native_library_info.native_libs_for_primary_apk +
         native_library_info.native_lib_assets
     )
 

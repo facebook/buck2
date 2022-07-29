@@ -12,18 +12,18 @@ def get_android_binary_native_library_info(
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [native_lib for native_lib in traversed_prebuilt_native_library_dirs if native_lib not in prebuilt_native_library_dirs_to_exclude]
 
-    prebuilt_native_library_dirs, prebuilt_native_library_dirs_for_system_library_loader = [], []
+    prebuilt_native_library_dirs, prebuilt_native_library_dirs_for_primary_apk = [], []
     for native_lib in all_prebuilt_native_library_dirs:
-        if native_lib.use_system_library_loader:
-            prebuilt_native_library_dirs_for_system_library_loader.append(native_lib)
+        if native_lib.for_primary_apk:
+            prebuilt_native_library_dirs_for_primary_apk.append(native_lib)
         else:
             prebuilt_native_library_dirs.append(native_lib)
 
     native_libs = _move_native_libraries_to_correct_dir(ctx, prebuilt_native_library_dirs, "native_libs")
-    native_libs_for_system_library_loader = _move_native_libraries_to_correct_dir(
+    native_libs_for_primary_apk = _move_native_libraries_to_correct_dir(
         ctx,
-        prebuilt_native_library_dirs_for_system_library_loader,
-        "native_libs_for_system_library_loader",
+        prebuilt_native_library_dirs_for_primary_apk,
+        "native_libs_for_primary_apk",
     )
 
     unstripped_libs, native_lib_assets = [], []
@@ -45,7 +45,7 @@ def get_android_binary_native_library_info(
         apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
         apk_under_test_shared_libraries = all_shared_libraries,
         native_libs = native_libs,
-        native_libs_for_system_library_loader = native_libs_for_system_library_loader,
+        native_libs_for_primary_apk = native_libs_for_primary_apk,
         unstripped_libs = unstripped_libs,
         native_lib_assets = native_lib_assets,
     )

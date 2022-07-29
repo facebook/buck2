@@ -77,7 +77,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
 
     native_library = PrebuiltNativeLibraryDir(
         sub_dirs = sub_dir_paths,
-        use_system_library_loader = ctx.attrs.use_system_library_loader,
+        for_primary_apk = ctx.attrs.use_system_library_loader,
     )
 
     return [

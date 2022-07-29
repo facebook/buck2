@@ -17,7 +17,7 @@ AndroidBinaryNativeLibsInfo = provider(
         "apk_under_test_shared_libraries",  # ["SharedLibrary"]
         "native_libs",  # ["artifact"]
         "native_lib_assets",  # ["artifact"]
-        "native_libs_for_system_library_loader",  # ["artifact"]
+        "native_libs_for_primary_apk",  # ["artifact"]
         "unstripped_libs",  # ["artifact"]
     ],
 )
@@ -97,7 +97,7 @@ CPU_FILTER_TO_ABI_DIRECTORY = {
 
 PrebuiltNativeLibraryDir = record(
     sub_dirs = {str.type: "artifact"},  # map of cpu-type to ABI directory artifact.
-    use_system_library_loader = bool.type,
+    for_primary_apk = bool.type,
 )
 
 def _artifacts(args: "cmd_args", value: "artifact"):
