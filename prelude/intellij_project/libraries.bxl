@@ -46,18 +46,19 @@ def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
         source_jar = node.attrs().source_jar.value(),
     )
 
-def get_project_library_file_name(library_label: "configured_target_label") -> str.type:
+def get_project_library_json_file_name(library_label: "configured_target_label") -> str.type:
     # TODO(T124405159) this should also include the config
     package_name = library_label.package.replace("/", "_")
-    return "libraries/__{}_{}__.xml".format(package_name, library_label.name)
+    return "libraries/__{}_{}__.json".format(package_name, library_label.name)
 
-def get_project_library_contents(ij_library: IjLibrary.type) -> str.type:
+def get_library_json_contents(ij_library: IjLibrary.type) -> dict.type:
     # TODO(T124405159) name should also include the config
-    # TODO(T124404955) add sources tag
-    return """\
-<component name="libraryTable">{library_xml}
-</component>
-""".format(library_xml = get_library_xml(ij_library, "  "))
+    return {
+        "binaryJars": [ij_library.jar],
+        "name": ij_library.name,
+        "sourceJars": [ij_library.source_jar] if ij_library.source_jar else [],
+        "type": "DEFAULT",
+    }
 
 def get_library_xml(ij_library: IjLibrary.type, base_indentation: str.type) -> str.type:
     return """

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from xplat.build_infra.buck_e2e.api.buck import Buck
@@ -33,25 +34,20 @@ async def test_generate_intellij_project(buck: Buck) -> None:
     libraries_dir = output_dir / "libraries"
     assert len(list(libraries_dir.iterdir())) == 1
 
-    assert (
-        (
-            libraries_dir
-            / "__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_prebuilt__.xml"
-        ).read_text()
-        == """\
-<component name="libraryTable">
-  <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar!/" />
-    </CLASSES>
-    <SOURCES>
-      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar!/" />
-    </SOURCES>
-    <JAVADOC />
-  </library>
-</component>
-"""
-    )
+    with (
+        libraries_dir
+        / "__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_prebuilt__.json"
+    ).open("r") as json_file:
+        assert json.load(json_file) == {
+            "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt",
+            "type": "DEFAULT",
+            "binaryJars": [
+                "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar"
+            ],
+            "sourceJars": [
+                "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar"
+            ],
+        }
 
     modules_dir = output_dir / "modules"
     assert len(list(modules_dir.iterdir())) == 2

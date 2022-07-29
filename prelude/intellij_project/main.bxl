@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_project_library_contents", "get_project_library_file_name")
+load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_library_json_contents", "get_project_library_json_file_name")
 load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_aggregated_ij_module_target_nodes", "get_module_file_contents", "get_module_file_name")
 
 def _impl(ctx):
@@ -19,9 +19,9 @@ def _impl(ctx):
         action_factory.write(module_output, get_module_file_contents(ij_module))
 
     for library in project_libraries:
-        file_name = get_project_library_file_name(library.label)
+        file_name = get_project_library_json_file_name(library.label)
         library_output = _create_output(action_factory, file_name, final_output_dir_dict)
-        action_factory.write(library_output, get_project_library_contents(library))
+        action_factory.write_json(library_output, get_library_json_contents(library))
 
     output_module = _create_output(action_factory, "modules.xml", final_output_dir_dict)
     action_factory.write(output_module, """\
