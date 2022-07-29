@@ -57,6 +57,42 @@ Usually means that your Eden mount is not working. Try `eden restart` to fix it.
 
 This error message is the result of a race condition where an executable file is open for writing while another process is spawned. To fix, simply rerun the command. A proper fix is being worked on as part of [T107518211](https://www.internalfb.com/tasks/?t=107518211).
 
+## How can I tell if an `fbpkg` has been built with `buck1` or `buck2`?
+
+The build system that was used is embedded in the build info. You can look at it using the [standard fbcode mechanisms of inspecting a binary's build info at runtime](https://fburl.com/code/og05da8n), or you can inspect your fbpkg's binary manually by reading the `fb_build_info` ELF section:
+
+```shell
+$ fbpkg fetch cerberus.service
+2022-04-15 12:58:30,493 fbpkg.fetch INFO: completed download of cerberus.
+All packages downloaded successfully
+$ objcopy cerberus_server /dev/null --dump-section fb_build_info=/dev/stdout | jq
+{
+  "build_identifier": "",
+  "build_mode": "opt",
+  "build_source": "Unknown",
+  "build_tool": "buck",
+  "clowntown_revision": "",
+  "compiler": "clang",
+  "epochtime": 1648230730,
+  "fdo_profile": "",
+  "host": "twshared34352.04.prn6.facebook.com",
+  "package_name": "cerberus.service",
+  "package_release": "",
+  "package_version": "c04314c14e3930328bbca1a36b7cf38a",
+  "path": "/data/sandcastle/boxes/eden-trunk-hg-fbcode-fbsource/fbcode",
+  "platform": "platform009",
+  "revision": "8430fe390389eeb3cbb227cc0957431cdb847780",
+  "revision_epochtime": 1648221050,
+  "rule": "fbcode:cerberus/service:cerberus_server",
+  "rule_type": "cpp_binary",
+  "time": "Fri Mar 25 10:52:10 2022",
+  "time_iso8601": "2022-03-25T10:52:10Z",
+  "upstream_revision": "8430fe390389eeb3cbb227cc0957431cdb847780",
+  "upstream_revision_epochtime": 1648221050,
+  "user": "twsvcscm"
+}
+```
+
 ## Are multiple concurrent builds supported?
 
 Not yet. While building targets in parallel will sometimes work, it isn't yet supported or recommended.
