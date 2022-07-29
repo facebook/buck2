@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/cxx:link_and_resource_groups_utility.bzl",
+    "@fbcode//buck2/prelude/cxx:groups.bzl",
     "LinkGroup",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "ResourceGraph",  # @unused Used as a type

@@ -20,7 +20,7 @@ load(
     "breadth_first_traversal_by",
 )
 load(
-    ":link_and_resource_groups_utility.bzl",
+    ":groups.bzl",
     "FilterType",  # @unused Used as a type
     "LinkGroup",  # @unused Used as a type
     "LinkGroupMapping",  # @unused Used as a type
