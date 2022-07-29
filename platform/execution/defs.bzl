@@ -9,6 +9,7 @@ mac_execution_base_platforms = {
 linux_execution_base_platforms = {
     "platform009": "ovr_config//platform/linux:x86_64-fbcode-platform009-clang-nosan",
     "platform010": "ovr_config//platform/linux:x86_64-fbcode-platform010-clang-nosan",
+    "platform010-aarch64": "ovr_config//platform/linux:aarch64-fbcode-platform010-aarch64-clang-nosan",
 }
 
 def _execution_platform_impl(ctx: "context"):

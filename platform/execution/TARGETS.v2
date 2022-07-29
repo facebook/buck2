@@ -86,7 +86,7 @@ mac_platforms = execution_platform(
 
 linux_platforms = execution_platform(
     name = "linux",
-    base_platform = linux_execution_base_platforms["platform010"],
+    base_platform = linux_execution_base_platforms["platform010" if native.host_info().arch.is_x86_64 else "platform010-aarch64"],
     local_enabled = local_linux_execution,
     remote_enabled = True,
     remote_execution_properties = {
