@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjLibrary = record(
@@ -8,12 +9,14 @@ IjLibrary = record(
     source_jar = ["artifact", None],
 )
 
+_ANDROID_PREBUILT_AAR_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:android_prebuilt_aar"
 _PREBUILT_JAR_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:prebuilt_jar"
 _LIBRARY_RULE_TYPES = [
+    _ANDROID_PREBUILT_AAR_RULE_TYPE,
     _PREBUILT_JAR_RULE_TYPE,
 ]
 
-def get_libraries(all_nodes: "target_set") -> [IjLibrary.type]:
+def get_libraries(all_nodes: "target_set", analysis: dict.type) -> [IjLibrary.type]:
     libraries = []
     library_targets = []
     for node in all_nodes:
@@ -30,6 +33,9 @@ def get_libraries(all_nodes: "target_set") -> [IjLibrary.type]:
 
         if rule_type == _PREBUILT_JAR_RULE_TYPE:
             libraries.append(_get_prebuilt_jar_ij_library(node))
+        elif rule_type == _ANDROID_PREBUILT_AAR_RULE_TYPE:
+            providers = analysis[configured_sub_target(node.label)].providers()
+            libraries.append(_get_android_prebuilt_aar_ij_library(node, providers))
         else:
             fail("Should add if branch above for rule type: {}".format(rule_type))
 
@@ -45,8 +51,18 @@ def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
         source_jar = node.attrs().source_jar.value(),
     )
 
+def _get_android_prebuilt_aar_ij_library(node: "target_node", providers: "provider_collection") -> IjLibrary.type:
+    expect(node.rule_type == _ANDROID_PREBUILT_AAR_RULE_TYPE, "Rule type must be {} but was {}".format(_ANDROID_PREBUILT_AAR_RULE_TYPE, node.rule_type))
+    java_library_info = providers[JavaLibraryInfo]
+    return IjLibrary(
+        name = str(node.label.raw_target()),
+        jar = java_library_info.library_output.full_library,
+        label = node.label,
+        rule_type = _ANDROID_PREBUILT_AAR_RULE_TYPE,
+        source_jar = node.attrs().source_jar.value(),
+    )
+
 def get_project_library_json_file_name(library_label: "configured_target_label") -> str.type:
-    # TODO(T124405159) this should also include the config
     package_name = library_label.package.replace("/", "_")
     return "libraries/__{}_{}__.json".format(package_name, library_label.name)
 

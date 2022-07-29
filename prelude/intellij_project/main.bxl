@@ -9,7 +9,7 @@ def _impl(ctx):
     action_factory = ctx.bxl_actions.action_factory()
 
     module_target_nodes = get_aggregated_ij_module_target_nodes(all_nodes, all_analysis)
-    libraries = get_libraries(all_nodes)
+    libraries = get_libraries(all_nodes, all_analysis)
     project_libraries, ij_modules = _sort_libraries_and_modules(module_target_nodes, libraries)
 
     for ij_module in ij_modules:
