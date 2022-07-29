@@ -60,3 +60,7 @@ def filter_idx(key: "_a", vals: ["_b"]) -> ["_b"]:
 
 def filter_and_map_idx(key: "_a", vals: ["_b"]) -> ["_c"]:
     return [x[key] for x in vals if x[key]]
+
+# TODO(T127134666) remove this once we have a native function that does this
+def dedupe_by_value(vals: ["_a"]) -> ["_a"]:
+    return {val: None for val in vals}.keys()
