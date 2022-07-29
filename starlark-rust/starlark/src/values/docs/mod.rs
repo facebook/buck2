@@ -587,7 +587,7 @@ pub fn get_registered_docs() -> Vec<Doc> {
 
 #[doc(hidden)]
 pub struct RegisteredDoc {
-    pub getter: Box<dyn Fn() -> Option<Doc>>,
+    pub getter: fn() -> Option<Doc>,
 }
 
 inventory::collect!(RegisteredDoc);

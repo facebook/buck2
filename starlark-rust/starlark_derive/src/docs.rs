@@ -115,10 +115,8 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
             use self::starlark::__derive_refs::inventory as inventory;
 
             inventory::submit! {
-                #[allow(unknown_lints)]
-                #[allow(gazebo_lint_use_box)]
                 self::starlark::values::docs::RegisteredDoc {
-                    getter: Box::new(#getter_call)
+                    getter: #getter_call
                 }
             }
         }
