@@ -51,6 +51,13 @@ LinkGroup = record(
     mappings = [LinkGroupMapping.type],
 )
 
+ResourceGraph = provider(fields = [
+    # Target identifier of the graph.
+    "label",  # "label"
+    # All nodes of the resources DAG indexed by target label.
+    "nodes",  # {"label", ResourceNode.type}
+])
+
 def parse_link_groups_definitions(map: list.type) -> [LinkGroup.type]:
     link_groups = []
     for name, mappings in map:

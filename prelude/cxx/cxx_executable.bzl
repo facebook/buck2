@@ -11,18 +11,6 @@ load(
     "get_frameworks_link_info_by_deduping_link_infos",
 )
 load(
-    "@fbcode//buck2/prelude/apple:link_groups.bzl",
-    "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
-    "LinkGroupInfo",  # @unused Used as a type
-    "get_filtered_labels_to_links_map",
-    "get_filtered_links",
-    "get_filtered_targets",
-    "get_link_group",
-    "get_link_group_map_json",
-    "get_link_group_mappings",
-    "get_link_groups",
-)
-load(
     "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
     "cxx_use_bolt",
 )
@@ -87,6 +75,18 @@ load(
 load(
     ":link.bzl",
     "cxx_link",
+)
+load(
+    ":link_groups.bzl",
+    "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupInfo",  # @unused Used as a type
+    "get_filtered_labels_to_links_map",
+    "get_filtered_links",
+    "get_filtered_targets",
+    "get_link_group",
+    "get_link_group_map_json",
+    "get_link_group_mappings",
+    "get_link_groups",
 )
 load(
     ":preprocessor.bzl",

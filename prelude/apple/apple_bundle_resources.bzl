@@ -1,5 +1,6 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@fbcode//buck2/prelude/cxx:link_groups.bzl", "get_link_group_mappings")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(
     ":apple_asset_catalog.bzl",
@@ -24,7 +25,6 @@ load(
     "AppleResourceSpec",  # @unused Used as a type
 )
 load(":apple_resource_utility.bzl", "apple_bundle_destination_from_resource_destination")
-load(":link_groups.bzl", "get_link_group_mappings")
 load(":resource_groups.bzl", "create_resource_graph", "get_filtered_resources", "get_resource_groups")
 
 AppleBundleResourcePartListOutput = record(

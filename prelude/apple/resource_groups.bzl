@@ -1,16 +1,17 @@
 load(
+    "@fbcode//buck2/prelude/cxx:link_and_resource_groups_utility.bzl",
+    "LinkGroup",  # @unused Used as a type
+    "MATCH_ALL_LABEL",
+    "ResourceGraph",  # @unused Used as a type
+    "parse_link_groups_definitions",
+)
+load(
     "@fbcode//buck2/prelude/utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_resource_types.bzl", "AppleResourceSpec")
-load(
-    ":link_and_resource_groups_utility.bzl",
-    "LinkGroup",  # @unused Used as a type
-    "MATCH_ALL_LABEL",
-    "parse_link_groups_definitions",
-)
 
 ResourceNode = record(
     # Attribute labels on the target.
@@ -26,13 +27,6 @@ ResourceNode = record(
     # Actual core data, present when node corresponds to `core_data_model` target
     core_data_spec = field([AppleCoreDataSpec.type, None], None),
 )
-
-ResourceGraph = provider(fields = [
-    # Target identifier of the graph.
-    "label",  # "label"
-    # All nodes of the resources DAG indexed by target label.
-    "nodes",  # {"label", ResourceNode.type}
-])
 
 def create_resource_graph(
         root: "label",

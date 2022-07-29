@@ -26,12 +26,9 @@ load(
     "LinkGroupMapping",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
+    "ResourceGraph",  # @unused Used as a type
     "Traversal",  # @unused Used as a type
     "parse_link_groups_definitions",
-)
-load(
-    ":resource_groups.bzl",
-    "ResourceGraph",  # @unused Used as a type
 )
 
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
