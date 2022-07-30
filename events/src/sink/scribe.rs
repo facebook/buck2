@@ -46,9 +46,10 @@ mod fbcode {
             self.client.flush_blocking().await;
         }
 
-        fn send_internal(&self, event: BuckEvent, is_truncation: bool) {
+        fn send_internal(&self, mut event: BuckEvent, is_truncation: bool) {
             let message_key = event.trace_id.hash();
 
+            Self::smart_truncate_event(&mut event.data);
             let proto: buck2_data::BuckEvent = event.into();
 
             let mut buf = Vec::with_capacity(proto.encoded_len());
@@ -101,6 +102,40 @@ mod fbcode {
                 message: b64.as_bytes().to_vec(),
                 message_key: Some(message_key),
             });
+        }
+
+        fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
+            use buck2_data::buck_event::Data;
+
+            match d {
+                Data::SpanEnd(ref mut s) => {
+                    use buck2_data::span_end_event::Data;
+
+                    match &mut s.data {
+                        Some(Data::ActionExecution(ref mut action_execution)) => {
+                            // truncate(...) can panic if asked to truncate too short.
+                            const MIN_CMD_TRUNCATION: usize = 20;
+                            let per_command_size_budget = ((500 * 1024)
+                                / action_execution.commands.len().max(1))
+                            .max(MIN_CMD_TRUNCATION);
+                            for command in &mut action_execution.commands {
+                                if let Some(details) = &mut command.details {
+                                    if action_execution.failed {
+                                        details.stderr =
+                                            truncate(&details.stderr, per_command_size_budget);
+                                    } else {
+                                        // Current Scribe tailers don't read stderr of successful actions.
+                                        // Save some bytes.
+                                        details.stderr = "".to_owned();
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    };
+                }
+                _ => {}
+            };
         }
     }
 
