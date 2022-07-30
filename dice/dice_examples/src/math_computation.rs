@@ -91,8 +91,11 @@ pub fn parse_math_equation(math: &str) -> anyhow::Result<(Var, Equation)> {
 }
 
 pub trait MathEquations {
-    fn set_equation(&self, var: Var, equation: Equation);
-    fn set_equations(&self, equations: impl IntoIterator<Item = (Var, Equation)>);
+    fn set_equation(&self, var: Var, equation: Equation) -> anyhow::Result<()>;
+    fn set_equations(
+        &self,
+        equations: impl IntoIterator<Item = (Var, Equation)>,
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -101,16 +104,19 @@ pub trait Math {
 }
 
 impl MathEquations for DiceComputations {
-    fn set_equation(&self, var: Var, equation: Equation) {
-        self.changed_to(vec![(LookupVar(var), Arc::new(equation))])
+    fn set_equation(&self, var: Var, equation: Equation) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LookupVar(var), Arc::new(equation))])?)
     }
-    fn set_equations(&self, equations: impl IntoIterator<Item = (Var, Equation)>) {
-        self.changed_to(
+    fn set_equations(
+        &self,
+        equations: impl IntoIterator<Item = (Var, Equation)>,
+    ) -> anyhow::Result<()> {
+        Ok(self.changed_to(
             equations
                 .into_iter()
                 .map(|(var, eq)| (LookupVar(var), Arc::new(eq)))
                 .collect::<Vec<_>>(),
-        );
+        )?)
     }
 }
 

@@ -78,7 +78,7 @@ pub trait SetStarlarkProfilerInstrumentation {
     fn set_starlark_profiler_instrumentation_override(
         &self,
         instrumentation: Option<StarlarkProfilerInstrumentation>,
-    );
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -97,8 +97,8 @@ impl SetStarlarkProfilerInstrumentation for DiceTransaction {
     fn set_starlark_profiler_instrumentation_override(
         &self,
         instrumentation: Option<StarlarkProfilerInstrumentation>,
-    ) {
-        self.changed_to([(StarlarkProfilerInstrumentationOverrideKey, instrumentation)]);
+    ) -> anyhow::Result<()> {
+        Ok(self.changed_to([(StarlarkProfilerInstrumentationOverrideKey, instrumentation)])?)
     }
 }
 

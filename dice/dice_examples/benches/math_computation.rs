@@ -66,7 +66,7 @@ impl BenchmarkComputationsPrerequisites for MathBenchmark {
     where
         I: IntoIterator<Item = Self::Updater> + Send + Sync,
     {
-        ctx.set_equations(keys);
+        ctx.set_equations(keys).unwrap();
         ctx.commit()
     }
 

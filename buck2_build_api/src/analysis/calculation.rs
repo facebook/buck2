@@ -531,7 +531,7 @@ mod tests {
                 );
                 data.data.set(EventDispatcher::null());
                 data
-            });
+            })?;
         setup_interpreter_basic(
             &dice,
             resolver,
@@ -545,7 +545,7 @@ mod tests {
                 |_| {},
             ),
             configs,
-        );
+        )?;
         let dice = dice.commit();
 
         let analysis = dice

@@ -34,7 +34,7 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
     type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
     async fn fresh(ctx: DiceTransaction) -> DiceTransaction {
-        let ctx = ctx.init_state();
+        let ctx = ctx.init_state().unwrap();
         ctx.add_companies(vec![
             Company {
                 name: Arc::new("Steve".to_owned()),

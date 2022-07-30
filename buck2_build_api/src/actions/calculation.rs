@@ -505,7 +505,7 @@ mod tests {
         dry_run_tracker: Arc<Mutex<Vec<DryRunEntry>>>,
         temp_fs: &ProjectFilesystemTemp,
         mocks: Vec<Box<dyn FnOnce(DiceBuilder) -> DiceBuilder>>,
-    ) -> DiceTransaction {
+    ) -> anyhow::Result<DiceTransaction> {
         let fs = temp_fs.path().clone();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
@@ -546,11 +546,11 @@ mod tests {
         extra.data.set(EventDispatcher::null());
         extra.data.set(RunActionKnobs::default());
 
-        let computations = dice_builder.build(extra);
-        computations.set_buck_out_path(Some(output_path.into()));
-        computations.set_cell_resolver(cell_resolver);
+        let computations = dice_builder.build(extra)?;
+        computations.set_buck_out_path(Some(output_path.into()))?;
+        computations.set_cell_resolver(cell_resolver)?;
 
-        computations.commit()
+        Ok(computations.commit())
     }
 
     #[tokio::test]
@@ -575,7 +575,7 @@ mod tests {
             deferred_resolve,
             registered_action.dupe(),
         );
-        let dice_computations = dice_builder.build(UserComputationData::new());
+        let dice_computations = dice_builder.build(UserComputationData::new())?;
 
         let result = dice_computations.get_action(build_artifact.key()).await;
         assert_eq!(result?, registered_action);
@@ -609,7 +609,7 @@ mod tests {
                     mock_deferred_resolution_calculation(builder, deferred_resolve, action)
                 }
             }],
-        );
+        )?;
 
         let result = dice_computations
             .build_action(registered_action.key())
@@ -653,7 +653,7 @@ mod tests {
             vec![box move |builder| {
                 mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
             }]
-        });
+        })?;
 
         let result = dice_computations.build_artifact(&build_artifact).await;
 
@@ -694,7 +694,7 @@ mod tests {
             vec![box move |builder| {
                 mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
             }]
-        });
+        })?;
 
         let result = dice_computations
             .ensure_artifact_group(&ArtifactGroup::Artifact(build_artifact.dupe().into()))
@@ -735,7 +735,7 @@ mod tests {
                     btreemap![path => metadata.dupe()],
                 ))),
             )
-            .build(UserComputationData::new());
+            .build(UserComputationData::new())?;
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());
@@ -779,7 +779,7 @@ mod tests {
                     btreemap![path => symlink.dupe()],
                 ))),
             )
-            .build(UserComputationData::new());
+            .build(UserComputationData::new())?;
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());

@@ -953,10 +953,10 @@ mod tests {
 
     use super::*;
 
-    fn make() -> (
+    fn make() -> anyhow::Result<(
         BuckTestOrchestrator,
         UnboundedReceiver<anyhow::Result<TestResultOrExitCode>>,
-    ) {
+    )> {
         let fs = ProjectFilesystemTemp::new().unwrap();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
@@ -966,15 +966,15 @@ mod tests {
         let buckout_path = ForwardRelativePathBuf::unchecked_new("buck_out/v2".into());
         let dice = DiceBuilder::new()
             .set_data(|d| d.set_testing_io_provider(&fs))
-            .build(UserComputationData::new());
-        dice.set_buck_out_path(Some(buckout_path));
-        dice.set_cell_resolver(cell_resolver);
+            .build(UserComputationData::new())?;
+        dice.set_buck_out_path(Some(buckout_path))?;
+        dice.set_cell_resolver(cell_resolver)?;
 
         let dice = dice.commit();
 
         let (sender, receiver) = mpsc::unbounded();
 
-        (
+        Ok((
             BuckTestOrchestrator::from_parts(
                 dice,
                 Arc::new(TestSession::new(Default::default())),
@@ -982,12 +982,12 @@ mod tests {
                 EventDispatcher::null(),
             ),
             receiver,
-        )
+        ))
     }
 
     #[tokio::test]
     async fn orchestrator_results() -> anyhow::Result<()> {
-        let (orchestrator, channel) = make();
+        let (orchestrator, channel) = make()?;
 
         let jobs = async {
             orchestrator
@@ -1048,17 +1048,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_orchestrator_channel_drop() {
-        let (orchestrator, channel) = make();
+    async fn test_orchestrator_channel_drop() -> anyhow::Result<()> {
+        let (orchestrator, channel) = make()?;
         drop(orchestrator);
 
         let res = channel.try_collect::<Vec<_>>().await;
         assert!(res.is_err());
+
+        Ok(())
     }
 
     #[tokio::test]
     async fn test_orchestrator_closes_channel() -> anyhow::Result<()> {
-        let (orchestrator, channel) = make();
+        let (orchestrator, channel) = make()?;
         let sender = orchestrator.results_channel.clone();
         orchestrator.end_of_test_results(1).await?;
 

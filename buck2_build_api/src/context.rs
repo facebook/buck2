@@ -27,7 +27,7 @@ pub trait HasBuildContextData {
 }
 
 pub trait SetBuildContextData {
-    fn set_buck_out_path(&self, path: Option<ForwardRelativePathBuf>);
+    fn set_buck_out_path(&self, path: Option<ForwardRelativePathBuf>) -> anyhow::Result<()>;
 }
 
 #[derive(PartialEq, Eq)]
@@ -59,14 +59,14 @@ impl HasBuildContextData for DiceComputations {
 }
 
 impl SetBuildContextData for DiceComputations {
-    fn set_buck_out_path(&self, path: Option<ForwardRelativePathBuf>) {
-        self.changed_to(vec![(
+    fn set_buck_out_path(&self, path: Option<ForwardRelativePathBuf>) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(
             BuildDataKey,
             Ok(Arc::new(BuildData {
                 buck_out_path: path.unwrap_or_else(|| {
                     ForwardRelativePathBuf::unchecked_new("buck-out/v2".to_owned())
                 }),
             })),
-        )])
+        )])?)
     }
 }

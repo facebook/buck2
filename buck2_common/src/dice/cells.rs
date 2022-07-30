@@ -20,7 +20,7 @@ use gazebo::prelude::*;
 pub trait HasCellResolver {
     async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver>;
 
-    fn set_cell_resolver(&self, cell_resolver: CellResolver);
+    fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
@@ -41,7 +41,7 @@ impl HasCellResolver for DiceComputations {
         Ok(self.compute(&CellResolverKey).await?)
     }
 
-    fn set_cell_resolver(&self, cell_resolver: CellResolver) {
-        self.changed_to(vec![(CellResolverKey, cell_resolver)])
+    fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(CellResolverKey, cell_resolver)])?)
     }
 }

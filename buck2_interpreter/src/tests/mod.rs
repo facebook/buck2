@@ -88,11 +88,11 @@ fn calculation(fs: &ProjectFilesystemTemp) -> anyhow::Result<DiceTransaction> {
     )]);
     let cell_configs = empty_configs(&resolver);
 
-    ctx.set_cell_resolver(resolver.dupe());
-    ctx.set_interpreter_context(TesterConfiguror::new(rules()));
-    ctx.set_legacy_configs(cell_configs);
-    ctx.set_starlark_profiler_instrumentation_override(None);
-    ctx.set_disable_starlark_types(false);
+    ctx.set_cell_resolver(resolver.dupe())?;
+    ctx.set_interpreter_context(TesterConfiguror::new(rules()))?;
+    ctx.set_legacy_configs(cell_configs)?;
+    ctx.set_starlark_profiler_instrumentation_override(None)?;
+    ctx.set_disable_starlark_types(false)?;
     Ok(ctx.commit())
 }
 

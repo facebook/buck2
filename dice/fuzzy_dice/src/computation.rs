@@ -74,21 +74,21 @@ impl InjectedKey for LookupVar {
 }
 
 pub trait FuzzEquations {
-    fn set_equation(&self, var: Var, expr: Expr);
-    fn set_equations(&self, expr: impl IntoIterator<Item = (Var, Expr)>);
+    fn set_equation(&self, var: Var, expr: Expr) -> anyhow::Result<()>;
+    fn set_equations(&self, expr: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()>;
 }
 
 impl FuzzEquations for DiceComputations {
-    fn set_equation(&self, var: Var, expr: Expr) {
-        self.changed_to(vec![(LookupVar(var), Arc::new(expr))])
+    fn set_equation(&self, var: Var, expr: Expr) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LookupVar(var), Arc::new(expr))])?)
     }
-    fn set_equations(&self, exprs: impl IntoIterator<Item = (Var, Expr)>) {
-        self.changed_to(
+    fn set_equations(&self, exprs: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()> {
+        Ok(self.changed_to(
             exprs
                 .into_iter()
                 .map(|(var, expr)| (LookupVar(var), Arc::new(expr)))
                 .collect::<Vec<_>>(),
-        );
+        )?)
     }
 }
 
@@ -245,14 +245,14 @@ mod tests {
         let ctx = {
             let ctx = dice.ctx();
             // let x1 = true
-            ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)));
+            ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             // let x2 = x1
-            ctx.set_equation(Var(2), Expr::Xor(vec![Unit::Variable(Var(1))]));
+            ctx.set_equation(Var(2), Expr::Xor(vec![Unit::Variable(Var(1))]))?;
             // let x3 = x1 ^ x1 = false
             ctx.set_equation(
                 Var(3),
                 Expr::Xor(vec![Unit::Variable(Var(1)), Unit::Variable(Var(1))]),
-            );
+            )?;
             // let x4 = if x1 then x2 else x3
             ctx.set_equation(
                 Var(4),
@@ -261,7 +261,7 @@ mod tests {
                     then: Unit::Variable(Var(2)),
                     otherwise: Unit::Variable(Var(3)),
                 },
-            );
+            )?;
             ctx.commit()
         };
         assert!(ctx.eval(empty_state.dupe(), Var(1)).await?);

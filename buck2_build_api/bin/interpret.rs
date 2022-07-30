@@ -267,7 +267,7 @@ fn main(fb: FacebookInit) -> ExitResult {
                 //   When old API replaced with new API, this code should be patched.
                 Some(StarlarkProfilerInstrumentation::default()),
                 false,
-            );
+            )?;
 
             let ctx = ctx.commit();
 

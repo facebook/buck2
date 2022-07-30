@@ -42,11 +42,11 @@ pub trait HasFileOps<'c> {
 }
 
 pub trait FileChangeHandler {
-    fn file_changed(&self, path: CellPath);
-    fn file_removed(&self, path: CellPath);
-    fn file_added(&self, path: CellPath);
-    fn dir_added(&self, path: CellPath);
-    fn dir_removed(&self, path: CellPath);
+    fn file_changed(&self, path: CellPath) -> anyhow::Result<()>;
+    fn file_removed(&self, path: CellPath) -> anyhow::Result<()>;
+    fn file_added(&self, path: CellPath) -> anyhow::Result<()>;
+    fn dir_added(&self, path: CellPath) -> anyhow::Result<()>;
+    fn dir_removed(&self, path: CellPath) -> anyhow::Result<()>;
 }
 
 impl<'c> HasFileOps<'c> for DiceComputations {
@@ -183,47 +183,53 @@ fn panic_expected_parent(path: &CellPath) -> ! {
     )
 }
 
-fn file_contents_modify(dice: &DiceComputations, path: CellPath) {
-    dice.changed(Some(ReadFileKey(path.clone())));
-    dice.changed(Some(PathMetadataKey(path)));
+fn file_contents_modify(dice: &DiceComputations, path: CellPath) -> anyhow::Result<()> {
+    dice.changed(Some(ReadFileKey(path.clone())))?;
+    dice.changed(Some(PathMetadataKey(path)))?;
+
+    Ok(())
 }
 
-fn file_existence_modify(dice: &DiceComputations, path: CellPath) {
+fn file_existence_modify(dice: &DiceComputations, path: CellPath) -> anyhow::Result<()> {
     let parent = path
         .parent()
         .unwrap_or_else(|| panic_expected_parent(&path));
 
-    file_contents_modify(dice, path);
-    dice.changed(Some(ReadDirKey(parent)));
+    file_contents_modify(dice, path)?;
+    dice.changed(Some(ReadDirKey(parent)))?;
+
+    Ok(())
 }
 
-fn dir_existence_modify(dice: &DiceComputations, path: CellPath) {
+fn dir_existence_modify(dice: &DiceComputations, path: CellPath) -> anyhow::Result<()> {
     let parent = path
         .parent()
         .unwrap_or_else(|| panic_expected_parent(&path));
-    dice.changed(Some(PathMetadataKey(path.clone())));
-    dice.changed(vec![ReadDirKey(path), ReadDirKey(parent)]);
+    dice.changed(Some(PathMetadataKey(path.clone())))?;
+    dice.changed(vec![ReadDirKey(path), ReadDirKey(parent)])?;
+
+    Ok(())
 }
 
 impl FileChangeHandler for DiceComputations {
-    fn file_changed(&self, path: CellPath) {
-        file_contents_modify(self, path);
+    fn file_changed(&self, path: CellPath) -> anyhow::Result<()> {
+        file_contents_modify(self, path)
     }
 
-    fn file_removed(&self, path: CellPath) {
+    fn file_removed(&self, path: CellPath) -> anyhow::Result<()> {
         file_existence_modify(self, path)
     }
 
-    fn file_added(&self, path: CellPath) {
+    fn file_added(&self, path: CellPath) -> anyhow::Result<()> {
         file_existence_modify(self, path)
     }
 
-    fn dir_added(&self, path: CellPath) {
-        dir_existence_modify(self, path);
+    fn dir_added(&self, path: CellPath) -> anyhow::Result<()> {
+        dir_existence_modify(self, path)
     }
 
-    fn dir_removed(&self, path: CellPath) {
-        dir_existence_modify(self, path);
+    fn dir_removed(&self, path: CellPath) -> anyhow::Result<()> {
+        dir_existence_modify(self, path)
     }
 }
 

@@ -205,7 +205,7 @@ async fn smoke() -> anyhow::Result<()> {
         tracker.lock().unwrap().computations.as_slice()
     );
 
-    ctx.changed([ConfigKey]);
+    ctx.changed([ConfigKey])?;
     ctx.commit();
     tracker.lock().unwrap().computations.clear();
 
@@ -232,7 +232,7 @@ async fn smoke() -> anyhow::Result<()> {
         tracker.lock().unwrap().computations.as_slice()
     );
 
-    ctx.changed([ConfigKey]);
+    ctx.changed([ConfigKey])?;
     ctx.commit();
     tracker.lock().unwrap().computations.clear();
 

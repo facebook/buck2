@@ -41,8 +41,11 @@ impl HasInterpreterContext for DiceComputations {
         Ok(self.compute(&BuildContextKey()).await?.dupe())
     }
 
-    fn set_interpreter_context(&self, interpreter_configuror: Arc<dyn InterpreterConfiguror>) {
-        self.changed_to(vec![(BuildContextKey(), interpreter_configuror)])
+    fn set_interpreter_context(
+        &self,
+        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
+    ) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(BuildContextKey(), interpreter_configuror)])?)
     }
 
     fn get_file_change_handler(&self) -> &dyn FileChangeHandler {

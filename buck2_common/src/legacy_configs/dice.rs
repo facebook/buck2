@@ -128,7 +128,7 @@ pub trait HasLegacyConfigs {
         anyhow::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static;
 
-    fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs);
+    fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
@@ -323,8 +323,8 @@ impl HasLegacyConfigs for DiceComputations {
         }
     }
 
-    fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) {
-        self.changed_to(vec![(LegacyBuckConfigKey, legacy_configs)])
+    fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LegacyBuckConfigKey, legacy_configs)])?)
     }
 }
 

@@ -409,9 +409,9 @@ mod tests {
             }
         }
 
-        let dice = dice_builder.build(UserComputationData::new());
-        dice.set_cell_resolver(cell_resolver);
-        dice.set_buck_out_path(None);
+        let dice = dice_builder.build(UserComputationData::new())?;
+        dice.set_cell_resolver(cell_resolver)?;
+        dice.set_buck_out_path(None)?;
         let dice = dice.commit();
 
         let result = dice

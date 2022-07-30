@@ -29,12 +29,16 @@ pub fn setup_interpreter(
     legacy_configs: LegacyBuckConfigs,
     starlark_profiler_instrumentation_override: Option<StarlarkProfilerInstrumentation>,
     disable_starlark_types: bool,
-) {
-    dice.set_cell_resolver(cell_resolver);
-    dice.set_interpreter_context(configuror);
-    dice.set_legacy_configs(legacy_configs);
-    dice.set_starlark_profiler_instrumentation_override(starlark_profiler_instrumentation_override);
-    dice.set_disable_starlark_types(disable_starlark_types);
+) -> anyhow::Result<()> {
+    dice.set_cell_resolver(cell_resolver)?;
+    dice.set_interpreter_context(configuror)?;
+    dice.set_legacy_configs(legacy_configs)?;
+    dice.set_starlark_profiler_instrumentation_override(
+        starlark_profiler_instrumentation_override,
+    )?;
+    dice.set_disable_starlark_types(disable_starlark_types)?;
+
+    Ok(())
 }
 
 pub fn setup_interpreter_basic(
@@ -42,6 +46,6 @@ pub fn setup_interpreter_basic(
     cell_resolver: CellResolver,
     configuror: Arc<dyn InterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,
-) {
-    setup_interpreter(dice, cell_resolver, configuror, legacy_configs, None, false);
+) -> anyhow::Result<()> {
+    setup_interpreter(dice, cell_resolver, configuror, legacy_configs, None, false)
 }

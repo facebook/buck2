@@ -30,7 +30,7 @@
 //!     impl<'compute> InjectConfigs<'compute> {
 //!         /// ways to inject the precomputed values to dice
 //!         pub fn inject(&self, i: usize) {
-//!             self.0.changed_to(vec![(ConfigKey, i)])
+//!             self.0.changed_to(vec![(ConfigKey, i)]).unwrap()
 //!         }
 //!
 //!         pub async fn get_config(&self) -> usize {
@@ -86,7 +86,7 @@
 //!         // computations can choose to expose specific compute functions as invalidatable,
 //!         // while leaving others (e.g. compute_a) not invalidatable from a user perspective
 //!         pub fn changed_b(&self, a: usize) {
-//!             self.0.changed(vec![ComputeB(a)])
+//!             self.0.changed(vec![ComputeB(a)]).unwrap()
 //!         }
 //!     }
 //!
@@ -494,7 +494,7 @@ pub mod testing {
     /// but rather the computation function, like `mock.expect(|c| c.other_compute(4), "4 res")`
     pub struct DiceBuilder {
         builder: DiceDataBuilder,
-        mocked: Vec<Box<dyn FnOnce(&DiceTransaction)>>,
+        mocked: Vec<Box<dyn FnOnce(&DiceTransaction) -> anyhow::Result<()>>>,
     }
 
     impl DiceBuilder {
@@ -518,16 +518,16 @@ pub mod testing {
             K: Key,
         {
             self.mocked
-                .push(box move |ctx| ctx.changed_to(vec![(expected_k, expected_res)]));
+                .push(box move |ctx| Ok(ctx.changed_to(vec![(expected_k, expected_res)])?));
             self
         }
 
-        pub fn build(self, extra: UserComputationData) -> DiceTransaction {
+        pub fn build(self, extra: UserComputationData) -> anyhow::Result<DiceTransaction> {
             let dice = self.builder.build(DetectCycles::Enabled);
             let ctx = dice.with_ctx_data(extra);
 
-            self.mocked.into_iter().for_each(|f| f(&ctx));
-            ctx.commit()
+            self.mocked.into_iter().try_for_each(|f| f(&ctx))?;
+            Ok(ctx.commit())
         }
     }
 }

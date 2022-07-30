@@ -411,7 +411,7 @@ impl DiceExecutionOrder {
                     expr,
                 } => {
                     let ctx = dice.ctx();
-                    ctx.set_equation(*var, expr.clone());
+                    ctx.set_equation(*var, expr.clone()).unwrap();
                     dice_ctxs.insert(*new_ctx_id, ctx.commit());
                 }
                 Operation::EnqueueStep(var, steps) => {

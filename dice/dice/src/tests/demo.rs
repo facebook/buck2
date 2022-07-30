@@ -55,8 +55,8 @@ impl<'c> Encodings<'c> {
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))
     }
 
-    fn set(&self, enc: Encoding) {
-        self.0.changed_to(vec![(EncodingConfig(), enc)]);
+    fn set(&self, enc: Encoding) -> anyhow::Result<()> {
+        Ok(self.0.changed_to(vec![(EncodingConfig(), enc)])?)
     }
 }
 
@@ -106,8 +106,8 @@ impl<'c> Filesystem<'c> {
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
     }
 
-    fn changed(&self, file: &Path) {
-        self.0.changed(vec![File(file.to_path_buf())])
+    fn changed(&self, file: &Path) -> anyhow::Result<()> {
+        Ok(self.0.changed(vec![File(file.to_path_buf())])?)
     }
 }
 
@@ -122,7 +122,7 @@ impl<'c> HasFilesystem<'c> for DiceComputations {
 }
 
 #[test]
-fn demo() {
+fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
     let f = PathBuf::from(temp.path());
 
@@ -130,7 +130,7 @@ fn demo() {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let ctx = dice.ctx();
-    ctx.encodings().set(Encoding::Utf8);
+    ctx.encodings().set(Encoding::Utf8)?;
     ctx.commit();
 
     let set = |x: &str| fs::write(&f, x).unwrap();
@@ -152,12 +152,14 @@ fn demo() {
     get(":-)");
 
     let ctx = dice.ctx();
-    ctx.filesystem().changed(&f);
+    ctx.filesystem().changed(&f)?;
     ctx.commit();
     get("hello :-)");
 
     let ctx = dice.ctx();
-    ctx.encodings().set(Encoding::Ascii);
+    ctx.encodings().set(Encoding::Ascii)?;
     ctx.commit();
     get("hello smile");
+
+    Ok(())
 }

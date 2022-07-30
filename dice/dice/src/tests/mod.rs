@@ -43,7 +43,7 @@ impl InjectedKey for Foo {
 }
 
 #[test]
-fn compute_and_update_uses_proper_version_numbers() {
+fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     {
@@ -59,7 +59,7 @@ fn compute_and_update_uses_proper_version_numbers() {
         assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(1));
 
         // now we write something and commit
-        ctx.changed_to(vec![(Foo(1), 1)]);
+        ctx.changed_to(vec![(Foo(1), 1)])?;
         // current version shouldn't be updated
         assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
         assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(1));
@@ -70,7 +70,7 @@ fn compute_and_update_uses_proper_version_numbers() {
         assert_eq!(ctx1.0.get_minor_version(), MinorVersion::testing_new(1));
 
         // if we update on the new context, nothing committed
-        ctx1.changed_to(vec![(Foo(2), 2)]);
+        ctx1.changed_to(vec![(Foo(2), 2)])?;
         assert_eq!(ctx1.0.get_version(), VersionNumber::new(0));
         assert_eq!(ctx1.0.get_minor_version(), MinorVersion::testing_new(1));
 
@@ -97,7 +97,7 @@ fn compute_and_update_uses_proper_version_numbers() {
         assert_eq!(ctx.0.get_version(), VersionNumber::new(2));
         assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(2));
 
-        ctx.changed_to(vec![(Foo(3), 3)]);
+        ctx.changed_to(vec![(Foo(3), 3)])?;
         assert_eq!(ctx.0.get_version(), VersionNumber::new(2));
         assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(2));
 
@@ -108,17 +108,19 @@ fn compute_and_update_uses_proper_version_numbers() {
             (VersionNumber::new(3), MinorVersion::testing_new(1))
         );
     }
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn updates_caches_only_on_ctx_finalize_in_order() {
+async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     {
         let ctx = dice.ctx();
 
         // now we write something and commit
-        ctx.changed_to(vec![(Foo(1), 1)]);
+        ctx.changed_to(vec![(Foo(1), 1)])?;
         let (v, mv) = dice.global_versions.current();
         dice.find_cache::<Foo>()
             .get_maybe_cached(Foo(1), v, *mv)
@@ -142,8 +144,8 @@ async fn updates_caches_only_on_ctx_finalize_in_order() {
         let ctx = dice.ctx();
         let ctx1 = dice.ctx();
         // even if we do a change on this ctx first.
-        ctx.changed_to(vec![(Foo(2), 2)]);
-        ctx1.changed_to(vec![(Foo(3), 3)]);
+        ctx.changed_to(vec![(Foo(2), 2)])?;
+        ctx1.changed_to(vec![(Foo(3), 3)])?;
 
         // as long as we commit ctx1 first, it's values are committed first, in linear
         // history
@@ -176,6 +178,8 @@ async fn updates_caches_only_on_ctx_finalize_in_order() {
             2
         );
     }
+
+    Ok(())
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash)]

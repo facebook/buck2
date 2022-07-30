@@ -920,7 +920,7 @@ mod tests {
         let mut computations = DiceBuilder::new()
             .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
             .mock_and_return(ExecutionPlatformsKey, Ok(None))
-            .build(data);
+            .build(data)?;
         computations = computations.commit();
 
         let node = computations.get_target_node(&label1).await?;

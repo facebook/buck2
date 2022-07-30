@@ -21,7 +21,7 @@ use dice_examples::supply_chain::Setup;
 async fn setup(companies: Vec<Company>) -> anyhow::Result<DiceTransaction> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
-    let ctx = ctx.init_state();
+    let ctx = ctx.init_state()?;
 
     ctx.add_companies(companies).await
 }

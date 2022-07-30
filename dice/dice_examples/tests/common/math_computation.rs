@@ -29,7 +29,7 @@ async fn test_literal() -> Result<(), Arc<anyhow::Error>> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
     let (var, eq) = parse_math_equation("a=5").unwrap();
-    ctx.set_equation(var.dupe(), eq);
+    ctx.set_equation(var.dupe(), eq)?;
     let ctx = ctx.commit();
 
     assert_eq!(5, ctx.eval(var).await?);
@@ -44,7 +44,7 @@ async fn test_var() -> Result<(), Arc<anyhow::Error>> {
 
     let eqs = parse_math_equations(vec!["b=a", "a=3"]).unwrap();
 
-    ctx.set_equations(eqs);
+    ctx.set_equations(eqs)?;
     let ctx = ctx.commit();
 
     assert_eq!(3, ctx.eval(var("b")).await?);
@@ -59,7 +59,7 @@ async fn test_compound() -> Result<(), Arc<anyhow::Error>> {
     let eq = vec!["x=1", "y=2", "a=x+y", "b=a+a"];
     let eq = parse_math_equations(eq).unwrap();
 
-    ctx.set_equations(eq);
+    ctx.set_equations(eq)?;
     let ctx = ctx.commit();
 
     assert_eq!(3, ctx.eval(var("a")).await?);
@@ -76,12 +76,12 @@ async fn test_changed_eq() -> Result<(), Arc<anyhow::Error>> {
     let eq = vec!["x=1", "y=2", "a=x+y", "b=a+a"];
     let eq = parse_math_equations(eq).unwrap();
 
-    ctx.set_equations(eq);
+    ctx.set_equations(eq)?;
     let ctx = ctx.commit();
 
     assert_eq!(6, ctx.eval(var("b")).await?);
 
-    ctx.set_equation(var("a"), Equation::Unit(Unit::Literal(4)));
+    ctx.set_equation(var("a"), Equation::Unit(Unit::Literal(4)))?;
     let ctx = ctx.commit();
 
     assert_eq!(8, ctx.eval(var("b")).await?);

@@ -212,12 +212,13 @@ impl DiceComputations {
 
     /// records a set of 'Key's as changed so that they, and any dependents will
     /// be recomputed on the next set of requests at the next version.
-    pub fn changed<K, I>(&self, changed: I)
+    pub fn changed<K, I>(&self, changed: I) -> DiceResult<()>
     where
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
-        self.0.changed(changed)
+        self.0.changed(changed);
+        Ok(())
     }
 
     /// records a set of 'Key's as changed to a particular value so that any
@@ -227,12 +228,13 @@ impl DiceComputations {
     /// `changed` again (or invalidated by other means). Calling this method
     /// does not in anyway alter the types of the key such that they
     /// permanently becomes a special "inject value only" key.
-    pub fn changed_to<K, I>(&self, changed: I)
+    pub fn changed_to<K, I>(&self, changed: I) -> DiceResult<()>
     where
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
-        self.0.changed_to(changed)
+        self.0.changed_to(changed);
+        Ok(())
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can

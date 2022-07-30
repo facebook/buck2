@@ -638,7 +638,7 @@ impl ServerCommandContext {
             legacy_configs,
             self.starlark_profiler_instrumentation_override.dupe(),
             self.disable_starlark_types,
-        );
+        )?;
         Ok(dice_ctx.commit())
     }
 
@@ -804,8 +804,8 @@ impl DaemonState {
             detect_cycles,
         )?;
         let ctx = dice.ctx();
-        ctx.set_buck_out_path(Some(paths.buck_out_dir()));
-        setup_interpreter_basic(&ctx, cells.dupe(), configuror, legacy_configs.dupe());
+        ctx.set_buck_out_path(Some(paths.buck_out_dir()))?;
+        setup_interpreter_basic(&ctx, cells.dupe(), configuror, legacy_configs.dupe())?;
         ctx.commit();
 
         let forkserver = maybe_launch_forkserver(root_config).await?;

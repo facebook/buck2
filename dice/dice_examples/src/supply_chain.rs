@@ -111,20 +111,20 @@ pub struct Company {
 pub trait Setup {
     /// Must be called before any companies are added.
     /// Sets the state of the resource map.
-    fn init_state(self) -> DiceTransaction;
+    fn init_state(self) -> anyhow::Result<DiceTransaction>;
     /// Adds a list of companies and maps them to their resources.
     async fn add_companies(self, companies: Vec<Company>) -> anyhow::Result<DiceTransaction>;
 }
 
 #[async_trait]
 impl Setup for DiceTransaction {
-    fn init_state(self) -> DiceTransaction {
+    fn init_state(self) -> anyhow::Result<DiceTransaction> {
         self.changed_to(
             Resource::RESOURCES
                 .iter()
                 .map(|resource| (LookupResource(resource.dupe()), Arc::new(vec![]))),
-        );
-        self.commit()
+        )?;
+        Ok(self.commit())
     }
 
     async fn add_companies(self, companies: Vec<Company>) -> anyhow::Result<DiceTransaction> {
@@ -145,7 +145,7 @@ impl Setup for DiceTransaction {
             (lookup, Arc::new(company))
         });
 
-        self.changed_to(insertion_ready_companies);
+        self.changed_to(insertion_ready_companies)?;
 
         // split iterators to talk about resources and companies separately
         let (resources, companies): (Vec<_>, Vec<_>) = resource_to_company_local
@@ -169,7 +169,7 @@ impl Setup for DiceTransaction {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        self.changed_to(joined);
+        self.changed_to(joined)?;
 
         Ok(self.commit())
     }
@@ -306,7 +306,7 @@ impl Cost for DiceComputations {
         })?;
         *old_price = new_price;
 
-        self.changed_to(vec![(company_lookup, Arc::new(new_company))]);
+        self.changed_to(vec![(company_lookup, Arc::new(new_company))])?;
 
         Ok(())
     }
