@@ -88,6 +88,10 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(
+    ":groups.bzl",
+    "get_group_mappings",
+)
+load(
     ":link.bzl",
     "cxx_link_into_shared_library",
     "cxx_link_shared_library",
@@ -100,7 +104,6 @@ load(
     "get_filtered_targets",
     "get_link_group",
     "get_link_group_map_json",
-    "get_link_group_mappings",
     "get_link_group_preferred_linkage",
     "get_link_groups",
 )
@@ -261,7 +264,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     )
 
     # Calculate link group mappings now that all relevant nodes exist in the linkable graph.
-    link_group_mappings = get_link_group_mappings(link_groups, linkable_graph)
+    link_group_mappings = get_group_mappings(link_groups, linkable_graph)
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     frameworks_linkable = create_frameworks_linkable(ctx)

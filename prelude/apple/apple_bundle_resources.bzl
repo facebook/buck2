@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:link_groups.bzl", "get_link_group_mappings")
+load("@fbcode//buck2/prelude/cxx:groups.bzl", "get_group_mappings")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(
     ":apple_asset_catalog.bzl",
@@ -89,7 +89,7 @@ def _select_resources(ctx: "context") -> ([AppleResourceSpec.type], [AppleAssetC
         deps = ctx.attrs.deps + filter(None, [ctx.attrs.binary]) + resource_groups_deps,
         exported_deps = [],
     )
-    resource_group_mappings = get_link_group_mappings(resource_groups, resource_graph)
+    resource_group_mappings = get_group_mappings(resource_groups, resource_graph)
     return get_filtered_resources(resource_graph, ctx.attrs.resource_group, resource_group_mappings)
 
 def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBundlePart.type]:
