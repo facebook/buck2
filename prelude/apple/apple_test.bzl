@@ -62,7 +62,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     cxx_library_output = cxx_library_parameterized(ctx, constructor_params)
 
     binary_part = AppleBundlePart(source = cxx_library_output.default_output.default, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
-    part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
+    part_list_output, _ = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
     assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part)
 
     sub_targets = cxx_library_output.sub_targets

@@ -26,6 +26,10 @@ load(
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
 LINK_GROUP_MAP_FILE_NAME = "link_group_map.json"
 
+LinkGroupInfo = provider(fields = [
+    "groups_mappings",  # "GroupsMappings"
+])
+
 LinkGroupLinkInfo = record(
     link_info = field(LinkInfo.type),
     link_style = field(LinkStyle.type),

@@ -12,6 +12,10 @@ load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(
+    ":resource_groups.bzl",
+    "ResourceGroupInfo",  # @unused Used as a type
+)
 
 INSTALL_DATA_SUB_TARGET = "install-data"
 _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
@@ -84,26 +88,27 @@ def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
         )
     ])
 
-def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
+def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> (AppleBundlePartListOutput.type, [ResourceGroupInfo.type, None]):
     resource_part_list = None
     if hasattr(ctx.attrs, "_resource_bundle") and ctx.attrs._resource_bundle != None:
         resource_info = ctx.attrs._resource_bundle[AppleBundleResourceInfo]
         if resource_info != None:
             resource_part_list = resource_info.resource_output
 
+    resource_group_info = None
     if resource_part_list == None:
-        resource_part_list = get_apple_bundle_resource_part_list(ctx)
+        resource_part_list, resource_group_info = get_apple_bundle_resource_part_list(ctx)
 
     return AppleBundlePartListOutput(
         parts = resource_part_list.resource_parts + params.binaries,
         info_plist_part = resource_part_list.info_plist_part,
-    )
+    ), resource_group_info
 
 def apple_bundle_impl(ctx: "context") -> ["provider"]:
     _apple_bundle_run_validity_checks(ctx)
 
     binary_outputs = _get_binary(ctx)
-    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = _get_binary_bundle_parts(ctx, binary_outputs)))
+    apple_bundle_part_list_output, resource_group_info = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = _get_binary_bundle_parts(ctx, binary_outputs)))
 
     dsym_artifacts = _get_dsym_artifacts(ctx)
     sub_targets = {
@@ -134,7 +139,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
                 install_info_data: install_data,
             },
         ),
-    ]
+    ] + ([resource_group_info] if resource_group_info else [])
 
 def _has_xctoolchain(ctx: "context") -> bool.type:
     default_info = ctx.attrs._apple_xctoolchain[DefaultInfo]

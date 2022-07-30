@@ -16,6 +16,11 @@ load(
     "@fbcode//buck2/prelude/utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
+load(
+    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "expect",
+    "map_idx",
+)
 
 # Types of group traversal
 Traversal = enum(
@@ -73,6 +78,11 @@ ResourceGraph = provider(fields = [
     "nodes",  # {"label", ResourceNode.type}
 ])
 
+GroupsMappings = record(
+    groups = [Group.type],
+    mappings = {"label": str.type},
+)
+
 def parse_groups_definitions(map: list.type) -> [Group.type]:
     groups = []
     for name, mappings in map:
@@ -116,7 +126,26 @@ def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "r
             fail("Invalid group mapping filter: {}\nFilter must begin with `label:` or `pattern:`.".format(entry))
     return filter_type, label_regex, build_target_pattern
 
-def get_group_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
+def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> ({"label": str.type}, ["_a", None]):
+    if not groups:
+        return {}, None
+
+    # If we have precomputed group info in deps, validate and use them
+    computed_groups_infos = filter(None, map_idx(group_info_type, deps))
+    if computed_groups_infos:
+        # While link groups can have different mappings, in practice, only one mapping is used for a specific build graph,
+        # as otherwise ensuring the right links end up in the right group is hard to get right.
+        # For now, ensure that only one mapping is used. This can be relaxed if needed.
+        groups_mappings_set = {str(info.groups_mappings): True for info in computed_groups_infos}
+        expect(len(groups_mappings_set.keys()) == 1, "All precomputed groups mappings must be equivalent!")
+        computed_groups_info = computed_groups_infos[0]
+        expect(str(groups) == str(computed_groups_info.groups_mappings.groups), "The group spec used for a build must be the same.")
+        return computed_groups_info.groups_mappings.mappings, computed_groups_info
+
+    mappings = _compute_mappings(groups, graph)
+    return mappings, (group_info_type(groups_mappings = GroupsMappings(groups = groups, mappings = mappings)) if mappings else None)
+
+def _compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """

@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:groups.bzl", "get_group_mappings")
+load("@fbcode//buck2/prelude/cxx:groups.bzl", "get_group_mappings_and_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(
     ":apple_asset_catalog.bzl",
@@ -25,7 +25,7 @@ load(
     "AppleResourceSpec",  # @unused Used as a type
 )
 load(":apple_resource_utility.bzl", "apple_bundle_destination_from_resource_destination")
-load(":resource_groups.bzl", "create_resource_graph", "get_filtered_resources", "get_resource_groups")
+load(":resource_groups.bzl", "ResourceGroupInfo", "create_resource_graph", "get_filtered_resources", "get_resource_groups")
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
@@ -34,12 +34,12 @@ AppleBundleResourcePartListOutput = record(
     info_plist_part = field(AppleBundlePart.type),
 )
 
-def get_apple_bundle_resource_part_list(ctx: "context") -> AppleBundleResourcePartListOutput.type:
+def get_apple_bundle_resource_part_list(ctx: "context") -> (AppleBundleResourcePartListOutput.type, [ResourceGroupInfo.type, None]):
     parts = []
 
     parts.extend(_create_pkg_info_if_needed(ctx))
 
-    resource_specs, asset_catalog_specs, core_data_specs = _select_resources(ctx)
+    (resource_specs, asset_catalog_specs, core_data_specs), resource_group_info = _select_resources(ctx)
 
     asset_catalog_result = compile_apple_asset_catalog(ctx, asset_catalog_specs)
     if asset_catalog_result != None:
@@ -70,7 +70,7 @@ def get_apple_bundle_resource_part_list(ctx: "context") -> AppleBundleResourcePa
     return AppleBundleResourcePartListOutput(
         resource_parts = parts,
         info_plist_part = info_plist_part,
-    )
+    ), resource_group_info
 
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
 def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
@@ -80,17 +80,23 @@ def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
     artifact = ctx.actions.write("PkgInfo", "APPLWRUN\n")
     return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
 
-def _select_resources(ctx: "context") -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]):
+def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]), [ResourceGroupInfo.type, None]):
     resource_groups = get_resource_groups(ctx)
     resource_groups_deps = [mapping.target for group in resource_groups for mapping in group.mappings]
+    deps = ctx.attrs.deps + filter(None, [ctx.attrs.binary])
     resource_graph = create_resource_graph(
         root = ctx.label,
         labels = [],
-        deps = ctx.attrs.deps + filter(None, [ctx.attrs.binary]) + resource_groups_deps,
+        deps = deps + resource_groups_deps,
         exported_deps = [],
     )
-    resource_group_mappings = get_group_mappings(resource_groups, resource_graph)
-    return get_filtered_resources(resource_graph, ctx.attrs.resource_group, resource_group_mappings)
+    groups_mappings, resource_group_info = get_group_mappings_and_info(
+        group_info_type = ResourceGroupInfo,
+        deps = deps,
+        groups = resource_groups,
+        graph = resource_graph,
+    )
+    return get_filtered_resources(resource_graph, ctx.attrs.resource_group, groups_mappings), resource_group_info
 
 def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBundlePart.type]:
     result = []

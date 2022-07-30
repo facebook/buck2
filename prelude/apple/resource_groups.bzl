@@ -28,6 +28,10 @@ ResourceNode = record(
     core_data_spec = field([AppleCoreDataSpec.type, None], None),
 )
 
+ResourceGroupInfo = provider(fields = [
+    "groups_mappings",  # "GroupsMappings"
+])
+
 def create_resource_graph(
         root: "label",
         labels: [str.type],
