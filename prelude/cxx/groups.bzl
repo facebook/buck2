@@ -1,4 +1,8 @@
 load(
+    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "Linkage",
+)
+load(
     "@fbcode//buck2/prelude/utils:build_target_pattern.bzl",
     "BuildTargetPattern",
     "parse_build_target_pattern",
@@ -41,6 +45,8 @@ GroupMapping = record(
     # Optional build target pattern to apply to the traversal. If present,
     # the `filter_type` is required.
     build_target_pattern = field([BuildTargetPattern.type, None], None),
+    # Preferred linkage for this target when added to a link group.
+    preferred_linkage = field([Linkage.type, None], None),
 )
 
 # Representation of a parsed group
@@ -65,7 +71,7 @@ def parse_groups_definitions(map: list.type) -> [Group.type]:
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             filter_type, label_regex, build_target_pattern = _parse_filter_from_mapping(entry[2])
-            mapping = GroupMapping(target = entry[0], traversal = traversal, filter_type = filter_type, label_regex = label_regex, build_target_pattern = build_target_pattern)
+            mapping = GroupMapping(target = entry[0], traversal = traversal, filter_type = filter_type, label_regex = label_regex, build_target_pattern = build_target_pattern, preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None)
             parsed_mappings.append(mapping)
 
         link_group = Group(name = name, mappings = parsed_mappings)

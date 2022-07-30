@@ -36,8 +36,6 @@ def _linkage(ctx: "context") -> Linkage.type:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
-    if ctx.attrs.preferred_linkage != None:
-        return Linkage(ctx.attrs.preferred_linkage)
 
     # If we have both shared and static libs, we support any linkage.
     if (ctx.attrs.shared_link and

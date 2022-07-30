@@ -49,6 +49,14 @@ def get_link_groups(ctx: "context") -> [Group.type]:
 
     return parse_groups_definitions(link_group_map)
 
+def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Linkage.type}:
+    return {
+        mapping.target.label: mapping.preferred_linkage
+        for group in link_groups
+        for mapping in group.mappings
+        if mapping.preferred_linkage != None
+    }
+
 def get_link_group_mappings(link_groups: [Group.type], linkable_graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
     """
     Returns the link group mappings {target label -> link group name}
@@ -74,6 +82,7 @@ def get_filtered_labels_to_links_map(
         linkable_graph: LinkableGraph.type,
         link_group: [str.type, None],
         link_group_mappings: [{"label": str.type}, None],
+        link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
         non_exported_deps: ["dependency"],
         prefer_stripped: bool.type = False,
@@ -123,7 +132,7 @@ def get_filtered_labels_to_links_map(
 
     for target in linkables:
         node = linkable_graph.nodes[target]
-        actual_link_style = get_actual_link_style(link_style, node.preferred_linkage)
+        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
 
         # Always link any shared dependencies
         if actual_link_style == LinkStyle("shared"):

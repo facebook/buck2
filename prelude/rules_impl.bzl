@@ -61,7 +61,7 @@ load("@fbcode//buck2/prelude/zip_file:zip_file.bzl", _zip_file_extra_attributes 
 
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
-load(":attributes.bzl", "IncludeType", "Linkage", "Platform", "attributes")
+load(":attributes.bzl", "IncludeType", "Linkage", "Platform", "Traversal", "attributes")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -196,6 +196,7 @@ def _cxx_binary_and_test_attrs():
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage)))))), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = False)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
@@ -283,6 +284,7 @@ extra_attributes = struct(
     },
     cxx_library = {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage)))))), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
@@ -328,9 +330,6 @@ extra_attributes = struct(
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
-    },
-    prebuilt_cxx_library_group = {
-        "preferred_linkage": attrs.option(attrs.enum(Linkage), default = None),
     },
 
     # go

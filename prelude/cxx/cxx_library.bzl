@@ -101,6 +101,7 @@ load(
     "get_link_group",
     "get_link_group_map_json",
     "get_link_group_mappings",
+    "get_link_group_preferred_linkage",
     "get_link_groups",
 )
 load(
@@ -261,6 +262,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # Calculate link group mappings now that all relevant nodes exist in the linkable graph.
     link_group_mappings = get_link_group_mappings(link_groups, linkable_graph)
+    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     frameworks_linkable = create_frameworks_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(
@@ -268,6 +270,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         linkable_graph,
         link_group,
         link_group_mappings,
+        link_group_preferred_linkage,
         exported_deps,
         non_exported_deps,
         impl_params.force_link_group_linking,
@@ -626,6 +629,7 @@ def _get_shared_library_links(
         linkable_graph: LinkableGraph.type,
         link_group: [str.type, None],
         link_group_mappings: [{"label": str.type}, None],
+        link_group_preferred_linkage: {"label": Linkage.type},
         exported_deps: ["dependency"],
         non_exported_deps: ["dependency"],
         force_link_group_linking,
@@ -666,7 +670,7 @@ def _get_shared_library_links(
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
     link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
-    filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, link_group, link_group_mappings, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
+    filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, link_group, link_group_mappings, link_group_preferred_linkage, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
     filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
 
