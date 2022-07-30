@@ -25,6 +25,8 @@ use dice::Dice;
 use dice::DiceTransaction;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use itertools::Itertools;
+use once_cell::sync::OnceCell;
 use quickcheck::Arbitrary;
 use quickcheck::Gen;
 use quickcheck::TestResult;
@@ -213,6 +215,8 @@ pub struct DiceExecutionOrderOptions {
     pub print_dumps: Option<PathBuf>,
 }
 
+static ALL_PANICS: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
+
 impl DiceExecutionOrder {
     const NSAMPLES_SEARCHING: usize = 1;
     const NSAMPLES_SHRINKING: usize = 100;
@@ -355,8 +359,22 @@ impl DiceExecutionOrder {
                         // quickcheck runs us single threaded, so this is safe to do.
                         let old_handler = panic::take_hook();
 
+                        ALL_PANICS
+                            .get_or_init(Default::default)
+                            .lock()
+                            .unwrap()
+                            .clear();
                         // suppress print panics from dice.
-                        panic::set_hook(Box::new(|_info| {
+                        panic::set_hook(Box::new(|info| {
+                            ALL_PANICS.get().unwrap().lock().unwrap().push(
+                                if let Some(s) = info.payload().downcast_ref::<&str>() {
+                                    (*s).to_owned()
+                                } else if let Some(s) = info.payload().downcast_ref::<String>() {
+                                    s.clone()
+                                } else {
+                                    "unknown".to_owned()
+                                },
+                            )
                             // do nothing. don't print because we have panics that we expect.
                             // they get spammed on the console such that the info we do print
                             // gets washed away. Hiding the panics makes the information we do
@@ -370,6 +388,16 @@ impl DiceExecutionOrder {
                         .await;
 
                         panic::set_hook(old_handler);
+
+                        if exec_result.is_ok()
+                            && !ALL_PANICS.get().unwrap().lock().unwrap().is_empty()
+                        {
+                            // we panicked on a thread that wasn't joined.
+                            // This is still wrong.
+                            return ExecutionResult::UnexpectedPanic(
+                                ALL_PANICS.get().unwrap().lock().unwrap().iter().join("\n"),
+                            );
+                        }
 
                         match (expected, exec_result) {
                             (Some(expected), Ok(result)) => {
@@ -398,6 +426,14 @@ impl DiceExecutionOrder {
                             }
                             (None, Err(_panic)) => {
                                 // TODO maybe check the type of panic
+
+                                if ALL_PANICS.get().unwrap().lock().unwrap().len() > 1 {
+                                    // we panicked on a thread that wasn't joined.
+                                    // This is still wrong.
+                                    return ExecutionResult::UnexpectedPanic(
+                                        ALL_PANICS.get().unwrap().lock().unwrap().iter().join("\n"),
+                                    );
+                                }
                             }
                             (None, Ok(result)) => {
                                 return ExecutionResult::ExpectedPanic(result);
