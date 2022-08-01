@@ -87,7 +87,7 @@ pub trait ActionFingerprintedDirectory =
 pub struct ReDirectorySerializer;
 
 impl ReDirectorySerializer {
-    pub fn serialize_entries<'a, D, I>(entries: I) -> Vec<u8>
+    fn create_re_directory<'a, D, I>(entries: I) -> RE::Directory
     where
         I: Iterator<
             Item = (
@@ -137,11 +137,24 @@ impl ReDirectorySerializer {
         directories.sort_by(|a, b| a.name.cmp(&b.name));
         symlinks.sort_by(|a, b| a.name.cmp(&b.name));
 
-        proto_serialize(&RE::Directory {
+        RE::Directory {
             files,
             directories,
             symlinks,
-        })
+        }
+    }
+
+    pub fn serialize_entries<'a, D, I>(entries: I) -> Vec<u8>
+    where
+        I: Iterator<
+            Item = (
+                &'a FileName,
+                DirectoryEntry<&'a D, &'a ActionDirectoryMember>,
+            ),
+        >,
+        D: ActionFingerprintedDirectory + ?Sized + 'a,
+    {
+        proto_serialize(&Self::create_re_directory(entries))
     }
 }
 
