@@ -154,9 +154,12 @@ pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::Toke
 /// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
 /// library is `dlopen()`ed.
 ///
-/// #[starlark_docs_attrs(key="value", second_key="second_value",...)] can be used to insert
+/// `#[starlark_docs_attrs(key="value", second_key="second_value",...)]` can be used to insert
 /// arbitrary keys and string values into the generated `Docs::custom_attrs` for use
 /// by documentation tooling.
+///
+/// Types provided by the `starlark` library itself will have the `builtin` key set to either
+/// `standard` or `extension` depending on whether the type is part of the Starlark standard.
 #[proc_macro_derive(StarlarkDocs, attributes(starlark_docs_attrs))]
 pub fn derive_starlark_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     docs::derive_docs(input)

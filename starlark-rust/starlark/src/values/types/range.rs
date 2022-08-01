@@ -35,7 +35,16 @@ use crate::values::ValueError;
 use crate::values::ValueLike;
 
 /// Representation of `range()` type.
-#[derive(Clone, Copy, Dupe, Debug, ProvidesStaticType, NoSerialize)]
+#[derive(
+    Clone,
+    Copy,
+    Dupe,
+    Debug,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkDocs
+)]
+#[starlark_docs_attrs(builtin = "standard")]
 pub struct Range {
     start: i32,
     stop: i32,

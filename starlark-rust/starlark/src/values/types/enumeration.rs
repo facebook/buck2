@@ -76,7 +76,17 @@ enum EnumError {
 }
 
 /// The type of an enumeration, created by `enum()`.
-#[derive(Clone, Debug, Trace, Coerce, Freeze, NoSerialize, ProvidesStaticType)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    NoSerialize,
+    ProvidesStaticType,
+    StarlarkDocs
+)]
+#[starlark_docs_attrs(builtin = "extension")]
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.

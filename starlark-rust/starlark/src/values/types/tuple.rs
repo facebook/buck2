@@ -31,6 +31,7 @@ use gazebo::display::display_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::comparison::compare_slice;
@@ -49,7 +50,8 @@ use crate::values::ValueLike;
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]
-#[derive(ProvidesStaticType)]
+#[derive(ProvidesStaticType, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 pub struct TupleGen<V> {
     len: usize,
     /// The data stored by the tuple.

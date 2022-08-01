@@ -28,6 +28,7 @@ use std::hash::Hasher;
 use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
@@ -47,7 +48,8 @@ use crate::values::ValueError;
 pub const BOOL_TYPE: &str = "bool";
 
 // We have to alias bool so we can have a Display that uses True/False.
-#[derive(ProvidesStaticType, Debug, Serialize)]
+#[derive(ProvidesStaticType, Debug, Serialize, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 #[serde(transparent)]
 pub(crate) struct StarlarkBool(pub(crate) bool);
 

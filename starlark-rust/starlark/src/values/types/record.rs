@@ -76,7 +76,17 @@ use crate::values::Value;
 use crate::values::ValueLike;
 
 /// The result of `field()`.
-#[derive(Clone, Debug, Dupe, Trace, Freeze, NoSerialize, ProvidesStaticType)]
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    Trace,
+    Freeze,
+    NoSerialize,
+    ProvidesStaticType,
+    StarlarkDocs
+)]
+#[starlark_docs_attrs(builtin = "extension")]
 pub struct FieldGen<V> {
     pub(crate) typ: V,
     default: Option<V>,
@@ -98,7 +108,8 @@ impl<V: Display> Display for FieldGen<V> {
 unsafe impl<From: Coerce<To>, To> Coerce<FieldGen<To>> for FieldGen<From> {}
 
 /// The result of `record()`, being the type of records.
-#[derive(Debug, Trace, NoSerialize, ProvidesStaticType)]
+#[derive(Debug, Trace, NoSerialize, ProvidesStaticType, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "extension")]
 pub struct RecordTypeGen<V, Typ> {
     /// The name of this type, e.g. MyRecord
     /// Either `Option<String>` or a `RefCell` thereof.

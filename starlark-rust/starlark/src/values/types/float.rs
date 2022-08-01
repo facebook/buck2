@@ -27,6 +27,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::num::Num;
@@ -152,7 +153,8 @@ pub(crate) fn write_compact<W: fmt::Write>(
 }
 
 /// Runtime representation of Starlark `float` type.
-#[derive(Clone, Dupe, Copy, Debug, ProvidesStaticType, Serialize)]
+#[derive(Clone, Dupe, Copy, Debug, ProvidesStaticType, Serialize, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 #[serde(transparent)]
 pub struct StarlarkFloat(pub f64);
 

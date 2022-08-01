@@ -38,6 +38,7 @@ use num_traits::Signed;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate as starlark;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
@@ -85,7 +86,8 @@ impl UnpackValue<'_> for i32 {
 // WARNING: This type isn't a real type, a pointer to this is secretly an i32.
 // Therefore, don't derive stuff on it, since it will be wrong.
 // However, `ProvidesStaticType` promises not to peek at its value, so that's fine.
-#[derive(ProvidesStaticType)]
+#[derive(ProvidesStaticType, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 #[repr(C)]
 pub(crate) struct PointerI32 {
     _private: (),

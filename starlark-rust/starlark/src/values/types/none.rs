@@ -24,6 +24,7 @@ use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate as starlark;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
@@ -39,7 +40,8 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Define the None type, use [`NoneType`] in Rust.
-#[derive(Debug, Clone, Dupe, ProvidesStaticType, Display)]
+#[derive(Debug, Clone, Dupe, ProvidesStaticType, Display, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 #[display(fmt = "None")]
 pub struct NoneType;
 
