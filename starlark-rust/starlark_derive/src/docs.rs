@@ -48,14 +48,16 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     } = input;
 
     let parsed_attrs = parse_custom_attributes(attrs)?;
+
+    let use_inventory = if parsed_attrs.contains_key("builtin") {
+        quote! {}
+    } else {
+        quote! {
+            use starlark::__derive_refs::inventory as inventory;
+        }
+    };
+
     let name_str = name.to_string();
-    let mod_name = Ident::new(&format!("__starlark_docs_derive_{}", name_str), span);
-    // Import whatever "starlark" is (either an extern package, or if this is used *in* the
-    // starlark package, the local import of `use crate as starlark`. We can't just use
-    // super::starlark, as you'd always have to have that directly imported to use the derive
-    // macro, and if we just try to use 'starlark', we get ambiguity compile errors if used
-    // within the starlark crate itself. Submodules are hard.
-    let starlark_import = Ident::new(&format!("__starlark_docs_import_{}", name_str), span);
     let custom_attrs: Vec<_> = parsed_attrs
         .into_iter()
         .map(|(k, v)| {
@@ -79,17 +81,25 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 ),
                 name.span(),
             );
-            quote_spanned! {span=> super::#frozen::__generated_documentation}
+            quote_spanned! {span=> #frozen::__generated_documentation}
         }
-        false => quote_spanned! {span=> super::#name::__generated_documentation },
+        false => quote_spanned! {span=> #name::__generated_documentation },
     };
 
     Ok(quote_spanned! {span=>
         impl #generics #name #generics  {
-            // Use 'docs here instead of 'v because someone might have 'v in th eir generics'
+            // Use '__docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
             #[doc(hidden)]
-            pub fn __generated_documentation<'docs>() -> Option<starlark::values::docs::Doc> where Self: StarlarkValue<'docs> {
+            pub fn __generated_documentation<'__docs>() -> Option<starlark::values::docs::Doc>
+            where Self: starlark::values::StarlarkValue<'__docs> {
+                #use_inventory
+                starlark::__derive_refs::inventory::submit! {
+                    starlark::values::docs::RegisteredDoc {
+                        getter: #getter_call
+                    }
+                };
+
                 let name = <Self as starlark::values::StarlarkValue>::get_type_value_static().as_str().to_owned();
                 let id = starlark::values::docs::Identifier {
                     name,
@@ -104,20 +114,6 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                     item,
                     custom_attrs,
                 })
-            }
-        }
-
-        use starlark as #starlark_import;
-
-        #[allow(non_snake_case)]
-        mod #mod_name {
-            use super::#starlark_import as starlark;
-            use self::starlark::__derive_refs::inventory as inventory;
-
-            inventory::submit! {
-                self::starlark::values::docs::RegisteredDoc {
-                    getter: #getter_call
-                }
             }
         }
     })
