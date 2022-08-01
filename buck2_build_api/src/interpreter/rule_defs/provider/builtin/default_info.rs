@@ -224,7 +224,7 @@ impl FrozenDefaultInfo {
             let (_, others) = value
                 .as_artifact()
                 .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                .get_bound_artifact_and_additional_artifacts()?;
+                .get_bound_artifact_and_associated_artifacts()?;
             others
                 .iter()
                 .for_each(|other| processor(other.dupe()).unwrap());

@@ -107,7 +107,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
     }
 
-    fn get_bound_artifact_and_additional_artifacts(
+    fn get_bound_artifact_and_associated_artifacts(
         &self,
     ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)> {
         Ok((self.get_bound_artifact()?, IndexSet::new()))

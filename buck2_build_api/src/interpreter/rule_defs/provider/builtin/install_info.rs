@@ -91,7 +91,7 @@ where
         let (artifact, other_artifacts) = v
             .as_artifact()
             .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-            .get_bound_artifact_and_additional_artifacts()?;
+            .get_bound_artifact_and_associated_artifacts()?;
         if !other_artifacts.is_empty() {
             return Err(anyhow::anyhow!(
                 "File with key `{}`: `{}` should not have any associated artifacts",

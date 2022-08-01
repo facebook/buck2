@@ -44,14 +44,14 @@ pub trait StarlarkArtifactLike: Display {
     fn output_artifact(&self) -> anyhow::Result<OutputArtifact>;
 
     /// Gets the bound artifact, or errors if the artifact is not bound
-    /// This is deprecated in favour of either `get_bound_artifact` or `get_bound_artifact_and_additional_artifacts`
+    /// This is deprecated in favour of either `get_bound_artifact` or `get_bound_artifact_and_associated_artifacts`
     fn get_bound_deprecated(&self) -> anyhow::Result<Artifact>;
 
     /// Gets the bound main artifact, or errors if the artifact is not bound
     fn get_bound_artifact(&self) -> anyhow::Result<Artifact>;
 
     /// Gets the main artifact and any other additional entities that should be materialized along with it
-    fn get_bound_artifact_and_additional_artifacts(
+    fn get_bound_artifact_and_associated_artifacts(
         &self,
     ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)>;
 
