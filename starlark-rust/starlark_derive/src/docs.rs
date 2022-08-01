@@ -86,13 +86,24 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
         false => quote_spanned! {span=> #name::__generated_documentation },
     };
 
+    // If we do ConcreteType: Trait<'docs> then we require every instance of ConcreteType
+    // to have lifetime 'docs, which breaks for StarlarkStr at least.
+    let (constraint_lifetime, constraint) = if generics.params.is_empty() {
+        (quote! {}, quote! {})
+    } else {
+        (
+            quote! {<'__docs>},
+            quote! { Self: starlark::values::StarlarkValue<'__docs>},
+        )
+    };
+
     Ok(quote_spanned! {span=>
         impl #generics #name #generics  {
-            // Use '__docs here instead of 'v because someone might have 'v in their generics'
+            // Use 'docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
             #[doc(hidden)]
-            pub fn __generated_documentation<'__docs>() -> Option<starlark::values::docs::Doc>
-            where Self: starlark::values::StarlarkValue<'__docs> {
+            pub fn __generated_documentation #constraint_lifetime () -> Option<starlark::values::docs::Doc>
+            where #constraint {
                 #use_inventory
                 starlark::__derive_refs::inventory::submit! {
                     starlark::values::docs::RegisteredDoc {

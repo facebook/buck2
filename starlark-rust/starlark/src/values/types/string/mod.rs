@@ -36,6 +36,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::collections::aligned_padded_str::AlignedPaddedStr;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
@@ -100,7 +101,8 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 
 /// A pointer to this type represents a Starlark string.
 /// Use of this type is discouraged and not considered stable.
-#[derive(ProvidesStaticType)]
+#[derive(ProvidesStaticType, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,
