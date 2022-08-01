@@ -39,6 +39,7 @@ use gazebo::display::display_keyed_container;
 use serde::Serialize;
 use starlark_map::Equivalent;
 
+use crate as starlark;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;
@@ -62,10 +63,19 @@ use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::{self as starlark};
 
-#[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 struct DictGen<T>(T);
+
+impl FrozenDict {
+    // The doc macros assume that FrozenDict is an alias for DictGen, which isn't true,
+    // so do some internal reexposing so everything works.
+    #[doc(hidden)]
+    pub fn __generated_documentation() -> Option<starlark::values::docs::Doc> {
+        DictGen::<FrozenDict>::__generated_documentation()
+    }
+}
 
 impl<'v, T: DictLike<'v>> Display for DictGen<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

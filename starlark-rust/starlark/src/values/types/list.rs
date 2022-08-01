@@ -38,6 +38,7 @@ use gazebo::display::display_container;
 use gazebo::prelude::*;
 use serde::Serialize;
 
+use crate as starlark;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
@@ -59,11 +60,20 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
-use crate::{self as starlark};
 
-#[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, StarlarkDocs)]
+#[starlark_docs_attrs(builtin = "standard")]
 #[repr(transparent)]
 pub(crate) struct ListGen<T>(pub(crate) T);
+
+impl FrozenList {
+    // The doc macros assume that FrozenList is an alias for ListGen, which isn't true,
+    // so do some internal reexposing so everything works.
+    #[doc(hidden)]
+    pub fn __generated_documentation() -> Option<starlark::values::docs::Doc> {
+        ListGen::<FrozenList>::__generated_documentation()
+    }
+}
 
 /// Define the list type. See [`List`] and [`FrozenList`] as the two possible representations.
 #[derive(Trace, Debug, ProvidesStaticType)]
