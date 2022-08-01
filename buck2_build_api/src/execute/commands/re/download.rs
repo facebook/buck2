@@ -25,8 +25,8 @@ use thiserror::Error;
 
 use crate::actions::artifact::ArtifactValue;
 use crate::actions::digest::FileDigestFromReExt;
-use crate::actions::directory::convert_re_tree;
 use crate::actions::directory::extract_artifact_value;
+use crate::actions::directory::re_tree_to_directory;
 use crate::actions::directory::ActionDirectoryMember;
 use crate::execute::commands::re::client::ActionDigest;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
@@ -187,7 +187,7 @@ impl CasDownloader<'_> {
             .context(DownloadError::DownloadTrees)?;
 
         for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
-            let entry = convert_re_tree(&tree, &expires)?;
+            let entry = re_tree_to_directory(&tree, &expires)?;
             input_dir.insert(
                 re_forward_path(dir.path.as_str())?,
                 DirectoryEntry::Dir(entry),

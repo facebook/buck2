@@ -226,7 +226,7 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
 /// `RE::Tree` is valid (i.e. nothing is broken in the RE side), this
 /// should always succeed.
 #[allow(clippy::trivially_copy_pass_by_ref)] // SystemTime is a different size on Windows
-pub fn convert_re_tree(
+pub fn re_tree_to_directory(
     tree: &RE::Tree,
     leaf_expires: &SystemTime,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
