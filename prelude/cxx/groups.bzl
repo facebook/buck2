@@ -136,14 +136,14 @@ def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], gro
         # While link groups can have different mappings, in practice, only one mapping is used for a specific build graph,
         # as otherwise ensuring the right links end up in the right group is hard to get right.
         # For now, ensure that only one mapping is used. This can be relaxed if needed.
-        groups_mappings_set = {str(info.groups_mappings): True for info in computed_groups_infos}
-        expect(len(groups_mappings_set.keys()) == 1, "All precomputed groups mappings must be equivalent!")
+        groups_hash_set = {info.groups_hash: True for info in computed_groups_infos}
+        expect(len(groups_hash_set.keys()) == 1, "All precomputed groups mappings must be equivalent!")
         computed_groups_info = computed_groups_infos[0]
-        expect(str(groups) == str(computed_groups_info.groups_mappings.groups), "The group spec used for a build must be the same.")
-        return computed_groups_info.groups_mappings.mappings, computed_groups_info
+        expect(hash(str(groups)) == computed_groups_info.groups_hash, "The group spec used for a build must be the same.")
+        return computed_groups_info.mappings, computed_groups_info
 
     mappings = _compute_mappings(groups, graph)
-    return mappings, (group_info_type(groups_mappings = GroupsMappings(groups = groups, mappings = mappings)) if mappings else None)
+    return mappings, (group_info_type(groups_hash = hash(str(groups)), mappings = mappings) if mappings else None)
 
 def _compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
     """

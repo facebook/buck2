@@ -29,7 +29,8 @@ ResourceNode = record(
 )
 
 ResourceGroupInfo = provider(fields = [
-    "groups_mappings",  # "GroupsMappings"
+    "groups_hash",  # str.type
+    "mappings",  # {"label": str.type}
 ])
 
 def create_resource_graph(
