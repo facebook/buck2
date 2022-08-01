@@ -28,6 +28,7 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use gazebo::dupe::Dupe;
 use tracing::warn;
 
+use crate::query::uquery::environment::allbuildfiles;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
 
@@ -114,6 +115,10 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         depth: u32,
     ) -> anyhow::Result<()> {
         async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
+    }
+
+    async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
+        return allbuildfiles(universe, self.delegate.uquery_delegate()).await;
     }
 
     async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {

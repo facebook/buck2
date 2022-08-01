@@ -23,6 +23,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -179,6 +180,12 @@ impl<'c> DiceQueryDelegate<'c> {
 impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     async fn eval_build_file(&self, package: &Package) -> SharedResult<Arc<EvaluationResult>> {
         self.ctx.get_interpreter_results(package).await
+    }
+
+    async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>> {
+        //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
+        let module = self.ctx.get_loaded_module_from_import_path(path).await?;
+        Ok(module.imports().cloned().collect())
     }
 
     async fn resolve_target_patterns(

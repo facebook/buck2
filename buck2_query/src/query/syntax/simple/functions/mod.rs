@@ -250,6 +250,18 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         self.implementation.rbuildfiles().await
     }
 
+    async fn allbuildfiles(
+        &self,
+        env: &Env,
+        universe: TargetSet<Env::Target>,
+    ) -> QueryFuncResult<Env> {
+        Ok(self
+            .implementation
+            .allbuildfiles(env, &universe)
+            .await?
+            .into())
+    }
+
     async fn deps(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
@@ -412,6 +424,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 
     pub fn buildfile(&self, targets: &TargetSet<Env::Target>) -> FileSet {
         targets.buildfile()
+    }
+
+    pub async fn allbuildfiles(
+        &self,
+        env: &Env,
+        universe: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<FileSet> {
+        env.allbuildfiles(universe).await
     }
 
     pub async fn rbuildfiles(&self) -> QueryFuncResult<Env> {

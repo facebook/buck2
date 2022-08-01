@@ -30,7 +30,6 @@ use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
-
 mod tests;
 
 #[derive(Error, Debug)]
@@ -246,6 +245,11 @@ pub trait QueryEnvironment: Send + Sync {
 
     async fn rbuildfiles(&self) -> anyhow::Result<()> {
         Ok(())
+    }
+    async fn allbuildfiles(&self, _universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
+        Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
+            "allbuildfiles() is implemented only for uquery and cquery.",
+        )))
     }
 
     async fn rdeps(

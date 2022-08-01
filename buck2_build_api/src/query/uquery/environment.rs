@@ -15,14 +15,18 @@ use async_trait::async_trait;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::environment::LabeledNode;
+use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentError;
 use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
@@ -32,7 +36,11 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
+use buck2_query::query::traversal::ChildVisitor;
+use derive_more::Display;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
+use ref_cast::RefCast;
 use thiserror::Error;
 use tracing::warn;
 
@@ -53,6 +61,9 @@ pub enum SpecialAttr {
 pub trait UqueryDelegate: Send + Sync {
     /// Returns the EvaluationResult for evaluation of the buildfile.
     async fn eval_build_file(&self, packages: &Package) -> SharedResult<Arc<EvaluationResult>>;
+
+    /// Get the imports from a LoadedModule corresponding to some path.
+    async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>>;
 
     /// Resolves a target pattern.
     async fn resolve_target_patterns(
@@ -188,6 +199,10 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
     }
 
+    async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
+        return allbuildfiles(universe, &*self.delegate).await;
+    }
+
     async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         let mut result: TargetSet<Self::Target> = TargetSet::new();
         for path in paths.iter() {
@@ -243,4 +258,101 @@ impl<'a> AsyncNodeLookup<TargetNode> for UqueryEnvironment<'a> {
     async fn get(&self, label: &TargetLabel) -> anyhow::Result<TargetNode> {
         self.get_node(label).await
     }
+}
+
+// Uquery and Cquery share allbuildfiles logic, so we move the logic to this function.
+pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
+    universe: &TargetSet<T>,
+    delegate: &'c dyn UqueryDelegate,
+) -> anyhow::Result<FileSet> {
+    #[derive(Clone, Dupe)]
+    struct Node(Arc<ImportPath>);
+
+    impl Node {
+        fn import_path(&self) -> &ImportPath {
+            &self.0
+        }
+    }
+
+    #[derive(Display, Debug, Hash, Eq, PartialEq, Clone, RefCast)]
+    #[repr(transparent)]
+    struct NodeRef(ImportPath);
+
+    impl NodeLabel for NodeRef {}
+
+    impl LabeledNode for Node {
+        type NodeRef = NodeRef;
+
+        fn node_ref(&self) -> &NodeRef {
+            NodeRef::ref_cast(self.import_path())
+        }
+    }
+
+    struct Lookup {}
+
+    #[async_trait]
+    impl AsyncNodeLookup<Node> for Lookup {
+        async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
+            Ok(Node(Arc::new(label.0.clone())))
+        }
+    }
+
+    struct Delegate<'c> {
+        imports: Vec<ImportPath>,
+        delegate: &'c dyn UqueryDelegate,
+    }
+
+    #[async_trait]
+    impl AsyncTraversalDelegate<Node> for Delegate<'_> {
+        fn visit(&mut self, target: Node) -> anyhow::Result<()> {
+            self.imports.push(target.import_path().clone());
+            Ok(())
+        }
+
+        async fn for_each_child(
+            &mut self,
+            target: &Node,
+            func: &mut dyn ChildVisitor<Node>,
+        ) -> anyhow::Result<()> {
+            for import in self
+                .delegate
+                .eval_module_imports(target.import_path())
+                .await?
+            {
+                func.visit(NodeRef(import.clone()))?;
+            }
+            Ok(())
+        }
+    }
+
+    let mut traversal_delegate = Delegate {
+        imports: vec![],
+        delegate: delegate.dupe(),
+    };
+    let lookup = Lookup {};
+
+    let mut top_level_imports = Vec::<ImportPath>::new();
+
+    let mut paths = IndexSet::<FileNode>::new();
+
+    for target in universe.iter() {
+        paths.insert(FileNode(target.dupe().buildfile_path().path()));
+
+        let res = delegate
+            .eval_build_file(target.buildfile_path().package())
+            .await?;
+
+        for import in res.imports() {
+            top_level_imports.push(import.clone());
+        }
+    }
+
+    let import_nodes = top_level_imports.iter().map(NodeRef::ref_cast);
+
+    async_depth_first_postorder_traversal(&lookup, import_nodes, &mut traversal_delegate).await?;
+
+    for import in &traversal_delegate.imports {
+        paths.insert(FileNode(import.path().clone()));
+    }
+    Ok(FileSet::new(paths))
 }
