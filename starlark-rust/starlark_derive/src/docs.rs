@@ -97,8 +97,10 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
         )
     };
 
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
     Ok(quote_spanned! {span=>
-        impl #generics #name #generics  {
+        impl #impl_generics #name #ty_generics #where_clause  {
             // Use 'docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
             #[doc(hidden)]
