@@ -15,7 +15,6 @@
 use std::str;
 
 use gazebo::dupe::Dupe;
-use memchr;
 
 const fn assert_ascii_char(c: char) -> u8 {
     assert!((c as u32) <= 0xf7);

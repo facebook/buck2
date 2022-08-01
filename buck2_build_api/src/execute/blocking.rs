@@ -13,7 +13,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
-use crossbeam_channel;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
 use dice::UserComputationData;
