@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
+use itertools::Itertools;
 use test_api::data::ConfiguredTarget;
 use test_api::data::ExternalRunnerSpec;
 use test_api::data::ExternalRunnerSpecValue;
@@ -93,6 +94,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
             env,
             labels: self.labels().map(|l| l.to_owned()).collect(),
             contacts: self.contacts().map(|l| l.to_owned()).collect(),
+            oncall: self.contacts().exactly_one().ok().map(str::to_owned),
         };
 
         async move { executor.external_runner_spec(spec).await }.boxed()

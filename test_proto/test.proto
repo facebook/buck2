@@ -144,6 +144,9 @@ message ExternalRunnerSpec {
   // Contacts defined on the rule.
   repeated string contacts = 6;
 
+  // Oncall
+  optional string oncall = 7;
+
   // TODO: do we need cwd as per the buck1 spec?
 }
 

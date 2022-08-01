@@ -285,6 +285,7 @@ impl TryFrom<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             env,
             labels,
             contacts,
+            oncall,
         } = s;
 
         Ok(Self {
@@ -302,6 +303,7 @@ impl TryFrom<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
                 .collect::<Result<_, Self::Error>>()?,
             labels,
             contacts,
+            oncall,
         })
     }
 }
@@ -317,6 +319,7 @@ impl TryInto<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             env,
             labels,
             contacts,
+            oncall,
         } = self;
         Ok(test_proto::ExternalRunnerSpec {
             target: Some(target.try_into().context("Invalid `target`")?),
@@ -330,6 +333,7 @@ impl TryInto<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
                 .collect::<Result<_, Self::Error>>()?,
             labels,
             contacts,
+            oncall,
         })
     }
 }
@@ -805,6 +809,7 @@ mod tests {
             .collect(),
             labels: vec!["label1".to_owned(), "label2".to_owned()],
             contacts: vec!["contact1".to_owned(), "contact2".to_owned()],
+            oncall: Some("contact1".to_owned()),
         };
         assert_roundtrips::<test_proto::ExternalRunnerSpec, ExternalRunnerSpec>(&test_spec);
     }

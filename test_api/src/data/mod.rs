@@ -121,6 +121,8 @@ pub struct ExternalRunnerSpec {
     pub labels: Vec<String>,
     /// Contacts defined on the rule.
     pub contacts: Vec<String>,
+    /// Oncall for the test
+    pub oncall: Option<String>,
 }
 
 /// Command line argument or environment variable value
