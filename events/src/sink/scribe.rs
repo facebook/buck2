@@ -118,17 +118,27 @@ mod fbcode {
                             let per_command_size_budget = ((500 * 1024)
                                 / action_execution.commands.len().max(1))
                             .max(MIN_CMD_TRUNCATION);
-                            for command in &mut action_execution.commands {
-                                if let Some(details) = &mut command.details {
-                                    if action_execution.failed {
-                                        details.stderr =
-                                            truncate(&details.stderr, per_command_size_budget);
-                                    } else {
-                                        // Current Scribe tailers don't read stderr of successful actions.
-                                        // Save some bytes.
-                                        details.stderr = "".to_owned();
+
+                            let truncate_cmd =
+                                |cmd: &mut buck2_data::CommandExecution, truncate_all: bool| {
+                                    if let Some(details) = &mut cmd.details {
+                                        details.stderr = if truncate_all {
+                                            "<<omitted>>".to_owned()
+                                        } else {
+                                            truncate(&details.stderr, per_command_size_budget)
+                                        };
                                     }
+                                };
+
+                            if let Some((last_command, retries)) =
+                                action_execution.commands.split_last_mut()
+                            {
+                                for retried in retries {
+                                    truncate_cmd(retried, false);
                                 }
+                                // Current Scribe tailers don't read stderr of successful actions.
+                                // Save some bytes.
+                                truncate_cmd(last_command, !action_execution.failed);
                             }
                         }
                         _ => {}
