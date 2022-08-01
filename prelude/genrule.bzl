@@ -211,6 +211,8 @@ def process_genrule(
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 
+    local_only = _requires_local(ctx)
+
     handle_whole_out_dir_is_output = False
     default_out_map = {}
 
@@ -300,6 +302,14 @@ def process_genrule(
         "SRCS": srcs,
     }
 
+    # RE will cache successful actions that don't produce the desired outptuts,
+    # so if that happens and _then_ we add a local-only label, we'll get a
+    # cache hit on the action that didn't produce the outputs and get the error
+    # again (thus making the label useless). So, when a local-only label is
+    # set, we make the action *different*.
+    if local_only:
+        env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
+
     if _requires_no_srcs_environment(ctx):
         env_vars.pop("SRCS")
 
@@ -358,7 +368,7 @@ def process_genrule(
     ctx.actions.run(
         cmd_args(script_args).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
         env = env_vars,
-        local_only = _requires_local(ctx),
+        local_only = local_only,
         category = category,
         identifier = identifier,
     )
