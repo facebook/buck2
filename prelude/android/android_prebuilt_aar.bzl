@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "CPU_FILTER_TO_ABI_DIRECTORY", "PrebuiltNativeLibraryDir", "merge_android_packageable_info")
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "PrebuiltNativeLibraryDir", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load(
@@ -16,15 +16,12 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     r_dot_txt = ctx.actions.declare_output("unpack_dir/R.txt")
     res = ctx.actions.declare_output("unpack_dir/res")
     assets = ctx.actions.declare_output("unpack_dir/assets")
+    jni = ctx.actions.declare_output("unpack_dir/jni")
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     jar_tool = java_toolchain.jar
-
-    sub_dir_paths = {cpu_type: ctx.actions.declare_output("unpack_dir/jni/{}".format(
-        abi_directory,
-    )) for cpu_type, abi_directory in CPU_FILTER_TO_ABI_DIRECTORY.items()}
 
     unpack_aar_cmd = [
         unpack_aar_tool,
@@ -42,10 +39,11 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         res.as_output(),
         "--assets-path",
         assets.as_output(),
+        "--jni-path",
+        jni.as_output(),
         "--jar-tool",
         jar_tool,
-        "--native-libs-sub-dir-paths",
-    ] + [sub_dir_path.as_output() for sub_dir_path in sub_dir_paths.values()]
+    ]
 
     ctx.actions.run(unpack_aar_cmd, category = "android_unpack_aar")
 
@@ -76,7 +74,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     )
 
     native_library = PrebuiltNativeLibraryDir(
-        sub_dirs = sub_dir_paths,
+        dir = jni,
         for_primary_apk = ctx.attrs.use_system_library_loader,
     )
 

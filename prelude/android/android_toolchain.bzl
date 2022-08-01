@@ -11,6 +11,7 @@ AndroidToolchainInfo = provider(fields = [
     "apk_builder",
     "d8_command",
     "filter_dex_class_names",
+    "filter_prebuilt_native_library_dir",
     "multi_dex_command",
     "copy_string_resources",
     "filter_resources",

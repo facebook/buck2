@@ -1,5 +1,6 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 
@@ -19,8 +20,8 @@ def get_android_binary_native_library_info(
         else:
             prebuilt_native_library_dirs.append(native_lib)
 
-    native_libs = _move_native_libraries_to_correct_dir(ctx, prebuilt_native_library_dirs, "native_libs")
-    native_libs_for_primary_apk = _move_native_libraries_to_correct_dir(
+    native_libs = _filter_prebuilt_native_library_dir(ctx, prebuilt_native_library_dirs, "native_libs")
+    native_libs_for_primary_apk = _filter_prebuilt_native_library_dir(
         ctx,
         prebuilt_native_library_dirs_for_primary_apk,
         "native_libs_for_primary_apk",
@@ -50,18 +51,23 @@ def get_android_binary_native_library_info(
         native_lib_assets = native_lib_assets,
     )
 
-def _move_native_libraries_to_correct_dir(
+def _filter_prebuilt_native_library_dir(
         ctx: "context",
         native_libs: ["PrebuiltNativeLibraryDir"],
         identifier: str.type) -> ["artifact"]:
     cpu_filters = ctx.attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    abis = [CPU_FILTER_TO_ABI_DIRECTORY[cpu] for cpu in cpu_filters]
+    filter_tool = ctx.attrs._android_toolchain[AndroidToolchainInfo].filter_prebuilt_native_library_dir[RunInfo]
     libs = []
     for i, native_lib in enumerate(reversed(native_libs)):
-        srcs = {CPU_FILTER_TO_ABI_DIRECTORY[cpu_type]: sub_dir for cpu_type, sub_dir in native_lib.sub_dirs.items() if cpu_type in cpu_filters}
-        libs.append(ctx.actions.symlinked_dir("{}-{}".format(
-            identifier,
-            i,
-        ), srcs))
+        lib_identifier = "{}-{}".format(identifier, i)
+        output_dir = ctx.actions.declare_output(lib_identifier)
+        ctx.actions.run(
+            [filter_tool, native_lib.dir, output_dir.as_output(), "--abis"] + abis,
+            category = "filter_prebuilt_native_library_dir",
+            identifier = lib_identifier,
+        )
+        libs.append(output_dir)
 
     return libs
 

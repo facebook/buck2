@@ -96,7 +96,7 @@ CPU_FILTER_TO_ABI_DIRECTORY = {
 }
 
 PrebuiltNativeLibraryDir = record(
-    sub_dirs = {str.type: "artifact"},  # map of cpu-type to ABI directory artifact.
+    dir = "artifact",  # contains subdirectories for different ABIs.
     for_primary_apk = bool.type,
 )
 
