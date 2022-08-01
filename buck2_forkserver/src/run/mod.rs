@@ -58,6 +58,9 @@ impl From<StdioEvent> for CommandEvent {
     }
 }
 
+/// This stream will yield [CommandEvent] whenever we have something on stdout or stderr (this is
+/// our stdio stream), and it'll finish up the stream with the exit status. This is basically like
+/// a select, but with the exit guaranteed to come last.
 #[pin_project]
 struct CommandEventStream<Status, Stdio> {
     exit: Option<anyhow::Result<GatherOutputStatus>>,
@@ -93,15 +96,21 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
+        // This future is fused so it's guaranteed to be ready once. If it does, capture the exit
+        // status, we'll return it later.
         if let Poll::Ready(status) = this.status.poll(cx) {
             *this.exit = Some(status);
             this.stdio.as_mut().get_pin_mut().notify_interrupt();
         }
 
+        // This stram is also fused, so if it returns None, we'll know it's done for good and we'll
+        // return the exit status if it's available.
         if let Some(stdio) = futures::ready!(this.stdio.poll_next(cx)) {
             return Poll::Ready(Some(stdio.map(|event| event.into())));
         }
 
+        // If we got here that means the stream is done. If we have it we return, and if we don't
+        // we report we're pending, because we'll have polled it already earlier.
         if let Some(exit) = this.exit.take() {
             return Poll::Ready(Some(exit.map(CommandEvent::Exit)));
         }
