@@ -188,6 +188,9 @@ ocaml_fbcode_toolchain(
     config_backed_haskell_toolchain(
         flavor = flavor,
         visibility = ["PUBLIC"],
+        target_compatible_with = [
+            "ovr_config//runtime:fbcode",
+        ],
     )
     for flavor in _fbcode_cxx_flavors
     if read_config("haskell#" + flavor, "compiler")
