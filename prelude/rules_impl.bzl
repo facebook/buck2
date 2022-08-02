@@ -168,6 +168,7 @@ def _cxx_python_extension_attrs():
     res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
         # Copied from cxx_library.
+        "allow_huge_dwp": attrs.bool(default = False),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "shared")),  # Force shared linkage always
         "use_link_groups": attrs.bool(default = False),
@@ -192,6 +193,7 @@ def _python_test_attrs():
 
 def _cxx_binary_and_test_attrs():
     return {
+        "allow_huge_dwp": attrs.bool(default = False),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
@@ -283,6 +285,7 @@ extra_attributes = struct(
         "_target_os_type": _target_os_type(),
     },
     cxx_library = {
+        "allow_huge_dwp": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage)))))), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),

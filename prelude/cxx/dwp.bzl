@@ -12,10 +12,11 @@ def run_dwp_action(
         category_suffix: [str.type, None],
         referenced_objects: ["_arglike", ["artifact"]],
         dwp_output: "artifact",
-        local_only: bool.type):
+        local_only: bool.type,
+        allow_huge_dwp: bool.type = False):
     args = cmd_args()
     dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
-    args.add("/bin/sh", "-c", '"$1" -o "$2" -e "$3" && touch "$2"', "")
+    args.add("/bin/sh", "-c", '"$1" {}-o "$2" -e "$3" && touch "$2"'.format("--continue-on-cu-index-overflow " if allow_huge_dwp else ""), "")
     args.add(dwp, dwp_output.as_output(), obj)
 
     # All object/dwo files referenced in the library/executable are implicitly
@@ -47,7 +48,11 @@ def dwp(
         # but currently we don't track them properly.  So, we just pass in the full
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
-        referenced_objects: ["_arglike", ["artifact"]]) -> "artifact":
+        referenced_objects: ["_arglike", ["artifact"]],
+        # whether to enable dangerous option to allow huge dwp file. DWARF specs says dwp file
+        # should be less than 4GB to ensure a valid .debug_cu_index, llvm-dwp errors out on huge
+        # dwp file. allow_huge_dwp will toggle option to turn error to warning.
+        allow_huge_dwp: bool.type = False) -> "artifact":
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
     run_dwp_action(
@@ -61,5 +66,6 @@ def dwp(
         # The files are a concatentation of input DWARF debug info.
         # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
         local_only = link_cxx_binary_locally(ctx),
+        allow_huge_dwp = allow_huge_dwp,
     )
     return output
