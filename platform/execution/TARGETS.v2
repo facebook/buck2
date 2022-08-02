@@ -85,17 +85,25 @@ mac_platforms = execution_platform(
 )
 
 linux_platforms = execution_platform(
-    name = "linux",
-    base_platform = linux_execution_base_platforms["platform010" if native.host_info().arch.is_x86_64 else "platform010-aarch64"],
-    local_enabled = local_linux_execution,
+    name = "linux-x86_64",
+    base_platform = linux_execution_base_platforms["platform010"],
+    local_enabled = host_info().arch.is_x86_64,
     # TODO(agallagher): aarch64 RE builds are setup to work correctly
-    remote_enabled = not host_info().arch.is_aarch64,
+    remote_enabled = not (host_info().os.is_linux and host_info().arch.is_aarch64),
     remote_execution_properties = {
         "platform": "linux-remote-execution",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+) + execution_platform(
+    name = "linux-aarch64",
+    base_platform = linux_execution_base_platforms["platform010-aarch64"],
+    local_enabled = host_info().arch.is_aarch64,
+    # NOTE(agallagher): We don't have aarch64 RE workers.
+    remote_enabled = False,
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
 )
 
 windows_platforms = execution_platform(
@@ -115,7 +123,7 @@ windows_platforms = execution_platform(
 fat_mac_linux = execution_platform(
     name = "fat_mac_linux",
     base_platform = ":fat_platform_posix_platform010",
-    local_enabled = True,
+    local_enabled = not (host_info().os.is_linux and host_info().arch.is_aarch64),
     # TODO(agallagher): aarch64 RE builds are setup to work correctly
     remote_enabled = not (host_info().os.is_linux and host_info().arch.is_aarch64),
     remote_execution_properties = {
