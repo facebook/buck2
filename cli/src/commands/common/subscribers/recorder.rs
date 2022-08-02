@@ -45,6 +45,7 @@ mod imp {
         command_duration: Option<prost_types::Duration>,
         re_session_id: Option<String>,
         critical_path_duration: Option<Duration>,
+        tag_events: Vec<String>,
     }
 
     impl InvocationRecorder {
@@ -62,6 +63,7 @@ mod imp {
                 command_duration: None,
                 re_session_id: None,
                 critical_path_duration: None,
+                tag_events: vec![],
             }
         }
 
@@ -76,7 +78,7 @@ mod imp {
                     cli_args: std::env::args().collect::<Vec<String>>(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
-                    tags: vec![],
+                    tags: self.tag_events.drain(..).collect(),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -170,6 +172,12 @@ mod imp {
                 .map(|d| d.try_into_duration())
                 .collect::<Result<Vec<_>, _>>()?;
             self.critical_path_duration = Some(durations.iter().sum());
+            Ok(())
+        }
+
+        async fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
+            self.tag_events.push(tag.tag.clone());
+
             Ok(())
         }
     }
