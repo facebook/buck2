@@ -990,4 +990,6 @@ message InvocationRecord {
   google.protobuf.Duration critical_path_duration = 7;
   // Optional - any contents are copied directly to scuba buck2_builds.
   TypedMetadata client_metadata = 8;
+  // Tags for this command
+  repeated string tags = 9;
 }

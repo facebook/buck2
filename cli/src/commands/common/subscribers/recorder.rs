@@ -76,6 +76,7 @@ mod imp {
                     cli_args: std::env::args().collect::<Vec<String>>(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
+                    tags: vec![],
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
