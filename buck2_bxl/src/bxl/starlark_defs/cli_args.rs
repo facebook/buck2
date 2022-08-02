@@ -314,7 +314,7 @@ impl CliArgType {
             CliArgType::Enumeration(variants) => clap
                 .takes_value(true)
                 .possible_values(variants.iter().map(String::as_str)),
-            CliArgType::List(inner) => inner.to_clap(clap.takes_value(true).multiple_values(true)),
+            CliArgType::List(inner) => inner.to_clap(clap.takes_value(true).multiple(true)),
             CliArgType::Option(inner) => inner.to_clap(clap.required(false)),
             CliArgType::TargetLabel => clap.takes_value(true).validator(|x| {
                 lex_target_pattern::<TargetPattern>(x, false)

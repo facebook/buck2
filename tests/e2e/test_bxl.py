@@ -84,6 +84,33 @@ async def test_bxl(buck: Buck) -> None:
         == 'bool_arg: False\nstring_arg: "default"\nint_arg: 2\nfloat_arg: 3.4\noptional: "value"\nenum_type: "b"\ntarget: root//bar:foo\nsub_target: root//cell/pkg:bar\nlist: [1]\n'
     )
 
+    # multiple occurrences of a list-type argument
+    # i.e., --arg 1 --arg 2 --arg 3
+    result = await buck.bxl(
+        "//bxl/cli_args.bxl:cli_test",
+        "--",
+        "--int_arg",
+        "1",
+        "--float_arg",
+        "4.3",
+        "--enum_type",
+        "a",
+        "--list_type",
+        "1",
+        "--list_type",
+        "2",
+        "--list_type",
+        "3",
+        "--target",
+        ":foo",
+        "--sub_target",
+        "cell/pkg:bar[sub]",
+    )
+    assert (
+        result.stdout
+        == 'bool_arg: False\nstring_arg: "default"\nint_arg: 1\nfloat_arg: 4.3\noptional: None\nenum_type: "a"\ntarget: root//:foo\nsub_target: root//cell/pkg:bar[sub]\nlist: [1, 2, 3]\n'
+    )
+
     # illegal target
     await expect_failure(
         buck.bxl(
