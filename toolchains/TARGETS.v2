@@ -24,11 +24,13 @@ toolchain_alias(
     visibility = ["PUBLIC"],
 )
 
-toolchain_alias(
-    name = "ocaml",
-    alias = "fbcode//buck2/platform/toolchain:ocaml",
-    visibility = ["PUBLIC"],
-)
+# FIXME(ndmitchell): Temporarily comment out as the target got removed
+#
+# toolchain_alias(
+#     name = "ocaml",
+#     alias = "fbcode//buck2/platform/toolchain:ocaml",
+#     visibility = ["PUBLIC"],
+# )
 
 toolchain_alias(
     name = "rust",
