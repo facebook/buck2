@@ -55,8 +55,6 @@ CxxRuleProviderParams = record(
 # different and need to be specified. The following record holds the data which
 # is needed to specialize user-facing rule from generic implementation.
 CxxRuleConstructorParams = record(
-    # We need to build an empty shared library for rust_python_extensions so that they can link against the rust shared object
-    build_empty_so = field(bool.type, False),
     # Name of the top level rule utilizing the cxx rule.
     rule_type = str.type,
     # If the rule is a test.
@@ -95,8 +93,6 @@ CxxRuleConstructorParams = record(
     # a shared subtarget's default output should be stripped.
     strip_executable = field(bool.type, False),
     strip_args_factory = field("function", lambda _: cmd_args()),
-    # Wether to embed the library name as the SONAME.
-    use_soname = field(bool.type, True),
     # Use link group's linking logic regardless whether a link group map's present.
     force_link_group_linking = field(bool.type, False),
     # Function to use for setting Xcode attributes for the Xcode data sub target.
