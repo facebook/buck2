@@ -121,6 +121,9 @@ message InstantEvent {
     Log log = 12;
     // Result of one (of potentially many) starlark LSP requests.
     LspResult lsp_result = 13;
+
+    // A tag to mark on the scuba tables
+    TagEvent tag_event = 14;
   }
 }
 
@@ -959,6 +962,11 @@ message RecordEvent {
   oneof data {
     InvocationRecord invocation_record = 1;
   }
+}
+
+// An arbitrary tag on the command. Usually used to mark A/B experiments
+message TagEvent {
+  string tag = 1;
 }
 
 message TypedMetadata {

@@ -265,6 +265,7 @@ pub trait EventSubscriber: Send {
             }
             buck2_data::instant_event::Data::LspResult(result) => self.handle_lsp_result(result),
             buck2_data::instant_event::Data::Log(log) => self.handle_log(log),
+            buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag),
         }
         .await
     }
@@ -528,6 +529,9 @@ pub trait EventSubscriber: Send {
         Ok(())
     }
     async fn handle_log(&mut self, _log: &buck2_data::Log) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_tag(&mut self, _tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
         Ok(())
     }
 
