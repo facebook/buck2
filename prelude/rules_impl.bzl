@@ -169,7 +169,7 @@ def _cxx_python_extension_attrs():
     res.update({
         # Copied from cxx_library.
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
+        "preferred_linkage": attrs.default_only(attrs.string(default = "shared")),  # Force shared linkage always
         "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),

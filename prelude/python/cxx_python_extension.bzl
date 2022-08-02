@@ -6,11 +6,6 @@ load(
     "@fbcode//buck2/prelude/cxx:cxx_library.bzl",
     "cxx_library_parameterized",
 )
-load(
-    "@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl",
-    "cxx_attr_deps",
-    "cxx_inherited_link_info",
-)
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@fbcode//buck2/prelude/cxx:cxx_types.bzl",
@@ -25,20 +20,18 @@ load(
 )
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
-    "LinkInfosTSet",
     "LinkStyle",
     "MergedLinkInfo",
-    "merge_framework_linkables",
 )
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
     "ForceConsiderationOfOmnibusRoots",
+    "LinkableGraph",
     "create_merged_linkable_graph",
 )
 load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
-load(":python.bzl", "PythonLibraryInfo")
 load(":python_library.bzl", "create_python_library_info", "gather_dep_libraries", "qualify_srcs")
 
 # This extension is basically cxx_library, plus base_module.
@@ -93,29 +86,6 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         other_outputs = shared_output.other,
         sub_targets = cxx_library_info.sub_targets,
     ))
-
-    # Since we are now providing MergedLinkInfos we need to make sure that we
-    # can only be linked statically into a binary so we provide empty linkinfo for
-    # shared and static_pic linking
-    cxx_deps = [dep for dep in cxx_attr_deps(ctx) if dep[PythonLibraryInfo] == None]
-    inherited_link = cxx_inherited_link_info(ctx, cxx_deps)
-    infos = {
-        LinkStyle("static"): ctx.actions.tset(
-            LinkInfosTSet,
-            value = libraries.libraries[LinkStyle("static")],
-            children = [inherited_link._infos[LinkStyle("static")]],
-        ),
-        LinkStyle("shared"): ctx.actions.tset(LinkInfosTSet),
-        LinkStyle("static_pic"): ctx.actions.tset(LinkInfosTSet),
-    }
-    frameworks = {
-        LinkStyle("static"): merge_framework_linkables(
-            [inherited_link.frameworks[LinkStyle("static")]],
-        ),
-        LinkStyle("shared"): None,
-        LinkStyle("static_pic"): None,
-    }
-    providers.append(MergedLinkInfo(_infos = infos, frameworks = frameworks))
     providers.extend(cxx_library_info.providers)
 
     # If a type stub was specified, create a manifest for export.
@@ -161,7 +131,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
             for dep in flatten(raw_deps)
             # We only want to handle C++ Python extension deps, but not other native
             # linkable deps like C++ libraries.
-            if dep[ForceConsiderationOfOmnibusRoots] != None or dep[PythonLibraryInfo] != None
+            if dep[ForceConsiderationOfOmnibusRoots] != None or (dep[LinkableGraph] != None and dep[MergedLinkInfo] == None)
         ],
     )
     providers.append(linkable_graph)
