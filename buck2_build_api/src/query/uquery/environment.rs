@@ -280,14 +280,19 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
 
     let loads = get_transitive_loads(top_level_imports, delegate).await?;
 
-    Ok(FileSet::new(paths).union(&loads))
+    let mut new_paths = IndexSet::<FileNode>::new();
+    for load in &loads {
+        new_paths.insert(FileNode(load.path().clone()));
+    }
+
+    Ok(FileSet::new(paths).union(&FileSet::new(new_paths)))
 }
 
 // Uquery and Cquery share ImportPath traversal logic, so we move the logic to this function.
 pub(crate) async fn get_transitive_loads<'c>(
     top_level_imports: Vec<ImportPath>,
     delegate: &'c dyn UqueryDelegate,
-) -> anyhow::Result<FileSet> {
+) -> anyhow::Result<Vec<ImportPath>> {
     #[derive(Clone, Dupe)]
     struct Node(Arc<ImportPath>);
 
@@ -354,14 +359,9 @@ pub(crate) async fn get_transitive_loads<'c>(
     };
     let lookup = Lookup {};
 
-    let mut paths = IndexSet::<FileNode>::new();
-
     let import_nodes = top_level_imports.iter().map(NodeRef::ref_cast);
 
     async_depth_first_postorder_traversal(&lookup, import_nodes, &mut traversal_delegate).await?;
 
-    for import in &traversal_delegate.imports {
-        paths.insert(FileNode(import.path().clone()));
-    }
-    Ok(FileSet::new(paths))
+    Ok(traversal_delegate.imports)
 }
