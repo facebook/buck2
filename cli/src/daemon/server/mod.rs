@@ -34,7 +34,6 @@ use buck2_build_api::actions::build_listener::SetBuildSignals;
 use buck2_build_api::actions::run::knobs::HasRunActionKnobs;
 use buck2_build_api::actions::run::knobs::RunActionKnobs;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
-use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::blocking::BuckBlockingExecutor;
@@ -455,6 +454,8 @@ pub(crate) struct ServerCommandContext {
     record_target_call_stacks: bool,
     disable_starlark_types: bool,
 
+    buck_out_dir: ForwardRelativePathBuf,
+
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
 
@@ -474,6 +475,7 @@ impl ServerCommandContext {
         build_signals: BuildSignalSender,
         starlark_profiler_instrumentation_override: Option<StarlarkProfilerInstrumentation>,
         build_options: Option<&CommonBuildOptions>,
+        buck_out_dir: ForwardRelativePathBuf,
         record_target_call_stacks: bool,
     ) -> anyhow::Result<Self> {
         let abs_path = AbsPath::new(&client_context.working_dir)?;
@@ -522,6 +524,7 @@ impl ServerCommandContext {
             _re_connection_handle: re_connection_handle,
             build_signals,
             starlark_profiler_instrumentation_override,
+            buck_out_dir,
             build_options: build_options.cloned(),
             dice: AsyncOnceCell::new(),
             record_target_call_stacks,
@@ -633,8 +636,6 @@ impl ServerCommandContext {
                 data
             });
 
-        let buck_out_path = dice_ctx.get_buck_out_path().await?;
-
         // this sync call my clear the dice ctx, but that's okay as we reset everything below.
         let dice_ctx = self
             .base_context
@@ -642,7 +643,7 @@ impl ServerCommandContext {
             .sync(dice_ctx, &self.base_context.events)
             .await?;
 
-        dice_ctx.set_buck_out_path(Some((*buck_out_path).to_buf()))?;
+        dice_ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 
         setup_interpreter(
             &dice_ctx,
@@ -807,9 +808,6 @@ impl DaemonState {
             Some(root_config),
             detect_cycles,
         )?;
-        let ctx = dice.ctx();
-        ctx.set_buck_out_path(Some(paths.buck_out_dir()))?;
-        ctx.commit();
 
         let forkserver = maybe_launch_forkserver(root_config).await?;
 
@@ -1200,6 +1198,7 @@ impl BuckdServer {
                             build_sender,
                             opts.starlark_profiler_instrumentation_override(&req)?,
                             req.build_options(),
+                            daemon_state.paths.buck_out_dir(),
                             req.record_target_call_stacks(),
                         )?;
 
