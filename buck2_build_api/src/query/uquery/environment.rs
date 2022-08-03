@@ -260,9 +260,32 @@ impl<'a> AsyncNodeLookup<TargetNode> for UqueryEnvironment<'a> {
     }
 }
 
-// Uquery and Cquery share allbuildfiles logic, so we move the logic to this function.
 pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
     universe: &TargetSet<T>,
+    delegate: &'c dyn UqueryDelegate,
+) -> anyhow::Result<FileSet> {
+    let mut paths = IndexSet::<FileNode>::new();
+
+    let mut top_level_imports = Vec::<ImportPath>::new();
+
+    for target in universe.iter() {
+        paths.insert(FileNode(target.dupe().buildfile_path().path()));
+
+        let eval_result = delegate
+            .eval_build_file(target.buildfile_path().package())
+            .await?; // TODO: no longer use eval_build_file, just parse imports directly (will solve async issue too)
+
+        top_level_imports.extend(eval_result.imports().cloned());
+    }
+
+    let loads = get_transitive_loads(top_level_imports, delegate).await?;
+
+    Ok(FileSet::new(paths).union(&loads))
+}
+
+// Uquery and Cquery share ImportPath traversal logic, so we move the logic to this function.
+pub(crate) async fn get_transitive_loads<'c>(
+    top_level_imports: Vec<ImportPath>,
     delegate: &'c dyn UqueryDelegate,
 ) -> anyhow::Result<FileSet> {
     #[derive(Clone, Dupe)]
@@ -331,21 +354,7 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
     };
     let lookup = Lookup {};
 
-    let mut top_level_imports = Vec::<ImportPath>::new();
-
     let mut paths = IndexSet::<FileNode>::new();
-
-    for target in universe.iter() {
-        paths.insert(FileNode(target.dupe().buildfile_path().path()));
-
-        let res = delegate
-            .eval_build_file(target.buildfile_path().package())
-            .await?;
-
-        for import in res.imports() {
-            top_level_imports.push(import.clone());
-        }
-    }
 
     let import_nodes = top_level_imports.iter().map(NodeRef::ref_cast);
 
