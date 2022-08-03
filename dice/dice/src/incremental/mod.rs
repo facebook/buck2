@@ -1015,6 +1015,7 @@ mod tests {
     use crate::incremental::testing::DidDepsChangeExt;
     use crate::incremental::testing::IncrementalEngineExt;
     use crate::incremental::testing::VersionedCacheResultAssertsExt;
+    use crate::incremental::transaction_ctx::Changes;
     use crate::incremental::versions::testing::VersionRangesExt;
     use crate::incremental::versions::MinorVersion;
     use crate::incremental::versions::MinorVersionGuard;
@@ -1059,7 +1060,7 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::new(
             (VersionNumber::new(1), MinorVersionGuard::testing_new(0)),
             VersionForWrites::testing_new(VersionNumber::new(2)),
-            Vec::new(),
+            Changes::new(),
         ));
 
         let t = *(engine
@@ -1603,7 +1604,7 @@ mod tests {
         let ctx = Arc::new(TransactionCtx::new(
             (VersionNumber::new(0), MinorVersionGuard::testing_new(0)),
             VersionForWrites::testing_new(VersionNumber::new(1)),
-            Vec::new(),
+            Changes::new(),
         ));
 
         let engine0 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {

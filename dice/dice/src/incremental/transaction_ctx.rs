@@ -7,13 +7,21 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+
+use anymap::any::Any;
+use anymap::Map;
 
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::MinorVersionGuard;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionNumber;
+use crate::DiceError;
+use crate::DiceResult;
+use crate::Key;
 
 /// A context for evaluating in the Engine.
 /// The context is valid for computing the entire subgraph of a particular key
@@ -24,14 +32,14 @@ pub(crate) struct TransactionCtx {
     version: VersionNumber,
     minor_version: MinorVersionGuard,
     version_for_writes: VersionForWrites,
-    changes: Mutex<Vec<Box<dyn FnOnce(VersionNumber) + Send>>>,
+    changes: Mutex<Changes>,
 }
 
 impl TransactionCtx {
     pub(crate) fn new(
         version: (VersionNumber, MinorVersionGuard),
         version_for_writes: VersionForWrites,
-        changes: Vec<Box<dyn FnOnce(VersionNumber) + Send>>,
+        changes: Changes,
     ) -> Self {
         Self {
             version: version.0,
@@ -53,7 +61,7 @@ impl TransactionCtx {
         self.version_for_writes.get()
     }
 
-    pub(crate) fn changes(&self) -> MutexGuard<'_, Vec<Box<dyn FnOnce(VersionNumber) + Send>>> {
+    pub(crate) fn changes(&self) -> MutexGuard<'_, Changes> {
         self.changes.lock().unwrap()
     }
 
@@ -63,22 +71,24 @@ impl TransactionCtx {
             version: v,
             minor_version: MinorVersionGuard::testing_new(0),
             version_for_writes: VersionForWrites::testing_new(v),
-            changes: Mutex::new(Vec::new()),
+            changes: Mutex::new(Changes::new()),
         }
     }
 
     pub(crate) fn commit(self) {
         let mut changed = self.changes();
-        if !changed.is_empty() {
+        if !changed.ops().is_empty() {
             let version_for_writes = self.get_version_for_writes();
+            let num_changes = changed.ops().len();
             debug!(
                 old_version = ?self.version,
                 version_for_writes = ?version_for_writes,
                 msg = "committing new changes",
-                num_changes = changed.len()
+                num_changes = num_changes
             );
 
             changed
+                .ops()
                 .drain(..)
                 .for_each(|change| change(version_for_writes));
 
@@ -86,10 +96,42 @@ impl TransactionCtx {
                 old_version = %self.version,
                 version_for_writes = %version_for_writes,
                 msg = "committed new changes",
-                num_changes = changed.len()
+                num_changes = num_changes
             );
         } else {
             debug!(version = %self.version, msg = "no changes to commit");
         }
+    }
+}
+
+pub(crate) struct Changes {
+    keys: Map<dyn Any + Sync + Send>,
+    changes: Vec<Box<dyn FnOnce(VersionNumber) + Send>>,
+}
+
+impl Changes {
+    pub(crate) fn new() -> Self {
+        Self {
+            keys: Map::new(),
+            changes: vec![],
+        }
+    }
+
+    pub(crate) fn change<K: Key>(
+        &mut self,
+        key: K,
+        change: Box<dyn FnOnce(VersionNumber) + Send>,
+    ) -> DiceResult<()> {
+        let map = self.keys.entry::<HashSet<K>>().or_insert_with(HashSet::new);
+        if !map.insert(key.clone()) {
+            Err(DiceError::duplicate(Arc::new(key)))
+        } else {
+            self.changes.push(change);
+            Ok(())
+        }
+    }
+
+    pub fn ops(&mut self) -> &mut Vec<Box<dyn FnOnce(VersionNumber) + Send>> {
+        &mut self.changes
     }
 }

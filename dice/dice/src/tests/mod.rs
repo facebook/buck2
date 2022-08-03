@@ -14,6 +14,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Barrier;
 
+use assert_matches::assert_matches;
 use derivative::Derivative;
 use derive_more::Display;
 
@@ -40,6 +41,33 @@ impl InjectedKey for Foo {
     fn compare(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
+}
+
+#[tokio::test]
+async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
+    let dice = Dice::builder().build(DetectCycles::Enabled);
+
+    {
+        let ctx = dice.ctx();
+        ctx.changed_to(vec![(Foo(0), 0)])?;
+        ctx.changed_to(vec![(Foo(1), 1)])?;
+
+        let ctx = ctx.commit();
+        assert_eq!(ctx.compute(&Foo(0)).await?, 0);
+        assert_eq!(ctx.compute(&Foo(1)).await?, 1);
+    }
+
+    {
+        let ctx = dice.ctx();
+        ctx.changed_to(vec![(Foo(0), 0)])?;
+
+        assert_matches!(
+            ctx.changed_to(vec![(Foo(0), 1)]),
+            Err(err) => assert_matches!(&*err.0, DiceErrorImpl::DuplicateChange(_))
+        );
+    }
+
+    Ok(())
 }
 
 #[test]

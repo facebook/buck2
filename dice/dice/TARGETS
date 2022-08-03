@@ -8,6 +8,7 @@ rust_library(
         ["src/**/*.rs"],
     ),
     test_deps = [
+        "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:tempfile",
     ],

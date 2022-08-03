@@ -25,6 +25,7 @@ use crate::cycles::DetectCycles;
 use crate::data::DiceData;
 use crate::incremental::dep_trackers::BothDepTrackers;
 use crate::incremental::dep_trackers::BothDeps;
+use crate::incremental::transaction_ctx::Changes;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::MinorVersionGuard;
 use crate::incremental::versions::VersionForWrites;
@@ -217,8 +218,7 @@ impl DiceComputations {
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
-        self.0.changed(changed);
-        Ok(())
+        self.0.changed(changed)
     }
 
     /// records a set of 'Key's as changed to a particular value so that any
@@ -233,8 +233,7 @@ impl DiceComputations {
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
-        self.0.changed_to(changed);
-        Ok(())
+        self.0.changed_to(changed)
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
@@ -298,7 +297,11 @@ impl DiceComputationImpl {
         extra: ComputationData,
     ) -> Self {
         Self {
-            transaction_ctx: Arc::new(TransactionCtx::new(version, version_for_writes, Vec::new())),
+            transaction_ctx: Arc::new(TransactionCtx::new(
+                version,
+                version_for_writes,
+                Changes::new(),
+            )),
             dep_trackers: BothDepTrackers::noop(),
             dice: dice.dupe(),
             extra,
@@ -372,42 +375,44 @@ impl DiceComputationImpl {
         ))
     }
 
-    pub(super) fn changed<K, I>(&self, changed: I)
+    pub(super) fn changed<K, I>(&self, changed: I) -> DiceResult<()>
     where
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
         let mut changes = self.transaction_ctx.changes();
 
-        changed.into_iter().for_each(|k| {
+        changed.into_iter().try_for_each(|k| {
             let dice = self.dice.dupe();
-            changes.push(
+            changes.change(
+                k.clone(),
                 box (move |version| {
                     debug!(msg = "marking value as changed", version = %version, key = %k);
                     let cache = dice.find_cache::<K>();
                     cache.dirty(k, version, true);
                 }),
             )
-        });
+        })
     }
 
-    pub(super) fn changed_to<K, I>(&self, changed: I)
+    pub(super) fn changed_to<K, I>(&self, changed: I) -> DiceResult<()>
     where
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
         let mut changes = self.transaction_ctx.changes();
 
-        changed.into_iter().for_each(|(k, v)| {
+        changed.into_iter().try_for_each(|(k, v)| {
             let dice = self.dice.dupe();
-            changes.push(
+            changes.change(
+                k.clone(),
                 box (move |version| {
                     let cache = dice.find_cache::<K>();
                     debug!(msg = "marking value as updated", version = %version, key = %k);
                     cache.update_injected_value(k, version, v);
                 }),
             )
-        });
+        })
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
