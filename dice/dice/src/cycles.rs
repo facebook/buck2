@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 use indexmap::set::IndexSet;
 use thiserror::Error;
 
@@ -26,7 +27,7 @@ use crate::DiceError;
 use crate::DiceResult;
 use crate::Key;
 
-#[derive(Clone, Dupe, Copy, Debug)]
+#[derive(Clone, Dupe, Copy, Debug, VariantName)]
 pub enum DetectCycles {
     Enabled,
     Disabled,
