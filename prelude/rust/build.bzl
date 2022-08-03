@@ -479,6 +479,7 @@ def _compute_common_args(
         "--error-format=json",
         "--json=diagnostic-rendered-ansi",
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
+        ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         toolchain_info.rustc_flags,
         toolchain_info.rustc_check_flags if is_check else [],
         ctx.attrs.rustc_flags,

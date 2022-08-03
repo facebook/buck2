@@ -1,6 +1,9 @@
 RustToolchainInfo = provider(fields = [
     # Report unused dependencies
     "report_unused_deps",
+    # Rustc target triple to use
+    # https://doc.rust-lang.org/rustc/platform-support.html
+    "rustc_target_triple",
     # Baseline compiler config
     "rustc_flags",
     # Extra flags when building binaries
