@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::file_ops::IgnoreSet;
@@ -38,14 +39,14 @@ impl dyn FileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Box<dyn FileWatcher>> {
+    ) -> anyhow::Result<Arc<dyn FileWatcher>> {
         match root_config.get("buck2", "file_watcher") {
-            Some("watchman") | None => Ok(box watchman::WatchmanFileWatcher::new(
+            Some("watchman") | None => Ok(Arc::new(watchman::WatchmanFileWatcher::new(
                 paths,
                 root_config,
                 cells,
                 ignore_specs,
-            )?),
+            )?)),
             Some(other) => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
         }
     }

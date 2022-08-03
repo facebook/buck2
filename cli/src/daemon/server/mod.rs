@@ -196,7 +196,7 @@ pub(crate) struct DaemonStateData {
     dice: Arc<Dice>,
 
     /// Synced every time we run a command.
-    file_watcher: Box<dyn FileWatcher>,
+    file_watcher: Arc<dyn FileWatcher>,
 
     /// Settled every time we run a command.
     io: Arc<dyn IoProvider>,
