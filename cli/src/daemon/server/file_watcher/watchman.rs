@@ -10,21 +10,13 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use buck2_build_api::context::HasBuildContextData;
-use buck2_build_api::context::SetBuildContextData;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::FileChangeHandler;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::IgnoreSet;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
-use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
-use buck2_interpreter::dice::HasInterpreterContext;
 use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
 use tracing::info;
@@ -149,14 +141,6 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
         eprintln!("watchman fresh instance event, clearing cache");
 
-        let buck_out_path = ctx.get_buck_out_path().await?;
-        let cells = ctx.get_cell_resolver().await?;
-        let configuror = ctx.get_interpreter_configuror().await?;
-        let legacy_configs = ctx.get_legacy_configs().await?;
-        let starlark_profiler_instrumentation_override =
-            ctx.get_starlark_profiler_instrumentation_override().await?;
-        let disable_starlark_types = ctx.get_disable_starlark_types().await?;
-
         buck2_build_api::actions::run::dep_files::flush_dep_files();
 
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
@@ -166,15 +150,6 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         let (ctx, map) = ctx.unstable_take();
         std::thread::spawn(|| drop(map));
 
-        ctx.set_buck_out_path(Some((*buck_out_path).to_buf()))?;
-        setup_interpreter(
-            &ctx,
-            cells,
-            configuror,
-            legacy_configs,
-            starlark_profiler_instrumentation_override,
-            disable_starlark_types,
-        )?;
         Ok((
             buck2_data::WatchmanStats {
                 fresh_instance: true,

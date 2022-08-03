@@ -34,6 +34,7 @@ use buck2_build_api::actions::build_listener::SetBuildSignals;
 use buck2_build_api::actions::run::knobs::HasRunActionKnobs;
 use buck2_build_api::actions::run::knobs::RunActionKnobs;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
+use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::blocking::BuckBlockingExecutor;
@@ -384,6 +385,8 @@ pub(crate) struct BaseCommandContext {
     pub _event_config: Arc<EventLoggingData>,
     /// Removes this command from the set of active commands when dropped.
     _drop_guard: ActiveCommandDropGuard,
+    /// The file watcher that keeps buck2 up to date with disk changes.
+    file_watcher: Arc<dyn FileWatcher>,
 }
 
 impl BaseCommandContext {
@@ -631,6 +634,17 @@ impl ServerCommandContext {
                 data
             });
 
+        let buck_out_path = dice_ctx.get_buck_out_path().await?;
+
+        // this sync call my clear the dice ctx, but that's okay as we reset everything below.
+        let dice_ctx = self
+            .base_context
+            .file_watcher
+            .sync(dice_ctx, &self.base_context.events)
+            .await?;
+
+        dice_ctx.set_buck_out_path(Some((*buck_out_path).to_buf()))?;
+
         setup_interpreter(
             &dice_ctx,
             cell_resolver,
@@ -639,6 +653,7 @@ impl ServerCommandContext {
             self.starlark_profiler_instrumentation_override.dupe(),
             self.disable_starlark_types,
         )?;
+
         Ok(dice_ctx.commit())
     }
 
@@ -969,9 +984,6 @@ impl DaemonState {
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
         // Sync any FS changes and invalidate DICE state if necessary.
-        let ctx = data.file_watcher.sync(data.dice.ctx(), &dispatcher).await?;
-        ctx.commit();
-
         data.io.settle().await?;
 
         Ok(BaseCommandContext {
@@ -982,6 +994,7 @@ impl DaemonState {
             re_client_manager: data.re_client_manager.dupe(),
             blocking_executor: data.blocking_executor.dupe(),
             materializer: data.materializer.dupe(),
+            file_watcher: data.file_watcher.dupe(),
             events: dispatcher,
             forkserver: data.forkserver.dupe(),
             _event_config: data.event_logging_data.dupe(),
