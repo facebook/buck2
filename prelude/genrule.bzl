@@ -1,7 +1,7 @@
 # Implementation of the `genrule` build rule.
 
 # Some rules have to be run locally for various reasons listed next to the label.
-_LOCAL_LABELS = [
+_LOCAL_LABELS = {label: True for label in [
     # Used for buck2 tests that want to run locally
     "buck2_test_local_exec",
 
@@ -128,12 +128,12 @@ _LOCAL_LABELS = [
 
     # Perform makes compilation in situ.
     "uses_make",
-]
+]}
 
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual
 # rule implementations in v2, rather then using `genrule`s.
-_BUILD_ROOT_LABELS = [
+_BUILD_ROOT_LABELS = {label: True for label in [
     # The buck2 test suite
     "buck2_test_build_root",
     "antlir_macros",
@@ -144,7 +144,7 @@ _BUILD_ROOT_LABELS = [
     "cuda_build_root",
     "bundle_pch_genrule",  # Compiles C++, and so need to run from build root
     "lpm_package",
-]
+]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
 # That's a horrible heuristic, and doesn't account for users accessing $SRCS from a shell script.
