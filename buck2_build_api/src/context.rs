@@ -40,20 +40,17 @@ pub struct BuildData {
 struct BuildDataKey;
 
 impl InjectedKey for BuildDataKey {
-    type Value = SharedResult<Arc<BuildData>>;
+    type Value = Arc<BuildData>;
 
     fn compare(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
+        x == y
     }
 }
 
 #[async_trait]
 impl HasBuildContextData for DiceComputations {
     async fn get_buck_out_path(&self) -> SharedResult<ArcRef<BuildData, ForwardRelativePath>> {
-        let data = self.compute(&BuildDataKey).await??;
+        let data = self.compute(&BuildDataKey).await?;
         Ok(ArcRef::new(data).map(|d| AsRef::<ForwardRelativePath>::as_ref(&d.buck_out_path)))
     }
 }
@@ -62,11 +59,11 @@ impl SetBuildContextData for DiceComputations {
     fn set_buck_out_path(&self, path: Option<ForwardRelativePathBuf>) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(
             BuildDataKey,
-            Ok(Arc::new(BuildData {
+            Arc::new(BuildData {
                 buck_out_path: path.unwrap_or_else(|| {
                     ForwardRelativePathBuf::unchecked_new("buck-out/v2".to_owned())
                 }),
-            })),
+            }),
         )])?)
     }
 }
