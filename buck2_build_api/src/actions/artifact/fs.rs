@@ -42,7 +42,7 @@ impl ArtifactFs {
         &self,
         artifactlike: &dyn StarlarkArtifactLike,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_impl(artifactlike.fingerprint())
+        self.resolve_impl(artifactlike.get_artifact_path())
     }
 
     fn resolve_impl(&self, artifact: ArtifactPath<'_>) -> anyhow::Result<ProjectRelativePathBuf> {

@@ -155,6 +155,10 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         self
     }
 
+    fn get_artifact_path(&self) -> ArtifactPath<'_> {
+        self.artifact.get_path()
+    }
+
     fn fingerprint(&self) -> ArtifactPath<'_> {
         self.artifact.get_path()
     }

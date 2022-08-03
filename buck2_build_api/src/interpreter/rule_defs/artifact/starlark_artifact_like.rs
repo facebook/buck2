@@ -79,6 +79,8 @@ pub trait StarlarkArtifactLike: Display {
     /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
     /// as the inputs to Hash/Eq to ensure they are consistent
     fn fingerprint(&self) -> ArtifactPath<'_>;
+
+    fn get_artifact_path(&self) -> ArtifactPath<'_>;
 }
 
 pub trait ValueAsArtifactLike<'v> {
