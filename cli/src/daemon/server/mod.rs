@@ -118,6 +118,7 @@ use futures::Stream;
 use futures::StreamExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use itertools::Itertools;
@@ -966,6 +967,18 @@ impl DaemonState {
         check_working_dir()?;
 
         let data = self.data().await?;
+
+        dispatcher.event(buck2_data::InstantEvent {
+            data: Some(
+                buck2_data::TagEvent {
+                    tag: format!(
+                        "dice-detect-cycles:{}",
+                        data.dice.detect_cycles().variant_name()
+                    ),
+                }
+                .into(),
+            ),
+        });
 
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
