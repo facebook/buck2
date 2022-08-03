@@ -11,6 +11,7 @@ use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
+static DOCS_BUILTIN_KEY: &str = "builtin";
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
@@ -50,6 +51,11 @@ enum MarkdownError {
         name: String,
         keys_and_values: Vec<(String, String)>,
     },
+    #[error("Conflicting custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
+    ConflictingCustomAttributes {
+        name: String,
+        keys_and_values: Vec<(String, String)>,
+    },
 }
 
 #[derive(Clone, Debug, Default)]
@@ -80,7 +86,7 @@ impl MarkdownOutput {
         let unknown_keys: Vec<_> = doc
             .custom_attrs
             .iter()
-            .filter(|(k, _)| *k != DOCS_DIRECTORY_KEY)
+            .filter(|(k, _)| *k != DOCS_DIRECTORY_KEY && *k != DOCS_BUILTIN_KEY)
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
         if !unknown_keys.is_empty() {
@@ -91,17 +97,30 @@ impl MarkdownOutput {
             .into());
         }
 
-        match doc.custom_attrs.get(DOCS_DIRECTORY_KEY) {
-            Some(path) => match ForwardRelativePathBuf::new(path.to_owned()) {
-                Ok(fp) => Ok(fp),
-                Err(e) => Err(MarkdownError::InvalidDirectory {
-                    name: doc.id.name.to_owned(),
-                    path: path.to_owned(),
-                    source: e,
+        match (
+            doc.custom_attrs.get(DOCS_DIRECTORY_KEY),
+            doc.custom_attrs.get(DOCS_BUILTIN_KEY),
+        ) {
+            (Some(path), None) | (None, Some(path)) => {
+                match ForwardRelativePathBuf::new(path.to_owned()) {
+                    Ok(fp) => Ok(fp),
+                    Err(e) => Err(MarkdownError::InvalidDirectory {
+                        name: doc.id.name.to_owned(),
+                        path: path.to_owned(),
+                        source: e,
+                    }
+                    .into()),
                 }
-                .into()),
-            },
-            None => Ok(ForwardRelativePathBuf::new(String::new())?),
+            }
+            (Some(dir), Some(builtin)) => Err(MarkdownError::ConflictingCustomAttributes {
+                name: doc.id.name.to_owned(),
+                keys_and_values: vec![
+                    (DOCS_DIRECTORY_KEY.to_owned(), dir.clone()),
+                    (DOCS_BUILTIN_KEY.to_owned(), builtin.clone()),
+                ],
+            }
+            .into()),
+            (None, None) => Ok(ForwardRelativePathBuf::new(String::new())?),
         }
     }
 
@@ -230,6 +249,21 @@ mod tests {
             },
             Doc {
                 id: Identifier {
+                    name: "yet_another_function".to_owned(),
+                    location: None,
+                },
+                custom_attrs: hashmap! { "builtin".to_owned() => "builtin_subdir".to_owned()},
+                item: DocItem::Function(Function {
+                    docs: ds.clone(),
+                    params: vec![],
+                    ret: Return {
+                        docs: ds.clone(),
+                        typ: typ.clone(),
+                    },
+                }),
+            },
+            Doc {
+                id: Identifier {
                     name: "last_function".to_owned(),
                     location: Some(Location {
                         path: "foo.bzl".to_owned(),
@@ -276,12 +310,19 @@ mod tests {
                 .generate_markdown_or_empty(MarkdownFlavor::DocFile),
         );
 
-        let expected_starlark = format!(
-            "{}\n\n---\n{}\n",
-            docs.get(4)
+        let expected_native_builtin_subdir = format!(
+            "{}\n",
+            docs.get(3)
                 .unwrap()
                 .generate_markdown_or_empty(MarkdownFlavor::DocFile),
-            docs.get(3)
+        );
+
+        let expected_starlark = format!(
+            "{}\n\n---\n{}\n",
+            docs.get(5)
+                .unwrap()
+                .generate_markdown_or_empty(MarkdownFlavor::DocFile),
+            docs.get(4)
                 .unwrap()
                 .generate_markdown_or_empty(MarkdownFlavor::DocFile)
         );
@@ -297,10 +338,13 @@ mod tests {
         generate_markdown_files(&opts, docs)?;
         let native = std::fs::read_to_string(temp.path().join("native/native.md"))?;
         let native_subdir = std::fs::read_to_string(temp.path().join("native/subdir/native.md"))?;
+        let native_builtin_subdir =
+            std::fs::read_to_string(temp.path().join("native/builtin_subdir/native.md"))?;
         let starlark = std::fs::read_to_string(temp.path().join("starlark/foo.bzl.md"))?;
 
         assert_eq!(expected_native, native);
         assert_eq!(expected_native_subdir, native_subdir);
+        assert_eq!(expected_native_builtin_subdir, native_builtin_subdir);
         assert_eq!(expected_starlark, starlark);
 
         Ok(())
