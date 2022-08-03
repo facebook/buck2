@@ -416,6 +416,10 @@ impl Dice {
 
         Ok(())
     }
+
+    pub fn detect_cycles(&self) -> &DetectCycles {
+        &self.detect_cycles
+    }
 }
 
 pub struct DiceDataBuilder(DiceData);
