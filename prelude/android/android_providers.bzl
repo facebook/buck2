@@ -104,13 +104,20 @@ def _artifacts(args: "cmd_args", value: "artifact"):
     args.add(value)
 
 AndroidBuildConfigInfoTSet = transitive_set()
+AndroidDepsTSet = transitive_set()
 ManifestTSet = transitive_set(args_projections = {"artifacts": _artifacts})
 PrebuiltNativeLibraryDirTSet = transitive_set()
 ResourceInfoTSet = transitive_set()
 
+DepsInfo = record(
+    name = "target_label",
+    deps = ["target_label"],
+)
+
 AndroidPackageableInfo = provider(
     fields = [
         "build_config_infos",  # ["AndroidBuildConfigInfoTSet", None]
+        "deps",  # ["AndroidDepsTSet", None]
         "manifests",  # ["ManifestTSet", None]
         "prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDirTSet", None]
         "resource_infos",  # ["AndroidResourceInfoTSet", None]
@@ -153,6 +160,7 @@ DexFilesInfo = provider(
 )
 
 def merge_android_packageable_info(
+        label: "label",
         actions: "actions",
         deps: ["dependency"],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,
@@ -166,6 +174,16 @@ def merge_android_packageable_info(
         filter(None, [dep.build_config_infos for dep in android_packageable_deps]),
         build_config_info,
         AndroidBuildConfigInfoTSet,
+    )
+
+    deps = _get_transitive_set(
+        actions,
+        filter(None, [dep.deps for dep in android_packageable_deps]),
+        DepsInfo(
+            name = label.raw_target(),
+            deps = [dep.label.raw_target() for dep in deps],
+        ),
+        AndroidDepsTSet,
     )
 
     manifests = _get_transitive_set(
@@ -191,6 +209,7 @@ def merge_android_packageable_info(
 
     return AndroidPackageableInfo(
         build_config_infos = build_config_infos,
+        deps = deps,
         manifests = manifests,
         prebuilt_native_library_dirs = prebuilt_native_library_dirs,
         resource_infos = resource_infos,

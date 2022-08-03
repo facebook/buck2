@@ -12,6 +12,7 @@ def android_library_impl(ctx: "context") -> ["provider"]:
 
     return to_list(java_providers) + [
         merge_android_packageable_info(
+            ctx.label,
             ctx.actions,
             ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
             manifest = ctx.attrs.manifest,

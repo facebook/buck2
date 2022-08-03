@@ -22,7 +22,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
 
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex]
 
-    android_packageable_info = merge_android_packageable_info(ctx.actions, deps)
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
     build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
 
     build_config_libs = _get_build_config_java_libraries(ctx, build_config_infos)

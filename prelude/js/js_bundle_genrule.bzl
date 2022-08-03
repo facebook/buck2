@@ -83,7 +83,7 @@ def _get_extra_providers(
             text_symbols = None if skip_resources else android_resource_info.text_symbols,
         )
         providers.append(new_android_resource_info)
-        providers.append(merge_android_packageable_info(ctx.actions, deps = [], resource_info = new_android_resource_info))
+        providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps = [], resource_info = new_android_resource_info))
 
     return providers
 

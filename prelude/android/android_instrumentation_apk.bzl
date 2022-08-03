@@ -27,7 +27,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
 
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex and packaging_dep not in apk_under_test_info.java_packaging_deps]
 
-    android_packageable_info = merge_android_packageable_info(ctx.actions, deps)
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
 
     resources_info = get_android_binary_resources_info(
         ctx,

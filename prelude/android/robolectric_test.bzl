@@ -16,7 +16,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     extra_cmds.append(cmd_args(ctx.attrs.robolectric_runtime_dependency, format = "-Drobolectric.dependency.dir={}"))
 
     all_packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
-    android_packageable_info = merge_android_packageable_info(ctx.actions, all_packaging_deps)
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_packaging_deps)
     resources_info = get_android_binary_resources_info(
         ctx,
         all_packaging_deps,

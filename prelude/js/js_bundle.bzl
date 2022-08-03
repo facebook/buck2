@@ -157,7 +157,7 @@ def _get_extra_providers(ctx: "context", js_bundle_info: JsBundleInfo.type, iden
     if ctx.attrs._platform == "android":
         resource_info = _get_android_resource_info(ctx, js_bundle_info, identifier)
         providers.append(resource_info)
-        providers.append(merge_android_packageable_info(ctx.actions, ctx.attrs.deps, resource_info = resource_info))
+        providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, resource_info = resource_info))
 
     return providers
 

@@ -63,5 +63,5 @@ def _get_manifests_from_deps(ctx: "context") -> ["ManifestTSet", None]:
     if len(ctx.attrs.deps) == 0:
         return None
 
-    android_packageable_info = merge_android_packageable_info(ctx.actions, ctx.attrs.deps)
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps)
     return android_packageable_info.manifests

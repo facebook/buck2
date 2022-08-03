@@ -51,7 +51,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
             text_symbols = None,
         )
     providers.append(resource_info)
-    providers.append(merge_android_packageable_info(ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))
+    providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))
     providers.append(DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets))
 
     return providers

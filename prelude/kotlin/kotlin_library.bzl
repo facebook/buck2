@@ -224,6 +224,7 @@ def kotlin_library_impl(ctx: "context") -> ["provider"]:
     return to_list(java_providers) + [
         # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
         merge_android_packageable_info(
+            ctx.label,
             ctx.actions,
             ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
         ),

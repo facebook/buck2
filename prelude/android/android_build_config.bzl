@@ -9,7 +9,7 @@ def android_build_config_impl(ctx: "context") -> ["provider"]:
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)
     android_build_config_info = AndroidBuildConfigInfo(package = ctx.attrs.package, build_config_fields = default_build_config_fields)
     providers.append(android_build_config_info)
-    providers.append(merge_android_packageable_info(ctx.actions, deps = [], build_config_info = android_build_config_info))
+    providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps = [], build_config_info = android_build_config_info))
 
     build_config_dot_java_library, java_packaging_info = generate_android_build_config(
         ctx,
