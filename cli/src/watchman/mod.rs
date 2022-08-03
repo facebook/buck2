@@ -252,30 +252,6 @@ where
         }
     }
 
-    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<()> {
-        self.last_clock = Default::default();
-        self.last_mergebase = None;
-        *client = Some(
-            WatchmanClient::connect(&self.connector, self.path.clone())
-                .await
-                .context("Error reconnecting to Watchman")?,
-        );
-        Ok(())
-    }
-
-    async fn reconnect_and_sync_query(
-        &mut self,
-        client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<WatchmanSyncResult> {
-        self.reconnect(client)
-            .await
-            .context("Error reconnecting to Watchman")?;
-
-        let out = self.sync_query(client).await?;
-
-        Ok(out)
-    }
-
     /// sync() will send a since query to watchman and invoke the processor
     /// with either the received events or a fresh instance call.
     async fn sync(
@@ -321,6 +297,30 @@ where
         self.last_clock = clock;
 
         Ok(res)
+    }
+
+    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<()> {
+        self.last_clock = Default::default();
+        self.last_mergebase = None;
+        *client = Some(
+            WatchmanClient::connect(&self.connector, self.path.clone())
+                .await
+                .context("Error reconnecting to Watchman")?,
+        );
+        Ok(())
+    }
+
+    async fn reconnect_and_sync_query(
+        &mut self,
+        client: &mut Option<WatchmanClient>,
+    ) -> anyhow::Result<WatchmanSyncResult> {
+        self.reconnect(client)
+            .await
+            .context("Error reconnecting to Watchman")?;
+
+        let out = self.sync_query(client).await?;
+
+        Ok(out)
     }
 
     async fn sync_query(
