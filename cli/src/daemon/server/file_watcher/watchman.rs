@@ -13,6 +13,8 @@ use async_trait::async_trait;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::FileChangeHandler;
+use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -54,7 +56,7 @@ impl WatchmanQueryProcessor {
     ) -> anyhow::Result<(buck2_data::WatchmanStats, DiceTransaction)> {
         let mut stats = buck2_data::WatchmanStats::default();
 
-        let handler = ctx.get_file_change_handler();
+        let mut handler = FileChangeTracker::new();
         let mut iter = events.into_iter();
 
         let mut messages = 0;
@@ -86,13 +88,13 @@ impl WatchmanQueryProcessor {
                 }
                 match (ev.kind, ev.event) {
                     (WatchmanKind::File, WatchmanEventType::Modify) => {
-                        handler.file_changed(cell_path)?;
+                        handler.file_changed(cell_path);
                     }
                     (WatchmanKind::File, WatchmanEventType::Create) => {
-                        handler.file_added(cell_path)?;
+                        handler.file_added(cell_path);
                     }
                     (WatchmanKind::File, WatchmanEventType::Delete) => {
-                        handler.file_removed(cell_path)?;
+                        handler.file_removed(cell_path);
                     }
                     (WatchmanKind::Directory, WatchmanEventType::Modify) => {
                         // We can safely ignore this, as it corresponds to files being added or removed,
@@ -100,10 +102,10 @@ impl WatchmanQueryProcessor {
                         // See https://fb.workplace.com/groups/watchman.users/permalink/2858842194433249
                     }
                     (WatchmanKind::Directory, WatchmanEventType::Create) => {
-                        handler.dir_added(cell_path)?;
+                        handler.dir_added(cell_path);
                     }
                     (WatchmanKind::Directory, WatchmanEventType::Delete) => {
-                        handler.dir_removed(cell_path)?;
+                        handler.dir_removed(cell_path);
                     }
                     (WatchmanKind::Symlink, typ) => {
                         // We don't really support symlinks in the source, but better than a panic.
@@ -113,14 +115,17 @@ impl WatchmanQueryProcessor {
                             cell_path
                         );
                         match typ {
-                            WatchmanEventType::Modify => handler.file_changed(cell_path)?,
-                            WatchmanEventType::Create => handler.file_added(cell_path)?,
-                            WatchmanEventType::Delete => handler.file_removed(cell_path)?,
+                            WatchmanEventType::Modify => handler.file_changed(cell_path),
+                            WatchmanEventType::Create => handler.file_added(cell_path),
+                            WatchmanEventType::Delete => handler.file_removed(cell_path),
                         }
                     }
                 }
             }
         }
+
+        handler.write_to_dice(&ctx)?;
+
         Ok((stats, ctx))
     }
 }

@@ -17,7 +17,6 @@
 //! onto the dice graph).
 use std::sync::Arc;
 
-use buck2_common::dice::file_ops::FileChangeHandler;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
@@ -65,8 +64,6 @@ pub trait HasGlobalInterpreterState {
 
 #[async_trait]
 pub trait HasInterpreterContext {
-    fn get_file_change_handler(&self) -> &dyn FileChangeHandler;
-
     async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>>;
 
     fn set_interpreter_context(

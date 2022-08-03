@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -18,6 +19,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use dice::Key;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
@@ -42,11 +44,11 @@ pub trait HasFileOps<'c> {
 }
 
 pub trait FileChangeHandler {
-    fn file_changed(&self, path: CellPath) -> anyhow::Result<()>;
-    fn file_removed(&self, path: CellPath) -> anyhow::Result<()>;
-    fn file_added(&self, path: CellPath) -> anyhow::Result<()>;
-    fn dir_added(&self, path: CellPath) -> anyhow::Result<()>;
-    fn dir_removed(&self, path: CellPath) -> anyhow::Result<()>;
+    fn file_changed(&mut self, path: CellPath);
+    fn file_removed(&mut self, path: CellPath);
+    fn file_added(&mut self, path: CellPath);
+    fn dir_added(&mut self, path: CellPath);
+    fn dir_removed(&mut self, path: CellPath);
 }
 
 impl<'c> HasFileOps<'c> for DiceComputations {
@@ -183,53 +185,72 @@ fn panic_expected_parent(path: &CellPath) -> ! {
     )
 }
 
-fn file_contents_modify(dice: &DiceComputations, path: CellPath) -> anyhow::Result<()> {
-    dice.changed(Some(ReadFileKey(path.clone())))?;
-    dice.changed(Some(PathMetadataKey(path)))?;
-
-    Ok(())
+pub struct FileChangeTracker {
+    files_to_dirty: HashSet<ReadFileKey>,
+    dirs_to_dirty: HashSet<ReadDirKey>,
+    paths_to_dirty: HashSet<PathMetadataKey>,
 }
 
-fn file_existence_modify(dice: &DiceComputations, path: CellPath) -> anyhow::Result<()> {
-    let parent = path
-        .parent()
-        .unwrap_or_else(|| panic_expected_parent(&path));
+impl FileChangeTracker {
+    pub fn new() -> Self {
+        Self {
+            files_to_dirty: Default::default(),
+            dirs_to_dirty: Default::default(),
+            paths_to_dirty: Default::default(),
+        }
+    }
 
-    file_contents_modify(dice, path)?;
-    dice.changed(Some(ReadDirKey(parent)))?;
+    pub fn write_to_dice(self, ctx: &DiceTransaction) -> anyhow::Result<()> {
+        ctx.changed(self.files_to_dirty)?;
+        ctx.changed(self.dirs_to_dirty)?;
+        ctx.changed(self.paths_to_dirty)?;
 
-    Ok(())
+        Ok(())
+    }
+
+    fn file_contents_modify(&mut self, path: CellPath) {
+        self.files_to_dirty.insert(ReadFileKey(path.clone()));
+        self.paths_to_dirty.insert(PathMetadataKey(path));
+    }
+
+    fn file_existence_modify(&mut self, path: CellPath) {
+        let parent = path
+            .parent()
+            .unwrap_or_else(|| panic_expected_parent(&path));
+
+        self.file_contents_modify(path);
+        self.dirs_to_dirty.insert(ReadDirKey(parent));
+    }
+
+    fn dir_existence_modify(&mut self, path: CellPath) {
+        let parent = path
+            .parent()
+            .unwrap_or_else(|| panic_expected_parent(&path));
+        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.dirs_to_dirty
+            .extend([ReadDirKey(path), ReadDirKey(parent)]);
+    }
 }
 
-fn dir_existence_modify(dice: &DiceComputations, path: CellPath) -> anyhow::Result<()> {
-    let parent = path
-        .parent()
-        .unwrap_or_else(|| panic_expected_parent(&path));
-    dice.changed(Some(PathMetadataKey(path.clone())))?;
-    dice.changed(vec![ReadDirKey(path), ReadDirKey(parent)])?;
-
-    Ok(())
-}
-
-impl FileChangeHandler for DiceComputations {
-    fn file_changed(&self, path: CellPath) -> anyhow::Result<()> {
-        file_contents_modify(self, path)
+impl FileChangeHandler for FileChangeTracker {
+    fn file_changed(&mut self, path: CellPath) {
+        self.file_contents_modify(path)
     }
 
-    fn file_removed(&self, path: CellPath) -> anyhow::Result<()> {
-        file_existence_modify(self, path)
+    fn file_removed(&mut self, path: CellPath) {
+        self.file_existence_modify(path)
     }
 
-    fn file_added(&self, path: CellPath) -> anyhow::Result<()> {
-        file_existence_modify(self, path)
+    fn file_added(&mut self, path: CellPath) {
+        self.file_existence_modify(path)
     }
 
-    fn dir_added(&self, path: CellPath) -> anyhow::Result<()> {
-        dir_existence_modify(self, path)
+    fn dir_added(&mut self, path: CellPath) {
+        self.dir_existence_modify(path)
     }
 
-    fn dir_removed(&self, path: CellPath) -> anyhow::Result<()> {
-        dir_existence_modify(self, path)
+    fn dir_removed(&mut self, path: CellPath) {
+        self.dir_existence_modify(path)
     }
 }
 

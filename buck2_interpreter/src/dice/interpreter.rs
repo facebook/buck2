@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use buck2_common::dice::file_ops::FileChangeHandler;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
@@ -46,9 +45,5 @@ impl HasInterpreterContext for DiceComputations {
         interpreter_configuror: Arc<dyn InterpreterConfiguror>,
     ) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(BuildContextKey(), interpreter_configuror)])?)
-    }
-
-    fn get_file_change_handler(&self) -> &dyn FileChangeHandler {
-        self
     }
 }
