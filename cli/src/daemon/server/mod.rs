@@ -82,7 +82,6 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_data::*;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
-use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -762,16 +761,6 @@ impl DaemonState {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(&cells)),
-            InterpreterHostPlatform::Linux,
-            InterpreterHostArchitecture::X86_64,
-            false,
-            configure_build_file_globals,
-            configure_extension_file_globals,
-            configure_bxl_file_globals,
-        );
-
         let io = buck2_common::io::create_io_provider(
             fb,
             Arc::new(fs),
@@ -820,7 +809,6 @@ impl DaemonState {
         )?;
         let ctx = dice.ctx();
         ctx.set_buck_out_path(Some(paths.buck_out_dir()))?;
-        setup_interpreter_basic(&ctx, cells.dupe(), configuror, legacy_configs.dupe())?;
         ctx.commit();
 
         let forkserver = maybe_launch_forkserver(root_config).await?;
