@@ -64,6 +64,7 @@ def _get_fbcode_select_map(prefix):
 
 def _get_android_cxx_select_map():
     return {
+        "ovr_config//runtime:android-host-test-macos-minimal": "fbsource//xplat/toolchains/minimal_xcode:macosx-x86_64_minimal_xcode",
         "ovr_config//toolchain/fb:android-ndk": select({
             "DEFAULT": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-x86",
             "ovr_config//cpu/constraints:arm32": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-armv7",
