@@ -15,7 +15,8 @@ _RESOURCE_BUNDLE_FIELDS = [
     "resource_group_map",
 ]
 
-def apple_bundle_macro_impl(apple_bundle_rule = None, apple_resource_bundle_rule = None, info_plist_substitutions = None, **kwargs):
+def apple_bundle_macro_impl(apple_bundle_rule = None, apple_resource_bundle_rule = None, **kwargs):
+    info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
 
     resource_bundle_target_name = None
@@ -71,7 +72,6 @@ def apple_bundle_macro_impl(apple_bundle_rule = None, apple_resource_bundle_rule
     #          +------>|      Binary       |<--------+
     #                  +-------------------+
     apple_bundle_rule(
-        info_plist_substitutions = info_plist_substitutions,
         _codesign_entitlements = parse_codesign_entitlements(info_plist_substitutions),
         _resource_bundle = resource_bundle_target_name,
         **kwargs
