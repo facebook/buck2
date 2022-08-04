@@ -1281,15 +1281,16 @@ impl BuckConfigBasedCells {
                     BuckConfigFile::ProjectRelativeFile(file) => {
                         let buckconfig_path = ForwardRelativePath::new(file)?;
                         buckconfig_paths.push(MainConfigFile {
-                            path: project_fs.resolve(&path.join_unnormalized(buckconfig_path)),
+                            path: project_fs
+                                .resolve(&path.project_relative_path().join(buckconfig_path)),
                             owned_by_project: true,
                         });
                     }
 
                     BuckConfigFile::ProjectRelativeFolder(folder) => {
                         let buckconfig_folder_path = ForwardRelativePath::new(folder)?;
-                        let buckconfig_folder_abs_path =
-                            project_fs.resolve(&path.join_unnormalized(buckconfig_folder_path));
+                        let buckconfig_folder_abs_path = project_fs
+                            .resolve(&path.project_relative_path().join(buckconfig_folder_path));
                         push_all_files_from_a_directory(
                             &mut buckconfig_paths,
                             &buckconfig_folder_abs_path,

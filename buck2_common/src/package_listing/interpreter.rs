@@ -133,7 +133,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
                                entries: &[SimpleDirEntry]|
          -> anyhow::Result<()> {
             for d in entries {
-                let child_path = path.join_unnormalized(ForwardRelativePath::new(&d.file_name)?);
+                let child_path = path.join(ForwardRelativePath::new(&d.file_name)?);
                 if d.file_type.is_dir() {
                     work.push(async move {
                         let entries = self.fs.read_dir(&child_path).await;

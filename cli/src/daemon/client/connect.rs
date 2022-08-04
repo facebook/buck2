@@ -53,7 +53,7 @@ impl<'a> BuckdLifecycle<'a> {
         paths: &'a Paths,
         timeout: Duration,
     ) -> anyhow::Result<BuckdLifecycle<'a>> {
-        let lifecycle_path = paths.daemon_dir()?.join("buckd.lifecycle");
+        let lifecycle_path = paths.daemon_dir()?.as_path().join("buckd.lifecycle");
         let file = File::create(lifecycle_path)?;
         retrying(
             Duration::from_millis(5),
@@ -369,7 +369,7 @@ impl BuckdConnectOptions {
 
     async fn try_connect_existing(&self, paths: &Paths) -> anyhow::Result<BootstrapBuckdClient> {
         let daemon_dir = paths.daemon_dir()?;
-        let location = daemon_dir.join("buckd.info");
+        let location = daemon_dir.as_path().join("buckd.info");
         let file = File::open(&location)
             .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
         let reader = BufReader::new(file);

@@ -114,14 +114,14 @@ impl AbsPath {
     ///
     /// if cfg!(not(windows)) {
     ///     let abs_path = AbsPath::new("/my")?;
-    ///     assert_eq!(AbsPathBuf::from("/my/foo/bar".into())?, abs_path.join_unnormalized(ForwardRelativePath::new("foo/bar")?));
+    ///     assert_eq!(AbsPathBuf::from("/my/foo/bar".into())?, abs_path.join(ForwardRelativePath::new("foo/bar")?));
     /// } else {
     ///     let abs_path = AbsPath::new("C:\\my")?;
-    ///     assert_eq!("C:\\my\\foo\\bar", abs_path.join_unnormalized(ForwardRelativePath::new("foo/bar")?).to_string());
+    ///     assert_eq!("C:\\my\\foo\\bar", abs_path.join(ForwardRelativePath::new("foo/bar")?).to_string());
     /// }
     /// # anyhow::Ok(())
     /// ```
-    pub fn join_unnormalized<P: AsRef<ForwardRelativePath>>(&self, path: P) -> AbsPathBuf {
+    pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> AbsPathBuf {
         if cfg!(windows) {
             AbsPathBuf(self.0.join(path.as_ref().as_str().replace('/', "\\")))
         } else {

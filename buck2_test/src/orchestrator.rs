@@ -550,12 +550,12 @@ impl BuckTestOrchestrator {
             .await?
             .require_compatible()?;
 
-        let output_root =
-            self.session
-                .prefix()
-                .join_unnormalized(ForwardRelativePathBuf::unchecked_new(
-                    Uuid::new_v4().to_string(),
-                ));
+        let output_root = self
+            .session
+            .prefix()
+            .join(ForwardRelativePathBuf::unchecked_new(
+                Uuid::new_v4().to_string(),
+            ));
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 

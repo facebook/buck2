@@ -380,9 +380,7 @@ impl EventLog {
         };
 
         let path = EventLogPathBuf {
-            path: logdir
-                .join_unnormalized(get_logfile_name(event, encoding))
-                .to_path_buf(),
+            path: logdir.join(get_logfile_name(event, encoding)).to_path_buf(),
             encoding,
         };
         let mut log_files = vec![open_event_log_for_writing(path, event.trace_id.dupe()).await?];

@@ -85,8 +85,7 @@ impl CellPackageBoundaryExceptions {
                     .iter()
                     .find(|p| package_subpath.starts_with(p))
                     .map(|p| {
-                        CellRelativePath::new(<&ForwardRelativePath>::from(package_prefix))
-                            .join_unnormalized(p)
+                        CellRelativePath::new(<&ForwardRelativePath>::from(package_prefix)).join(p)
                     });
             }
         }

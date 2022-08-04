@@ -203,18 +203,11 @@ impl BuckPathResolver {
     /// Resolves a 'BuckPath' into a 'ProjectRelativePath' based on the package
     /// and cell.
     pub fn resolve(&self, path: &BuckPath) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self
-            .0
-            .resolve_package(path.package())?
-            .join_unnormalized(&path.path()))
+        Ok(self.0.resolve_package(path.package())?.join(&path.path()))
     }
 
     pub fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self
-            .0
-            .get(path.cell())?
-            .path()
-            .join_unnormalized(path.path()))
+        Ok(self.0.get(path.cell())?.path().join(path.path()))
     }
 }
 
@@ -316,7 +309,7 @@ impl BaseDeferredKey {
             BaseDeferredKey::TargetLabel(target) => {
                 ForwardRelativePath::new(target.pkg().cell_name().as_str())
                     .unwrap()
-                    .join_unnormalized(target.pkg().cell_relative_path())
+                    .join(target.pkg().cell_relative_path())
             }
             BaseDeferredKey::BxlLabel(key) => {
                 let mut ret = ForwardRelativePathBuf::with_capacity(

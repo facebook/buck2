@@ -99,8 +99,8 @@ impl Materializer for ImmediateMaterializer {
                         ))?;
                     materialize_files(
                         copied_artifact.dest_entry.as_ref(),
-                        &self.fs.root.join_unnormalized(&copied_artifact.src),
-                        &self.fs.root.join_unnormalized(&copied_artifact.dest),
+                        &self.fs.root.join(&copied_artifact.src),
+                        &self.fs.root.join(&copied_artifact.dest),
                     )?;
                 }
                 Ok(())

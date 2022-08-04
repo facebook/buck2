@@ -832,11 +832,19 @@ mod tests {
             &CellName::unchecked_new("cell3".into())
         );
         assert_eq!(
-            cells.find(&cell2_path.join_unnormalized(ForwardRelativePath::new("fake/cell3")?))?,
+            cells.find(
+                &cell2_path
+                    .project_relative_path()
+                    .join(ForwardRelativePath::new("fake/cell3")?)
+            )?,
             &CellName::unchecked_new("cell2".into())
         );
         assert_eq!(
-            cells.find(&cell3_path.join_unnormalized(ForwardRelativePath::new("more/foo")?))?,
+            cells.find(
+                &cell3_path
+                    .project_relative_path()
+                    .join(ForwardRelativePath::new("more/foo")?)
+            )?,
             &CellName::unchecked_new("cell3".into())
         );
         assert_eq!(cells.find(ProjectRelativePath::new("blah")?).is_err(), true);
@@ -859,7 +867,9 @@ mod tests {
 
         assert_eq!(
             cells.get_cell_path(
-                &cell2_path.join_unnormalized(ForwardRelativePath::new("fake/cell3")?)
+                &cell2_path
+                    .project_relative_path()
+                    .join(ForwardRelativePath::new("fake/cell3")?)
             )?,
             CellPath::new(
                 CellName::unchecked_new("cell2".to_owned()),

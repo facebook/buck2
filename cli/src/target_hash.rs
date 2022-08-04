@@ -150,8 +150,7 @@ impl FileHasher for PathsAndContentsHasher {
                             let name = x.file_name.as_str();
                             res.extend(&name.len().to_be_bytes());
                             res.extend(name.as_bytes());
-                            hash_item(file_ops, &cell_path.join_unnormalized(&x.file_name), res)
-                                .await?;
+                            hash_item(file_ops, &cell_path.join(&x.file_name), res).await?;
                         }
                     }
                 },

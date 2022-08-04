@@ -148,13 +148,13 @@ impl Package {
         &self.0.0
     }
 
-    pub fn join_unnormalized(&self, path: &ForwardRelativePath) -> Self {
+    pub fn join(&self, path: &ForwardRelativePath) -> Self {
         if path.is_empty() {
             self.dupe()
         } else {
             Package::new(
                 self.as_cell_path().cell(),
-                &self.as_cell_path().path().join_unnormalized(path),
+                &self.as_cell_path().path().join(path),
             )
         }
     }

@@ -45,6 +45,6 @@ impl BuckPath {
     }
 
     pub fn to_cell_path(&self) -> CellPath {
-        self.pkg.as_cell_path().join_unnormalized(&self.path)
+        self.pkg.as_cell_path().join(&self.path)
     }
 }

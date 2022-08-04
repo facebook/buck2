@@ -34,7 +34,7 @@ impl CellRootPath {
 
     /// Join cell path and cell-relative path.
     pub fn join(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
-        self.0.join_unnormalized(path)
+        self.0.join(path)
     }
 
     /// To owned.

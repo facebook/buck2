@@ -89,10 +89,9 @@ impl Artifact {
 
         match self.0.into() {
             ArtifactKind::Base(a) => Self::new(a, Some(Arc::new(path.to_owned()))),
-            ArtifactKind::Projected(a) => Self::new(
-                a.base().dupe(),
-                Some(Arc::new(a.path().join_unnormalized(path))),
-            ),
+            ArtifactKind::Projected(a) => {
+                Self::new(a.base().dupe(), Some(Arc::new(a.path().join(path))))
+            }
         }
     }
 
@@ -241,7 +240,7 @@ impl DeclaredArtifact {
         Self {
             artifact: self.artifact.dupe(),
             projected_path: Some(Arc::new(match self.projected_path.as_ref() {
-                Some(existing_path) => existing_path.join_unnormalized(path),
+                Some(existing_path) => existing_path.join(path),
                 None => path.to_owned(),
             })),
         }
@@ -360,7 +359,7 @@ impl<'a> ArtifactPath<'a> {
         };
 
         let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(base_short_path.join_unnormalized(projected_path)),
+            Some(projected_path) => Cow::Owned(base_short_path.join(projected_path)),
             None => Cow::Borrowed(base_short_path),
         };
 
@@ -377,12 +376,12 @@ impl<'a> ArtifactPath<'a> {
                 buck.package()
                     .cell_relative_path()
                     .as_forward_relative_path()
-                    .join_unnormalized(buck.path()),
+                    .join(buck.path()),
             ),
         };
 
         let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(base_path.join_unnormalized(projected_path)),
+            Some(projected_path) => Cow::Owned(base_path.join(projected_path)),
             None => base_path,
         };
 

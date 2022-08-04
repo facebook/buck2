@@ -98,8 +98,7 @@ async fn path_artifact_value(
                 let mut entries = Vec::with_capacity(files.len());
                 for x in &*files {
                     let value =
-                        path_artifact_value(file_ops, &cell_path.join_unnormalized(&x.file_name))
-                            .await?;
+                        path_artifact_value(file_ops, &cell_path.join(&x.file_name)).await?;
                     entries.push((x.file_name.clone(), value));
                 }
                 let d: DirectoryData<_, _, _> = DirectoryData::new(entries.into_iter().collect());
@@ -172,17 +171,14 @@ impl Key for EnsureProjectedArtifactKey {
         let mut builder = ActionDirectoryBuilder::empty();
         insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
 
-        let value = extract_artifact_value(
-            &builder,
-            base_path.join_unnormalized(self.0.path()).as_ref(),
-        )?
-        .with_context(|| {
-            format!(
-                "The path `{}` does not exist in the artifact `{}`",
-                self.0.path(),
-                self.0.base()
-            )
-        })?;
+        let value = extract_artifact_value(&builder, base_path.join(self.0.path()).as_ref())?
+            .with_context(|| {
+                format!(
+                    "The path `{}` does not exist in the artifact `{}`",
+                    self.0.path(),
+                    self.0.base()
+                )
+            })?;
 
         Ok(value)
     }

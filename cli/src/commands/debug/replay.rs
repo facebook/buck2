@@ -99,5 +99,5 @@ pub(crate) fn retrieve_nth_recent_log(ctx: &CommandContext, n: usize) -> anyhow:
             num_logfiles: logfiles.len(),
         })?;
 
-    Ok(log_dir.join(chosen.path()))
+    Ok(log_dir.as_path().join(chosen.path()))
 }

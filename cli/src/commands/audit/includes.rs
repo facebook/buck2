@@ -252,7 +252,7 @@ impl AuditSubcommand for AuditIncludesCommand {
         let to_absolute_path = move |include: ImportPath| -> anyhow::Result<_> {
             let include = include.path();
             let cell = cells.get(include.cell())?;
-            let path = cell.path().join_unnormalized(include.path());
+            let path = cell.path().join(include.path());
             Ok(fs.resolve(&path))
         };
         let absolutize_paths = |paths: Vec<ImportPath>| -> SharedResult<Vec<AbsPathBuf>> {

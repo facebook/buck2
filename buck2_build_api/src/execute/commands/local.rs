@@ -115,7 +115,7 @@ impl LocalExecutor {
         env_inheritance: Option<&EnvironmentInheritance>,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let working_directory = match working_directory {
-            Some(d) => Cow::Owned(self.root.join_unnormalized(d)),
+            Some(d) => Cow::Owned(self.root.join(d)),
             None => Cow::Borrowed(&self.root),
         };
 
@@ -355,7 +355,7 @@ impl LocalExecutor {
         let mut entries = Vec::new();
         for output in request.outputs() {
             let path = output.resolve(&self.artifact_fs).into_path();
-            let abspath = self.root.join_unnormalized(&path);
+            let abspath = self.root.join(&path);
             let entry = self
                 .build_entry_from_disk(abspath.to_path_buf())
                 .with_context(|| format!("collecting output {:?}", path))?;

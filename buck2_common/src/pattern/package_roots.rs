@@ -123,8 +123,7 @@ async fn find_package_roots_impl<E>(
         // (due to having some huge things in an `apps/` dir).
         for entry in listing.iter().rev() {
             if entry.file_type.is_dir() {
-                let child =
-                    path.join_unnormalized(ForwardRelativePath::unchecked_new(&entry.file_name));
+                let child = path.join(ForwardRelativePath::unchecked_new(&entry.file_name));
                 if seen.insert(child.clone()) {
                     queue.push(list_dir(child));
                 }

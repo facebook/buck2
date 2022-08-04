@@ -310,9 +310,7 @@ impl ActionsRegistry {
                         .ordered_walk()
                         .with_paths()
                         .filter_map(|(p, i)| match i {
-                            DirectoryEntry::Leaf(_) => {
-                                Some(path.join_unnormalized(p).to_string().into())
-                            }
+                            DirectoryEntry::Leaf(_) => Some(path.join(p).to_string().into()),
                             _ => None,
                         })
                         .collect::<Vec<_>>();
@@ -361,7 +359,7 @@ impl ActionsRegistry {
     ) -> anyhow::Result<DeclaredArtifact> {
         let (path, hidden) = match prefix {
             None => (path, 0),
-            Some(prefix) => (prefix.join_unnormalized(path), prefix.iter().count()),
+            Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.soft_claim_output_path(&path)?;
         let mut out_path = BuckOutPath::with_hidden(self.owner.dupe(), path, hidden);

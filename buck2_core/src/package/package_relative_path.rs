@@ -134,15 +134,12 @@ impl PackageRelativePath {
     ///
     /// let path = PackageRelativePath::new("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
-    /// assert_eq!(PackageRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join_unnormalized(other));
+    /// assert_eq!(PackageRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join(other));
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn join_unnormalized<P: AsRef<ForwardRelativePath>>(
-        &self,
-        path: P,
-    ) -> PackageRelativePathBuf {
-        PackageRelativePathBuf(self.0.join_unnormalized(path.as_ref()))
+    pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> PackageRelativePathBuf {
+        PackageRelativePathBuf(self.0.join(path.as_ref()))
     }
 
     /// Returns a relative path of the parent directory

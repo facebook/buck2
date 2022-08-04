@@ -571,7 +571,7 @@ where
 
     let path = match relative_dir {
         Some(rel) if cell_alias.is_none() && (relative || package_path.is_empty()) => {
-            rel.join_unnormalized(package_path)
+            rel.join(package_path)
         }
         Some(rel)
             if rel.as_cell_path().cell() == cell

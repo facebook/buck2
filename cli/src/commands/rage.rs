@@ -77,7 +77,7 @@ impl StreamingCommand for RageCommand {
         let logs_summary = get_local_logs(&log_dir)?
             .into_iter()
             .rev() // newest first
-            .map(|log| log_dir.join(log.path()))
+            .map(|log| log_dir.as_path().join(log.path()))
             .map(|log_path| async move {
                 let log_path = EventLogPathBuf::infer(log_path.to_path_buf())?;
                 log_path.get_summary().await
@@ -118,7 +118,9 @@ impl StreamingCommand for RageCommand {
             )
         })?;
 
-        let this_dice_dump_folder = dice_dump_folder.join(Path::new(&dice_dump_folder_name));
+        let this_dice_dump_folder = dice_dump_folder
+            .as_path()
+            .join(Path::new(&dice_dump_folder_name));
 
         crate::eprintln!("Dumping Buck2 internal state...")?;
 

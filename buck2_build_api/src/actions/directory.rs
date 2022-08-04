@@ -550,7 +550,7 @@ pub fn expand_selector_for_dependencies(
                     _ => continue,
                 };
 
-                let link_path = entry_path.get().join_unnormalized(sub_entry_path.get());
+                let link_path = entry_path.get().join(sub_entry_path.get());
                 handle_link_at_path(&link_path, link);
             }
         }

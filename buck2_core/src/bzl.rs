@@ -88,7 +88,7 @@ impl ImportPath {
         let cell_path = CellPath::new(
             CellName::unchecked_new(cell.to_owned()),
             CellRelativePath::unchecked_new(cell_relative_path)
-                .join_unnormalized(FileName::unchecked_new(filename)),
+                .join(FileName::unchecked_new(filename)),
         );
         Self::unverified_new(
             cell_path,

@@ -64,16 +64,13 @@ impl CellPath {
     /// let other = ForwardRelativePath::new("baz")?;
     /// assert_eq!(
     ///     CellPath::new(CellName::unchecked_new("cell".into()),
-    ///     CellRelativePathBuf::unchecked_new("foo/bar/baz".into())), path.join_unnormalized(other)
+    ///     CellRelativePathBuf::unchecked_new("foo/bar/baz".into())), path.join(other)
     /// );
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn join_unnormalized<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
-        CellPath::new(
-            self.cell.clone(),
-            self.path.join_unnormalized(path.as_ref()),
-        )
+    pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
+        CellPath::new(self.cell.clone(), self.path.join(path.as_ref()))
     }
 
     /// Returns a relative path of the parent directory

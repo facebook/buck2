@@ -519,8 +519,7 @@ impl ProjectFilesystem {
             let file = file?;
             let filetype = file.file_type()?;
             let src_file = AbsPathBuf::try_from(file.path())?;
-            let dest_file =
-                dest_dir.join_unnormalized(ForwardRelativePath::new(&file.file_name())?);
+            let dest_file = dest_dir.join(ForwardRelativePath::new(&file.file_name())?);
             if filetype.is_dir() {
                 Self::copy_dir(&src_file, &dest_file)?;
             } else if filetype.is_symlink() {
@@ -604,15 +603,12 @@ impl ProjectRelativePath {
     ///
     /// let path = ProjectRelativePath::new("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
-    /// assert_eq!(ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join_unnormalized(other));
+    /// assert_eq!(ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join(other));
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn join_unnormalized<P: AsRef<ForwardRelativePath>>(
-        &self,
-        path: P,
-    ) -> ProjectRelativePathBuf {
-        ProjectRelativePathBuf(self.0.join_unnormalized(path.as_ref()))
+    pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> ProjectRelativePathBuf {
+        ProjectRelativePathBuf(self.0.join(path.as_ref()))
     }
 
     /// Returns a relative path of the parent directory
@@ -1294,7 +1290,7 @@ mod tests {
 
         let target1 = ProjectRelativePath::new("foo1/bar1/target")?;
         let target2 = ProjectRelativePath::new("foo2/bar")?;
-        let file = target2.join_unnormalized(ForwardRelativePath::new("file")?);
+        let file = target2.join(ForwardRelativePath::new("file")?);
 
         let dest1 = ProjectRelativePath::new("foo1/target-link")?;
         let dest2 = ProjectRelativePath::new("foo1/bar2/target")?;
@@ -1332,12 +1328,12 @@ mod tests {
         let contents4 = fs::read_to_string(
             &fs.path
                 .resolve(dest4)
-                .join_unnormalized(ForwardRelativePath::new("file")?),
+                .join(ForwardRelativePath::new("file")?),
         )?;
         let contents5 = fs::read_to_string(
             &fs.path
                 .resolve(dest5)
-                .join_unnormalized(ForwardRelativePath::new("file")?),
+                .join(ForwardRelativePath::new("file")?),
         )?;
 
         assert_eq!(dest1_expected, dest1_value);

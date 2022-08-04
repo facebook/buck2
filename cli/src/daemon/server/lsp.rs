@@ -103,11 +103,9 @@ impl BuckLspContext {
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         match ForwardRelativePath::new(literal) {
             Ok(package_relative) => {
-                let relative_path = self.cell_resolver.resolve_path(
-                    current_package
-                        .join_unnormalized(package_relative)
-                        .as_cell_path(),
-                )?;
+                let relative_path = self
+                    .cell_resolver
+                    .resolve_path(current_package.join(package_relative).as_cell_path())?;
 
                 let path = self.fs.resolve(&relative_path);
                 let url = Url::from_file_path(path).unwrap();
@@ -142,7 +140,7 @@ impl BuckLspContext {
                         let relative_path = self
                             .cell_resolver
                             .resolve_package(&package)?
-                            .join_unnormalized(listing.buildfile());
+                            .join(listing.buildfile());
                         let path = self.fs.resolve(&relative_path);
                         let url = Url::from_file_path(path).unwrap();
                         let string_literal = StringLiteralResult {

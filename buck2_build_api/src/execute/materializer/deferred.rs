@@ -340,7 +340,7 @@ impl Materializer for DeferredMaterializer {
                         let src = if path.as_str().is_empty() {
                             copied_artifact.src.clone()
                         } else {
-                            copied_artifact.src.join_unnormalized(&path)
+                            copied_artifact.src.join(&path)
                         };
                         srcs_tree.insert(dest_iter, src);
                     }
@@ -929,8 +929,8 @@ impl DeferredMaterializerCommandProcessor {
                         for a in copied_artifacts {
                             materialize_files(
                                 a.dest_entry.as_ref(),
-                                &self.fs.root.join_unnormalized(&a.src),
-                                &self.fs.root.join_unnormalized(&a.dest),
+                                &self.fs.root.join(&a.src),
+                                &self.fs.root.join(&a.dest),
                             )?;
                         }
                         Ok(())
@@ -1185,7 +1185,7 @@ impl<V: 'static> FileTree<V> {
             Some(tree) => box tree
                 .into_iter()
                 .with_paths()
-                .map(move |(k, v)| ((&path).join_unnormalized(k), v)),
+                .map(move |(k, v)| ((&path).join(k), v)),
             None => box std::iter::empty(),
         }
     }

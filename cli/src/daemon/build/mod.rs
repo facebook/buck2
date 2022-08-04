@@ -191,6 +191,7 @@ pub(crate) async fn build(
         if !build_opts.unstable_build_report_filename.is_empty() {
             let file = File::create(
                 fs.resolve(cwd)
+                    .as_path()
                     .join(build_opts.unstable_build_report_filename),
             )?;
             serde_json::to_writer_pretty(&file, &report)?

@@ -263,7 +263,11 @@ async fn targets_show_outputs(
             };
             match root_path {
                 Some(root) => {
-                    crate::println!("{} {}", target_paths.target, root.join(path).display())
+                    crate::println!(
+                        "{} {}",
+                        target_paths.target,
+                        root.as_path().join(path).display()
+                    )
                 }
                 None => crate::println!("{} {}", target_paths.target, path),
             }?;

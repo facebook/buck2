@@ -107,7 +107,7 @@ pub fn parse_import_with_config(
                                 import.to_owned(),
                             )
                         })?;
-                        Ok(current_dir.join_unnormalized(rel_path))
+                        Ok(current_dir.join(rel_path))
                     } else {
                         Err(anyhow!(ImportParseError::ProhibitedRelativeImport(
                             import.to_owned()
@@ -133,7 +133,7 @@ pub fn parse_import_with_config(
 
             if path.is_empty() {
                 if opts.allow_relative_imports {
-                    Ok(current_dir.join_unnormalized(filename))
+                    Ok(current_dir.join(filename))
                 } else {
                     Err(anyhow!(ImportParseError::ProhibitedRelativeImport(
                         import.to_owned()
@@ -146,7 +146,7 @@ pub fn parse_import_with_config(
                 let cell = cell_resolver.resolve(alias)?;
                 Ok(CellPath::new(
                     cell.clone(),
-                    <&CellRelativePath>::try_from(cell_relative_path)?.join_unnormalized(filename),
+                    <&CellRelativePath>::try_from(cell_relative_path)?.join(filename),
                 ))
             }
         }
@@ -188,8 +188,7 @@ mod tests {
     fn path(cell: &str, dir: &str, filename: &str) -> CellPath {
         CellPath::new(
             CellName::unchecked_new(cell.to_owned()),
-            CellRelativePath::unchecked_new(dir)
-                .join_unnormalized(FileName::unchecked_new(filename)),
+            CellRelativePath::unchecked_new(dir).join(FileName::unchecked_new(filename)),
         )
     }
 

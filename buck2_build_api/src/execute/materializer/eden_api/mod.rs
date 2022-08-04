@@ -87,7 +87,7 @@ fn read_eden_config(config_path: &Path) -> Result<EdenConfig, SetupBuckOutError>
 }
 
 pub fn is_recas_eden_mount(buck_out: &AbsPathBuf) -> Result<bool, SetupBuckOutError> {
-    let config_path = buck_out.join(".eden/client/config.toml");
+    let config_path = buck_out.as_path().join(".eden/client/config.toml");
     if fs::metadata(&config_path).is_err() {
         return Ok(false);
     }
@@ -125,7 +125,7 @@ fn execute_eden_clone(buck_out: &AbsPathBuf) -> Result<(), SetupBuckOutError> {
 }
 
 fn is_path_redirect(buck_out: &AbsPathBuf, path: &str) -> Result<bool, SetupBuckOutError> {
-    let config_path = buck_out.join(".eden/client/config.toml");
+    let config_path = buck_out.as_path().join(".eden/client/config.toml");
     if fs::metadata(&config_path).is_err() {
         return Ok(false);
     }

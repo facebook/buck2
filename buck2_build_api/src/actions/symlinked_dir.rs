@@ -195,7 +195,7 @@ impl PristineActionExecutable for SymlinkedDirAction {
                 .context("Input did not dereference to exactly one artifact")?;
 
             let src = ctx.fs().resolve(src_artifact)?;
-            let dest = output.join_unnormalized(ForwardRelativePath::new(dest)?);
+            let dest = output.join(ForwardRelativePath::new(dest)?);
 
             if self.copy {
                 let dest_entry = builder.add_copied(value, src.as_ref(), dest.as_ref())?;

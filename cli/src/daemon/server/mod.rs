@@ -781,8 +781,8 @@ impl DaemonState {
             Some(
                 paths
                     .project_root()
-                    .join_unnormalized(paths.buck_out_dir())
-                    .join_unnormalized(ForwardRelativePathBuf::unchecked_new("re_logs".to_owned()))
+                    .join(paths.buck_out_dir())
+                    .join(ForwardRelativePathBuf::unchecked_new("re_logs".to_owned()))
                     .to_string(),
             ),
         ));
@@ -878,7 +878,7 @@ impl DaemonState {
                     use buck2_build_api::execute::materializer::eden::EdenMaterializer;
                     use buck2_build_api::execute::materializer::eden_api::EdenBuckOut;
 
-                    let buck_out_mount = fs.root.join_unnormalized(&buck_out_path);
+                    let buck_out_mount = fs.root.join(&buck_out_path);
 
                     Ok(Arc::new(
                         EdenMaterializer::new(

@@ -60,10 +60,7 @@ impl Paths {
             let stripped_path = ForwardRelativePathNormalizer::normalize_path(
                 self.roots.project_root.strip_windows_prefix()?,
             )?;
-            Cow::Owned(
-                ForwardRelativePathNormalizer::normalize_path(&prefix)?
-                    .join_unnormalized(stripped_path),
-            )
+            Cow::Owned(ForwardRelativePathNormalizer::normalize_path(&prefix)?.join(stripped_path))
         };
         #[cfg(not(windows))]
         let root_relative: Cow<ForwardRelativePath> = self
@@ -120,22 +117,20 @@ impl Paths {
 
     pub(crate) fn log_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
-            .join_unnormalized(ForwardRelativePath::unchecked_new("log"))
+            .join(ForwardRelativePath::unchecked_new("log"))
     }
 
     pub(crate) fn dice_dump_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
-            .join_unnormalized(ForwardRelativePath::unchecked_new("dice_dump"))
+            .join(ForwardRelativePath::unchecked_new("dice_dump"))
     }
 
     pub(crate) fn buck_out_dir(&self) -> ForwardRelativePathBuf {
-        ForwardRelativePath::unchecked_new("buck-out").join_unnormalized(&self.isolation)
+        ForwardRelativePath::unchecked_new("buck-out").join(&self.isolation)
     }
 
     pub(crate) fn buck_out_path(&self) -> AbsPathBuf {
-        self.roots
-            .project_root
-            .join_unnormalized(&self.buck_out_dir())
+        self.roots.project_root.join(&self.buck_out_dir())
     }
 }
 

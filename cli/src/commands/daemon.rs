@@ -250,9 +250,9 @@ impl DaemonCommand {
     ) -> anyhow::Result<()> {
         let project_root = ctx.paths()?.project_root();
         let daemon_dir = ctx.paths()?.daemon_dir()?;
-        let stdout_path = daemon_dir.join_unnormalized(ForwardRelativePath::new("buckd.stdout")?);
-        let stderr_path = daemon_dir.join_unnormalized(ForwardRelativePath::new("buckd.stderr")?);
-        let pid_path = daemon_dir.join_unnormalized(ForwardRelativePath::new("buckd.pid")?);
+        let stdout_path = daemon_dir.join(ForwardRelativePath::new("buckd.stdout")?);
+        let stderr_path = daemon_dir.join(ForwardRelativePath::new("buckd.stderr")?);
+        let pid_path = daemon_dir.join(ForwardRelativePath::new("buckd.pid")?);
 
         if !daemon_dir.is_dir() {
             fs::create_dir_all(daemon_dir)?;

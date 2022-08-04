@@ -205,7 +205,7 @@ impl Uploader {
                             upload_blobs.push(directory_to_blob(d));
                         }
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) => {
-                            upload_file_paths.push(dir_path.join_unnormalized(path.get()));
+                            upload_file_paths.push(dir_path.join(path.get()));
                             upload_file_digests.push(digest.to_re());
                         }
                         DirectoryEntry::Leaf(..) => unreachable!(), // TODO: Better representation of this.

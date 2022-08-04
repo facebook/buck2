@@ -146,7 +146,7 @@ impl ForwardRelativePath {
     /// # anyhow::Ok(())
     /// ```
     pub fn resolve<P: AsRef<AbsPath>>(&self, relative_to: P) -> AbsPathBuf {
-        relative_to.as_ref().join_unnormalized(self)
+        relative_to.as_ref().join(self)
     }
 
     pub fn as_str(&self) -> &str {
@@ -169,14 +169,11 @@ impl ForwardRelativePath {
     ///
     /// let path = ForwardRelativePath::new("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
-    /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join_unnormalized(other));
+    /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join(other));
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn join_unnormalized<P: AsRef<ForwardRelativePath>>(
-        &self,
-        path: P,
-    ) -> ForwardRelativePathBuf {
+    pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> ForwardRelativePathBuf {
         let path = path.as_ref();
         if self.0.is_empty() {
             path.to_buf()

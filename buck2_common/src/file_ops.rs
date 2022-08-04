@@ -441,9 +441,7 @@ pub trait DefaultFileOpsDelegate: PartialEq + Send + Sync + 'static {
     fn resolve_cell_root(&self, cell: &CellName) -> anyhow::Result<CellRootPathBuf>;
     fn resolve(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
         let cell_root = self.resolve_cell_root(path.cell())?;
-        Ok(cell_root
-            .project_relative_path()
-            .join_unnormalized(path.path()))
+        Ok(cell_root.project_relative_path().join(path.path()))
     }
     fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath>;
     fn io_provider(&self) -> &dyn IoProvider;
@@ -471,7 +469,7 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
             .with_context(|| format!("Error listing dir `{}`", path))?;
 
         let is_ignored = |entry: &SimpleDirEntry| {
-            let entry_path = path.join_unnormalized(&entry.file_name);
+            let entry_path = path.join(&entry.file_name);
             let is_ignored = DefaultFileOpsDelegate::check_ignored(self, &entry_path)?.is_ignored();
             anyhow::Ok(is_ignored)
         };

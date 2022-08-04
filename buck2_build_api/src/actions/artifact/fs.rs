@@ -57,7 +57,7 @@ impl ArtifactFs {
         };
 
         Ok(match projected_path {
-            Some(projected_path) => base_path.join_unnormalized(projected_path),
+            Some(projected_path) => base_path.join(projected_path),
             None => base_path,
         })
     }

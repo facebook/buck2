@@ -60,17 +60,17 @@ impl EdenConnectionManager {
         root: &AbsPathBuf,
         semaphore: Semaphore,
     ) -> anyhow::Result<Option<Self>> {
-        let eden_root = root.join(".eden");
+        let eden_root = root.as_path().join(".eden");
         if !eden_root.exists() {
             return Ok(None);
         }
-        let root = fs::read_link(eden_root.join("root"))?
+        let root = fs::read_link(eden_root.as_path().join("root"))?
             .to_str()
             .context("Eden root is not UTF-8")?
             .to_owned();
         let root = Arc::new(root);
 
-        let socket = fs::read_link(eden_root.join("socket"))?;
+        let socket = fs::read_link(eden_root.as_path().join("socket"))?;
 
         let connector = EdenConnector { fb, root, socket };
 

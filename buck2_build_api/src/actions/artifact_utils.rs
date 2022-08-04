@@ -208,7 +208,7 @@ where
             // `dest` itself is a file
             Some(src.to_buf())
         } else {
-            Some(src.join_unnormalized(subpath))
+            Some(src.join(subpath))
         }
     };
     materialize(entry, dest, false, file_src)
