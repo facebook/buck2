@@ -35,11 +35,7 @@ load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load(
-    ":cxx_context.bzl",
-    "CxxContext",  # @unused Used as a type
-    "ctx_to_cxx_context",
-)
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
 load(":cxx_library.bzl", "cxx_library_parameterized")
 load(
@@ -47,6 +43,7 @@ load(
     "cxx_attr_exported_deps",
     "cxx_attr_exported_linker_flags",
     "cxx_attr_exported_post_linker_flags",
+    "cxx_attr_preferred_linkage",
     "cxx_inherited_link_info",
     "cxx_mk_shlib_intf",
     "cxx_platform_supported",
@@ -91,7 +88,7 @@ cxx_link_into_shared_library = _cxx_link_into_shared_library
 
 # The source files
 def get_srcs_with_flags(ctx: "context") -> [CxxSrcWithFlags.type]:
-    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx_to_cxx_context(ctx), ctx.attrs.platform_srcs))
+    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs))
 
     # src -> flags_hash -> flags
     flags_sets_by_src = {}
@@ -162,7 +159,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
     ]
 
 def _prebuilt_item(
-        cxx_context: CxxContext.type,
+        ctx: "context",
         item: ["", None],
         platform_items: [[(str.type, "_a")], None]) -> ["_a", None]:
     """
@@ -174,16 +171,16 @@ def _prebuilt_item(
         return item
 
     if platform_items != None:
-        items = cxx_by_platform(cxx_context, platform_items)
+        items = cxx_by_platform(ctx, platform_items)
         if len(items) == 0:
             return None
         if len(items) != 1:
-            fail("expected single platform match: name={}//{}:{}, platform_items={}, items={}".format(cxx_context.label.cell, cxx_context.label.package, cxx_context.label.name, str(platform_items), str(items)))
+            fail("expected single platform match: name={}//{}:{}, platform_items={}, items={}".format(ctx.label.cell, ctx.label.package, ctx.label.name, str(platform_items), str(items)))
         return items[0]
 
     return None
 
-def _prebuilt_linkage(ctx: "context", cxx_context: CxxContext.type) -> Linkage.type:
+def _prebuilt_linkage(ctx: "context") -> Linkage.type:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
@@ -191,7 +188,7 @@ def _prebuilt_linkage(ctx: "context", cxx_context: CxxContext.type) -> Linkage.t
         return Linkage("any")
     if ctx.attrs.force_static:
         return Linkage("static")
-    preferred_linkage = cxx_context.preferred_linkage
+    preferred_linkage = cxx_attr_preferred_linkage(ctx)
     if preferred_linkage != Linkage("any"):
         return preferred_linkage
     if ctx.attrs.provided:
@@ -209,55 +206,54 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     expect(not ctx.attrs.versioned_static_lib)
     expect(not ctx.attrs.versioned_static_pic_lib)
 
-    cxx_context = ctx_to_cxx_context(ctx)
-    if not cxx_platform_supported(cxx_context):
+    if not cxx_platform_supported(ctx):
         return [DefaultInfo(default_outputs = [])]
 
     providers = []
 
-    linker_type = cxx_context.cxx_toolchain_info.linker_info.type
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
 
     # Parse library parameters.
     static_lib = _prebuilt_item(
-        cxx_context,
+        ctx,
         ctx.attrs.static_lib,
         ctx.attrs.platform_static_lib,
     )
     static_pic_lib = _prebuilt_item(
-        cxx_context,
+        ctx,
         ctx.attrs.static_pic_lib,
         ctx.attrs.platform_static_pic_lib,
     )
     shared_lib = _prebuilt_item(
-        cxx_context,
+        ctx,
         ctx.attrs.shared_lib,
         ctx.attrs.platform_shared_lib,
     )
     header_dirs = _prebuilt_item(
-        cxx_context,
+        ctx,
         ctx.attrs.header_dirs,
         ctx.attrs.platform_header_dirs,
     )
-    soname = value_or(ctx.attrs.soname, get_shared_library_name(linker_type, cxx_context.label.name))
-    preferred_linkage = _prebuilt_linkage(ctx, cxx_context)
+    soname = value_or(ctx.attrs.soname, get_shared_library_name(linker_type, ctx.label.name))
+    preferred_linkage = _prebuilt_linkage(ctx)
 
     first_order_deps = cxx_attr_exported_deps(ctx)
 
     # Exported preprocessor info.
     inherited_pp_infos = cxx_inherited_preprocessor_infos(first_order_deps)
-    generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_context, cxx_get_regular_cxx_headers_layout(ctx), [])
+    generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), [])
     args = cxx_attr_exported_preprocessor_flags(ctx)
     if header_dirs != None:
         for x in header_dirs:
             args += ["-isystem", x]
     specific_exportd_pre = CPreprocessor(args = args)
     providers.append(cxx_merge_cpreprocessors(
-        cxx_context.actions,
+        ctx,
         [generic_exported_pre, specific_exportd_pre],
         inherited_pp_infos,
     ))
 
-    inherited_link = cxx_inherited_link_info(cxx_context.actions, first_order_deps)
+    inherited_link = cxx_inherited_link_info(ctx, first_order_deps)
     exported_linker_flags = cxx_attr_exported_linker_flags(ctx)
 
     # Gather link infos, outputs, and shared libs for effective link style.
@@ -306,7 +302,6 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
                         shared_lib = cxx_link_into_shared_library(
                             ctx,
-                            cxx_context,
                             soname,
                             [
                                 LinkArgs(flags = shlink_args),
@@ -335,7 +330,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
                         # Generate a shared library interface if the rule supports it.
                         if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
-                            shared_lib_for_linking = cxx_mk_shlib_intf(ctx, cxx_context, ctx.attrs.name, shared_lib.output)
+                            shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attrs.name, shared_lib.output)
                         linkable = SharedLibLinkable(lib = shared_lib_for_linking)
 
                     # Provided means something external to the build will provide
@@ -355,7 +350,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         )
 
     # Create the default ouput for the library rule given it's link style and preferred linkage
-    link_style = cxx_context.cxx_toolchain_info.linker_info.link_style
+    link_style = get_cxx_toolchain_info(ctx).linker_info.link_style
     actual_link_style = get_actual_link_style(link_style, preferred_linkage)
     output = outputs[actual_link_style]
     providers.append(DefaultInfo(default_outputs = output))
@@ -372,13 +367,13 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
     # Propagate shared libraries up the tree.
     providers.append(merge_shared_libraries(
-        cxx_context.actions,
+        ctx.actions,
         create_shared_libraries(ctx, solibs),
         filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
     ))
 
     # Create, augment and provide the linkable graph.
-    linkable_graph = create_merged_linkable_graph(cxx_context.label, first_order_deps)
+    linkable_graph = create_merged_linkable_graph(ctx.label, first_order_deps)
     add_linkable_node(
         linkable_graph,
         ctx,
@@ -416,10 +411,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
 def cxx_precompiled_header_impl(ctx: "context") -> ["provider"]:
     inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
-    inherited_link = cxx_inherited_link_info(ctx.actions, ctx.attrs.deps)
+    inherited_link = cxx_inherited_link_info(ctx, ctx.attrs.deps)
     return [
         DefaultInfo(default_outputs = [ctx.attrs.src]),
-        cxx_merge_cpreprocessors(ctx.actions, [], inherited_pp_infos),
+        cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
         inherited_link,
         CPrecompiledHeaderInfo(header = ctx.attrs.src),
     ]

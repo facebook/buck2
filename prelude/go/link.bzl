@@ -39,7 +39,7 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
 
     # Gather external link args from deps.
     ext_links = get_link_args(
-        cxx_inherited_link_info(ctx.actions, deps),
+        cxx_inherited_link_info(ctx, deps),
         # TODO: support other link styles?
         LinkStyle("static"),
     )

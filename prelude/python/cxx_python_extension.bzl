@@ -18,10 +18,6 @@ load(
     "get_srcs_with_flags",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
-    "ctx_to_cxx_context",
-)
-load(
     "@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
     "cxx_attr_linker_flags",
@@ -79,24 +75,22 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     link_flags = cxx_attr_linker_flags(ctx)
 
     # Gather preprocessor inputs.
-    cxx_context = ctx_to_cxx_context(ctx)
     (own_pre, _) = cxx_private_preprocessor_info(
         ctx,
-        cxx_context,
         impl_params.headers_layout,
         raw_headers = ctx.attrs.raw_headers,
     )
     inherited_pre = cxx_inherited_preprocessor_infos(cxx_deps)
 
     # Compile objects.
-    compile_cmd_output = create_compile_cmds(ctx, cxx_context, impl_params, [own_pre], inherited_pre)
-    objects = compile_cxx(ctx, cxx_context, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
+    compile_cmd_output = create_compile_cmds(ctx, impl_params, [own_pre], inherited_pre)
+    objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
 
     # The name of the extension.
     name = value_or(ctx.attrs.module_name, ctx.label.name) + ".so"
 
     # Compilation DB.
-    comp_db = create_compilation_database(cxx_context, compile_cmd_output.source_commands.src_compile_cmds)
+    comp_db = create_compilation_database(ctx, compile_cmd_output.source_commands.src_compile_cmds)
     sub_targets["compilation-database"] = [comp_db]
 
     # Link extension.
@@ -105,10 +99,9 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     # TODO(agallagher): Support post link flags properly.
     args.extend(link_flags)
     args.extend(objects)
-    inherited_link = cxx_inherited_link_info(cxx_context.actions, cxx_deps)
+    inherited_link = cxx_inherited_link_info(ctx, cxx_deps)
     extension = cxx_link_into_shared_library(
         ctx,
-        cxx_context,
         name,
         [
             LinkArgs(flags = args),

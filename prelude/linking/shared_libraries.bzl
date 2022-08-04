@@ -1,7 +1,4 @@
-load(
-    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
-    "ctx_to_cxx_context",
-)
+load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
@@ -49,7 +46,8 @@ def create_shared_libraries(
         libraries = {name: SharedLibrary(
             lib = shlib,
             stripped_lib = strip_shared_library(
-                ctx_to_cxx_context(ctx),
+                ctx,
+                cxx_toolchain[CxxToolchainInfo],
                 shlib.output,
                 cmd_args(["--strip-unneeded"]),
             ) if cxx_toolchain != None else None,

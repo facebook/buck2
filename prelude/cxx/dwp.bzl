@@ -1,12 +1,12 @@
 load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
-load(":cxx_context.bzl", "CxxContext")  # @unused Used as a type
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def dwp_available(cxx_context: CxxContext.type):
-    dwp = cxx_context.cxx_toolchain_info.binary_utilities_info.dwp
+def dwp_available(ctx: "context"):
+    dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
     return dwp != None
 
 def run_dwp_action(
-        cxx_context: CxxContext.type,
+        ctx: "context",
         obj: "artifact",
         identifier: [str.type, None],
         category_suffix: [str.type, None],
@@ -15,7 +15,7 @@ def run_dwp_action(
         local_only: bool.type,
         allow_huge_dwp: bool.type = False):
     args = cmd_args()
-    dwp = cxx_context.cxx_toolchain_info.binary_utilities_info.dwp
+    dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
     args.add("/bin/sh", "-c", '"$1" {}-o "$2" -e "$3" && touch "$2"'.format("--continue-on-cu-index-overflow " if allow_huge_dwp else ""), "")
     args.add(dwp, dwp_output.as_output(), obj)
 
@@ -27,7 +27,7 @@ def run_dwp_action(
     if category_suffix != None:
         category += "_" + category_suffix
 
-    cxx_context.actions.run(
+    ctx.actions.run(
         args,
         category = category,
         identifier = identifier,
@@ -36,7 +36,6 @@ def run_dwp_action(
 
 def dwp(
         ctx: "context",
-        cxx_context: CxxContext.type,
         # Executable/library to extra dwo paths from.
         obj: "artifact",
         # An identifier that will uniquely name this link action in the context of a category. Useful for
@@ -55,9 +54,9 @@ def dwp(
         # dwp file. allow_huge_dwp will toggle option to turn error to warning.
         allow_huge_dwp: bool.type = False) -> "artifact":
     # gdb/lldb expect to find a file named $file.dwp next to $file.
-    output = cxx_context.actions.declare_output(obj.short_path + ".dwp")
+    output = ctx.actions.declare_output(obj.short_path + ".dwp")
     run_dwp_action(
-        cxx_context,
+        ctx,
         obj,
         identifier,
         category_suffix,

@@ -30,7 +30,7 @@ load(
     "topo_sort",
 )
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
-load(":cxx_context.bzl", "CxxContext")  # @unused Used as a type
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":linker.bzl",
     "get_default_shared_library_name",
@@ -104,18 +104,17 @@ def add_omnibus_roots(
         if dep[NativeLinkTargetInfo]:
             graph.roots[dep.label] = dep[NativeLinkTargetInfo]
 
-def _omnibus_soname(cxx_context: CxxContext.type):
-    linker_type = cxx_context.cxx_toolchain_info.linker_info.type
+def _omnibus_soname(ctx):
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     return get_shared_library_name(linker_type, "omnibus")
 
-def _create_dummy_omnibus(ctx: "context", cxx_context: CxxContext.type, extra_ldflags: [""] = []) -> "artifact":
-    linker_type = cxx_context.cxx_toolchain_info.linker_info.type
-    output = cxx_context.actions.declare_output(get_shared_library_name(linker_type, "omnibus-dummy"))
+def _create_dummy_omnibus(ctx: "context", extra_ldflags: [""] = []) -> "artifact":
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+    output = ctx.actions.declare_output(get_shared_library_name(linker_type, "omnibus-dummy"))
     cxx_link_shared_library(
         ctx,
-        cxx_context,
         output,
-        name = _omnibus_soname(cxx_context),
+        name = _omnibus_soname(ctx),
         links = [LinkArgs(flags = extra_ldflags)],
         category_suffix = "dummy_omnibus",
     )
@@ -151,7 +150,6 @@ def _all_deps(
 
 def _create_root(
         ctx: "context",
-        cxx_context: CxxContext.type,
         spec: OmnibusSpec.type,
         root: NativeLinkTargetInfo.type,
         output: "artifact",
@@ -168,7 +166,7 @@ def _create_root(
     # Since we're linking against a dummy omnibus which has no symbols, we need
     # to make sure the linker won't drop it from the link or complain about
     # missing symbols.
-    linker_type = cxx_context.cxx_toolchain_info.linker_info.type
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     inputs.append(LinkInfo(
         pre_flags =
             get_no_as_needed_shared_libs_flags(linker_type) +
@@ -221,7 +219,6 @@ def _create_root(
     # link the rule
     return cxx_link_shared_library(
         ctx,
-        cxx_context,
         output,
         name = root.name,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
@@ -234,21 +231,21 @@ def _create_root(
     )
 
 def _create_undefined_symbols_argsfile(
-        cxx_context: CxxContext.type,
+        ctx: "context",
         symbol_files: ["artifact"],
         prefer_local: bool.type = False) -> "artifact":
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
     to the linker to mark these symbols as undefined (e.g. `-m`).
     """
-    all_symbol_files = cxx_context.actions.write("__undefined_symbols__.srcs", symbol_files)
+    all_symbol_files = ctx.actions.write("__undefined_symbols__.srcs", symbol_files)
     all_symbol_files = cmd_args(all_symbol_files).hidden(symbol_files)
-    output = cxx_context.actions.declare_output("__undefined_symbols__.argsfile")
+    output = ctx.actions.declare_output("__undefined_symbols__.argsfile")
     script = (
         "set -euo pipefail; " +
         'xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | sed "s/^/-u/" > $2'
     )
-    cxx_context.actions.run(
+    ctx.actions.run(
         [
             "/bin/bash",
             "-c",
@@ -263,7 +260,7 @@ def _create_undefined_symbols_argsfile(
     return output
 
 def _extract_global_symbols_from_link_args(
-        cxx_context: CxxContext.type,
+        ctx: "context",
         name: str.type,
         link_args: [["artifact", "resolved_macro", "cmd_args", str.type]],
         prefer_local: bool.type = False) -> "artifact":
@@ -275,12 +272,12 @@ def _extract_global_symbols_from_link_args(
     # TODO(T110378137): This is ported from D24065414, but it might make sense
     # to explicitly tell Buck about the global symbols, rather than us trying to
     # extract it from linker flags (which is brittle).
-    output = cxx_context.actions.declare_output(name)
+    output = ctx.actions.declare_output(name)
 
     # We intentionally drop the artifacts referenced in the args when generating
     # the argsfile -- we just want to parse out symbol name flags and don't need
     # to materialize artifacts to do this.
-    argsfile, macros = cxx_context.actions.write(name + ".args", link_args, allow_args = True)
+    argsfile, macros = ctx.actions.write(name + ".args", link_args, allow_args = True)
 
     # TODO(T110378133): Make this work with other platforms.
     param = "--export-dynamic-symbol"
@@ -294,7 +291,7 @@ def _extract_global_symbols_from_link_args(
         'cat "$@" | (grep -- \'{0}\' || [[ $? == 1 ]]) | sed \'s|{0}|\\2|\' | LC_ALL=C sort -S 10% -u > {{}}'
             .format(pattern)
     )
-    cxx_context.actions.run(
+    ctx.actions.run(
         [
             "/bin/bash",
             "-c",
@@ -317,7 +314,7 @@ echo "};" >> "$2"
 """
 
 def _create_global_symbols_version_script(
-        cxx_context: CxxContext.type,
+        ctx: "context",
         roots: ["artifact"],
         excluded: ["artifact"],
         link_args: [["artifact", "resolved_macro", "cmd_args", str.type]]) -> "artifact":
@@ -331,7 +328,7 @@ def _create_global_symbols_version_script(
     # path of incremental flows (e.g. that only update a single root).
     global_symbols_files = [
         extract_symbol_names(
-            cxx_context,
+            ctx,
             root.basename + ".global_syms.txt",
             [root],
             dynamic = True,
@@ -346,7 +343,7 @@ def _create_global_symbols_version_script(
     # We should probably split this up and operate on individual libs.
     if excluded:
         global_symbols_files.append(extract_symbol_names(
-            cxx_context,
+            ctx,
             "__excluded_libs__.global_syms.txt",
             excluded,
             dynamic = True,
@@ -356,15 +353,15 @@ def _create_global_symbols_version_script(
 
     # Extract explicitly globalized symbols from linker args.
     global_symbols_files.append(_extract_global_symbols_from_link_args(
-        cxx_context,
+        ctx,
         "__global_symbols_from_args__.txt",
         link_args,
     ))
 
-    all_global_symbols_files = cxx_context.actions.write("__global_symbols__.symbols", global_symbols_files)
+    all_global_symbols_files = ctx.actions.write("__global_symbols__.symbols", global_symbols_files)
     all_global_symbols_files = cmd_args(all_global_symbols_files).hidden(global_symbols_files)
 
-    output = cxx_context.actions.declare_output("__global_symbols__.vers")
+    output = ctx.actions.declare_output("__global_symbols__.vers")
     cmd = [
         "/bin/bash",
         "-c",
@@ -374,7 +371,7 @@ def _create_global_symbols_version_script(
         output.as_output(),
     ]
 
-    cxx_context.actions.run(
+    ctx.actions.run(
         cmd,
         category = "omnibus_version_script",
     )
@@ -395,7 +392,6 @@ def _is_shared_only(info: LinkableNode.type) -> bool.type:
 
 def _create_omnibus(
         ctx: "context",
-        cxx_context: CxxContext.type,
         spec: OmnibusSpec.type,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool.type = False) -> LinkedObject.type:
@@ -404,7 +400,7 @@ def _create_omnibus(
     # Undefined symbols roots...
     non_body_root_undefined_syms = [
         extract_symbol_names(
-            cxx_context,
+            ctx,
             out.basename + ".undefined_syms.txt",
             [out],
             dynamic = True,
@@ -422,7 +418,7 @@ def _create_omnibus(
     ]
     if non_body_root_undefined_syms:
         argsfile = _create_undefined_symbols_argsfile(
-            cxx_context,
+            ctx,
             non_body_root_undefined_syms,
         )
         inputs.append(LinkInfo(pre_flags = [
@@ -478,7 +474,7 @@ def _create_omnibus(
 
     # Add global symbols version script.
     global_sym_vers = _create_global_symbols_version_script(
-        cxx_context,
+        ctx,
         # Extract symols from roots...
         [out for _, out in spec.roots.values()],
         # ... and the shared libs from excluded nodes.
@@ -495,12 +491,11 @@ def _create_omnibus(
         global_sym_vers,
     ]))
 
-    soname = _omnibus_soname(cxx_context)
-    toolchain_info = cxx_context.cxx_toolchain_info
+    soname = _omnibus_soname(ctx)
+    toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
     return cxx_link_into_shared_library(
         ctx,
-        cxx_context,
         soname,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
         category_suffix = "omnibus",
@@ -517,7 +512,7 @@ def _create_omnibus(
     )
 
 def _build_omnibus_spec(
-        cxx_context: CxxContext.type,
+        ctx: "context",
         graph: LinkableGraph.type) -> OmnibusSpec.type:
     """
     Divide transitive deps into excluded, root, and body nodes, which we'll
@@ -541,9 +536,9 @@ def _build_omnibus_spec(
     }
 
     # Finalized root nodes, after removing any excluded roots.
-    linker_type = cxx_context.cxx_toolchain_info.linker_info.type
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     roots = {
-        label: (root, cxx_context.actions.declare_output(value_or(root.name, get_default_shared_library_name(linker_type, label))))
+        label: (root, ctx.actions.declare_output(value_or(root.name, get_default_shared_library_name(linker_type, label))))
         for label, root in graph.roots.items()
         if label not in excluded
     }
@@ -607,14 +602,13 @@ def _ordered_roots(
 
 def create_omnibus_libraries(
         ctx: "context",
-        cxx_context: CxxContext.type,
         graph: LinkableGraph.type,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool.type = False) -> OmnibusSharedLibraries.type:
-    spec = _build_omnibus_spec(cxx_context, graph)
+    spec = _build_omnibus_spec(ctx, graph)
 
     # Create dummy omnibus
-    dummy_omnibus = _create_dummy_omnibus(ctx, cxx_context, extra_ldflags)
+    dummy_omnibus = _create_dummy_omnibus(ctx, extra_ldflags)
 
     libraries = {}
     roots = {}
@@ -623,7 +617,6 @@ def create_omnibus_libraries(
     for label, root, output, link_deps in _ordered_roots(spec):
         shlib = _create_root(
             ctx,
-            cxx_context,
             spec,
             root,
             output,
@@ -640,12 +633,11 @@ def create_omnibus_libraries(
     if spec.body:
         omnibus = _create_omnibus(
             ctx,
-            cxx_context,
             spec,
             extra_ldflags,
             prefer_stripped_objects,
         )
-        libraries[_omnibus_soname(cxx_context)] = omnibus
+        libraries[_omnibus_soname(ctx)] = omnibus
 
     # For all excluded nodes, just add their regular shared libs.
     for label in spec.excluded:

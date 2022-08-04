@@ -53,11 +53,7 @@ load(
     "compile_cxx",
     "create_compile_cmds",
 )
-load(
-    ":cxx_context.bzl",
-    "CxxContext",  # @unused Used as a type
-    "ctx_to_cxx_context",
-)
+load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "ARGSFILES_SUBTARGET",
@@ -115,13 +111,11 @@ _CxxExecutableOutput = record(
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type):
-    cxx_context = ctx_to_cxx_context(ctx)
     first_order_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
 
     # Gather preprocessor inputs.
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
-        cxx_context,
         impl_params.headers_layout,
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
@@ -138,18 +132,17 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # Compile objects.
     compile_cmd_output = create_compile_cmds(
         ctx,
-        cxx_context,
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
     )
-    objects = compile_cxx(ctx, cxx_context, compile_cmd_output.source_commands.src_compile_cmds, pic = link_style != LinkStyle("static"))
+    objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = link_style != LinkStyle("static"))
     sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.source_commands.argsfiles_info]
 
     # Compilation DB.
-    comp_db = create_compilation_database(cxx_context, compile_cmd_output.comp_db_commands.src_compile_cmds)
+    comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_commands.src_compile_cmds)
     sub_targets["compilation-database"] = [comp_db]
-    comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_commands.src_compile_cmds, cxx_context.cxx_toolchain_info, cxx_context.cxx_platform_info)
+    comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_commands.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
 
     # Link Groups
     link_group = get_link_group(ctx)
@@ -158,7 +151,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_merged_linkable_graph(
-        cxx_context.label,
+        ctx.label,
         first_order_deps + link_group_deps,
     )
 
@@ -168,7 +161,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     # Gather link inputs.
     own_link_flags = cxx_attr_linker_flags(ctx)
-    inherited_link = cxx_inherited_link_info(cxx_context.actions, first_order_deps)
+    inherited_link = cxx_inherited_link_info(ctx, first_order_deps)
 
     filtered_labels_to_links_map = {}
     rest_labels_to_links_map = {}
@@ -213,7 +206,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     use_link_groups = cxx_use_link_groups(ctx)
     if link_style == LinkStyle("shared") or use_link_groups:
         shlib_info = merge_shared_libraries(
-            cxx_context.actions,
+            ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
         )
 
@@ -226,7 +219,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             if not use_link_groups or is_link_group_shlib(label, filtered_labels_to_links_map) or is_link_group_shlib(label, rest_labels_to_links_map):
                 shared_libs[name] = shared_lib.lib
 
-    toolchain_info = cxx_context.cxx_toolchain_info
+    toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
     links = [
         LinkArgs(infos = [
@@ -240,7 +233,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     binary, runtime_files, shared_libs_symlink_tree, extra_args = _link_into_executable(
         ctx,
-        cxx_context,
         links,
         shared_libs,
         linker_info.link_weight,
@@ -258,7 +250,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional_srcs,
         argsfiles_by_ext = compile_cmd_output.source_commands.argsfile_by_ext,
-        product_name = get_cxx_excutable_product_name(ctx, cxx_context),
+        product_name = get_cxx_excutable_product_name(ctx),
     )
 
     # Info about dynamic-linked libraries for fbpkg integration:
@@ -302,7 +294,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     ).values())
     if resources:
         runtime_files.append(create_resource_db(
-            actions = ctx.actions,
+            ctx = ctx,
             name = binary.output.basename + ".resources.json",
             binary = binary.output,
             resources = resources,
@@ -317,12 +309,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
     # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion
-    if cxx_use_bolt(ctx, cxx_context):
+    if cxx_use_bolt(ctx):
         sub_targets["prebolt"] = [DefaultInfo(default_outputs = [binary.prebolt_output])]
 
     (linker_map, binary_for_linker_map) = _linker_map(
         ctx,
-        cxx_context,
         binary,
         [LinkArgs(flags = extra_args)] + links,
         prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
@@ -353,7 +344,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 # - extra linking args (for the shared_libs)
 def _link_into_executable(
         ctx: "context",
-        cxx_context: CxxContext.type,
         links: [LinkArgs.type],
         shared_libs: {str.type: LinkedObject.type},
         link_weight: int.type,
@@ -361,11 +351,10 @@ def _link_into_executable(
         enable_distributed_thinlto = False,
         strip: bool.type = False,
         strip_args_factory = None) -> (LinkedObject.type, ["artifact"], ["artifact", None], [""]):
-    output = cxx_context.actions.declare_output(get_cxx_excutable_product_name(ctx, cxx_context))
-    extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(cxx_context, output, shared_libs)
+    output = ctx.actions.declare_output(get_cxx_excutable_product_name(ctx))
+    extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(ctx, output, shared_libs)
     exe = cxx_link(
         ctx,
-        cxx_context,
         [LinkArgs(flags = extra_args)] + links,
         output,
         prefer_local = prefer_local,
@@ -380,17 +369,15 @@ def _link_into_executable(
 
 def _linker_map(
         ctx: "context",
-        cxx_context: CxxContext.type,
         binary: LinkedObject.type,
         links: [LinkArgs.type],
         prefer_local: bool.type,
         link_weight: int.type) -> ("artifact", "artifact"):
     identifier = binary.output.short_path + ".linker-map-binary"
-    binary_for_linker_map = cxx_context.actions.declare_output(identifier)
-    linker_map = cxx_context.actions.declare_output(binary.output.short_path + ".linker-map")
+    binary_for_linker_map = ctx.actions.declare_output(identifier)
+    linker_map = ctx.actions.declare_output(binary.output.short_path + ".linker-map")
     cxx_link(
         ctx,
-        cxx_context,
         links,
         binary_for_linker_map,
         category_suffix = "linker_map",
@@ -405,5 +392,5 @@ def _linker_map(
         binary_for_linker_map,
     )
 
-def get_cxx_excutable_product_name(ctx: "context", cxx_context: CxxContext.type) -> str.type:
-    return cxx_context.label.name + ("-wrapper" if cxx_use_bolt(ctx, cxx_context) else "")
+def get_cxx_excutable_product_name(ctx: "context") -> str.type:
+    return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")

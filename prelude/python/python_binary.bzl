@@ -1,9 +1,5 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude:resources.bzl", "gather_resources")
-load(
-    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
-    "ctx_to_cxx_context",
-)
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@fbcode//buck2/prelude/cxx:omnibus.bzl",
@@ -191,7 +187,6 @@ def convert_python_library_to_executable(
         # Link omnibus libraries.
         omnibus_libs = create_omnibus_libraries(
             ctx,
-            ctx_to_cxx_context(ctx),
             linkable_graph,
             ctx.attrs.linker_flags,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,

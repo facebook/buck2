@@ -28,7 +28,7 @@ def gather_resources(
     return all_resources
 
 def create_resource_db(
-        actions: "actions",
+        ctx: "context",
         name: str.type,
         binary: "artifact",
         resources: {str.type: ("artifact", ["_arglike"])}) -> "artifact":
@@ -41,4 +41,4 @@ def create_resource_db(
         name: cmd_args(resource, delimiter = "").relative_to(binary, parent = 1)
         for (name, (resource, _other)) in resources.items()
     }
-    return actions.write_json(name, db)
+    return ctx.actions.write_json(name, db)

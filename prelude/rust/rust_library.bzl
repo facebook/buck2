@@ -380,7 +380,7 @@ def _rust_providers(
     else:
         # proc-macros are just used by the compiler and shouldn't propagate
         # their native deps to the link line of the target.
-        inherited_non_rust_link = merge_link_infos(ctx.actions, [])
+        inherited_non_rust_link = merge_link_infos(ctx, [])
         inherited_non_rust_shlibs = []
         inherited_non_rust_link_deps = []
 

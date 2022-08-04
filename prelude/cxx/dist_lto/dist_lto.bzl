@@ -5,14 +5,10 @@ load(
     "cxx_use_bolt",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
-    "CxxContext",  # @unused Used as a type
-    "ctx_to_cxx_context",
-)
-load(
     "@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl",
     "cxx_link_cmd",
 )
+load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@fbcode//buck2/prelude/cxx:dwp.bzl",
     "run_dwp_action",
@@ -29,7 +25,6 @@ load(
 
 def cxx_dist_link(
         ctx: "context",
-        cxx_context: CxxContext.type,
         links: ["LinkArgs"],
         # The destination for the link output.
         output: "artifact",
@@ -107,7 +102,7 @@ def cxx_dist_link(
 
     link_infos = map_to_link_infos(links)
 
-    cxx_toolchain = cxx_context.cxx_toolchain_info
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
     lto_planner = cxx_toolchain.dist_lto_tools_info.planner
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
@@ -206,7 +201,6 @@ def cxx_dist_link(
 
     def dynamic_plan(link_plan: "artifact", index_argsfile_out: "artifact"):
         def plan(ctx):
-            cxx_context = ctx_to_cxx_context(ctx)
             index_args = cmd_args()
 
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
@@ -244,7 +238,7 @@ def cxx_dist_link(
             index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
             index_out = cmd_args(index_file_out.as_output()).parent()
 
-            index_cmd = cxx_link_cmd(cxx_context)
+            index_cmd = cxx_link_cmd(ctx)
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
             output_as_string = cmd_args(output)
@@ -426,7 +420,6 @@ def cxx_dist_link(
     linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.link.argsfile")
 
     def thin_lto_final_link(ctx):
-        cxx_context = ctx_to_cxx_context(ctx)
         plan = ctx.artifacts[link_plan_out].read_json()
         link_args = cmd_args()
         plan_index = {int(k): v for k, v in plan["index"].items()}
@@ -472,7 +465,7 @@ def cxx_dist_link(
                     append_linkable_args(link_args, linkable, use_link_groups = False)
             link_args.add(link.post_flags)
 
-        link_cmd = cxx_link_cmd(cxx_context)
+        link_cmd = cxx_link_cmd(ctx)
         final_link_argfile, final_link_inputs = ctx.actions.write(
             ctx.outputs[linker_argsfile_out].as_output(),
             link_args,
@@ -501,12 +494,12 @@ def cxx_dist_link(
         thin_lto_final_link,
     )
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx, cxx_context)) else bolt(ctx, cxx_context, output, identifier)
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_generation_enabled else None
 
     if dwp_generation_enabled:
         run_dwp_action(
-            cxx_context = cxx_context,
+            ctx = ctx,
             obj = final_output,
             identifier = identifier,
             category_suffix = category_suffix,

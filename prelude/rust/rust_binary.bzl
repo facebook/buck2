@@ -4,10 +4,6 @@ load(
     "create_resource_db",
     "gather_resources",
 )
-load(
-    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
-    "ctx_to_cxx_context",
-)
 load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -116,7 +112,7 @@ def _rust_binary_common(
             )
             for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
                 shared_libs[soname] = shared_lib.lib
-        extra_link_args, runtime_files, _ = executable_shared_lib_arguments(ctx_to_cxx_context(ctx), output, shared_libs)
+        extra_link_args, runtime_files, _ = executable_shared_lib_arguments(ctx, output, shared_libs)
 
         extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
 
@@ -143,7 +139,7 @@ def _rust_binary_common(
         # them with the final binary.
         if resources:
             resources_hidden = [create_resource_db(
-                actions = ctx.actions,
+                ctx = ctx,
                 name = name + ".resources.json",
                 binary = output,
                 resources = resources,

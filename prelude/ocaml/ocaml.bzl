@@ -446,7 +446,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
     # 'cmxs_order' without regard for which.
     cmxs_order = ctx.actions.declare_output("cmxs_order_" + bytecode_or_native.value + ".lst")
 
-    pre = cxx_merge_cpreprocessors(ctx.actions, [], filter(None, [d[CPreprocessorInfo] for d in _attr_deps(ctx)]))
+    pre = cxx_merge_cpreprocessors(ctx, [], filter(None, [d[CPreprocessorInfo] for d in _attr_deps(ctx)]))
     pre_args = pre.set.project_as_args("args")
     cc_sh_filename = "cc_" + bytecode_or_native.value + ".sh"
     cc = _mk_cc(ctx, [pre_args], cc_sh_filename)
@@ -640,7 +640,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(default_outputs = [cmxa], sub_targets = sub_targets),
         merge_ocaml_link_infos(infos),
-        merge_link_infos(ctx.actions, _attr_deps_merged_link_infos(ctx)),
+        merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
         other_outputs_info,
         create_merged_linkable_graph(ctx.label, _attr_deps(ctx)),
     ]
@@ -650,7 +650,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     ocamlopt = _mk_ocaml_compiler(ctx, bin, env, BuildMode("native"))
     ocamlc = _mk_ocaml_compiler(ctx, bin, env, BuildMode("bytecode"))
 
-    link_infos = merge_link_infos(ctx.actions, _attr_deps_merged_link_infos(ctx))
+    link_infos = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
     link_info = get_link_args(link_infos, LinkStyle("static"))
     ld_args = unpack_link_args(link_info)
     ld_nat = _mk_ld(ctx, [ld_args], "ld_native.sh")
@@ -718,7 +718,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     # ocamlopt & ld scripts.
     bin, env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, bin, env, BuildMode("native"))
-    link_infos = merge_link_infos(ctx.actions, _attr_deps_merged_link_infos(ctx))
+    link_infos = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
     link_info = get_link_args(link_infos, LinkStyle("static"))
     ld_args = unpack_link_args(link_info)
     ld = _mk_ld(ctx, [ld_args], "ld.sh")
@@ -825,6 +825,6 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         merge_ocaml_link_infos(ocaml_infos + [OCamlLinkInfo(info = [info])]),
-        merge_link_infos(ctx.actions, native_infos),
+        merge_link_infos(ctx, native_infos),
         create_merged_linkable_graph(ctx.label, ctx.attrs.deps),
     ]
