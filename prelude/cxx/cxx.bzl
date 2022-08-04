@@ -211,7 +211,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     expect(not ctx.attrs.versioned_static_pic_lib)
 
     cxx_context = ctx_to_cxx_context(ctx)
-    if not cxx_platform_supported(ctx, cxx_context):
+    if not cxx_platform_supported(cxx_context):
         return [DefaultInfo(default_outputs = [])]
 
     providers = []

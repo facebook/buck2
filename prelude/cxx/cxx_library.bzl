@@ -194,7 +194,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     Defines the outputs for a cxx library, return the default output and any subtargets and providers based upon the requested params.
     """
     cxx_context = ctx_to_cxx_context(ctx)
-    if not cxx_platform_supported(ctx, cxx_context):
+    if not cxx_platform_supported(cxx_context):
         sub_targets = {}
 
         # Needed to handle cases of the named output (e.g. [static-pic]) being called directly.

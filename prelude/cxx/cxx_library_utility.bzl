@@ -146,16 +146,16 @@ def cxx_use_shlib_intfs(cxx_context: CxxContext.type) -> bool.type:
     # platforms, so only explicitly enable for linux until this is fixed.
     return linker_info.shlib_interfaces != "disabled" and linker_info.type == "gnu"
 
-def cxx_platform_supported(ctx: "context", cxx_context: CxxContext.type) -> bool.type:
+def cxx_platform_supported(cxx_context: CxxContext.type) -> bool.type:
     """
     Return whether this rule's `supported_platforms_regex` matches the current
     platform name.
     """
 
-    if ctx.attrs.supported_platforms_regex == None:
+    if cxx_context.supported_platforms_regex == None:
         return True
 
     return regex_match(
-        ctx.attrs.supported_platforms_regex,
+        cxx_context.supported_platforms_regex,
         cxx_context.cxx_platform_info.name,
     )

@@ -35,7 +35,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
     framework_directory_artifact = ctx.attrs.framework
 
     # Check this rule's `supported_platforms_regex` with the current platform.
-    if cxx_platform_supported(ctx, ctx_to_cxx_context(ctx)):
+    if cxx_platform_supported(ctx_to_cxx_context(ctx)):
         # Sandbox the framework, to avoid leaking other frameworks via search paths.
         framework_name = to_framework_name(framework_directory_artifact.basename)
         framework_dir = ctx.actions.symlinked_dir(

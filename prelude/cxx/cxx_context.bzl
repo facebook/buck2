@@ -21,15 +21,22 @@ CxxContext = record(
     label = "label",
     cxx_platform_info = field("CxxPlatformInfo"),
     cxx_toolchain_info = field("CxxToolchainInfo"),
+
+    # Library Attrs
+    supported_platforms_regex = field(["string", None], None),
 )
 
 def ctx_to_cxx_context(ctx: "context") -> CxxContext.type:
-    return CxxContext(
-        actions = ctx.actions,
-        label = ctx.label,
-        cxx_platform_info = get_cxx_platform_info(ctx),
-        cxx_toolchain_info = get_cxx_toolchain_info(ctx),
-    )
+    cxx_context = {
+        "actions": ctx.actions,
+        "cxx_platform_info": get_cxx_platform_info(ctx),
+        "cxx_toolchain_info": get_cxx_toolchain_info(ctx),
+        "label": ctx.label,
+    }
+
+    cxx_context["supported_platforms_regex"] = getattr(ctx.attrs, "supported_platforms_regex", None)
+
+    return CxxContext(**cxx_context)
 
 def get_cxx_platform_info(ctx: "context") -> CxxPlatformInfo.type:
     apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
