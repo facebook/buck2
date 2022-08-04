@@ -183,6 +183,7 @@ def _python_test_attrs():
     return {
         "bundled_runtime": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
@@ -297,7 +298,10 @@ extra_attributes = struct(
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     },
     cxx_binary = _cxx_binary_and_test_attrs(),
-    cxx_test = _cxx_binary_and_test_attrs(),
+    cxx_test = dict(
+        remote_execution = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+        **_cxx_binary_and_test_attrs()
+    ),
     cxx_toolchain = {
         "archiver": attrs.dep(providers = [RunInfo]),
         "asm_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
