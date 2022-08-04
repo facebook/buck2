@@ -78,7 +78,6 @@ load(
     "cxx_attr_exported_post_linker_flags",
     "cxx_attr_link_style",
     "cxx_attr_linker_flags",
-    "cxx_attr_preferred_linkage",
     "cxx_attr_resources",
     "cxx_inherited_link_info",
     "cxx_is_gnu",
@@ -198,7 +197,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         sub_targets = {}
 
         # Needed to handle cases of the named output (e.g. [static-pic]) being called directly.
-        for link_style in get_link_styles_for_linkage(cxx_attr_preferred_linkage(ctx)):
+        for link_style in get_link_styles_for_linkage(cxx_context.preferred_linkage):
             sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(default_outputs = [])]
 
         return _CxxLibraryParameterizedOutput(default_output = None, sub_targets = sub_targets, providers = [DefaultInfo(default_outputs = [], sub_targets = sub_targets)])
@@ -225,8 +224,6 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     )
     inherited_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(exported_deps)
 
-    preferred_linkage = cxx_attr_preferred_linkage(ctx)
-
     compiled_srcs = _compile_srcs(
         ctx = ctx,
         cxx_context = cxx_context,
@@ -234,7 +231,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         own_preprocessors = own_preprocessors,
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
-        preferred_linkage = preferred_linkage,
+        preferred_linkage = cxx_context.preferred_linkage,
     )
 
     sub_targets = {}
@@ -297,12 +294,12 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         cxx_context = cxx_context,
         impl_params = impl_params,
         compiled_srcs = compiled_srcs,
-        preferred_linkage = preferred_linkage,
+        preferred_linkage = cxx_context.preferred_linkage,
         shared_links = shared_links,
         extra_static_linkables = [frameworks_linkable] if frameworks_linkable else [],
     )
 
-    actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
+    actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), cxx_context.preferred_linkage)
 
     # Output sub-targets for all link-styles.
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
@@ -365,7 +362,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             ctx,
             # Add link info for each link style,
             library_outputs.libraries,
-            preferred_linkage = preferred_linkage,
+            preferred_linkage = cxx_context.preferred_linkage,
             # Export link info from non-exported deps (when necessary).
             deps = [inherited_non_exported_link],
             # Export link info from out (exported) deps.
@@ -407,7 +404,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         add_linkable_node(
             linkable_graph,
             ctx,
-            preferred_linkage = preferred_linkage,
+            preferred_linkage = cxx_context.preferred_linkage,
             # If we don't have link input for this link style, we pass in `None` so
             # that omnibus knows to avoid it.
             link_infos = library_outputs.libraries,
@@ -498,8 +495,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     return _CxxLibraryParameterizedOutput(default_output = default_output, sub_targets = sub_targets, providers = providers)
 
 def get_default_cxx_library_product_name(ctx: "context", cxx_context: CxxContext.type) -> str.type:
-    preferred_linkage = cxx_attr_preferred_linkage(ctx)
-    link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
+    link_style = get_actual_link_style(cxx_attr_link_style(ctx), cxx_context.preferred_linkage)
     if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
         return _base_static_library_name(cxx_context, False)
     else:

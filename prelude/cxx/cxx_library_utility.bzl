@@ -2,7 +2,6 @@ load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "LinkStyle",
-    "Linkage",
     "MergedLinkInfo",
     "merge_link_infos",
 )
@@ -75,15 +74,6 @@ def cxx_attr_link_style(ctx: "context") -> LinkStyle.type:
             if s.value in v1_flavors:
                 return s
     return get_cxx_toolchain_info(ctx).linker_info.link_style
-
-def cxx_attr_preferred_linkage(ctx: "context") -> Linkage.type:
-    preferred_linkage = ctx.attrs.preferred_linkage
-
-    # force_static is deprecated, but it has precedence over preferred_linkage
-    if getattr(ctx.attrs, "force_static", False):
-        preferred_linkage = "static"
-
-    return Linkage(preferred_linkage)
 
 def cxx_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
     """

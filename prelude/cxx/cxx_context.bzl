@@ -1,6 +1,9 @@
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
-
+load(
+    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "Linkage",
+)
 # The functions below allow the Cxx rules to find toolchain providers
 # from different rule contexts. For example, the Cxx functions are
 # re-used by non-`cxx_` rules (e.g., the Apple rules) but the toolchain
@@ -24,6 +27,7 @@ CxxContext = record(
 
     # Library Attrs
     supported_platforms_regex = field(["string", None], None),
+    preferred_linkage = field(Linkage.type),
 )
 
 def ctx_to_cxx_context(ctx: "context") -> CxxContext.type:
@@ -35,6 +39,7 @@ def ctx_to_cxx_context(ctx: "context") -> CxxContext.type:
     }
 
     cxx_context["supported_platforms_regex"] = getattr(ctx.attrs, "supported_platforms_regex", None)
+    cxx_context["preferred_linkage"] = _cxx_attr_preferred_linkage(ctx)
 
     return CxxContext(**cxx_context)
 
@@ -49,3 +54,14 @@ def get_cxx_toolchain_info(ctx: "context") -> CxxToolchainInfo.type:
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_toolchain_info
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+
+def _cxx_attr_preferred_linkage(ctx: "context") -> Linkage.type:
+    if not hasattr(ctx.attrs, "preferred_linkage"):
+        return Linkage("any")
+    preferred_linkage = ctx.attrs.preferred_linkage
+
+    # force_static is deprecated, but it has precedence over preferred_linkage
+    if getattr(ctx.attrs, "force_static", False):
+        preferred_linkage = "static"
+
+    return Linkage(preferred_linkage)

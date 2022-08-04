@@ -47,7 +47,6 @@ load(
     "cxx_attr_exported_deps",
     "cxx_attr_exported_linker_flags",
     "cxx_attr_exported_post_linker_flags",
-    "cxx_attr_preferred_linkage",
     "cxx_inherited_link_info",
     "cxx_mk_shlib_intf",
     "cxx_platform_supported",
@@ -184,7 +183,7 @@ def _prebuilt_item(
 
     return None
 
-def _prebuilt_linkage(ctx: "context") -> Linkage.type:
+def _prebuilt_linkage(ctx: "context", cxx_context: CxxContext.type) -> Linkage.type:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
@@ -192,7 +191,7 @@ def _prebuilt_linkage(ctx: "context") -> Linkage.type:
         return Linkage("any")
     if ctx.attrs.force_static:
         return Linkage("static")
-    preferred_linkage = cxx_attr_preferred_linkage(ctx)
+    preferred_linkage = cxx_context.preferred_linkage
     if preferred_linkage != Linkage("any"):
         return preferred_linkage
     if ctx.attrs.provided:
@@ -240,7 +239,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         ctx.attrs.platform_header_dirs,
     )
     soname = value_or(ctx.attrs.soname, get_shared_library_name(linker_type, cxx_context.label.name))
-    preferred_linkage = _prebuilt_linkage(ctx)
+    preferred_linkage = _prebuilt_linkage(ctx, cxx_context)
 
     first_order_deps = cxx_attr_exported_deps(ctx)
 
