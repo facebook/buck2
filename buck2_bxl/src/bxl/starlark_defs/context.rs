@@ -41,6 +41,7 @@ use either::Either;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use itertools::Itertools;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -192,13 +193,20 @@ impl<'v> BxlContext<'v> {
                 .take_artifacts()
                 .into_iter()
                 .map(|v| {
-                    let artifact_or_err = v.as_artifact().unwrap().get_bound_deprecated();
+                    let artifact_or_err = v
+                        .as_artifact()
+                        .unwrap()
+                        .get_bound_artifact_and_associated_artifacts();
                     match artifact_or_err {
                         Err(e) => Err(e),
-                        Ok(x) => Ok(ArtifactGroup::Artifact(x)),
+                        Ok((artifact, mut associates)) => {
+                            associates.insert(ArtifactGroup::Artifact(artifact));
+                            Ok(associates)
+                        }
                     }
                 })
-                .collect::<anyhow::Result<_>>()?,
+                .flatten_ok()
+                .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
         ))
     }
 }
