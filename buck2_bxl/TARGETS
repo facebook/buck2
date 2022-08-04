@@ -5,7 +5,6 @@ rust_library(
     name = "buck2_bxl",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
-        "fbsource//third-party/rust:indexmap",
         "//buck2/buck2_interpreter:buck2_interpreter",
     ],
     deps = [
@@ -16,6 +15,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",

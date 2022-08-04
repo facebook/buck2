@@ -168,14 +168,8 @@ async fn ensure_artifacts(
 
             artifacts.iter().for_each(|a| {
                 futs.push(
-                    async {
-                        materialize_artifact_group(
-                            ctx,
-                            &ArtifactGroup::Artifact(a.dupe()),
-                            materialization_ctx,
-                        )
-                        .await?;
-
+                    async move {
+                        materialize_artifact_group(ctx, a, materialization_ctx).await?;
                         Ok(())
                     }
                     .boxed(),

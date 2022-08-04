@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-
+use indexmap::IndexSet;
 use itertools::Itertools;
 
-use crate::actions::artifact::Artifact;
+use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::build_result::BxlBuildResult;
 use crate::deferred::DeferredAny;
 use crate::deferred::DeferredId;
@@ -17,7 +16,7 @@ pub enum BxlResult {
     BuildsArtifacts {
         output_loc: BuckOutPath,
         built: Vec<BxlBuildResult>,
-        artifacts: Vec<Artifact>,
+        artifacts: Vec<ArtifactGroup>,
         deferred: DeferredTable,
     },
 }
@@ -25,7 +24,7 @@ pub enum BxlResult {
 impl BxlResult {
     pub fn new(
         output_loc: BuckOutPath,
-        ensured_artifacts: HashSet<Artifact>,
+        ensured_artifacts: IndexSet<ArtifactGroup>,
         deferred: DeferredTable,
     ) -> Self {
         if ensured_artifacts.is_empty() {

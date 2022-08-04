@@ -11,13 +11,12 @@
 //!
 
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
 
-use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -41,6 +40,7 @@ use dice::DiceComputations;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -182,7 +182,7 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> anyhow::Result<(Option<AnalysisRegistry<'v>>, HashSet<Artifact>)> {
+    ) -> anyhow::Result<(Option<AnalysisRegistry<'v>>, IndexSet<ArtifactGroup>)> {
         let this = value.as_ref();
         Ok((
             this.state.as_ref().state.borrow_mut().take(),
@@ -191,7 +191,13 @@ impl<'v> BxlContext<'v> {
                 .as_ref()
                 .take_artifacts()
                 .into_iter()
-                .map(|v| v.as_artifact().unwrap().get_bound_deprecated())
+                .map(|v| {
+                    let artifact_or_err = v.as_artifact().unwrap().get_bound_deprecated();
+                    match artifact_or_err {
+                        Err(e) => Err(e),
+                        Ok(x) => Ok(ArtifactGroup::Artifact(x)),
+                    }
+                })
                 .collect::<anyhow::Result<_>>()?,
         ))
     }
