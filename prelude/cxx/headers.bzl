@@ -1,6 +1,10 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "from_named_set", "value_or")
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(
+    ":cxx_context.bzl",
+    "CxxContext",  # @unused Used as a type
+    "ctx_to_cxx_context",
+)
 load(":platform.bzl", "cxx_by_platform")
 
 # Defines the varying bits of implementation affecting on how the end user
@@ -101,12 +105,12 @@ def cxx_attr_header_namespace(ctx: "context") -> str.type:
 
 def cxx_attr_exported_headers(ctx: "context", headers_layout: CxxHeadersLayout.type) -> [CHeader.type]:
     headers = _get_attr_headers(ctx.attrs.exported_headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attrs.exported_platform_headers), headers_layout.namespace, headers_layout.naming)
+    platform_headers = _get_attr_headers(_headers_by_platform(ctx_to_cxx_context(ctx), ctx.attrs.exported_platform_headers), headers_layout.namespace, headers_layout.naming)
     return headers + platform_headers
 
 def cxx_attr_headers(ctx: "context", headers_layout: CxxHeadersLayout.type) -> [CHeader.type]:
     headers = _get_attr_headers(ctx.attrs.headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attrs.platform_headers), headers_layout.namespace, headers_layout.naming)
+    platform_headers = _get_attr_headers(_headers_by_platform(ctx_to_cxx_context(ctx), ctx.attrs.platform_headers), headers_layout.namespace, headers_layout.naming)
     return headers + platform_headers
 
 def cxx_get_regular_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
@@ -122,14 +126,14 @@ def _get_attr_headers(xs: "", namespace: str.type, naming: CxxHeadersNaming.type
     else:
         return [CHeader(artifact = xs[x], name = x, namespace = _get_dict_header_namespace(namespace, naming), named = True) for x in xs]
 
-def _headers_by_platform(ctx: "context", xs: [(str.type, "")]) -> "":
+def _headers_by_platform(cxx_context: CxxContext.type, xs: [(str.type, "")]) -> "":
     res = {}
-    for deps in cxx_by_platform(ctx, xs):
+    for deps in cxx_by_platform(cxx_context, xs):
         res.update(from_named_set(deps))
     return res
 
 def as_raw_headers(
-        ctx: "context",
+        cxx_context: CxxContext.type,
         headers: {str.type: "artifact"},
         mode: HeadersAsRawHeadersMode.type) -> [["label_relative_path"], None]:
     """
@@ -148,13 +152,13 @@ def as_raw_headers(
         return None
 
     return _as_raw_headers(
-        ctx,
+        cxx_context,
         headers,
         # Don't fail if conversion isn't required.
         no_fail = mode != HeadersAsRawHeadersMode("required"),
     )
 
-def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type) -> [Headers.type, None]:
+def prepare_headers(cxx_context: CxxContext.type, srcs: {str.type: "artifact"}, name: str.type) -> [Headers.type, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -166,7 +170,7 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
     if len(srcs) == 0:
         return None
 
-    header_mode = get_cxx_toolchain_info(ctx).header_mode
+    header_mode = cxx_context.cxx_toolchain_info.header_mode
 
     # TODO(T110378135): There's a bug in clang where using header maps w/o
     # explicit `-I` anchors breaks module map lookups.  This will be fixed
@@ -176,15 +180,15 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
         any([paths.basename(n) == "module.modulemap" for n in srcs.keys()])):
         header_mode = HeaderMode("symlink_tree_only")
     if header_mode == HeaderMode("header_map_only"):
-        hmap = _mk_hmap(ctx, name, {h: (a, "{}") for h, a in srcs.items()})
+        hmap = _mk_hmap(cxx_context, name, {h: (a, "{}") for h, a in srcs.items()})
         return Headers(
             include_path = cmd_args(hmap).hidden(srcs.values()),
         )
-    symlink_dir = ctx.actions.symlinked_dir(name, srcs)
+    symlink_dir = cxx_context.actions.symlinked_dir(name, srcs)
     if header_mode == HeaderMode("symlink_tree_only"):
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
-        hmap = _mk_hmap(ctx, name, {h: (symlink_dir, "{}/" + h) for h in srcs})
+        hmap = _mk_hmap(cxx_context, name, {h: (symlink_dir, "{}/" + h) for h in srcs})
         return Headers(
             include_path = cmd_args(hmap).hidden(symlink_dir),
             symlink_tree = symlink_dir,
@@ -192,7 +196,7 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
     fail("Unsupported header mode: {}".format(header_mode))
 
 def _as_raw_headers(
-        ctx: "context",
+        cxx_context: CxxContext.type,
         headers: {str.type: "artifact"},
         # Return `None` instead of failing.
         no_fail: bool.type = False) -> [["label_relative_path"], None]:
@@ -206,7 +210,7 @@ def _as_raw_headers(
     inc_dirs = {}
     for name, header in headers.items():
         inc_dir = _as_raw_header(
-            ctx,
+            cxx_context.label,
             name,
             header,
             no_fail = no_fail,
@@ -218,10 +222,10 @@ def _as_raw_headers(
             return None
         inc_dirs[inc_dir] = None
 
-    return [ctx.label.path.add(p) for p in inc_dirs]
+    return [cxx_context.label.path.add(p) for p in inc_dirs]
 
 def _as_raw_header(
-        ctx: "context",
+        label: "label",
         # The full name used to include the header.
         name: str.type,
         header: "artifact",
@@ -242,7 +246,7 @@ def _as_raw_header(
     # To include the header via its name using raw headers and include dirs,
     # it needs to be a suffix of its original path, and we'll strip the include
     # name to get the include dir used to include it.
-    path = paths.join(ctx.label.package, header.short_path)
+    path = paths.join(label.package, header.short_path)
     base = paths.strip_suffix(path, name)
     if base == None:
         if no_fail:
@@ -252,13 +256,13 @@ def _as_raw_header(
 
     # If the include dir is underneath our package, then just relativize to find
     # out package-relative path.
-    if len(base) > len(ctx.label.package):
-        return paths.relativize(base, ctx.label.package)
+    if len(base) > len(label.package):
+        return paths.relativize(base, label.package)
 
     # Otherwise, this include dir needs to reference a parent dir.
-    expect(ctx.label.package.startswith(base))
+    expect(label.package.startswith(base))
     num_parents = (
-        len(ctx.label.package.split("/")) -
+        len(label.package.split("/")) -
         (0 if not base else len(base.split("/")))
     )
     return "/".join([".."] * num_parents)
@@ -279,9 +283,9 @@ def _get_dict_header_namespace(namespace: str.type, naming: CxxHeadersNaming.typ
     else:
         fail("Unsupported header naming: {}".format(naming))
 
-def _mk_hmap(ctx: "context", name: str.type, headers: {str.type: ("artifact", str.type)}) -> "artifact":
-    output = ctx.actions.declare_output(name + ".hmap")
-    cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
+def _mk_hmap(cxx_context: CxxContext.type, name: str.type, headers: {str.type: ("artifact", str.type)}) -> "artifact":
+    output = cxx_context.actions.declare_output(name + ".hmap")
+    cmd = cmd_args(cxx_context.cxx_toolchain_info.mk_hmap)
     cmd.add(["--output", output.as_output()])
 
     header_args = cmd_args()
@@ -289,7 +293,7 @@ def _mk_hmap(ctx: "context", name: str.type, headers: {str.type: ("artifact", st
         header_args.add(n)
         header_args.add(cmd_args(path, format = fmt))
 
-    hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
+    hmap_args_file = cxx_context.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
     cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
-    ctx.actions.run(cmd, category = "generate_hmap", identifier = name)
+    cxx_context.actions.run(cmd, category = "generate_hmap", identifier = name)
     return output

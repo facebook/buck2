@@ -1,17 +1,18 @@
-# Resources for transitive deps, shared by C++ and Rust.
-ResourceInfo = provider(fields = [
-    # A map containing all resources from transitive dependencies.  The keys
-    # are rule labels and the values are maps of resource names (the name used
-    # to lookup the resource at runtime) and the actual resource artifact.
-    "resources",  # {"label": {str.type, ("artifact", ["hidden"])}}
-])
+# Room for improvement: we should unify the provider type representing C++
+# resources and Rust resources. Currently this implementation only supports Rust
+# transitively depending on C++ resources, not C++ depending on Rust or even
+# Rust depending on Rust.
+#
+# See https://fburl.com/diff/orni14p5 for thoughts from a buck2 dev.
 
-def gather_resources(
+load("@fbcode//buck2/prelude/cxx:resources.bzl", "CxxResourceInfo")
+
+def gather_rust_resources(
         label: "label",
         resources: {str.type: ("artifact", ["_arglike"])} = {},
         deps: ["dependency"] = []) -> {"label": {str.type: ("artifact", ["_arglike"])}}:
     """
-    Return the resources for this rule and its transitive deps.
+    Return the resources for this rule
     """
 
     all_resources = {}
@@ -20,16 +21,16 @@ def gather_resources(
     if resources:
         all_resources[label] = resources
 
-    # Merge in resources for deps.
+    # Merge in resources from any C++ dependencies.
     for dep in deps:
-        if dep[ResourceInfo]:
-            all_resources.update(dep[ResourceInfo].resources)
+        if dep[CxxResourceInfo]:
+            all_resources.update(dep[CxxResourceInfo].resources)
 
     return all_resources
 
 def create_resource_db(
-        actions: "actions",
         name: str.type,
+        actions: "actions",
         binary: "artifact",
         resources: {str.type: ("artifact", ["_arglike"])}) -> "artifact":
     """

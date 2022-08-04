@@ -335,12 +335,12 @@ def create_merged_link_info(
     return MergedLinkInfo(_infos = infos, frameworks = frameworks)
 
 def merge_link_infos(
-        ctx: "context",
+        actions: "actions",
         xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
     frameworks = {}
     for link_style in LinkStyle:
-        merged[link_style] = ctx.actions.tset(
+        merged[link_style] = actions.tset(
             LinkInfosTSet,
             children = [x._infos[link_style] for x in xs],
         )

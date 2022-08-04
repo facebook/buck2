@@ -5,10 +5,14 @@ load(
     "cxx_use_bolt",
 )
 load(
+    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
+    "CxxContext",
+    "ctx_to_cxx_context",
+)  # @unused Used as a type
+load(
     "@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl",
     "cxx_link_cmd",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@fbcode//buck2/prelude/cxx:dwp.bzl",
     "run_dwp_action",
@@ -25,6 +29,7 @@ load(
 
 def cxx_dist_link(
         ctx: "context",
+        cxx_context: CxxContext.type,
         links: ["LinkArgs"],
         # The destination for the link output.
         output: "artifact",
@@ -102,7 +107,7 @@ def cxx_dist_link(
 
     link_infos = map_to_link_infos(links)
 
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+    cxx_toolchain = cxx_context.toolchain_info
     lto_planner = cxx_toolchain.dist_lto_tools_info.planner
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
@@ -146,9 +151,9 @@ def cxx_dist_link(
                 object_link_args.append(object_link_arg)
                 for obj in linkable.objects:
                     name = name_for_obj(link_name, obj)
-                    bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
-                    plan_output = ctx.actions.declare_output(name + ".opt.plan")
-                    opt_output = ctx.actions.declare_output(name + ".opt.o")
+                    bc_output = cxx_context.actions.declare_output(name + ".thinlto.bc")
+                    plan_output = cxx_context.actions.declare_output(name + ".opt.plan")
+                    opt_output = cxx_context.actions.declare_output(name + ".opt.o")
 
                     data = LinkData(
                         name = name,
@@ -167,12 +172,12 @@ def cxx_dist_link(
                 # actions on the objects that the manifest reports.
 
                 name = name_for_obj(link_name, linkable.archive.artifact)
-                archive_manifest = ctx.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, name))
-                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, name))
-                archive_opt_objects = ctx.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name))
-                archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name))
-                archive_plan = ctx.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name))
-                archive_opt_manifest = ctx.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name))
+                archive_manifest = cxx_context.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, name))
+                archive_objects = cxx_context.actions.declare_output("%s/%s/objects" % (prepare_cat, name))
+                archive_opt_objects = cxx_context.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name))
+                archive_indexes = cxx_context.actions.declare_output("%s/%s/indexes" % (prepare_cat, name))
+                archive_plan = cxx_context.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name))
+                archive_opt_manifest = cxx_context.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name))
                 prepare_args = cmd_args([
                     lto_prepare,
                     "--manifest-out",
@@ -186,7 +191,7 @@ def cxx_dist_link(
                     "--name",
                     name,
                 ])
-                ctx.actions.run(prepare_args, category = make_cat("thin_lto_prepare"), identifier = name)
+                cxx_context.actions.run(prepare_args, category = make_cat("thin_lto_prepare"), identifier = name)
                 archive_manifests.append(ArchiveLinkData(
                     name = name,
                     manifest = archive_manifest,
@@ -197,10 +202,11 @@ def cxx_dist_link(
                     plan = archive_plan,
                 ))
 
-    index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.index.argsfile")
+    index_argsfile_out = cxx_context.actions.declare_output(output.basename + ".thinlto.index.argsfile")
 
     def dynamic_plan(link_plan: "artifact", index_argsfile_out: "artifact"):
         def plan(ctx):
+            cxx_context = ctx_to_cxx_context(ctx)
             index_args = cmd_args()
 
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
@@ -215,9 +221,9 @@ def cxx_dist_link(
                 manifest = ctx.artifacts[archive.manifest].read_json()
                 if not manifest["objects"]:
                     # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
-                    ctx.actions.write(ctx.outputs[archive.plan].as_output(), "{}")
+                    cxx_context.actions.write(ctx.outputs[archive.plan].as_output(), "{}")
                     cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", ctx.outputs[archive.indexes_dir].as_output()])
-                    ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = archive.name)
+                    cxx_context.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = archive.name)
                     continue
 
                 index_args.hidden(archive.objects_dir)
@@ -228,17 +234,17 @@ def cxx_dist_link(
                 index_args.add("-Wl,--end-lib")
                 index_args.hidden(archive.objects_dir)
 
-            index_argfile, index_argfile_inputs = ctx.actions.write(
+            index_argfile, index_argfile_inputs = cxx_context.actions.write(
                 ctx.outputs[index_argsfile_out].as_output(),
                 index_args,
                 allow_args = True,
             )
 
             index_cat = make_cat("thin_lto_index")
-            index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
+            index_file_out = cxx_context.actions.declare_output(make_id(index_cat) + "/index")
             index_out = cmd_args(index_file_out.as_output()).parent()
 
-            index_cmd = cxx_link_cmd(ctx)
+            index_cmd = cxx_link_cmd(cxx_context)
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
             output_as_string = cmd_args(output)
@@ -250,7 +256,7 @@ def cxx_dist_link(
 
             # Terminate the index file with a newline.
             index_meta.add("")
-            index_meta_file = ctx.actions.write(
+            index_meta_file = cxx_context.actions.write(
                 output.basename + ".thinlto.meta",
                 index_meta,
             )
@@ -264,7 +270,7 @@ def cxx_dist_link(
             plan_extra_inputs.add(index_argfile_inputs)
             plan_cmd.hidden(plan_extra_inputs)
 
-            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)
+            cxx_context.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)
 
         todo_inputs = []
         plan_inputs = []
@@ -284,10 +290,10 @@ def cxx_dist_link(
         # However, buck2 disallows `dynamic_output` with a empty input list. We also can't call our `plan` function
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
-        plan_inputs.append(ctx.actions.write("plan_hack.txt", ""))
-        ctx.actions.dynamic_output(plan_inputs, todo_inputs, plan_outputs + [index_argsfile_out], plan)
+        plan_inputs.append(cxx_context.actions.write("plan_hack.txt", ""))
+        cxx_context.actions.dynamic_output(plan_inputs, todo_inputs, plan_outputs + [index_argsfile_out], plan)
 
-    link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
+    link_plan_out = cxx_context.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out)
 
     # We declare a separate dynamic_output for every object file. It would
@@ -303,7 +309,7 @@ def cxx_dist_link(
             # won't be valid outputs for it from the indexing, but we still
             # need to bind the artifact.
             if not plan_json["is_lto"]:
-                ctx.actions.write(ctx.outputs[opt_object], "")
+                cxx_context.actions.write(ctx.outputs[opt_object], "")
                 return
 
             opt_cmd = cmd_args(lto_opt)
@@ -333,18 +339,18 @@ def cxx_dist_link(
             archives = [archive_manifests[idx].objects_dir for idx in plan_json["archive_imports"]]
             opt_cmd.hidden(imports)
             opt_cmd.hidden(archives)
-            ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt"), identifier = name)
+            cxx_context.actions.run(opt_cmd, category = make_cat("thin_lto_opt"), identifier = name)
 
         todo_inputs = []
-        ctx.actions.dynamic_output([plan], todo_inputs, [opt_object], optimize_object)
+        cxx_context.actions.dynamic_output([plan], todo_inputs, [opt_object], optimize_object)
 
     def dynamic_optimize_archive(archive: ArchiveLinkData.type):
         def optimize_archive(ctx):
             plan_json = ctx.artifacts[archive.plan].read_json()
             if "objects" not in plan_json or not plan_json["objects"]:
                 # Nothing in this directory was lto-able; let's just copy the archive.
-                ctx.actions.copy_file(ctx.outputs[archive.opt_objects_dir], archive.objects_dir)
-                ctx.actions.write(ctx.outputs[archive.opt_manifest], "")
+                cxx_context.actions.copy_file(ctx.outputs[archive.opt_objects_dir], archive.objects_dir)
+                cxx_context.actions.write(ctx.outputs[archive.opt_manifest], "")
                 return
 
             output_dir = {}
@@ -353,7 +359,7 @@ def cxx_dist_link(
                 base_dir = plan_json["base_dir"]
                 source_path = paths.relativize(entry["path"], base_dir)
                 if not entry["is_lto"]:
-                    opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
+                    opt_object = cxx_context.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
                     output_manifest.add(opt_object)
                     copy_cmd = cmd_args([
                         lto_copy,
@@ -364,11 +370,11 @@ def cxx_dist_link(
                     ])
 
                     copy_cmd.hidden(archive.objects_dir)
-                    ctx.actions.run(copy_cmd, category = make_cat("thin_lto_opt_copy"), identifier = source_path)
+                    cxx_context.actions.run(copy_cmd, category = make_cat("thin_lto_opt_copy"), identifier = source_path)
                     output_dir[source_path] = opt_object
                     continue
 
-                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt"), source_path))
+                opt_object = cxx_context.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt"), source_path))
                 output_manifest.add(opt_object)
                 output_dir[source_path] = opt_object
                 opt_cmd = cmd_args(lto_opt)
@@ -387,24 +393,24 @@ def cxx_dist_link(
                 opt_cmd.hidden(archives)
                 opt_cmd.hidden(archive.indexes_dir)
                 opt_cmd.hidden(archive.objects_dir)
-                ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt"), identifier = source_path)
+                cxx_context.actions.run(opt_cmd, category = make_cat("thin_lto_opt"), identifier = source_path)
 
-            ctx.actions.symlinked_dir(ctx.outputs[archive.opt_objects_dir], output_dir)
-            ctx.actions.write(ctx.outputs[archive.opt_manifest], output_manifest, allow_args = True)
+            cxx_context.actions.symlinked_dir(ctx.outputs[archive.opt_objects_dir], output_dir)
+            cxx_context.actions.write(ctx.outputs[archive.opt_manifest], output_manifest, allow_args = True)
 
         todo_inputs = []
         archive_opt_inputs = [archive.plan]
         archive_opt_outputs = [archive.opt_objects_dir, archive.opt_manifest]
-        ctx.actions.dynamic_output(archive_opt_inputs, todo_inputs, archive_opt_outputs, optimize_archive)
+        cxx_context.actions.dynamic_output(archive_opt_inputs, todo_inputs, archive_opt_outputs, optimize_archive)
 
     for item in objects:
         # TODO(cjhopman): This copy works around a buck bug where we don't
         # get early cutoff if a non-consumed output of an action dependency
         # changes.
-        copied_bc_file = ctx.actions.declare_output(item.bc_file.short_path + ".copied")
-        copied_plan = ctx.actions.declare_output(item.plan.short_path + ".copied")
-        ctx.actions.copy_file(copied_bc_file, item.bc_file)
-        ctx.actions.copy_file(copied_plan, item.plan)
+        copied_bc_file = cxx_context.actions.declare_output(item.bc_file.short_path + ".copied")
+        copied_plan = cxx_context.actions.declare_output(item.plan.short_path + ".copied")
+        cxx_context.actions.copy_file(copied_bc_file, item.bc_file)
+        cxx_context.actions.copy_file(copied_plan, item.plan)
 
         dynamic_optimize(
             name = item.name,
@@ -417,7 +423,7 @@ def cxx_dist_link(
     for archive in archive_manifests:
         dynamic_optimize_archive(archive)
 
-    linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.link.argsfile")
+    linker_argsfile_out = cxx_context.actions.declare_output(output.basename + ".thinlto.link.argsfile")
 
     def thin_lto_final_link(ctx):
         plan = ctx.artifacts[link_plan_out].read_json()
@@ -465,8 +471,8 @@ def cxx_dist_link(
                     append_linkable_args(link_args, linkable, use_link_groups = False)
             link_args.add(link.post_flags)
 
-        link_cmd = cxx_link_cmd(ctx)
-        final_link_argfile, final_link_inputs = ctx.actions.write(
+        link_cmd = cxx_link_cmd(cxx_context)
+        final_link_argfile, final_link_inputs = cxx_context.actions.write(
             ctx.outputs[linker_argsfile_out].as_output(),
             link_args,
             allow_args = True,
@@ -483,23 +489,23 @@ def cxx_dist_link(
         link_cmd.hidden(opt_objects)
         link_cmd.hidden(archives)
 
-        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
+        cxx_context.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
     todo_inputs = []
     final_link_inputs = [link_plan_out] + [archive.opt_manifest for archive in archive_manifests]
-    ctx.actions.dynamic_output(
+    cxx_context.actions.dynamic_output(
         final_link_inputs,
         todo_inputs,
         [output] + ([linker_map] if linker_map else []) + [linker_argsfile_out],
         thin_lto_final_link,
     )
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
-    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_generation_enabled else None
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, cxx_context, output, identifier)
+    dwp_output = cxx_context.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_generation_enabled else None
 
     if dwp_generation_enabled:
         run_dwp_action(
-            ctx = ctx,
+            cxx_context = cxx_context,
             obj = final_output,
             identifier = identifier,
             category_suffix = category_suffix,

@@ -6,9 +6,9 @@ load(
     "unpack_link_args_filelist",
 )
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "CxxContext")  # @unused Used as a type
 
-def linker_map_args(ctx, linker_map) -> LinkArgs.type:
+def linker_map_args(cxx_context: CxxContext.type, linker_map) -> LinkArgs.type:
     darwin_flags = [
         "-Xlinker",
         "-map",
@@ -29,9 +29,9 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         "-Xlinker",
         "--error-limit=1",
     ]
-    return LinkArgs(flags = darwin_flags if get_cxx_toolchain_info(ctx).linker_info.type == "darwin" else gnu_flags)
+    return LinkArgs(flags = darwin_flags if cxx_context.cxx_toolchain_info.linker_info.type == "darwin" else gnu_flags)
 
-def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
+def map_link_args_for_dwo(actions: "actions", links: ["LinkArgs"], dwo_dir_name: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
     """
     Takes LinkArgs, and if they enable the DWO output dir hack, returns updated
     args and a DWO dir as output. If they don't, just returns the args as-is.
@@ -51,7 +51,7 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [st
         if "HACK-OUTPUT-DWO-DIR" in repr(flag):
             expect(dwo_dir_name != None)
             expect(dwo_dir[0] == None)
-            dwo_dir[0] = ctx.actions.declare_output(dwo_dir_name)
+            dwo_dir[0] = actions.declare_output(dwo_dir_name)
             return cmd_args(dwo_dir[0].as_output(), format = "dwo_dir={}")
         else:
             return flag
@@ -75,7 +75,7 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [st
     ]
     return (links, dwo_dir[0])
 
-def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_name: [str.type, None] = None, is_shared: [bool.type, None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
+def make_link_args(cxx_context: CxxContext.type, links: ["LinkArgs"], suffix = None, dwo_dir_name: [str.type, None] = None, is_shared: [bool.type, None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -86,13 +86,13 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
 
     filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
 
-    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    cxx_toolchain_info = cxx_context.cxx_toolchain_info
     linker_type = cxx_toolchain_info.linker_info.type
     if filelists:
         if linker_type == "gnu":
             fail("filelist populated for gnu linker")
         elif linker_type == "darwin":
-            path = ctx.actions.write("filelist%s.txt" % suffix, filelists)
+            path = cxx_context.actions.write("filelist%s.txt" % suffix, filelists)
             args.add(["-Xlinker", "-filelist", "-Xlinker", path])
         else:
             fail("Linker type {} not supported".format(linker_type))
@@ -129,7 +129,7 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
     # Context: D36669131
     dwo_dir = None
     if cxx_toolchain_info.split_dwarf_enabled:
-        links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
+        links, dwo_dir = map_link_args_for_dwo(cxx_context.actions, links, dwo_dir_name)
 
     for link in links:
         args.add(unpack_link_args(link, is_shared))
@@ -141,7 +141,7 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
 # - list of files/directories that should be present for executable to be run successfully
 # - optional shared libs symlink tree symlinked_dir action
 def executable_shared_lib_arguments(
-        ctx: "context",
+        cxx_context: CxxContext.type,
         output: "artifact",
         shared_libs: {str.type: "LinkedObject"}) -> ([""], ["artifact"], ["artifact", None]):
     extra_args = []
@@ -154,12 +154,12 @@ def executable_shared_lib_arguments(
         runtime_files.extend(shlib.external_debug_paths)
 
     if len(shared_libs) > 0:
-        shared_libs_symlink_tree = ctx.actions.symlinked_dir(
+        shared_libs_symlink_tree = cxx_context.actions.symlinked_dir(
             "__{}__shared_libs_symlink_tree".format(output.short_path),
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)
-        linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+        linker_type = cxx_context.cxx_toolchain_info.linker_info.type
         if linker_type == "gnu":
             rpath_reference = "$ORIGIN"
         elif linker_type == "darwin":
@@ -174,8 +174,8 @@ def executable_shared_lib_arguments(
     return (extra_args, runtime_files, shared_libs_symlink_tree)
 
 # The command line for linking with C++
-def cxx_link_cmd(ctx: "context") -> "cmd_args":
-    toolchain = get_cxx_toolchain_info(ctx)
+def cxx_link_cmd(cxx_context: CxxContext.type) -> "cmd_args":
+    toolchain = cxx_context.cxx_toolchain_info
     command = cmd_args(toolchain.linker_info.linker)
     command.add(toolchain.linker_info.linker_flags)
     return command

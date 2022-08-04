@@ -1,4 +1,8 @@
 load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
+load(
+    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
+    "ctx_to_cxx_context",
+)
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "make_link_args")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -239,7 +243,7 @@ def rust_compile(
         # If this crate type has an associated native dep link style, include deps
         # of that style.
         (link_args, hidden, _dwo_dir_unused_in_rust) = make_link_args(
-            ctx,
+            ctx_to_cxx_context(ctx),
             [
                 LinkArgs(flags = extra_link_args),
                 get_link_args(

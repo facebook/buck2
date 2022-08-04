@@ -1,4 +1,8 @@
 load(
+    "@fbcode//buck2/prelude/cxx:cxx_context.bzl",
+    "ctx_to_cxx_context",
+)
+load(
     "@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl",
     "cxx_attr_exported_linker_flags",
     "cxx_platform_supported",
@@ -31,7 +35,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
     framework_directory_artifact = ctx.attrs.framework
 
     # Check this rule's `supported_platforms_regex` with the current platform.
-    if cxx_platform_supported(ctx):
+    if cxx_platform_supported(ctx, ctx_to_cxx_context(ctx)):
         # Sandbox the framework, to avoid leaking other frameworks via search paths.
         framework_name = to_framework_name(framework_directory_artifact.basename)
         framework_dir = ctx.actions.symlinked_dir(
@@ -42,7 +46,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
         # Add framework & pp info from deps.
         inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
         providers.append(cxx_merge_cpreprocessors(
-            ctx,
+            ctx.actions,
             [CPreprocessor(args = ["-F", framework_dir])],
             inherited_pp_info,
         ))

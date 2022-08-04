@@ -10,7 +10,7 @@ load(
     "get_flags_for_reproducible_build",
     "get_headers_dep_files_flags_factory",
 )
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "CxxContext")  # @unused Used as a type
 load(
     ":headers.bzl",
     "CPrecompiledHeaderInfo",
@@ -121,6 +121,7 @@ CxxSrcWithFlags = record(
 
 def create_compile_cmds(
         ctx: "context",
+        cxx_context: CxxContext.type,
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: [CPreprocessor.type],
         inherited_preprocessor_infos: [CPreprocessorInfo.type]) -> CxxCompileCommandOutputForCompDb.type:
@@ -150,16 +151,16 @@ def create_compile_cmds(
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
     # at compile time, but that doing that here/eagerly might be expensive (but
     # we should figure out something).
-    _validate_target_headers(ctx, own_preprocessors)
+    _validate_target_headers(cxx_context, own_preprocessors)
 
     # Combine all preprocessor info and prepare it for compilations.
     pre = cxx_merge_cpreprocessors(
-        ctx,
+        cxx_context.actions,
         filter(None, own_preprocessors + impl_params.extra_preprocessors),
         inherited_preprocessor_infos,
     )
 
-    headers_tag = ctx.actions.artifact_tag()
+    headers_tag = cxx_context.actions.artifact_tag()
 
     src_compile_cmds = []
     cxx_compile_cmd_by_ext = {}
@@ -172,7 +173,7 @@ def create_compile_cmds(
         # of the same extension they will have some of the same flags. Save on
         # allocations by caching and reusing these objects.
         if not ext in cxx_compile_cmd_by_ext:
-            toolchain = get_cxx_toolchain_info(ctx)
+            toolchain = cxx_context.cxx_toolchain_info
             compiler_info = _get_compiler_info(toolchain, ext)
             base_compile_cmd = _get_compile_base(compiler_info, ext)
 
@@ -186,7 +187,7 @@ def create_compile_cmds(
                         tag = headers_tag,
                     )
 
-            argsfile_by_ext[ext] = _mk_argsfile(ctx, pre, ext, headers_tag)
+            argsfile_by_ext[ext] = _mk_argsfile(ctx, cxx_context, pre, ext, headers_tag)
             cxx_compile_cmd_by_ext[ext] = _CxxCompileCommand(
                 base_compile_cmd = base_compile_cmd,
                 argsfile = argsfile_by_ext[ext],
@@ -213,7 +214,7 @@ def create_compile_cmds(
         other_outputs.extend(argsfile.hidden_args)
         argsfile_artifacts_by_ext[ext] = argsfile.file
 
-    argsfiles_summary = ctx.actions.write("argsfiles", argsfile_names)
+    argsfiles_summary = cxx_context.actions.write("argsfiles", argsfile_names)
 
     # Create a provider that will output all the argsfiles necessary and generate those argsfiles.
     argsfiles = DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = other_outputs)
@@ -231,6 +232,7 @@ def create_compile_cmds(
 
 def compile_cxx(
         ctx: "context",
+        cxx_context: CxxContext.type,
         src_compile_cmds: [CxxSrcCompileCommand.type],
         pic: bool.type = False) -> ["artifact"]:
     """
@@ -245,7 +247,7 @@ def compile_cxx(
             identifier = identifier + "_" + str(src_compile_cmd.index)
 
         filename_base = identifier + (".pic" if pic else "")
-        out = ctx.actions.declare_output(
+        out = cxx_context.actions.declare_output(
             paths.join("__objects__", filename_base + ".o"),
         )
 
@@ -263,10 +265,10 @@ def compile_cxx(
 
         headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
         if headers_dep_files:
-            intermediary_dep_file = ctx.actions.declare_output(
+            intermediary_dep_file = cxx_context.actions.declare_output(
                 paths.join("__dep_files_intermediaries__", filename_base),
             ).as_output()
-            dep_file = ctx.actions.declare_output(
+            dep_file = cxx_context.actions.declare_output(
                 paths.join("__dep_files__", filename_base),
             ).as_output()
 
@@ -287,7 +289,7 @@ def compile_cxx(
 
         if pic:
             identifier += " (pic)"
-        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, local_only = local_only)
+        cxx_context.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, local_only = local_only)
         objects.append(out)
 
     return objects
@@ -295,7 +297,7 @@ def compile_cxx(
 def _cxx_compile_requires_local(ctx: "context") -> bool.type:
     return "exceeds_re_memory_limits" in ctx.attrs.labels
 
-def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type]):
+def _validate_target_headers(cxx_context: CxxContext.type, preprocessor: [CPreprocessor.type]):
     path_to_artifact = {}
     all_headers = flatten([x.headers for x in preprocessor])
     for header in all_headers:
@@ -303,7 +305,7 @@ def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type])
         artifact = path_to_artifact.get(header_path)
         if artifact != None:
             if artifact != header.artifact:
-                fail("Conflicting headers {} and {} map to {} in target {}".format(artifact, header.artifact, header_path, ctx.label))
+                fail("Conflicting headers {} and {} map to {} in target {}".format(artifact, header.artifact, header_path, cxx_context.label))
         else:
             path_to_artifact[header_path] = header.artifact
 
@@ -350,7 +352,7 @@ def _supports_dep_files(ext: CxxExtension.type) -> bool.type:
         return False
     return True
 
-def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxExtension.type, headers_tag: "artifact_tag") -> _CxxCompileArgsfile.type:
+def _mk_argsfile(ctx: "context", cxx_context: CxxContext.type, preprocessor: CPreprocessorInfo.type, ext: CxxExtension.type, headers_tag: "artifact_tag") -> _CxxCompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -364,7 +366,7 @@ def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxE
         args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
     args.add(cxx_attr_preprocessor_flags(ctx, ext.value))
-    args.add(_attr_compiler_flags(ctx, ext.value))
+    args.add(_attr_compiler_flags(ctx, cxx_context, ext.value))
     args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
 
     # Workaround as that's not precompiled, but working just as prefix header.
@@ -375,7 +377,7 @@ def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxE
         args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
     shell_quoted_args = cmd_args(args, quote = "shell")
-    argfile, macro_files = ctx.actions.write(ext.value + ".argsfile", shell_quoted_args, allow_args = True)
+    argfile, macro_files = cxx_context.actions.write(ext.value + ".argsfile", shell_quoted_args, allow_args = True)
 
     hidden_args = [args]
     hidden_args.extend(macro_files)
@@ -384,10 +386,10 @@ def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxE
 
     return _CxxCompileArgsfile(file = argfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, args = args, hidden_args = hidden_args)
 
-def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
+def _attr_compiler_flags(ctx: "context", cxx_context: CxxContext.type, ext: str.type) -> [""]:
     return (
         ctx.attrs.compiler_flags +
         cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext) +
-        flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_compiler_flags, ext)))
+        flatten(cxx_by_platform(cxx_context, ctx.attrs.platform_compiler_flags)) +
+        flatten(cxx_by_platform(cxx_context, cxx_by_language_ext(ctx.attrs.lang_platform_compiler_flags, ext)))
     )

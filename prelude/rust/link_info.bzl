@@ -1,6 +1,7 @@
 # Implementation of the Rust build rules.
 
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "ctx_to_cxx_context")
+load("@fbcode//buck2/prelude/cxx:platform.bzl", "cxx_by_platform")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "LinkStyle",
@@ -11,7 +12,6 @@ load(
     "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
     "SharedLibraryInfo",
 )
-load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 
 # Override dylib crates to static_pic, so that Rust code is always
@@ -56,10 +56,6 @@ def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkS
 
     return info.styles[link_style]
 
-def cxx_by_platform(ctx: "context", xs: [(str.type, "_a")]) -> "_a":
-    platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
-    return flatten(by_platform([platform], xs))
-
 # A Rust dependency
 RustDependency = record(
     # The actual dependency
@@ -72,14 +68,15 @@ RustDependency = record(
 
 # Returns all first-order dependencies, resolving the ones from "platform_deps"
 def resolve_deps(ctx: "context") -> [RustDependency.type]:
+    cxx_context = ctx_to_cxx_context(ctx)
     return [
         RustDependency(name = name, dep = dep, flags = flags)
         # The `getattr`s are needed for when we're operating on
         # `prebuilt_rust_library` rules, which don't have those attrs.
-        for name, dep, flags in [(None, dep, []) for dep in ctx.attrs.deps + cxx_by_platform(ctx, ctx.attrs.platform_deps)] +
+        for name, dep, flags in [(None, dep, []) for dep in ctx.attrs.deps + flatten(cxx_by_platform(cxx_context, ctx.attrs.platform_deps))] +
                                 [(name, dep, []) for name, dep in getattr(ctx.attrs, "named_deps", {}).items()] +
                                 [(None, dep, flags) for dep, flags in getattr(ctx.attrs, "flagged_deps", []) +
-                                                                      cxx_by_platform(ctx, getattr(ctx.attrs, "platform_flagged_deps", []))]
+                                                                      flatten(cxx_by_platform(cxx_context, getattr(ctx.attrs, "platform_flagged_deps", [])))]
     ]
 
 # Returns native link dependencies.
@@ -148,7 +145,7 @@ def inherited_non_rust_link_info(ctx: "context") -> "MergedLinkInfo":
     infos = []
     infos.extend(_non_rust_link_infos(ctx))
     infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx)])
-    return merge_link_infos(ctx, infos)
+    return merge_link_infos(ctx.actions, infos)
 
 def inherited_non_rust_shared_libs(ctx: "context") -> ["SharedLibraryInfo"]:
     infos = []

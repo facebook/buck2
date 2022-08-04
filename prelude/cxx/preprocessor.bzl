@@ -6,7 +6,11 @@ load(
     "value_or",
 )
 load(":attr_selection.bzl", "cxx_by_language_ext")
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(
+    ":cxx_context.bzl",
+    "CxxContext",  # @unused Used as a type
+    "ctx_to_cxx_context",
+)
 load(
     ":headers.bzl",
     "CHeader",  # @unused Used as a type
@@ -98,19 +102,21 @@ CPreprocessorForTestsInfo = provider(fields = [
 
 # Preprocessor flags
 def cxx_attr_preprocessor_flags(ctx: "context", ext: str.type) -> [""]:
+    cxx_context = ctx_to_cxx_context(ctx)
     return (
         ctx.attrs.preprocessor_flags +
         cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext) +
-        flatten(cxx_by_platform(ctx, ctx.attrs.platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
+        flatten(cxx_by_platform(cxx_context, ctx.attrs.platform_preprocessor_flags)) +
+        flatten(cxx_by_platform(cxx_context, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
     )
 
 def cxx_attr_exported_preprocessor_flags(ctx: "context") -> [""]:
+    cxx_context = ctx_to_cxx_context(ctx)
     return (
         ctx.attrs.exported_preprocessor_flags +
         _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
-        flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
+        flatten(cxx_by_platform(cxx_context, ctx.attrs.exported_platform_preprocessor_flags)) +
+        flatten(cxx_by_platform(cxx_context, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
     )
 
 def cxx_inherited_preprocessor_infos(first_order_deps: ["dependency"]) -> [CPreprocessorInfo.type]:
@@ -119,15 +125,15 @@ def cxx_inherited_preprocessor_infos(first_order_deps: ["dependency"]) -> [CPrep
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
     return filter(None, map_idx(CPreprocessorInfo, first_order_deps))
 
-def cxx_merge_cpreprocessors(ctx: "context", own: [CPreprocessor.type], xs: [CPreprocessorInfo.type]) -> "CPreprocessorInfo":
+def cxx_merge_cpreprocessors(actions: "actions", own: [CPreprocessor.type], xs: [CPreprocessorInfo.type]) -> "CPreprocessorInfo":
     kwargs = {"children": [x.set for x in xs]}
     if own:
         kwargs["value"] = own
     return CPreprocessorInfo(
-        set = ctx.actions.tset(CPreprocessorTSet, **kwargs),
+        set = actions.tset(CPreprocessorTSet, **kwargs),
     )
 
-def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLayout.type, extra_preprocessors: [CPreprocessor.type] = []) -> CPreprocessor.type:
+def cxx_exported_preprocessor_info(ctx: "context", cxx_context: CxxContext.type, headers_layout: CxxHeadersLayout.type, extra_preprocessors: [CPreprocessor.type] = []) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
@@ -156,8 +162,8 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
     # If headers-as-raw-headers is enabled, convert exported headers to raw
     # headers, with the appropriate include directories.
-    raw_headers_mode = _attr_headers_as_raw_headers_mode(ctx)
-    inferred_inc_dirs = as_raw_headers(ctx, exported_header_map, raw_headers_mode)
+    raw_headers_mode = _attr_headers_as_raw_headers_mode(ctx, cxx_context)
+    inferred_inc_dirs = as_raw_headers(cxx_context, exported_header_map, raw_headers_mode)
     if inferred_inc_dirs != None:
         raw_headers.extend(exported_header_map.values())
         if style == HeaderStyle("local"):
@@ -168,10 +174,10 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
     # Add in raw headers and include dirs from attrs.
     raw_headers.extend(value_or(ctx.attrs.raw_headers, []))
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
-    system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
+    include_dirs.extend([cxx_context.label.path.add(x) for x in ctx.attrs.public_include_directories])
+    system_include_dirs.extend([cxx_context.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
-    header_root = prepare_headers(ctx, exported_header_map, "headers")
+    header_root = prepare_headers(cxx_context, exported_header_map, "headers")
 
     # Process args to handle the `$(cxx-header-tree)` macro.
     args = []
@@ -212,24 +218,26 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
 def cxx_private_preprocessor_info(
         ctx: "context",
+        cxx_context: CxxContext.type,
         headers_layout: CxxHeadersLayout.type,
         raw_headers: ["artifact"] = [],
         extra_preprocessors: [CPreprocessor.type] = [],
         non_exported_deps: ["dependency"] = [],
         is_test: bool.type = False) -> (CPreprocessor.type, [CPreprocessor.type]):
-    private_preprocessor = _cxx_private_preprocessor_info(ctx, headers_layout, raw_headers, extra_preprocessors)
+    private_preprocessor = _cxx_private_preprocessor_info(ctx, cxx_context, headers_layout, raw_headers, extra_preprocessors)
 
     test_preprocessors = []
     if is_test:
         for non_exported_dep in non_exported_deps:
             preprocessor_for_tests = non_exported_dep[CPreprocessorForTestsInfo]
-            if preprocessor_for_tests and ctx.label.name in preprocessor_for_tests.test_names:
+            if preprocessor_for_tests and cxx_context.label.name in preprocessor_for_tests.test_names:
                 test_preprocessors.append(preprocessor_for_tests.own_non_exported_preprocessor)
 
     return (private_preprocessor, test_preprocessors)
 
 def _cxx_private_preprocessor_info(
         ctx: "context",
+        cxx_context: CxxContext.type,
         headers_layout: CxxHeadersLayout.type,
         raw_headers: ["artifact"],
         extra_preprocessors: [CPreprocessor.type]) -> CPreprocessor.type:
@@ -264,8 +272,8 @@ def _cxx_private_preprocessor_info(
 
     # If headers-as-raw-headers is enabled, convert exported headers to raw
     # headers, with the appropriate include directories.
-    raw_headers_mode = _attr_headers_as_raw_headers_mode(ctx)
-    inferred_inc_dirs = as_raw_headers(ctx, header_map, raw_headers_mode)
+    raw_headers_mode = _attr_headers_as_raw_headers_mode(ctx, cxx_context)
+    inferred_inc_dirs = as_raw_headers(cxx_context, header_map, raw_headers_mode)
     if inferred_inc_dirs != None:
         all_raw_headers.extend(header_map.values())
         include_dirs.extend(inferred_inc_dirs)
@@ -273,11 +281,11 @@ def _cxx_private_preprocessor_info(
 
     # Add in raw headers and include dirs from attrs.
     all_raw_headers.extend(raw_headers)
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
+    include_dirs.extend([cxx_context.label.path.add(x) for x in ctx.attrs.include_directories])
 
     # Create private header tree and propagate via args.
     args = []
-    header_root = prepare_headers(ctx, header_map, "private-headers")
+    header_root = prepare_headers(cxx_context, header_map, "private-headers")
     if header_root != None:
         args.extend(["-I", header_root.include_path])
 
@@ -306,12 +314,12 @@ def _header_style_flag(style: HeaderStyle.type) -> str.type:
         return "-isystem"
     fail("unsupported header style: {}".format(style))
 
-def _attr_headers_as_raw_headers_mode(ctx: "context") -> HeadersAsRawHeadersMode.type:
+def _attr_headers_as_raw_headers_mode(ctx: "context", cxx_context: CxxContext.type) -> HeadersAsRawHeadersMode.type:
     """
     Return the `HeadersAsRawHeadersMode` setting to use for this rule.
     """
 
-    mode = get_cxx_toolchain_info(ctx).headers_as_raw_headers_mode
+    mode = cxx_context.cxx_toolchain_info.headers_as_raw_headers_mode
 
     # If the platform hasn't set a raw headers translation mode, we don't do anything.
     if mode == None:

@@ -1,7 +1,7 @@
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "CxxContext")  # @unused Used as a type
 
 def extract_symbol_names(
-        ctx: "context",
+        cxx_context: CxxContext.type,
         name: str.type,
         objects: ["artifact"],
         category: str.type,
@@ -19,8 +19,8 @@ def extract_symbol_names(
     if not objects:
         fail("no objects provided")
 
-    nm = get_cxx_toolchain_info(ctx).binary_utilities_info.nm
-    output = ctx.actions.declare_output(name)
+    nm = cxx_context.cxx_toolchain_info.binary_utilities_info.nm
+    output = cxx_context.actions.declare_output(name)
 
     # -A: Prepend all lines with the name of the input file to which it
     # corresponds.  Added only to make parsing the output a bit easier.
@@ -44,7 +44,7 @@ def extract_symbol_names(
         " | LC_ALL=C sort -S 10% -u > {}"
     )
 
-    ctx.actions.run(
+    cxx_context.actions.run(
         [
             "/bin/bash",
             "-c",

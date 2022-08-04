@@ -178,13 +178,13 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
         args += ["-isystem", inc_dir]
     preprocessor = CPreprocessor(args = args)
     inherited_pp_info = cxx_inherited_preprocessor_infos(exported_deps)
-    providers.append(cxx_merge_cpreprocessors(ctx, [preprocessor], inherited_pp_info))
+    providers.append(cxx_merge_cpreprocessors(ctx.actions, [preprocessor], inherited_pp_info))
 
     # Figure out all the link styles we'll be building archives/shlibs for.
     preferred_linkage = _linkage(ctx)
 
-    inherited_non_exported_link = cxx_inherited_link_info(ctx, deps)
-    inherited_exported_link = cxx_inherited_link_info(ctx, exported_deps)
+    inherited_non_exported_link = cxx_inherited_link_info(ctx.actions, deps)
+    inherited_exported_link = cxx_inherited_link_info(ctx.actions, exported_deps)
 
     # Gather link infos, outputs, and shared libs for effective link style.
     outputs = {}

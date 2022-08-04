@@ -15,7 +15,7 @@ load(
 )
 load("@fbcode//buck2/prelude/linking:strip.bzl", "strip_shared_library")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "CxxContext")  # @unused Used as a type
 load(
     ":cxx_link_utility.bzl",
     "cxx_link_cmd",
@@ -33,6 +33,7 @@ load(
 # Actually perform a link into the supplied output.
 def cxx_link(
         ctx: "context",
+        cxx_context: CxxContext.type,
         links: [LinkArgs.type],
         # The destination for the link output.
         output: "artifact",
@@ -52,15 +53,16 @@ def cxx_link(
         strip_args_factory = None,
         generate_dwp: bool.type = True,
         executable_link = False) -> LinkedObject.type:
-    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    cxx_toolchain_info = cxx_context.cxx_toolchain_info
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = generate_dwp and dwp_available(ctx) and cxx_toolchain_info.split_dwarf_enabled
+    should_generate_dwp = generate_dwp and dwp_available(cxx_context) and cxx_toolchain_info.split_dwarf_enabled
     if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
         return cxx_dist_link(
             ctx,
+            cxx_context,
             links,
             output,
             linker_map,
@@ -70,20 +72,20 @@ def cxx_link(
             executable_link,
         )
     if linker_map != None:
-        links += [linker_map_args(ctx, linker_map.as_output())]
-    (link_args, hidden, dwo_dir) = make_link_args(ctx, links, suffix = identifier, dwo_dir_name = output.short_path + ".dwo.d", is_shared = is_shared)
+        links += [linker_map_args(cxx_context, linker_map.as_output())]
+    (link_args, hidden, dwo_dir) = make_link_args(cxx_context, links, suffix = identifier, dwo_dir_name = output.short_path + ".dwo.d", is_shared = is_shared)
 
     external_debug_paths = []
     if dwo_dir != None:
         external_debug_paths.append(dwo_dir)
 
     shell_quoted_args = cmd_args(link_args, quote = "shell")
-    argfile, macro_files = ctx.actions.write(
+    argfile, macro_files = cxx_context.actions.write(
         output.basename + ".linker.argsfile",
         shell_quoted_args,
         allow_args = True,
     )
-    command = cxx_link_cmd(ctx)
+    command = cxx_link_cmd(cxx_context)
     command.add("-o", output.as_output())
     command.add(cmd_args(argfile, format = "@{}"))
     command.hidden([hidden, macro_files])
@@ -101,12 +103,12 @@ def cxx_link(
         cmd.hidden(command)
         command = cmd
 
-    ctx.actions.run(command, prefer_local = prefer_local, local_only = local_only, weight = link_weight, category = category, identifier = identifier)
+    cxx_context.actions.run(command, prefer_local = prefer_local, local_only = local_only, weight = link_weight, category = category, identifier = identifier)
     if strip:
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
-        output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
+        output = strip_shared_library(cxx_context, output, strip_args)
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    final_output = output if not (executable_link and cxx_use_bolt(ctx, cxx_context)) else bolt(ctx, cxx_context, output, identifier)
 
     dwp_artifact = None
     if should_generate_dwp:
@@ -120,6 +122,7 @@ def cxx_link(
 
         dwp_artifact = dwp(
             ctx,
+            cxx_context,
             final_output,
             identifier = identifier,
             category_suffix = category_suffix,
@@ -141,6 +144,7 @@ def cxx_link(
 
 def cxx_link_shared_library(
         ctx: "context",
+        cxx_context: CxxContext.type,
         # The destination for the link output.
         output: "artifact",
         # Optional soname to link into shared library.
@@ -161,7 +165,7 @@ def cxx_link_shared_library(
     """
     Link a shared library into the supplied output.
     """
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    linker_info = cxx_context.cxx_toolchain_info.linker_info
     linker_type = linker_info.type
     extra_args = []
 
@@ -171,6 +175,7 @@ def cxx_link_shared_library(
 
     return cxx_link(
         ctx,
+        cxx_context,
         [LinkArgs(flags = extra_args)] + links,
         output,
         prefer_local = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False)),
@@ -185,6 +190,7 @@ def cxx_link_shared_library(
 
 def cxx_link_into_shared_library(
         ctx: "context",
+        cxx_context: CxxContext.type,
         name: str.type,
         links: [LinkArgs.type] = [],
         # Wether to embed the library name as the SONAME.
@@ -201,9 +207,10 @@ def cxx_link_into_shared_library(
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
         strip_args_factory = None) -> LinkedObject.type:
-    output = ctx.actions.declare_output(name)
+    output = cxx_context.actions.declare_output(name)
     return cxx_link_shared_library(
         ctx,
+        cxx_context,
         output,
         name = name if soname else None,
         links = links,

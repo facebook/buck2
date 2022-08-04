@@ -14,13 +14,30 @@ load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "C
 # the top level but as part of the transition to support
 # `apple_toolchain`, we want to make progress now.
 
-def get_cxx_platform_info(ctx: "context") -> "CxxPlatformInfo":
+# A context for declaration of actions requiring Cxx toolchain info
+# that doesn't also carry along the attrs of the full context
+CxxContext = record(
+    actions = "actions",
+    label = "label",
+    cxx_platform_info = field("CxxPlatformInfo"),
+    cxx_toolchain_info = field("CxxToolchainInfo"),
+)
+
+def ctx_to_cxx_context(ctx: "context") -> CxxContext.type:
+    return CxxContext(
+        actions = ctx.actions,
+        label = ctx.label,
+        cxx_platform_info = get_cxx_platform_info(ctx),
+        cxx_toolchain_info = get_cxx_toolchain_info(ctx),
+    )
+
+def get_cxx_platform_info(ctx: "context") -> CxxPlatformInfo.type:
     apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_platform_info
     return ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
-def get_cxx_toolchain_info(ctx: "context") -> "CxxToolchainInfo":
+def get_cxx_toolchain_info(ctx: "context") -> CxxToolchainInfo.type:
     apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_toolchain_info

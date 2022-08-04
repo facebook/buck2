@@ -446,7 +446,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
     # 'cmxs_order' without regard for which.
     cmxs_order = ctx.actions.declare_output("cmxs_order_" + bytecode_or_native.value + ".lst")
 
-    pre = cxx_merge_cpreprocessors(ctx, [], filter(None, [d[CPreprocessorInfo] for d in _attr_deps(ctx)]))
+    pre = cxx_merge_cpreprocessors(ctx.actions, [], filter(None, [d[CPreprocessorInfo] for d in _attr_deps(ctx)]))
     pre_args = pre.set.project_as_args("args")
     cc_sh_filename = "cc_" + bytecode_or_native.value + ".sh"
     cc = _mk_cc(ctx, [pre_args], cc_sh_filename)

@@ -264,7 +264,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         haskell_lib_provider,
-        cxx_merge_cpreprocessors(ctx, [CPreprocessor(args = args)], []),
+        cxx_merge_cpreprocessors(ctx.actions, [CPreprocessor(args = args)], []),
         merge_shared_libraries(
             ctx.actions,
             create_shared_libraries(ctx, solibs),
@@ -626,7 +626,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         HaskellLibraryProvider(lib = hlib_infos),
         merge_haskell_link_infos(hlis + [HaskellLinkInfo(info = hlink_infos)]),
         merged_link_info,
-        cxx_merge_cpreprocessors(ctx, pp, inherited_pp_info),
+        cxx_merge_cpreprocessors(ctx.actions, pp, inherited_pp_info),
         merge_shared_libraries(ctx.actions, create_shared_libraries(ctx, solibs), shared_library_infos),
         create_merged_linkable_graph(ctx.label, ctx.attrs.deps),
     ]
