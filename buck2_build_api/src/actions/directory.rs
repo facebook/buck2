@@ -222,6 +222,25 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
     }
 }
 
+pub fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE::Tree {
+    let children = directory
+        .fingerprinted_ordered_walk()
+        .without_paths()
+        .filter_map(|entry| match entry {
+            DirectoryEntry::Dir(d) => Some(d),
+            DirectoryEntry::Leaf(..) => None,
+        })
+        .map(|d| ReDirectorySerializer::create_re_directory(d.fingerprinted_entries()))
+        .collect();
+
+    let root = ReDirectorySerializer::create_re_directory(directory.fingerprinted_entries());
+
+    RE::Tree {
+        root: Some(root),
+        children,
+    }
+}
+
 /// Constructs a `Directory` from an `RE::Tree`. As long as the
 /// `RE::Tree` is valid (i.e. nothing is broken in the RE side), this
 /// should always succeed.
@@ -843,6 +862,48 @@ mod tests {
         };
 
         assert_dirs_eq(value.deps().context("No deps!")?, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_re_tree_roundtrip() -> anyhow::Result<()> {
+        let mut builder = ActionDirectoryBuilder::empty();
+        insert_file(&mut builder, path("a/aa"), FileMetadata::empty())?;
+        insert_file(&mut builder, path("a/bb"), FileMetadata::empty())?;
+        insert_file(&mut builder, path("b/b"), FileMetadata::empty())?;
+        let dir = builder.fingerprint();
+
+        let tree = directory_to_re_tree(&dir);
+        let dir2 = re_tree_to_directory(&tree, &SystemTime::now())?;
+
+        assert_dirs_eq(&dir, &dir2);
+
+        Ok(())
+    }
+
+    /// Ensure that we serialize trees the same way RE does. The expected hash was obtained by
+    /// running:
+    ///
+    /// ```sh
+    /// buck2 run fbcode//remote_execution/rust/recli:recli -- \
+    ///     exec command --out-dir test -- sh -c \
+    ///     'mkdir -p test/a/aa test/a/aaa test/b/bb test/d && touch test/a/aa/f test/a/aaa/f test/b/bb/f test/d/f'
+    /// ```
+    #[test]
+    fn test_re_tree_compatibility() -> anyhow::Result<()> {
+        let mut builder = ActionDirectoryBuilder::empty();
+        for p in &["a/aa/f", "a/aaa/f", "b/bb/f", "d/f"] {
+            insert_file(&mut builder, path(p), FileMetadata::empty())?;
+        }
+        let dir = builder.fingerprint();
+        let tree = directory_to_re_tree(&dir);
+        let tree = proto_serialize(&tree);
+        let digest = FileDigest::from_bytes(&tree);
+        assert_eq!(
+            digest.to_string(),
+            "28e2632abbdc186ddd3ce26d2faf2da40c4c2695:521"
+        );
 
         Ok(())
     }
