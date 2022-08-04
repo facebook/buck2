@@ -152,7 +152,7 @@ def executable_shared_lib_arguments(
 
     if len(shared_libs) > 0:
         shared_libs_symlink_tree = ctx.actions.symlinked_dir(
-            "__shared_libs_symlink_tree",
+            "__{}__shared_libs_symlink_tree".format(output.short_path),
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)
