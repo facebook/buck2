@@ -1,7 +1,7 @@
 load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
-load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_list")
 load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
 load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override")
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
@@ -179,7 +179,15 @@ go_fbcode_toolchain(
 
 ocaml_fbcode_toolchain(
     name = "ocaml-fbcode",
-    ocaml_compiler_flags = ["-opaque"],
+    # TODO(agallager): We should move away from reading these from configs.
+    ocaml_compiler_flags = selects2.apply(
+        fbcode_toolchains.LEGACY_V1_PLATFORMS,
+        lambda platform_name: read_list(
+            "ocaml#{}".format(platform_name),
+            "ocaml_compiler_flags",
+            default = [],
+        ),
+    ),
     warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
     visibility = ["PUBLIC"],
 )
