@@ -87,7 +87,7 @@ mac_platforms = execution_platform(
 linux_platforms = execution_platform(
     name = "linux-x86_64",
     base_platform = linux_execution_base_platforms["platform010"],
-    local_enabled = host_info().arch.is_x86_64,
+    local_enabled = host_is_linux and host_info().arch.is_x86_64,
     # TODO(agallagher): aarch64 RE builds are setup to work correctly
     remote_enabled = not (host_is_linux and host_info().arch.is_aarch64),
     remote_execution_properties = {
@@ -99,7 +99,7 @@ linux_platforms = execution_platform(
 ) + execution_platform(
     name = "linux-aarch64",
     base_platform = linux_execution_base_platforms["platform010-aarch64"],
-    local_enabled = host_info().arch.is_aarch64,
+    local_enabled = host_is_linux and host_info().arch.is_aarch64,
     # NOTE(agallagher): We don't have aarch64 RE workers.
     remote_enabled = False,
     remote_execution_action_key_providers = remote_execution_action_key_providers,
