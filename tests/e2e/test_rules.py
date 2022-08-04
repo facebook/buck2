@@ -127,14 +127,14 @@ async def test_apple(buck: Buck) -> None:
     )
 
 
-# @buck_test(inplace=True)
-# async def test_apple_tests(buck: Buck) -> None:
-#     await buck.test(
-#         "-c",
-#         "xplat.available_platforms=APPLE,CXX",
-#         "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitTests",
-#         "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitAppTests",
-#     )
+@buck_test(inplace=True)
+async def test_apple_tests(buck: Buck) -> None:
+    await buck.test(
+        "-c",
+        "xplat.available_platforms=APPLE,CXX",
+        "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitTests",
+        "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitAppTests",
+    )
 
 
 @buck_test(inplace=True)
