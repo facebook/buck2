@@ -52,7 +52,7 @@ def bolt(ctx: "context", cxx_context: CxxContext.type, prebolt_output: "artifact
     postbolt_output = cxx_context.actions.declare_output(output_name)
     bolt_msdk = cxx_context.cxx_toolchain_info.binary_utilities_info.bolt_msdk
 
-    if not bolt_msdk or not cxx_use_bolt(ctx):
+    if not bolt_msdk or not cxx_use_bolt(ctx, cxx_context):
         fail("Cannot use bolt if bolt_msdk is not available or bolt profile is not available")
     args = cmd_args()
 

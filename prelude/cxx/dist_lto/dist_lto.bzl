@@ -500,7 +500,7 @@ def cxx_dist_link(
         thin_lto_final_link,
     )
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, cxx_context, output, identifier)
+    final_output = output if not (executable_link and cxx_use_bolt(ctx, cxx_context)) else bolt(ctx, cxx_context, output, identifier)
     dwp_output = cxx_context.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_generation_enabled else None
 
     if dwp_generation_enabled:
