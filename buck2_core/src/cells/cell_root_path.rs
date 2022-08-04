@@ -28,7 +28,7 @@ impl CellRootPath {
     }
 
     /// Project relative path to the cell root.
-    pub fn project_relative_path(&self) -> &ProjectRelativePath {
+    pub fn as_project_relative_path(&self) -> &ProjectRelativePath {
         &self.0
     }
 

@@ -403,7 +403,7 @@ impl CellResolver {
         let path = path.as_ref();
         let cell = self.find(path)?;
         let instance = self.get(cell)?;
-        let relative = path.strip_prefix(instance.path().project_relative_path())?;
+        let relative = path.strip_prefix(instance.path().as_project_relative_path())?;
         Ok(CellPath::new(cell.clone(), relative.to_owned().into()))
     }
 
@@ -447,7 +447,7 @@ impl CellResolver {
 
         let resolved_cell_name = context_cell.cell_alias_resolver().resolve(cell_alias)?;
         let cell = self.get(resolved_cell_name)?;
-        let cell_absolute_path = project_filesystem.resolve(cell.path().project_relative_path());
+        let cell_absolute_path = project_filesystem.resolve(cell.path().as_project_relative_path());
         cell_absolute_path.join_normalized(cell_relative_path)
     }
 
@@ -560,7 +560,7 @@ impl CellsAggregator {
             .map(|alias| CellName::unchecked_new(alias.clone()))
             .ok_or_else(|| {
                 anyhow!(CellError::UnknownCellPath(
-                    path.project_relative_path().to_buf(),
+                    path.as_project_relative_path().to_buf(),
                     self.cell_infos
                         .keys()
                         .map(|p| p.as_str().to_owned())
@@ -834,7 +834,7 @@ mod tests {
         assert_eq!(
             cells.find(
                 &cell2_path
-                    .project_relative_path()
+                    .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
             )?,
             &CellName::unchecked_new("cell2".into())
@@ -842,7 +842,7 @@ mod tests {
         assert_eq!(
             cells.find(
                 &cell3_path
-                    .project_relative_path()
+                    .as_project_relative_path()
                     .join(ForwardRelativePath::new("more/foo")?)
             )?,
             &CellName::unchecked_new("cell3".into())
@@ -868,7 +868,7 @@ mod tests {
         assert_eq!(
             cells.get_cell_path(
                 &cell2_path
-                    .project_relative_path()
+                    .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
             )?,
             CellPath::new(
