@@ -107,7 +107,7 @@ def cxx_dist_link(
 
     link_infos = map_to_link_infos(links)
 
-    cxx_toolchain = cxx_context.toolchain_info
+    cxx_toolchain = cxx_context.cxx_toolchain_info
     lto_planner = cxx_toolchain.dist_lto_tools_info.planner
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
