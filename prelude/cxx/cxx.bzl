@@ -128,6 +128,9 @@ def _get_shared_link_style_sub_targets_and_providers(
     return ({"dwp": [DefaultInfo(default_outputs = [dwp])]}, [])
 
 def cxx_library_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
+        fail("Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule")
+
     params = CxxRuleConstructorParams(
         rule_type = "cxx_library",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),

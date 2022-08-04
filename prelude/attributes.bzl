@@ -1,4 +1,4 @@
-# @generated SignedSource<<e3a1da4a836bcf599ad364c18b082a9a>>
+# @generated SignedSource<<48dd17c342192496b3d373f29cf947ee>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -1141,6 +1141,7 @@ attributes = {
         "supports_merged_linking": attrs.option(attrs.bool(), default = None),
         "thin_lto": attrs.bool(),
         "use_archive": attrs.option(attrs.bool(), default = None),
+        "used_by_wrap_script": attrs.bool(),
         "uses_cxx_explicit_modules": attrs.bool(),
         "uses_explicit_modules": attrs.bool(),
         "version_universe": attrs.option(attrs.string(), default = None),

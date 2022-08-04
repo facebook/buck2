@@ -491,6 +491,12 @@ async def test_android(buck: Buck) -> None:
         ),
         stderr_regex="Cannot use `is_asset` and `has_wrap_script` in the same rule",
     )
+    await expect_failure(
+        buck.build(
+            "fbsource//fbandroid/buck2/tests/bad/cxx_library:can_be_asset_and_used_by_wrap_script"
+        ),
+        stderr_regex="Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule",
+    )
 
 
 @buck_test(inplace=True)

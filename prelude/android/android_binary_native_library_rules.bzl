@@ -45,9 +45,10 @@ def get_android_binary_native_library_info(
         all_shared_libraries.extend(native_linkables.values())
         unstripped_libs += [shared_lib.lib.output for shared_lib in native_linkables.values()]
 
-        platform_stripped_native_linkables, platform_stripped_native_linkable_assets = _get_native_linkables(ctx, platform, native_linkables)
+        platform_stripped_native_linkables, platform_stripped_native_linkable_assets, platform_stripped_native_linkables_for_primary_apk = _get_native_linkables(ctx, platform, native_linkables)
         native_libs += platform_stripped_native_linkables
         native_lib_assets += platform_stripped_native_linkable_assets
+        native_libs_for_primary_apk += platform_stripped_native_linkables_for_primary_apk
 
     return AndroidBinaryNativeLibsInfo(
         apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
@@ -81,13 +82,14 @@ def _filter_prebuilt_native_library_dir(
 def _get_native_linkables(
         ctx: "context",
         platform: str.type,
-        native_linkables: {str.type: "SharedLibrary"}) -> (["artifact"], ["artifact"]):
+        native_linkables: {str.type: "SharedLibrary"}) -> (["artifact"], ["artifact"], ["artifact"]):
     cpu_filters = ctx.attrs.cpu_filters
     if cpu_filters and platform not in cpu_filters:
         return [], []
 
     stripped_native_linkables = []
     stripped_native_linkable_assets = []
+    stripped_native_linkables_for_primary_apk = []
     abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
     for so_name, native_linkable in native_linkables.items():
         srcs = {paths.join(abi_directory, so_name): native_linkable.stripped_lib}
@@ -98,7 +100,9 @@ def _get_native_linkables(
 
         if native_linkable.can_be_asset:
             stripped_native_linkable_assets.append(symlinked_dir)
+        elif native_linkable.for_primary_apk:
+            stripped_native_linkables_for_primary_apk.append(symlinked_dir)
         else:
             stripped_native_linkables.append(symlinked_dir)
 
-    return stripped_native_linkables, stripped_native_linkable_assets
+    return stripped_native_linkables, stripped_native_linkable_assets, stripped_native_linkables_for_primary_apk

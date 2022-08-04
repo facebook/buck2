@@ -13,6 +13,7 @@ SharedLibrary = record(
     lib = field(LinkedObject.type),
     stripped_lib = field(["artifact", None]),
     can_be_asset = field(bool.type),
+    for_primary_apk = field(bool.type),
     label = field("label"),
 )
 
@@ -51,6 +52,7 @@ def create_shared_libraries(
                 cmd_args(["--strip-unneeded"]),
             ) if cxx_toolchain != None else None,
             can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
+            for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
             label = ctx.label,
         ) for (name, shlib) in libraries.items()},
     )
