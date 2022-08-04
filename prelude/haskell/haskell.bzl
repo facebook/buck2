@@ -390,8 +390,15 @@ def _compile(
 
     compile.add(extra_args)
 
-    for src in ctx.attrs.srcs.values():
-        compile.add(src)
+    for (path, src) in ctx.attrs.srcs.items():
+        (_name, ext) = paths.split_extension(path)
+
+        # hs-boot files aren't expected to be an argument to compiler but does need
+        # to be included in the directory of the associated src file
+        if ext == ".hs-boot":
+            compile.hidden(src)
+        else:
+            compile.add(src)
 
     ctx.actions.run(compile, category = "haskell_compile_" + link_style.value)
 
