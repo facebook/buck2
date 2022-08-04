@@ -1,4 +1,4 @@
-# @generated SignedSource<<ef8587045530be8fdf1aa52624d88959>>
+# @generated SignedSource<<e3a1da4a836bcf599ad364c18b082a9a>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -2386,6 +2386,7 @@ attributes = {
         "contacts": attrs.list(attrs.string(), default = []),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "deps": attrs.list(attrs.dep(), default = []),
+        "has_wrap_script": attrs.bool(),
         "is_asset": attrs.bool(),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),

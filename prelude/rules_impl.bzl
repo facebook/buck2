@@ -499,9 +499,6 @@ extra_attributes = struct(
         "sha256": attrs.option(attrs.string()),
         "_unzip_tool": attrs.exec_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip"),
     },
-    prebuilt_native_library = {
-        "native_libs": attrs.source(allow_directory = True),
-    },
     sh_binary = {
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
     },

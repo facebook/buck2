@@ -13,10 +13,12 @@ def get_android_binary_native_library_info(
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [native_lib for native_lib in traversed_prebuilt_native_library_dirs if native_lib not in prebuilt_native_library_dirs_to_exclude]
 
-    prebuilt_native_library_dirs, prebuilt_native_library_dirs_for_primary_apk = [], []
+    prebuilt_native_library_dirs, prebuilt_native_library_dirs_for_primary_apk, prebuilt_native_library_dir_assets = [], [], []
     for native_lib in all_prebuilt_native_library_dirs:
         if native_lib.for_primary_apk:
             prebuilt_native_library_dirs_for_primary_apk.append(native_lib)
+        elif native_lib.is_asset:
+            prebuilt_native_library_dir_assets.append(native_lib)
         else:
             prebuilt_native_library_dirs.append(native_lib)
 
@@ -26,8 +28,13 @@ def get_android_binary_native_library_info(
         prebuilt_native_library_dirs_for_primary_apk,
         "native_libs_for_primary_apk",
     )
+    native_lib_assets = _filter_prebuilt_native_library_dir(
+        ctx,
+        prebuilt_native_library_dir_assets,
+        "native_lib_assets",
+    )
 
-    unstripped_libs, native_lib_assets = [], []
+    unstripped_libs = []
     all_shared_libraries = []
     for platform, deps in deps_by_platform.items():
         shared_library_info = merge_shared_libraries(

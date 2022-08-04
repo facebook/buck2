@@ -485,6 +485,12 @@ async def test_android(buck: Buck) -> None:
         buck.build("fbsource//fbandroid/buck2/tests/bad/classpath_function:"),
         stderr_regex="Invalid traversal depth",
     )
+    await expect_failure(
+        buck.build(
+            "fbsource//fbandroid/buck2/tests/bad/prebuilt_native_library:prebuilt_native_library_is_asset_and_has_wrap_script"
+        ),
+        stderr_regex="Cannot use `is_asset` and `has_wrap_script` in the same rule",
+    )
 
 
 @buck_test(inplace=True)

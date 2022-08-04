@@ -14,6 +14,7 @@ load(":android_resource.bzl", "android_resource_impl")
 load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load(":configuration.bzl", "cpu_split_transition", "cpu_transition")
 load(":gen_aidl.bzl", "gen_aidl_impl")
+load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
 
 def android_toolchain():
@@ -60,6 +61,7 @@ implemented_rules = {
     "android_prebuilt_aar": android_prebuilt_aar_impl,
     "android_resource": android_resource_impl,
     "gen_aidl": gen_aidl_impl,
+    "prebuilt_native_library": prebuilt_native_library_impl,
     "robolectric_test": robolectric_test_impl,
 }
 
@@ -125,6 +127,9 @@ extra_attributes = {
     "gen_aidl": {
         "_android_toolchain": android_toolchain(),
         "_java_toolchain": _java_toolchain(),
+    },
+    "prebuilt_native_library": {
+        "native_libs": attrs.source(allow_directory = True),
     },
     "robolectric_test": {
         "resources_root": attrs.option(attrs.string(), default = None),

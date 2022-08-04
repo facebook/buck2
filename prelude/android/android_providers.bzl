@@ -98,6 +98,7 @@ CPU_FILTER_TO_ABI_DIRECTORY = {
 PrebuiltNativeLibraryDir = record(
     dir = "artifact",  # contains subdirectories for different ABIs.
     for_primary_apk = bool.type,
+    is_asset = bool.type,
 )
 
 def _artifacts(args: "cmd_args", value: "artifact"):
