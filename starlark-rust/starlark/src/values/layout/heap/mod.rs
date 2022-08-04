@@ -21,5 +21,5 @@ pub(crate) mod arena;
 pub(crate) mod call_enter_exit;
 mod fast_cell;
 pub(crate) mod heap_type;
+pub(crate) mod profile;
 pub(crate) mod repr;
-pub(crate) mod stacks;

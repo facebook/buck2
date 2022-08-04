@@ -36,8 +36,8 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::profile::summary::Info;
 use crate::values::layout::heap::repr::AValueOrForward;
-use crate::values::layout::heap::stacks::summary::Info;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
 use crate::values::Value;
@@ -323,9 +323,9 @@ mod summary {
     use super::*;
     use crate::eval::runtime::profile::csv::CsvWriter;
     use crate::eval::runtime::small_duration::SmallDuration;
-    use crate::values::layout::heap::stacks::AllocCounts;
-    use crate::values::layout::heap::stacks::FunctionId;
-    use crate::values::layout::heap::stacks::StackFrame;
+    use crate::values::layout::heap::profile::AllocCounts;
+    use crate::values::layout::heap::profile::FunctionId;
+    use crate::values::layout::heap::profile::StackFrame;
 
     /// Information relating to a function.
     #[derive(Default, Debug, Clone)]
@@ -482,10 +482,10 @@ mod tests {
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::layout::heap::heap_type::HeapKind;
-    use crate::values::layout::heap::stacks::summary::FuncInfo;
-    use crate::values::layout::heap::stacks::summary::Info;
-    use crate::values::layout::heap::stacks::AggregateHeapProfileInfo;
-    use crate::values::layout::heap::stacks::StackFrame;
+    use crate::values::layout::heap::profile::summary::FuncInfo;
+    use crate::values::layout::heap::profile::summary::Info;
+    use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
+    use crate::values::layout::heap::profile::StackFrame;
     use crate::values::Freezer;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
