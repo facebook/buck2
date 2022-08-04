@@ -231,7 +231,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         dep_links,
     ]
 
-    binary, runtime_files, extra_args = _link_into_executable(
+    binary, runtime_files, shared_libs_symlink_tree, extra_args = _link_into_executable(
         ctx,
         links,
         shared_libs,
@@ -252,6 +252,30 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         argsfiles_by_ext = compile_cmd_output.source_commands.argsfile_by_ext,
         product_name = get_cxx_excutable_product_name(ctx),
     )
+
+    # Info about dynamic-linked libraries for fbpkg integration:
+    # - the symlink dir that's part of RPATH
+    # - sub-sub-targets that reference shared library dependencies and their respective dwp
+    # - [shared-libraries] - a json map that references the above rules.
+    if shared_libs_symlink_tree:
+        sub_targets["rpath-tree"] = [DefaultInfo(default_outputs = [shared_libs_symlink_tree])]
+    sub_targets["shared-libraries"] = [DefaultInfo(
+        default_outputs = [ctx.actions.write_json(
+            binary.output.basename + ".shared-libraries.json",
+            {
+                "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, name) for name in shared_libs.keys()],
+                "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, name) for name, lib in shared_libs.items() if lib.dwp],
+                "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
+            },
+        )],
+        sub_targets = {
+            name: [DefaultInfo(
+                default_outputs = [lib.output],
+                sub_targets = {"dwp": [DefaultInfo(default_outputs = [lib.dwp])]} if lib.dwp else {},
+            )]
+            for name, lib in shared_libs.items()
+        },
+    )]
 
     # TODO(T110378140): We can't really enable this yet, as Python binaries
     # consuming C++ binaries as resources don't know how to handle the
@@ -316,6 +340,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 # Returns a tuple of:
 # - the resulting executable
 # - list of files/directories that should be present for executable to be run successfully
+# - optional shared libs symlink tree symlinked_dir action
 # - extra linking args (for the shared_libs)
 def _link_into_executable(
         ctx: "context",
@@ -325,9 +350,9 @@ def _link_into_executable(
         prefer_local: bool.type = False,
         enable_distributed_thinlto = False,
         strip: bool.type = False,
-        strip_args_factory = None) -> (LinkedObject.type, ["artifact"], [""]):
+        strip_args_factory = None) -> (LinkedObject.type, ["artifact"], ["artifact", None], [""]):
     output = ctx.actions.declare_output(get_cxx_excutable_product_name(ctx))
-    extra_args, runtime_files = executable_shared_lib_arguments(ctx, output, shared_libs)
+    extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(ctx, output, shared_libs)
     exe = cxx_link(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
@@ -340,7 +365,7 @@ def _link_into_executable(
         strip_args_factory = strip_args_factory,
         executable_link = True,
     )
-    return (exe, runtime_files, extra_args)
+    return (exe, runtime_files, shared_libs_symlink_tree, extra_args)
 
 def _linker_map(
         ctx: "context",

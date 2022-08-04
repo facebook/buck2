@@ -112,7 +112,7 @@ def _rust_binary_common(
             )
             for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
                 shared_libs[soname] = shared_lib.lib
-        extra_link_args, runtime_files = executable_shared_lib_arguments(ctx, output, shared_libs)
+        extra_link_args, runtime_files, _ = executable_shared_lib_arguments(ctx, output, shared_libs)
 
         extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
 

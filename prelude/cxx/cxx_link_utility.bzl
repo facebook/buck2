@@ -136,14 +136,17 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
 
     return (args, [args] + filelists, dwo_dir)
 
-# First element of tuple result is the list of extra arguments, second element is a list of files/directories
-# that should be present for executable to be run successfully.
+# Returns a tuple of:
+# - list of extra arguments,
+# - list of files/directories that should be present for executable to be run successfully
+# - optional shared libs symlink tree symlinked_dir action
 def executable_shared_lib_arguments(
         ctx: "context",
         output: "artifact",
-        shared_libs: {str.type: "LinkedObject"}) -> ([""], ["artifact"]):
+        shared_libs: {str.type: "LinkedObject"}) -> ([""], ["artifact"], ["artifact", None]):
     extra_args = []
     runtime_files = []
+    shared_libs_symlink_tree = None
 
     # Add external debug paths to runtime files, so that they're
     # materialized when the binary is built.
@@ -168,7 +171,7 @@ def executable_shared_lib_arguments(
         rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
         extra_args.append(rpath_arg)
 
-    return (extra_args, runtime_files)
+    return (extra_args, runtime_files, shared_libs_symlink_tree)
 
 # The command line for linking with C++
 def cxx_link_cmd(ctx: "context") -> "cmd_args":
