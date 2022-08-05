@@ -243,10 +243,17 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
     }
 }
 
+/// Aggregated stack frame data.
 struct StackFrame {
+    /// Aggregated callees.
     callees: SmallMap<FunctionId, StackFrame>,
+    /// Aggregated allocations in this frame, without callees.
     allocs: SmallMap<&'static str, AllocCounts>,
+    /// Time spend in this frame excluding callees.
+    /// `x2` because enter/exit are recorded twice, in drop and non-drop heaps.
     time_x2: SmallDuration,
+    /// How many times this frame was called with the same callers.
+    /// `x2` because enter/exit are recorded twice, in drop and non-drop heaps.
     calls_x2: u32,
 }
 
