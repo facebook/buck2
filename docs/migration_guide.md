@@ -127,6 +127,11 @@ In `fbcode` with Buck1 there is a single platform (e.g. platform-009, platform-0
 
 Unfortunately, because `fbcode` with Buck1 doesn't use separate host and target platforms, some targets will not use the proper `$(exe_target ...)` macro and need to be adjusted. Once these details are correct throughout `fbcode` we'll be able to enable new experiences, like cross-compiling and greater `xplat` compatibilty.
 
+### Code Coverage
+Buck2 does not currently support code coverage (multiple items need to be fixed including integration with tpx and compilation in coverage modes).
+FBCode CI code coverage (diff and full) is planned to be fully compatible in H2 2022. (T122036419)
+This should not block your migration however! You can just leave some contbuilds on buck1 in order to continue to collect coverage and mark coverage on diffs.
+
 ### Other changes
 
 * The `export_file` rule in Buck v1 sometimes uses the basename of the exported files and sometimes the short name -- it depends on how the exported file is consumed. For example, exporting `foo/bar.txt` will give the name `bar.txt` in a Buck1 `genrule` and `foo/bar.txt` in Buck2. There are three solutions: 1) use `export_file` on a `src` with no slashes; 2) use `mode = "copy"` in `export_file` and an explicit `out` attribute; 3) for `genrule` use an explicit `srcs` dictionary, e.g. change `srcs = [":foo"]` to `srcs = {"foo": ":foo"}`.
@@ -134,7 +139,6 @@ Unfortunately, because `fbcode` with Buck1 doesn't use separate host and target 
 * There are no "flavors" in Buck2, where a flavor is a target modified by appending `#something`. For example, Rust binaries could be checked (not compiled, just type checked) with `library#check`, whereas in Buck2 that is `library[check]` (using the named targets syntax). Where libraries are depended upon using flavours for stripping or platform transition those should use [configuration mechanisms](rule_authors/configurations.md) instead.
 * The C++ link order in Buck v1 and Buck2 is unspecified, but for some C++ projects there are duplicate symbols defined, where v1 happens to pick a link order that works but v2 doesn't. In such cases the duplicate symbols should be fixed properly so either link order works, usually by renaming one symbol.
 * When run on Remote Execution, input files will be hard links, and identical inputs will link to the same underlying file. Most tools are oblivious to hard links, but some such as `tar` may require flags such as `--hard-dereference`, and `cp` may require `--dereference`.
-* FBCode CI code coverage (diff and full) is currenly partially supported for buck2 and planned to be fully compatible in H2 2022. (T122036419)
 
 ### Historical notes
 
