@@ -28,7 +28,7 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "cat $SRCDIR/src.txt > $OUT",
-    cmd_exe = "cat %SRCDIR%\\src.txt > %OUT%",
+    cmd_exe = "type %SRCDIR%\\src.txt > %OUT%",
 )
 
 # Add a dependency
@@ -37,7 +37,7 @@ buck_genrule(
     srcs = [":my_genrule1"],
     out = "out.txt",
     bash = "cat $SRCDIR/out.txt > $OUT",
-    cmd_exe = "cat %SRCDIR%\\out.txt > %OUT%",
+    cmd_exe = "type %SRCDIR%\\out.txt > %OUT%",
 )
 
 # Use `.` as the output directory
@@ -64,7 +64,7 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     bash = "cat $(location :my_genrule1) > $OUT",
-    cmd_exe = "cat $(location :my_genrule1) > %OUT%",
+    cmd_exe = "type $(location :my_genrule1) > %OUT%",
 )
 
 # use srcs as a map
@@ -73,7 +73,7 @@ buck_genrule(
     srcs = {"src_renamed": "src.txt"},
     out = "out.txt",
     bash = "cat src_renamed > $OUT",
-    cmd_exe = "cat src_renamed > %OUT%",
+    cmd_exe = "type src_renamed > %OUT%",
 )
 
 # use GVFS
@@ -101,7 +101,7 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "stat fbcode/buck2/tests/targets/rules/genrule/src.txt && cat $SRCS > $OUT",
-    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && cat %SRCS% > %OUT%",
+    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && type %SRCS% > %OUT%",
     labels = ["buck2_test_build_root"],
 )
 
@@ -111,7 +111,7 @@ buck_genrule(
     srcs = ["src.txt"],
     out = "out.txt",
     bash = "stat fbcode/buck2/tests/targets/rules/genrule/src.txt && cat $(location :my_genrule1) > $OUT",
-    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && cat $(location :my_genrule1) > %OUT%",
+    cmd_exe = "dir fbcode\\buck2\\tests\\targets\\rules\\genrule\\src.txt && type $(location :my_genrule1) > %OUT%",
     labels = ["buck2_test_build_root"],
 )
 
@@ -138,7 +138,7 @@ buck_genrule(
     srcs = ["directory/another.txt"],
     out = "out.txt",
     bash = "cat directory/another.txt > $OUT",
-    cmd_exe = "cat directory\\another.txt > %OUT%",
+    cmd_exe = "type directory\\another.txt > %OUT%",
 )
 
 # Both globs and src files in nested directories
@@ -147,7 +147,7 @@ buck_genrule(
     srcs = glob(["directory/**/*.txt"]),
     out = "out.txt",
     bash = "(cat directory/another.txt && cat directory/inner/inner.txt) > $OUT",
-    cmd_exe = "(cat directory\\another.txt && cat directory\\inner\\inner.txt) > %OUT%",
+    cmd_exe = "(type directory\\another.txt && type directory\\inner\\inner.txt) > %OUT%",
 )
 
 # Used to test we cleanup things properly
