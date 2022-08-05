@@ -50,15 +50,21 @@ struct StringIndex {
     strings: SmallSet<String>,
 }
 
+#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
+struct StringId(
+    /// Index in strings index.
+    usize,
+);
+
 impl StringIndex {
-    fn index(&mut self, s: &str) -> usize {
+    fn index(&mut self, s: &str) -> StringId {
         if let Some(index) = self.strings.get_index_of(s) {
-            return index;
+            return StringId(index);
         }
 
         let inserted = self.strings.insert(s.to_owned());
         assert!(inserted);
-        self.strings.len() - 1
+        StringId(self.strings.len() - 1)
     }
 
     fn get_all(&self) -> Vec<&str> {
@@ -66,29 +72,19 @@ impl StringIndex {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
-struct FunctionId(
-    /// Index in strings index.
-    usize,
-);
-
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
 struct FunctionIds {
-    values: HashMap<RawPointer, FunctionId>,
+    values: HashMap<RawPointer, StringId>,
     strings: StringIndex,
 }
 
 impl FunctionIds {
-    fn get_string(&mut self, x: &str) -> FunctionId {
-        FunctionId(self.strings.index(x))
-    }
-
-    fn get_value(&mut self, x: Value) -> FunctionId {
+    fn get_value(&mut self, x: Value) -> StringId {
         match self.values.entry(x.ptr_value()) {
             hash_map::Entry::Occupied(v) => *v.get(),
             hash_map::Entry::Vacant(outer) => {
-                let function_id = FunctionId(self.strings.index(&x.to_str()));
+                let function_id = self.strings.index(&x.to_str());
                 outer.insert(function_id);
                 function_id
             }
@@ -112,7 +108,7 @@ impl AddAssign for AllocCounts {
 
 /// A stack frame, its caller and the functions it called, and the allocations it made itself.
 struct StackFrameData {
-    callees: SmallMap<FunctionId, StackFrameBuilder>,
+    callees: SmallMap<StringId, StackFrameBuilder>,
     allocs: SmallMap<&'static str, AllocCounts>,
     /// Time spent in this frame excluding callees.
     /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
@@ -136,7 +132,7 @@ impl StackFrameBuilder {
     }
 
     /// Enter a new stack frame.
-    fn push(&self, function: FunctionId) -> Self {
+    fn push(&self, function: StringId) -> Self {
         let mut this = self.0.borrow_mut();
 
         let callee = this
@@ -242,7 +238,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
 /// Aggregated stack frame data.
 struct StackFrame {
     /// Aggregated callees.
-    callees: SmallMap<FunctionId, StackFrame>,
+    callees: SmallMap<StringId, StackFrame>,
     /// Aggregated allocations in this frame, without callees.
     allocs: SmallMap<&'static str, AllocCounts>,
     /// Time spend in this frame excluding callees.
@@ -280,11 +276,11 @@ pub(crate) struct AggregateHeapProfileInfo {
     strings: StringIndex,
     root: StackFrame,
     /// String `"TOTALS"`. It is needed in heap summary output.
-    totals_id: FunctionId,
+    totals_id: StringId,
     /// String `"(root)"`. It is needed in heap summary output.
-    root_id: FunctionId,
+    root_id: StringId,
     /// String `""`. It is needed in heap summary output.
-    blank_id: FunctionId,
+    blank_id: StringId,
 }
 
 impl Debug for AggregateHeapProfileInfo {
@@ -301,9 +297,9 @@ impl AggregateHeapProfileInfo {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
-        let totals_id = collector.ids.get_string("TOTALS");
-        let root_id = collector.ids.get_string("(root)");
-        let blank_id = collector.ids.get_string("");
+        let totals_id = collector.ids.strings.index("TOTALS");
+        let root_id = collector.ids.strings.index("(root)");
+        let blank_id = collector.ids.strings.index("");
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),

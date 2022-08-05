@@ -22,8 +22,8 @@ use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::AllocCounts;
-use crate::values::layout::heap::profile::FunctionId;
 use crate::values::layout::heap::profile::StackFrame;
+use crate::values::layout::heap::profile::StringId;
 
 /// Information relating to a function.
 #[derive(Default, Debug, Clone)]
@@ -31,7 +31,7 @@ struct FuncInfo {
     /// Number of times this function was called
     pub calls: usize,
     /// Who called this function (and how many times each)
-    pub callers: HashMap<FunctionId, usize>,
+    pub callers: HashMap<StringId, usize>,
     /// Time spent directly in this function
     pub time: SmallDuration,
     /// Time spent directly in this function and recursive functions.
@@ -68,7 +68,7 @@ pub(crate) struct HeapSummaryByFunction {
 }
 
 impl HeapSummaryByFunction {
-    fn ensure(&mut self, x: FunctionId) -> &mut FuncInfo {
+    fn ensure(&mut self, x: StringId) -> &mut FuncInfo {
         if self.info.len() <= x.0 {
             self.info.resize(x.0 + 1, FuncInfo::default());
         }
@@ -81,7 +81,7 @@ impl HeapSummaryByFunction {
         info
     }
 
-    fn init_children(&mut self, frame: &StackFrame, name: FunctionId) -> SmallDuration {
+    fn init_children(&mut self, frame: &StackFrame, name: StringId) -> SmallDuration {
         let mut time_rec = SmallDuration::default();
         for (func, child) in &frame.callees {
             time_rec += self.init_child(*func, child, name);
@@ -91,9 +91,9 @@ impl HeapSummaryByFunction {
 
     fn init_child(
         &mut self,
-        func: FunctionId,
+        func: StringId,
         frame: &StackFrame,
-        caller: FunctionId,
+        caller: StringId,
     ) -> SmallDuration {
         self.ensure(func).time += frame.time_x2;
         self.ensure(func).calls += frame.calls_x2 as usize;
