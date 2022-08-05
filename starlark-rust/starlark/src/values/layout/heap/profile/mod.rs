@@ -38,7 +38,7 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
-use crate::values::layout::heap::profile::summary::Info;
+use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
@@ -315,7 +315,7 @@ impl AggregateHeapProfileInfo {
     }
 
     pub(crate) fn gen_summary_csv(&self) -> String {
-        Info::init(self).gen_csv(self)
+        HeapSummaryByFunction::init(self).gen_csv(self)
     }
 }
 

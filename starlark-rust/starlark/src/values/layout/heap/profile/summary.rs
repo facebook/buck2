@@ -62,12 +62,12 @@ impl FuncInfo {
 ///
 /// However, we are always updating the top of the call stack,
 /// so pull out top_stack/top_info as a cache.
-pub(crate) struct Info {
+pub(crate) struct HeapSummaryByFunction {
     /// Information about all functions
     info: Vec<FuncInfo>,
 }
 
-impl Info {
+impl HeapSummaryByFunction {
     fn ensure(&mut self, x: FunctionId) -> &mut FuncInfo {
         if self.info.len() <= x.0 {
             self.info.resize(x.0 + 1, FuncInfo::default());
@@ -75,8 +75,8 @@ impl Info {
         &mut self.info[x.0]
     }
 
-    pub(crate) fn init(stacks: &AggregateHeapProfileInfo) -> Info {
-        let mut info = Info { info: Vec::new() };
+    pub(crate) fn init(stacks: &AggregateHeapProfileInfo) -> HeapSummaryByFunction {
+        let mut info = HeapSummaryByFunction { info: Vec::new() };
         info.init_children(&stacks.root, stacks.root_id);
         info
     }
@@ -109,7 +109,7 @@ impl Info {
 
     pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
         // Add a totals column
-        let Info { info } = self;
+        let HeapSummaryByFunction { info } = self;
         let ids = &stacks.ids;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
@@ -176,7 +176,7 @@ mod tests {
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::layout::heap::profile::summary::FuncInfo;
-    use crate::values::layout::heap::profile::summary::Info;
+    use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
     use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
 
     // Test data is collected from both drop and non-drop heaps.
@@ -202,7 +202,7 @@ _ignore = str([1])     # allocate a string in non_drop
 
         let stacks = AggregateHeapProfileInfo::collect(eval.heap(), None);
 
-        let info = Info::init(&stacks);
+        let info = HeapSummaryByFunction::init(&stacks);
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap
