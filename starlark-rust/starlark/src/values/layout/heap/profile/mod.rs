@@ -251,8 +251,7 @@ struct StackFrame {
 }
 
 impl StackFrame {
-    /// Write this stack frame's data to a file in a format flamegraph.pl understands
-    /// (each line is: `func1:func2:func3 BYTES`).
+    /// Write this stack frame's data to a file in flamegraph.pl format.
     fn write_flame_graph<'a>(
         &self,
         file: &mut FlameGraphWriter,
