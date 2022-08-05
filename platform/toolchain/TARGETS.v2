@@ -46,7 +46,10 @@ toolchain(
 
 toolchain(
     name = "java_for_android",
-    dep = "fbsource//xplat/buck2/platform/java:java",
+    dep = select({
+        "DEFAULT": "fbsource//xplat/buck2/platform/java:java",
+        "ovr_config//runtime/constraints:android-host-test": "fbsource//xplat/buck2/platform/java:java-for-host-tests",
+    }),
     visibility = ["PUBLIC"],
 )
 
