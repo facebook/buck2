@@ -88,8 +88,7 @@ linux_platforms = execution_platform(
     name = "linux-x86_64",
     base_platform = linux_execution_base_platforms["platform010"],
     local_enabled = host_is_linux and host_info().arch.is_x86_64,
-    # TODO(agallagher): aarch64 RE builds are setup to work correctly
-    remote_enabled = not (host_is_linux and host_info().arch.is_aarch64),
+    remote_enabled = True,
     remote_execution_properties = {
         "platform": "linux-remote-execution",
     },
@@ -124,8 +123,7 @@ fat_mac_linux = execution_platform(
     name = "fat_mac_linux",
     base_platform = ":fat_platform_posix_platform010",
     local_enabled = not (host_is_linux and host_info().arch.is_aarch64),
-    # TODO(agallagher): aarch64 RE builds are setup to work correctly
-    remote_enabled = not (host_is_linux and host_info().arch.is_aarch64),
+    remote_enabled = True,
     remote_execution_properties = {
         "platform": "linux-remote-execution",
     },
