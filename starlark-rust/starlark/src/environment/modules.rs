@@ -217,7 +217,7 @@ impl FrozenModule {
             .heap_profile
             .as_ref()
             .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
-            .write())
+            .gen_flame_graph())
     }
 
     /// Write heap summary profile of retained memory if heap profiling enabled.

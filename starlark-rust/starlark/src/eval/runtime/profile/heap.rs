@@ -76,7 +76,7 @@ impl HeapProfile {
 
     fn write_flame_heap_profile(heap: &Heap) -> String {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        stacks.write()
+        stacks.gen_flame_graph()
     }
 
     fn write_summarized_heap_profile(heap: &Heap) -> String {

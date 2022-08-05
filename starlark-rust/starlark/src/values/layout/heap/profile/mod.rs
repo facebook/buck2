@@ -253,7 +253,12 @@ struct StackFrame {
 impl StackFrame {
     /// Write this stack frame's data to a file in a format flamegraph.pl understands
     /// (each line is: `func1:func2:func3 BYTES`).
-    fn write<'a>(&self, file: &mut FlameGraphWriter, stack: &'_ mut Vec<&'a str>, ids: &[&'a str]) {
+    fn write_flame_graph<'a>(
+        &self,
+        file: &mut FlameGraphWriter,
+        stack: &'_ mut Vec<&'a str>,
+        ids: &[&'a str],
+    ) {
         for (k, v) in &self.allocs {
             file.write(
                 stack.iter().copied().chain(std::iter::once(*k)),
@@ -263,7 +268,7 @@ impl StackFrame {
 
         for (id, frame) in &self.callees {
             stack.push(ids[id.0]);
-            frame.write(file, stack, ids);
+            frame.write_flame_graph(file, stack, ids);
             stack.pop();
         }
     }
@@ -307,10 +312,10 @@ impl AggregateHeapProfileInfo {
     }
 
     /// Write this out recursively to a file.
-    pub(crate) fn write(&self) -> String {
+    pub(crate) fn gen_flame_graph(&self) -> String {
         let mut writer = FlameGraphWriter::new();
         self.root
-            .write(&mut writer, &mut vec![], &self.ids.invert());
+            .write_flame_graph(&mut writer, &mut vec![], &self.ids.invert());
         writer.finish()
     }
 
