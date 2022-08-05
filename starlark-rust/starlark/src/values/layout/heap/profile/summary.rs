@@ -110,7 +110,7 @@ impl HeapSummaryByFunction {
     pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
         // Add a totals column
         let HeapSummaryByFunction { info } = self;
-        let ids = &stacks.ids;
+        let strings = &stacks.strings;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
             totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
@@ -136,7 +136,7 @@ impl HeapSummaryByFunction {
             .copied()
             .chain(columns.iter().map(|c| c.0)),
         );
-        let un_ids = ids.invert();
+        let un_ids = strings.get_all();
         for (rowname, info) in info {
             let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
             let callers = info

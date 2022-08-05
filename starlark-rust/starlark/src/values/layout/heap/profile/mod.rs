@@ -94,10 +94,6 @@ impl FunctionIds {
             }
         }
     }
-
-    fn invert(&self) -> Vec<&str> {
-        self.strings.get_all()
-    }
 }
 
 /// Allocations counters.
@@ -281,7 +277,7 @@ impl StackFrame {
 }
 
 pub(crate) struct AggregateHeapProfileInfo {
-    ids: FunctionIds,
+    strings: StringIndex,
     root: StackFrame,
     /// String `"TOTALS"`. It is needed in heap summary output.
     totals_id: FunctionId,
@@ -309,7 +305,7 @@ impl AggregateHeapProfileInfo {
         let root_id = collector.ids.get_string("(root)");
         let blank_id = collector.ids.get_string("");
         AggregateHeapProfileInfo {
-            ids: collector.ids,
+            strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
             totals_id,
             root_id,
@@ -321,7 +317,7 @@ impl AggregateHeapProfileInfo {
     pub(crate) fn gen_flame_graph(&self) -> String {
         let mut writer = FlameGraphWriter::new();
         self.root
-            .write_flame_graph(&mut writer, &mut vec![], &self.ids.invert());
+            .write_flame_graph(&mut writer, &mut vec![], &self.strings.get_all());
         writer.finish()
     }
 
