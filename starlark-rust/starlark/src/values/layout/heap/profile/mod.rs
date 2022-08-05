@@ -67,20 +67,20 @@ impl StringIndex {
 }
 
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
-pub(crate) struct FunctionId(
+struct FunctionId(
     /// Index in strings index.
-    pub(crate) usize,
+    usize,
 );
 
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
-pub(crate) struct FunctionIds {
+struct FunctionIds {
     values: HashMap<RawPointer, FunctionId>,
     strings: StringIndex,
 }
 
 impl FunctionIds {
-    pub(crate) fn get_string(&mut self, x: &str) -> FunctionId {
+    fn get_string(&mut self, x: &str) -> FunctionId {
         FunctionId(self.strings.index(x))
     }
 
@@ -95,16 +95,16 @@ impl FunctionIds {
         }
     }
 
-    pub(crate) fn invert(&self) -> Vec<&str> {
+    fn invert(&self) -> Vec<&str> {
         self.strings.get_all()
     }
 }
 
 /// Allocations counters.
 #[derive(Default, Copy, Clone, Dupe, Debug)]
-pub(crate) struct AllocCounts {
-    pub(crate) bytes: usize,
-    pub(crate) count: usize,
+struct AllocCounts {
+    bytes: usize,
+    count: usize,
 }
 
 impl AddAssign for AllocCounts {
@@ -127,7 +127,7 @@ struct StackFrameData {
 }
 
 #[derive(Clone, Dupe)]
-struct StackFrameBuilder(pub(crate) Rc<RefCell<StackFrameData>>);
+struct StackFrameBuilder(Rc<RefCell<StackFrameData>>);
 
 impl StackFrameBuilder {
     fn new() -> Self {
@@ -168,7 +168,7 @@ impl StackFrameBuilder {
 }
 
 /// An accumulator for stack frames that lets us visit the heap.
-pub struct StackCollector {
+pub(crate) struct StackCollector {
     /// Timestamp of last call enter or exit.
     last_time: Option<Instant>,
     ids: FunctionIds,
@@ -243,11 +243,11 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
     }
 }
 
-pub(crate) struct StackFrame {
-    pub(crate) callees: SmallMap<FunctionId, StackFrame>,
-    pub(crate) allocs: SmallMap<&'static str, AllocCounts>,
-    pub(crate) time_x2: SmallDuration,
-    pub(crate) calls_x2: u32,
+struct StackFrame {
+    callees: SmallMap<FunctionId, StackFrame>,
+    allocs: SmallMap<&'static str, AllocCounts>,
+    time_x2: SmallDuration,
+    calls_x2: u32,
 }
 
 impl StackFrame {
@@ -270,14 +270,14 @@ impl StackFrame {
 }
 
 pub(crate) struct AggregateHeapProfileInfo {
-    pub(crate) ids: FunctionIds,
-    pub(crate) root: StackFrame,
+    ids: FunctionIds,
+    root: StackFrame,
     /// String `"TOTALS"`. It is needed in heap summary output.
-    pub(crate) totals_id: FunctionId,
+    totals_id: FunctionId,
     /// String `"(root)"`. It is needed in heap summary output.
-    pub(crate) root_id: FunctionId,
+    root_id: FunctionId,
     /// String `""`. It is needed in heap summary output.
-    pub(crate) blank_id: FunctionId,
+    blank_id: FunctionId,
 }
 
 impl Debug for AggregateHeapProfileInfo {
