@@ -94,6 +94,14 @@ impl FrozenModuleRef {
     pub(crate) fn get_module_data(&self) -> &FrozenModuleData {
         self.0.as_ref()
     }
+
+    pub(crate) fn documentation(&self) -> Option<DocItem> {
+        self.0.docstring.as_ref().map(|d| {
+            DocItem::Module(docs::Module {
+                docs: DocString::from_docstring(DocStringKind::Starlark, d),
+            })
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -268,16 +276,6 @@ impl FrozenModuleData {
             }
         }
         None
-    }
-}
-
-impl FrozenModuleRef {
-    pub(crate) fn documentation(&self) -> Option<DocItem> {
-        self.0.docstring.as_ref().map(|d| {
-            DocItem::Module(docs::Module {
-                docs: DocString::from_docstring(DocStringKind::Starlark, d),
-            })
-        })
     }
 }
 
