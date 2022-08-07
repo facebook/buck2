@@ -35,6 +35,7 @@ def main(argv):
             "-i",
             "GOARCH={}".format(os.environ.get("GOARCH", "")),
             "GOOS={}".format(os.environ.get("GOOS", "")),
+            "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
             "GO111MODULE=off",
             "GOCACHE=/tmp",
             args.go.resolve(),
