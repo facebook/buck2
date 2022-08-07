@@ -13,6 +13,7 @@ load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "C
 # C++
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@fbcode//buck2/prelude/cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
+load("@fbcode//buck2/prelude/go:cgo_library.bzl", "cgo_library_impl")
 
 # Go
 load("@fbcode//buck2/prelude/go:go_binary.bzl", "go_binary_impl")
@@ -114,6 +115,7 @@ implemented_rules = struct(
     prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
 
     #go
+    cgo_library = cgo_library_impl,
     go_binary = go_binary_impl,
     go_library = go_library_impl,
     go_test = go_test_impl,
@@ -340,6 +342,10 @@ extra_attributes = struct(
     },
 
     # go
+    cgo_library = {
+        "_cxx_toolchain": _cxx_toolchain(),
+        "_go_toolchain": _go_toolchain(),
+    },
     go_binary = {
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
         "_cxx_toolchain": _cxx_toolchain(),

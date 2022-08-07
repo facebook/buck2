@@ -57,6 +57,7 @@ def main(argv):
 
     go_files = [s for s in args.srcs if s.suffix == ".go"]
     s_files = [s for s in args.srcs if s.suffix == ".s"]
+    o_files = [s for s in args.srcs if s.suffix == ".o"]
 
     if go_files:
         compile_prefix = []
@@ -78,7 +79,10 @@ def main(argv):
     if s_files:
         s_object = args.output.with_suffix(".o")
         _compile(args.assembler, s_object, s_files)
-        _pack(args.packer, args.output, [s_object])
+        o_files.append(s_object)
+
+    if o_files:
+        _pack(args.packer, args.output, o_files)
 
 
 sys.exit(main(sys.argv))

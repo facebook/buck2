@@ -12,6 +12,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_bootstrap_binary(
+    name = "cgo_wrapper",
+    main = "cgo_wrapper.py",
+    visibility = ["PUBLIC"],
+)
+
 native.go_binary(
     name = "testmaingen",
     srcs = [

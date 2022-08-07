@@ -1,13 +1,15 @@
 GoToolchainInfo = provider(fields = [
     "assembler",
+    "cgo",
+    "cgo_wrapper",
     "compile_wrapper",
     "compiler",
-    "external_linker_flags",
-    "filter_srcs",
-    "go",
     "env_go_arch",
     "env_go_os",
     "env_go_root",
+    "external_linker_flags",
+    "filter_srcs",
+    "go",
     "linker",
     "packer",
 ])

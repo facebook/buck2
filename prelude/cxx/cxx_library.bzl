@@ -222,7 +222,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
 
-    compiled_srcs = _compile_srcs(
+    compiled_srcs = cxx_compile_srcs(
         ctx = ctx,
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
@@ -497,7 +497,7 @@ def get_default_cxx_library_product_name(ctx) -> str.type:
     else:
         return _soname(ctx)
 
-def _compile_srcs(
+def cxx_compile_srcs(
         ctx: "context",
         impl_params: CxxRuleConstructorParams.type,
         own_preprocessors: [CPreprocessor.type],
