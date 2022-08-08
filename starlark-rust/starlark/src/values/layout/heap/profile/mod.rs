@@ -39,7 +39,7 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
-use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
+use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::pointer::RawPointer;
@@ -97,7 +97,7 @@ impl FunctionIds {
 /// A stack frame, its caller and the functions it called, and the allocations it made itself.
 struct StackFrameData {
     callees: SmallMap<StringId, StackFrameBuilder>,
-    allocs: SmallMap<&'static str, AllocCounts>,
+    allocs: HeapSummary,
     /// Time spent in this frame excluding callees.
     /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
     time_x2: SmallDuration,
@@ -188,7 +188,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
         // Value allocated in this frame, record it!
         let typ = value.get_ref().get_type();
         let mut frame = frame.0.borrow_mut();
-        let mut entry = frame.allocs.entry(typ).or_default();
+        let mut entry = frame.allocs.summary.entry(typ).or_default();
         entry.bytes += value.get_ref().total_memory();
         entry.count += 1;
     }
@@ -228,7 +228,7 @@ struct StackFrame {
     /// Aggregated callees.
     callees: SmallMap<StringId, StackFrame>,
     /// Aggregated allocations in this frame, without callees.
-    allocs: SmallMap<&'static str, AllocCounts>,
+    allocs: HeapSummary,
     /// Time spend in this frame excluding callees.
     /// `x2` because enter/exit are recorded twice, in drop and non-drop heaps.
     time_x2: SmallDuration,
@@ -245,7 +245,7 @@ impl StackFrame {
         stack: &'_ mut Vec<&'a str>,
         ids: &[&'a str],
     ) {
-        for (k, v) in &self.allocs {
+        for (k, v) in &self.allocs.summary {
             file.write(
                 stack.iter().copied().chain(std::iter::once(*k)),
                 v.bytes as u64,
@@ -323,7 +323,12 @@ mod tests {
     use crate::values::Heap;
 
     fn total_alloc_count(frame: &StackFrame) -> usize {
-        frame.allocs.values().map(|v| v.count).sum::<usize>()
+        frame
+            .allocs
+            .summary
+            .values()
+            .map(|v| v.count)
+            .sum::<usize>()
             + frame
                 .callees
                 .values()
@@ -340,7 +345,7 @@ mod tests {
         heap.record_call_exit();
 
         let stacks = AggregateHeapProfileInfo::collect(&heap, None);
-        assert!(stacks.root.allocs.is_empty());
+        assert!(stacks.root.allocs.summary.is_empty());
         assert_eq!(1, stacks.root.callees.len());
         assert_eq!(2, total_alloc_count(&stacks.root));
     }
@@ -359,7 +364,7 @@ mod tests {
         freezer.freeze(s1.to_value()).unwrap();
 
         let stacks = AggregateHeapProfileInfo::collect(&heap, Some(HeapKind::Frozen));
-        assert!(stacks.root.allocs.is_empty());
+        assert!(stacks.root.allocs.summary.is_empty());
         assert_eq!(1, stacks.root.callees.len());
         // 3 allocated, 2 retained.
         assert_eq!(
@@ -371,6 +376,7 @@ mod tests {
                 .next()
                 .unwrap()
                 .allocs
+                .summary
                 .get("string")
                 .unwrap()
                 .count

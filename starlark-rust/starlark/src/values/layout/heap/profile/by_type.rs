@@ -21,7 +21,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 /// Information about the data stored on a heap. Accessible through
 /// the function `allocated_summary` available on [`Heap`](crate::values::Heap)
 /// and [`FrozenHeap`](crate::values::FrozenHeap)

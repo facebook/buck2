@@ -98,7 +98,7 @@ impl HeapSummaryByFunction {
         self.ensure(func).time += frame.time_x2;
         self.ensure(func).calls += frame.calls_x2 as usize;
         *self.ensure(func).callers.entry(caller).or_insert(0) += 1;
-        for (t, allocs) in &frame.allocs {
+        for (t, allocs) in &frame.allocs.summary {
             *self.ensure(func).alloc.entry(t).or_default() += *allocs;
         }
 
