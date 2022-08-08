@@ -19,6 +19,7 @@
 
 pub(crate) mod alloc_counts;
 pub(crate) mod by_type;
+pub(crate) mod string_index;
 mod summary;
 
 use std::cell::RefCell;
@@ -33,7 +34,6 @@ use std::time::Instant;
 use either::Either;
 use gazebo::dupe::Dupe;
 use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
 use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
@@ -41,39 +41,13 @@ use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
+use crate::values::layout::heap::profile::string_index::StringId;
+use crate::values::layout::heap::profile::string_index::StringIndex;
 use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
 use crate::values::Value;
-
-/// Map strings to integers 0, 1, 2, ...
-#[derive(Default)]
-struct StringIndex {
-    strings: SmallSet<String>,
-}
-
-#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
-struct StringId(
-    /// Index in strings index.
-    usize,
-);
-
-impl StringIndex {
-    fn index(&mut self, s: &str) -> StringId {
-        if let Some(index) = self.strings.get_index_of(s) {
-            return StringId(index);
-        }
-
-        let inserted = self.strings.insert(s.to_owned());
-        assert!(inserted);
-        StringId(self.strings.len() - 1)
-    }
-
-    fn get_all(&self) -> Vec<&str> {
-        self.strings.iter().map(|s| s.as_str()).collect()
-    }
-}
 
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
