@@ -330,7 +330,7 @@ diff --git a/fbcode/tools/bloatfinder/bloatfinder.dotslash.py b/fbcode/tools/blo
      target="//tools/bloatfinder:bloatfinder",
      oncall="fbcode_build_infra",
      generated_dotslash_file="fbcode/tools/bloatfinder/deploy/bloatfinder",
--    buck_cmd=dotslash.BuckCommand.BUCK,
+-    storage=dotslash.Storage.EVERSTORE, buck_cmd=dotslash.BuckCommand.BUCK,
 +    buck_cmd=dotslash.BuckCommand.BUCK2,
  )
  ```
