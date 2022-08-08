@@ -130,6 +130,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Perform makes compilation in situ.
     "uses_make",
+
+    # Like it says in the label
+    "uses_mkscratch",
 ]}
 
 def genrule_labels_require_local(labels):
