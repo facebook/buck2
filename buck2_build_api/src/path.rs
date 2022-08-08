@@ -283,10 +283,10 @@ impl BuckOutPathResolver {
 
         let mut ret = ProjectRelativePathBuf::with_capacity(size);
 
-        ret.push_unnormalized(&self.0);
-        ret.push_unnormalized(ForwardRelativePath::unchecked_new("gen"));
-        ret.push_unnormalized(path.owner.as_path());
-        ret.push_unnormalized(path.path());
+        ret.push(&self.0);
+        ret.push(ForwardRelativePath::unchecked_new("gen"));
+        ret.push(path.owner.as_path());
+        ret.push(path.path());
 
         ret
     }
@@ -319,11 +319,11 @@ impl BaseDeferredKey {
                         + 1
                         + key.label().bxl_path.path().path().as_str().len(),
                 );
-                ret.push_unnormalized(ForwardRelativePath::unchecked_new("__bxl__"));
-                ret.push_unnormalized(ForwardRelativePath::unchecked_new(
+                ret.push(ForwardRelativePath::unchecked_new("__bxl__"));
+                ret.push(ForwardRelativePath::unchecked_new(
                     key.label().bxl_path.cell().as_str(),
                 ));
-                ret.push_unnormalized(key.label().bxl_path.path().path());
+                ret.push(key.label().bxl_path.path().path());
 
                 ret
             }

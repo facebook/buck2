@@ -100,9 +100,9 @@ impl Paths {
             paths,
         );
 
-        ret.push_unnormalized(ForwardRelativePath::unchecked_new(".buck/buckd"));
-        ret.push_unnormalized(root_relative.as_ref());
-        ret.push_unnormalized(&self.isolation);
+        ret.push(ForwardRelativePath::unchecked_new(".buck/buckd"));
+        ret.push(root_relative.as_ref());
+        ret.push(&self.isolation);
 
         Ok(ret)
     }

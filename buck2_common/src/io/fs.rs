@@ -160,7 +160,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
         // We track both paths so we don't need to convert the abspath back to a relative path if
         // we hit a symlink.
         curr_abspath.push(c);
-        curr_path.push_unnormalized(c);
+        curr_path.push(c);
 
         match curr_abspath.symlink_metadata() {
             Ok(path_meta) => {
@@ -182,7 +182,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
                             })?;
 
                         if let Some(rest) = rest {
-                            link_path.push_unnormalized(&rest);
+                            link_path.push(&rest);
                         }
 
                         PathMetadataOrRedirection::Redirection(link_path)

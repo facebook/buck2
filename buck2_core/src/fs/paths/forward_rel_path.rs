@@ -605,23 +605,23 @@ impl ForwardRelativePathBuf {
     /// use buck2_core::fs::paths::{ForwardRelativePath, ForwardRelativePathBuf};
     ///
     /// let mut path = ForwardRelativePathBuf::unchecked_new("foo".to_owned());
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new("bar"));
+    /// path.push(ForwardRelativePath::unchecked_new("bar"));
     ///
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar".to_owned()), path);
     ///
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new("more/file.rs"));
+    /// path.push(ForwardRelativePath::unchecked_new("more/file.rs"));
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()), path);
     ///
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new(""));
+    /// path.push(ForwardRelativePath::unchecked_new(""));
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()), path);
     ///
     /// let mut path = ForwardRelativePathBuf::unchecked_new("".to_owned());
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new("foo"));
+    /// path.push(ForwardRelativePath::unchecked_new("foo"));
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo".to_owned()), path);
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn push_unnormalized<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
+    pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
         if path.as_ref().0.is_empty() {
             return;
         }

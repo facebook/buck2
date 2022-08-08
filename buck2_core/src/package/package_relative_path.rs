@@ -362,8 +362,8 @@ impl PackageRelativePathBuf {
     }
 
     /// Pushes a `ForwardRelativePath` to the existing buffer
-    pub fn push_unnormalized<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
-        self.0.push_unnormalized(path)
+    pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
+        self.0.push(path)
     }
 
     /// Pushes a `RelativePath` to the existing buffer, normalizing it

@@ -501,16 +501,16 @@ impl AbsPathBuf {
     /// use buck2_core::fs::paths::{ForwardRelativePath, AbsPathBuf};
     ///
     /// let mut path = AbsPathBuf::unchecked_new("/foo".to_owned());
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new("bar"));
+    /// path.push(ForwardRelativePath::unchecked_new("bar"));
     ///
     /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar".to_owned()), path);
     ///
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new("more/file.rs"));
+    /// path.push(ForwardRelativePath::unchecked_new("more/file.rs"));
     /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar/more/file.rs".to_owned()), path);
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn push_unnormalized<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
+    pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
         if cfg!(windows) {
             self.0.push(path.as_ref().as_str().replace('/', "\\"))
         } else {
