@@ -39,6 +39,7 @@ use std::time::Instant;
 use bumpalo::Bump;
 use either::Either;
 use gazebo::prelude::*;
+use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
 use crate::values::layout::avalue::starlark_str;
@@ -114,7 +115,7 @@ pub struct HeapSummary {
     /// For each type, give the (number of entries, size of all entries).
     /// The size may be approximate as it includes information from
     /// the approximate [`memory_size`](StarlarkValue::memory_size) function.
-    pub(crate) summary: HashMap<&'static str, AllocCounts>,
+    pub(crate) summary: SmallMap<&'static str, AllocCounts>,
 }
 
 impl HeapSummary {
@@ -427,7 +428,7 @@ impl Arena {
         // For a given type, the AValueHeader isn't always unique
         // (if they get compiled in different translation units),
         // so not just a simple map.
-        let mut summary = HashMap::new();
+        let mut summary = SmallMap::new();
         for (_, (name, counts)) in entries {
             *summary.entry(name).or_insert_with(AllocCounts::default) += counts;
         }
