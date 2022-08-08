@@ -129,9 +129,10 @@ impl Error for Diagnostic {
         None
     }
 
-    fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
-        Some(self.message.backtrace())
-    }
+    // TODO(nga): figure out how to do it with unstable rust.
+    // fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
+    //     Some(self.message.backtrace())
+    // }
 }
 
 impl Diagnostic {
