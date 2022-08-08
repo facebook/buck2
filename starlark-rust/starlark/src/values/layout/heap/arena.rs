@@ -113,13 +113,16 @@ pub struct HeapSummary {
     /// For each type, give the (number of entries, size of all entries).
     /// The size may be approximate as it includes information from
     /// the approximate [`memory_size`](StarlarkValue::memory_size) function.
-    pub(crate) summary: HashMap<String, (usize, usize)>,
+    pub(crate) summary: HashMap<&'static str, (usize, usize)>,
 }
 
 impl HeapSummary {
     /// (Count, total size) by type.
     pub fn summary(&self) -> HashMap<String, (usize, usize)> {
-        self.summary.clone()
+        self.summary
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), *v))
+            .collect()
     }
 
     /// Total number of bytes allocated.
@@ -425,7 +428,7 @@ impl Arena {
         // so not just a simple map.
         let mut summary = HashMap::new();
         for (_, (name, (count, memory))) in entries {
-            let v = summary.entry(name.to_owned()).or_insert((0, 0));
+            let v = summary.entry(name).or_insert((0, 0));
             v.0 += count;
             v.1 += memory;
         }
