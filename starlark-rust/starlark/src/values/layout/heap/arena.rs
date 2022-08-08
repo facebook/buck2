@@ -49,6 +49,7 @@ use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
@@ -113,7 +114,7 @@ pub struct HeapSummary {
     /// For each type, give the (number of entries, size of all entries).
     /// The size may be approximate as it includes information from
     /// the approximate [`memory_size`](StarlarkValue::memory_size) function.
-    pub(crate) summary: HashMap<&'static str, (usize, usize)>,
+    pub(crate) summary: HashMap<&'static str, AllocCounts>,
 }
 
 impl HeapSummary {
@@ -121,13 +122,13 @@ impl HeapSummary {
     pub fn summary(&self) -> HashMap<String, (usize, usize)> {
         self.summary
             .iter()
-            .map(|(k, v)| ((*k).to_owned(), *v))
+            .map(|(k, v)| ((*k).to_owned(), (v.count, v.bytes)))
             .collect()
     }
 
     /// Total number of bytes allocated.
     pub fn total_allocated_bytes(&self) -> usize {
-        self.summary.values().map(|(_, s)| *s).sum()
+        self.summary.values().map(|s| s.bytes).sum()
     }
 }
 
@@ -412,14 +413,14 @@ impl Arena {
     pub fn allocated_summary(&self) -> HeapSummary {
         // Record how many times each header occurs
         // We deliberately hash by the AValueHeader for higher performance, less type lookup
-        let mut entries: HashMap<AValueHeader, (&'static str, (usize, usize))> = HashMap::new();
+        let mut entries: HashMap<AValueHeader, (&'static str, AllocCounts)> = HashMap::new();
         let f = |x: &AValueHeader| {
             let v = x.unpack();
             let e = entries
                 .entry(x.dupe())
-                .or_insert_with(|| (v.get_type(), (0, 0)));
-            e.1.0 += 1;
-            e.1.1 += v.total_memory()
+                .or_insert_with(|| (v.get_type(), AllocCounts::default()));
+            e.1.count += 1;
+            e.1.bytes += v.total_memory()
         };
         self.for_each_unordered(f);
 
@@ -427,10 +428,8 @@ impl Arena {
         // (if they get compiled in different translation units),
         // so not just a simple map.
         let mut summary = HashMap::new();
-        for (_, (name, (count, memory))) in entries {
-            let v = summary.entry(name).or_insert((0, 0));
-            v.0 += count;
-            v.1 += memory;
+        for (_, (name, counts)) in entries {
+            *summary.entry(name).or_insert_with(AllocCounts::default) += counts;
         }
         HeapSummary { summary }
     }
@@ -534,7 +533,7 @@ mod tests {
         let res = arena.allocated_summary().summary;
         assert_eq!(res.len(), 1);
         let entry = res.values().next().unwrap();
-        assert_eq!(entry.0, 2);
-        assert_eq!(entry.1, arena.allocated_bytes());
+        assert_eq!(entry.count, 2);
+        assert_eq!(entry.bytes, arena.allocated_bytes());
     }
 }
