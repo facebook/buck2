@@ -17,6 +17,7 @@
 
 //! Summary of heap allocations and function times with stacks.
 
+pub(crate) mod alloc_counts;
 mod summary;
 
 use std::cell::RefCell;
@@ -25,7 +26,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::ops::AddAssign;
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -38,6 +38,7 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::pointer::RawPointer;
@@ -89,20 +90,6 @@ impl FunctionIds {
                 function_id
             }
         }
-    }
-}
-
-/// Allocations counters.
-#[derive(Default, Copy, Clone, Dupe, Debug)]
-struct AllocCounts {
-    bytes: usize,
-    count: usize,
-}
-
-impl AddAssign for AllocCounts {
-    fn add_assign(&mut self, other: AllocCounts) {
-        self.bytes += other.bytes;
-        self.count += other.count;
     }
 }
 

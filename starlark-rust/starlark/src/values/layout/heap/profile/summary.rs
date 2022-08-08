@@ -20,8 +20,8 @@ use std::iter;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
-use crate::values::layout::heap::profile::AllocCounts;
 use crate::values::layout::heap::profile::StackFrame;
 use crate::values::layout::heap::profile::StringId;
 
