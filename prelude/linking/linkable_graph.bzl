@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude/python:python.bzl", "PythonLibraryInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(
     ":link_info.bzl",
@@ -161,7 +162,7 @@ def linkable_graph(dep: "dependency") -> [LinkableGraph.type, None]:
     """
 
     # We only care about "linkable" deps.
-    if dep[MergedLinkInfo] == None:
+    if dep[PythonLibraryInfo] != None or dep[MergedLinkInfo] == None:
         return None
 
     expect(

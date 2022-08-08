@@ -172,7 +172,7 @@ def _cxx_python_extension_attrs():
         # Copied from cxx_library.
         "allow_huge_dwp": attrs.bool(default = False),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "preferred_linkage": attrs.default_only(attrs.string(default = "shared")),  # Force shared linkage always
+        "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
         "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
