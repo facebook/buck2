@@ -51,6 +51,7 @@ use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
+use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
@@ -104,32 +105,6 @@ impl<'v, 'v2, T: AValue<'v2>> Reservation<'v, 'v2, T> {
 
     pub(crate) fn ptr(&self) -> &'v AValueHeader {
         unsafe { &(*self.pointer).header }
-    }
-}
-
-#[derive(Debug)]
-/// Information about the data stored on a heap. Accessible through
-/// the function `allocated_summary` available on [`Heap`](crate::values::Heap)
-/// and [`FrozenHeap`](crate::values::FrozenHeap)
-pub struct HeapSummary {
-    /// For each type, give the (number of entries, size of all entries).
-    /// The size may be approximate as it includes information from
-    /// the approximate [`memory_size`](StarlarkValue::memory_size) function.
-    pub(crate) summary: SmallMap<&'static str, AllocCounts>,
-}
-
-impl HeapSummary {
-    /// (Count, total size) by type.
-    pub fn summary(&self) -> HashMap<String, (usize, usize)> {
-        self.summary
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), (v.count, v.bytes)))
-            .collect()
-    }
-
-    /// Total number of bytes allocated.
-    pub fn total_allocated_bytes(&self) -> usize {
-        self.summary.values().map(|s| s.bytes).sum()
     }
 }
 

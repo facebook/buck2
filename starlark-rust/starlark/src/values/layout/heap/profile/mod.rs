@@ -18,6 +18,7 @@
 //! Summary of heap allocations and function times with stacks.
 
 pub(crate) mod alloc_counts;
+pub(crate) mod by_type;
 mod summary;
 
 use std::cell::RefCell;
