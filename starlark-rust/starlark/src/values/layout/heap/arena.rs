@@ -113,7 +113,7 @@ pub struct HeapSummary {
     /// For each type, give the (number of entries, size of all entries).
     /// The size may be approximate as it includes information from
     /// the approximate [`memory_size`](StarlarkValue::memory_size) function.
-    pub summary: HashMap<String, (usize, usize)>,
+    pub(crate) summary: HashMap<String, (usize, usize)>,
 }
 
 impl HeapSummary {
