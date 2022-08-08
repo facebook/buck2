@@ -39,6 +39,7 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
@@ -188,9 +189,13 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
         // Value allocated in this frame, record it!
         let typ = value.get_ref().get_type();
         let mut frame = frame.0.borrow_mut();
-        let mut entry = frame.allocs.summary.entry(typ).or_default();
-        entry.bytes += value.get_ref().total_memory();
-        entry.count += 1;
+        frame.allocs.add(
+            typ,
+            AllocCounts {
+                count: 1,
+                bytes: value.get_ref().total_memory(),
+            },
+        );
     }
 
     fn call_enter(&mut self, function: Value<'v>, time: Instant) {
@@ -323,12 +328,7 @@ mod tests {
     use crate::values::Heap;
 
     fn total_alloc_count(frame: &StackFrame) -> usize {
-        frame
-            .allocs
-            .summary
-            .values()
-            .map(|v| v.count)
-            .sum::<usize>()
+        frame.allocs.total().count
             + frame
                 .callees
                 .values()

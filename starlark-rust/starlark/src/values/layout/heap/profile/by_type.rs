@@ -41,8 +41,16 @@ impl HeapSummary {
             .collect()
     }
 
+    pub(crate) fn total(&self) -> AllocCounts {
+        self.summary.values().sum()
+    }
+
     /// Total number of bytes allocated.
     pub fn total_allocated_bytes(&self) -> usize {
-        self.summary.values().map(|s| s.bytes).sum()
+        self.total().bytes
+    }
+
+    pub(crate) fn add(&mut self, t: &'static str, s: AllocCounts) {
+        *self.summary.entry(t).or_default() += s;
     }
 }
