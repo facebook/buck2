@@ -181,10 +181,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
             module
                 .frozen_heap()
                 .allocated_summary()
-                .summary
-                .values()
-                .map(|(_, bytes)| bytes)
-                .sum()
+                .total_allocated_bytes()
         });
 
         self.total_allocated_bytes = Some(total_allocated_bytes);
