@@ -437,6 +437,14 @@ def _check_provided_deps(provided_deps: ["dependency"], attr_name: str.type):
             "Java code does not need native libs in order to compile, so not valid as {}: {}".format(attr_name, provided_dep),
         )
 
+def _check_exported_deps(exported_deps: ["dependency"], attr_name: str.type):
+    for exported_dep in exported_deps:
+        expect(
+            exported_dep[JavaLibraryInfo] != None,
+            "Exported deps are meant to be forwarded onto the classpath for dependents, so only " +
+            "make sense for a target that emits Java bytecode, {} in {} does not.".format(exported_dep, attr_name),
+        )
+
 # TODO(T108258238) remove need for this
 def _skip_java_library_dep_checks(ctx: "context") -> bool.type:
     return "skip_buck2_java_library_dep_checks" in ctx.attrs.labels
@@ -477,6 +485,8 @@ def build_java_library(
         additional_compiled_srcs: ["artifact", None] = None) -> JavaProviders.type:
     _check_provided_deps(ctx.attrs.provided_deps, "provided_deps")
     _check_provided_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
+    _check_exported_deps(ctx.attrs.exported_deps, "exported_deps")
+    _check_exported_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
 
     deps_query = getattr(ctx.attrs, "deps_query", []) or []
     provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []

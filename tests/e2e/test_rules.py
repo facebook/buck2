@@ -478,8 +478,14 @@ async def test_zip_file(buck: Buck) -> None:
 async def test_android(buck: Buck) -> None:
     await buck.build("fbsource//fbandroid/buck2/tests/good/...")
     await expect_failure(
-        buck.build("fbsource//fbandroid/buck2/tests/bad/resource:"),
+        buck.build("fbsource//fbandroid/buck2/tests/bad/resource:drawable"),
         stderr_regex="The following resources were not found:",
+    )
+    await expect_failure(
+        buck.build(
+            "fbsource//fbandroid/buck2/tests/bad/resource:android_library_cannot_export_android_resource"
+        ),
+        stderr_regex="Exported deps are meant to be forwarded onto the classpath for dependents, so only make sense for a target that emits Java bytecode",
     )
     await expect_failure(
         buck.build("fbsource//fbandroid/buck2/tests/bad/classpath_function:"),
