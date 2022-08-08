@@ -178,11 +178,13 @@ _CxxCompiledSourcesOutput = record(
 # The outputs of a cxx_library_parameterized rule.
 _CxxLibraryParameterizedOutput = record(
     # The default output of a cxx library rule
-    default_output = [_CxxLibraryOutput.type, None],
+    default_output = field([_CxxLibraryOutput.type, None], None),
+    # The other outputs available
+    all_outputs = field([_CxxAllLibraryOutputs.type, None], None),
     # Any generated sub targets as requested by impl_params
-    sub_targets = {str.type: ["provider"]},
+    sub_targets = field({str.type: ["provider"]}),
     # Any generated providers as requested by impl_params
-    providers = ["provider"],
+    providers = field(["provider"]),
 )
 
 def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
@@ -197,7 +199,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         for link_style in get_link_styles_for_linkage(cxx_attr_preferred_linkage(ctx)):
             sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(default_outputs = [])]
 
-        return _CxxLibraryParameterizedOutput(default_output = None, sub_targets = sub_targets, providers = [DefaultInfo(default_outputs = [], sub_targets = sub_targets)])
+        return _CxxLibraryParameterizedOutput(sub_targets = sub_targets, providers = [DefaultInfo(default_outputs = [], sub_targets = sub_targets)])
 
     non_exported_deps = cxx_attr_deps(ctx)
     exported_deps = cxx_attr_exported_deps(ctx)
@@ -412,7 +414,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # Omnibus root provider.
     if impl_params.generate_providers.omnibus_root:
-        soname = _soname(ctx)
+        if impl_params.use_soname:
+            soname = _soname(ctx)
+        else:
+            soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
         providers.append(create_native_link_target(
             name = soname,
@@ -487,7 +492,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_providers.java_packaging_info:
         providers.append(get_java_packaging_info(ctx, non_exported_deps + exported_deps))
 
-    return _CxxLibraryParameterizedOutput(default_output = default_output, sub_targets = sub_targets, providers = providers)
+    return _CxxLibraryParameterizedOutput(default_output = default_output, all_outputs = library_outputs, sub_targets = sub_targets, providers = providers)
 
 def get_default_cxx_library_product_name(ctx) -> str.type:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
@@ -565,11 +570,13 @@ def _form_library_outputs(
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         output = None
         stripped = None
+        info = None
 
-        # If we have objects to link, generate the necessary libraries and
+        # Generate the necessary libraries and
         # add them to the exported link info.
-        if compiled_srcs.objects or compiled_srcs.pic_objects:
-            if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
+        if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
+            # Only generate an archive if we have objects to include
+            if compiled_srcs.objects or compiled_srcs.pic_objects:
                 pic = _use_pic(link_style)
                 output, info = _static_library(
                     ctx,
@@ -587,7 +594,10 @@ def _form_library_outputs(
                     stripped = True,
                     extra_linkables = extra_static_linkables,
                 )
-            else:  # shared
+        else:  # shared
+            # We still generate a shared library with no source objects because it can still point to dependencies.
+            # i.e. a rust_python_extension is an empty .so depending on a rust shared object
+            if compiled_srcs.pic_objects or impl_params.build_empty_so:
                 soname, shlib, info = _shared_library(
                     ctx,
                     impl_params,
@@ -601,9 +611,9 @@ def _form_library_outputs(
                     dwp = shlib.dwp,
                 )
                 solibs[soname] = shlib
-        else:  # header-only
-            info = LinkInfo()
 
+        # you cannot link against header only libraries so create an empty link info
+        info = info if info != None else LinkInfo()
         outputs[link_style] = output
         libraries[link_style] = LinkInfos(
             default = ldflags(info),
@@ -800,6 +810,7 @@ def _shared_library(
         soname,
         [LinkArgs(flags = args), dep_infos],
         identifier = soname,
+        soname = impl_params.use_soname,
         shared_library_flags = impl_params.shared_library_flags,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,

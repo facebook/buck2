@@ -211,3 +211,10 @@ buck_genrule(
     out = "cpp.m",
     bash = "echo 'int main() { return 0; }' > $OUT",
 )
+
+cpp_library(
+    name = "header_only",
+    srcs = [],
+    headers = ["header_only.h"],
+    preferred_linkage = "shared",
+)
