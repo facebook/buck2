@@ -4,6 +4,7 @@ load("@fbcode//buck2/prelude/java:java.bzl", "select_junit_toolchain")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load(":android_apk.bzl", "android_apk_impl")
+load(":android_app_modularity.bzl", "android_app_modularity_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
 load(":android_instrumentation_apk.bzl", "android_instrumentation_apk_impl")
 load(":android_instrumentation_test.bzl", "android_instrumentation_test_impl")
@@ -52,6 +53,7 @@ def _kotlin_toolchain():
     )
 
 implemented_rules = {
+    "android_app_modularity": android_app_modularity_impl,
     "android_binary": android_apk_impl,
     "android_build_config": android_build_config_impl,
     "android_instrumentation_apk": android_instrumentation_apk_impl,
@@ -68,6 +70,9 @@ implemented_rules = {
 extra_attributes = {
     "android_aar": {
         "resources_root": attrs.option(attrs.string(), default = None),
+    },
+    "android_app_modularity": {
+        "_android_toolchain": android_toolchain(),
     },
     "android_binary": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1

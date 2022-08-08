@@ -9,6 +9,7 @@ AndroidToolchainInfo = provider(fields = [
     "android_jar",
     "android_bootclasspath",
     "apk_builder",
+    "apk_module_graph",
     "d8_command",
     "filter_dex_class_names",
     "filter_prebuilt_native_library_dir",
