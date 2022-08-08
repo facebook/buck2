@@ -329,7 +329,7 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
     let starlark_total = if detailed {
         let entries = heap
             .allocated_summary()
-            .summary
+            .summary()
             .iter()
             .map(
                 |(kind, (count, bytes))| buck2_data::analysis_profile::StarlarkTotalMemoryEntry {
