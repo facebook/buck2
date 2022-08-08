@@ -207,7 +207,7 @@ message Concurrency {
   uint32 concurrency = 1;
 }
 message CommonBuildOptions {
-  reserved 5;
+  reserved 5, 8;
   Concurrency concurrency = 10;
   enum ExecutionStrategy {
     Default = 0;
@@ -221,9 +221,6 @@ message CommonBuildOptions {
 
   /// Whether to load dep files eagerly.
   bool eager_dep_files = 7;
-
-  /// Whether to hash all commands as if they had dep files.
-  bool hash_all_commands = 8;
 
   bool upload_all_actions = 9;
 

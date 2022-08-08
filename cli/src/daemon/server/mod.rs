@@ -551,15 +551,6 @@ impl ServerCommandContext {
                 ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
             });
 
-        let run_action_knobs = self
-            .build_options
-            .as_ref()
-            .map(|opts| RunActionKnobs {
-                eager_dep_files: opts.eager_dep_files,
-                hash_all_commands: opts.hash_all_commands,
-            })
-            .unwrap_or_default();
-
         let fs = self.file_system();
         let cwd = &self.working_dir;
         let (cell_resolver, legacy_configs) =
@@ -581,6 +572,18 @@ impl ServerCommandContext {
         let root_config = legacy_configs
             .get(cell_resolver.root_cell())
             .context("No config for root cell")?;
+
+        let mut run_action_knobs = RunActionKnobs {
+            hash_all_commands: root_config
+                .parse("buck2", "hash_all_commands")?
+                .unwrap_or(false),
+            ..Default::default()
+        };
+
+        if let Some(build_options) = self.build_options.as_ref() {
+            run_action_knobs.eager_dep_files = build_options.eager_dep_files;
+        }
+
         let config_threads = root_config.parse("build", "threads")?.unwrap_or(0);
 
         let concurrency = self

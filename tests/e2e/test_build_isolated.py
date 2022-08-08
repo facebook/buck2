@@ -1059,11 +1059,15 @@ if watchman_dependency_linux_only():
         await buck.build("//:test")
 
         # Still expecting a rebuild since the command wasn't hashed previously.
-        await buck.build("//:test", "-c", "test.seed=123", "--hash-all-commands")
+        await buck.build(
+            "//:test", "-c", "test.seed=123", "-c", "buck2.hash_all_commands=true"
+        )
         await expect_exec_count(buck, 1)
 
         # No longer expecting a rebuild.
-        await buck.build("//:test", "-c", "test.seed=456", "--hash-all-commands")
+        await buck.build(
+            "//:test", "-c", "test.seed=456", "-c", "buck2.hash_all_commands=true"
+        )
         await expect_exec_count(buck, 0)
 
 

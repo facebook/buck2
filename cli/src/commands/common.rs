@@ -310,14 +310,6 @@ pub(crate) struct CommonBuildOptions {
     #[clap(long)]
     eager_dep_files: bool,
 
-    /// Process all commands as if they had dep files that covered no inputs. This means that all
-    /// commands will be fingerprinted and will skip re-running if their inputs command line and
-    /// haven't changed. This is primarily meant to allow faster iteration on rules by skipping
-    /// rebuilds when changing rules. This adds some runtime and memory cost since digests have to
-    /// be produced and stored.
-    #[clap(long)]
-    hash_all_commands: bool,
-
     #[clap(long)]
     upload_all_actions: bool,
 }
@@ -355,7 +347,6 @@ impl CommonBuildOptions {
             unstable_print_build_report,
             unstable_build_report_filename,
             eager_dep_files: self.eager_dep_files,
-            hash_all_commands: self.hash_all_commands,
             upload_all_actions: self.upload_all_actions,
         }
     }
