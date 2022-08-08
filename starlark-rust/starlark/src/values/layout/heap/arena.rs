@@ -121,6 +121,11 @@ impl HeapSummary {
     pub fn summary(&self) -> HashMap<String, (usize, usize)> {
         self.summary.clone()
     }
+
+    /// Total number of bytes allocated.
+    pub fn total_allocated_bytes(&self) -> usize {
+        self.summary.values().map(|(_, s)| *s).sum()
+    }
 }
 
 pub(crate) trait ArenaVisitor<'v> {
