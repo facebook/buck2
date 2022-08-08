@@ -116,6 +116,13 @@ pub struct HeapSummary {
     pub summary: HashMap<String, (usize, usize)>,
 }
 
+impl HeapSummary {
+    /// (Count, total size) by type.
+    pub fn summary(&self) -> HashMap<String, (usize, usize)> {
+        self.summary.clone()
+    }
+}
+
 pub(crate) trait ArenaVisitor<'v> {
     fn regular_value(&mut self, value: &'v AValueOrForward);
     fn call_enter(&mut self, function: Value<'v>, time: Instant);
