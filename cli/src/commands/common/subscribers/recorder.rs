@@ -33,6 +33,8 @@ mod imp {
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
 
+    use crate::commands::common::subscribers;
+    use crate::commands::common::subscribers::LastCommandExecutionKind;
     use crate::AsyncCleanupContext;
 
     pub struct InvocationRecorder {
@@ -46,6 +48,9 @@ mod imp {
         re_session_id: Option<String>,
         critical_path_duration: Option<Duration>,
         tag_events: Vec<String>,
+        run_local_count: u64,
+        run_remote_count: u64,
+        run_action_cache_count: u64,
     }
 
     impl InvocationRecorder {
@@ -64,6 +69,9 @@ mod imp {
                 re_session_id: None,
                 critical_path_duration: None,
                 tag_events: vec![],
+                run_local_count: 0,
+                run_remote_count: 0,
+                run_action_cache_count: 0,
             }
         }
 
@@ -79,6 +87,9 @@ mod imp {
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
                     tags: self.tag_events.drain(..).collect(),
+                    run_local_count: self.run_local_count,
+                    run_remote_count: self.run_remote_count,
+                    run_action_cache_count: self.run_action_cache_count,
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -148,6 +159,28 @@ mod imp {
             };
             self.command_duration = command_end.duration;
             self.command_end = Some(command.clone());
+            Ok(())
+        }
+
+        async fn handle_action_execution_end(
+            &mut self,
+            action: &buck2_data::ActionExecutionEnd,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            if action.kind == buck2_data::ActionKind::Run as i32 {
+                match subscribers::get_last_command_execution_kind(action) {
+                    LastCommandExecutionKind::Local => {
+                        self.run_local_count += 1;
+                    }
+                    LastCommandExecutionKind::Cached => {
+                        self.run_action_cache_count += 1;
+                    }
+                    LastCommandExecutionKind::Remote => {
+                        self.run_remote_count += 1;
+                    }
+                    LastCommandExecutionKind::NoCommand => {}
+                }
+            }
             Ok(())
         }
 

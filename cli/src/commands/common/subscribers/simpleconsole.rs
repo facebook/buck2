@@ -25,10 +25,12 @@ use superconsole::SuperConsole;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
+use crate::commands::common::subscribers;
 use crate::commands::common::subscribers::display;
 use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::re::ReState;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
+use crate::commands::common::subscribers::LastCommandExecutionKind;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::local_command_to_string;
@@ -159,34 +161,18 @@ impl ActionStats {
     }
 
     pub(crate) fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
-        // NOTE: This currently shows the commands that actually produced a result (or an error!),
-        // but not commands that fell back and were retried.
-        use buck2_data::command_execution_details::Command;
-
-        let last_command = action
-            .commands
-            .last()
-            .and_then(|c| c.details.as_ref())
-            .and_then(|c| c.command.as_ref());
-
-        match last_command {
-            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
+        match subscribers::get_last_command_execution_kind(action) {
+            LastCommandExecutionKind::Local => {
                 self.local_actions += 1;
             }
-            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-                cache_hit: true, ..
-            })) => {
+            LastCommandExecutionKind::Cached => {
                 self.cached_actions += 1;
             }
-            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-                cache_hit: false, ..
-            })) => {
+            LastCommandExecutionKind::Remote => {
                 self.remote_actions += 1;
             }
-            None => {
-                // no command
-            }
-        };
+            LastCommandExecutionKind::NoCommand => {}
+        }
     }
 
     pub(crate) fn log_stats(&self) -> bool {

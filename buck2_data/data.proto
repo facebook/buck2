@@ -992,4 +992,10 @@ message InvocationRecord {
   TypedMetadata client_metadata = 8;
   // Tags for this command
   repeated string tags = 9;
+  // Count of actions that were executed locally
+  uint64 run_local_count = 10;
+  // Count of actions that were executed remotely
+  uint64 run_remote_count = 11;
+  // Count of actions that downloaded action cache
+  uint64 run_action_cache_count = 12;
 }
