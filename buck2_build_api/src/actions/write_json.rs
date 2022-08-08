@@ -95,7 +95,7 @@ fn err<R, E: serde::ser::Error>(res: anyhow::Result<R>) -> Result<R, E> {
 /// and end up getting wrapped in a list below.
 fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>> {
     if let Some(x) = x.as_artifact() {
-        Some(box || Ok(x.get_bound_deprecated()?.dupe()))
+        Some(box || Ok(x.get_bound_artifact()?.dupe()))
     } else if let Some(x) = x.downcast_ref::<StarlarkOutputArtifact>() {
         Some(box || Ok(((*x.artifact()).dupe().ensure_bound())?.into_artifact()))
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkOutputArtifact>() {
