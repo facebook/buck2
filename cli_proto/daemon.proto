@@ -369,16 +369,23 @@ message BuildResponse {
   repeated string error_messages = 101;
 }
 
+message CounterWithExamples {
+  uint64 count = 1;
+  uint64 max = 2;
+  repeated string example_tests = 3;
+}
+
 message TestResponse {
   int32 exit_code = 1;
   repeated string error_messages = 101;
   message TestStatuses {
-    uint64 passed = 1;
-    uint64 skipped = 2;
-    uint64 failed = 3;
-    uint64 fatals = 4;
-    uint64 listing_success = 5;
-    uint64 listing_failed = 6;
+    reserved 1 to 6;
+    CounterWithExamples passed = 10;
+    CounterWithExamples skipped = 11;
+    CounterWithExamples failed = 12;
+    CounterWithExamples fatals = 13;
+    CounterWithExamples listing_success = 14;
+    CounterWithExamples listing_failed = 15;
   }
   TestStatuses test_statuses = 3;
 }

@@ -6,7 +6,6 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -46,7 +45,6 @@ use buck2_test::session::TestSessionOptions;
 use buck2_test::translations::build_configured_target_handle;
 use cli_proto::TestRequest;
 use cli_proto::TestResponse;
-use derive_more::Display;
 use dice::DiceComputations;
 use futures::channel::mpsc;
 use futures::future;
@@ -59,6 +57,7 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use serde::Serialize;
+use test_api::data::TestResult;
 use test_api::data::TestStatus;
 use test_api::protocol::TestExecutor;
 use thiserror::Error;
@@ -106,7 +105,7 @@ impl ExecutorReport {
     fn ingest(&mut self, status: &TestResultOrExitCode) {
         match status {
             TestResultOrExitCode::TestResult(res) => {
-                self.statuses.ingest(&res.status);
+                self.statuses.ingest(res);
             }
             TestResultOrExitCode::ExitCode(exit_code) => {
                 self.exit_code = Some(*exit_code);
@@ -115,36 +114,61 @@ impl ExecutorReport {
     }
 }
 
-#[derive(Display, Default)]
-#[display(
-    fmt = "{} Pass. {} Fail. {} Fatal. {} Skip.",
-    passed,
-    failed,
-    fatals,
-    skipped
-)]
-struct TestStatuses {
-    passed: u64,
-    skipped: u64,
-    failed: u64,
-    fatals: u64,
-    listing_success: u64,
-    listing_failed: u64,
+const MAX_EXAMPLE_VALUES: u64 = 10;
+struct CounterWithExamples {
+    count: u64,
+    max: u64,
+    example_tests: Vec<String>,
 }
 
+impl CounterWithExamples {
+    fn add(&mut self, val: &str) {
+        self.count += 1;
+        if self.count <= self.max {
+            self.example_tests.push(val.to_owned());
+        }
+    }
+
+    fn to_cli_proto_counter(self) -> cli_proto::CounterWithExamples {
+        cli_proto::CounterWithExamples {
+            count: self.count,
+            max: self.max,
+            example_tests: self.example_tests,
+        }
+    }
+}
+impl Default for CounterWithExamples {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            max: MAX_EXAMPLE_VALUES,
+            example_tests: vec![],
+        }
+    }
+}
+
+#[derive(Default)]
+struct TestStatuses {
+    passed: CounterWithExamples,
+    skipped: CounterWithExamples,
+    failed: CounterWithExamples,
+    fatals: CounterWithExamples,
+    listing_success: CounterWithExamples,
+    listing_failed: CounterWithExamples,
+}
 impl TestStatuses {
-    fn ingest(&mut self, status: &TestStatus) {
-        match status {
-            TestStatus::PASS => self.passed += 1,
-            TestStatus::FAIL => self.failed += 1,
-            TestStatus::SKIP => self.skipped += 1,
-            TestStatus::OMITTED => self.skipped += 1,
-            TestStatus::FATAL => self.fatals += 1,
-            TestStatus::TIMEOUT => self.failed += 1,
+    fn ingest(&mut self, result: &TestResult) {
+        match result.status {
+            TestStatus::PASS => self.passed.add(&result.name),
+            TestStatus::FAIL => self.failed.add(&result.name),
+            TestStatus::SKIP => self.skipped.add(&result.name),
+            TestStatus::OMITTED => self.skipped.add(&result.name),
+            TestStatus::FATAL => self.fatals.add(&result.name),
+            TestStatus::TIMEOUT => self.failed.add(&result.name),
             TestStatus::UNKNOWN => {}
             TestStatus::RERUN => {}
-            TestStatus::LISTING_SUCCESS => self.listing_success += 1,
-            TestStatus::LISTING_FAILED => self.listing_failed += 1,
+            TestStatus::LISTING_SUCCESS => self.listing_success.add(&result.name),
+            TestStatus::LISTING_FAILED => self.listing_failed.add(&result.name),
         }
     }
 }
@@ -205,17 +229,54 @@ pub(crate) async fn test(
     )
     .await?;
 
-    let test_statuses = cli_proto::test_response::TestStatuses {
-        passed: test_outcome.executor_report.statuses.passed,
-        skipped: test_outcome.executor_report.statuses.skipped,
-        failed: test_outcome.executor_report.statuses.failed,
-        fatals: test_outcome.executor_report.statuses.fatals,
-        listing_success: test_outcome.executor_report.statuses.listing_success,
-        listing_failed: test_outcome.executor_report.statuses.listing_failed,
-    };
-
     // TODO(bobyf) remap exit code for buck reserved exit code
     let exit_code = test_outcome.exit_code().context("No exit code available")?;
+
+    let test_statuses = cli_proto::test_response::TestStatuses {
+        passed: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .passed
+                .to_cli_proto_counter(),
+        ),
+        skipped: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .skipped
+                .to_cli_proto_counter(),
+        ),
+        failed: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .failed
+                .to_cli_proto_counter(),
+        ),
+        fatals: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .fatals
+                .to_cli_proto_counter(),
+        ),
+        listing_success: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .listing_success
+                .to_cli_proto_counter(),
+        ),
+        listing_failed: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .listing_failed
+                .to_cli_proto_counter(),
+        ),
+    };
+
     Ok(TestResponse {
         exit_code,
         error_messages: test_outcome.error_messages,

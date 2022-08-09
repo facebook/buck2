@@ -6,9 +6,10 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
+use cli_proto::CounterWithExamples;
 use cli_proto::TestRequest;
 use cli_proto::TestSessionOptions;
 use crossterm::style::Color;
@@ -16,6 +17,7 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 
 use crate::commands::build::print_build_result;
+use crate::commands::common::final_console::FinalConsole;
 use crate::commands::common::subscribers::superconsole::test::StylizedCount;
 use crate::commands::common::subscribers::superconsole::test::TestHeader;
 use crate::commands::common::CommonBuildConfigurationOptions;
@@ -26,6 +28,26 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::CommandContext;
 use crate::StreamingCommand;
 
+fn print_error_counter(
+    console: &FinalConsole,
+    counter: &CounterWithExamples,
+    error_type: &str,
+    symbol: &str,
+) -> anyhow::Result<()> {
+    if counter.count > 0 {
+        console.print_error(&format!("{} {}", counter.count, error_type))?;
+        for test_name in &counter.example_tests {
+            console.print_error(&format!("  {} {}", symbol, test_name))?;
+        }
+        if counter.count > counter.max {
+            console.print_error(&format!(
+                "  ...and {} more not shown...",
+                counter.count - counter.max
+            ))?;
+        }
+    }
+    Ok(())
+}
 #[derive(Debug, clap::Parser)]
 #[clap(name = "test", about = "Build and test the specified targets")]
 pub(crate) struct TestCommand {
@@ -148,6 +170,14 @@ impl StreamingCommand for TestCommand {
             .test_statuses
             .expect("Daemon to not return empty statuses");
 
+        let listing_failed = statuses
+            .listing_failed
+            .context("Missing `listing_failed`")?;
+        let passed = statuses.passed.context("Missing `passed`")?;
+        let failed = statuses.failed.context("Missing `failed`")?;
+        let fatals = statuses.fatals.context("Missing `fatals`")?;
+        let skipped = statuses.skipped.context("Missing `skipped`")?;
+
         let console = self.console_opts.final_console();
         print_build_result(&console, &response.error_messages)?;
 
@@ -156,12 +186,12 @@ impl StreamingCommand for TestCommand {
         // TODO: also remove the duplicate information when the above is done.
 
         crate::print!("Tests finished: ")?;
-        if statuses.listing_failed > 0 {
+        if listing_failed.count > 0 {
             crate::print!(
                 "{}. ",
                 StylizedCount {
                     label: "Listing Fail",
-                    count: statuses.listing_failed,
+                    count: listing_failed.count,
                     color: Color::Red,
                 }
                 .to_stdio(),
@@ -171,37 +201,34 @@ impl StreamingCommand for TestCommand {
             "{}. {}. {}. {}. {} builds failed",
             StylizedCount {
                 label: "Pass",
-                count: statuses.passed,
+                count: passed.count,
                 color: Color::Green
             }
             .to_stdio(),
             StylizedCount {
                 label: "Fail",
-                count: statuses.failed,
+                count: failed.count,
                 color: Color::Red
             }
             .to_stdio(),
             StylizedCount {
                 label: "Fatal",
-                count: statuses.fatals,
+                count: fatals.count,
                 color: Color::DarkRed
             }
             .to_stdio(),
             StylizedCount {
                 label: "Skip",
-                count: statuses.skipped,
+                count: skipped.count,
                 color: Color::Yellow
             }
             .to_stdio(),
             response.error_messages.len(),
         )?;
 
-        if statuses.failed > 0 {
-            console.print_error(&format!("{} TESTS FAILED", statuses.failed))?;
-        }
-        if statuses.fatals > 0 {
-            console.print_error(&format!("{} TESTS FATALS", statuses.fatals))?;
-        }
+        print_error_counter(&console, &listing_failed, "LISTINGS FAILED", "⚠")?;
+        print_error_counter(&console, &failed, "TESTS FAILED", "✗")?;
+        print_error_counter(&console, &fatals, "TESTS FATALS", "⚠")?;
         if !response.error_messages.is_empty() {
             console.print_error(&format!("{} BUILDS FAILED", response.error_messages.len()))?;
         }
