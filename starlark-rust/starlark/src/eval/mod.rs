@@ -18,6 +18,10 @@
 //! Evaluate some code, typically done by creating an [`Evaluator`], then calling
 //! [`eval_module`](Evaluator::eval_module).
 
+pub(crate) mod bc;
+pub(crate) mod compiler;
+pub(crate) mod runtime;
+
 use std::intrinsics::unlikely;
 use std::mem;
 use std::time::Instant;
@@ -31,9 +35,11 @@ pub use runtime::file_loader::ReturnFileLoader;
 pub use runtime::params::ParametersParser;
 pub use runtime::params::ParametersSpec;
 pub use runtime::params::ParametersSpecBuilder;
+pub use runtime::profile::ProfileMode;
 
 use crate::collections::symbol_map::Symbol;
 use crate::environment::Globals;
+use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::scope::CompilerAstMap;
 use crate::eval::compiler::scope::Scope;
 use crate::eval::compiler::scope::ScopeData;
@@ -42,16 +48,9 @@ use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::syntax::ast::AstModule;
+use crate::syntax::DialectTypes;
 use crate::values::docs::DocString;
 use crate::values::Value;
-
-pub(crate) mod bc;
-pub(crate) mod compiler;
-pub(crate) mod runtime;
-pub use runtime::profile::ProfileMode;
-
-use crate::eval::compiler::def::DefInfo;
-use crate::syntax::DialectTypes;
 
 impl<'v, 'a> Evaluator<'v, 'a> {
     /// Evaluate an [`AstModule`] with this [`Evaluator`], modifying the in-scope
