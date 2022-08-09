@@ -20,10 +20,14 @@ impl RolloutPercentage {
         }
     }
 
-    pub fn never() -> Self {
+    pub fn from_bool(val: bool) -> Self {
         Self {
-            inner: Inner::Bool(false),
+            inner: Inner::Bool(val),
         }
+    }
+
+    pub fn never() -> Self {
+        Self::from_bool(false)
     }
 }
 
