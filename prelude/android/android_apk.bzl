@@ -20,7 +20,8 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     primary_platform = cpu_filters[0]
     deps = deps_by_platform[primary_platform]
 
-    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex]
+    no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
+    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
 
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
     build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
