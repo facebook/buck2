@@ -2574,13 +2574,17 @@ async fn canonicalize_patterns_for_logging(
 async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
-    static DEFAULT_TO_FORKSERVER: EnvHelper<bool> = EnvHelper::new("BUCK2_DEFAULT_TO_FORKSERVER");
-    let default = DEFAULT_TO_FORKSERVER.get()?.unwrap_or(false);
+    use buck2_core::rollout_percentage::RolloutPercentage;
 
-    if !root_config
-        .parse::<bool>("buck2", "forkserver")?
-        .unwrap_or(default)
-    {
+    static DEFAULT_TO_FORKSERVER: EnvHelper<RolloutPercentage> =
+        EnvHelper::new("BUCK2_FORKSERVER_DEFAULT");
+    let default = DEFAULT_TO_FORKSERVER.get()?;
+
+    let config = root_config.parse::<RolloutPercentage>("buck2", "forkserver")?;
+
+    let merged_config = config.or(*default).unwrap_or_else(RolloutPercentage::never);
+
+    if !merged_config.roll() {
         return Ok(None);
     }
 

@@ -19,6 +19,12 @@ impl RolloutPercentage {
             Inner::Bool(b) => b,
         }
     }
+
+    pub fn never() -> Self {
+        Self {
+            inner: Inner::Bool(false),
+        }
+    }
 }
 
 impl FromStr for RolloutPercentage {
