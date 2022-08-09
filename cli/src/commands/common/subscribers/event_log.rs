@@ -69,11 +69,13 @@ pub(crate) enum EventLogErrors {
 const JSON_GZIP_EXTENSION: &str = ".json-lines.gz";
 const JSON_EXTENSION: &str = ".json-lines";
 const PROTO_EXTENSION: &str = ".proto";
+const PROTO_GZIP_EXTENSION: &str = ".proto.gz";
 
 const KNOWN_EXTENSIONS: &[(&str, Encoding)] = &[
     (JSON_GZIP_EXTENSION, Encoding::JsonGzip),
     (JSON_EXTENSION, Encoding::Json),
     (PROTO_EXTENSION, Encoding::Proto),
+    (PROTO_GZIP_EXTENSION, Encoding::ProtoGzip),
 ];
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -81,6 +83,7 @@ enum Encoding {
     Json,
     JsonGzip,
     Proto,
+    ProtoGzip,
 }
 
 impl Encoding {
@@ -89,6 +92,7 @@ impl Encoding {
             Self::Json => JSON_EXTENSION,
             Self::JsonGzip => JSON_GZIP_EXTENSION,
             Self::Proto => PROTO_EXTENSION,
+            Self::ProtoGzip => PROTO_GZIP_EXTENSION,
         }
     }
 }
@@ -175,7 +179,7 @@ impl EventLogPathBuf {
 
                 Ok((invocation, events.boxed()))
             }
-            Encoding::Proto => {
+            Encoding::Proto | Encoding::ProtoGzip => {
                 let mut stream = FramedRead::new(log_file, EventLogDecoder::new());
 
                 let invocation = match stream.try_next().await?.context("No invocation found")? {
@@ -224,7 +228,9 @@ impl EventLogPathBuf {
 
         let file = match self.encoding {
             Encoding::Json | Encoding::Proto => box file as EventLogReader,
-            Encoding::JsonGzip => box GzipDecoder::new(BufReader::new(file)) as EventLogReader,
+            Encoding::JsonGzip | Encoding::ProtoGzip => {
+                box GzipDecoder::new(BufReader::new(file)) as EventLogReader
+            }
         };
 
         Ok(file)
@@ -376,7 +382,7 @@ impl EventLog {
         // Open our log fie, gzip encoded.
         let encoding = match self.mode {
             LogMode::Json => Encoding::JsonGzip,
-            LogMode::Protobuf => Encoding::Proto,
+            LogMode::Protobuf => Encoding::ProtoGzip,
         };
 
         let path = EventLogPathBuf {
@@ -494,7 +500,7 @@ async fn open_event_log_for_writing(
 
     let file = match path.encoding {
         Encoding::Json | Encoding::Proto => box file as EventLogWriter,
-        Encoding::JsonGzip => box GzipEncoder::new(file) as EventLogWriter,
+        Encoding::JsonGzip | Encoding::ProtoGzip => box GzipEncoder::new(file) as EventLogWriter,
     };
 
     Ok(NamedEventLogWriter {
@@ -848,6 +854,7 @@ mod tests {
         event_log.ensure_log_files_opened(&event).await?;
         let value = StreamValue::Event(buck2_data::BuckEvent::from(event.clone()));
         event_log.write_ln(&value).await?;
+        event_log.exit().await?;
 
         //Retrieve log path
         let mut logfiles = get_local_logs(tmp_dir.path())?;
