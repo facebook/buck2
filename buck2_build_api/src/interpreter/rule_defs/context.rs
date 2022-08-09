@@ -100,7 +100,7 @@ enum DynamicOutputError {
 ///
 /// Accessed via `ctx.actions.<function>`
 #[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
-#[display(fmt = "{:?}", self)] // FIXME(ndmitchell): Better Display
+#[display(fmt = "<ctx.actions>")]
 pub struct AnalysisActions<'v> {
     // Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
     // we can take the internal state without having to clone it.
@@ -161,7 +161,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
 }
 
 #[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
-#[display(fmt = "{:?}", self)] // FIXME(ndmitchell): Better Display
+#[display(fmt = "<ctx>")]
 pub struct AnalysisContext<'v> {
     attributes: Value<'v>, // A struct
     actions: Value<'v>,    // AnalysisActions
