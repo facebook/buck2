@@ -209,24 +209,36 @@ pub(crate) struct StackFrame {
     pub(crate) calls_x2: u32,
 }
 
-impl StackFrame {
+struct StackFrameWithContext<'c> {
+    frame: &'c StackFrame,
+    strings: &'c StringIndex,
+}
+
+impl<'c> StackFrameWithContext<'c> {
+    fn callees(&self) -> impl Iterator<Item = (&'c str, StackFrameWithContext<'c>)> + '_ {
+        self.frame.callees.iter().map(move |(id, callee)| {
+            (
+                self.strings.get(*id),
+                StackFrameWithContext {
+                    frame: callee,
+                    strings: self.strings,
+                },
+            )
+        })
+    }
+
     /// Write this stack frame's data to a file in flamegraph.pl format.
-    fn write_flame_graph<'a>(
-        &self,
-        file: &mut FlameGraphWriter,
-        stack: &'_ mut Vec<&'a str>,
-        ids: &'a StringIndex,
-    ) {
-        for (k, v) in &self.allocs.summary {
+    fn write_flame_graph(&self, file: &mut FlameGraphWriter, stack: &'_ mut Vec<&'c str>) {
+        for (k, v) in &self.frame.allocs.summary {
             file.write(
                 stack.iter().copied().chain(std::iter::once(*k)),
                 v.bytes as u64,
             );
         }
 
-        for (id, frame) in &self.callees {
-            stack.push(ids.get(*id));
-            frame.write_flame_graph(file, stack, ids);
+        for (id, frame) in self.callees() {
+            stack.push(id);
+            frame.write_flame_graph(file, stack);
             stack.pop();
         }
     }
@@ -273,11 +285,17 @@ impl AggregateHeapProfileInfo {
         }
     }
 
+    fn root(&self) -> StackFrameWithContext {
+        StackFrameWithContext {
+            frame: &self.root,
+            strings: &self.strings,
+        }
+    }
+
     /// Write this out recursively to a file.
     pub(crate) fn gen_flame_graph(&self) -> String {
         let mut writer = FlameGraphWriter::new();
-        self.root
-            .write_flame_graph(&mut writer, &mut vec![], &self.strings);
+        self.root().write_flame_graph(&mut writer, &mut vec![]);
         writer.finish()
     }
 
