@@ -25,6 +25,7 @@ use std::path::Path;
 use anyhow::Context;
 use gazebo::any::AnyLifetime;
 use gazebo::cast;
+use gazebo::dupe::Dupe;
 use thiserror::Error;
 
 use crate::codemap::FileSpan;
@@ -49,6 +50,7 @@ use crate::eval::runtime::profile::bc::BcProfile;
 use crate::eval::runtime::profile::flame::FlameProfile;
 use crate::eval::runtime::profile::heap::HeapProfile;
 use crate::eval::runtime::profile::heap::HeapProfileFormat;
+use crate::eval::runtime::profile::or_instrumentation::ProfileOrInstrumentationMode;
 use crate::eval::runtime::profile::stmt::StmtProfile;
 use crate::eval::runtime::profile::typecheck::TypecheckProfile;
 use crate::eval::runtime::profile::ProfileMode;
@@ -85,6 +87,8 @@ pub(crate) enum EvaluatorError {
     BcProfilingNotEnabled,
     #[error("Typecheck profiling not enabled")]
     TypecheckProfilingNotEnabled,
+    #[error("Profile or instrumentation already enabled")]
+    ProfileOrInstrumentationAlreadyEnabled,
     #[error("Top frame is not def (internal error)")]
     TopFrameNotDef,
     #[error("Top second frame is not def (internal error)")]
@@ -124,6 +128,8 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) verbose_gc: bool,
     // Size of the heap when we should next perform a GC.
     pub(crate) next_gc_level: usize,
+    // Profiling or instrumentation enabled.
+    pub(crate) profile_or_instrumentation_mode: ProfileOrInstrumentationMode,
     // Extra functions to run on each statement, usually empty
     pub(crate) before_stmt: BeforeStmt<'a>,
     // Used for line profiling
@@ -174,6 +180,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             next_gc_level: GC_THRESHOLD,
             disable_gc: false,
             alloca: Alloca::new(),
+            profile_or_instrumentation_mode: ProfileOrInstrumentationMode::None,
             heap_profile: HeapProfile::new(),
             stmt_profile: StmtProfile::new(),
             bc_profile: BcProfile::new(),
@@ -212,6 +219,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// Profilers add overhead, and while some profilers can be used together,
     /// it's better to run at most one profiler at a time.
     pub fn enable_profile(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
+        if self.profile_or_instrumentation_mode != ProfileOrInstrumentationMode::None {
+            return Err(EvaluatorError::ProfileOrInstrumentationAlreadyEnabled.into());
+        }
+
+        self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Profile(mode.dupe());
+
         match mode {
             ProfileMode::HeapSummary
             | ProfileMode::HeapFlame
@@ -255,6 +268,13 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// This function need to be called when evaluating a dependency of a module, if a module
     /// does profiling in the given mode.
     pub fn enable_profile_instrumentation(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
+        if self.profile_or_instrumentation_mode != ProfileOrInstrumentationMode::None {
+            return Err(EvaluatorError::ProfileOrInstrumentationAlreadyEnabled.into());
+        }
+
+        self.profile_or_instrumentation_mode =
+            ProfileOrInstrumentationMode::Instrumentation(mode.dupe());
+
         match mode {
             ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
                 self.bc_profile.enable_1();

@@ -25,6 +25,7 @@ pub(crate) mod csv;
 pub(crate) mod flame;
 pub(crate) mod flamegraph;
 pub(crate) mod heap;
+pub(crate) mod or_instrumentation;
 pub(crate) mod stmt;
 pub(crate) mod typecheck;
 
