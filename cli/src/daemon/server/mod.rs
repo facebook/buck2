@@ -981,9 +981,7 @@ impl DaemonState {
             format!("forkserver:{}", data.forkserver.is_some()),
         ];
 
-        dispatcher.event(buck2_data::InstantEvent {
-            data: Some(buck2_data::TagEvent { tags }.into()),
-        });
+        dispatcher.instant_event(buck2_data::TagEvent { tags });
 
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
