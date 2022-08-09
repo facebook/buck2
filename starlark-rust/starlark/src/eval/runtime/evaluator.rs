@@ -75,6 +75,10 @@ use crate::values::ValueLike;
 
 #[derive(Error, Debug)]
 pub(crate) enum EvaluatorError {
+    #[error("Profiling was not enabled")]
+    ProfilingNotEnabled,
+    #[error("Cannot generate profile because only profiling instrumentation enabled")]
+    InstrumentationEnabled,
     #[error("Can't call `write_heap_profile` unless you first call `enable_heap_profile`.")]
     HeapProfilingNotEnabled,
     #[error("Can't call `write_stmt_profile` unless you first call `enable_stmt_profile`.")]
@@ -296,12 +300,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     /// Write a profile to a file.
     /// Only valid if corresponding profiler was enabled.
-    pub fn write_profile<P: AsRef<Path>>(
-        &self,
-        mode: &ProfileMode,
-        filename: P,
-    ) -> anyhow::Result<()> {
-        let profile = self.gen_profile(mode)?;
+    pub fn write_profile<P: AsRef<Path>>(&self, filename: P) -> anyhow::Result<()> {
+        let profile = self.gen_profile()?;
         fs::write(filename.as_ref(), profile)
             .with_context(|| format!("writing profile to `{}`", filename.as_ref().display()))?;
         Ok(())
@@ -309,7 +309,16 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     /// Generate profile for a given mode.
     /// Only valid if corresponding profiler was enabled.
-    pub fn gen_profile(&self, mode: &ProfileMode) -> anyhow::Result<String> {
+    pub fn gen_profile(&self) -> anyhow::Result<String> {
+        let mode = match &self.profile_or_instrumentation_mode {
+            ProfileOrInstrumentationMode::None => {
+                return Err(EvaluatorError::ProfilingNotEnabled.into());
+            }
+            ProfileOrInstrumentationMode::Instrumentation(..) => {
+                return Err(EvaluatorError::InstrumentationEnabled.into());
+            }
+            ProfileOrInstrumentationMode::Profile(mode) => mode,
+        };
         match mode {
             ProfileMode::HeapSummary => self
                 .heap_profile

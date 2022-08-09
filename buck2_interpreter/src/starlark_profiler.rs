@@ -156,7 +156,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
             self.profile_mode,
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
         ) {
-            eval.write_profile(&self.profile_mode, &self.path)
+            eval.write_profile(&self.path)
                 .context("Failed to write profile")?;
         }
         Ok(())
