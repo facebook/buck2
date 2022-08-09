@@ -55,7 +55,6 @@ use crate::file_loader::LoadedModules;
 use crate::import_paths::ImportPaths;
 use crate::package_imports::ImplicitImport;
 use crate::parse_import::parse_import;
-use crate::starlark_profiler;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
@@ -622,8 +621,7 @@ impl InterpreterForCell {
             loaded_modules,
             None,
             None,
-            &mut StarlarkProfilerOrInstrumentation::new(
-                &mut starlark_profiler::Disabled,
+            &mut StarlarkProfilerOrInstrumentation::instrumentation(
                 starlark_profiler_instrumentation,
             ),
         )?;

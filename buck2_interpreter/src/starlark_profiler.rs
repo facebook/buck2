@@ -216,6 +216,14 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         Self::new(profiler, instrumentation)
     }
 
+    /// Instrumentation only.
+    pub fn instrumentation(instrumentation: StarlarkProfilerInstrumentation) -> Self {
+        StarlarkProfilerOrInstrumentation {
+            profiler: None,
+            instrumentation,
+        }
+    }
+
     /// No profiling.
     pub fn disabled() -> StarlarkProfilerOrInstrumentation<'p> {
         StarlarkProfilerOrInstrumentation {

@@ -19,7 +19,6 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
-use buck2_interpreter::starlark_profiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use dice::DiceComputations;
 use dice::Key;
@@ -64,8 +63,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
                     interpreter
                         .eval_build_file::<ModuleInternals>(
                             &self.0,
-                            &mut StarlarkProfilerOrInstrumentation::new(
-                                &mut starlark_profiler::Disabled,
+                            &mut StarlarkProfilerOrInstrumentation::instrumentation(
                                 starlark_profiler_instrumentation,
                             ),
                         )
