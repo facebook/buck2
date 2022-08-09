@@ -40,16 +40,8 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     use std::borrow::Cow;
 
-    let original_str = original
-        .to_str()
-        .ok_or_else(|| anyhow::anyhow!("Path is not Unicode"))?;
-    let original = if original_str.contains('/') {
-        Cow::Owned(PathBuf::from(original_str.replace('/', "\\")))
-    } else {
+    let target_abspath = if original.is_absolute() {
         Cow::Borrowed(original)
-    };
-    let target_path = if original.is_absolute() {
-        Cow::Borrowed(original.as_ref())
     } else {
         Cow::Owned(
             link.parent()
@@ -57,16 +49,53 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
                 .join(&original),
         )
     };
-    let file_type = fs::metadata(&target_path)?.file_type();
+    let target_abspath = std::path::absolute(&target_abspath)?;
 
+    let target_path = if original.is_absolute() {
+        Cow::Borrowed(target_abspath.as_path())
+    } else {
+        let original_str = original
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Path is not Unicode"))?;
+        // Make sure path separator is '\'.
+        let original = if original_str.contains('/') {
+            Cow::Owned(PathBuf::from(original_str.replace('/', "\\")))
+        } else {
+            Cow::Borrowed(original)
+        };
+        // Check if relative path points to the expected location. Otherwise create symlink to absolute path.
+        // `canonicalize` requires path to exist, so check parent directories instead.
+        let target_dir_realpath = fs::canonicalize(
+            target_abspath
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?,
+        )
+        .context("Failed to get canonical path. Does path exist?")?;
+        let link_dir_realpath = fs::canonicalize(
+            link.parent()
+                .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?,
+        )
+        .context("Failed to get canonical path. Does path exist?")?;
+        let computed_target = link_dir_realpath.join(&original);
+        let computed_target_dir = computed_target
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?;
+        if target_dir_realpath == computed_target_dir {
+            original
+        } else {
+            Cow::Borrowed(target_abspath.as_path())
+        }
+    };
+
+    let file_type = fs::metadata(&target_abspath)?.file_type();
     if file_type.is_file() {
-        std::os::windows::fs::symlink_file(original, link).map_err(|e| e.into())
+        std::os::windows::fs::symlink_file(target_path.as_ref(), link).map_err(|e| e.into())
     } else if file_type.is_dir() {
-        std::os::windows::fs::symlink_dir(original, link).map_err(|e| e.into())
+        std::os::windows::fs::symlink_dir(target_path.as_ref(), link).map_err(|e| e.into())
     } else {
         Err(anyhow::anyhow!(
             "Symlink target ({}) is not a file or directory",
-            target_path.display()
+            target_abspath.display()
         ))
     }
 }
