@@ -581,7 +581,7 @@ impl InterpreterForCell {
         let mut eval = Evaluator::new(env);
         eval.set_loader(&file_loader);
         eval.extra = Some(&extra);
-        profiler.initialize(&mut eval);
+        profiler.initialize(&mut eval)?;
         if self.config.verbose_gc {
             eval.verbose_gc();
         }

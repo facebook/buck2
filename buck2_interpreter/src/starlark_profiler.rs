@@ -43,10 +43,11 @@ impl StarlarkProfilerInstrumentation {
         Self { profile_mode }
     }
 
-    pub fn enable(&self, eval: &mut Evaluator) {
+    pub fn enable(&self, eval: &mut Evaluator) -> anyhow::Result<()> {
         if let Some(profile_mode) = &self.profile_mode {
-            eval.enable_profile_instrumentation(profile_mode).unwrap();
+            eval.enable_profile_instrumentation(profile_mode)?;
         }
+        Ok(())
     }
 
     /// True iff the set of instrumentations in this is a subset
@@ -69,7 +70,7 @@ pub trait StarlarkProfiler: Send + Sync {
     fn instrumentation(&self) -> StarlarkProfilerInstrumentation;
 
     /// Prepare an Evaluator to capture output relevant to this profiler.
-    fn initialize(&mut self, eval: &mut Evaluator);
+    fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
 
     /// Post-analysis, produce the output of this profiler.
     fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
@@ -85,7 +86,9 @@ impl StarlarkProfiler for Disabled {
         StarlarkProfilerInstrumentation { profile_mode: None }
     }
 
-    fn initialize(&mut self, _: &mut Evaluator) {}
+    fn initialize(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     fn finalize(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
         Ok(())
@@ -141,9 +144,10 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
         }
     }
 
-    fn initialize(&mut self, eval: &mut Evaluator) {
-        eval.enable_profile(&self.profile_mode).unwrap();
+    fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+        eval.enable_profile(&self.profile_mode)?;
         self.initialized_at = Some(Instant::now());
+        Ok(())
     }
 
     fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
@@ -231,14 +235,12 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::None)
     }
 
-    pub fn initialize(&mut self, eval: &mut Evaluator) {
+    pub fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         match &mut self.0 {
-            StarlarkProfilerOrInstrumentationImpl::None => {}
-            StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => {
-                profiler.initialize(eval);
-            }
+            StarlarkProfilerOrInstrumentationImpl::None => Ok(()),
+            StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => profiler.initialize(eval),
             StarlarkProfilerOrInstrumentationImpl::Instrumentation(instrumentation) => {
-                instrumentation.enable(eval);
+                instrumentation.enable(eval)
             }
         }
     }

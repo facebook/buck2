@@ -274,7 +274,7 @@ fn run_analysis_with_env(
         registry,
     ));
 
-    profiler.initialize(&mut eval);
+    profiler.initialize(&mut eval)?;
 
     let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
 
