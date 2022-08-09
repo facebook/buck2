@@ -385,12 +385,12 @@ fn log(level: buck2_data::log::Level, msg: &str, filepath: &str, lineno: u32, co
 #[macro_export]
 macro_rules! info {
     ( $fmt_str:literal ) => {
-        info($fmt_str, file!(), line!(), column!());
+        $crate::dispatch::info($fmt_str, file!(), line!(), column!());
     };
 
     ( $fmt_str:literal, $( $arg:tt ),* ) => {
         let msg: String = format!($fmt_str, $($arg),*);
-        info(&msg, file!(), line!(), column!());
+        $crate::dispatch::info(&msg, file!(), line!(), column!());
     };
 }
 
