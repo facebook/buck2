@@ -16,7 +16,7 @@ PROFILERS = [
 ]
 
 
-@buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+@buck_test(inplace=True)
 @pytest.mark.parametrize(
     "profiler",
     PROFILERS,
@@ -36,7 +36,7 @@ async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) ->
     assert os.path.exists(file_path)
 
 
-@buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+@buck_test(inplace=True)
 @pytest.mark.parametrize(
     "profiler",
     PROFILERS,
@@ -56,7 +56,7 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
     assert os.path.exists(file_path)
 
 
-@buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+@buck_test(inplace=True)
 async def test_profile_shows_errors(buck: Buck) -> None:
     expect_failure(
         buck.profile(
