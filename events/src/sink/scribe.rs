@@ -144,6 +144,17 @@ mod fbcode {
                         _ => {}
                     };
                 }
+                Data::Instant(ref mut inst) => {
+                    use buck2_data::instant_event::Data;
+                    match &mut inst.data {
+                        Some(Data::TestResult(ref mut test_result)) => {
+                            const TRUNCATED_DETAILS_LENGTH: usize = 512 * 1024; // 512Kb
+                            test_result.details =
+                                truncate(&test_result.details, TRUNCATED_DETAILS_LENGTH);
+                        }
+                        _ => {}
+                    }
+                }
                 _ => {}
             };
         }
