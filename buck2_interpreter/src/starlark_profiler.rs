@@ -190,12 +190,15 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
     }
 }
 
+enum StarlarkProfilerOrInstrumentationImpl<'p> {
+    None,
+    Profiler(&'p mut dyn StarlarkProfiler),
+    Instrumentation(StarlarkProfilerInstrumentation),
+}
+
 /// Modules can be evaluated with profiling or with instrumentation for profiling.
 /// This type enapsulates this logic.
-pub struct StarlarkProfilerOrInstrumentation<'p> {
-    profiler: Option<&'p mut dyn StarlarkProfiler>,
-    instrumentation: StarlarkProfilerInstrumentation,
-}
+pub struct StarlarkProfilerOrInstrumentation<'p>(StarlarkProfilerOrInstrumentationImpl<'p>);
 
 impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     pub fn new(
@@ -204,52 +207,55 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     ) -> StarlarkProfilerOrInstrumentation<'p> {
         // Sanity check.
         assert!(profiler.instrumentation().is_subset(&instrumentation));
-        let profiler = Some(profiler);
-        StarlarkProfilerOrInstrumentation {
-            profiler,
-            instrumentation,
+        // TODO(nga): profiler.instrumentation() is actually profile mode. Rename something.
+        if profiler.instrumentation().profile_mode.is_some() {
+            StarlarkProfilerOrInstrumentation::for_profiler(profiler)
+        } else {
+            StarlarkProfilerOrInstrumentation::instrumentation(instrumentation)
         }
     }
 
     pub fn for_profiler(profiler: &'p mut dyn StarlarkProfiler) -> Self {
-        let instrumentation = profiler.instrumentation();
-        Self::new(profiler, instrumentation)
+        StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Profiler(profiler))
     }
 
     /// Instrumentation only.
     pub fn instrumentation(instrumentation: StarlarkProfilerInstrumentation) -> Self {
-        StarlarkProfilerOrInstrumentation {
-            profiler: None,
+        StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Instrumentation(
             instrumentation,
-        }
+        ))
     }
 
     /// No profiling.
     pub fn disabled() -> StarlarkProfilerOrInstrumentation<'p> {
-        StarlarkProfilerOrInstrumentation {
-            profiler: None,
-            instrumentation: StarlarkProfilerInstrumentation::default(),
-        }
+        StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::None)
     }
 
     pub fn initialize(&mut self, eval: &mut Evaluator) {
-        self.instrumentation.enable(eval);
-        if let Some(profiler) = &mut self.profiler {
-            profiler.initialize(eval);
+        match &mut self.0 {
+            StarlarkProfilerOrInstrumentationImpl::None => {}
+            StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => {
+                profiler.initialize(eval);
+            }
+            StarlarkProfilerOrInstrumentationImpl::Instrumentation(instrumentation) => {
+                instrumentation.enable(eval);
+            }
         }
     }
 
     pub fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
-        if let Some(profiler) = &mut self.profiler {
-            profiler.visit_frozen_module(module)?;
+        if let StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) = &mut self.0 {
+            profiler.visit_frozen_module(module)
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     pub fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
-        if let Some(profiler) = &mut self.profiler {
-            profiler.finalize(eval)?;
+        if let StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) = &mut self.0 {
+            profiler.finalize(eval)
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 }
