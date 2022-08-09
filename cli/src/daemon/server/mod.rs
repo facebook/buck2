@@ -971,16 +971,16 @@ impl DaemonState {
 
         let data = self.data().await?;
 
-        dispatcher.event(buck2_data::InstantEvent {
-            data: Some(
-                buck2_data::TagEvent {
-                    tags: vec![format!(
-                        "dice-detect-cycles:{}",
-                        data.dice.detect_cycles().variant_name()
-                    )],
-                }
-                .into(),
+        let tags = vec![
+            format!(
+                "dice-detect-cycles:{}",
+                data.dice.detect_cycles().variant_name()
             ),
+            format!("forkserver:{}", data.forkserver.is_some()),
+        ];
+
+        dispatcher.event(buck2_data::InstantEvent {
+            data: Some(buck2_data::TagEvent { tags }.into()),
         });
 
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
