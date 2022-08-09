@@ -540,6 +540,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     }
 
     /// For all the artifacts listed in this `cmd_args`, use their parent directory.
+    ///
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
     fn parent<'v>(
