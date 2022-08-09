@@ -6,7 +6,7 @@ from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 
 def fixture(name: str) -> str:
-    return os.path.join(os.environ["FIXTURES"], "fixtures", f"{name}.json-lines")
+    return os.path.join(os.environ["FIXTURES"], "fixtures", f"{name}.proto")
 
 
 @buck_test(inplace=True)
@@ -37,4 +37,4 @@ async def test_whatran(buck: Buck) -> None:
         fixture("my_genrule0"),
     )
     assert "cache" in res.stdout
-    assert "c63fead395a232f021871f53d4eafb60038890f2:93" in res.stdout
+    assert "4d538f9cdd06a7c7ab46b418799d02ccb60a7390:93" in res.stdout
