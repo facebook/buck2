@@ -196,6 +196,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
 }
 
 /// Aggregated stack frame data.
+#[derive(Clone)]
 pub(crate) struct StackFrame {
     /// Aggregated callees.
     pub(crate) callees: SmallMap<StringId, StackFrame>,
@@ -285,6 +286,7 @@ impl<'c> StackFrameWithContext<'c> {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct AggregateHeapProfileInfo {
     pub(crate) strings: StringIndex,
     pub(crate) root: StackFrame,

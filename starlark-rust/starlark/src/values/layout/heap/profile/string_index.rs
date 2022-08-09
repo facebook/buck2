@@ -20,7 +20,7 @@ use gazebo::prelude::*;
 use starlark_map::small_set::SmallSet;
 
 /// Map strings to integers 0, 1, 2, ...
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct StringIndex {
     strings: SmallSet<String>,
 }
