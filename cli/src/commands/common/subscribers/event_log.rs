@@ -66,45 +66,45 @@ pub(crate) enum EventLogErrors {
     EndOfFile(String),
 }
 
-const JSON_GZIP_EXTENSION: &str = ".json-lines.gz";
-const JSON_EXTENSION: &str = ".json-lines";
-const PROTO_EXTENSION: &str = ".proto";
-const PROTO_GZIP_EXTENSION: &str = ".proto.gz";
-
-const KNOWN_EXTENSIONS: &[(&str, Encoding)] = &[
-    (JSON_GZIP_EXTENSION, Encoding::JsonGzip),
-    (JSON_EXTENSION, Encoding::Json),
-    (PROTO_EXTENSION, Encoding::Proto),
-    (PROTO_GZIP_EXTENSION, Encoding::ProtoGzip),
-];
-
 #[derive(Copy, Clone, Dupe, Debug)]
-enum Encoding {
-    Json,
-    JsonGzip,
-    Proto,
-    ProtoGzip,
+struct Encoding {
+    mode: LogMode,
+    compression: Compression,
+    extension: &'static str,
 }
 
 impl Encoding {
-    fn extension(self) -> &'static str {
-        match self {
-            Self::Json => JSON_EXTENSION,
-            Self::JsonGzip => JSON_GZIP_EXTENSION,
-            Self::Proto => PROTO_EXTENSION,
-            Self::ProtoGzip => PROTO_GZIP_EXTENSION,
-        }
-    }
+    const JSON: Encoding = Encoding {
+        mode: LogMode::Json,
+        compression: Compression::None,
+        extension: ".json-lines",
+    };
 
-    fn mode(self) -> LogMode {
-        match self {
-            Self::Json => LogMode::Json,
-            Self::JsonGzip => LogMode::Json,
-            Self::Proto => LogMode::Protobuf,
-            Self::ProtoGzip => LogMode::Protobuf,
-        }
-    }
+    const JSON_GZIP: Encoding = Encoding {
+        mode: LogMode::Json,
+        compression: Compression::Gzip,
+        extension: ".json-lines.gz",
+    };
+
+    const PROTO: Encoding = Encoding {
+        mode: LogMode::Protobuf,
+        compression: Compression::None,
+        extension: ".proto",
+    };
+
+    const PROTO_GZIP: Encoding = Encoding {
+        mode: LogMode::Protobuf,
+        compression: Compression::Gzip,
+        extension: ".proto.gz",
+    };
 }
+
+const KNOWN_ENCODINGS: &[Encoding] = &[
+    Encoding::JSON_GZIP,
+    Encoding::JSON,
+    Encoding::PROTO,
+    Encoding::PROTO_GZIP,
+];
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 type EventLogReader = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
@@ -125,7 +125,7 @@ pub(crate) enum EventLogInferenceError {
 }
 
 fn display_valid_extensions() -> String {
-    let exts = KNOWN_EXTENSIONS.map(|(ext, _)| *ext);
+    let exts = KNOWN_ENCODINGS.map(|encoding| encoding.extension);
     exts.join(", ")
 }
 
@@ -154,8 +154,8 @@ impl EventLogPathBuf {
             .to_str()
             .with_context(|| EventLogInferenceError::InvalidFilename(path.clone()))?;
 
-        for (ext, encoding) in KNOWN_EXTENSIONS {
-            if name.ends_with(ext) {
+        for encoding in KNOWN_ENCODINGS {
+            if name.ends_with(encoding.extension) {
                 return Ok(Ok(Self {
                     path,
                     encoding: *encoding,
@@ -172,8 +172,8 @@ impl EventLogPathBuf {
     ) -> anyhow::Result<(Invocation, impl Stream<Item = anyhow::Result<StreamValue>>)> {
         let log_file = self.open().await?;
 
-        let res = match self.encoding {
-            Encoding::Json | Encoding::JsonGzip => {
+        let res = match self.encoding.mode {
+            LogMode::Json => {
                 let log_file = BufReader::new(log_file);
                 let mut log_lines = log_file.lines();
 
@@ -194,7 +194,7 @@ impl EventLogPathBuf {
 
                 Ok((invocation, events.boxed()))
             }
-            Encoding::Proto | Encoding::ProtoGzip => {
+            LogMode::Protobuf => {
                 let mut stream = FramedRead::new(log_file, EventLogDecoder::new());
 
                 let invocation = match stream.try_next().await?.context("No invocation found")? {
@@ -241,11 +241,9 @@ impl EventLogPathBuf {
             .await
             .with_context(|| format!("Failed to open: {}", self.path.display()))?;
 
-        let file = match self.encoding {
-            Encoding::Json | Encoding::Proto => box file as EventLogReader,
-            Encoding::JsonGzip | Encoding::ProtoGzip => {
-                box GzipDecoder::new(BufReader::new(file)) as EventLogReader
-            }
+        let file = match self.encoding.compression {
+            Compression::None => box file as EventLogReader,
+            Compression::Gzip => box GzipDecoder::new(BufReader::new(file)) as EventLogReader,
         };
 
         Ok(file)
@@ -291,9 +289,16 @@ enum LogFileState {
     Closed,
 }
 
-pub enum LogMode {
+#[derive(Copy, Clone, Dupe, Debug)]
+enum LogMode {
     Json,
     Protobuf,
+}
+
+#[derive(Copy, Clone, Dupe, Debug)]
+enum Compression {
+    None,
+    Gzip,
 }
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
@@ -336,7 +341,7 @@ impl EventLog {
         match &mut self.state {
             LogFileState::Opened(files) => {
                 for f in files.iter_mut() {
-                    let serialized = match f.path.encoding.mode() {
+                    let serialized = match f.path.encoding.mode {
                         LogMode::Json => {
                             let mut serialized = event.serialize_to_json()?;
                             serialized.push(b'\n');
@@ -384,8 +389,8 @@ impl EventLog {
 
         // Open our log fie, gzip encoded.
         let encoding = match log_mode {
-            LogMode::Json => Encoding::JsonGzip,
-            LogMode::Protobuf => Encoding::ProtoGzip,
+            LogMode::Json => Encoding::JSON_GZIP,
+            LogMode::Protobuf => Encoding::PROTO_GZIP,
         };
 
         let path = EventLogPathBuf {
@@ -401,7 +406,7 @@ impl EventLog {
                     EventLogPathBuf::infer_opt(extra_path.clone())?.unwrap_or_else(
                         |NoInference(path)| EventLogPathBuf {
                             path,
-                            encoding: Encoding::Json,
+                            encoding: Encoding::JSON_GZIP,
                         },
                     ),
                     event.trace_id.dupe(),
@@ -481,9 +486,7 @@ fn get_logfile_name(event: &BuckEvent, encoding: Encoding) -> ForwardRelativePat
     // Sort order matters here: earliest builds are lexicographically first and deleted first.
     ForwardRelativePathBuf::unchecked_new(format!(
         "{}_{}_events{}",
-        time_str,
-        event.trace_id,
-        encoding.extension()
+        time_str, event.trace_id, encoding.extension
     ))
 }
 
@@ -503,9 +506,9 @@ async fn open_event_log_for_writing(
             )
         })?;
 
-    let file = match path.encoding {
-        Encoding::Json | Encoding::Proto => box file as EventLogWriter,
-        Encoding::JsonGzip | Encoding::ProtoGzip => box GzipEncoder::new(file) as EventLogWriter,
+    let file = match path.encoding.compression {
+        Compression::None => box file as EventLogWriter,
+        Compression::Gzip => box GzipEncoder::new(file) as EventLogWriter,
     };
 
     Ok(NamedEventLogWriter {
@@ -654,9 +657,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
 
     let url = format!(
         "{}/v0/write/flat/{}{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",
-        manifold_url,
-        log_file.trace_id,
-        log_file.path.encoding.extension()
+        manifold_url, log_file.trace_id, log_file.path.encoding.extension
     );
 
     tracing::debug!(
@@ -863,7 +864,7 @@ mod tests {
         // Create event log
         let log = EventLogPathBuf {
             path: tmp_dir.path().join("log"),
-            encoding: Encoding::ProtoGzip,
+            encoding: Encoding::PROTO_GZIP,
         };
 
         let mut event_log = EventLog::new_test_event_log(log.clone()).await?;
