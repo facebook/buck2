@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::iter;
+
+use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
@@ -31,13 +32,13 @@ struct FuncInfo {
     /// Number of times this function was called
     pub calls: usize,
     /// Who called this function (and how many times each)
-    pub callers: HashMap<StringId, usize>,
+    pub callers: SmallMap<StringId, usize>,
     /// Time spent directly in this function
     pub time: SmallDuration,
     /// Time spent directly in this function and recursive functions.
     pub time_rec: SmallDuration,
     /// Allocations made by this function
-    pub alloc: HashMap<&'static str, AllocCounts>,
+    pub alloc: SmallMap<&'static str, AllocCounts>,
 }
 
 impl FuncInfo {
