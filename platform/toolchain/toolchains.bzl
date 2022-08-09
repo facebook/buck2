@@ -1,18 +1,17 @@
 load(":apple_toolchain_setup.bzl", "get_apple_cxx_select_map")
 
-# This module defines the toolchains for languages like C++, Python etc. These are expressed
-# as large `select` expressions which are used as default attributes attached to every rule that
-# uses them - e.g. `rust_library` has `_rust_toolchain` which points at `default_rust_toolchain()`.
+# This module defines the toolchains for languages like C++, Python etc.
+# Usually those rules have default attributes that
+# point to targets in this package that use these definitions to select the actual toolchain.
+# - e.g. `rust_library` has `_rust_toolchain` which points at
+# `fbcode//buck2/platform/toolchain:rust that then uses
+# `default_rust_toolchain()` to select the actual toolchain.
 #
-# It might be tempting to make targets for these defaults, e.g. `//toolchain:rust` and use that as
-# the default, but it's infeasible because:
-#
-# 1. If the toolchain is an execution dependency, then the `select` statements on `//toolchain:rust`
-#    will be resolved with the execution configuration, not the target configuration.
-#
-# 2. If the toolchain is not an execution dependency, then the execution constraints it supplies
-#    won't be applied when picking an execution platform, as execution resolution only considers
-#    the direct dependencies of a target.
+# Generally, this is a legacy structure and we are moving away from it. The recommendation would
+# be that the toolchain targets themselves be declared using some rule that
+# sets `is_toolchain_rule=True` and that the selects are moved into those
+# toolchain definitions themselves. Until we do that, we effectively need to statically define a
+# target for each possible toolchain configuration.
 
 def _merge_dictionaries(dicts):
     result = {}
