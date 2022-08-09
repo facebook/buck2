@@ -227,7 +227,12 @@ impl<T: PatternType> ParsedPattern<T> {
             TargetParsingOptions::precise(),
             pattern,
         )
-        .with_context(|| format!("Invalid absolute target pattern `{}`", pattern))
+        .with_context(|| {
+            format!(
+                "Invalid absolute target pattern `{}` is not allowed",
+                pattern
+            )
+        })
     }
 
     pub fn parsed_opt_absolute(
@@ -246,7 +251,12 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| format!("Invalid absolute target pattern `{}`", pattern))
+        .with_context(|| {
+            format!(
+                "Invalid absolute target pattern `{}` is not allowed",
+                pattern
+            )
+        })
     }
 
     /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
@@ -269,7 +279,12 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| format!("Invalid relative target pattern `{}`", pattern))
+        .with_context(|| {
+            format!(
+                "Invalid relative target pattern `{}` is not allowed",
+                pattern
+            )
+        })
     }
 
     /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, resolving relative
@@ -296,7 +311,12 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| format!("Invalid relative target pattern `{}`", pattern))
+        .with_context(|| {
+            format!(
+                "Invalid relative target pattern `{}` is not allowed",
+                pattern
+            )
+        })
     }
 }
 

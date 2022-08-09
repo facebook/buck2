@@ -17,9 +17,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
 use buck2_core::pattern::TargetPattern;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -289,37 +287,24 @@ pub(crate) async fn targets(
     let target_platform =
         target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-    let parsed_provider_patterns =
-        parse_patterns_from_cli_args::<ProvidersPattern>(&request.target_patterns, &ctx, cwd)
-            .await?;
+    let parsed_target_patterns =
+        parse_patterns_from_cli_args::<TargetPattern>(&request.target_patterns, &ctx, cwd).await?;
 
     // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
     // print them out. This expects the aliases to resolve to individual targets.
     if request.unstable_resolve_aliases {
         let mut output = String::new();
 
-        for (alias, pattern) in std::iter::zip(&request.target_patterns, parsed_provider_patterns) {
-            let (package, (target_name, providers_name)) = pattern.as_literal(&alias.value)?;
+        for (alias, pattern) in std::iter::zip(&request.target_patterns, parsed_target_patterns) {
+            let (package, target_name) = pattern.as_literal(&alias.value)?;
 
-            writeln!(
-                output,
-                "{}",
-                ProvidersLabel::new(TargetLabel::new(package, target_name), providers_name)
-            )?;
+            writeln!(output, "{}", TargetLabel::new(package, target_name),)?;
         }
 
         return Ok(TargetsResponse {
             serialized_targets_output: output,
         });
     }
-    let parsed_target_patterns =
-        parsed_provider_patterns.into_map(|parsed_pattern| match parsed_pattern {
-            ParsedPattern::Target(pkg, (target_name, _providers_name)) => {
-                ParsedPattern::Target(pkg, target_name)
-            }
-            ParsedPattern::Package(pkg) => ParsedPattern::Package(pkg),
-            ParsedPattern::Recursive(cell_path) => ParsedPattern::Recursive(cell_path),
-        });
 
     let target_hash_modified_paths = request
         .target_hash_modified_paths
