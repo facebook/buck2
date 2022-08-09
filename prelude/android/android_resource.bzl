@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_java_packaging_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(":android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
@@ -52,6 +53,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
         )
     providers.append(resource_info)
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))
+    providers.append(get_java_packaging_info(ctx, ctx.attrs.deps))
     providers.append(DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets))
 
     return providers
