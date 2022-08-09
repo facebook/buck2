@@ -158,7 +158,7 @@ use crate::daemon::uquery::uquery;
 use crate::paths::Paths;
 
 mod file_watcher;
-mod lsp;
+pub(crate) mod lsp;
 mod snapshot;
 
 // TODO(cjhopman): Figure out a reasonable value for this.

@@ -3,15 +3,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
-use buck2_core::fs::paths::ForwardRelativePathBuf;
 use itertools::Itertools;
 use starlark::values::docs::markdown::AsMarkdown;
 use starlark::values::docs::markdown::MarkdownFlavor;
 use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
 
-static DOCS_DIRECTORY_KEY: &str = "directory";
-static DOCS_BUILTIN_KEY: &str = "builtin";
+use crate::daemon::server::lsp::output_subdir_for_doc;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
@@ -24,38 +22,6 @@ pub(crate) struct MarkdownFileOptions {
     native_subdir: PathBuf,
     #[structopt(long = "--markdown-files-starlark-subdir", default_value="starlark", parse(try_from_str = PathBuf::try_from))]
     starlark_subdir: PathBuf,
-}
-
-fn format_custom_attr_error(keys_and_values: &[(String, String)]) -> String {
-    let mut ret = "{".to_owned();
-    ret.push_str(
-        &keys_and_values
-            .iter()
-            .map(|(k, v)| format!("`{}` => `{}`", k, v))
-            .join(", "),
-    );
-    ret.push('}');
-    ret
-}
-
-#[derive(Debug, thiserror::Error)]
-enum MarkdownError {
-    #[error("Directory traversal was found in documentation path `{}` provided for `{}`", .path, .name)]
-    InvalidDirectory {
-        name: String,
-        path: String,
-        source: anyhow::Error,
-    },
-    #[error("Invalid custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
-    InvalidCustomAttributes {
-        name: String,
-        keys_and_values: Vec<(String, String)>,
-    },
-    #[error("Conflicting custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
-    ConflictingCustomAttributes {
-        name: String,
-        keys_and_values: Vec<(String, String)>,
-    },
 }
 
 #[derive(Clone, Debug, Default)]
@@ -82,51 +48,9 @@ impl MarkdownOutput {
         Ok(Path::new(&location.replace("//", "/").replace(':', "/")).to_path_buf())
     }
 
-    fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<ForwardRelativePathBuf> {
-        let unknown_keys: Vec<_> = doc
-            .custom_attrs
-            .iter()
-            .filter(|(k, _)| *k != DOCS_DIRECTORY_KEY && *k != DOCS_BUILTIN_KEY)
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        if !unknown_keys.is_empty() {
-            return Err(MarkdownError::InvalidCustomAttributes {
-                name: doc.id.name.to_owned(),
-                keys_and_values: unknown_keys,
-            }
-            .into());
-        }
-
-        match (
-            doc.custom_attrs.get(DOCS_DIRECTORY_KEY),
-            doc.custom_attrs.get(DOCS_BUILTIN_KEY),
-        ) {
-            (Some(path), None) | (None, Some(path)) => {
-                match ForwardRelativePathBuf::new(path.to_owned()) {
-                    Ok(fp) => Ok(fp),
-                    Err(e) => Err(MarkdownError::InvalidDirectory {
-                        name: doc.id.name.to_owned(),
-                        path: path.to_owned(),
-                        source: e,
-                    }
-                    .into()),
-                }
-            }
-            (Some(dir), Some(builtin)) => Err(MarkdownError::ConflictingCustomAttributes {
-                name: doc.id.name.to_owned(),
-                keys_and_values: vec![
-                    (DOCS_DIRECTORY_KEY.to_owned(), dir.clone()),
-                    (DOCS_BUILTIN_KEY.to_owned(), builtin.clone()),
-                ],
-            }
-            .into()),
-            (None, None) => Ok(ForwardRelativePathBuf::new(String::new())?),
-        }
-    }
-
     /// Get the output path for the markdown for a given [`Doc`], whether it's in a starlark file, or a native symbol.
     fn markdown_path_for_doc(opts: &MarkdownFileOptions, doc: &Doc) -> anyhow::Result<PathBuf> {
-        let subdir = Self::output_subdir_for_doc(doc)?;
+        let subdir = output_subdir_for_doc(doc)?;
         let path = match &doc.id.location {
             Some(loc) => opts
                 .starlark_subdir
