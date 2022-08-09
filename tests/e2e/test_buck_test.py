@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 import tempfile
@@ -64,6 +65,45 @@ if fbcode_linux_only():
                 "fbcode//buck2/tests/targets/rules/cxx:cpp_test_fail",
             ),
             stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/cxx:cpp_test_fail - Simple\.Fail",
+        )
+
+
+if fbcode_linux_only() and not is_deployed_buck2():
+
+    @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+    async def test_cpp_test_coverage(buck: Buck, tmpdir) -> None:
+        coverage_file = os.path.join(tmpdir, "coverage.txt")
+        await buck.test(
+            "@fbcode//mode/dbgo-cov",
+            "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
+            "--",
+            "--collect-coverage",
+            f"--coverage-output={coverage_file}",
+        )
+        paths = []
+        with open(coverage_file) as results:
+            for line in results:
+                paths.append(json.loads(line)["filepath"])
+        assert "fbcode/buck2/tests/targets/rules/cxx/cpp_test_pass.cpp" in paths, str(
+            paths
+        )
+
+    @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+    async def test_rust_test_coverage(buck: Buck, tmpdir) -> None:
+        coverage_file = os.path.join(tmpdir, "coverage.txt")
+        await buck.test(
+            "@fbcode//mode/dbgo-cov",
+            "fbcode//buck2/tests/targets/rules/rust:tests_pass",
+            "--",
+            "--collect-coverage",
+            f"--coverage-output={coverage_file}",
+        )
+        paths = []
+        with open(coverage_file) as results:
+            for line in results:
+                paths.append(json.loads(line)["filepath"])
+        assert "fbcode/buck2/tests/targets/rules/rust/tests_pass.rs" in paths, str(
+            paths
         )
 
 

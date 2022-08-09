@@ -5,6 +5,7 @@ load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 load(":check_subtarget.bzl", "check_subtarget")
 
@@ -426,6 +427,11 @@ buck_genrule(
 bzl_native.rust_test(
     name = "unittests",
     srcs = ["unittests.rs"],
+)
+
+rust_unittest(
+    name = "tests_pass",
+    srcs = ["tests_pass.rs"],
 )
 
 rust_binary(
