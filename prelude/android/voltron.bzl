@@ -1,5 +1,6 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidPackageableInfo", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 
 # In order to calculate which targets belong to each module, we reconstruct a "target graph"
@@ -50,6 +51,16 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
             "--always-in-main-apk-seeds",
             application_module_blocklist_file,
         ])
+
+    if ctx.attrs.should_include_classes:
+        no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
+        java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, ctx.attrs.deps) if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
+        targets_to_jars_args = [cmd_args([str(packaging_dep.label.raw_target()), packaging_dep.jar], delimiter = " ") for packaging_dep in java_packaging_deps]
+        targets_to_jars = ctx.actions.write("targets_to_jars.txt", targets_to_jars_args)
+        cmd.add([
+            "--targets-to-jars",
+            targets_to_jars,
+        ]).hidden(targets_to_jars_args)
 
     ctx.actions.run(cmd, category = "apk_module_graph")
 

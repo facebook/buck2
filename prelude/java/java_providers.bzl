@@ -92,6 +92,7 @@ JavaCompilingDepsTSet = transitive_set(
 )
 
 JavaPackagingDep = record(
+    label = "label",
     jar = ["artifact", None],
     dex = ["DexLibraryInfo", None],
     is_prebuilt_jar = bool.type,
@@ -262,6 +263,7 @@ def create_java_packaging_dep(
     expect(library_jar != None or output_for_classpath_macro != None, "Must provide an output_for_classpath_macro if no library_jar is provided!")
 
     return JavaPackagingDep(
+        label = ctx.label,
         jar = library_jar,
         dex = dex,
         is_prebuilt_jar = is_prebuilt_jar,
