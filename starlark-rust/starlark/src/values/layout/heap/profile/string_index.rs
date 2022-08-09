@@ -16,6 +16,7 @@
  */
 
 use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
 use starlark_map::small_set::SmallSet;
 
 /// Map strings to integers 0, 1, 2, ...
@@ -43,5 +44,34 @@ impl StringIndex {
 
     pub(crate) fn get(&self, id: StringId) -> &str {
         self.strings.get_index(id.0).expect("invalid string id")
+    }
+}
+
+#[derive(Debug, Default_)]
+pub(crate) struct StringIndexMap<V> {
+    values: Vec<Option<V>>,
+}
+
+impl<V> StringIndexMap<V> {
+    pub(crate) fn or_insert(&mut self, id: StringId) -> &mut V
+    where
+        V: Default,
+    {
+        // Resize.
+        while self.values.get(id.0).is_none() {
+            self.values.push(None);
+        }
+        self.values[id.0].get_or_insert_with(Default::default)
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (StringId, &V)> {
+        self.values
+            .iter()
+            .enumerate()
+            .filter_map(|(id, value)| value.as_ref().map(|value| (StringId(id), value)))
+    }
+
+    pub(crate) fn values(&self) -> impl Iterator<Item = &V> {
+        self.values.iter().filter_map(Option::as_ref)
     }
 }

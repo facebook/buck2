@@ -25,6 +25,7 @@ use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::StackFrame;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::string_index::StringId;
+use crate::values::layout::heap::profile::string_index::StringIndexMap;
 
 /// Information relating to a function.
 #[derive(Default, Debug, Clone)]
@@ -65,19 +66,14 @@ impl FuncInfo {
 /// so pull out top_stack/top_info as a cache.
 pub(crate) struct HeapSummaryByFunction {
     /// Information about all functions. Map from `StringId`.
-    info: Vec<FuncInfo>,
+    info: StringIndexMap<FuncInfo>,
 }
 
 impl HeapSummaryByFunction {
-    fn ensure(&mut self, x: StringId) -> &mut FuncInfo {
-        if self.info.len() <= x.0 {
-            self.info.resize(x.0 + 1, FuncInfo::default());
-        }
-        &mut self.info[x.0]
-    }
-
     pub(crate) fn init(stacks: &AggregateHeapProfileInfo) -> HeapSummaryByFunction {
-        let mut info = HeapSummaryByFunction { info: Vec::new() };
+        let mut info = HeapSummaryByFunction {
+            info: StringIndexMap::default(),
+        };
         info.init_children(&stacks.root, stacks.root_id);
         info
     }
@@ -96,28 +92,24 @@ impl HeapSummaryByFunction {
         frame: &StackFrame,
         caller: StringId,
     ) -> SmallDuration {
-        self.ensure(func).time += frame.time_x2;
-        self.ensure(func).calls += frame.calls_x2 as usize;
-        *self.ensure(func).callers.entry(caller).or_insert(0) += 1;
+        self.info.or_insert(func).time += frame.time_x2;
+        self.info.or_insert(func).calls += frame.calls_x2 as usize;
+        *self.info.or_insert(func).callers.entry(caller).or_insert(0) += 1;
         for (t, allocs) in &frame.allocs.summary {
-            *self.ensure(func).alloc.entry(t).or_default() += *allocs;
+            *self.info.or_insert(func).alloc.entry(t).or_default() += *allocs;
         }
 
         let time_rec = frame.time_x2 + self.init_children(frame, func);
-        self.ensure(func).time_rec += time_rec;
+        self.info.or_insert(func).time_rec += time_rec;
         time_rec
     }
 
     fn totals(&self) -> FuncInfo {
-        FuncInfo::merge(self.info.iter())
+        FuncInfo::merge(self.info.values())
     }
 
     fn info(&self) -> Vec<(StringId, &FuncInfo)> {
-        self.info
-            .iter()
-            .enumerate()
-            .map(|(id, x)| (StringId(id), x))
-            .collect::<Vec<_>>()
+        self.info.iter().collect::<Vec<_>>()
     }
 
     pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
@@ -216,7 +208,7 @@ _ignore = str([1])     # allocate a string in non_drop
 
         let info = HeapSummaryByFunction::init(&stacks);
 
-        let total = FuncInfo::merge(info.info.iter());
+        let total = FuncInfo::merge(info.info.values());
         // from non-drop heap
         assert_eq!(total.alloc.get("string").unwrap().count, 1);
         // from drop heap
