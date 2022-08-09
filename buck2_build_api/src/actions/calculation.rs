@@ -192,6 +192,20 @@ impl ActionCalculation for DiceComputations {
                             }
                         };
 
+                        let outputs = action_result
+                            .as_ref()
+                            .map(|outputs| {
+                                outputs
+                                    .iter()
+                                    .filter_map(|(_artifact, value)| {
+                                        Some(buck2_data::ActionOutput {
+                                            tiny_digest: value.digest()?.tiny_digest().to_string(),
+                                        })
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
                         (
                             action_result,
                             buck2_data::ActionExecutionEnd {
@@ -210,6 +224,7 @@ impl ActionCalculation for DiceComputations {
                                     as i32,
                                 output_size,
                                 commands,
+                                outputs,
                             },
                         )
                     })

@@ -167,6 +167,10 @@ impl ActionOutputs {
         self.0.outputs.get(artifact)
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = (&BuildArtifact, &ArtifactValue)> {
+        self.0.outputs.iter()
+    }
+
     pub fn calc_output_bytes(&self) -> u64 {
         let mut output_bytes = 0;
         for output in &self.0.outputs {

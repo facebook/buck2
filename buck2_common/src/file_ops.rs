@@ -145,6 +145,12 @@ impl FileDigest {
         }
     }
 
+    /// A tiny representation of this digest, useful for logging when the full sha1 presentation is
+    /// too expensive.
+    pub fn tiny_digest(&self) -> TinyDigest<'_> {
+        TinyDigest { of: self }
+    }
+
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
     fn from_file_attr(file: &Path) -> Option<Self> {
@@ -881,6 +887,12 @@ pub mod testing {
             PartialEqAny::always_false()
         }
     }
+}
+
+#[derive(Display)]
+#[display(fmt = "{}", "hex::encode(&of.sha1[0..4])")]
+pub struct TinyDigest<'a> {
+    of: &'a FileDigest,
 }
 
 #[cfg(test)]

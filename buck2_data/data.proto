@@ -652,6 +652,10 @@ message CommandExecution {
 // relevant execution details are in the reports field.
 message CommandExecutionError {}
 
+message ActionOutput {
+  string tiny_digest = 1;
+}
+
 message ActionExecutionEnd {
   reserved 2, 20;
 
@@ -704,6 +708,8 @@ message ActionExecutionEnd {
   // attempted. If a command was executed, the one that should be shown to the
   // user wil always be last.
   repeated CommandExecution commands = 25;
+  // The outputs produced by this action
+  repeated ActionOutput outputs = 26;
 }
 
 // The beginning of materialization for the output of a target requested,

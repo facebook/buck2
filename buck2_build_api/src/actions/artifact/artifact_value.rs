@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use buck2_common::external_symlink::ExternalSymlink;
+use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use gazebo::prelude::*;
 
@@ -77,5 +78,14 @@ impl ArtifactValue {
 
     pub fn deps(&self) -> Option<&ActionSharedDirectory> {
         self.deps.as_ref()
+    }
+
+    pub fn digest(&self) -> Option<&FileDigest> {
+        match &self.entry {
+            ActionDirectoryEntry::Dir(d) => Some(d.fingerprint().data()),
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => Some(f.digest.data()),
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(..)) => None,
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(..)) => None,
+        }
     }
 }
