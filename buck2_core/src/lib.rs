@@ -50,6 +50,7 @@ pub mod package;
 pub mod pattern;
 pub mod process;
 pub mod provider;
+pub mod rollout_percentage;
 pub mod target;
 pub mod target_aliases;
 
