@@ -2,6 +2,9 @@ load(":apple_toolchain_setup.bzl", "default_apple_toolchain", "default_apple_xct
 load(":defs.bzl", "toolchain")
 load(":toolchains.bzl", "default_cxx_toolchain_inner", "default_haskell_toolchain_inner", "default_python_bootstrap_toolchain_inner", "default_python_toolchain_inner", "default_rust_toolchain_inner")
 
+# We use both `toolchain` and `toolchain_alias` here. Use `toolchain_alias` when the actual
+# toolchain definitions have been updated to themselves be toolchain rules.
+
 toolchain(
     name = "cxx",
     dep = default_cxx_toolchain_inner(),
