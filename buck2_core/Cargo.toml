@@ -36,6 +36,7 @@ dashmap = "4.0.2"
 either = "1.5"
 assert_matches = "1.5"
 tracing = "0.1.22"
+rand = { version = "0.8.4", features = ["small_rng"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["everything"] }

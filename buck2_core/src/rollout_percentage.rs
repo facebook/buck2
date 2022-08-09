@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use gazebo::prelude::*;
+use rand::Rng;
 
 /// This can produce random rolls driven by configuration. This does not (currently) support
 /// per-host or per-user seeds: it's just pure random. We could perhaps extend this by allowing the
@@ -9,6 +10,15 @@ use gazebo::prelude::*;
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct RolloutPercentage {
     inner: Inner,
+}
+
+impl RolloutPercentage {
+    pub fn roll(&self) -> bool {
+        match self.inner {
+            Inner::Rate(pct) => rand::thread_rng().gen::<f64>() < pct,
+            Inner::Bool(b) => b,
+        }
+    }
 }
 
 impl FromStr for RolloutPercentage {
@@ -71,5 +81,30 @@ mod tests {
         assert_matches!(Inner::from_str("foo"), Err(..));
         assert_matches!(Inner::from_str("-1"), Err(..));
         assert_matches!(Inner::from_str("1.1"), Err(..));
+    }
+
+    #[test]
+    fn test_roll() {
+        assert!(
+            RolloutPercentage {
+                inner: Inner::Bool(true)
+            }
+            .roll()
+        );
+
+        for _ in 0..1000 {
+            assert!(
+                RolloutPercentage {
+                    inner: Inner::Rate(1.0)
+                }
+                .roll()
+            );
+            assert!(
+                !RolloutPercentage {
+                    inner: Inner::Rate(0.0)
+                }
+                .roll()
+            );
+        }
     }
 }
