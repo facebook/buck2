@@ -84,7 +84,9 @@ impl FromStr for ProfileMode {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         for mode in [
             ProfileMode::HeapSummary,
+            ProfileMode::HeapSummaryRetained,
             ProfileMode::HeapFlame,
+            ProfileMode::HeapFlameRetained,
             ProfileMode::Statement,
             ProfileMode::Bytecode,
             ProfileMode::BytecodePairs,
