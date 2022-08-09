@@ -251,15 +251,19 @@ impl Debug for AggregateHeapProfileInfo {
 }
 
 impl AggregateHeapProfileInfo {
+    const TOTALS_STR: &'static str = "TOTALS";
+    const ROOT_STR: &'static str = "(root)";
+    const BLANK_STR: &'static str = "";
+
     pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> AggregateHeapProfileInfo {
         let mut collector = StackCollector::new(retained);
         unsafe {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
-        let totals_id = collector.ids.strings.index("TOTALS");
-        let root_id = collector.ids.strings.index("(root)");
-        let blank_id = collector.ids.strings.index("");
+        let totals_id = collector.ids.strings.index(Self::TOTALS_STR);
+        let root_id = collector.ids.strings.index(Self::ROOT_STR);
+        let blank_id = collector.ids.strings.index(Self::BLANK_STR);
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
