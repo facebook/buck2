@@ -95,6 +95,15 @@ impl Encoding {
             Self::ProtoGzip => PROTO_GZIP_EXTENSION,
         }
     }
+
+    fn mode(self) -> LogMode {
+        match self {
+            Self::Json => LogMode::Json,
+            Self::JsonGzip => LogMode::Json,
+            Self::Proto => LogMode::Protobuf,
+            Self::ProtoGzip => LogMode::Protobuf,
+        }
+    }
 }
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
@@ -120,6 +129,7 @@ fn display_valid_extensions() -> String {
     exts.join(", ")
 }
 
+#[derive(Clone)]
 pub(crate) struct EventLogPathBuf {
     path: PathBuf,
     encoding: Encoding,
@@ -133,6 +143,11 @@ pub(crate) struct EventLogSummary {
 
 impl EventLogPathBuf {
     pub(crate) fn infer(path: PathBuf) -> anyhow::Result<Self> {
+        Self::infer_opt(path)?
+            .map_err(|NoInference(path)| EventLogInferenceError::InvalidExtension(path).into())
+    }
+
+    fn infer_opt(path: PathBuf) -> anyhow::Result<Result<Self, NoInference>> {
         let name = path
             .file_name()
             .with_context(|| EventLogInferenceError::NoFilename(path.clone()))?
@@ -141,14 +156,14 @@ impl EventLogPathBuf {
 
         for (ext, encoding) in KNOWN_EXTENSIONS {
             if name.ends_with(ext) {
-                return Ok(Self {
+                return Ok(Ok(Self {
                     path,
                     encoding: *encoding,
-                });
+                }));
             }
         }
 
-        Err(EventLogInferenceError::InvalidExtension(path.clone()).into())
+        Ok(Err(NoInference(path)))
     }
 
     /// Read the invocation line then the event stream.
@@ -262,6 +277,8 @@ impl EventLogPathBuf {
     }
 }
 
+struct NoInference(PathBuf);
+
 struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
@@ -284,7 +301,6 @@ pub enum LogMode {
 pub(crate) struct EventLog {
     state: LogFileState,
     async_cleanup_context: Option<AsyncCleanupContext>,
-    mode: LogMode,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -299,31 +315,9 @@ impl EventLog {
         extra_path: Option<PathBuf>,
         async_cleanup_context: AsyncCleanupContext,
     ) -> anyhow::Result<EventLog> {
-        // The event-log is going to be written to file containing the build uuid.
-        // But we don't know the build uuid until we've gotten the CommandStart event.
-        // So we'll just create it when we know where to put it.
-        let mut log_mode = LogMode::Json;
-        static PROTOBUF_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_PROTOBUF_LOG");
-        if PROTOBUF_LOG.get()?.unwrap_or(false) {
-            log_mode = LogMode::Protobuf;
-        }
         Ok(Self {
             state: LogFileState::Unopened(logdir, extra_path),
             async_cleanup_context: Some(async_cleanup_context),
-            mode: log_mode,
-        })
-    }
-
-    //Constructor to be used only for testing purposes
-    #[cfg(test)]
-    pub(crate) fn new_test_event_log(
-        logdir: AbsPathBuf,
-        log_mode: LogMode,
-    ) -> anyhow::Result<EventLog> {
-        Ok(Self {
-            state: LogFileState::Unopened(logdir, None),
-            async_cleanup_context: None,
-            mode: log_mode,
         })
     }
 
@@ -339,18 +333,18 @@ impl EventLog {
     }
 
     async fn write_ln<'a>(&'a mut self, event: &'a impl SerializeForLog) -> anyhow::Result<()> {
-        let serialized = match self.mode {
-            LogMode::Json => {
-                let mut serialized = event.serialize_to_json()?;
-                serialized.push(b'\n');
-                Ok(serialized)
-            }
-            LogMode::Protobuf => event.serialize_to_protobuf(),
-        }?;
-
         match &mut self.state {
             LogFileState::Opened(files) => {
                 for f in files.iter_mut() {
+                    let serialized = match f.path.encoding.mode() {
+                        LogMode::Json => {
+                            let mut serialized = event.serialize_to_json()?;
+                            serialized.push(b'\n');
+                            Ok(serialized)
+                        }
+                        LogMode::Protobuf => event.serialize_to_protobuf(),
+                    }?;
+
                     f.file
                         .write_all(&serialized)
                         .await
@@ -379,8 +373,17 @@ impl EventLog {
             .with_context(|| format!("Error creating event log directory: `{}`", logdir))?;
         remove_old_logs(logdir).await;
 
+        // The event-log is going to be written to file containing the build uuid.
+        // But we don't know the build uuid until we've gotten the CommandStart event.
+        // So we'll just create it when we know where to put it.
+        let mut log_mode = LogMode::Json;
+        static PROTOBUF_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_PROTOBUF_LOG");
+        if PROTOBUF_LOG.get()?.unwrap_or(false) {
+            log_mode = LogMode::Protobuf;
+        }
+
         // Open our log fie, gzip encoded.
-        let encoding = match self.mode {
+        let encoding = match log_mode {
             LogMode::Json => Encoding::JsonGzip,
             LogMode::Protobuf => Encoding::ProtoGzip,
         };
@@ -395,10 +398,12 @@ impl EventLog {
         if let Some(extra_path) = maybe_extra_path {
             log_files.push(
                 open_event_log_for_writing(
-                    EventLogPathBuf {
-                        path: extra_path.clone(),
-                        encoding: Encoding::Json,
-                    },
+                    EventLogPathBuf::infer_opt(extra_path.clone())?.unwrap_or_else(
+                        |NoInference(path)| EventLogPathBuf {
+                            path,
+                            encoding: Encoding::Json,
+                        },
+                    ),
                     event.trace_id.dupe(),
                 )
                 .await?,
@@ -811,8 +816,6 @@ impl Decoder for EventLogDecoder {
 #[cfg(test)]
 mod tests {
 
-    use anyhow::Context;
-    use buck2_core::fs::paths::AbsPath;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use events::BuckEventError;
@@ -822,6 +825,17 @@ mod tests {
 
     use super::*;
     use crate::daemon::client::StreamValue;
+
+    impl EventLog {
+        async fn new_test_event_log(log: EventLogPathBuf) -> anyhow::Result<Self> {
+            Ok(Self {
+                state: LogFileState::Opened(vec![
+                    open_event_log_for_writing(log, TraceId::new()).await?,
+                ]),
+                async_cleanup_context: None,
+            })
+        }
+    }
 
     #[tokio::test]
     async fn test_protobuf_decoding() -> anyhow::Result<()> {
@@ -847,23 +861,21 @@ mod tests {
         };
 
         // Create event log
-        let log_dir = AbsPath::new(tmp_dir.path())?.to_buf();
-        let mut event_log = EventLog::new_test_event_log(log_dir, LogMode::Protobuf)?;
+        let log = EventLogPathBuf {
+            path: tmp_dir.path().join("log"),
+            encoding: Encoding::ProtoGzip,
+        };
+
+        let mut event_log = EventLog::new_test_event_log(log.clone()).await?;
 
         //Log event
-        event_log.ensure_log_files_opened(&event).await?;
         let value = StreamValue::Event(buck2_data::BuckEvent::from(event.clone()));
+        event_log.log_invocation().await?;
         event_log.write_ln(&value).await?;
         event_log.exit().await?;
 
-        //Retrieve log path
-        let mut logfiles = get_local_logs(tmp_dir.path())?;
-        logfiles.reverse(); // newest first
-        let chosen = logfiles.pop().context("No event was looged")?;
-
         //Get and decode log
-        let log_path = EventLogPathBuf::infer(tmp_dir.path().join(chosen.path()))?;
-        let (_invocation, mut events) = log_path.unpack_stream().await?;
+        let (_invocation, mut events) = log.unpack_stream().await?;
 
         //Get event
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
