@@ -8,7 +8,9 @@ from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 PROFILERS = [
     "heap-flame",
+    "heap-flame-retained",
     "heap-summary",
+    "heap-summary-retained",
     "time-flame",
     "statement",
     "bytecode",
@@ -44,7 +46,7 @@ async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) ->
 async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> None:
     file_path = tmpdir.join("profile")
 
-    await buck.profile(
+    command = buck.profile(
         "loading",
         "--mode",
         profiler,
@@ -53,7 +55,15 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
         file_path,
     )
 
-    assert os.path.exists(file_path)
+    if profiler.endswith("-retained"):
+        expect_failure(
+            command,
+            stderr_regex="Retained memory profiling is available only for analysis profile",
+        )
+    else:
+        await command
+
+        assert os.path.exists(file_path)
 
 
 @buck_test(inplace=True)
