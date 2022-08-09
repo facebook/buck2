@@ -81,7 +81,7 @@ impl CachingExecutor {
         if self.upload_all_actions {
             match re_client
                 .upload(
-                    self.materializer.dupe(),
+                    &self.materializer,
                     action_blobs,
                     ProjectRelativePath::unchecked_new(""),
                     &action_paths.inputs,

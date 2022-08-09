@@ -83,7 +83,7 @@ pub struct Uploader {}
 impl Uploader {
     pub(crate) async fn upload(
         client: &REClient,
-        materializer: Arc<dyn Materializer>,
+        materializer: &Arc<dyn Materializer>,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,

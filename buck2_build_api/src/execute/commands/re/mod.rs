@@ -164,7 +164,7 @@ impl ReExecutor {
                     stage: Some(buck2_data::ReUpload {}.into()),
                 },
                 re_client.upload(
-                    self.materializer.dupe(),
+                    &self.materializer,
                     blobs,
                     ProjectRelativePath::unchecked_new(""),
                     &action_paths.inputs,

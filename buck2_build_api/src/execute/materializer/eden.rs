@@ -108,7 +108,7 @@ impl Materializer for EdenMaterializer {
             .get_re_connection()
             .get_client()
             .upload(
-                Arc::clone(&self.delegator),
+                &self.delegator,
                 &ActionBlobs::new(),
                 ProjectRelativePath::unchecked_new(""),
                 &input_dir,

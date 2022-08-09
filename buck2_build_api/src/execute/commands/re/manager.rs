@@ -290,7 +290,7 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn upload(
         &self,
-        materializer: Arc<dyn Materializer>,
+        materializer: &Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
