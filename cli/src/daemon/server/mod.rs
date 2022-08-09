@@ -78,6 +78,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::pattern::ProvidersPattern;
+use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_data::*;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
@@ -575,8 +576,9 @@ impl ServerCommandContext {
 
         let mut run_action_knobs = RunActionKnobs {
             hash_all_commands: root_config
-                .parse("buck2", "hash_all_commands")?
-                .unwrap_or(false),
+                .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll(),
             ..Default::default()
         };
 
@@ -2574,8 +2576,6 @@ async fn canonicalize_patterns_for_logging(
 async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
-    use buck2_core::rollout_percentage::RolloutPercentage;
-
     static DEFAULT_TO_FORKSERVER: EnvHelper<RolloutPercentage> =
         EnvHelper::new("BUCK2_FORKSERVER_DEFAULT");
     let default = DEFAULT_TO_FORKSERVER.get()?;
