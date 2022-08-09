@@ -312,7 +312,6 @@ pub(crate) async fn targets(
             serialized_targets_output: output,
         });
     }
-
     let parsed_target_patterns =
         parsed_provider_patterns.into_map(|parsed_pattern| match parsed_pattern {
             ParsedPattern::Target(pkg, (target_name, _providers_name)) => {
@@ -390,7 +389,7 @@ async fn parse_and_get_results(
         match result {
             Ok(res) => {
                 printer.package(package);
-                for node in res.values() {
+                for (_, node) in res.iter() {
                     let target_hash = target_hashes
                         .as_ref()
                         .and_then(|hashes| hashes.get(node.label()))

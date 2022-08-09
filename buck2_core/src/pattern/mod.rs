@@ -66,8 +66,8 @@ enum TargetPatternParseError {
 ///
 /// This is either 'TargetLabel', 'ConfiguredTargetLabel', or
 /// 'ConfiguredProvidersLabel'
-pub trait PatternType: Sized + Clone + Debug + PartialEq + Eq {
-    type ExtraParts;
+pub trait PatternType: Sized + Clone + Debug + PartialEq + Eq + Ord {
+    type ExtraParts: Default;
 
     /// Split the given str into the part that should become the TargetName, and the ExtraParts.
     fn split(s: &str) -> anyhow::Result<(&str, Self::ExtraParts)>;
@@ -80,6 +80,9 @@ pub trait PatternType: Sized + Clone + Debug + PartialEq + Eq {
         let (target, extra) = Self::split(s)?;
         Ok(Self::from_parts(TargetName::new(target)?, extra))
     }
+
+    /// Get target name
+    fn target(&self) -> &TargetName;
 }
 
 /// Pattern that matches an explicit target without any inner providers label.
@@ -97,6 +100,10 @@ impl PatternType for TargetPattern {
 
     fn from_parts(target: TargetName, _extra: Self::ExtraParts) -> Self {
         target
+    }
+
+    fn target(&self) -> &TargetName {
+        self
     }
 }
 
@@ -148,6 +155,10 @@ impl PatternType for ProvidersPattern {
 
     fn from_parts(target: TargetName, extra: Self::ExtraParts) -> Self {
         (target, extra)
+    }
+
+    fn target(&self) -> &TargetName {
+        &self.0
     }
 }
 

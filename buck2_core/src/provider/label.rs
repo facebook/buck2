@@ -79,6 +79,12 @@ pub enum ProvidersName {
     // so that we can display them in their original form.
 }
 
+impl Default for ProvidersName {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 impl Display for ProvidersName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

@@ -75,7 +75,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     .as_target_label(target)?;
                 configured_patterns.push(target.configure(cfg));
             } else {
-                target_patterns.push(pattern_parser.parse_pattern(pat)?);
+                target_patterns.push(pattern_parser.parse_pattern::<TargetPattern>(pat)?);
             }
         }
 
@@ -88,9 +88,9 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         .await?;
 
         for (_, targets) in loaded_patterns.into_iter() {
-            for (label, _) in targets? {
+            for (_, node) in targets? {
                 configured_patterns.push(
-                    ctx.get_configured_target(&label, target_platform.as_ref())
+                    ctx.get_configured_target(node.label(), target_platform.as_ref())
                         .await?,
                 );
             }

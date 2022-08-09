@@ -21,7 +21,7 @@ use buck2_core::configuration::Configuration;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPattern;
+use buck2_core::pattern::PatternType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
@@ -311,14 +311,14 @@ impl<'c> Calculation<'c> for DiceComputations {
     }
 }
 
-async fn resolve_patterns_and_load_buildfiles<'c>(
+async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     ctx: &'c DiceComputations,
-    parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
+    parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> anyhow::Result<(
-    ResolvedPattern<TargetPattern>,
+    ResolvedPattern<T>,
     impl Stream<Item = (Package, SharedResult<Arc<EvaluationResult>>)> + 'c,
 )> {
-    let mut spec = ResolvedPattern::<TargetPattern>::new();
+    let mut spec = ResolvedPattern::<T>::new();
     let load_package_futs = FuturesUnordered::new();
     let mut recursive_packages = Vec::new();
 
@@ -361,14 +361,12 @@ async fn resolve_patterns_and_load_buildfiles<'c>(
     Ok((spec, load_package_futs))
 }
 
-pub struct LoadedPatterns {
-    results: BTreeMap<Package, SharedResult<BTreeMap<TargetLabel, TargetNode>>>,
+pub struct LoadedPatterns<T> {
+    results: BTreeMap<Package, SharedResult<BTreeMap<T, TargetNode>>>,
 }
 
-impl LoadedPatterns {
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&Package, &SharedResult<BTreeMap<TargetLabel, TargetNode>>)> {
+impl<T> LoadedPatterns<T> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Package, &SharedResult<BTreeMap<T, TargetNode>>)> {
         self.results.iter()
     }
 
@@ -376,7 +374,7 @@ impl LoadedPatterns {
     #[allow(clippy::should_implement_trait)]
     pub fn into_iter(
         self,
-    ) -> impl Iterator<Item = (Package, SharedResult<BTreeMap<TargetLabel, TargetNode>>)> {
+    ) -> impl Iterator<Item = (Package, SharedResult<BTreeMap<T, TargetNode>>)> {
         self.results.into_iter()
     }
 
@@ -404,10 +402,10 @@ impl LoadedPatterns {
 }
 
 /// Finds all the requested targets in `spec` from a map of loaded targets in `load_result`.
-fn apply_spec(
-    spec: ResolvedPattern<TargetName>,
+fn apply_spec<T: PatternType>(
+    spec: ResolvedPattern<T>,
     load_results: BTreeMap<Package, SharedResult<Arc<EvaluationResult>>>,
-) -> anyhow::Result<LoadedPatterns> {
+) -> anyhow::Result<LoadedPatterns<T>> {
     let mut all_targets = BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
@@ -420,14 +418,14 @@ fn apply_spec(
                 match pkg_spec {
                     PackageSpec::Targets(targets) => {
                         for target in targets {
-                            match res.targets().get(&target) {
+                            match res.targets().get(target.target()) {
                                 Some(node) => {
-                                    label_to_node.insert(node.label().dupe(), node.dupe());
+                                    label_to_node.insert(target, node.dupe());
                                 }
                                 None => {
                                     return Err(anyhow::anyhow!(BuildErrors::MissingTarget(
                                         pkg,
-                                        target.to_owned()
+                                        target.target().to_owned()
                                     )));
                                 }
                             }
@@ -435,7 +433,11 @@ fn apply_spec(
                     }
                     PackageSpec::All => {
                         for target_info in res.targets().values() {
-                            label_to_node.insert(target_info.label().dupe(), target_info.dupe());
+                            let key = T::from_parts(
+                                target_info.label().name().dupe(),
+                                Default::default(),
+                            );
+                            label_to_node.insert(key, target_info.dupe());
                         }
                     }
                 };
@@ -451,10 +453,10 @@ fn apply_spec(
     })
 }
 
-pub async fn load_patterns(
+pub async fn load_patterns<T: PatternType>(
     ctx: &DiceComputations,
-    parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
-) -> anyhow::Result<LoadedPatterns> {
+    parsed_patterns: Vec<ParsedPattern<T>>,
+) -> anyhow::Result<LoadedPatterns<T>> {
     let (spec, mut load_package_futs) =
         resolve_patterns_and_load_buildfiles(ctx, parsed_patterns).await?;
 
