@@ -41,7 +41,7 @@ impl StringIndex {
         StringId(self.strings.len() - 1)
     }
 
-    pub(crate) fn get_all(&self) -> Vec<&str> {
-        self.strings.iter().map(|s| s.as_str()).collect()
+    pub(crate) fn get(&self, id: StringId) -> &str {
+        self.strings.get_index(id.0).expect("invalid string id")
     }
 }

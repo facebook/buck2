@@ -63,7 +63,7 @@ impl FuncInfo {
 /// However, we are always updating the top of the call stack,
 /// so pull out top_stack/top_info as a cache.
 pub(crate) struct HeapSummaryByFunction {
-    /// Information about all functions
+    /// Information about all functions. Map from `StringId`.
     info: Vec<FuncInfo>,
 }
 
@@ -114,12 +114,16 @@ impl HeapSummaryByFunction {
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
             totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
-        let mut info = info.iter().enumerate().collect::<Vec<_>>();
+        let mut info = info
+            .iter()
+            .enumerate()
+            .map(|(id, x)| (StringId(id), x))
+            .collect::<Vec<_>>();
 
         columns.sort_by_key(|x| -(x.1.count as isize));
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
 
-        let info = iter::once((stacks.totals_id.0, &totals)).chain(info);
+        let info = iter::once((stacks.totals_id, &totals)).chain(info);
 
         let mut csv = CsvWriter::new(
             [
@@ -136,7 +140,6 @@ impl HeapSummaryByFunction {
             .copied()
             .chain(columns.iter().map(|c| c.0)),
         );
-        let un_ids = strings.get_all();
         for (rowname, info) in info {
             let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
             let callers = info
@@ -150,12 +153,12 @@ impl HeapSummaryByFunction {
             );
             // We divide calls and time by two
             // because we could calls twice: for drop and non-drop bumps.
-            csv.write_value(un_ids[rowname]);
+            csv.write_value(strings.get(rowname));
             csv.write_value(info.time / 2);
             csv.write_value(info.time_rec / 2);
             csv.write_value(info.calls / 2);
             csv.write_value(info.callers.len());
-            csv.write_value(un_ids[callers.0.0]);
+            csv.write_value(strings.get(*callers.0));
             csv.write_value(callers.1);
             csv.write_value(allocs);
             for c in &columns {

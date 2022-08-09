@@ -222,7 +222,7 @@ impl StackFrame {
         &self,
         file: &mut FlameGraphWriter,
         stack: &'_ mut Vec<&'a str>,
-        ids: &[&'a str],
+        ids: &'a StringIndex,
     ) {
         for (k, v) in &self.allocs.summary {
             file.write(
@@ -232,7 +232,7 @@ impl StackFrame {
         }
 
         for (id, frame) in &self.callees {
-            stack.push(ids[id.0]);
+            stack.push(ids.get(*id));
             frame.write_flame_graph(file, stack, ids);
             stack.pop();
         }
@@ -280,7 +280,7 @@ impl AggregateHeapProfileInfo {
     pub(crate) fn gen_flame_graph(&self) -> String {
         let mut writer = FlameGraphWriter::new();
         self.root
-            .write_flame_graph(&mut writer, &mut vec![], &self.strings.get_all());
+            .write_flame_graph(&mut writer, &mut vec![], &self.strings);
         writer.finish()
     }
 
