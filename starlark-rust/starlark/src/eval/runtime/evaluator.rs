@@ -268,7 +268,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             | ProfileMode::TimeFlame => {
                 self.heap_or_flame_profile = true;
             }
-            _ => {}
+            ProfileMode::Typecheck => {}
         }
     }
 
