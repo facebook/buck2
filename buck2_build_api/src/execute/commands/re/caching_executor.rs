@@ -74,7 +74,7 @@ impl CachingExecutor {
                 buck2_data::CacheQuery {
                     action_digest: action_digest.to_string(),
                 },
-                re_client.action_cache(action_digest.dupe(), self.re_use_case.clone()),
+                re_client.action_cache(action_digest.dupe(), &self.re_use_case),
             )
             .await;
 
@@ -85,7 +85,7 @@ impl CachingExecutor {
                     action_blobs,
                     ProjectRelativePath::unchecked_new(""),
                     &action_paths.inputs,
-                    self.re_use_case.clone(),
+                    &self.re_use_case,
                     &self.knobs,
                 )
                 .await

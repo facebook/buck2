@@ -181,7 +181,7 @@ impl CasDownloader<'_> {
                 output_spec
                     .output_directories()
                     .map(|x| x.tree_digest.clone()),
-                self.re_use_case.clone(),
+                self.re_use_case,
             )
             .await
             .context(DownloadError::DownloadTrees)?;

@@ -21,6 +21,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use prost::Message;
 use remote_execution::GetDigestsTtlRequest;
@@ -28,7 +29,6 @@ use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::REClient;
 use remote_execution::REClientError;
-use remote_execution::RemoteExecutionMetadata;
 use remote_execution::TCode;
 use remote_execution::TDigest;
 use remote_execution::UploadRequest;
@@ -39,6 +39,7 @@ use crate::actions::directory::ActionDirectoryMember;
 use crate::actions::directory::ActionFingerprintedDirectory;
 use crate::actions::directory::ActionImmutableDirectory;
 use crate::actions::directory::ReDirectorySerializer;
+use crate::execute::commands::re::metadata::RemoteExecutionMetadataExt;
 use crate::execute::commands::re::ReExecutorGlobalKnobs;
 use crate::execute::materializer::ArtifactNotMaterializedReason;
 use crate::execute::materializer::CasDownloadInfo;
@@ -87,7 +88,7 @@ impl Uploader {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
-        metadata: RemoteExecutionMetadata,
+        use_case: &RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
@@ -122,7 +123,7 @@ impl Uploader {
                 ..Default::default()
             };
             client
-                .get_digests_ttl(metadata.clone(), request)
+                .get_digests_ttl(use_case.metadata(), request)
                 .await?
                 .digests_with_ttl
         };
@@ -311,7 +312,7 @@ impl Uploader {
         let upload_res = if !upload_files.is_empty() || !upload_blobs.is_empty() {
             client
                 .upload(
-                    metadata,
+                    use_case.metadata(),
                     UploadRequest {
                         files_with_digest: Some(upload_files),
                         inlined_blobs_with_digest: Some(upload_blobs),

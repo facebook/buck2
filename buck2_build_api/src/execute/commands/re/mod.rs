@@ -54,6 +54,7 @@ pub mod caching_executor;
 pub mod client;
 pub mod download;
 pub mod manager;
+pub mod metadata;
 pub mod uploader;
 
 // temporary platform like thing to build apple. We probably eventually want to replace this with
@@ -168,7 +169,7 @@ impl ReExecutor {
                     blobs,
                     ProjectRelativePath::unchecked_new(""),
                     &action_paths.inputs,
-                    self.re_use_case.clone(),
+                    &self.re_use_case,
                     &self.knobs,
                 ),
             )
@@ -203,7 +204,7 @@ impl ReExecutor {
             .execute(
                 action_digest.dupe(),
                 &self.re_platform,
-                self.re_use_case.clone(),
+                &self.re_use_case,
                 &identity,
                 &mut manager,
             )

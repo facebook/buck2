@@ -95,7 +95,7 @@ impl Materializer for EdenMaterializer {
         self.re_client_manager
             .get_re_connection()
             .get_client()
-            .upload_files_and_directories(files, directories, Vec::new(), Default::default())
+            .upload_files_and_directories(files, directories, Vec::new(), &Default::default())
             .await?;
 
         // Second upload the tree structure that contains directories/file/symlink metadata
@@ -112,7 +112,7 @@ impl Materializer for EdenMaterializer {
                 &ActionBlobs::new(),
                 ProjectRelativePath::unchecked_new(""),
                 &input_dir,
-                Default::default(),
+                &Default::default(),
                 &ReExecutorGlobalKnobs {
                     always_check_ttls: true,
                 },
@@ -278,7 +278,7 @@ async fn write_to_cas<'a>(
 
     re.get_re_connection()
         .get_client()
-        .upload_files_and_directories(Vec::new(), Vec::new(), uploads, Default::default())
+        .upload_files_and_directories(Vec::new(), Vec::new(), uploads, &Default::default())
         .await?;
 
     Ok((paths, values))
