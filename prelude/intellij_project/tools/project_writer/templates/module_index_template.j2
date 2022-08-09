@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+    {% for module in moduleEntries %}
+      <module fileurl="{{module.fileUrl |replace('.json', '.iml')}}" filepath="$PROJECT_DIR$/{{module.filePath |replace('.json', '.iml')}}"
+        {%- if module.group %} group="{{module.group}}"{% endif %} />
+    {% endfor %}
+    </modules>
+  </component>
+</project>

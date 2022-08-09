@@ -1,0 +1,28 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+python_library(
+    name = "project_writer_lib",
+    srcs = glob(
+        [
+            "*.py",
+        ],
+    ),
+    base_module = "project_writer",
+    resources = glob(["templates/*.j2"]),
+    tests = [],
+    visibility = ["PUBLIC"],
+    deps = [
+        "fbsource//third-party/pypi/jinja2:jinja2",
+    ],
+)
+
+python_binary(
+    name = "project_writer",
+    main_module = "project_writer",
+    package_style = "inplace",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":project_writer_lib",
+    ],
+)
