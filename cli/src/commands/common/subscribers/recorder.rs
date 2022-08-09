@@ -47,7 +47,7 @@ mod imp {
         command_duration: Option<prost_types::Duration>,
         re_session_id: Option<String>,
         critical_path_duration: Option<Duration>,
-        tag_events: Vec<String>,
+        tags: Vec<String>,
         run_local_count: u64,
         run_remote_count: u64,
         run_action_cache_count: u64,
@@ -68,7 +68,7 @@ mod imp {
                 command_duration: None,
                 re_session_id: None,
                 critical_path_duration: None,
-                tag_events: vec![],
+                tags: vec![],
                 run_local_count: 0,
                 run_remote_count: 0,
                 run_action_cache_count: 0,
@@ -86,7 +86,7 @@ mod imp {
                     cli_args: std::env::args().collect::<Vec<String>>(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
-                    tags: self.tag_events.drain(..).collect(),
+                    tags: self.tags.drain(..).collect(),
                     run_local_count: self.run_local_count,
                     run_remote_count: self.run_remote_count,
                     run_action_cache_count: self.run_action_cache_count,
@@ -209,7 +209,7 @@ mod imp {
         }
 
         async fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
-            self.tag_events.push(tag.tag.clone());
+            self.tags.extend(tag.tags.iter().cloned());
 
             Ok(())
         }

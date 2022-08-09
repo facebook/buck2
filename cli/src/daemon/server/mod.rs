@@ -974,10 +974,10 @@ impl DaemonState {
         dispatcher.event(buck2_data::InstantEvent {
             data: Some(
                 buck2_data::TagEvent {
-                    tag: format!(
+                    tags: vec![format!(
                         "dice-detect-cycles:{}",
                         data.dice.detect_cycles().variant_name()
-                    ),
+                    )],
                 }
                 .into(),
             ),

@@ -972,7 +972,7 @@ message RecordEvent {
 
 // An arbitrary tag on the command. Usually used to mark A/B experiments
 message TagEvent {
-  string tag = 1;
+  repeated string tags = 1;
 }
 
 message TypedMetadata {
