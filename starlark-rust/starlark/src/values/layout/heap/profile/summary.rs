@@ -20,10 +20,10 @@ use std::iter;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::StackFrame;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::string_index::StringId;
-use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
-use crate::values::layout::heap::profile::StackFrame;
 
 /// Information relating to a function.
 #[derive(Default, Debug, Clone)]
@@ -186,9 +186,9 @@ mod tests {
     use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
+    use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
     use crate::values::layout::heap::profile::summary::FuncInfo;
     use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
-    use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
 
     // Test data is collected from both drop and non-drop heaps.
     #[test]

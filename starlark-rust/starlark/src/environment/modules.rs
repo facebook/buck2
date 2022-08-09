@@ -47,7 +47,7 @@ use crate::values::docs::DocItem;
 use crate::values::docs::DocString;
 use crate::values::docs::DocStringKind;
 use crate::values::layout::heap::heap_type::HeapKind;
-use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;

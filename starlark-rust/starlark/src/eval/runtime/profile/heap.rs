@@ -19,7 +19,7 @@ use std::fmt::Debug;
 
 use gazebo::dupe::Dupe;
 
-use crate::values::layout::heap::profile::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
 
