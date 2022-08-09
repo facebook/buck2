@@ -211,7 +211,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// Enable profiling, allowing [`Evaluator::write_profile`] to be used.
     /// Profilers add overhead, and while some profilers can be used together,
     /// it's better to run at most one profiler at a time.
-    pub fn enable_profile(&mut self, mode: &ProfileMode) {
+    pub fn enable_profile(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
         match mode {
             ProfileMode::HeapSummary
             | ProfileMode::HeapFlame
@@ -247,13 +247,14 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.typecheck_profile.enabled = true;
             }
         }
+        Ok(())
     }
 
     /// Enable instrumentation in module which is loaded by a module to be profiled.
     ///
     /// This function need to be called when evaluating a dependency of a module, if a module
     /// does profiling in the given mode.
-    pub fn enable_profile_instrumentation(&mut self, mode: &ProfileMode) {
+    pub fn enable_profile_instrumentation(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
         match mode {
             ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
                 self.bc_profile.enable_1();
@@ -270,6 +271,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
             ProfileMode::Typecheck => {}
         }
+        Ok(())
     }
 
     /// Write a profile to a file.

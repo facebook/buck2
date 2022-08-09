@@ -45,7 +45,7 @@ impl StarlarkProfilerInstrumentation {
 
     pub fn enable(&self, eval: &mut Evaluator) {
         if let Some(profile_mode) = &self.profile_mode {
-            eval.enable_profile_instrumentation(profile_mode);
+            eval.enable_profile_instrumentation(profile_mode).unwrap();
         }
     }
 
@@ -142,7 +142,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
     }
 
     fn initialize(&mut self, eval: &mut Evaluator) {
-        eval.enable_profile(&self.profile_mode);
+        eval.enable_profile(&self.profile_mode).unwrap();
         self.initialized_at = Some(Instant::now());
     }
 

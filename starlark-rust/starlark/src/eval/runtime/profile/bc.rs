@@ -203,7 +203,7 @@ mod tests {
         let module = Module::new();
         let globals = Globals::standard();
         let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::Bytecode);
+        eval.enable_profile(&ProfileMode::Bytecode).unwrap();
         eval.eval_module(
             AstModule::parse("bc.star", "repr([1, 2])".to_owned(), &Dialect::Standard).unwrap(),
             &globals,
@@ -222,7 +222,7 @@ mod tests {
         let module = Module::new();
         let globals = Globals::standard();
         let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::BytecodePairs);
+        eval.enable_profile(&ProfileMode::BytecodePairs).unwrap();
         eval.eval_module(
             AstModule::parse("bc.star", "repr([1, 2])".to_owned(), &Dialect::Standard).unwrap(),
             &globals,

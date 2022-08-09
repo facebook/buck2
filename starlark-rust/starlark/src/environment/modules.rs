@@ -506,7 +506,8 @@ mod tests {
     fn test_gen_heap_summary_profile() {
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::HeapSummaryRetained);
+        eval.enable_profile(&ProfileMode::HeapSummaryRetained)
+            .unwrap();
         eval.eval_module(
             AstModule::parse(
                 "x.star",

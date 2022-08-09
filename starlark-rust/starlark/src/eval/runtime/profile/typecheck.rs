@@ -92,7 +92,7 @@ def g():
 g()
 "#;
         let program = AstModule::parse("test.star", program.to_owned(), &Dialect::Extended)?;
-        eval.enable_profile(&ProfileMode::Typecheck);
+        eval.enable_profile(&ProfileMode::Typecheck)?;
         eval.eval_module(program, &Globals::extended())?;
 
         let csv = eval.typecheck_profile.gen_csv();
