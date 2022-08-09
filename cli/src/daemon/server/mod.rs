@@ -574,11 +574,13 @@ impl ServerCommandContext {
             .get(cell_resolver.root_cell())
             .context("No config for root cell")?;
 
+        let hash_all_commands = root_config
+            .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
+
         let mut run_action_knobs = RunActionKnobs {
-            hash_all_commands: root_config
-                .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
-                .unwrap_or_else(RolloutPercentage::never)
-                .roll(),
+            hash_all_commands,
             ..Default::default()
         };
 
@@ -659,6 +661,12 @@ impl ServerCommandContext {
             self.starlark_profiler_instrumentation_override.dupe(),
             self.disable_starlark_types,
         )?;
+
+        self.base_context
+            .events
+            .instant_event(buck2_data::TagEvent {
+                tags: vec![format!("hash-all-commands:{}", hash_all_commands)],
+            });
 
         Ok(dice_ctx.commit())
     }
