@@ -625,6 +625,8 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     use std::io::ErrorKind;
     use std::process::Stdio;
 
+    use crate::commands::common::find_certs::find_tls_cert;
+
     buck2_core::facebook_only();
     let manifold_url = match log_upload_url() {
         None => return Ok(()),
@@ -642,18 +644,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         }
     };
 
-    let cert: anyhow::Result<OsString>;
-    #[cfg(fbcode_build)]
-    {
-        cert = find_certs::find_tls_cert();
-    }
-
-    #[cfg(not(fbcode_build))]
-    {
-        cert = Err(anyhow::anyhow!("Disabled in Cargo builds"));
-    }
-
-    let cert = cert.context("Error finding a cert")?;
+    let cert = find_tls_cert()?;
 
     let url = format!(
         "{}/v0/write/flat/{}{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",

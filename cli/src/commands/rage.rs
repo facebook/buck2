@@ -27,6 +27,7 @@ use futures::FutureExt;
 use futures::TryStreamExt;
 use thiserror::Error;
 
+use crate::commands::common::find_certs::find_tls_cert;
 use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::subscribers::event_log::log_upload_url;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
@@ -215,6 +216,8 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
             Some(x) => x,
         };
 
+        let cert = find_tls_cert()?;
+
         let tar_gzip = background_command("tar")
             .arg("-c")
             .arg(dice_dump_folder_to_upload)
@@ -222,8 +225,9 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .spawn()?;
-        let exit_code_result = async_background_command("curl")
-            .args([
+
+        let mut upload = async_background_command("curl");
+        upload.args([
                 "--fail",
                 "-X",
                 "PUT",
@@ -231,10 +235,11 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
                 "@-",
                 &format!("{}/v0/write/flat/{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=300000", manifold_url, filename),
                 "-E",
-                &format!("/var/facebook/credentials/{0}/x509/{0}.pem", std::env::var("USER")?),
-            ])
-            .stdin(tar_gzip.stdout.unwrap())
-            .spawn()?.wait().await?.code();
+        ]);
+        upload.arg(cert);
+        upload.stdin(tar_gzip.stdout.unwrap());
+        let exit_code_result = upload.spawn()?.wait().await?.code();
+
         match exit_code_result {
             Some(code) => match code {
                 0 => {}

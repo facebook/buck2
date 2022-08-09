@@ -35,6 +35,7 @@ use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
 use crate::daemon::common::ConfigType;
 
 pub(crate) mod final_console;
+pub(crate) mod find_certs;
 pub mod subscribers;
 pub(crate) mod verbosity;
 pub mod what_ran;
