@@ -42,8 +42,11 @@ use lsp_types::Range;
 use lsp_types::Url;
 use starlark::errors::EvalMessage;
 use starlark::lsp::server::server_with_connection;
+use starlark::lsp::server::LoadContentsError;
 use starlark::lsp::server::LspContext;
 use starlark::lsp::server::LspEvalResult;
+use starlark::lsp::server::LspUrl;
+use starlark::lsp::server::ResolveLoadError;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use tonic::Status;
@@ -58,7 +61,7 @@ struct BuckLspContext {
 }
 
 impl BuckLspContext {
-    fn import_path(&self, path: &Path) -> anyhow::Result<ImportPath> {
+    fn import_path<S: ?Sized + AsRef<Path>>(&self, path: &S) -> anyhow::Result<ImportPath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize(abs_path)?;
         let cell_path = self.cell_resolver.get_cell_path(&relative_path)?;
@@ -79,10 +82,10 @@ impl BuckLspContext {
 
     async fn parse_file_with_contents(
         &self,
-        uri: &Url,
+        uri: &LspUrl,
         content: String,
     ) -> SharedResult<LspEvalResult> {
-        let import_path = self.import_path(Path::new(uri.path()))?;
+        let import_path = self.import_path(uri.path())?;
         let calculator = self
             .dice_ctx
             .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
@@ -108,7 +111,7 @@ impl BuckLspContext {
                     .resolve_path(current_package.join(package_relative).as_cell_path())?;
 
                 let path = self.fs.resolve(&relative_path);
-                let url = Url::from_file_path(path).unwrap();
+                let url = Url::from_file_path(path).unwrap().try_into()?;
                 let string_literal = StringLiteralResult {
                     url,
                     location_finder: None,
@@ -142,14 +145,18 @@ impl BuckLspContext {
                             .resolve_package(&package)?
                             .join(listing.buildfile());
                         let path = self.fs.resolve(&relative_path);
-                        let url = Url::from_file_path(path).unwrap();
-                        let string_literal = StringLiteralResult {
-                            url,
-                            location_finder: Some(box |ast, _url| {
-                                Ok(Self::find_target(ast, target))
-                            }),
-                        };
-                        Ok(Some(string_literal))
+                        match Url::from_file_path(path).unwrap().try_into() {
+                            Ok(url) => {
+                                let string_literal = StringLiteralResult {
+                                    url,
+                                    location_finder: Some(box |ast, _url| {
+                                        Ok(Self::find_target(ast, target))
+                                    }),
+                                };
+                                Ok(Some(string_literal))
+                            }
+                            Err(e) => Err(anyhow::Error::from(e).into()),
+                        }
                     })?;
                 Ok(res)
             }
@@ -164,50 +171,67 @@ impl BuckLspContext {
 }
 
 impl LspContext for BuckLspContext {
-    fn parse_file_with_contents(&self, uri: &Url, content: String) -> LspEvalResult {
+    fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         self.runtime().block_on(async {
-            match self.parse_file_with_contents(uri, content).await {
-                Ok(result) => result,
-                Err(e) => {
-                    let message = EvalMessage::from_anyhow(uri.path(), e.inner());
-                    LspEvalResult {
-                        diagnostics: vec![message.into()],
-                        ast: None,
+            match uri {
+                LspUrl::File(_) => match self.parse_file_with_contents(uri, content).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        let message = EvalMessage::from_anyhow(uri.path(), e.inner());
+                        LspEvalResult {
+                            diagnostics: vec![message.into()],
+                            ast: None,
+                        }
                     }
-                }
+                },
+                _ => LspEvalResult::default(),
             }
         })
     }
 
-    fn resolve_load(&self, path: &str, current_file: &Path) -> anyhow::Result<Url> {
+    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
         self.runtime().block_on(async {
-            let current_import_path = self.import_path(current_file)?;
-            let calculator = self
-                .dice_ctx
-                .get_interpreter_calculator(
-                    current_import_path.cell(),
-                    current_import_path.build_file_cell(),
-                )
-                .await?;
+            match current_file {
+                LspUrl::File(current_file) => {
+                    let current_import_path = self.import_path(&current_file)?;
+                    let calculator = self
+                        .dice_ctx
+                        .get_interpreter_calculator(
+                            current_import_path.cell(),
+                            current_import_path.build_file_cell(),
+                        )
+                        .await?;
 
-            let starlark_file = StarlarkPath::LoadFile(&current_import_path);
-            let loaded_import_path = calculator.resolve_load(starlark_file, path).await?;
-            let relative_path = self
-                .cell_resolver
-                .resolve_path(loaded_import_path.borrow().path())?;
-            let abs_path = self.fs.resolve(&relative_path);
-            let url = Url::from_file_path(abs_path).unwrap();
+                    let starlark_file = StarlarkPath::LoadFile(&current_import_path);
+                    let loaded_import_path = calculator.resolve_load(starlark_file, path).await?;
+                    let relative_path = self
+                        .cell_resolver
+                        .resolve_path(loaded_import_path.borrow().path())?;
+                    let abs_path = self.fs.resolve(&relative_path);
+                    let url = Url::from_file_path(abs_path).unwrap().try_into()?;
 
-            Ok(url)
+                    Ok(url)
+                }
+                _ => Err(
+                    ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone())
+                        .into(),
+                ),
+            }
         })
     }
 
     fn resolve_string_literal(
         &self,
         literal: &str,
-        current_file: &Path,
+        current_file: &LspUrl,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
-        let import_path = self.import_path(current_file.parent().unwrap())?;
+        let import_path = match current_file {
+            LspUrl::File(current_file) => Ok(self.import_path(current_file.parent().unwrap())?),
+            _ => Err(ResolveLoadError::WrongScheme(
+                "file://".to_owned(),
+                current_file.clone(),
+            )),
+        }?;
         let current_package = Package::from_cell_path(import_path.path());
         let runtime = self.runtime();
         runtime.block_on(async move {
@@ -232,15 +256,20 @@ impl LspContext for BuckLspContext {
         })
     }
 
-    fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
+    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
         self.runtime().block_on(async {
-            let path = self.import_path(Path::new(uri.path()))?;
-            match self.dice_ctx.file_ops().read_file(path.path()).await {
-                Ok(s) => Ok(Some(s)),
-                Err(e) => match e.downcast_ref::<io::Error>() {
-                    Some(inner_e) if inner_e.kind() == ErrorKind::NotFound => Ok(None),
-                    _ => Err(e),
-                },
+            match uri {
+                LspUrl::File(path) => {
+                    let path = self.import_path(path)?;
+                    match self.dice_ctx.file_ops().read_file(path.path()).await {
+                        Ok(s) => Ok(Some(s)),
+                        Err(e) => match e.downcast_ref::<io::Error>() {
+                            Some(inner_e) if inner_e.kind() == ErrorKind::NotFound => Ok(None),
+                            _ => Err(e),
+                        },
+                    }
+                }
+                _ => Err(LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into()),
             }
         })
     }

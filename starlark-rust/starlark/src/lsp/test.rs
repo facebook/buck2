@@ -19,7 +19,6 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -64,6 +63,7 @@ use crate::lsp::server::LoadContentsError;
 use crate::lsp::server::LspContext;
 use crate::lsp::server::LspEvalResult;
 use crate::lsp::server::LspServerSettings;
+use crate::lsp::server::LspUrl;
 use crate::lsp::server::ResolveLoadError;
 use crate::lsp::server::StringLiteralResult;
 use crate::syntax::AstModule;
@@ -102,40 +102,52 @@ struct TestServerContext {
 }
 
 impl LspContext for TestServerContext {
-    fn parse_file_with_contents(&self, uri: &Url, content: String) -> LspEvalResult {
-        match AstModule::parse(uri.path(), content, &Dialect::Extended) {
-            Ok(ast) => {
-                let diagnostics = ast.lint(None).into_map(|l| EvalMessage::from(l).into());
-                LspEvalResult {
-                    diagnostics,
-                    ast: Some(ast),
+    fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
+        match uri {
+            LspUrl::File(uri) => {
+                match AstModule::parse(&uri.to_string_lossy(), content, &Dialect::Extended) {
+                    Ok(ast) => {
+                        let diagnostics = ast.lint(None).into_map(|l| EvalMessage::from(l).into());
+                        LspEvalResult {
+                            diagnostics,
+                            ast: Some(ast),
+                        }
+                    }
+                    Err(e) => {
+                        let diagnostics = vec![EvalMessage::from_anyhow(uri, &e).into()];
+                        LspEvalResult {
+                            diagnostics,
+                            ast: None,
+                        }
+                    }
                 }
             }
-            Err(e) => {
-                let diagnostics = vec![EvalMessage::from_anyhow(uri.path(), &e).into()];
-                LspEvalResult {
-                    diagnostics,
-                    ast: None,
-                }
-            }
+            _ => LspEvalResult::default(),
         }
     }
 
-    fn resolve_load(&self, path: &str, current_file: &Path) -> anyhow::Result<Url> {
-        let path = get_path_from_uri(path);
-        let current_file_dir = current_file.parent();
-        let absolute_path = match (current_file_dir, path.is_absolute()) {
-            (_, true) => Ok(path),
-            (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
-            (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
-        }?;
-        Ok(Url::from_file_path(absolute_path).unwrap())
+    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
+        let path = PathBuf::from(path);
+        match current_file {
+            LspUrl::File(current_file_path) => {
+                let current_file_dir = current_file_path.parent();
+                let absolute_path = match (current_file_dir, path.is_absolute()) {
+                    (_, true) => Ok(path),
+                    (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
+                    (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
+                }?;
+                Ok(Url::from_file_path(absolute_path).unwrap().try_into()?)
+            }
+            _ => Err(
+                ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone()).into(),
+            ),
+        }
     }
 
     fn resolve_string_literal(
         &self,
         literal: &str,
-        current_file: &Path,
+        current_file: &LspUrl,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let re = regex::Regex::new(r#"--(\d+):(\d+):(\d+):(\d+)$"#)?;
         let (literal, range) = match re.captures(literal) {
@@ -155,28 +167,36 @@ impl LspContext for TestServerContext {
             }
             None => (literal.to_owned(), None),
         };
-        self.resolve_load(&literal, current_file).map(|url| {
-            if url.path().ends_with(".star") {
-                Some(StringLiteralResult {
-                    url,
-                    location_finder: Some(box move |_ast, _url| Ok(range)),
-                })
-            } else {
-                Some(StringLiteralResult {
-                    url,
-                    location_finder: None,
-                })
-            }
-        })
+        self.resolve_load(&literal, current_file)
+            .map(|url| match &url {
+                LspUrl::File(u) => match u.extension() {
+                    Some(e) if e == "star" => Some(StringLiteralResult {
+                        url,
+                        location_finder: Some(box move |_ast, _url| Ok(range)),
+                    }),
+                    _ => Some(StringLiteralResult {
+                        url,
+                        location_finder: None,
+                    }),
+                },
+                _ => None,
+            })
     }
 
-    fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
-        let path = get_path_from_uri(uri.path());
-        let is_dir = self.dirs.read().unwrap().contains(&path);
-        match (path.is_absolute(), is_dir) {
-            (true, false) => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
-            (true, true) => Err(std::io::Error::from(std::io::ErrorKind::IsADirectory).into()),
-            (false, _) => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
+    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
+        match uri {
+            LspUrl::File(u) => {
+                let path = get_path_from_uri(&u.to_string_lossy());
+                let is_dir = self.dirs.read().unwrap().contains(&path);
+                match (path.is_absolute(), is_dir) {
+                    (true, false) => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
+                    (true, true) => {
+                        Err(std::io::Error::from(std::io::ErrorKind::IsADirectory).into())
+                    }
+                    (false, _) => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
+                }
+            }
+            _ => Ok(None),
         }
     }
 }

@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use derivative::Derivative;
+use derive_more::Display;
 use gazebo::prelude::*;
 use lsp_server::Connection;
 use lsp_server::Message;
@@ -59,26 +60,143 @@ use lsp_types::TextDocumentSyncKind;
 use lsp_types::Url;
 use lsp_types::WorkDoneProgressOptions;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
 
 use crate::analysis::DefinitionLocation;
 use crate::analysis::LspModule;
 use crate::syntax::AstModule;
+
+/// Errors that can happen when converting LspUrl and Url to/from each other.
+#[derive(thiserror::Error, Debug)]
+pub enum LspUrlError {
+    /// The path component of the URL was not absolute. This is required for all supported
+    /// URL types.
+    #[error("`{}` does not have an absolute path component", .0)]
+    NotAbsolute(Url),
+    /// For some reason the PathBuf/Url in the LspUrl could not be converted back to a URL.
+    #[error("`{}` could not be converted back to a URL", .0)]
+    Unparseable(LspUrl),
+}
+
+/// A URL that represents the two types (plus an "Other") of URIs that are supported.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Display)]
+pub enum LspUrl {
+    /// A "file://" url with a path sent from the LSP client.
+    #[display(fmt = "file://{}", "_0.display()")]
+    File(PathBuf),
+    /// A "starlark:" url. This is mostly used for native types that don't actually
+    /// exist on the filesystem. The path component always has a leading slash.
+    #[display(fmt = "starlark:{}", "_0.display()")]
+    Starlark(PathBuf),
+    /// Any other type. Often should just be ignored, or return an error.
+    #[display(fmt = "{}", "_0")]
+    Other(Url),
+}
+
+impl Serialize for LspUrl {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match Url::try_from(self) {
+            Ok(url) => url.serialize(serializer),
+            Err(e) => Err(serde::ser::Error::custom(e.to_string())),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for LspUrl {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let url = Url::deserialize(deserializer)?;
+        LspUrl::try_from(url).map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
+impl LspUrl {
+    /// Returns the path component of the underlying URL
+    pub fn path(&self) -> &Path {
+        match self {
+            LspUrl::File(p) => p.as_path(),
+            LspUrl::Starlark(p) => p.as_path(),
+            LspUrl::Other(u) => Path::new(u.path()),
+        }
+    }
+}
+
+impl TryFrom<Url> for LspUrl {
+    type Error = LspUrlError;
+
+    fn try_from(url: Url) -> Result<Self, Self::Error> {
+        match url.scheme() {
+            "file" => {
+                let path = PathBuf::from(url.path());
+                if path.to_string_lossy().starts_with('/') {
+                    Ok(Self::File(path))
+                } else {
+                    Err(LspUrlError::NotAbsolute(url))
+                }
+            }
+            "starlark" => {
+                let path = PathBuf::from(url.path());
+                // Use "starts with a /" because, while leading slashes are accepted on
+                // windows, they do not report "true" from `is_absolute()`.
+                if path.to_string_lossy().starts_with('/') {
+                    Ok(Self::Starlark(path))
+                } else {
+                    Err(LspUrlError::NotAbsolute(url))
+                }
+            }
+            _ => Ok(Self::Other(url)),
+        }
+    }
+}
+
+impl TryFrom<LspUrl> for Url {
+    type Error = LspUrlError;
+
+    fn try_from(url: LspUrl) -> Result<Self, Self::Error> {
+        Url::try_from(&url)
+    }
+}
+
+impl TryFrom<&LspUrl> for Url {
+    type Error = LspUrlError;
+
+    fn try_from(url: &LspUrl) -> Result<Self, Self::Error> {
+        match &url {
+            LspUrl::File(p) => {
+                Url::from_file_path(&p).map_err(|_| LspUrlError::Unparseable(url.clone()))
+            }
+            LspUrl::Starlark(p) => Url::parse(&format!("starlark:{}", p.display()))
+                .map_err(|_| LspUrlError::Unparseable(url.clone())),
+            LspUrl::Other(u) => Ok(u.clone()),
+        }
+    }
+}
 
 /// The result of resolving a StringLiteral when looking up a definition.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct StringLiteralResult {
     /// The path that a string literal resolves to.
-    pub url: Url,
+    pub url: LspUrl,
     /// A function that takes the AstModule at path specified by `url` and that same url, and
     /// allows resolving a location to jump to within the specific URL if desired.
     ///
     /// If `None`, then just jump to the URL. Do not attempt to load the file.
     #[derivative(Debug = "ignore")]
-    pub location_finder: Option<Box<dyn FnOnce(&AstModule, &Url) -> anyhow::Result<Option<Range>>>>,
+    pub location_finder:
+        Option<Box<dyn FnOnce(&AstModule, &LspUrl) -> anyhow::Result<Option<Range>>>>,
 }
 
 /// The result of evaluating a starlark program for use in the LSP.
+#[derive(Default)]
 pub struct LspEvalResult {
     /// The list of diagnostic issues that were encountered while evaluating a starlark program.
     pub diagnostics: Vec<Diagnostic>,
@@ -105,7 +223,7 @@ impl Default for LspServerSettings {
 /// Various pieces of context to allow the LSP to interact with starlark parsers, etc.
 pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
-    fn parse_file_with_contents(&self, uri: &Url, content: String) -> LspEvalResult;
+    fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult;
 
     /// Resolve a path given in a `load()` statement.
     ///
@@ -113,7 +231,7 @@ pub trait LspContext {
     ///        implementation defined.
     /// `current_file` is the the file that is including the `load()` statement, and should be used
     ///                if `path` is "relative" in a semantic sense.
-    fn resolve_load(&self, path: &str, current_file: &Path) -> anyhow::Result<Url>;
+    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl>;
 
     /// Resolve a string literal into a Url and a function that specifies a locaction within that
     /// target file.
@@ -124,14 +242,14 @@ pub trait LspContext {
     fn resolve_string_literal(
         &self,
         literal: &str,
-        current_file: &Path,
+        current_file: &LspUrl,
     ) -> anyhow::Result<Option<StringLiteralResult>>;
 
     /// Get the contents of a starlark program at a given path, if it exists.
-    fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>>;
+    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>>;
 
     /// Get the contents of a file at a given URI, and attempt to parse it.
-    fn parse_file(&self, uri: &Url) -> anyhow::Result<Option<LspEvalResult>> {
+    fn parse_file(&self, uri: &LspUrl) -> anyhow::Result<Option<LspEvalResult>> {
         let result = self
             .get_load_contents(uri)?
             .map(|content| self.parse_file_with_contents(uri, content));
@@ -146,14 +264,20 @@ pub enum ResolveLoadError {
     /// so it is not known what to resolve the path against.
     #[error("Relative path `{}` provided, but current_file_path could not be determined", .0.display())]
     MissingCurrentFilePath(PathBuf),
+    /// The scheme provided was not correct or supported.
+    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUrl),
 }
 
 /// Errors when loading contents of a starlark program.
 #[derive(thiserror::Error, Debug)]
 pub enum LoadContentsError {
     /// The provided Url was not absolute and it needs to be.
-    #[error("Provided path `{}` was not absolute", .0.path())]
-    NotAbsolute(Url),
+    #[error("Path for URL `{}` was not absolute", .0)]
+    NotAbsolute(LspUrl),
+    /// The scheme provided was not correct or supported.
+    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUrl),
 }
 
 struct Backend<T: LspContext> {
@@ -161,7 +285,7 @@ struct Backend<T: LspContext> {
     context: T,
     /// The `AstModule` from the last time that a file was opened / changed and parsed successfully.
     /// Entries are evicted when the file is closed.
-    last_valid_parse: RwLock<HashMap<Url, Arc<LspModule>>>,
+    last_valid_parse: RwLock<HashMap<LspUrl, Arc<LspModule>>>,
 }
 
 /// The logic implementations of stuff
@@ -181,12 +305,12 @@ impl<T: LspContext> Backend<T> {
         }
     }
 
-    fn get_ast(&self, uri: &Url) -> Option<Arc<LspModule>> {
+    fn get_ast(&self, uri: &LspUrl) -> Option<Arc<LspModule>> {
         let last_valid_parse = self.last_valid_parse.read().unwrap();
         last_valid_parse.get(uri).duped()
     }
 
-    fn get_ast_or_load_from_disk(&self, uri: &Url) -> anyhow::Result<Option<Arc<LspModule>>> {
+    fn get_ast_or_load_from_disk(&self, uri: &LspUrl) -> anyhow::Result<Option<Arc<LspModule>>> {
         let module = match self.get_ast(uri) {
             Some(result) => Some(result),
             None => self
@@ -197,17 +321,19 @@ impl<T: LspContext> Backend<T> {
         Ok(module)
     }
 
-    fn validate(&self, uri: Url, version: Option<i64>, text: String) {
+    fn validate(&self, uri: Url, version: Option<i64>, text: String) -> anyhow::Result<()> {
+        let uri = uri.try_into()?;
         let eval_result = self.context.parse_file_with_contents(&uri, text);
         if let Some(ast) = eval_result.ast {
             let module = Arc::new(LspModule::new(ast));
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
             last_valid_parse.insert(uri.clone(), module);
         }
-        self.publish_diagnostics(uri, eval_result.diagnostics, version)
+        self.publish_diagnostics(uri.try_into()?, eval_result.diagnostics, version);
+        Ok(())
     }
 
-    fn did_open(&self, params: DidOpenTextDocumentParams) {
+    fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
         self.validate(
             params.text_document.uri,
             Some(params.text_document.version as i64),
@@ -215,22 +341,23 @@ impl<T: LspContext> Backend<T> {
         )
     }
 
-    fn did_change(&self, params: DidChangeTextDocumentParams) {
+    fn did_change(&self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         self.validate(
             params.text_document.uri,
             Some(params.text_document.version as i64),
             change.text,
-        );
+        )
     }
 
-    fn did_close(&self, params: DidCloseTextDocumentParams) {
+    fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
         {
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
-            last_valid_parse.remove(&params.text_document.uri);
+            last_valid_parse.remove(&params.text_document.uri.clone().try_into()?);
         }
-        self.publish_diagnostics(params.text_document.uri, Vec::new(), None)
+        self.publish_diagnostics(params.text_document.uri, Vec::new(), None);
+        Ok(())
     }
 
     /// Go to the definition of the symbol at the current cursor if that definition is in
@@ -243,16 +370,24 @@ impl<T: LspContext> Backend<T> {
         self.send_response(new_response(id, self.find_definition(params)));
     }
 
-    fn resolve_load_path(&self, path: &str, current_uri: &Url) -> anyhow::Result<Url> {
-        let current_file = Path::new(current_uri.path());
-        self.context.resolve_load(path, current_file)
+    fn resolve_load_path(&self, path: &str, current_uri: &LspUrl) -> anyhow::Result<LspUrl> {
+        match current_uri {
+            LspUrl::File(_) => self.context.resolve_load(path, current_uri),
+            LspUrl::Starlark(_) | LspUrl::Other(_) => {
+                Err(ResolveLoadError::WrongScheme("file://".to_owned(), current_uri.clone()).into())
+            }
+        }
     }
 
     fn find_definition(
         &self,
         params: GotoDefinitionParams,
     ) -> anyhow::Result<GotoDefinitionResponse> {
-        let uri = params.text_document_position_params.text_document.uri;
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .try_into()?;
         let line = params.text_document_position_params.position.line;
         let character = params.text_document_position_params.position.character;
 
@@ -263,7 +398,7 @@ impl<T: LspContext> Backend<T> {
                     destination: target,
                 } => Some(LocationLink {
                     origin_selection_range: Some(source.into()),
-                    target_uri: uri,
+                    target_uri: uri.try_into()?,
                     target_range: target.into(),
                     target_selection_range: target.into(),
                 }),
@@ -280,13 +415,13 @@ impl<T: LspContext> Backend<T> {
                     match loaded_location {
                         None => Some(LocationLink {
                             origin_selection_range: Some(source.into()),
-                            target_uri: uri,
+                            target_uri: uri.try_into()?,
                             target_range: location.into(),
                             target_selection_range: location.into(),
                         }),
                         Some(loaded_location) => Some(LocationLink {
                             origin_selection_range: Some(source.into()),
-                            target_uri: load_uri,
+                            target_uri: load_uri.try_into()?,
                             target_range: loaded_location.into(),
                             target_selection_range: loaded_location.into(),
                         }),
@@ -297,7 +432,7 @@ impl<T: LspContext> Backend<T> {
                     match self.resolve_load_path(&path, &uri) {
                         Ok(load_uri) => Some(LocationLink {
                             origin_selection_range: Some(source.into()),
-                            target_uri: load_uri,
+                            target_uri: load_uri.try_into()?,
                             target_range: Default::default(),
                             target_selection_range: Default::default(),
                         }),
@@ -305,9 +440,7 @@ impl<T: LspContext> Backend<T> {
                     }
                 }
                 DefinitionLocation::StringLiteral { source, literal } => {
-                    let literal = self
-                        .context
-                        .resolve_string_literal(&literal, Path::new(uri.path()))?;
+                    let literal = self.context.resolve_string_literal(&literal, &uri)?;
                     match literal {
                         Some(StringLiteralResult {
                             url,
@@ -328,7 +461,7 @@ impl<T: LspContext> Backend<T> {
                                 .unwrap_or_default();
                             Some(LocationLink {
                                 origin_selection_range: Some(source.into()),
-                                target_uri: url,
+                                target_uri: url.try_into()?,
                                 target_range,
                                 target_selection_range: target_range,
                             })
@@ -340,7 +473,7 @@ impl<T: LspContext> Backend<T> {
                             let target_range = Range::default();
                             Some(LocationLink {
                                 origin_selection_range: Some(source.into()),
-                                target_uri: url,
+                                target_uri: url.try_into()?,
                                 target_range,
                                 target_selection_range: target_range,
                             })
@@ -402,11 +535,11 @@ impl<T: LspContext> Backend<T> {
                 }
                 Message::Notification(x) => {
                     if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
-                        self.did_open(params)
+                        self.did_open(params)?;
                     } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
-                        self.did_change(params)
+                        self.did_change(params)?;
                     } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
-                        self.did_close(params)
+                        self.did_close(params)?;
                     }
                 }
                 Message::Response(_) => {

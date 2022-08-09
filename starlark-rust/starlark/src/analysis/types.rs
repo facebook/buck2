@@ -17,6 +17,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::path::Path;
 
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
@@ -160,7 +161,7 @@ impl Display for EvalMessage {
 
 impl EvalMessage {
     /// Convert from an `anyhow::Error`, including some type checking, to an `EvalMessage`
-    pub fn from_anyhow(file: &str, x: &anyhow::Error) -> Self {
+    pub fn from_anyhow(file: &Path, x: &anyhow::Error) -> Self {
         match x.downcast_ref::<StarlarkDiagnostic>() {
             Some(
                 d @ StarlarkDiagnostic {
@@ -182,7 +183,7 @@ impl EvalMessage {
                 }
             }
             _ => Self {
-                path: file.to_owned(),
+                path: file.display().to_string(),
                 span: None,
                 severity: EvalSeverity::Error,
                 name: "error".to_owned(),
