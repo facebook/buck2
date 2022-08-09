@@ -249,15 +249,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         }
     }
 
-    /// Generate instructions to invoke before stmt callbacks when evaluating the module,
-    /// even if this module does not use any such callbacks.
-    ///
-    /// This function need to be called when evaluating a dependency of a module, if a module
-    /// registers `before_stmt` callback.
-    pub fn enable_before_stmt_instrumentation(&mut self) {
-        self.before_stmt.instrument = true;
-    }
-
     /// Enable instrumentation in module which is loaded by a module to be profiled.
     ///
     /// This function need to be called when evaluating a dependency of a module, if a module
