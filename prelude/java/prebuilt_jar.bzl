@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_packageable_info")
 load(
     ":java_providers.bzl",
     "JavaClasspathEntry",
@@ -50,6 +51,9 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
         is_prebuilt_jar = True,
     )
 
+    # TODO(T107163344) this shouldn't be in prebuilt_jar itself, use overlays to remove it.
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps)
+
     sub_targets = {}
     sub_targets["abi"] = [
         java_library_info,
@@ -62,6 +66,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
         java_packaging_info,
         shared_library_info,
         cxx_resource_info,
+        android_packageable_info,
         template_placeholder_info,
         DefaultInfo(default_outputs = [output], sub_targets = sub_targets),
     ]
