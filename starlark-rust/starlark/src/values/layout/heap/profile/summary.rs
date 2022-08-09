@@ -111,20 +111,24 @@ impl HeapSummaryByFunction {
         FuncInfo::merge(self.info.iter())
     }
 
-    pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
-        // Add a totals column
-        let totals = self.totals();
-        let HeapSummaryByFunction { info } = self;
-        let strings = &stacks.strings;
-        let mut columns: Vec<(&'static str, AllocCounts)> =
-            totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
-        let mut info = info
+    fn info(&self) -> Vec<(StringId, &FuncInfo)> {
+        self.info
             .iter()
             .enumerate()
             .map(|(id, x)| (StringId(id), x))
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
+        // Add a totals column
+        let totals = self.totals();
+        let strings = &stacks.strings;
+        let mut columns: Vec<(&'static str, AllocCounts)> =
+            totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
 
         columns.sort_by_key(|x| -(x.1.count as isize));
+
+        let mut info = self.info();
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
 
         let info = iter::once((stacks.totals_id, &totals)).chain(info);
