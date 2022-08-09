@@ -29,7 +29,7 @@ use crate::values::layout::heap::profile::string_index::StringIndexMap;
 
 /// Information relating to a function.
 #[derive(Default, Debug, Clone)]
-struct FuncInfo {
+pub(crate) struct FuncInfo {
     /// Number of times this function was called
     pub calls: usize,
     /// Who called this function (and how many times each)
@@ -108,7 +108,7 @@ impl HeapSummaryByFunction {
         FuncInfo::merge(self.info.values())
     }
 
-    fn info(&self) -> Vec<(StringId, &FuncInfo)> {
+    pub(crate) fn info(&self) -> Vec<(StringId, &FuncInfo)> {
         self.info.iter().collect::<Vec<_>>()
     }
 

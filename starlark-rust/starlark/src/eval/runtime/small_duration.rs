@@ -92,3 +92,12 @@ impl<'a> Sum<&'a SmallDuration> for SmallDuration {
         iter.fold(SmallDuration::default(), |acc, x| acc + *x)
     }
 }
+
+impl Sum<SmallDuration> for SmallDuration {
+    fn sum<I>(iter: I) -> SmallDuration
+    where
+        I: Iterator<Item = SmallDuration>,
+    {
+        iter.fold(SmallDuration::default(), |acc, x| acc + x)
+    }
+}

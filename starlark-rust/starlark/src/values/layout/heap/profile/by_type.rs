@@ -53,4 +53,14 @@ impl HeapSummary {
     pub(crate) fn add(&mut self, t: &'static str, s: AllocCounts) {
         *self.summary.entry(t).or_default() += s;
     }
+
+    pub(crate) fn merge<'a>(heaps: impl IntoIterator<Item = &'a HeapSummary>) -> HeapSummary {
+        let mut summary = SmallMap::new();
+        for heap in heaps {
+            for (k, v) in heap.summary.iter() {
+                *summary.entry(*k).or_default() += *v;
+            }
+        }
+        HeapSummary { summary }
+    }
 }

@@ -209,6 +209,47 @@ pub(crate) struct StackFrame {
     pub(crate) calls_x2: u32,
 }
 
+impl StackFrame {
+    fn merge_callees<'a>(
+        frames: &'a [StackFrameWithContext<'a>],
+        strings: &mut StringIndex,
+    ) -> SmallMap<StringId, StackFrame> {
+        let mut group_by_callee: SmallMap<&str, Vec<StackFrameWithContext>> = SmallMap::new();
+        for frame in frames {
+            for (name, callee) in frame.callees() {
+                group_by_callee
+                    .entry(name)
+                    .or_insert_with(Vec::new)
+                    .push(callee);
+            }
+        }
+        group_by_callee
+            .into_iter()
+            .map(|(name, frames)| {
+                let name = strings.index(name);
+                (name, StackFrame::merge(frames, strings))
+            })
+            .collect()
+    }
+
+    fn merge<'a>(
+        frames: impl IntoIterator<Item = StackFrameWithContext<'a>>,
+        strings: &mut StringIndex,
+    ) -> StackFrame {
+        let frames = Vec::from_iter(frames);
+        let callees = StackFrame::merge_callees(&frames, strings);
+        let allocs = HeapSummary::merge(frames.iter().map(|f| &f.frame.allocs));
+        let time_x2 = frames.iter().map(|f| f.frame.time_x2).sum();
+        let calls_x2 = frames.iter().map(|f| f.frame.calls_x2).sum();
+        StackFrame {
+            callees,
+            allocs,
+            time_x2,
+            calls_x2,
+        }
+    }
+}
+
 struct StackFrameWithContext<'c> {
     frame: &'c StackFrame,
     strings: &'c StringIndex,
@@ -292,6 +333,25 @@ impl AggregateHeapProfileInfo {
         }
     }
 
+    #[allow(dead_code)] // TODO: used later.
+    fn merge<'a>(
+        profiles: impl IntoIterator<Item = &'a AggregateHeapProfileInfo>,
+    ) -> AggregateHeapProfileInfo {
+        let mut strings = StringIndex::default();
+        let totals_id = strings.index(Self::TOTALS_STR);
+        let root_id = strings.index(Self::ROOT_STR);
+        let blank_id = strings.index(Self::BLANK_STR);
+        let roots = profiles.into_iter().map(|p| p.root());
+        let root = StackFrame::merge(roots, &mut strings);
+        AggregateHeapProfileInfo {
+            strings,
+            root,
+            totals_id,
+            root_id,
+            blank_id,
+        }
+    }
+
     /// Write this out recursively to a file.
     pub(crate) fn gen_flame_graph(&self) -> String {
         let mut writer = FlameGraphWriter::new();
@@ -312,6 +372,7 @@ mod tests {
     use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
     use crate::values::layout::heap::profile::aggregated::StackFrame;
+    use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
     use crate::values::Freezer;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
@@ -371,5 +432,26 @@ mod tests {
                 .count
         );
         assert_eq!(2, total_alloc_count(&stacks.root));
+    }
+
+    #[test]
+    fn test_merge() {
+        fn make() -> AggregateHeapProfileInfo {
+            let heap = Heap::new();
+            heap.record_call_enter(const_frozen_string!("xx").to_value());
+            let s = heap.alloc_str("abc");
+            heap.record_call_exit();
+            let freezer = Freezer::new(FrozenHeap::new());
+            freezer.freeze(s.to_value()).unwrap();
+
+            AggregateHeapProfileInfo::collect(&heap, Some(HeapKind::Frozen))
+        }
+
+        let merge = AggregateHeapProfileInfo::merge([&make(), &make(), &make()]);
+        let summary = HeapSummaryByFunction::init(&merge);
+        assert_eq!(1, summary.info().len());
+        let (xx_id, xx_info) = summary.info()[0];
+        assert_eq!("xx", merge.strings.get(xx_id));
+        assert_eq!(3, xx_info.alloc.get("string").unwrap().count);
     }
 }
