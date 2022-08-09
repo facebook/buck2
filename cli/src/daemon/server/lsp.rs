@@ -630,7 +630,6 @@ mod test {
     use starlark::values::docs::Function;
     use starlark::values::docs::Identifier;
     use starlark::values::docs::Location;
-    use starlark::values::docs::Return;
 
     use crate::daemon::server::lsp::DocsCache;
     use crate::daemon::server::lsp::DOCS_DIRECTORY_KEY;
@@ -643,14 +642,7 @@ mod test {
                     name: "native_function1".to_owned(),
                     location: None,
                 },
-                item: DocItem::Function(Function {
-                    docs: None,
-                    params: vec![],
-                    ret: Return {
-                        docs: None,
-                        typ: None,
-                    },
-                }),
+                item: DocItem::Function(Function::default()),
                 custom_attrs: Default::default(),
             },
             Doc {
@@ -658,14 +650,7 @@ mod test {
                     name: "native_function2".to_owned(),
                     location: None,
                 },
-                item: DocItem::Function(Function {
-                    docs: None,
-                    params: vec![],
-                    ret: Return {
-                        docs: None,
-                        typ: None,
-                    },
-                }),
+                item: DocItem::Function(Function::default()),
                 custom_attrs: hashmap! { DOCS_DIRECTORY_KEY.to_owned() => "subdir".to_owned() },
             },
             Doc {
@@ -676,14 +661,7 @@ mod test {
                         position: None,
                     }),
                 },
-                item: DocItem::Function(Function {
-                    docs: None,
-                    params: vec![],
-                    ret: Return {
-                        docs: None,
-                        typ: None,
-                    },
-                }),
+                item: DocItem::Function(Function::default()),
                 custom_attrs: Default::default(),
             },
         ];

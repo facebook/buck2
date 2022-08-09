@@ -169,10 +169,7 @@ def f4(a: "string") -> "string":
                 }),
             },
         ],
-        ret: Return {
-            docs: None,
-            typ: None,
-        },
+        ..Default::default()
     }));
 
     let expected_f3 = Some(DocItem::Function(Function {
@@ -288,7 +285,6 @@ fn test_module_docs_return() {
     use crate::values::docs::DocString;
     use crate::values::docs::Function;
     use crate::values::docs::Module;
-    use crate::values::docs::Return;
 
     let mut a = Assert::new();
     let mod_a = r#"
@@ -341,14 +337,7 @@ def f1():
     let m2_docs = m2.module_documentation();
     let m3_docs = m3.module_documentation();
 
-    let empty_function = Some(DocItem::Function(Function {
-        docs: None,
-        params: vec![],
-        ret: Return {
-            docs: None,
-            typ: None,
-        },
-    }));
+    let empty_function = Some(DocItem::Function(Function::default()));
 
     let expected_m1 = ModuleDocs {
         module: Some(DocItem::Module(Module {
@@ -363,11 +352,7 @@ Some extra details can go here,
         members: hashmap! {
             "f1".to_owned() => Some(DocItem::Function(Function {
                 docs: DocString::from_docstring(DocStringKind::Starlark, "This is a function summary"),
-                params: vec![],
-                ret: Return {
-                    docs: None,
-                    typ: None,
-                },
+                ..Default::default()
             })),
             "f2".to_owned() => empty_function.clone(),
         },

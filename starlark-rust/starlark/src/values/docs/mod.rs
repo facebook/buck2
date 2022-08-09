@@ -54,7 +54,7 @@ fn indent_trimmed(s: &str, prefix: &str) -> String {
 }
 
 /// The documentation provided by a user for a specific module, object, function, etc.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Trace)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Trace, Default)]
 pub struct DocString {
     /// The first line of a doc string. This has whitespace trimmed from it.
     pub summary: String,
@@ -355,7 +355,7 @@ impl DocString {
 }
 
 /// Line / column for where in a file a symbol is.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Pos {
     /// Line number, zero based.
     pub line: usize,
@@ -364,7 +364,7 @@ pub struct Pos {
 }
 
 /// The file a symbol resides in, and if available its location within that file.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Location {
     /// `path` is a string that can be passed into `load()` statements.
     pub path: String,
@@ -373,7 +373,7 @@ pub struct Location {
 }
 
 /// The main identifier for a symbol.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Identifier {
     /// The name of the symbol (e.g. the function name, a name or path for a module, etc).
     pub name: String,
@@ -382,14 +382,14 @@ pub struct Identifier {
 }
 
 /// The type of a given parameter, field, etc.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Type {
     /// The type string that one would find in a starlark expression.
     pub raw_type: String,
 }
 
 /// Documents a full module.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Module {
     /// In general, this should be the first statement of a loaded file, if that statement is
     /// a string literal.
@@ -406,7 +406,7 @@ impl Module {
 }
 
 /// Documents a single function.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Function {
     /// Documentation for the function. If parsed, this should generally be the first statement
     /// of a function's body if that statement is a string literal. Any sections like "Args:",
@@ -669,7 +669,7 @@ impl Param {
 }
 
 /// Details about the return value of a function.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Return {
     /// Extra semantic details around the returned value's meaning.
     pub docs: Option<DocString>,
@@ -684,7 +684,7 @@ impl Return {
 }
 
 /// A single property of an object. These are explicitly not functions (see [`Member`]).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Property {
     pub docs: Option<DocString>,
     #[serde(rename = "type")]
@@ -724,7 +724,7 @@ pub enum Member {
 }
 
 /// An object with named functions/properties.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Object {
     pub docs: Option<DocString>,
     /// Name and details of each member of this object.
