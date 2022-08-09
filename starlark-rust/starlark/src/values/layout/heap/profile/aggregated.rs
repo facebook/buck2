@@ -286,8 +286,13 @@ impl<'c> StackFrameWithContext<'c> {
     }
 }
 
+/// Aggregated heap profiling data when heap profiling is enabled.
+///
+/// Can be:
+/// * written as CSV or flamegraph
+/// * merged with another data
 #[derive(Clone)]
-pub(crate) struct AggregateHeapProfileInfo {
+pub struct AggregateHeapProfileInfo {
     pub(crate) strings: StringIndex,
     pub(crate) root: StackFrame,
     /// String `"TOTALS"`. It is needed in heap summary output.
@@ -335,8 +340,8 @@ impl AggregateHeapProfileInfo {
         }
     }
 
-    #[allow(dead_code)] // TODO: used later.
-    fn merge<'a>(
+    /// Merge aggregated heap profile from multiple sources (e.g. from several runs).
+    pub fn merge<'a>(
         profiles: impl IntoIterator<Item = &'a AggregateHeapProfileInfo>,
     ) -> AggregateHeapProfileInfo {
         let mut strings = StringIndex::default();
@@ -355,13 +360,14 @@ impl AggregateHeapProfileInfo {
     }
 
     /// Write this out recursively to a file.
-    pub(crate) fn gen_flame_graph(&self) -> String {
+    pub fn gen_flame_graph(&self) -> String {
         let mut writer = FlameGraphWriter::new();
         self.root().write_flame_graph(&mut writer, &mut vec![]);
         writer.finish()
     }
 
-    pub(crate) fn gen_summary_csv(&self) -> String {
+    /// Write per-function summary in CSV format.
+    pub fn gen_summary_csv(&self) -> String {
         HeapSummaryByFunction::init(self).gen_csv(self)
     }
 }

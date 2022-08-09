@@ -218,7 +218,7 @@ impl FrozenModule {
     }
 
     /// Retained memory info, or error if not enabled.
-    fn aggregated_heap_profile_info(&self) -> anyhow::Result<&AggregateHeapProfileInfo> {
+    pub fn aggregated_heap_profile_info(&self) -> anyhow::Result<&AggregateHeapProfileInfo> {
         self.module
             .0
             .heap_profile
