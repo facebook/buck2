@@ -44,7 +44,50 @@ function additionalClientSettings(): AdditionalClientSettings {
     };
 }
 
+const STARLARK_FILE_CONTENTS_METHOD = 'starlark/fileContents';
+const STARLARK_URI_SCHEME = 'starlark';
+
+class StarlarkFileContentsParams {
+  constructor(public uri: vscode.Uri) {}
+}
+
+class StarlarkFileContentsResponse {
+  constructor(public contents?: string | null) {}
+}
+
+/// Ask the server for the contents of a starlark: file
+class StarlarkFileHandler implements vscode.TextDocumentContentProvider {
+  provideTextDocumentContent(
+    uri: vscode.Uri,
+    _token: vscode.CancellationToken,
+  ): vscode.ProviderResult<string> {
+    if (client === undefined) {
+      return null;
+    } else {
+      return client
+        .sendRequest<StarlarkFileContentsResponse>(
+          STARLARK_FILE_CONTENTS_METHOD,
+          new StarlarkFileContentsParams(uri),
+        )
+        .then((response: StarlarkFileContentsResponse) => {
+          if (response.contents !== undefined && response.contents !== null) {
+            return response.contents;
+          } else {
+            return null;
+          }
+        });
+    }
+  }
+}
+
 export function activate(context: ExtensionContext) {
+    // Make sure that any starlark: URIs that come back from the LSP
+    // are handled, and requested from the LSP.
+    vscode.workspace.registerTextDocumentContentProvider(
+        STARLARK_URI_SCHEME,
+        new StarlarkFileHandler(),
+    );
+
     const path: string = requireSetting("starlark.lspPath");
     const args: [string] = requireSetting("starlark.lspArguments");
 
