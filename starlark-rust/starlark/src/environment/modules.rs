@@ -217,26 +217,23 @@ impl FrozenModule {
         }
     }
 
-    /// Write heap flame profile of retained memory if heap profiling enabled.
-    pub fn gen_heap_flame_profile(&self) -> anyhow::Result<String> {
-        Ok(self
-            .module
+    /// Retained memory info, or error if not enabled.
+    fn aggregated_heap_profile_info(&self) -> anyhow::Result<&AggregateHeapProfileInfo> {
+        self.module
             .0
             .heap_profile
             .as_ref()
-            .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
-            .gen_flame_graph())
+            .ok_or_else(|| ModuleError::RetainedMemoryProfileNotEnabled.into())
+    }
+
+    /// Write heap flame profile of retained memory if heap profiling enabled.
+    pub fn gen_heap_flame_profile(&self) -> anyhow::Result<String> {
+        Ok(self.aggregated_heap_profile_info()?.gen_flame_graph())
     }
 
     /// Write heap summary profile of retained memory if heap profiling enabled.
     pub fn gen_heap_summary_profile(&self) -> anyhow::Result<String> {
-        Ok(self
-            .module
-            .0
-            .heap_profile
-            .as_ref()
-            .ok_or(ModuleError::RetainedMemoryProfileNotEnabled)?
-            .gen_summary_csv())
+        Ok(self.aggregated_heap_profile_info()?.gen_summary_csv())
     }
 }
 
