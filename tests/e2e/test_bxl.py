@@ -502,3 +502,24 @@ async def test_node_attrs(buck: Buck) -> None:
         "list",
         '["$(exe root//:bin (root//platforms:platform1))", "$(location root//:data (root//platforms:platform1))"]',
     ]
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_fs_exists(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:exists.bxl:exists_relative_path",
+    )
+
+    assert "True" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl:exists.bxl:not_exists",
+    )
+
+    assert "False" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl:exists.bxl:exists_absolute_path", "--", "--root_path", buck.cwd
+    )
+
+    assert "True" in result.stdout

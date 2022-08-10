@@ -1,0 +1,27 @@
+def _impl_exists_absolute_path(ctx):
+    ctx.output.print(ctx.unstable_fs.exists(ctx.cli_args.root_path + "/bin"))
+
+def _impl_exists_relative_path(ctx):
+    ctx.output.print(ctx.unstable_fs.exists("bin"))
+
+def _impl_not_exists(ctx):
+    ctx.output.print(ctx.unstable_fs.exists("does_not_exist"))
+
+exists_absolute_path = bxl(
+    impl = _impl_exists_absolute_path,
+    cli_args = {
+        "root_path": cli_args.string(),
+    },
+)
+
+exists_relative_path = bxl(
+    impl = _impl_exists_relative_path,
+    cli_args = {
+    },
+)
+
+not_exists = bxl(
+    impl = _impl_not_exists,
+    cli_args = {
+    },
+)
