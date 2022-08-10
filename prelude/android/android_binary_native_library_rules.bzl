@@ -4,12 +4,16 @@ load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainIn
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 
+_NATIVE_LIBS_AS_ASSETS_DIR = "assets/lib"
+
 def get_android_binary_native_library_info(
         ctx: "context",
         android_packageable_info: "AndroidPackageableInfo",
         deps_by_platform: {str.type: ["dependency"]},
         prebuilt_native_library_dirs_to_exclude: ["PrebuiltNativeLibraryDir"] = [],
         shared_libraries_to_exclude: ["SharedLibrary"] = []) -> AndroidBinaryNativeLibsInfo.type:
+    is_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_asset_libraries", False)
+
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [native_lib for native_lib in traversed_prebuilt_native_library_dirs if native_lib not in prebuilt_native_library_dirs_to_exclude]
 
@@ -32,7 +36,11 @@ def get_android_binary_native_library_info(
         ctx,
         prebuilt_native_library_dir_assets,
         "native_lib_assets",
+        is_packaging_native_libs_as_assets_supported,
     )
+    if not is_packaging_native_libs_as_assets_supported:
+        native_libs.extend(native_lib_assets)
+        native_lib_assets = []
 
     unstripped_libs = []
     all_shared_libraries = []
@@ -45,7 +53,7 @@ def get_android_binary_native_library_info(
         all_shared_libraries.extend(native_linkables.values())
         unstripped_libs += [shared_lib.lib.output for shared_lib in native_linkables.values()]
 
-        platform_stripped_native_linkables, platform_stripped_native_linkable_assets, platform_stripped_native_linkables_for_primary_apk = _get_native_linkables(ctx, platform, native_linkables)
+        platform_stripped_native_linkables, platform_stripped_native_linkable_assets, platform_stripped_native_linkables_for_primary_apk = _get_native_linkables(ctx, platform, native_linkables, is_packaging_native_libs_as_assets_supported)
         native_libs += platform_stripped_native_linkables
         native_lib_assets += platform_stripped_native_linkable_assets
         native_libs_for_primary_apk += platform_stripped_native_linkables_for_primary_apk
@@ -62,27 +70,30 @@ def get_android_binary_native_library_info(
 def _filter_prebuilt_native_library_dir(
         ctx: "context",
         native_libs: ["PrebuiltNativeLibraryDir"],
-        identifier: str.type) -> ["artifact"]:
+        identifier: str.type,
+        package_as_assets = False) -> ["artifact"]:
     cpu_filters = ctx.attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     abis = [CPU_FILTER_TO_ABI_DIRECTORY[cpu] for cpu in cpu_filters]
     filter_tool = ctx.attrs._android_toolchain[AndroidToolchainInfo].filter_prebuilt_native_library_dir[RunInfo]
     libs = []
     for i, native_lib in enumerate(reversed(native_libs)):
         lib_identifier = "{}-{}".format(identifier, i)
-        output_dir = ctx.actions.declare_output(lib_identifier)
+        base_output_dir = ctx.actions.declare_output(lib_identifier)
+        output_dir = base_output_dir.project(_NATIVE_LIBS_AS_ASSETS_DIR) if package_as_assets else base_output_dir
         ctx.actions.run(
             [filter_tool, native_lib.dir, output_dir.as_output(), "--abis"] + abis,
             category = "filter_prebuilt_native_library_dir",
             identifier = lib_identifier,
         )
-        libs.append(output_dir)
+        libs.append(base_output_dir)
 
     return libs
 
 def _get_native_linkables(
         ctx: "context",
         platform: str.type,
-        native_linkables: {str.type: "SharedLibrary"}) -> (["artifact"], ["artifact"], ["artifact"]):
+        native_linkables: {str.type: "SharedLibrary"},
+        package_native_libs_as_assets_enabled: bool.type) -> (["artifact"], ["artifact"], ["artifact"]):
     cpu_filters = ctx.attrs.cpu_filters
     if cpu_filters and platform not in cpu_filters:
         return [], []
@@ -92,13 +103,16 @@ def _get_native_linkables(
     stripped_native_linkables_for_primary_apk = []
     abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
     for so_name, native_linkable in native_linkables.items():
-        srcs = {paths.join(abi_directory, so_name): native_linkable.stripped_lib}
+        so_name_path = paths.join(abi_directory, so_name)
+        if package_native_libs_as_assets_enabled and native_linkable.can_be_asset:
+            so_name_path = paths.join(_NATIVE_LIBS_AS_ASSETS_DIR, so_name_path)
+        srcs = {so_name_path: native_linkable.stripped_lib}
         symlinked_dir = ctx.actions.symlinked_dir("native_linkable_dir_{}_{}".format(
             platform,
             so_name.replace(".", "_"),
         ), srcs)
 
-        if native_linkable.can_be_asset:
+        if native_linkable.can_be_asset and package_native_libs_as_assets_enabled:
             stripped_native_linkable_assets.append(symlinked_dir)
         elif native_linkable.for_primary_apk:
             stripped_native_linkables_for_primary_apk.append(symlinked_dir)

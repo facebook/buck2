@@ -99,7 +99,7 @@ def get_multi_dex(
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
-        secondary_dex_dirs = secondary_dex_dir,
+        secondary_dex_dirs = [secondary_dex_dir],
         proguard_text_files_path = None,
     )
 

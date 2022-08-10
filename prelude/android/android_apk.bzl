@@ -152,16 +152,12 @@ def build_apk(
     if compress_resources_dot_arsc:
         apk_builder_args.add("--compress-resources-dot-arsc")
 
-    all_native_libs = (
-        native_library_info.native_libs +
-        native_library_info.native_libs_for_primary_apk +
-        native_library_info.native_lib_assets
-    )
-
-    asset_directories = actions.write("asset_directories.txt", dex_files_info.secondary_dex_dirs)
-    apk_builder_args.hidden(dex_files_info.secondary_dex_dirs)
-    native_library_directories = actions.write("native_library_directories", all_native_libs)
-    apk_builder_args.hidden(all_native_libs)
+    asset_directories = native_library_info.native_lib_assets + dex_files_info.secondary_dex_dirs
+    asset_directories_file = actions.write("asset_directories.txt", asset_directories)
+    apk_builder_args.hidden(asset_directories)
+    native_libs_for_apk = native_library_info.native_libs + native_library_info.native_libs_for_primary_apk
+    native_library_directories = actions.write("native_library_directories", native_libs_for_apk)
+    apk_builder_args.hidden(native_libs_for_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
     zip_files = actions.write("zip_files", all_zip_files)
     apk_builder_args.hidden(all_zip_files)
@@ -171,7 +167,7 @@ def build_apk(
 
     apk_builder_args.add([
         "--asset-directories-list",
-        asset_directories,
+        asset_directories_file,
         "--native-libraries-directories-list",
         native_library_directories,
         "--zip-files-list",
