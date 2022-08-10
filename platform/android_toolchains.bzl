@@ -18,6 +18,7 @@ def config_backed_android_toolchain(
         merge_android_resources,
         merge_assets,
         mini_aapt,
+        native_libs_as_assets_metadata,
         package_strings_as_assets,
         unpack_aar,
         **kwargs):
@@ -55,6 +56,7 @@ def config_backed_android_toolchain(
     kwargs["merge_android_resources"] = merge_android_resources
     kwargs["merge_assets"] = merge_assets
     kwargs["mini_aapt"] = mini_aapt
+    kwargs["native_libs_as_assets_metadata"] = native_libs_as_assets_metadata
     kwargs["package_strings_as_assets"] = package_strings_as_assets
     kwargs["unpack_aar"] = unpack_aar
 
@@ -103,6 +105,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             merge_assets = ctx.attrs.merge_assets,
             mini_aapt = ctx.attrs.mini_aapt,
             optimized_proguard_config = ctx.attrs.optimized_proguard_config,
+            native_libs_as_assets_metadata = ctx.attrs.native_libs_as_assets_metadata,
             package_strings_as_assets = ctx.attrs.package_strings_as_assets,
             proguard_config = ctx.attrs.proguard_config,
             proguard_jar = ctx.attrs.proguard_jar,
@@ -137,6 +140,7 @@ _config_backed_android_toolchain_rule = rule(
         "merge_assets": attrs.dep(providers = [RunInfo]),
         "mini_aapt": attrs.dep(providers = [RunInfo]),
         "multi_dex_command": attrs.dep(providers = [RunInfo]),
+        "native_libs_as_assets_metadata": attrs.dep(providers = [RunInfo]),
         "optimized_proguard_config": attrs.source(),
         "package_strings_as_assets": attrs.dep(providers = [RunInfo]),
         "proguard_config": attrs.source(),

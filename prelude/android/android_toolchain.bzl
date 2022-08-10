@@ -25,6 +25,7 @@ AndroidToolchainInfo = provider(fields = [
     "merge_android_resources",
     "merge_assets",
     "mini_aapt",
+    "native_libs_as_assets_metadata",
     "optimized_proguard_config",
     "package_strings_as_assets",
     "proguard_config",
