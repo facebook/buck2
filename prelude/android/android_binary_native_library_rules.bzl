@@ -158,6 +158,8 @@ def _get_compressed_native_libs_as_assets(
         native_library_paths,
         "--output-dir",
         output_dir.as_output(),
+        "--compression-type",
+        ctx.attrs.asset_compression_algorithm or "xz",
         "--xz-compression-level",
         str(ctx.attrs.xz_compression_level),
     ]).hidden(native_lib_assets)
