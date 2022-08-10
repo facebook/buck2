@@ -511,6 +511,7 @@ extra_attributes = struct(
     },
     sh_binary = {
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "_target_os_type": _target_os_type(),
     },
     filegroup = {
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),

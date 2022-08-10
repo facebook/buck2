@@ -10,16 +10,20 @@ def _derive_link(artifact):
 
     return paths.join(artifact.owner.package, artifact.owner.name)
 
-def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], actions: "actions") -> ("artifact", "artifact"):
+def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], actions: "actions", is_windows: bool.type) -> ("artifact", "artifact"):
     main_path = main.short_path
-    main_link = main_path if main_path.endswith(".sh") else main_path + ".sh"
+    if is_windows:
+        main_link = main_path if main_path.endswith(".bat") or main_path.endswith(".cmd") else main_path + ".bat"
+    else:
+        main_link = main_path if main_path.endswith(".sh") else main_path + ".sh"
     resources = {_derive_link(src): src for src in resources}
     resources[main_link] = main
 
     resources_dir = actions.declare_output("resources")
     actions.symlinked_dir(resources_dir, resources)
 
-    script = actions.declare_output(name)
+    script_name = name + (".bat" if is_windows else ".sh")
+    script = actions.declare_output(script_name)
 
     # This is much, much simpler than the buck1 sh_binary template. A couple reasons:
     # 1. we don't invoke the script through a symlink and so don't need to use and implement a cross-platform `readlink -e`
@@ -30,9 +34,8 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
     # point through the cell symlinks to their original locations). Instead we
     # construct links directly to things (which buck1 actually also did for its
     # BUCK_DEFAULT_RUNTIME_RESOURCES).
-    actions.write(
-        script,
-        cmd_args([
+    if not is_windows:
+        script_content = cmd_args([
             "#!/bin/bash",
             "set -e",
             # This is awkward for two reasons: args doesn't support format strings
@@ -64,7 +67,22 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
             # sources, the paths are the same for both.
             "export BUCK_DEFAULT_RUNTIME_RESOURCES=\"$BUCK_PROJECT_ROOT\"",
             "exec \"$BUCK_PROJECT_ROOT/{}\" \"$@\"".format(main_link),
-        ]).relative_to(script),
+        ]).relative_to(script)
+    else:
+        script_content = cmd_args([
+            "@echo off",
+            "setlocal EnableDelayedExpansion",
+            "set __RESOURCES_ROOT=^",
+            resources_dir,
+            "set __SCRIPT_DIR=%~dp0",
+            "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",
+            "set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\!__RESOURCES_ROOT:~3!",
+            "set BUCK_DEFAULT_RUNTIME_RESOURCES=%BUCK_PROJECT_ROOT%",
+            "%BUCK_PROJECT_ROOT%\\{} %*".format(main_link),
+        ]).relative_to(script)
+    actions.write(
+        script,
+        script_content,
         is_executable = True,
     )
 
@@ -79,7 +97,8 @@ def sh_binary_impl(ctx):
     if len(ctx.attrs.deps) > 0:
         fail("sh_binary deps unsupported. Got `{}`".format(repr(ctx.attrs)))
 
-    (script, resources_dir) = _generate_script(ctx.label.name, ctx.attrs.main, ctx.attrs.resources, ctx.actions)
+    is_windows = ctx.attrs._target_os_type == "windows"
+    (script, resources_dir) = _generate_script(ctx.label.name, ctx.attrs.main, ctx.attrs.resources, ctx.actions, is_windows)
 
     return [
         DefaultInfo(default_outputs = [script], other_outputs = [resources_dir]),
