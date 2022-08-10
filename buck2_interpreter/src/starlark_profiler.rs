@@ -77,7 +77,7 @@ pub trait StarlarkProfiler: Send + Sync {
     fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
 
     /// Post-analysis, produce the output of this profiler.
-    fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
+    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
 
     fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()>;
 }
@@ -94,7 +94,7 @@ impl StarlarkProfiler for Disabled {
         Ok(())
     }
 
-    fn finalize(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
+    fn evaluation_complete(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -187,7 +187,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
         Ok(())
     }
 
-    fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         self.finalized_at = Some(Instant::now());
         if !matches!(
             self.profile_mode,
@@ -284,9 +284,9 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         }
     }
 
-    pub fn finalize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+    pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         if let StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) = &mut self.0 {
-            profiler.finalize(eval)
+            profiler.evaluation_complete(eval)
         } else {
             Ok(())
         }

@@ -279,7 +279,7 @@ fn run_analysis_with_env(
     let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
 
     profiler
-        .finalize(&mut eval)
+        .evaluation_complete(&mut eval)
         .context("Profiler finalization failed")?;
 
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug

@@ -588,7 +588,7 @@ impl InterpreterForCell {
         match eval.eval_module(ast, globals) {
             Ok(_) => {
                 profiler
-                    .finalize(&mut eval)
+                    .evaluation_complete(&mut eval)
                     .context("Profiler finalization failed")?;
 
                 profiler
