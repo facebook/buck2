@@ -35,6 +35,7 @@ pub use runtime::file_loader::ReturnFileLoader;
 pub use runtime::params::ParametersParser;
 pub use runtime::params::ParametersSpec;
 pub use runtime::params::ParametersSpecBuilder;
+pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
 
 use crate::collections::symbol_map::Symbol;

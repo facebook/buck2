@@ -19,6 +19,7 @@ use std::fmt::Debug;
 
 use gazebo::dupe::Dupe;
 
+use crate::eval::runtime::profile::data::ProfileData;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
@@ -59,7 +60,7 @@ impl HeapProfile {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn gen(&self, heap: &Heap, format: HeapProfileFormat) -> Option<String> {
+    pub(crate) fn gen(&self, heap: &Heap, format: HeapProfileFormat) -> Option<ProfileData> {
         if !self.enabled {
             None
         } else {
@@ -67,21 +68,21 @@ impl HeapProfile {
         }
     }
 
-    pub(crate) fn gen_enabled(heap: &Heap, format: HeapProfileFormat) -> String {
+    pub(crate) fn gen_enabled(heap: &Heap, format: HeapProfileFormat) -> ProfileData {
         match format {
             HeapProfileFormat::Summary => Self::write_summarized_heap_profile(heap),
             HeapProfileFormat::FlameGraph => Self::write_flame_heap_profile(heap),
         }
     }
 
-    fn write_flame_heap_profile(heap: &Heap) -> String {
+    fn write_flame_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        stacks.gen_flame_graph()
+        ProfileData::new(stacks.gen_flame_graph())
     }
 
-    fn write_summarized_heap_profile(heap: &Heap) -> String {
+    fn write_summarized_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        stacks.gen_summary_csv()
+        ProfileData::new(stacks.gen_summary_csv())
     }
 }
 

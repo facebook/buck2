@@ -22,6 +22,7 @@ use gazebo::dupe::Dupe;
 
 pub(crate) mod bc;
 pub(crate) mod csv;
+pub(crate) mod data;
 pub(crate) mod flame;
 pub(crate) mod flamegraph;
 pub(crate) mod heap;

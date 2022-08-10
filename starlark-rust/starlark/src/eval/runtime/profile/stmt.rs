@@ -30,6 +30,7 @@ use crate::codemap::FileSpanRef;
 use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;
 use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::small_duration::SmallDuration;
 
 #[derive(Debug, thiserror::Error)]
@@ -181,9 +182,11 @@ impl StmtProfile {
     }
 
     // None = not applicable because not enabled
-    pub(crate) fn gen(&self) -> Option<String> {
+    pub(crate) fn gen(&self) -> Option<ProfileData> {
         let now = Instant::now();
-        self.0.as_ref().map(|data| data.write_to_string(now))
+        self.0
+            .as_ref()
+            .map(|data| ProfileData::new(data.write_to_string(now)))
     }
 
     pub(crate) fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {

@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use crate::collections::SmallMap;
 use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::FrozenStringValue;
 
@@ -60,11 +61,11 @@ impl TypecheckProfile {
         w.finish()
     }
 
-    pub(crate) fn gen(&self) -> Option<String> {
+    pub(crate) fn gen(&self) -> Option<ProfileData> {
         if !self.enabled {
             return None;
         }
-        Some(self.gen_csv())
+        Some(ProfileData::new(self.gen_csv()))
     }
 }
 

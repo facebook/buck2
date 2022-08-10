@@ -23,6 +23,7 @@ use std::time::Instant;
 use gazebo::prelude::*;
 
 use crate as starlark;
+use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::pointer::RawPointer;
@@ -167,15 +168,15 @@ impl<'v> FlameProfile<'v> {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn gen(&self) -> Option<String> {
+    pub(crate) fn gen(&self) -> Option<ProfileData> {
         self.0.as_ref().map(|box x| Self::gen_profile(x))
     }
 
-    fn gen_profile(x: &FlameData) -> String {
+    fn gen_profile(x: &FlameData) -> ProfileData {
         // Need to write out lines which look like:
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
         let names = x.values.map(|x| x.to_repr());
-        Stacks::new(&names, &x.frames).render()
+        ProfileData::new(Stacks::new(&names, &x.frames).render())
     }
 }

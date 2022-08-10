@@ -17,12 +17,10 @@
 
 use std::cell::Cell;
 use std::collections::HashSet;
-use std::fs;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::path::Path;
 
-use anyhow::Context;
 use gazebo::any::AnyLifetime;
 use gazebo::cast;
 use gazebo::dupe::Dupe;
@@ -47,6 +45,7 @@ use crate::eval::runtime::call_stack::CheapCallStack;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::eval::runtime::profile::bc::BcProfile;
+use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::flame::FlameProfile;
 use crate::eval::runtime::profile::heap::HeapProfile;
 use crate::eval::runtime::profile::heap::HeapProfileFormat;
@@ -301,15 +300,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// Write a profile to a file.
     /// Only valid if corresponding profiler was enabled.
     pub fn write_profile<P: AsRef<Path>>(&self, filename: P) -> anyhow::Result<()> {
-        let profile = self.gen_profile()?;
-        fs::write(filename.as_ref(), profile)
-            .with_context(|| format!("writing profile to `{}`", filename.as_ref().display()))?;
-        Ok(())
+        self.gen_profile()?.write(filename.as_ref())
     }
 
     /// Generate profile for a given mode.
     /// Only valid if corresponding profiler was enabled.
-    pub fn gen_profile(&self) -> anyhow::Result<String> {
+    pub fn gen_profile(&self) -> anyhow::Result<ProfileData> {
         let mode = match &self.profile_or_instrumentation_mode {
             ProfileOrInstrumentationMode::None => {
                 return Err(EvaluatorError::ProfilingNotEnabled.into());
@@ -335,7 +331,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 .stmt_profile
                 .gen()
                 .ok_or_else(|| EvaluatorError::StmtProfilingNotEnabled.into()),
-            ProfileMode::Bytecode | ProfileMode::BytecodePairs => self.bc_profile.gen_csv(),
+            ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
+                self.bc_profile.gen_csv().map(ProfileData::new)
+            }
             ProfileMode::TimeFlame => self
                 .flame_profile
                 .gen()
