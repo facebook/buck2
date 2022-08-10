@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::task::Context;
+use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
@@ -12,6 +14,11 @@ use downward_api_proto::downward_api_server;
 use downward_api_proto::ConsoleRequest;
 use downward_api_proto::ExternalEventRequest;
 use downward_api_proto::LogRequest;
+use events::dispatch::with_dispatcher_async;
+use events::dispatch::EventDispatcher;
+use futures::future::BoxFuture;
+use futures::future::FutureExt;
+use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use test_proto::test_orchestrator_client;
 use test_proto::test_orchestrator_server;
@@ -26,6 +33,7 @@ use test_proto::Testing;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
+use tower_layer::Layer;
 use tracing::Level;
 
 use crate::data::ArgValue;
@@ -484,13 +492,19 @@ where
     }
 }
 
-pub fn spawn_orchestrator_server<I, O, D>(io: I, orchestrator: O, downward_api: D) -> ServerHandle
+pub fn spawn_orchestrator_server<I, O, D>(
+    io: I,
+    orchestrator: O,
+    downward_api: D,
+    dispatcher: EventDispatcher,
+) -> ServerHandle
 where
     I: AsyncRead + AsyncWrite + Send + Unpin + 'static + tonic::transport::server::Connected,
     O: TestOrchestrator + Send + Sync + 'static,
     D: DownwardApi + Send + Sync + 'static,
 {
     let router = tonic::transport::Server::builder()
+        .layer(EventDispatcherLayer::new(dispatcher))
         .add_service(test_orchestrator_server::TestOrchestratorServer::new(
             Service {
                 inner: orchestrator,
@@ -501,4 +515,56 @@ where
         }));
 
     spawn_oneshot(io, router)
+}
+
+/// Used to wrap the Tonic server so that the spawned server has its EventDispatcher set.
+#[derive(Clone, Dupe)]
+pub struct EventDispatcherLayer {
+    dispatcher: EventDispatcher,
+}
+
+impl EventDispatcherLayer {
+    pub fn new(dispatcher: EventDispatcher) -> Self {
+        EventDispatcherLayer { dispatcher }
+    }
+}
+
+impl<S> Layer<S> for EventDispatcherLayer {
+    type Service = DispatcherService<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        DispatcherService {
+            service,
+            dispatcher: self.dispatcher.dupe(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct DispatcherService<S> {
+    service: S,
+    dispatcher: EventDispatcher,
+}
+
+impl<T, Request> tower_service::Service<Request> for DispatcherService<T>
+where
+    T: tower_service::Service<Request>,
+    T::Future: 'static + Send,
+    T::Error: 'static,
+    T::Response: 'static,
+{
+    type Response = T::Response;
+    type Error = T::Error;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        // Call the inner service and get a future that resolves to the response
+        let fut = self.service.call(req);
+
+        with_dispatcher_async(self.dispatcher.dupe(), fut).boxed()
+    }
 }

@@ -14,9 +14,11 @@ use async_trait::async_trait;
 use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
 use derive_more::Display;
+use events::dispatch::EventDispatcher;
 use futures::future::try_join3;
 use futures::future::Future;
 use futures::future::FutureExt;
+use gazebo::prelude::*;
 use test_api::grpc::spawn_orchestrator_server;
 use test_api::grpc::TestExecutorClient;
 use tokio::io::AsyncRead;
@@ -53,6 +55,7 @@ pub trait ExecutorLauncher: Send + Sync {
 
 pub struct OutOfProcessTestExecutor {
     pub name: String,
+    pub dispatcher: EventDispatcher,
 }
 
 #[async_trait]
@@ -68,16 +71,22 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
             if !use_tcp {
                 return spawn_orchestrator(
                     crate::unix::executor::spawn(&self.name, tpx_args).await?,
+                    self.dispatcher.dupe(),
                 )
                 .await;
             }
         }
 
-        spawn_orchestrator(crate::tcp::executor::spawn(&self.name, tpx_args).await?).await
+        spawn_orchestrator(
+            crate::tcp::executor::spawn(&self.name, tpx_args).await?,
+            self.dispatcher.dupe(),
+        )
+        .await
     }
 }
 async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static>(
     (mut executor_proc, executor_client_io, orchestrator_server_io): (Child, T, T),
+    dispatcher: EventDispatcher,
 ) -> anyhow::Result<ExecutorLaunch> {
     let client = TestExecutorClient::new(executor_client_io)
         .await
@@ -103,7 +112,12 @@ async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 's
     let make_server = box move |orchestrator, downward_api| {
         let (read, write) = tokio::io::split(orchestrator_server_io);
         let orchestrator_server_io = DuplexChannel::new(read, write);
-        spawn_orchestrator_server(orchestrator_server_io, orchestrator, downward_api)
+        spawn_orchestrator_server(
+            orchestrator_server_io,
+            orchestrator,
+            downward_api,
+            dispatcher,
+        )
     };
 
     Ok(ExecutorLaunch {

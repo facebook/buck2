@@ -32,6 +32,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_interpreter::dice::HasEvents;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_test::downward_api::BuckTestDownwardApi;
 use buck2_test::executor_launcher::ExecutorLaunch;
@@ -191,6 +192,7 @@ pub(crate) async fn test(
 
     let launcher: Box<dyn ExecutorLauncher> = box OutOfProcessTestExecutor {
         name: test_executor,
+        dispatcher: ctx.per_transaction_data().get_dispatcher().dupe(),
     };
 
     let options = request

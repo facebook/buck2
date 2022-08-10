@@ -944,6 +944,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
+    use events::dispatch::EventDispatcher;
     use futures::channel::mpsc;
     use futures::channel::mpsc::UnboundedReceiver;
     use futures::future;

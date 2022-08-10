@@ -16,9 +16,13 @@ gazebo_lint.optional = true
 buck2_core = { path = "../buck2_core" }
 downward_api = { path = "../downward_api" }
 downward_api_proto = { path = "../downward_api_proto" }
+events = { path = "../events" }
+futures = "0.3"
 host_sharing = { path = "../host_sharing" }
 test_proto = { path = "../test_proto" }
 tonic = "0.7.2"
+tower-layer = "0.3.1"
+tower-service = "0.3.2"
 tokio = {version = "1.5", features = ["full"]}
 tracing = "0.1.22"
 prost-types = "0.10"
