@@ -732,7 +732,7 @@ def _static_library(
     archive = make_archive(ctx, name, objects)
 
     linkable = None
-    if _use_archives(ctx):
+    if use_archives(ctx):
         linkable = ArchiveLinkable(
             archive = archive,
             linker_type = linker_type,
@@ -877,7 +877,7 @@ def _archive_name(name: str.type, pic: bool.type) -> str.type:
 def _attr_link_whole(ctx: "context") -> bool.type:
     return value_or(ctx.attrs.link_whole, False)
 
-def _use_archives(ctx: "context") -> bool.type:
+def use_archives(ctx: "context") -> bool.type:
     """
     Whether this rule should use archives to package objects when producing
     link input for dependents.

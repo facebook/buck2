@@ -2,6 +2,7 @@ load(
     "@fbcode//buck2/prelude/cxx:cxx.bzl",
     "get_srcs_with_flags",
 )
+load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@fbcode//buck2/prelude/cxx:cxx_library.bzl",
     "cxx_library_parameterized",
@@ -25,6 +26,8 @@ load(
 )
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "LinkInfo",
+    "LinkInfos",
     "LinkInfosTSet",
     "LinkStyle",
     "MergedLinkInfo",
@@ -38,8 +41,12 @@ load(
 load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
+load(
+    ":native_python_util.bzl",
+    "suffix_symbols",
+)
 load(":python.bzl", "PythonLibraryInfo")
-load(":python_library.bzl", "create_python_library_info", "gather_dep_libraries", "qualify_srcs")
+load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather_dep_libraries", "qualify_srcs")
 
 # This extension is basically cxx_library, plus base_module.
 # So we augment with default attributes so it has everything cxx_library has, and then call cxx_library_parameterized and work from that.
@@ -94,6 +101,34 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         sub_targets = cxx_library_info.sub_targets,
     ))
 
+    module_name = value_or(ctx.attrs.module_name, ctx.label.name)
+
+    # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
+    # when linking into the main binary
+    static_output = libraries.outputs[LinkStyle("static")]
+    if static_output != None:
+        qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module).replace("/", "_")
+        static_info = libraries.libraries[LinkStyle("static")].default
+        if qualified_name == "":
+            static_link_info = static_info
+        else:
+            cxx_toolchain = get_cxx_toolchain_info(ctx)
+            new_linkable = suffix_symbols(
+                ctx,
+                qualified_name + module_name,
+                static_output.object_files,
+                cxx_toolchain,
+            )
+            static_link_info = LinkInfo(
+                name = static_info.name,
+                pre_flags = static_info.pre_flags,
+                post_flags = static_info.post_flags,
+                linkables = [new_linkable],
+                use_link_groups = static_info.use_link_groups,
+            )
+    else:
+        static_link_info = LinkInfo()
+
     # Since we are now providing MergedLinkInfos we need to make sure that we
     # can only be linked statically into a binary so we provide empty linkinfo for
     # shared and static_pic linking
@@ -102,7 +137,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     infos = {
         LinkStyle("static"): ctx.actions.tset(
             LinkInfosTSet,
-            value = libraries.libraries[LinkStyle("static")],
+            value = LinkInfos(default = static_link_info),
             children = [inherited_link._infos[LinkStyle("static")]],
         ),
         LinkStyle("shared"): ctx.actions.tset(LinkInfosTSet),
@@ -127,12 +162,12 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
             qualify_srcs(
                 ctx.label,
                 ctx.attrs.base_module,
-                {value_or(ctx.attrs.module_name, ctx.label.name) + ".pyi": ctx.attrs.type_stub},
+                {module_name + ".pyi": ctx.attrs.type_stub},
             ),
         )
 
     # Export library info.
-    name = value_or(ctx.attrs.module_name, ctx.label.name) + ".so"
+    name = module_name + ".so"
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     raw_deps = (
