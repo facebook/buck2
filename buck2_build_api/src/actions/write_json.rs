@@ -26,6 +26,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::dict::Dict;
+use starlark::values::enumeration::EnumValue;
 use starlark::values::list::List;
 use starlark::values::record::Record;
 use starlark::values::structs::Struct;
@@ -131,6 +132,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
             serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
         } else if let Some(x) = Record::from_value(self.value) {
             serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
+        } else if let Some(x) = EnumValue::from_value(self.value) {
+            x.serialize(serializer)
         } else if let Some(x) = StarlarkTargetLabel::from_value(self.value) {
             // Users could do this with `str(ctx.label.raw_target())`, but in some benchmarks that causes
             // a lot of additional memory to be retained for all those strings

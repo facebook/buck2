@@ -48,6 +48,15 @@ def _check_label(x):
     if a != b:
         fail("Labels should match, got " + repr(x))
 
+def _create_enum_value(_ctx: "context"):
+    typ = enum("foo")
+    return [typ("foo"), "foo"]
+
+def _check_enum_value(x):
+    [a, b] = x
+    if a != b:
+        fail("Enum values should match, got " + repr(x))
+
 tests = [
     ("atom", lambda _: "test", "test"),
     ("simple", lambda _: [1], [1]),
@@ -63,6 +72,7 @@ tests = [
     ("cmdargs_single", lambda _: {"test": cmd_args("abc")}, {"test": ["abc"]}),
     ("cmdargs_concat", lambda _: {"test": cmd_args("abc", delimiter = "")}, {"test": "abc"}),
     ("cmdargs_artifact", _create_cmdargs_artifact, _check_cmdargs_artifact),
+    ("enum", _create_enum_value, _check_enum_value),
 ]
 
 def _write_json_test_impl(ctx: "context") -> ["provider"]:
