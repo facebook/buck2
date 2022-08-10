@@ -8,7 +8,7 @@
  */
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -101,28 +101,24 @@ impl StarlarkProfiler for Disabled {
 
 pub struct StarlarkProfilerImpl {
     profile_mode: ProfileMode,
-    path: PathBuf,
     /// Evaluation will freeze the module.
     /// (And frozen module will be passed to `visit_frozen_module`).
     will_freeze: bool,
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
+    profile_data: Option<String>,
     total_allocated_bytes: Option<usize>,
 }
 
 impl StarlarkProfilerImpl {
-    pub fn new(
-        profile_mode: ProfileMode,
-        path: PathBuf,
-        will_freeze: bool,
-    ) -> StarlarkProfilerImpl {
+    pub fn new(profile_mode: ProfileMode, will_freeze: bool) -> StarlarkProfilerImpl {
         Self {
             profile_mode,
-            path,
             will_freeze,
             initialized_at: None,
             finalized_at: None,
+            profile_data: None,
             total_allocated_bytes: None,
         }
     }
@@ -134,6 +130,17 @@ impl StarlarkProfilerImpl {
 
     pub fn total_allocated_bytes(&self) -> anyhow::Result<usize> {
         self.total_allocated_bytes.context("Did not visit heap")
+    }
+
+    pub fn write(&mut self, path: &Path) -> anyhow::Result<()> {
+        fs::write(
+            path,
+            self.profile_data
+                .as_ref()
+                .context("profile_data not initialized (internal error)")?
+                .as_bytes(),
+        )
+        .with_context(|| format!("Could not write profile data to `{}`", path.display()))
     }
 }
 
@@ -156,8 +163,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
             self.profile_mode,
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
         ) {
-            eval.write_profile(&self.path)
-                .context("Failed to write profile")?;
+            self.profile_data = Some(eval.gen_profile()?.gen());
         }
         Ok(())
     }
@@ -171,12 +177,12 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
             ProfileMode::HeapSummaryRetained => {
                 let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
                 let profile = module.gen_heap_summary_profile()?;
-                fs::write(&self.path, profile).context("Failed to write heap summary profile")?;
+                self.profile_data = Some(profile);
             }
             ProfileMode::HeapFlameRetained => {
                 let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
                 let profile = module.gen_heap_flame_profile()?;
-                fs::write(&self.path, profile).context("Failed to write heap flame profile")?;
+                self.profile_data = Some(profile);
             }
             _ => {}
         }

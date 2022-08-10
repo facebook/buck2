@@ -2327,8 +2327,7 @@ impl DaemonApi for BuckdServer {
                             cli_proto::profile_request::Action::Analysis => true,
                         };
 
-                        let mut profiler =
-                            StarlarkProfilerImpl::new(profile_mode, output, will_freeze);
+                        let mut profiler = StarlarkProfilerImpl::new(profile_mode, will_freeze);
 
                         generate_profile(
                             context,
@@ -2338,6 +2337,8 @@ impl DaemonApi for BuckdServer {
                             &mut profiler,
                         )
                         .await?;
+
+                        profiler.write(&output)?;
 
                         ProfileResponse {
                             elapsed: Some(profiler.elapsed()?.into()),
