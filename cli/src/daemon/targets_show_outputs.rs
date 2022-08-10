@@ -33,19 +33,12 @@ use futures::stream::FuturesUnordered;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::IterDuped;
 use gazebo::prelude::VecExt;
-use thiserror::Error;
 use tokio_stream::StreamExt;
 
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
 use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::server::ServerCommandContext;
-
-#[derive(Debug, Error)]
-pub(crate) enum TargetsError {
-    #[error("Unknown target `{0}` from package `{1}`")]
-    UnknownTarget(TargetName, Package),
-}
 
 pub(crate) struct TargetsArtifacts {
     providers_label: ConfiguredProvidersLabel,
@@ -154,11 +147,8 @@ async fn retrieve_artifacts_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            if let Some(missing) = targets
-                .iter()
-                .find(|&t| !available_targets.contains_key(&t.0))
-            {
-                return Err(TargetsError::UnknownTarget(missing.0.dupe(), package.dupe()).into());
+            for (target, _provider) in &targets {
+                res.resolve_target(target)?;
             }
             targets.into_map(|t| {
                 (

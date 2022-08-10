@@ -505,7 +505,6 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
 
     # See https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit for how to decode this
     DARK_RED = re.escape("\033[38;5;1m")
-    DEFAULT = re.escape("\033[39m")
 
     execution_error = "Action failed: "
     assert_occurrences_regex(execution_error, e.stderr, 3)
@@ -524,9 +523,7 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
 
     e = await expect_failure(buck.build("--console=super", "//:non_existent"))
 
-    target_error = (
-        f"{DARK_RED}Unknown target `non_existent` from package `root//`{DEFAULT}"
-    )
+    target_error = f"{DARK_RED}Unknown target `non_existent` from package `root//`"
     assert_occurrences("\x1b[38;5;1mBUILD FAILED\x1b[39m", e.stderr, 1)
     assert_occurrences_regex(target_error, e.stderr, 1)
 

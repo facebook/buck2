@@ -32,7 +32,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetName;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_test::downward_api::BuckTestDownwardApi;
 use buck2_test::executor_launcher::ExecutorLaunch;
@@ -60,18 +59,11 @@ use serde::Serialize;
 use test_api::data::TestResult;
 use test_api::data::TestStatus;
 use test_api::protocol::TestExecutor;
-use thiserror::Error;
 
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
 use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::server::ServerCommandContext;
-
-#[derive(Debug, Error)]
-pub(crate) enum TestError {
-    #[error("Unknown target `{0}` from package `{1}`")]
-    UnknownTarget(TargetName, Package),
-}
 
 #[derive(Debug, Serialize)]
 pub(crate) struct TestReport {
@@ -490,7 +482,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         self.work.push(
             async move {
                 let res = state.ctx.get_interpreter_results(&package).await?;
-                let SpecTargets { labels, skippable } = spec_to_targets(&package, spec, res)?;
+                let SpecTargets { labels, skippable } = spec_to_targets(spec, res)?;
 
                 let labels = labels.into_map(|(target, providers_name)| {
                     ProvidersLabel::new(TargetLabel::new(package.dupe(), target), providers_name)
@@ -576,7 +568,6 @@ struct SpecTargets {
 }
 
 fn spec_to_targets(
-    package: &Package,
     spec: PackageSpec<ProvidersPattern>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<SpecTargets> {
@@ -595,17 +586,13 @@ fn spec_to_targets(
             })
         }
         PackageSpec::Targets(labels) => {
-            if let Some(missing) = labels
-                .iter()
-                .find(|t| !available_targets.contains_key(&t.0))
-            {
-                Err(TestError::UnknownTarget(missing.0.dupe(), package.dupe()).into())
-            } else {
-                Ok(SpecTargets {
-                    labels,
-                    skippable: false,
-                })
+            for (target, _provider) in &labels {
+                res.resolve_target(target)?;
             }
+            Ok(SpecTargets {
+                labels,
+                skippable: false,
+            })
         }
     }
 }

@@ -53,7 +53,6 @@ use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use itertools::Itertools;
-use thiserror::Error;
 use tracing::info;
 
 use crate::daemon::build::results::build_report::BuildReportCollector;
@@ -68,12 +67,6 @@ use crate::daemon::common::ConvertMaterializationContext;
 use crate::daemon::server::ServerCommandContext;
 
 pub mod results;
-
-#[derive(Debug, Error)]
-pub(crate) enum BuildError {
-    #[error("Unknown target `{0}` from package `{1}`")]
-    UnknownTarget(TargetName, Package),
-}
 
 #[derive(Debug)]
 pub(crate) struct BuildResult {
@@ -407,11 +400,8 @@ async fn build_targets_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            if let Some(missing) = targets
-                .iter()
-                .find(|(t, _)| !available_targets.contains_key(t))
-            {
-                return Err(BuildError::UnknownTarget(missing.0.dupe(), package.dupe()).into());
+            for (target, _provider) in &targets {
+                res.resolve_target(target)?;
             }
             targets.into_map(|(t, p)| TargetBuildSpec {
                 target: ProvidersLabel::new(TargetLabel::new(package.dupe(), t), p),

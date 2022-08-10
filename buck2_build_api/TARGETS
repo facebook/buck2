@@ -53,6 +53,7 @@ rust_library(
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:static_assertions",
+        "fbsource//third-party/rust:strsim",
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
