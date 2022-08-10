@@ -59,7 +59,12 @@ def get_android_binary_native_library_info(
         native_libs_for_primary_apk += platform_stripped_native_linkables_for_primary_apk
 
     if is_packaging_native_libs_as_assets_supported and native_lib_assets:
-        native_lib_assets.append(_get_native_libs_as_assets_metadata(ctx, native_lib_assets))
+        metadata_file, native_library_paths = _get_native_libs_as_assets_metadata(ctx, native_lib_assets)
+        if ctx.attrs.compress_asset_libraries:
+            compressed_libs = _get_compressed_native_libs_as_assets(ctx, native_lib_assets, native_library_paths)
+            native_lib_assets = [metadata_file, compressed_libs]
+        else:
+            native_lib_assets.append(metadata_file)
 
     return AndroidBinaryNativeLibsInfo(
         apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
@@ -126,15 +131,35 @@ def _get_native_linkables(
 
 def _get_native_libs_as_assets_metadata(
         ctx: "context",
-        native_lib_assets: ["artifact"]) -> "artifact":
+        native_lib_assets: ["artifact"]) -> ("artifact", "artifact"):
     native_lib_assets_file = ctx.actions.write("native_lib_assets", [cmd_args([native_lib_asset, _NATIVE_LIBS_AS_ASSETS_DIR], delimiter = "/") for native_lib_asset in native_lib_assets])
-    output = ctx.actions.declare_output("native_libs_as_assets_metadata.txt")
+    metadata_output = ctx.actions.declare_output("native_libs_as_assets_metadata.txt")
+    native_library_paths = ctx.actions.declare_output("native_libs_as_assets_paths.txt")
     metadata_cmd = cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].native_libs_as_assets_metadata[RunInfo],
         "--native-library-dirs",
         native_lib_assets_file,
-        "--output",
-        output.as_output(),
+        "--metadata-output",
+        metadata_output.as_output(),
+        "--native-library-paths-output",
+        native_library_paths.as_output(),
     ]).hidden(native_lib_assets)
     ctx.actions.run(metadata_cmd, category = "get_native_libs_as_assets_metadata")
-    return ctx.actions.symlinked_dir("native_libs_as_assets_metadata", {paths.join(_NATIVE_LIBS_AS_ASSETS_DIR, "metadata.txt"): output})
+    return ctx.actions.symlinked_dir("native_libs_as_assets_metadata", {paths.join(_NATIVE_LIBS_AS_ASSETS_DIR, "metadata.txt"): metadata_output}), native_library_paths
+
+def _get_compressed_native_libs_as_assets(
+        ctx: "context",
+        native_lib_assets: ["artifact"],
+        native_library_paths: "artifact") -> "artifact":
+    output_dir = ctx.actions.declare_output("compressed_native_libs_as_assets_dir")
+    compressed_libraries_cmd = cmd_args([
+        ctx.attrs._android_toolchain[AndroidToolchainInfo].compress_libraries[RunInfo],
+        "--libraries",
+        native_library_paths,
+        "--output-dir",
+        output_dir.as_output(),
+        "--xz-compression-level",
+        str(ctx.attrs.xz_compression_level),
+    ]).hidden(native_lib_assets)
+    ctx.actions.run(compressed_libraries_cmd, category = "compress_native_libs_as_assets")
+    return ctx.actions.symlinked_dir("compress_native_libs_as_assets", {_NATIVE_LIBS_AS_ASSETS_DIR: output_dir})

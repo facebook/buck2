@@ -6,6 +6,7 @@ def config_backed_android_toolchain(
         name,
         apk_builder,
         apk_module_graph,
+        compress_libraries,
         d8_command,
         multi_dex_command,
         copy_string_resources,
@@ -43,6 +44,7 @@ def config_backed_android_toolchain(
 
     kwargs["apk_builder"] = apk_builder
     kwargs["apk_module_graph"] = apk_module_graph
+    kwargs["compress_libraries"] = compress_libraries
     kwargs["d8_command"] = d8_command
     kwargs["multi_dex_command"] = multi_dex_command
     kwargs["filter_dex_class_names"] = filter_dex_class_names
@@ -89,6 +91,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             android_jar = ctx.attrs.android_jar,
             apk_builder = ctx.attrs.apk_builder,
             apk_module_graph = ctx.attrs.apk_module_graph,
+            compress_libraries = ctx.attrs.compress_libraries,
             d8_command = ctx.attrs.d8_command,
             filter_dex_class_names = ctx.attrs.filter_dex_class_names,
             filter_prebuilt_native_library_dir = ctx.attrs.filter_prebuilt_native_library_dir,
@@ -125,6 +128,7 @@ _config_backed_android_toolchain_rule = rule(
         "android_optional_jars": attrs.list(attrs.source()),
         "apk_builder": attrs.dep(providers = [RunInfo]),
         "apk_module_graph": attrs.dep(providers = [RunInfo]),
+        "compress_libraries": attrs.dep(providers = [RunInfo]),
         "copy_string_resources": attrs.dep(providers = [RunInfo]),
         "d8_command": attrs.dep(providers = [RunInfo]),
         "filter_dex_class_names": attrs.dep(providers = [RunInfo]),
