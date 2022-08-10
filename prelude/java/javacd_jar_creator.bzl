@@ -203,6 +203,8 @@ def create_jar_artifact_javacd(
                 source_only_abi_deps_filter = {}
                 for d in source_only_abi_deps:
                     info = d[JavaLibraryInfo]
+                    if not info:
+                        fail("source_only_abi_deps must produce a JavaLibraryInfo but {} does not, please remove it".format(d))
                     if info.library_output:
                         source_only_abi_deps_filter[info.library_output] = True
 
