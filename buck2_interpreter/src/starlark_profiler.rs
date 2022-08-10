@@ -16,7 +16,9 @@ use anyhow::Context;
 use gazebo::dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
+use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
+use starlark::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
 enum StarlarkProfilerError {
@@ -27,6 +29,8 @@ enum StarlarkProfilerError {
         (which freezes the module)"
     )]
     RetainedMemoryNotFrozen,
+    #[error("profile mode and profile data are inconsistent (internal error)")]
+    InconsistentProfileModeAndProfileData,
 }
 
 /// When profiling Starlark file, all dependencies of that file must be
@@ -99,6 +103,36 @@ impl StarlarkProfiler for Disabled {
     }
 }
 
+/// Collected profile data.
+enum StarlarkProfileData {
+    /// Collected from `Evaluator`.
+    Evaluator(ProfileData),
+    /// Collected from `FrozenModule`.
+    Frozen(AggregateHeapProfileInfo),
+}
+
+impl StarlarkProfileData {
+    fn gen(&self, profile_mode: &ProfileMode) -> anyhow::Result<String> {
+        match (self, profile_mode) {
+            (StarlarkProfileData::Evaluator(data), _) => Ok(data.gen()),
+            (StarlarkProfileData::Frozen(data), ProfileMode::HeapSummaryRetained) => {
+                Ok(data.gen_summary_csv())
+            }
+            (StarlarkProfileData::Frozen(data), ProfileMode::HeapFlameRetained) => {
+                Ok(data.gen_flame_graph())
+            }
+            (StarlarkProfileData::Frozen(_), _) => {
+                Err(StarlarkProfilerError::InconsistentProfileModeAndProfileData.into())
+            }
+        }
+    }
+
+    fn write(&self, path: &Path, profile_mode: &ProfileMode) -> anyhow::Result<()> {
+        let data = self.gen(profile_mode)?;
+        fs::write(path, data).with_context(|| format!("write profile data to `{}`", path.display()))
+    }
+}
+
 pub struct StarlarkProfilerImpl {
     profile_mode: ProfileMode,
     /// Evaluation will freeze the module.
@@ -107,7 +141,7 @@ pub struct StarlarkProfilerImpl {
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
-    profile_data: Option<String>,
+    profile_data: Option<StarlarkProfileData>,
     total_allocated_bytes: Option<usize>,
 }
 
@@ -133,14 +167,10 @@ impl StarlarkProfilerImpl {
     }
 
     pub fn write(&mut self, path: &Path) -> anyhow::Result<()> {
-        fs::write(
-            path,
-            self.profile_data
-                .as_ref()
-                .context("profile_data not initialized (internal error)")?
-                .as_bytes(),
-        )
-        .with_context(|| format!("Could not write profile data to `{}`", path.display()))
+        self.profile_data
+            .as_ref()
+            .context("profile_data not initialized (internal error)")?
+            .write(path, &self.profile_mode)
     }
 }
 
@@ -163,7 +193,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
             self.profile_mode,
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
         ) {
-            self.profile_data = Some(eval.gen_profile()?.gen());
+            self.profile_data = Some(StarlarkProfileData::Evaluator(eval.gen_profile()?));
         }
         Ok(())
     }
@@ -174,15 +204,10 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
         }
 
         match self.profile_mode {
-            ProfileMode::HeapSummaryRetained => {
+            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
                 let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
-                let profile = module.gen_heap_summary_profile()?;
-                self.profile_data = Some(profile);
-            }
-            ProfileMode::HeapFlameRetained => {
-                let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
-                let profile = module.gen_heap_flame_profile()?;
-                self.profile_data = Some(profile);
+                let profile = module.aggregated_heap_profile_info()?.clone();
+                self.profile_data = Some(StarlarkProfileData::Frozen(profile));
             }
             _ => {}
         }
