@@ -48,6 +48,7 @@ extra_attributes = {
         ),
     },
     "kotlin_test": {
+        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
