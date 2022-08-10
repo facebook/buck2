@@ -38,3 +38,13 @@ buck_genrule(
     cmd = "$(exe :lib_test) | grep PASS > $OUT",
     out = "out.txt",
 )
+
+native.go_test(
+    name = "resources_test",
+    srcs = [
+        "resources_test.go",
+    ],
+    resources = [
+        "testdata/input",
+    ],
+)
