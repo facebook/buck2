@@ -57,6 +57,7 @@ use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 #[derive(Debug, Error)]
 enum WriteJsonActionValidationError {
@@ -176,6 +177,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     }
                 }
             }
+        } else if let Some(x) = self.value.as_provider() {
+            serializer.collect_map(x.items().iter().map(|(k, v)| (k, self.with_value(*v))))
         } else {
             Err(serde::ser::Error::custom(format!(
                 "Type `{}` is not supported by `write_json`",

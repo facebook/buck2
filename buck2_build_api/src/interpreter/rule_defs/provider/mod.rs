@@ -126,7 +126,7 @@ pub(crate) fn provider_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-trait ValueAsProviderLike<'v> {
+pub(crate) trait ValueAsProviderLike<'v> {
     fn as_provider(&self) -> Option<&'v dyn ProviderLike<'v>>;
 }
 

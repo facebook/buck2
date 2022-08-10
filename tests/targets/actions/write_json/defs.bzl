@@ -57,6 +57,17 @@ def _check_enum_value(x):
     if a != b:
         fail("Enum values should match, got " + repr(x))
 
+TestProvider = provider(fields = ["foo"])
+
+def _create_provider_value(ctx: "context"):
+    a = ctx.actions.write("path/test.txt", "")
+    return [TestProvider(foo = a), a]
+
+def _check_provider_value(x):
+    [prov, a] = x
+    if prov["foo"] != a:
+        fail("Provider values should match, got " + repr(x))
+
 tests = [
     ("atom", lambda _: "test", "test"),
     ("simple", lambda _: [1], [1]),
@@ -73,6 +84,7 @@ tests = [
     ("cmdargs_concat", lambda _: {"test": cmd_args("abc", delimiter = "")}, {"test": "abc"}),
     ("cmdargs_artifact", _create_cmdargs_artifact, _check_cmdargs_artifact),
     ("enum", _create_enum_value, _check_enum_value),
+    ("provider", _create_provider_value, _check_provider_value),
 ]
 
 def _write_json_test_impl(ctx: "context") -> ["provider"]:
