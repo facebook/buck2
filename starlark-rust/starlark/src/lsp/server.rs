@@ -67,7 +67,31 @@ use serde::Serializer;
 
 use crate::analysis::DefinitionLocation;
 use crate::analysis::LspModule;
+use crate::lsp::server::LoadContentsError::WrongScheme;
 use crate::syntax::AstModule;
+
+/// The request to get the file contents for a starlark: URI
+struct StarlarkFileContentsRequest {}
+
+impl lsp_types::request::Request for StarlarkFileContentsRequest {
+    type Params = StarlarkFileContentsParams;
+    type Result = StarlarkFileContentsResponse;
+    const METHOD: &'static str = "starlark/fileContents";
+}
+
+/// Params to get the file contents for a starlark: URI.
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")] // camelCase to match idioms in LSP spec / typescript land.
+struct StarlarkFileContentsParams {
+    uri: LspUrl,
+}
+
+/// The contents of a starlark: URI if available.
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")] // camelCase to match idioms in LSP spec / typescript land.
+struct StarlarkFileContentsResponse {
+    contents: Option<String>,
+}
 
 /// Errors that can happen when converting LspUrl and Url to/from each other.
 #[derive(thiserror::Error, Debug)]
@@ -370,6 +394,18 @@ impl<T: LspContext> Backend<T> {
         self.send_response(new_response(id, self.find_definition(params)));
     }
 
+    /// Get the file contents of a starlark: URI.
+    fn get_starlark_file_contents(&self, id: RequestId, params: StarlarkFileContentsParams) {
+        let response: anyhow::Result<_> = match params.uri {
+            LspUrl::Starlark(_) => self
+                .context
+                .get_load_contents(&params.uri)
+                .map(|contents| StarlarkFileContentsResponse { contents }),
+            _ => Err(WrongScheme("starlark:".to_owned(), params.uri).into()),
+        };
+        self.send_response(new_response(id, response));
+    }
+
     fn resolve_load_path(&self, path: &str, current_uri: &LspUrl) -> anyhow::Result<LspUrl> {
         match current_uri {
             LspUrl::File(_) => self.context.resolve_load(path, current_uri),
@@ -528,6 +564,8 @@ impl<T: LspContext> Backend<T> {
                     //            be handled client side.
                     if let Some(params) = as_request::<GotoDefinition>(&req) {
                         self.goto_definition(req.id, params);
+                    } else if let Some(params) = as_request::<StarlarkFileContentsRequest>(&req) {
+                        self.get_starlark_file_contents(req.id, params);
                     } else if self.connection.handle_shutdown(&req)? {
                         return Ok(());
                     }
@@ -685,6 +723,10 @@ mod test {
     use crate::analysis::FixtureWithRanges;
     use crate::codemap::ResolvedSpan;
     use crate::lsp::server::LspServerSettings;
+    use crate::lsp::server::LspUrl;
+    use crate::lsp::server::StarlarkFileContentsParams;
+    use crate::lsp::server::StarlarkFileContentsRequest;
+    use crate::lsp::server::StarlarkFileContentsResponse;
     use crate::lsp::test::TestServer;
 
     fn goto_definition_request(
@@ -1486,6 +1528,31 @@ mod test {
             .is_some();
 
         assert!(goto_definition_enabled);
+        Ok(())
+    }
+
+    #[test]
+    fn returns_starlark_file_contents() -> anyhow::Result<()> {
+        let mut server = TestServer::new()?;
+
+        let uri = LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)?;
+        let req = server.new_request::<StarlarkFileContentsRequest>(StarlarkFileContentsParams {
+            uri: uri.clone(),
+        });
+        let request_id = server.send_request(req)?;
+        let response = server.get_response::<StarlarkFileContentsResponse>(request_id)?;
+        assert_eq!(
+            server.docs_as_code(&uri).unwrap(),
+            response.contents.unwrap()
+        );
+
+        let req = server.new_request::<StarlarkFileContentsRequest>(StarlarkFileContentsParams {
+            uri: LspUrl::try_from(Url::parse("starlark:/native/not_builtin.bzl")?)?,
+        });
+        let request_id = server.send_request(req)?;
+        let response = server.get_response::<StarlarkFileContentsResponse>(request_id)?;
+        assert!(response.contents.is_none());
+
         Ok(())
     }
 }

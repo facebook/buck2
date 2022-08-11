@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::iter;
@@ -38,6 +39,10 @@ use starlark::lsp::server::ResolveLoadError;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::values::docs::get_registered_docs;
+use starlark::values::docs::render_docs_as_code;
+use starlark::values::docs::Doc;
+use starlark::values::docs::DocItem;
 
 #[derive(Debug)]
 pub(crate) enum ContextMode {
@@ -51,6 +56,7 @@ pub(crate) struct Context {
     pub(crate) print_non_none: bool,
     pub(crate) prelude: Vec<FrozenModule>,
     pub(crate) module: Option<Module>,
+    pub(crate) builtin_docs: HashMap<LspUrl, String>,
 }
 
 /// The outcome of evaluating (checking, parsing or running) given starlark code.
@@ -84,13 +90,34 @@ impl Context {
         } else {
             None
         };
+        let mut builtins: HashMap<LspUrl, Vec<Doc>> = HashMap::new();
+        for doc in get_registered_docs() {
+            let uri = Self::url_for_doc(&doc);
+            builtins.entry(uri).or_default().push(doc);
+        }
+        let builtin_docs = builtins
+            .into_iter()
+            .map(|(u, ds)| (u, render_docs_as_code(&ds).join("\n\n")))
+            .collect();
 
         Ok(Self {
             mode,
             print_non_none,
             prelude,
             module,
+            builtin_docs,
         })
+    }
+
+    fn url_for_doc(doc: &Doc) -> LspUrl {
+        let url = match &doc.item {
+            DocItem::Module(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
+            DocItem::Object(_) => {
+                Url::parse(&format!("starlark:/native/builtins/{}.bzl", doc.id.name)).unwrap()
+            }
+            DocItem::Function(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
+        };
+        LspUrl::try_from(url).unwrap()
     }
 
     fn new_module(prelude: &[FrozenModule]) -> Module {
@@ -271,6 +298,7 @@ impl LspContext for Context {
                 },
                 false => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
             },
+            LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
             _ => Err(LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into()),
         }
     }

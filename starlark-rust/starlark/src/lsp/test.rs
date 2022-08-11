@@ -19,6 +19,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -68,6 +69,12 @@ use crate::lsp::server::ResolveLoadError;
 use crate::lsp::server::StringLiteralResult;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::values::docs::render_docs_as_code;
+use crate::values::docs::Doc;
+use crate::values::docs::DocItem;
+use crate::values::docs::Function;
+use crate::values::docs::Identifier;
+use crate::values::docs::Location;
 
 /// Get the path from a URL, trimming off things like the leading slash that gets
 /// appended in some windows test environments.
@@ -99,13 +106,14 @@ pub(crate) enum TestServerError {
 struct TestServerContext {
     file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
     dirs: Arc<RwLock<HashSet<PathBuf>>>,
+    builtin_docs: Arc<HashMap<LspUrl, String>>,
 }
 
 impl LspContext for TestServerContext {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match uri {
-            LspUrl::File(uri) => {
-                match AstModule::parse(&uri.to_string_lossy(), content, &Dialect::Extended) {
+            LspUrl::File(path) | LspUrl::Starlark(path) => {
+                match AstModule::parse(&path.to_string_lossy(), content, &Dialect::Extended) {
                     Ok(ast) => {
                         let diagnostics = ast.lint(None).into_map(|l| EvalMessage::from(l).into());
                         LspEvalResult {
@@ -114,7 +122,7 @@ impl LspContext for TestServerContext {
                         }
                     }
                     Err(e) => {
-                        let diagnostics = vec![EvalMessage::from_anyhow(uri, &e).into()];
+                        let diagnostics = vec![EvalMessage::from_anyhow(path, &e).into()];
                         LspEvalResult {
                             diagnostics,
                             ast: None,
@@ -196,6 +204,7 @@ impl LspContext for TestServerContext {
                     (false, _) => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
                 }
             }
+            LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
             _ => Ok(None),
         }
     }
@@ -223,6 +232,8 @@ pub struct TestServer {
     dirs: Arc<RwLock<HashSet<PathBuf>>>,
     /// If it's been received, the response payload for initialization.
     initialize_response: Option<InitializeResult>,
+    /// Documentation for built in symbols.
+    builtin_docs: Arc<HashMap<LspUrl, String>>,
 }
 
 impl Drop for TestServer {
@@ -255,6 +266,49 @@ impl Drop for TestServer {
 }
 
 impl TestServer {
+    pub(crate) fn docs_as_code(&self, uri: &LspUrl) -> Option<String> {
+        self.builtin_docs.get(uri).cloned()
+    }
+
+    /// A static set of "builtins" to use for testing
+    fn testing_builtins(root: &Path) -> anyhow::Result<HashMap<LspUrl, Vec<Doc>>> {
+        let prelude_path = root.join("dir/prelude.bzl");
+        let ret = hashmap! {
+            LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)? => vec![
+                Doc {
+                    id: Identifier {
+                        name: "native_function1".to_owned(),
+                        location: None,
+                    },
+                    item: DocItem::Function(Function::default()),
+                    custom_attrs: Default::default(),
+                },
+                Doc {
+                    id: Identifier {
+                        name: "native_function2".to_owned(),
+                        location: None,
+                    },
+                    item: DocItem::Function(Function::default()),
+                    custom_attrs: Default::default(),
+                },
+            ],
+            LspUrl::try_from(Url::from_file_path(prelude_path).unwrap())? => vec![
+                Doc {
+                    id: Identifier {
+                        name: "prelude_function".to_owned(),
+                        location: Some(Location {
+                            path: "//dir/prelude.bzl".to_owned(),
+                            position: None,
+                        }),
+                    },
+                    item: DocItem::Function(Function::default()),
+                    custom_attrs: Default::default(),
+                },
+            ]
+        };
+        Ok(ret)
+    }
+
     /// Generate a new request ID
     fn next_request_id(&mut self) -> RequestId {
         self.req_counter += 1;
@@ -281,11 +335,25 @@ impl TestServer {
     pub(crate) fn new_with_settings(settings: Option<LspServerSettings>) -> anyhow::Result<Self> {
         let (server_connection, client_connection) = Connection::memory();
 
-        let file_contents = Arc::new(RwLock::new(HashMap::new()));
+        let builtin_docs = Arc::new(
+            Self::testing_builtins(&std::env::current_dir()?)?
+                .into_iter()
+                .map(|(u, ds)| (u, render_docs_as_code(&ds).join("\n\n")))
+                .collect::<HashMap<_, _>>(),
+        );
+        let prelude_file_contents = builtin_docs
+            .iter()
+            .filter_map(|(u, d)| match u {
+                LspUrl::File(p) => Some((p.clone(), d.clone())),
+                _ => None,
+            })
+            .collect();
+        let file_contents = Arc::new(RwLock::new(prelude_file_contents));
         let dirs = Arc::new(RwLock::new(HashSet::new()));
         let ctx = TestServerContext {
             file_contents: file_contents.dupe(),
             dirs: dirs.dupe(),
+            builtin_docs: builtin_docs.dupe(),
         };
 
         let server_thread = std::thread::spawn(|| {
@@ -305,6 +373,7 @@ impl TestServer {
             file_contents,
             dirs,
             initialize_response: None,
+            builtin_docs,
         };
         ret.initialize(settings)
     }
