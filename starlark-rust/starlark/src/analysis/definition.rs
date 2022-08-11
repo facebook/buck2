@@ -60,6 +60,9 @@ pub enum DefinitionLocation {
         source: ResolvedSpan,
         literal: String,
     },
+    /// A named symbol was found, but it was not found in any of the current scopes. It
+    /// should be considered a global symbol, and attempted to be resolved externally.
+    Unresolved { source: ResolvedSpan, name: String },
     /// Either the provided location was not an access of a variable, or no definition
     /// could be found.
     NotFound,
@@ -178,6 +181,7 @@ impl LspModule {
         let line_span = self.ast.codemap.line_span(line as usize);
         let current_pos = std::cmp::min(line_span.begin() + col, line_span.end());
 
+        // Finalize the results after recursing down from and back up to the the top level scope.
         match find_definition_in_scope(&scope, current_pos) {
             Definition::Location {
                 source,
@@ -187,7 +191,10 @@ impl LspModule {
                 destination: self.ast.codemap.resolve_span(destination),
             },
             Definition::Name { source, name } => match scope.bound.get(name) {
-                None => DefinitionLocation::NotFound,
+                None => DefinitionLocation::Unresolved {
+                    source: self.ast.codemap.resolve_span(source),
+                    name: name.to_owned(),
+                },
                 Some((Assigner::Load { path, name }, span)) => DefinitionLocation::LoadedLocation {
                     source: self.ast.codemap.resolve_span(source),
                     destination: self.ast.codemap.resolve_span(*span),
@@ -728,7 +735,10 @@ mod test {
             module.find_definition(parsed.begin_line("y_var2"), parsed.begin_column("y_var2"))
         );
         assert_eq!(
-            DefinitionLocation::NotFound,
+            DefinitionLocation::Unresolved {
+                source: parsed.span("z_var"),
+                name: "z".to_owned()
+            },
             module.find_definition(parsed.begin_line("z_var"), parsed.begin_column("z_var"))
         );
         Ok(())
