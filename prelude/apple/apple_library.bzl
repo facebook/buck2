@@ -71,7 +71,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     else:
         modulemap_pre = None
 
-    swift_compile = compile_swift(ctx, swift_srcs, exported_hdrs, modulemap_pre)
+    swift_compile = compile_swift(ctx, swift_srcs, exported_hdrs, modulemap_pre, params.extra_swift_compiler_flags)
     swift_object_files = swift_compile.object_files if swift_compile else []
 
     swift_pre = CPreprocessor()

@@ -1,4 +1,5 @@
 load("@fbcode//buck2/prelude/apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
+load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
     "@fbcode//buck2/prelude/cxx:compile.bzl",
     "CxxExtension",  # @unused Used as a type
@@ -26,7 +27,8 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
         ctx,
         AppleLibraryAdditionalParams(
             rule_type = "apple_test",
-            extra_exported_link_flags = _get_bundle_loader_flags(test_host_app_binary),
+            extra_exported_link_flags = _get_xctest_framework_linker_flags(ctx) + _get_bundle_loader_flags(test_host_app_binary),
+            extra_swift_compiler_flags = _get_xctest_framework_search_paths_flags(ctx),
             shared_library_flags = SharedLibraryFlagOverrides(
                 # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
                 shared_library_name_linker_flags_format = [],
@@ -147,3 +149,27 @@ def _xcode_populate_attributes(
     if test_host_app_binary:
         data["test_host_app_binary"] = test_host_app_binary
     return data
+
+def _get_xctest_framework_search_paths(ctx: "context") -> ("cmd_args", "cmd_args"):
+    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+    xctest_swiftmodule_search_path = cmd_args([toolchain.platform_path, "Developer/usr/lib"], delimiter = "/")
+    xctest_framework_search_path = cmd_args([toolchain.platform_path, "Developer/Library/Frameworks"], delimiter = "/")
+    return (xctest_swiftmodule_search_path, xctest_framework_search_path)
+
+def _get_xctest_framework_search_paths_flags(ctx: "context") -> [["cmd_args", str.type]]:
+    xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
+    return [
+        "-I",
+        xctest_swiftmodule_search_path,
+        "-F",
+        xctest_framework_search_path,
+    ]
+
+def _get_xctest_framework_linker_flags(ctx: "context") -> [["cmd_args", str.type]]:
+    xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
+    return [
+        "-L",
+        xctest_swiftmodule_search_path,
+        "-F",
+        xctest_framework_search_path,
+    ]

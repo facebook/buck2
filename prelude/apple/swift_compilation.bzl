@@ -62,7 +62,8 @@ def compile_swift(
         ctx: "context",
         srcs: [CxxSrcWithFlags.type],
         exported_headers: [CHeader.type],
-        objc_modulemap_pp_info: ["CPreprocessor", None]) -> ["SwiftCompilationOutput", None]:
+        objc_modulemap_pp_info: ["CPreprocessor", None],
+        extra_search_paths_flags: ["_arglike"] = []) -> ["SwiftCompilationOutput", None]:
     if not srcs:
         return None
 
@@ -74,7 +75,14 @@ def compile_swift(
     output_object = ctx.actions.declare_output(module_name + ".o")
     output_swiftmodule = ctx.actions.declare_output(module_name + ".swiftmodule")
 
-    shared_flags = _get_shared_flags(ctx, module_name, srcs, exported_headers, objc_modulemap_pp_info)
+    shared_flags = _get_shared_flags(
+        ctx,
+        module_name,
+        srcs,
+        exported_headers,
+        objc_modulemap_pp_info,
+        extra_search_paths_flags,
+    )
 
     _compile_swiftmodule(ctx, toolchain, shared_flags, output_swiftmodule, unprocessed_header)
     _compile_object(ctx, toolchain, shared_flags, output_object)
@@ -198,7 +206,8 @@ def _get_shared_flags(
         module_name: str.type,
         srcs: [CxxSrcWithFlags.type],
         objc_headers: [CHeader.type],
-        objc_modulemap_pp_info: ["CPreprocessor", None]) -> "cmd_args":
+        objc_modulemap_pp_info: ["CPreprocessor", None],
+        extra_search_paths_flags: ["_arglike"] = []) -> "cmd_args":
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
     cmd.add([
@@ -261,6 +270,7 @@ def _get_shared_flags(
     # Add toolchain and target flags last to allow for overriding defaults
     cmd.add(toolchain.compiler_flags)
     cmd.add(ctx.attrs.swift_compiler_flags)
+    cmd.add(extra_search_paths_flags)
 
     return cmd
 
