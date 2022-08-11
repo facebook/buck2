@@ -104,6 +104,7 @@ impl StarlarkProfiler for Disabled {
 }
 
 /// Collected profile data.
+#[derive(Debug)]
 enum StarlarkProfileData {
     /// Collected from `Evaluator`.
     Evaluator(ProfileData),
@@ -133,6 +134,29 @@ impl StarlarkProfileData {
     }
 }
 
+#[derive(Debug)]
+pub struct StarlarkProfileDataAndStats {
+    profile_mode: ProfileMode,
+    profile_data: StarlarkProfileData,
+    initialized_at: Instant,
+    finalized_at: Instant,
+    total_allocated_bytes: usize,
+}
+
+impl StarlarkProfileDataAndStats {
+    pub fn elapsed(&self) -> Duration {
+        self.finalized_at.duration_since(self.initialized_at)
+    }
+
+    pub fn total_allocated_bytes(&self) -> usize {
+        self.total_allocated_bytes
+    }
+
+    pub fn write(&self, path: &Path) -> anyhow::Result<()> {
+        self.profile_data.write(path, &self.profile_mode)
+    }
+}
+
 pub struct StarlarkProfilerImpl {
     profile_mode: ProfileMode,
     /// Evaluation will freeze the module.
@@ -157,20 +181,23 @@ impl StarlarkProfilerImpl {
         }
     }
 
-    pub fn elapsed(&self) -> anyhow::Result<Duration> {
-        Ok(self.finalized_at.context("Did not finalize")?
-            - self.initialized_at.context("Did not initialize")?)
-    }
-
-    pub fn total_allocated_bytes(&self) -> anyhow::Result<usize> {
-        self.total_allocated_bytes.context("Did not visit heap")
-    }
-
-    pub fn write(&mut self, path: &Path) -> anyhow::Result<()> {
-        self.profile_data
-            .as_ref()
-            .context("profile_data not initialized (internal error)")?
-            .write(path, &self.profile_mode)
+    /// Collect all profiling data.
+    pub fn finish(self) -> anyhow::Result<StarlarkProfileDataAndStats> {
+        Ok(StarlarkProfileDataAndStats {
+            profile_mode: self.profile_mode,
+            initialized_at: self
+                .initialized_at
+                .context("did not initialize (internal error)")?,
+            finalized_at: self
+                .finalized_at
+                .context("did not finalize (internal error)")?,
+            total_allocated_bytes: self
+                .total_allocated_bytes
+                .context("did not visit heap (internal error)")?,
+            profile_data: self
+                .profile_data
+                .context("profile_data not initialized (internal error)")?,
+        })
     }
 }
 

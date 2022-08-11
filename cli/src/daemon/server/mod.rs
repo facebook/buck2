@@ -2339,11 +2339,13 @@ impl DaemonApi for BuckdServer {
                         )
                         .await?;
 
-                        profiler.write(&output)?;
+                        let profile_data = profiler.finish()?;
+
+                        profile_data.write(&output)?;
 
                         ProfileResponse {
-                            elapsed: Some(profiler.elapsed()?.into()),
-                            total_allocated_bytes: profiler.total_allocated_bytes()? as u64,
+                            elapsed: Some(profile_data.elapsed().into()),
+                            total_allocated_bytes: profile_data.total_allocated_bytes() as u64,
                         }
                     };
 
