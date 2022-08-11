@@ -56,7 +56,7 @@ fat_platform = execution_platform(
         "platform": "linux-remote-execution",
     } if host_is_mac else {
         "platform": "mac",
-        "subplatform": "xcode-13.2",
+        "subplatform": "xcode-13.4",
     },
     remote_execution_action_key_providers = [],
     remote_execution_max_input_files_mebibytes = 1000,
