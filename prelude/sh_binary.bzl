@@ -22,7 +22,7 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
     resources_dir = actions.declare_output("resources")
     actions.symlinked_dir(resources_dir, resources)
 
-    script_name = name + (".bat" if is_windows else ".sh")
+    script_name = name + (".bat" if is_windows else "")
     script = actions.declare_output(script_name)
 
     # This is much, much simpler than the buck1 sh_binary template. A couple reasons:
