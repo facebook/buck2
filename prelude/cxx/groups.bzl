@@ -170,13 +170,15 @@ def _find_targets_in_mapping(
     # Else find all dependencies that match the filter.
     matching_targets = {}
 
-    def matches_target(target: "label", labels: [str.type]) -> bool.type:
+    def matches_target(
+            target,  # "label"
+            labels) -> bool.type:  # labels: [str.type]
         if mapping.filter_type == FilterType("label"):
             return any([mapping.label_regex.match(label) for label in labels])
         else:
             return label_matches_build_target_pattern(target, mapping.build_target_pattern)
 
-    def find_matching_targets(node: "label") -> ["label"]:
+    def find_matching_targets(node):  # "label" -> ["label"]:
         graph_node = graph.nodes[node]
         if matches_target(node, graph_node.labels):
             matching_targets[node] = None
@@ -191,13 +193,14 @@ def _find_targets_in_mapping(
 
     return matching_targets.keys()
 
+# Types removed to avoid unnecessary type checking which degrades performance.
 def _update_target_to_group_mapping(
-        graph: [LinkableGraph.type, ResourceGraph.type],
-        target_to_group_map: {"label": str.type},
-        node_traversed_targets: {"label": None},
-        group: str.type,
-        mapping: GroupMapping.type,
-        target: "label"):
+        graph,  # [LinkableGraph.type, ResourceGraph.type]
+        target_to_group_map,  #: {"label": str.type}
+        node_traversed_targets,  #: {"label": None}
+        group,  #  str.type,
+        mapping,  # GroupMapping.type,
+        target):  # "label"
     def assign_target_to_group(
             target: "label",
             node_traversal: bool.type) -> bool.type:
