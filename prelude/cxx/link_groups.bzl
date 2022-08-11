@@ -67,7 +67,7 @@ def get_filtered_labels_to_links_map(
         link_style: LinkStyle.type,
         non_exported_deps: ["dependency"],
         prefer_stripped: bool.type = False,
-        is_library: bool.type = True) -> {"label": LinkGroupLinkInfo.type}:
+        is_executable_link: bool.type = False) -> {"label": LinkGroupLinkInfo.type}:
     """
     Given a linkable graph, link style and link group mappings, finds all links
     to consider for linking traversing the graph as necessary and then
@@ -121,16 +121,11 @@ def get_filtered_labels_to_links_map(
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 
-            # Don't put targets with NO_MATCH_LABEL into a link group
-            if is_library and target_link_group == NO_MATCH_LABEL:
-                continue
-
-            # Ungrouped linkable targets belong to the unlabeled executable
             if not target_link_group and not link_group:
+                # Ungrouped linkable targets belong to the unlabeled executable
                 add_link(target, actual_link_style)
+            elif is_executable_link and target_link_group == NO_MATCH_LABEL:
                 # Targets labeled NO_MATCH belong to the unlabeled executable
-
-            elif not is_library and target_link_group == NO_MATCH_LABEL:
                 add_link(target, actual_link_style)
             elif target_link_group == MATCH_ALL_LABEL or target_link_group == link_group:
                 # If this belongs to the match all link group or the group currently being evaluated
