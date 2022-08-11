@@ -157,6 +157,7 @@ use crate::daemon::test::test;
 use crate::daemon::uquery::uquery;
 use crate::paths::Paths;
 
+mod concurrency;
 mod file_watcher;
 pub(crate) mod lsp;
 mod snapshot;
