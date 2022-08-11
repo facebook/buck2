@@ -29,6 +29,8 @@ AppleLibraryAdditionalParams = record(
     rule_type = str.type,
     # Extra flags to be passed to the linker.
     extra_exported_link_flags = field(["_arglike"], []),
+    # Extra flags to be passed to the Swift compiler.
+    extra_swift_compiler_flags = field(["_arglike"], []),
     # Linker flags that tell the linker to create shared libraries, overriding the default shared library flags.
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.
