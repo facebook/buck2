@@ -411,6 +411,7 @@ message UnstableDocsRequest {
   ClientContext context = 1;
   repeated string symbol_patterns = 2;
   bool retrieve_builtins = 3;
+  bool retrieve_prelude = 4;
 }
 
 message UnstableDocsResponse {

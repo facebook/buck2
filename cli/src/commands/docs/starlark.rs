@@ -57,6 +57,12 @@ pub(crate) struct DocsStarlarkCommand {
     builtins: bool,
 
     #[clap(
+        long = "prelude",
+        help = "get documentation for the prelude, if present"
+    )]
+    prelude: bool,
+
+    #[clap(
         name = "SYMBOL_PATTERNS",
         help = "Patterns to interpret. //foo:bar.bzl is 'every symbol in //foo:bar.bzl', //foo:bar.bzl:baz only returns the documentation for the symbol 'baz' in //foo:bar.bzl"
     )]
@@ -81,6 +87,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                         context: Some(client_context),
                         symbol_patterns: self.patterns.clone(),
                         retrieve_builtins: self.builtins,
+                        retrieve_prelude: self.prelude,
                     })
                     .boxed()
             })

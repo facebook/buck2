@@ -36,6 +36,27 @@ async def test_builtin_docs(buck: Buck) -> None:
     assert any(name for (name, _) in builtins["item"]["members"] if name == "map")
 
 
+@buck_test(inplace=False, data_dir="docs")
+async def test_prelude_docs(buck: Buck) -> None:
+    result = await buck.docs_starlark(query_patterns=[], builtins=False, prelude=True)
+    result.check_returncode()
+    decoded = json.loads(result.stdout)
+    native = next(
+        x
+        for x in decoded
+        if x["id"]["name"] == "native" and x["id"]["location"] is not None
+    )
+    assert native
+    assert any(name for (name, _) in native["item"]["members"] if name == "foo")
+
+    foo = next(
+        x
+        for x in decoded
+        if x["id"]["name"] == "foo" and x["id"]["location"] is not None
+    )
+    assert foo
+
+
 EXPECTED: typing.Dict[str, object] = {
     "root//cell/dir:defs.bzl": {
         "id": {

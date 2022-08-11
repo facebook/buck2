@@ -7,6 +7,7 @@ ignore=ignored
 [repositories]
 root = .
 cell = cell
+prelude = prelude
 fbcode = fbcode
 fbsource = fbsource
 buck = buck

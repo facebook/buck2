@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::SourceArtifact;
+use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::callable::ProviderCallable;
@@ -36,12 +37,14 @@ use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
+use dice::DiceTransaction;
 use gazebo::prelude::*;
 use starlark::environment::Globals;
 use starlark::values::docs::get_registered_docs;
 use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
 use starlark::values::docs::Identifier;
+use starlark::values::docs::Member;
 use starlark::values::StarlarkValue;
 
 use crate::daemon::server::ServerCommandContext;
@@ -173,6 +176,60 @@ fn get_builtin_docs(
     Ok(all_builtins)
 }
 
+/// Get the documentation for exported symbols in the prelude
+///
+/// Creates top level docs for member functions of "native" too,
+/// presuming that those symbols don't already exist in `existing_globals`
+/// (to avoid re-exporting and overriding the real builtins if there is conflict)
+pub(crate) async fn get_prelude_docs(
+    ctx: &DiceTransaction,
+    existing_globals: &HashSet<&str>,
+) -> anyhow::Result<Vec<Doc>> {
+    let cells = ctx.get_cell_resolver().await?;
+    let prelude_path = prelude_path(&cells);
+    let interpreter_calculation = ctx
+        .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
+        .await?;
+    let mut prelude_docs = get_docs_from_module(&interpreter_calculation, prelude_path).await?;
+
+    let mut native_reexported = vec![];
+    let top_level_symbols = prelude_docs
+        .iter()
+        .map(|d| (d.id.name.as_str(), d))
+        .collect::<HashMap<_, _>>();
+
+    // All members of "native" are also available at the global scope. However, make sure
+    // that we don't overwrite already existing symbols with potentially less useful
+    // documentation when doing this.
+    if let Some(Doc {
+        id,
+        item: DocItem::Object(o),
+        custom_attrs,
+    }) = top_level_symbols.get("native")
+    {
+        // At the moment there is no top level documentation for a stand alone value, only
+        // functions, objects, and module docs appear at the top level.
+        for (name, member_doc) in &o.members {
+            let found_top_level = top_level_symbols.contains_key(name.as_str());
+            let found_existing = existing_globals.contains(name.as_str());
+            if !found_top_level && !found_existing {
+                if let Member::Function(f) = member_doc {
+                    native_reexported.push(Doc {
+                        id: Identifier {
+                            name: name.clone(),
+                            ..id.clone()
+                        },
+                        item: DocItem::Function(f.clone()),
+                        custom_attrs: custom_attrs.clone(),
+                    });
+                }
+            }
+        }
+    }
+    prelude_docs.extend(native_reexported);
+    Ok(prelude_docs)
+}
+
 async fn get_docs_from_module(
     interpreter_calc: &DiceCalculationDelegate<'_>,
     import_path: ImportPath,
@@ -253,6 +310,12 @@ pub(crate) async fn docs(
     } else {
         vec![]
     };
+
+    if request.retrieve_prelude {
+        let builtin_names = docs.iter().map(|d| d.id.name.as_str()).collect();
+        let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
+        docs.extend(prelude_docs);
+    }
 
     let module_calcs: Vec<_> = lookups
         .into_iter()
