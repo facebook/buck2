@@ -141,23 +141,33 @@ go_fbcode_toolchain(
 
 # Define fbcode-based Python toolchains.
 [
-    config_backed_python_toolchain(
-        flavor = platform_utils.get_buck_python_platform(platform, version),
-        # For fbcode platforms, we pick a host interpreter that's compatble with
-        # the target platform but can run on the exec platform (e.g. use
-        # platform010's py3.8 for py3.8 builds targeting platform010-aarch64).
-        host_interpreter = selects2.apply(
-            select({
-                "DEFAULT": None,
-                "ovr_config//runtime:fbcode": fbcode_toolchains.get_exec_fbcode_platform(platform),
-            }),
-            lambda platform: read_config(
-                "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
-                "interpreter",
+    [
+        config_backed_python_toolchain(
+            flavor = platform_utils.get_buck_python_platform(platform, version),
+            # For fbcode platforms, we pick a host interpreter that's compatble with
+            # the target platform but can run on the exec platform (e.g. use
+            # platform010's py3.8 for py3.8 builds targeting platform010-aarch64).
+            #
+            # Note that host_interpreter is special and this select will actually be pushed down
+            # into an exec_dep of the toolchain and will be resolved in the exec configuration.
+            # We encode information about the target configuration from the use of platform/version
+            # to construct the select.
+            #
+            # If we add more overridden values here, we should explicitly separate the exec-config part
+            # into a separate target here rather than in the macro.
+            host_interpreter = selects2.apply(
+                select({
+                    "DEFAULT": None,
+                    "ovr_config//runtime:fbcode": fbcode_toolchains.get_exec_fbcode_platform(platform),
+                }),
+                lambda platform: read_config(
+                    "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
+                    "interpreter",
+                ),
             ),
+            visibility = ["PUBLIC"],
         ),
-        visibility = ["PUBLIC"],
-    )
+    ]
     for platform, versions in _fbcode_python_platforms.items()
     for version in versions
 ]

@@ -1,5 +1,5 @@
 load(":apple_toolchain_setup.bzl", "default_apple_toolchain", "default_apple_xctoolchain", "resources_apple_toolchain")
-load(":defs.bzl", "toolchain")
+load(":defs.bzl", "toolchain", "toolchain_alias")
 load(":toolchains.bzl", "default_cxx_toolchain_inner", "default_haskell_toolchain_inner", "default_python_bootstrap_toolchain_inner", "default_python_toolchain_inner", "default_rust_toolchain_inner")
 
 # We use both `toolchain` and `toolchain_alias` here. Use `toolchain_alias` when the actual
@@ -11,9 +11,9 @@ toolchain(
     visibility = ["PUBLIC"],
 )
 
-toolchain(
+toolchain_alias(
     name = "python",
-    dep = default_python_toolchain_inner(),
+    actual = default_python_toolchain_inner(),
     visibility = ["PUBLIC"],
 )
 

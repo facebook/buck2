@@ -2,6 +2,27 @@ load("@fbcode//buck2/platform:utils.bzl", "read_bool")
 load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
 
+# We put some values into an execution dep so that we can have selects
+# that are resolved in the exec configuration.
+PythonToolchainExecConfigInfo = provider(fields = [
+    "host_interpreter",
+])
+
+def _python_toolchain_execution_config_impl(ctx):
+    return [
+        DefaultInfo(),
+        PythonToolchainExecConfigInfo(
+            host_interpreter = ctx.attrs.host_interpreter,
+        ),
+    ]
+
+_python_toolchain_execution_config = rule(
+    impl = _python_toolchain_execution_config_impl,
+    attrs = {
+        "host_interpreter": attrs.option(attrs.arg()),
+    },
+)
+
 # TODO(nmj): When upstream buildifier is landed, add types back
 #def config_backed_python_toolchain(flavor: str.type) -> None:
 def config_backed_python_toolchain(flavor, **kwargs):
@@ -26,20 +47,32 @@ def config_backed_python_toolchain(flavor, **kwargs):
                 kwargs[key] = val
                 break
 
+    # We want to be able to make decisions about the host interpreter based on the exec
+    # configuration (because it will be invoked as part of the build), so we push that
+    # to a helper target that's an exec dep.
+    host_interpreter = kwargs.pop("host_interpreter", None)
+    execution_config_name = "{}-exec".format(flavor)
+    _python_toolchain_execution_config(
+        name = execution_config_name,
+        host_interpreter = host_interpreter,
+    )
+
     _config_backed_python_toolchain_rule(
         name = flavor,
+        _execution_config = ":" + execution_config_name,
         **kwargs
     )
 
 # TODO(nmj): When upstream buildifier is landed, add types back
 #def _config_backed_python_toolchain_rule_impl(ctx: "context") -> ["provider"]:
 def _config_backed_python_toolchain_rule_impl(ctx):
+    exec_config = ctx.attrs._execution_config[PythonToolchainExecConfigInfo]
     return [
         DefaultInfo(),
         PythonToolchainInfo(
             compile = ctx.attrs.compile,
             interpreter = ctx.attrs.interpreter,
-            host_interpreter = value_or(ctx.attrs.host_interpreter, ctx.attrs.interpreter),
+            host_interpreter = value_or(exec_config.host_interpreter, ctx.attrs.interpreter),
             version = ctx.attrs.version,
             package_style = ctx.attrs.package_style,
             make_source_db = ctx.attrs.make_source_db,
@@ -63,10 +96,10 @@ def _config_backed_python_toolchain_rule_impl(ctx):
 
 _config_backed_python_toolchain_rule = rule(
     impl = _config_backed_python_toolchain_rule_impl,
+    is_toolchain_rule = True,
     attrs = {
         "cache_binaries": attrs.bool(default = True),
         "compile": attrs.source(default = "fbcode//buck2/prelude/python/tools:compile.py"),
-        "host_interpreter": attrs.option(attrs.arg()),
         "interpreter": attrs.arg(),
         "make_source_db": attrs.dep(default = "fbcode//buck2/prelude/python/tools:make_source_db"),
         "native_link_strategy": attrs.enum(native.python.NativeLinkStrategy.values()),
@@ -77,5 +110,6 @@ _config_backed_python_toolchain_rule = rule(
         "path_to_pex_modules": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_modules", providers = [RunInfo]),
         "pex_extension": attrs.string(default = ".par"),
         "version": attrs.string(),
+        "_execution_config": attrs.exec_dep(providers = [PythonToolchainExecConfigInfo]),
     },
 )
