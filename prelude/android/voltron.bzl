@@ -15,7 +15,8 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx", "flatten")
 # can find a path from an "always in main APK seed" to the target via some `provided_dep`,
 # whereas `buck2` does not).
 def android_app_modularity_impl(ctx: "context") -> ["provider"]:
-    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps)
+    all_deps = ctx.attrs.deps + flatten(ctx.attrs.application_module_configs.values())
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_deps)
 
     deps_infos = list(android_packageable_info.deps.traverse()) if android_packageable_info.deps else []
     deps_map = {deps_info.name: deps_info.deps for deps_info in deps_infos}
@@ -55,7 +56,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
 
     if ctx.attrs.should_include_classes:
         no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
-        java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, ctx.attrs.deps) if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
+        java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, all_deps) if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
         targets_to_jars_args = [cmd_args([str(packaging_dep.label.raw_target()), packaging_dep.jar], delimiter = " ") for packaging_dep in java_packaging_deps]
         targets_to_jars = ctx.actions.write("targets_to_jars.txt", targets_to_jars_args)
         cmd.add([
@@ -66,7 +67,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs.should_include_libraries:
         shared_library_info = merge_shared_libraries(
             ctx.actions,
-            deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps),
+            deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
         )
         targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), so_name, str(shared_lib.can_be_asset)], delimiter = " ") for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()]
         targets_to_so_names = ctx.actions.write("targets_to_so_names.txt", targets_to_so_names_args)
