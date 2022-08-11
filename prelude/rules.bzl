@@ -24,12 +24,6 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
         if "_cxx_toolchain" in attributes or "_apple_toolchain" in attributes:
             fat_platform_compatible = False
 
-    # Currently, python_binary hardcodes an interpreter path in the produced
-    # binary and so is incompatible. The solution here is probably to get the
-    # interpreter to be a target, instead of exec, dep
-    if name in ("python_binary",):
-        fat_platform_compatible = False
-
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
         attributes = dict(attributes)

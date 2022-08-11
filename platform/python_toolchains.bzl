@@ -1,6 +1,15 @@
 load("@fbcode//buck2/platform:utils.bzl", "read_bool")
 load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@fbcode//buck2/platform/execution/util.bzl", "fat_platform_incompatible")
+
+# These interpreters are distributed everywhere to mac and linux and so are
+# compatible with mac+linux fat platforms.
+# If we add more complex fat platforms, this will need to be updated.
+fat_platform_compatible_interpreters = [
+    "/usr/local/fbcode/platform009/bin/python3.8",
+    "/usr/local/fbcode/platform010/bin/python3.8",
+]
 
 # We put some values into an execution dep so that we can have selects
 # that are resolved in the exec configuration.
@@ -46,6 +55,17 @@ def config_backed_python_toolchain(flavor, **kwargs):
             if val != None:
                 kwargs[key] = val
                 break
+
+    # The interpreter is invoked as part of executing binaries produced by this toolchain. And
+    # so the interpreter itself needs to be target compatible with the configuration. Now, the
+    # interpreter is actually just an opaque absolute path on the machine currently, so we've
+    # hardcoded some aspects of its compatibility. It would be good for us to make this compatibility
+    # more exhaustive so we don't get strange errors (even better would be to have targets that
+    # represent the interpreters and place such compatibility there).
+    if kwargs["interpreter"] not in fat_platform_compatible_interpreters:
+        target_compatible_with = kwargs.get("target_compatible_with", [])
+        kwargs = {k: v for (k, v) in kwargs.items()}
+        kwargs["target_compatible_with"] = target_compatible_with + fat_platform_incompatible()
 
     # We want to be able to make decisions about the host interpreter based on the exec
     # configuration (because it will be invoked as part of the build), so we push that
