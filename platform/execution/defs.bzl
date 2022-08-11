@@ -1,9 +1,12 @@
 load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 
+# NB: The platforms' constraints for Xcode must match the values defined
+#     by `mac_execution_subplatforms`. Mismatch will be detected as all
+#     toolchain actions will fail due to a version mismatch.
 mac_execution_base_platforms = {
-    "x86_64-fbsource": "ovr_config//platform/macos:x86_64-fbsource",
-    "x86_64_minimal_xcode": "ovr_config//platform/macos:x86_64-fbsource-minimal",
+    "x86_64-fbsource": "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
+    "x86_64_minimal_xcode": "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
 }
 
 mac_execution_subplatforms = {
