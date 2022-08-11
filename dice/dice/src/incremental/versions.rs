@@ -52,6 +52,10 @@ impl VersionNumber {
     fn inc(&mut self) {
         self.0 += 1;
     }
+
+    fn dec(&mut self) {
+        self.0 = self.0.checked_sub(1).expect("shouldn't underflow");
+    }
 }
 
 impl Sub for VersionNumber {
@@ -474,6 +478,14 @@ impl VersionForWrites {
         v.v
     }
 
+    /// records no writes, so undo the write version increase
+    #[allow(unused)] // TODO(bobyf): temporary
+    pub(crate) fn rollback(mut self) {
+        if let Some(guard) = self.v.take() {
+            self.version_tracker.prev(guard);
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn testing_new(v: VersionNumber) -> Self {
         let lock = Arc::new(RawMutex::INIT);
@@ -556,6 +568,15 @@ impl VersionTracker {
             lock: self.write_lock.dupe(),
             v: *v,
         }
+    }
+
+    /// request a decrease in the global version number. This will make the next available
+    /// version number one lower.
+    fn prev(&self, _guard: VersionWriteGuard) {
+        // lock is held by the guard
+        let v = unsafe { &mut *self.write_version.get() };
+        debug_assert!(&_guard.v == v);
+        v.dec();
     }
 
     /// hands out the current "latest" committed version and its corresponding
@@ -751,6 +772,31 @@ mod tests {
         mem::drop(write2);
 
         assert_eq!(write1.get(), VersionNumber::new(2));
+    }
+
+    #[test]
+    fn write_version_rollbacks() {
+        let vt = VersionTracker::new();
+
+        let write1 = vt.write();
+        let write2 = vt.write();
+        let write3 = vt.write();
+        let write4 = vt.write();
+
+        assert!(write1.v.get().is_none());
+        assert!(write2.v.get().is_none());
+        assert!(write3.v.get().is_none());
+        assert!(write4.v.get().is_none());
+
+        assert_eq!(write2.get(), VersionNumber::new(1));
+        write2.rollback();
+
+        assert_eq!(write1.get(), VersionNumber::new(1));
+        drop(write1);
+
+        // never attempted to get a version can still rollback properly
+        write3.rollback();
+        assert_eq!(write4.get(), VersionNumber::new(2));
     }
 
     #[test]
