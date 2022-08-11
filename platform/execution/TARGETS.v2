@@ -34,6 +34,7 @@ load(
     "fat_platform_transition_helper",
     "linux_execution_base_platforms",
     "mac_execution_base_platforms",
+    "mac_execution_subplatforms",
     "ordered_platforms_by_host_type",
 )
 load(":util.bzl", "fat_platform_incompatible")
@@ -65,7 +66,7 @@ mac_platforms = execution_platform(
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
         "platform": "mac",
-        "subplatform": "xcode-13.4",
+        "subplatform": mac_execution_subplatforms["x86_64_minimal_xcode"],
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
@@ -77,7 +78,7 @@ mac_platforms = execution_platform(
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
         "platform": "mac",
-        "subplatform": "xcode-13.4",
+        "subplatform": mac_execution_subplatforms["x86_64-fbsource"],
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,

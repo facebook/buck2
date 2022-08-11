@@ -6,6 +6,11 @@ mac_execution_base_platforms = {
     "x86_64_minimal_xcode": "ovr_config//platform/macos:x86_64-fbsource-minimal",
 }
 
+mac_execution_subplatforms = {
+    "x86_64-fbsource": "xcode-13.4",
+    "x86_64_minimal_xcode": "xcode-13.4",
+}
+
 linux_execution_base_platforms = {
     "platform009": "ovr_config//platform/linux:x86_64-fbcode-platform009-clang-nosan",
     "platform010": "ovr_config//platform/linux:x86_64-fbcode-platform010-clang-nosan",
