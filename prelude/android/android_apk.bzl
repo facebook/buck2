@@ -155,9 +155,8 @@ def build_apk(
     asset_directories = native_library_info.native_lib_assets + dex_files_info.secondary_dex_dirs
     asset_directories_file = actions.write("asset_directories.txt", asset_directories)
     apk_builder_args.hidden(asset_directories)
-    native_libs_for_apk = native_library_info.native_libs + native_library_info.native_libs_for_primary_apk
-    native_library_directories = actions.write("native_library_directories", native_libs_for_apk)
-    apk_builder_args.hidden(native_libs_for_apk)
+    native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)
+    apk_builder_args.hidden(native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
     zip_files = actions.write("zip_files", all_zip_files)
     apk_builder_args.hidden(all_zip_files)

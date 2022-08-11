@@ -15,7 +15,6 @@ AndroidBinaryNativeLibsInfo = provider(
     fields = [
         "apk_under_test_prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
         "apk_under_test_shared_libraries",  # ["SharedLibrary"]
-        "native_libs",  # ["artifact"]
         "native_lib_assets",  # ["artifact"]
         "native_libs_for_primary_apk",  # ["artifact"]
         "unstripped_libs",  # ["artifact"]
