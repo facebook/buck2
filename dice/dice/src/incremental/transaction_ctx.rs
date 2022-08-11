@@ -87,8 +87,8 @@ impl TransactionCtx {
                 num_changes = num_changes
             );
 
-            changed.ops().drain(..).for_each(|change| {
-                change(version_for_writes);
+            let _is_changed = changed.ops().drain(..).fold(false, |has_change, change| {
+                change(version_for_writes) || has_change
             });
 
             debug!(
