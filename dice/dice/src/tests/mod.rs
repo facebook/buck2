@@ -70,6 +70,30 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
+    let dice = Dice::builder().build(DetectCycles::Enabled);
+
+    {
+        let ctx = dice.ctx();
+        ctx.changed_to(vec![(Foo(0), 0)])?;
+
+        let ctx = ctx.commit();
+
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
+    }
+
+    {
+        let ctx = dice.ctx();
+        ctx.changed_to(vec![(Foo(0), 0)])?;
+
+        let ctx = ctx.commit();
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
+    }
+
+    Ok(())
+}
+
 #[test]
 fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);

@@ -76,8 +76,8 @@ impl TransactionCtx {
     }
 
     pub(crate) fn commit(self) {
-        let mut changed = self.changes();
-        if !changed.ops().is_empty() {
+        let is_changed = {
+            let mut changed = self.changes();
             let version_for_writes = self.get_version_for_writes();
             let num_changes = changed.ops().len();
             debug!(
@@ -87,18 +87,20 @@ impl TransactionCtx {
                 num_changes = num_changes
             );
 
-            let _is_changed = changed.ops().drain(..).fold(false, |has_change, change| {
+            changed.ops().drain(..).fold(false, |has_change, change| {
                 change(version_for_writes) || has_change
-            });
+            })
+        };
 
+        if is_changed {
             debug!(
                 old_version = %self.version,
-                version_for_writes = %version_for_writes,
+                version_for_writes = %self.get_version_for_writes(),
                 msg = "committed new changes",
-                num_changes = num_changes
             );
         } else {
             debug!(version = %self.version, msg = "no changes to commit");
+            self.version_for_writes.rollback()
         }
     }
 }
