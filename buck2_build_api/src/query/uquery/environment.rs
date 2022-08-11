@@ -13,10 +13,15 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::CellName;
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::package::Package;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
@@ -38,18 +43,31 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use derive_more::Display;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use itertools::Itertools;
 use ref_cast::RefCast;
 use thiserror::Error;
 use tracing::warn;
 
 use crate::interpreter::module_internals::EvaluationResult;
 
+type ArcCellPath = Arc<CellPath>;
+
 #[derive(Debug, Error)]
 enum QueryLiteralResolutionError {
     #[error("literal `{0}` missing in pre-resolved literals")]
     LiteralMissing(String),
+}
+
+#[derive(Debug, Error)]
+enum RBuildFilesError {
+    #[error("no parent found for the file `{0}`")]
+    ParentDoesNotExist(ArcCellPath),
+    #[error("internal error: no buildfile names found for the cell `{0}`")]
+    CellMissingBuildFileNames(CellName),
 }
 
 pub enum SpecialAttr {
@@ -64,6 +82,8 @@ pub trait UqueryDelegate: Send + Sync {
 
     /// Get the imports from a LoadedModule corresponding to some path.
     async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>>;
+
+    fn get_buildfile_names_by_cell(&self) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>>;
 
     /// Resolves a target pattern.
     async fn resolve_target_patterns(
@@ -203,6 +223,10 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         return allbuildfiles(universe, &*self.delegate).await;
     }
 
+    async fn rbuildfiles(&self, universe: &FileSet, argset: &FileSet) -> anyhow::Result<FileSet> {
+        return rbuildfiles(universe, argset, &*self.delegate).await;
+    }
+
     async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         let mut result: TargetSet<Self::Target> = TargetSet::new();
         for path in paths.iter() {
@@ -286,6 +310,252 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
     }
 
     Ok(FileSet::new(paths).union(&FileSet::new(new_paths)))
+}
+
+pub(crate) async fn rbuildfiles<'c>(
+    universe: &FileSet,
+    argset: &FileSet,
+    delegate: &'c dyn UqueryDelegate,
+) -> anyhow::Result<FileSet> {
+    let universe_paths: Vec<ArcCellPath> =
+        universe.iter().map(|file| Arc::new(file.clone())).collect();
+    // step 1: split the build files and bzl files
+    let (buildfiles, bzlfiles) = split_universe_files(&universe_paths, delegate)?;
+
+    // step 2: get all top level imports accordingly
+    let top_level_import_by_build_file =
+        top_level_imports_by_build_file(&buildfiles, &bzlfiles, delegate).await?;
+
+    // step 3: get the first order imports for every loaded file, to lookup during traversal
+    // TODO(benfoxman) this is actually unnecessary, since we can get the imports while traversing.
+    // Will fix this in a separate diff.
+    let all_top_level_imports: Vec<ImportPath> = top_level_import_by_build_file
+        .iter()
+        .flat_map(|(_, imports)| imports.iter().cloned())
+        .collect();
+
+    let first_order_import_map = first_order_imports(&all_top_level_imports, delegate).await?;
+
+    // step 4: do rdeps()-like traversal from the top level imports down to bzls
+
+    #[derive(Clone, Dupe)]
+    struct Node(Arc<ImportPath>);
+
+    impl Node {
+        fn import_path(&self) -> &ImportPath {
+            &self.0
+        }
+    }
+
+    #[derive(Display, Debug, Hash, Eq, PartialEq, Clone, RefCast)]
+    #[repr(transparent)]
+    struct NodeRef(ImportPath);
+
+    impl NodeLabel for NodeRef {}
+
+    impl LabeledNode for Node {
+        type NodeRef = NodeRef;
+
+        fn node_ref(&self) -> &NodeRef {
+            NodeRef::ref_cast(self.import_path())
+        }
+    }
+
+    struct Lookup {}
+
+    #[async_trait]
+    impl AsyncNodeLookup<Node> for Lookup {
+        async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
+            Ok(Node(Arc::new(label.0.clone())))
+        }
+    }
+
+    struct Delegate<'c> {
+        output_paths: Vec<ImportPath>,
+        argset: &'c FileSet,
+        first_order_import_map: HashMap<ImportPath, Vec<ImportPath>>,
+    }
+
+    #[async_trait]
+    impl AsyncTraversalDelegate<Node> for Delegate<'_> {
+        fn visit(&mut self, node: Node) -> anyhow::Result<()> {
+            let node_import = node.import_path();
+            if self.argset.iter().contains(node_import.path()) {
+                self.output_paths.push(node_import.clone());
+            } else {
+                let loads = self
+                    .first_order_import_map
+                    .get(node_import)
+                    .expect("import path should exist");
+                for load in loads.iter() {
+                    for arg in self.argset.iter() {
+                        if load.path() == arg {
+                            self.output_paths.push(node_import.clone());
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+        async fn for_each_child(
+            &mut self,
+            node: &Node,
+            func: &mut dyn ChildVisitor<Node>,
+        ) -> anyhow::Result<()> {
+            for import in self
+                .first_order_import_map
+                .get(node.import_path())
+                .expect("import path should exist")
+            {
+                func.visit(NodeRef(import.clone()))?;
+            }
+            Ok(())
+        }
+    }
+
+    let lookup = Lookup {};
+    let mut delegate = Delegate {
+        output_paths: vec![],
+        argset,
+        first_order_import_map,
+    };
+
+    // step 5: do traversal, get all modified imports
+    async_depth_first_postorder_traversal(
+        &lookup,
+        all_top_level_imports.iter().map(NodeRef::ref_cast),
+        &mut delegate,
+    )
+    .await?;
+
+    let mut output_files = IndexSet::<FileNode>::new();
+    for file in &delegate.output_paths {
+        output_files.insert(FileNode(file.path().clone()));
+    }
+
+    // finally, since we didn't check the top level imports of buildfiles,
+    // we do this right now
+    for file in buildfiles {
+        if argset.iter().contains(&*file) {
+            output_files.insert(FileNode((*file).clone()));
+        } else {
+            let imports = top_level_import_by_build_file
+                .get(&file)
+                .expect("should have stored a universe file's input");
+
+            for import in imports.iter() {
+                if output_files
+                    .iter()
+                    .contains(&FileNode(import.path().clone()))
+                {
+                    output_files.insert(FileNode((*file).clone()));
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(FileSet::new(output_files))
+}
+
+fn split_universe_files<'c>(
+    universe: &[ArcCellPath],
+    delegate: &'c dyn UqueryDelegate,
+) -> anyhow::Result<(Vec<ArcCellPath>, Vec<ArcCellPath>)> {
+    let mut buildfiles = Vec::<ArcCellPath>::new();
+    let mut bzlfiles = Vec::<ArcCellPath>::new();
+    let buildfile_names_by_cell = delegate.get_buildfile_names_by_cell()?;
+    for file in universe {
+        let buildfile_names_for_file =
+            buildfile_names_by_cell.get(file.cell()).ok_or_else(|| {
+                anyhow::anyhow!(RBuildFilesError::CellMissingBuildFileNames(
+                    file.cell().clone()
+                ))
+            })?;
+
+        if let Some(name) = file.path().file_name() {
+            if buildfile_names_for_file
+                .iter()
+                .map(<FileNameBuf as AsRef<FileName>>::as_ref)
+                .contains(&name)
+            {
+                buildfiles.push(file.dupe());
+            }
+        } else {
+            // TODO: right now we assume non-buildfiles are bzl's - we might want to handle error cases later.
+            bzlfiles.push(file.dupe());
+        }
+    }
+    Ok((buildfiles, bzlfiles))
+}
+
+async fn top_level_imports_by_build_file<'c>(
+    buildfiles: &[ArcCellPath],
+    bzlfiles: &[ArcCellPath],
+    delegate: &'c dyn UqueryDelegate,
+) -> anyhow::Result<HashMap<ArcCellPath, Vec<ImportPath>>> {
+    let mut top_level_import_by_build_file = HashMap::<ArcCellPath, Vec<ImportPath>>::new();
+
+    for file in bzlfiles {
+        let imports = vec![ImportPath::new(
+            file.as_ref().clone(),
+            BuildFileCell::new(file.cell().clone()),
+        )?];
+        top_level_import_by_build_file.insert(file.dupe(), imports);
+    }
+
+    let mut buildfile_futs: FuturesUnordered<_> = buildfiles
+        .iter()
+        .map(|file| async move {
+            if let Some(parent) = file.parent() {
+                (
+                    file.dupe(),
+                    delegate
+                        .eval_build_file(&Package::new(parent.cell(), parent.path()))
+                        .await,
+                )
+            } else {
+                (
+                    file.dupe(),
+                    Err(SharedError::new(RBuildFilesError::ParentDoesNotExist(
+                        file.dupe(),
+                    ))),
+                )
+            }
+        })
+        .collect();
+
+    while let Some((file, eval_result)) = tokio::task::unconstrained(buildfile_futs.next()).await {
+        top_level_import_by_build_file
+            .insert(file.dupe(), eval_result?.imports().cloned().collect());
+    }
+
+    Ok(top_level_import_by_build_file)
+}
+
+// TODO: no need to get all the first order imports prior to the traversal - we can do this
+// at the same time as the actual traversal.
+async fn first_order_imports<'c>(
+    all_top_level_imports: &[ImportPath],
+    delegate: &'c dyn UqueryDelegate,
+) -> anyhow::Result<HashMap<ImportPath, Vec<ImportPath>>> {
+    let all_imports = get_transitive_loads(all_top_level_imports.to_vec(), delegate).await?;
+
+    let mut all_first_order_futs: FuturesUnordered<_> = all_imports
+        .iter()
+        .map(|node| async move { (node, delegate.eval_module_imports(node).await) })
+        .collect();
+
+    let mut first_order_import_map = HashMap::<ImportPath, Vec<ImportPath>>::new();
+
+    while let Some((import, first_order_imports)) =
+        tokio::task::unconstrained(all_first_order_futs.next()).await
+    {
+        let prev = first_order_import_map.insert(import.clone(), first_order_imports?);
+        assert!(prev.is_none());
+    }
+    Ok(first_order_import_map)
 }
 
 // Uquery and Cquery share ImportPath traversal logic, so we move the logic to this function.

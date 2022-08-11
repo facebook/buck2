@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -26,9 +27,11 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -186,6 +189,18 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
         //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
         let module = self.ctx.get_loaded_module_from_import_path(path).await?;
         Ok(module.imports().cloned().collect())
+    }
+
+    // get the list of potential buildfile names for each cell
+    fn get_buildfile_names_by_cell(&self) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>> {
+        let resolver = &self.cell_resolver;
+        let mut buildfile_names_by_cell = HashMap::<CellName, &[FileNameBuf]>::new();
+        for (cell, _) in resolver.cells() {
+            let prev =
+                buildfile_names_by_cell.insert(cell.clone(), resolver.get(cell)?.buildfiles());
+            assert!(prev.is_none());
+        }
+        Ok(buildfile_names_by_cell)
     }
 
     async fn resolve_target_patterns(

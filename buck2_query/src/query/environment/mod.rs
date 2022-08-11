@@ -243,12 +243,15 @@ pub trait QueryEnvironment: Send + Sync {
         Ok(delegate.path)
     }
 
-    async fn rbuildfiles(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn allbuildfiles(&self, _universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
         Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
             "allbuildfiles() is implemented only for uquery and cquery.",
+        )))
+    }
+
+    async fn rbuildfiles(&self, _universe: &FileSet, _argset: &FileSet) -> anyhow::Result<FileSet> {
+        Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
+            "rbuildfiles() is implemented only for uquery and cquery."
         )))
     }
 

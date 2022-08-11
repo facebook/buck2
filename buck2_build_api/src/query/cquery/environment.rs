@@ -29,6 +29,7 @@ use gazebo::dupe::Dupe;
 use tracing::warn;
 
 use crate::query::uquery::environment::allbuildfiles;
+use crate::query::uquery::environment::rbuildfiles;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
 
@@ -119,6 +120,10 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
 
     async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
         return allbuildfiles(universe, self.delegate.uquery_delegate()).await;
+    }
+
+    async fn rbuildfiles(&self, universe: &FileSet, argset: &FileSet) -> anyhow::Result<FileSet> {
+        return rbuildfiles(universe, argset, self.delegate.uquery_delegate()).await;
     }
 
     async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
