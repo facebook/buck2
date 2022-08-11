@@ -156,3 +156,45 @@ async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
 
         with pytest.raises(LSPResponseError):
             await lsp.file_contents(f"file:{lsp.cwd / '.buckconfig'}")
+
+
+@buck_test(inplace=False, data_dir="lsp")
+async def test_goto_definition_for_globals(buck: Buck) -> None:
+    globals_bzl_path = Path("globals.bzl")
+
+    globals_bzl = fixture(buck, globals_bzl_path)
+    async with await buck.lsp() as lsp:
+        await lsp.init_connection()
+        diags = await lsp.open_file(globals_bzl_path)
+        assert len(diags["diagnostics"]) == 0
+
+        res = await lsp.goto_definition(
+            globals_bzl_path,
+            globals_bzl.start_line("func2_click"),
+            globals_bzl.start_col("func2_click"),
+        )
+
+        assert len(res) == 1
+        assert_range(res[0]["originSelectionRange"], globals_bzl.spans["func2"])
+        assert res[0]["targetRange"]["start"]["line"] != 0
+        assert res[0]["targetSelectionRange"]["start"]["line"] != 0
+        assert res[0]["targetUri"] == (buck.cwd / "prelude" / "prelude.bzl").as_uri()
+
+        res = await lsp.goto_definition(
+            globals_bzl_path,
+            globals_bzl.start_line("info_click"),
+            globals_bzl.start_col("info_click"),
+        )
+
+        assert len(res) == 1
+        assert_range(res[0]["originSelectionRange"], globals_bzl.spans["info"])
+        assert res[0]["targetRange"]["start"]["line"] != 0
+        assert res[0]["targetSelectionRange"]["start"]["line"] != 0
+        assert res[0]["targetUri"] == "starlark:/native/providers/DefaultInfo.bzl"
+
+        res = await lsp.goto_definition(
+            globals_bzl_path,
+            globals_bzl.start_line("invalid_click"),
+            globals_bzl.start_col("invalid_click"),
+        )
+        assert len(res) == 0
