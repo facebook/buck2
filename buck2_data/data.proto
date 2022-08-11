@@ -1004,4 +1004,8 @@ message InvocationRecord {
   uint64 run_remote_count = 11;
   // Count of actions that downloaded action cache
   uint64 run_action_cache_count = 12;
+  // Optional - the first snapshot sent.
+  Snapshot first_snapshot = 20;
+  // Optional - the last snapshot sent.
+  Snapshot last_snapshot = 21;
 }

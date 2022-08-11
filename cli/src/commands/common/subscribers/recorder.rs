@@ -51,6 +51,8 @@ mod imp {
         run_local_count: u64,
         run_remote_count: u64,
         run_action_cache_count: u64,
+        first_snapshot: Option<buck2_data::Snapshot>,
+        last_snapshot: Option<buck2_data::Snapshot>,
     }
 
     impl InvocationRecorder {
@@ -72,6 +74,8 @@ mod imp {
                 run_local_count: 0,
                 run_remote_count: 0,
                 run_action_cache_count: 0,
+                first_snapshot: None,
+                last_snapshot: None,
             }
         }
 
@@ -90,6 +94,8 @@ mod imp {
                     run_local_count: self.run_local_count,
                     run_remote_count: self.run_remote_count,
                     run_action_cache_count: self.run_action_cache_count,
+                    first_snapshot: self.first_snapshot.take(),
+                    last_snapshot: self.last_snapshot.take(),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -210,7 +216,19 @@ mod imp {
 
         async fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
             self.tags.extend(tag.tags.iter().cloned());
+            Ok(())
+        }
 
+        async fn handle_snapshot(
+            &mut self,
+            update: &buck2_data::Snapshot,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            if self.first_snapshot.is_none() {
+                self.first_snapshot = Some(update.clone());
+            } else {
+                self.last_snapshot = Some(update.clone());
+            }
             Ok(())
         }
     }
