@@ -1,7 +1,8 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidPackageableInfo", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_all_java_packaging_deps")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx", "flatten")
 
 # In order to calculate which targets belong to each module, we reconstruct a "target graph"
 # from "deps" information that is propagated up through AndroidPackageableInfo.
@@ -61,6 +62,18 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
             "--targets-to-jars",
             targets_to_jars,
         ]).hidden(targets_to_jars_args)
+
+    if ctx.attrs.should_include_libraries:
+        shared_library_info = merge_shared_libraries(
+            ctx.actions,
+            deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps),
+        )
+        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), so_name, str(shared_lib.can_be_asset)], delimiter = " ") for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()]
+        targets_to_so_names = ctx.actions.write("targets_to_so_names.txt", targets_to_so_names_args)
+        cmd.add([
+            "--targets-to-so-names",
+            targets_to_so_names,
+        ]).hidden(targets_to_so_names_args)
 
     ctx.actions.run(cmd, category = "apk_module_graph")
 
