@@ -142,6 +142,14 @@ impl DiceTransaction {
         let map = self.0.0.unstable_take();
         (self, map)
     }
+
+    /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the
+    /// two Transactions are based off the same underlying set of key states. That is, all
+    /// injected keys are the same, and the same compute keys are dirtied, and that any computations
+    /// that occur between the two transactions can be shared.
+    pub fn equivalent(&self, other: &DiceTransaction) -> bool {
+        self.0.0.transaction_ctx.get_version() == other.0.0.transaction_ctx.get_version()
+    }
 }
 
 impl Deref for DiceTransaction {
