@@ -156,10 +156,16 @@ impl RemoteExecutionClient {
         skip_remote_cache: bool,
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<&str>,
+        buck_out_path: &str,
     ) -> anyhow::Result<Self> {
-        let client =
-            RemoteExecutionClientImpl::new(fb, skip_remote_cache, static_metadata, logs_dir_path)
-                .await?;
+        let client = RemoteExecutionClientImpl::new(
+            fb,
+            skip_remote_cache,
+            static_metadata,
+            logs_dir_path,
+            buck_out_path,
+        )
+        .await?;
 
         let initial_network_stats = client
             .client()
@@ -180,10 +186,19 @@ impl RemoteExecutionClient {
         times: usize, // 0 is treated as 1
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<&str>,
+        buck_out_path: &str,
     ) -> anyhow::Result<Self> {
         // Loop happens times-1 times at most
         for i in 1..times {
-            match Self::new(fb, skip_remote_cache, static_metadata.dupe(), logs_dir_path).await {
+            match Self::new(
+                fb,
+                skip_remote_cache,
+                static_metadata.dupe(),
+                logs_dir_path,
+                buck_out_path,
+            )
+            .await
+            {
                 Ok(v) => return Ok(v),
                 Err(e) => {
                     warn!(
@@ -194,7 +209,14 @@ impl RemoteExecutionClient {
                 }
             }
         }
-        Self::new(fb, skip_remote_cache, static_metadata, logs_dir_path).await
+        Self::new(
+            fb,
+            skip_remote_cache,
+            static_metadata,
+            logs_dir_path,
+            buck_out_path,
+        )
+        .await
     }
 
     fn decorate_error(&self, source: anyhow::Error) -> anyhow::Error {
@@ -404,6 +426,7 @@ impl RemoteExecutionClientImpl {
         skip_remote_cache: bool,
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         maybe_logs_dir_path: Option<&str>,
+        buck_out_path: &str,
     ) -> anyhow::Result<Self> {
         let res: anyhow::Result<Self> = try {
             static DOWNLOAD_CONCURRENCY: EnvHelper<usize> =
@@ -481,11 +504,9 @@ impl RemoteExecutionClientImpl {
             embedded_cas_daemon_config.force_enable_deduplicate_find_missing =
                 static_metadata.force_enable_deduplicate_find_missing;
 
-            // deduplication is implemented as full copy
-            // but you can dynamically set SOFT_COPY(cow) if buck-out is mounted on btrfs,
-            // that works much faster, especially if duplication factor is high
-            // HARD_LINK can be only used in scenario when the local cache is enabled
-            embedded_cas_daemon_config.copy_policy = CopyPolicy::FULL_COPY;
+            // Will either choose the SOFT_COPY (on some linux fs like btrfs/extfs etc, on Mac if using APFS) or FULL_COPY otherwise
+            embedded_cas_daemon_config.copy_policy = CopyPolicy::BEST_AVAILABLE;
+            embedded_cas_daemon_config.meterialization_mount_path = Some(buck_out_path.to_owned());
 
             embedded_cas_daemon_config.thread_count = static_metadata.cas_thread_count;
 

@@ -798,6 +798,7 @@ impl DaemonState {
                     .join(ForwardRelativePathBuf::unchecked_new("re_logs".to_owned()))
                     .to_string(),
             ),
+            paths.buck_out_dir().to_string(),
         ));
         let materialization_method =
             MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;

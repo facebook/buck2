@@ -74,6 +74,7 @@ struct RemoteExecutionConfig {
     connection_retries: usize,
     static_metadata: Arc<RemoteExecutionStaticMetadata>,
     logs_dir_path: Option<String>,
+    buck_out_path: String,
 }
 
 impl RemoteExecutionConfig {
@@ -84,6 +85,7 @@ impl RemoteExecutionConfig {
             self.connection_retries,
             self.static_metadata.dupe(),
             self.logs_dir_path.as_deref(),
+            &self.buck_out_path,
         )
         .await
     }
@@ -180,6 +182,7 @@ impl ReConnectionManager {
         connection_retries: usize,
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<String>,
+        buck_out_path: String,
     ) -> Self {
         Self {
             data: RwLock::new(Weak::new()),
@@ -189,6 +192,7 @@ impl ReConnectionManager {
                 connection_retries,
                 static_metadata,
                 logs_dir_path,
+                buck_out_path,
             },
         }
     }

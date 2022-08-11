@@ -44,6 +44,7 @@ pub struct CopyPolicy(pub i32);
 
 impl CopyPolicy {
     pub const FULL_COPY: Self = CopyPolicy(1i32);
+    pub const BEST_AVAILABLE: Self = CopyPolicy(7i32);
 }
 
 #[derive(Default)]
@@ -63,6 +64,7 @@ pub struct EmbeddedCASDaemonClientCfg {
     pub thread_count: i32,
     pub writable_outputs: bool,
     pub force_enable_deduplicate_find_missing: Option<bool>,
+    pub meterialization_mount_path: Option<String>,
 }
 
 #[derive(Default)]
