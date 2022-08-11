@@ -116,6 +116,7 @@ DepsInfo = record(
 
 AndroidPackageableInfo = provider(
     fields = [
+        "target_label",  # "target_label"
         "build_config_infos",  # ["AndroidBuildConfigInfoTSet", None]
         "deps",  # ["AndroidDepsTSet", None]
         "manifests",  # ["ManifestTSet", None]
@@ -181,7 +182,7 @@ def merge_android_packageable_info(
         filter(None, [dep.deps for dep in android_packageable_deps]),
         DepsInfo(
             name = label.raw_target(),
-            deps = [dep.label.raw_target() for dep in deps],
+            deps = [dep.target_label for dep in android_packageable_deps],
         ),
         AndroidDepsTSet,
     )
@@ -208,6 +209,7 @@ def merge_android_packageable_info(
     )
 
     return AndroidPackageableInfo(
+        target_label = label.raw_target(),
         build_config_infos = build_config_infos,
         deps = deps,
         manifests = manifests,
