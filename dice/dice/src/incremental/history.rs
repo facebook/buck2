@@ -158,8 +158,24 @@ impl CellHistory {
         {
             *prev_verified
         } else {
-            self.dirtied.remove(&min_validated);
-            self.verified.insert(min_validated);
+            if self.dirtied.remove(&min_validated).is_some() {
+                if let Some(prev_valid) = self
+                    .verified
+                    .range((Bound::Unbounded, Bound::Excluded(v)))
+                    .max()
+                {
+                    if self
+                        .dirtied
+                        .range((Bound::Included(*prev_valid), Bound::Included(min_validated)))
+                        .next()
+                        .is_some()
+                    {
+                        self.verified.insert(min_validated);
+                    }
+                }
+            } else {
+                self.verified.insert(min_validated);
+            }
             min_validated
         };
 
@@ -606,6 +622,10 @@ mod tests {
         history
             .get_history(&VersionNumber::new(1))
             .assert_verified();
+        // assert that all we did was delete the dirty, so that we have one continuous history
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 1);
+        assert!(history.dirtied.is_empty());
 
         assert_eq!(history.mark_invalidated(VersionNumber::new(3)), true);
         history
@@ -631,6 +651,10 @@ mod tests {
                 VersionNumber::new(3)
             )])
         );
+        // assert that all we did was add one item to dirty
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 1);
+        assert_eq!(history.dirtied.len(), 1);
 
         let up_to = history.mark_verified(
             VersionNumber::new(4),
@@ -655,8 +679,16 @@ mod tests {
                 VersionNumber::new(5)
             )])
         );
+        // assert that all we did was delete from dirty, and carry over one dirty from deps
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 1);
+        assert_eq!(history.dirtied.len(), 1);
 
         assert_eq!(history.mark_invalidated(VersionNumber::new(6)), true);
+        // assert that all we did add one entry to dirty
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 1);
+        assert_eq!(history.dirtied.len(), 2);
         let up_to = history.mark_verified(VersionNumber::new(7), std::iter::empty());
         assert_eq!(up_to, VersionNumber::new(6));
         history
@@ -681,6 +713,10 @@ mod tests {
                 VersionRange::begins_with(VersionNumber::new(6))
             ])
         );
+        // assert that we removed one dirty
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 2);
+        assert_eq!(history.dirtied.len(), 1);
 
         assert!(history.mark_invalidated(VersionNumber::new(9)));
         assert!(!history.dirtied.get(&VersionNumber::new(9)).unwrap());
@@ -692,6 +728,11 @@ mod tests {
             .assert_verified();
         history.get_history(&VersionNumber::new(9)).assert_dirty();
         history.get_history(&VersionNumber::new(10)).assert_dirty();
+
+        // assert that all we did add one entry to dirty
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 2);
+        assert_eq!(history.dirtied.len(), 2);
 
         // Here, since one dep is only verified at v11, we can't mark v10 as verified.
         let up_to = history.mark_verified(
@@ -707,6 +748,11 @@ mod tests {
         history
             .get_history(&VersionNumber::new(11))
             .assert_verified();
+
+        // assert that we added one verified, but kept all dirties since nothing overlapped.
+        // usually we don't want to assert implementation, but this is important internal state
+        assert_eq!(history.verified.len(), 3);
+        assert_eq!(history.dirtied.len(), 2);
     }
 
     #[test]
