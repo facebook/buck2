@@ -429,3 +429,20 @@ async def test_allbuildfiles(buck: Buck) -> None:
     assert (
         "fbcode/buck2/tests/targets/buildfiles/transitive_load/TARGETS" in out4.stdout
     )
+
+
+@buck_test(inplace=True)
+async def test_rbuildfiles(buck: Buck) -> None:
+    target_file = "buck2/tests/targets/buildfiles/transitive_load/TARGETS"
+    out1 = await buck.uquery(
+        f"rbuildfiles({target_file}, buck2/tests/targets/buildfiles/transitive_load/c.bzl)"
+    )
+    out2 = await buck.uquery(f"rbuildfiles({target_file}, {target_file})")
+
+    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/b.bzl" in out1.stdout
+    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/c.bzl" in out1.stdout
+    assert (
+        "fbcode/buck2/tests/targets/buildfiles/transitive_load/TARGETS" in out1.stdout
+    )
+
+    assert out2.stdout == "fbcode/" + target_file + "\n"
