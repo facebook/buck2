@@ -18,11 +18,13 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::dice::HasCalculationDelegate;
-use buck2_interpreter::starlark_profiler::StarlarkProfiler;
+use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use cli_proto::profile_request::Action;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
+use starlark::eval::ProfileMode;
 
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
@@ -34,8 +36,8 @@ pub(crate) async fn generate_profile(
     client_ctx: ClientContext,
     pattern: buck2_data::TargetPattern,
     action: Action,
-    profiler: &mut dyn StarlarkProfiler,
-) -> anyhow::Result<()> {
+    profile_mode: &ProfileMode,
+) -> anyhow::Result<StarlarkProfileDataAndStats> {
     let ctx = server_ctx.dice_ctx().await?;
     let cells = ctx.get_cell_resolver().await?;
 
@@ -66,9 +68,11 @@ pub(crate) async fn generate_profile(
                 .get_configured_target(&label, global_target_platform.as_ref())
                 .await?;
 
-            analysis::profile_analysis(&ctx, &configured_target, profiler)
+            let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), true);
+            analysis::profile_analysis(&ctx, &configured_target, &mut profiler)
                 .await
                 .context("Analysis failed")?;
+            profiler.finish()
         }
         Action::Loading => {
             match spec {
@@ -84,16 +88,19 @@ pub(crate) async fn generate_profile(
                     &BuildFileCell::new(package.cell_name().clone()),
                 )
                 .await?;
+
+            let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), false);
+
             calculation
                 .eval_build_file::<ModuleInternals>(
                     &package,
-                    &mut StarlarkProfilerOrInstrumentation::for_profiler(profiler),
+                    &mut StarlarkProfilerOrInstrumentation::for_profiler(&mut profiler),
                 )
                 .await?;
+
+            profiler.finish()
         }
     }
-
-    Ok(())
 }
 
 fn one<T>(it: impl IntoIterator<Item = T>) -> anyhow::Result<T> {

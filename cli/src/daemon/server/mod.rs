@@ -85,7 +85,6 @@ use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
@@ -2324,23 +2323,14 @@ impl DaemonApi for BuckdServer {
                         let action = cli_proto::profile_request::Action::from_i32(req.action)
                             .context("Invalid action")?;
 
-                        let will_freeze = match action {
-                            cli_proto::profile_request::Action::Loading => false,
-                            cli_proto::profile_request::Action::Analysis => true,
-                        };
-
-                        let mut profiler = StarlarkProfilerImpl::new(profile_mode, will_freeze);
-
-                        generate_profile(
+                        let profile_data = generate_profile(
                             context,
                             req.context.context("Missing client context")?,
                             req.target_pattern.context("Missing target pattern")?,
                             action,
-                            &mut profiler,
+                            &profile_mode,
                         )
                         .await?;
-
-                        let profile_data = profiler.finish()?;
 
                         profile_data.write(&output)?;
 
