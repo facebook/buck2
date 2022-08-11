@@ -395,7 +395,14 @@ impl DiceExecutionOrder {
                             // we panicked on a thread that wasn't joined.
                             // This is still wrong.
                             return ExecutionResult::UnexpectedPanic(
-                                ALL_PANICS.get().unwrap().lock().unwrap().iter().join("\n"),
+                                ALL_PANICS
+                                    .get()
+                                    .unwrap()
+                                    .lock()
+                                    .unwrap()
+                                    .iter()
+                                    .map(|panic| format!("panic: `{}`", panic))
+                                    .join("\n"),
                             );
                         }
 
@@ -426,13 +433,27 @@ impl DiceExecutionOrder {
                             }
                             (None, Err(_panic)) => {
                                 // TODO maybe check the type of panic
+                                if std::env::var("ALLOW_EXTRA_PANICS").is_err() {
+                                    let panics = ALL_PANICS
+                                        .get()
+                                        .unwrap()
+                                        .lock()
+                                        .unwrap()
+                                        .iter()
+                                        .filter(|panic| !panic.contains("spawned task cancelled"))
+                                        .cloned()
+                                        .collect::<Vec<_>>();
 
-                                if ALL_PANICS.get().unwrap().lock().unwrap().len() > 1 {
-                                    // we panicked on a thread that wasn't joined.
-                                    // This is still wrong.
-                                    return ExecutionResult::UnexpectedPanic(
-                                        ALL_PANICS.get().unwrap().lock().unwrap().iter().join("\n"),
-                                    );
+                                    if panics.len() > 1 {
+                                        // we panicked on a thread that wasn't joined.
+                                        // This is still wrong.
+                                        return ExecutionResult::UnexpectedPanic(
+                                            panics
+                                                .iter()
+                                                .map(|panic| format!("panic: `{}`", panic))
+                                                .join("\n"),
+                                        );
+                                    }
                                 }
                             }
                             (None, Ok(result)) => {
