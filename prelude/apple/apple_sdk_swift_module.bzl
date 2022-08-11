@@ -15,10 +15,10 @@ def compile_sdk_swiftinterface(
     cmd.add(["-sdk", toolchain_context.sdk_path])
     cmd.add(toolchain_context.compiler_flags)
 
-    if toolchain_context.resource_dir:
+    if toolchain_context.swift_resource_dir:
         cmd.add([
             "-resource-dir",
-            toolchain_context.resource_dir,
+            toolchain_context.swift_resource_dir,
         ])
 
     swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, list(sdk_deps_set.traverse()))
@@ -34,7 +34,7 @@ def compile_sdk_swiftinterface(
     swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + ".swiftmodule")
     expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
         cmd_args(toolchain_context.sdk_path),
-        cmd_args(toolchain_context.resource_dir),
+        cmd_args(toolchain_context.swift_resource_dir),
         uncompiled_sdk_module_info.input_relative_path,
     )
     cmd.add([

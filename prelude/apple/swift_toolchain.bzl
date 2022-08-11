@@ -11,7 +11,7 @@ def swift_toolchain_impl(ctx):
         compiler = compiler,
         sdk_path = sdk_path,
         compiler_flags = compiler_flags,
-        resource_dir = resource_dir,
+        swift_resource_dir = resource_dir,
     )
 
     compiled_sdk_module_providers = {}
