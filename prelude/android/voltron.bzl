@@ -42,12 +42,24 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
         output.as_output(),
     ])
 
-    if ctx.attrs.application_module_blacklist:
-        all_blocklisted_deps = flatten(ctx.attrs.application_module_blacklist)
+    # Anything that is used by a wrap script needs to go into the primary APK, as do all
+    # of their deps.
+    shared_library_info = merge_shared_libraries(
+        ctx.actions,
+        deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
+    )
+    traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
+    used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in traversed_shared_library_info.values() if shared_lib.for_primary_apk]
+    prebuilt_native_library_dirs = list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else []
+    prebuilt_native_library_targets_for_primary_apk = [str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk]
+    if ctx.attrs.application_module_blacklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk:
+        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk
+        if ctx.attrs.application_module_blacklist:
+            all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in flatten(ctx.attrs.application_module_blacklist)])
 
         application_module_blocklist_file = ctx.actions.write(
             "application_module_blocklist.txt",
-            [str(blocklisted_dep.label.raw_target()) for blocklisted_dep in all_blocklisted_deps if blocklisted_dep[AndroidPackageableInfo]],
+            all_blocklisted_deps,
         )
         cmd.add([
             "--always-in-main-apk-seeds",
@@ -65,11 +77,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
         ]).hidden(targets_to_jars_args)
 
     if ctx.attrs.should_include_libraries:
-        shared_library_info = merge_shared_libraries(
-            ctx.actions,
-            deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
-        )
-        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), so_name, str(shared_lib.can_be_asset)], delimiter = " ") for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()]
+        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), so_name, str(shared_lib.can_be_asset)], delimiter = " ") for so_name, shared_lib in traversed_shared_library_info.items()]
         targets_to_so_names = ctx.actions.write("targets_to_so_names.txt", targets_to_so_names_args)
         cmd.add([
             "--targets-to-so-names",

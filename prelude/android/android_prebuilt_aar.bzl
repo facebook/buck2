@@ -74,6 +74,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     )
 
     native_library = PrebuiltNativeLibraryDir(
+        raw_target = ctx.label.raw_target(),
         dir = jni,
         for_primary_apk = ctx.attrs.use_system_library_loader,
         is_asset = False,

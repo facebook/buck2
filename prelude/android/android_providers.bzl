@@ -95,6 +95,7 @@ CPU_FILTER_TO_ABI_DIRECTORY = {
 }
 
 PrebuiltNativeLibraryDir = record(
+    raw_target = "target_label",
     dir = "artifact",  # contains subdirectories for different ABIs.
     for_primary_apk = bool.type,
     is_asset = bool.type,

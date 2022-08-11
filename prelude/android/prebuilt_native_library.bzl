@@ -9,6 +9,7 @@ def prebuilt_native_library_impl(ctx: "context") -> ["provider"]:
         fail("Cannot use `is_asset` and `has_wrap_script` in the same rule")
 
     prebuilt_native_library_dir = PrebuiltNativeLibraryDir(
+        raw_target = ctx.label.raw_target(),
         dir = ctx.attrs.native_libs,
         for_primary_apk = ctx.attrs.has_wrap_script,
         is_asset = ctx.attrs.is_asset,
