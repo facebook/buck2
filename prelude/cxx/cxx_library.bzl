@@ -5,6 +5,10 @@ load(
     "gather_resources",
 )
 load(
+    "@fbcode//buck2/prelude/android:android_providers.bzl",
+    "merge_android_packageable_info",
+)
+load(
     "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
     "build_link_args_with_deduped_framework_flags",
     "create_frameworks_linkable",
@@ -491,6 +495,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     # final binary.
     if impl_params.generate_providers.java_packaging_info:
         providers.append(get_java_packaging_info(ctx, non_exported_deps + exported_deps))
+
+    # TODO(T107163344) this shouldn't be in cxx_library itself, use overlays to remove it.
+    if impl_params.generate_providers.android_packageable_info:
+        providers.append(merge_android_packageable_info(ctx.label, ctx.actions, non_exported_deps + exported_deps))
 
     return _CxxLibraryParameterizedOutput(default_output = default_output, all_outputs = library_outputs, sub_targets = sub_targets, providers = providers)
 

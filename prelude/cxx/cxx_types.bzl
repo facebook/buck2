@@ -36,6 +36,7 @@ CxxRuleProviderParams = record(
     compilation_database = field(bool.type, True),
     default = field(bool.type, True),
     java_packaging_info = field(bool.type, True),
+    android_packageable_info = field(bool.type, True),
     linkable_graph = field(bool.type, True),
     link_style_outputs = field(bool.type, True),
     merged_native_link_info = field(bool.type, True),
