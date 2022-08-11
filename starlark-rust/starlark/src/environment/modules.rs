@@ -154,23 +154,39 @@ pub struct Module {
 impl FrozenModule {
     /// Get value, exported or private by name.
     #[doc(hidden)] // TODO(nga): Buck2 depends on this function
-    pub fn get_any_visibility(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
-        let (slot, vis) = self.module.0.names.get_name(name)?;
+    pub fn get_any_visibility(&self, name: &str) -> anyhow::Result<(OwnedFrozenValue, Visibility)> {
+        self.module
+            .0
+            .names
+            .get_name(name)
+            .and_then(|(slot, vis)|
         // This code is safe because we know the frozen module ref keeps the values alive
         self.module
             .0
             .slots
             .get_slot(slot)
-            .map(|x| (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis))
+            .map(|x| (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis)))
+            .ok_or_else(
+                || match did_you_mean(name, self.names().map(|s| s.as_str())) {
+                    Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
+                        name.to_owned(),
+                        better.to_owned(),
+                    )
+                    .into(),
+                    None => EnvironmentError::ModuleHasNoSymbol(name.to_owned()).into(),
+                },
+            )
     }
 
     /// Get the value of the exported variable `name`.
-    /// Returns [`None`] if the variable isn't defined in the module or it is private.
-    pub fn get(&self, name: &str) -> Option<OwnedFrozenValue> {
+    /// Returns an error if the variable isn't defined in the module or it is private.
+    pub fn get(&self, name: &str) -> anyhow::Result<OwnedFrozenValue> {
         self.get_any_visibility(name)
             .and_then(|(value, vis)| match vis {
-                Visibility::Private => None,
-                Visibility::Public => Some(value),
+                Visibility::Private => {
+                    Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
+                }
+                Visibility::Public => Ok(value),
             })
     }
 
@@ -207,6 +223,7 @@ impl FrozenModule {
             .filter(|n| Module::default_visibility(n) == Visibility::Public)
             .filter_map(|n| {
                 self.get(&n)
+                    .ok()
                     .map(|fv| (n.as_str().to_owned(), fv.value().get_ref().documentation()))
             })
             .collect();
@@ -436,19 +453,9 @@ impl Module {
         if Self::default_visibility(symbol) != Visibility::Public {
             return Err(EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()).into());
         }
-        match module.get_any_visibility(symbol) {
-            None => Err({
-                match did_you_mean(symbol, module.names().map(|s| s.as_str())) {
-                    Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
-                        symbol.to_owned(),
-                        better.to_owned(),
-                    )
-                    .into(),
-                    None => EnvironmentError::ModuleHasNoSymbol(symbol.to_owned()).into(),
-                }
-            }),
-            Some((v, Visibility::Public)) => Ok(v.owned_value(self.frozen_heap())),
-            Some((_, Visibility::Private)) => {
+        match module.get_any_visibility(symbol)? {
+            (v, Visibility::Public) => Ok(v.owned_value(self.frozen_heap())),
+            (_, Visibility::Private) => {
                 Err(EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()).into())
             }
         }

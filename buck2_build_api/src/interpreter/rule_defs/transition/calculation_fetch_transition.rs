@@ -53,7 +53,7 @@ impl FetchTransition for DiceComputations {
             .env()
             // This is a hashmap lookup, so we are not caching the result in DICE.
             .get_any_visibility(&id.name)
-            .ok_or_else(|| SharedError::new(FetchTransitionError::NotFound(id.clone())))?
+            .map_err(|_| SharedError::new(FetchTransitionError::NotFound(id.clone())))?
             .0;
 
         Ok(transition

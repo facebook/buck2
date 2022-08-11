@@ -322,13 +322,7 @@ pub fn get_user_defined_rule_impl(
             let rule_callable = self
                 .module
                 .get_any_visibility(&self.name)
-                .unwrap_or_else(|| {
-                    unreachable!(
-                        "Expected a rule {}, only {:?}, but there was no value with that name.",
-                        self.name,
-                        self.module.names().collect::<Vec<_>>()
-                    )
-                })
+                .with_context(|| format!("Couldn't find rule `{}`", self.name))?
                 .0;
             let rule_impl = {
                 // Need to free up the starlark_ctx borrow before we return

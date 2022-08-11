@@ -407,7 +407,7 @@ impl InterpreterForCell {
                 .env();
             env.import_public_symbols(prelude_env);
             if let StarlarkPath::BuildFile(_) = starlark_path {
-                if let Some(native) = prelude_env.get("native") {
+                if let Ok(native) = prelude_env.get("native") {
                     let native = native.value();
                     for attr in native.dir_attr() {
                         if attr == "to_json" {
@@ -853,10 +853,7 @@ mod tests {
             LoadedModules::default(),
         )?;
 
-        assert_eq!(
-            loaded.env().get("one").map(|x| x.unpack_int()),
-            Some(Some(1))
-        );
+        assert_eq!(1, loaded.env().get("one").unwrap().unpack_int().unwrap());
 
         assert_eq!(
             "world",

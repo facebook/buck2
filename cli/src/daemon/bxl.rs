@@ -70,7 +70,7 @@ pub(crate) async fn bxl(
         .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
         .await?;
 
-    let frozen_callable = get_bxl_callable(&bxl_label, &bxl_module);
+    let frozen_callable = get_bxl_callable(&bxl_label, &bxl_module)?;
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
         cell_resolver: cell.cell_alias_resolver().dupe(),

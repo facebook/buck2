@@ -43,7 +43,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
-    let frozen_callable = get_bxl_callable(key.label(), &bxl_module);
+    let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
 
     let bxl_cell = cell_resolver
         .get(key.label().bxl_path.cell())
@@ -151,27 +151,17 @@ fn eval_bxl<'a>(
 pub fn get_bxl_callable<'a>(
     spec: &BxlFunctionLabel,
     bxl_module: &'a LoadedModule,
-) -> OwnedFrozenValueTyped<FrozenBxlFunction> {
-    let callable = bxl_module
-        .env()
-        .get_any_visibility(&spec.name)
-        .unwrap_or_else(|| {
-            unreachable!(
-                "Expected a bxl {}, only {:?}, but there was no value with that name.",
-                spec.name,
-                bxl_module.env().names().collect::<Vec<_>>()
-            )
-        })
-        .0;
+) -> anyhow::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
+    let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
 
-    callable
+    Ok(callable
         .downcast::<FrozenBxlFunction>()
         .unwrap_or_else(|e| {
             panic!(
                 "A bxl function should be a BxlFunction. It was a {}",
                 e.value().get_type(),
             )
-        })
+        }))
 }
 
 pub struct CliResolutionCtx<'a> {

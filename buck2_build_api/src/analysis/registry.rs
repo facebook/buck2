@@ -313,6 +313,6 @@ impl AnalysisValueFetcher {
     pub(crate) fn get(&self, id: DeferredId) -> Option<OwnedFrozenValue> {
         let module = self.frozen_module.as_ref()?;
         let starlark_key = format!("$action_key_{}", id);
-        module.get(&starlark_key)
+        module.get(&starlark_key).ok()
     }
 }
