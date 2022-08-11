@@ -107,6 +107,7 @@ struct TestServerContext {
     file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
     dirs: Arc<RwLock<HashSet<PathBuf>>>,
     builtin_docs: Arc<HashMap<LspUrl, String>>,
+    builtin_symbols: Arc<HashMap<String, LspUrl>>,
 }
 
 impl LspContext for TestServerContext {
@@ -207,6 +208,14 @@ impl LspContext for TestServerContext {
             LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
             _ => Ok(None),
         }
+    }
+
+    fn get_url_for_global_symbol(
+        &self,
+        _current_file: &LspUrl,
+        symbol: &str,
+    ) -> anyhow::Result<Option<LspUrl>> {
+        Ok(self.builtin_symbols.get(symbol).cloned())
     }
 }
 
@@ -335,12 +344,20 @@ impl TestServer {
     pub(crate) fn new_with_settings(settings: Option<LspServerSettings>) -> anyhow::Result<Self> {
         let (server_connection, client_connection) = Connection::memory();
 
-        let builtin_docs = Arc::new(
-            Self::testing_builtins(&std::env::current_dir()?)?
-                .into_iter()
-                .map(|(u, ds)| (u, render_docs_as_code(&ds).join("\n\n")))
-                .collect::<HashMap<_, _>>(),
-        );
+        let builtin = Self::testing_builtins(&std::env::current_dir()?)?;
+        let mut builtin_docs = HashMap::with_capacity(builtin.len());
+        let mut builtin_symbols = HashMap::new();
+
+        for (u, ds) in builtin {
+            builtin_docs.insert(u.clone(), render_docs_as_code(&ds).join("\n\n"));
+            for d in ds {
+                builtin_symbols.insert(d.id.name, u.clone());
+            }
+        }
+
+        let builtin_docs = Arc::new(builtin_docs);
+        let builtin_symbols = Arc::new(builtin_symbols);
+
         let prelude_file_contents = builtin_docs
             .iter()
             .filter_map(|(u, d)| match u {
@@ -354,6 +371,7 @@ impl TestServer {
             file_contents: file_contents.dupe(),
             dirs: dirs.dupe(),
             builtin_docs: builtin_docs.dupe(),
+            builtin_symbols,
         };
 
         let server_thread = std::thread::spawn(|| {

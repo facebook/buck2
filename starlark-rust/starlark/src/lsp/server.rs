@@ -279,6 +279,16 @@ pub trait LspContext {
             .map(|content| self.parse_file_with_contents(uri, content));
         Ok(result)
     }
+
+    /// Get the LSPUrl for a global symbol if possible.
+    ///
+    /// The current file is provided in case different files have different global symbols
+    /// defined.
+    fn get_url_for_global_symbol(
+        &self,
+        current_file: &LspUrl,
+        symbol: &str,
+    ) -> anyhow::Result<Option<LspUrl>>;
 }
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.

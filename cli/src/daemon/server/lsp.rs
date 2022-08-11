@@ -74,7 +74,6 @@ static DOCS_BUILTIN_KEY: &str = "builtin";
 struct DocsCache {
     /// Mapping of global names to URLs. These can either be files (for global symbols in the
     /// prelude), or `starlark:` urls for rust native types and functions.
-    #[allow(unused)]
     global_urls: HashMap<String, LspUrl>,
     /// Mapping of starlark: urls to a synthesized starlark representation.
     native_starlark_files: HashMap<LspUrl, String>,
@@ -188,7 +187,6 @@ impl DocsCache {
         self.native_starlark_files.get(url)
     }
 
-    #[allow(unused)]
     fn url_for_symbol(&self, symbol: &str) -> Option<&LspUrl> {
         self.global_urls.get(symbol)
     }
@@ -513,6 +511,14 @@ impl LspContext for BuckLspContext {
                 _ => Err(LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into()),
             }
         })
+    }
+
+    fn get_url_for_global_symbol(
+        &self,
+        _current_file: &LspUrl,
+        symbol: &str,
+    ) -> anyhow::Result<Option<LspUrl>> {
+        Ok(self.docs_cache.url_for_symbol(symbol).cloned())
     }
 }
 

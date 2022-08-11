@@ -57,6 +57,7 @@ pub(crate) struct Context {
     pub(crate) prelude: Vec<FrozenModule>,
     pub(crate) module: Option<Module>,
     pub(crate) builtin_docs: HashMap<LspUrl, String>,
+    pub(crate) builtin_symbols: HashMap<String, LspUrl>,
 }
 
 /// The outcome of evaluating (checking, parsing or running) given starlark code.
@@ -91,8 +92,10 @@ impl Context {
             None
         };
         let mut builtins: HashMap<LspUrl, Vec<Doc>> = HashMap::new();
+        let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
         for doc in get_registered_docs() {
             let uri = Self::url_for_doc(&doc);
+            builtin_symbols.insert(doc.id.name.clone(), uri.clone());
             builtins.entry(uri).or_default().push(doc);
         }
         let builtin_docs = builtins
@@ -106,6 +109,7 @@ impl Context {
             prelude,
             module,
             builtin_docs,
+            builtin_symbols,
         })
     }
 
@@ -301,6 +305,14 @@ impl LspContext for Context {
             LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
             _ => Err(LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into()),
         }
+    }
+
+    fn get_url_for_global_symbol(
+        &self,
+        _current_file: &LspUrl,
+        symbol: &str,
+    ) -> anyhow::Result<Option<LspUrl>> {
+        Ok(self.builtin_symbols.get(symbol).cloned())
     }
 }
 
