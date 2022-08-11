@@ -175,6 +175,10 @@ APPLE_SYSTEM_MODULES = {
     "SQLite3",
 }
 
+APPLE_TEST_FRAMEWORKS = {
+    "XCTest",
+}
+
 
 # These modules require specific handling, as they do not have an umbrella
 # header that matches the module name, as typical Apple frameworks do.
@@ -204,7 +208,7 @@ def write_imports_for_modules(
             write_imports_for_headers(out, module, headers)
         elif override := APPLE_SYSTEM_MODULE_OVERRIDES.get(module):
             write_imports_for_headers(out, override[0], override[1])
-        elif module in APPLE_SYSTEM_MODULES:
+        elif module in APPLE_SYSTEM_MODULES or module in APPLE_TEST_FRAMEWORKS:
             # When we don't have an explicit override for the module, we use the module's
             # name as an umbrella header. This is used for typical Apple frameworks like
             # Foundation and UIKit.
