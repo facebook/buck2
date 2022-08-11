@@ -33,6 +33,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::TargetName;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::HasGlobalInterpreterState;
 use cli_proto::*;
 use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
@@ -40,6 +41,8 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::StrExt;
 use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
@@ -58,18 +61,20 @@ use starlark::values::docs::Doc;
 use starlark::values::docs::Location;
 use tonic::Status;
 
+use crate::daemon::docs::get_builtin_docs;
+use crate::daemon::docs::get_prelude_docs;
 use crate::daemon::server::ServerCommandContext;
 use crate::daemon::server::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
 
-#[allow(unused)]
 /// Store rendered starlark representations of Doc objects for builtin symbols,
 /// their names, and their real or virtual paths
 struct DocsCache {
     /// Mapping of global names to URLs. These can either be files (for global symbols in the
     /// prelude), or `starlark:` urls for rust native types and functions.
+    #[allow(unused)]
     global_urls: HashMap<String, LspUrl>,
     /// Mapping of starlark: urls to a synthesized starlark representation.
     native_starlark_files: HashMap<LspUrl, String>,
@@ -177,7 +182,6 @@ impl DocsCache {
         })
     }
 
-    #[allow(unused)]
     fn native_starlark_file(&self, url: &LspUrl) -> Option<&String> {
         // We only load starlark: urls into this hash map, so other types
         // will just get a "None" back.
@@ -269,12 +273,11 @@ struct BuckLspContext {
     dice_ctx: DiceTransaction,
     fs: ProjectFilesystem,
     cell_resolver: CellResolver,
-    #[allow(unused)]
     docs_cache: DocsCache,
 }
 
 impl BuckLspContext {
-    fn import_path<S: ?Sized + AsRef<Path>>(&self, path: &S) -> anyhow::Result<ImportPath> {
+    fn import_path(&self, path: &Path) -> anyhow::Result<ImportPath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize(abs_path)?;
         let cell_path = self.cell_resolver.get_cell_path(&relative_path)?;
@@ -282,6 +285,19 @@ impl BuckLspContext {
         // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
         // Unlike the build commands and such, there is no meaningful "build file cell" versus
         // the cell of the file being currently evaluated.
+        let bfc = BuildFileCell::new(cell_path.cell().clone());
+
+        ImportPath::new(cell_path, bfc)
+    }
+
+    fn starlark_import_path(&self, path: &Path) -> anyhow::Result<ImportPath> {
+        // The "absolute" path from LSP urls doesn't work here, they have to be relative
+        // to get a ProjectRelativePath. We already guaranteed that things start with a '/'
+        // (rooted from `starlark:`, see LspUrl), so just drop it.
+        let cell_path = self.cell_resolver.get_cell_path(&ProjectRelativePath::new(
+            path.to_string_lossy().trim_start_match('/'),
+        )?)?;
+
         let bfc = BuildFileCell::new(cell_path.cell().clone());
 
         ImportPath::new(cell_path, bfc)
@@ -298,7 +314,16 @@ impl BuckLspContext {
         uri: &LspUrl,
         content: String,
     ) -> SharedResult<LspEvalResult> {
-        let import_path = self.import_path(uri.path())?;
+        let import_path: ImportPath = match uri {
+            LspUrl::File(path) => self.import_path(path),
+            LspUrl::Starlark(path) => self.starlark_import_path(path),
+            LspUrl::Other(_) => Err(LoadContentsError::WrongScheme(
+                "file:// or starlark:".to_owned(),
+                uri.clone(),
+            )
+            .into()),
+        }?;
+
         let calculator = self
             .dice_ctx
             .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
@@ -387,16 +412,18 @@ impl LspContext for BuckLspContext {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         self.runtime().block_on(async {
             match uri {
-                LspUrl::File(_) => match self.parse_file_with_contents(uri, content).await {
-                    Ok(result) => result,
-                    Err(e) => {
-                        let message = EvalMessage::from_anyhow(uri.path(), e.inner());
-                        LspEvalResult {
-                            diagnostics: vec![message.into()],
-                            ast: None,
+                LspUrl::File(_) | LspUrl::Starlark(_) => {
+                    match self.parse_file_with_contents(uri, content).await {
+                        Ok(result) => result,
+                        Err(e) => {
+                            let message = EvalMessage::from_anyhow(uri.path(), e.inner());
+                            LspEvalResult {
+                                diagnostics: vec![message.into()],
+                                ast: None,
+                            }
                         }
                     }
-                },
+                }
                 _ => LspEvalResult::default(),
             }
         })
@@ -406,7 +433,7 @@ impl LspContext for BuckLspContext {
         self.runtime().block_on(async {
             match current_file {
                 LspUrl::File(current_file) => {
-                    let current_import_path = self.import_path(&current_file)?;
+                    let current_import_path = self.import_path(current_file)?;
                     let calculator = self
                         .dice_ctx
                         .get_interpreter_calculator(
@@ -482,6 +509,7 @@ impl LspContext for BuckLspContext {
                         },
                     }
                 }
+                LspUrl::Starlark(_) => Ok(self.docs_cache.native_starlark_file(uri).cloned()),
                 _ => Err(LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into()),
             }
         })
@@ -520,7 +548,16 @@ pub(crate) async fn run_lsp_server(
         receiver: server_receiver,
     };
 
-    let docs_cache = DocsCache::new(&[], &dice_ctx, &fs, &cell_resolver).await?;
+    let interpreter_state = dice_ctx.get_global_interpreter_state().await?.dupe();
+    let mut builtin_docs = get_builtin_docs(
+        cell_resolver.root_cell_cell_alias_resolver().dupe(),
+        interpreter_state,
+    )?;
+    let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
+    let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
+    builtin_docs.extend(prelude_docs);
+
+    let docs_cache = DocsCache::new(&builtin_docs, &dice_ctx, &fs, &cell_resolver).await?;
 
     let recv_thread = std::thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()

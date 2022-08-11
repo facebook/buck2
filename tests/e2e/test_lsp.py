@@ -1,10 +1,12 @@
 from pathlib import Path
 from typing import Any, Optional
 
+import pytest
+
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.api.fixtures import Fixture, Span
+from xplat.build_infra.buck_e2e.api.lsp import LSPResponseError
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
-
 
 """
 If you need to add a directory that's isolated in buck2/test/targets
@@ -139,3 +141,18 @@ async def test_goto_definition(buck: Buck) -> None:
             buck.cwd / dest_targets_path,
             dest_targets.spans["baz"],
         )
+
+
+@buck_test(inplace=False, data_dir="lsp")
+async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
+    async with await buck.lsp() as lsp:
+        await lsp.init_connection()
+
+        res = await lsp.file_contents("starlark:/native/Artifact.bzl")
+        assert res["contents"] is not None
+
+        res = await lsp.file_contents("starlark:/native/NonExistent.bzl")
+        assert res["contents"] is None
+
+        with pytest.raises(LSPResponseError):
+            await lsp.file_contents(f"file:{lsp.cwd / '.buckconfig'}")

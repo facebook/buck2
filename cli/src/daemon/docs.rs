@@ -156,7 +156,7 @@ fn get_ctx_docs() -> Vec<Doc> {
     docs
 }
 
-fn get_builtin_docs(
+pub(crate) fn get_builtin_docs(
     cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
