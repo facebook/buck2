@@ -1317,6 +1317,7 @@ impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
 // Spawns a thread to occasionally output snapshots of resource utilization.
 struct HeartbeatGuard {
     handle: JoinHandle<()>,
+    collector: snapshot::SnapshotCollector,
     events: Arc<Mutex<Option<EventDispatcher>>>,
 }
 
@@ -1329,28 +1330,37 @@ impl HeartbeatGuard {
         // exact lifetime of the dispatcher.
         let handle = tokio::spawn({
             let events = events.dupe();
+            let collector = collector.dupe();
             async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                 loop {
-                    interval.tick().await;
                     let snapshot = collector.create_snapshot();
                     match events.lock().expect("Poisoned lock").as_ref() {
                         Some(events) => events.instant_event(snapshot),
                         None => break,
                     }
+                    interval.tick().await;
                 }
             }
         });
 
-        Self { handle, events }
+        Self {
+            handle,
+            collector,
+            events,
+        }
     }
 }
 
 impl Drop for HeartbeatGuard {
     fn drop(&mut self) {
+        let mut maybe_events = self.events.lock().expect("Poisoned lock");
         // Synchronously remove access for sending new heartbeats.
-        self.events.lock().expect("Poisoned lock").take();
+        if let Some(events) = maybe_events.take() {
+            // Send one last snapshot.
+            events.instant_event(self.collector.create_snapshot());
+        }
         // Cancel the task as well.
         self.handle.abort();
     }

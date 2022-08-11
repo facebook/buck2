@@ -18,6 +18,7 @@ use crate::daemon::server::BlockingExecutor;
 use crate::daemon::server::DaemonStateData;
 
 /// Stores state handles necessary to produce snapshots.
+#[derive(Clone, Dupe)]
 pub(crate) struct SnapshotCollector {
     re_client_manager: Arc<ReConnectionManager>,
     blocking_executor: Arc<dyn BlockingExecutor>,
