@@ -1,4 +1,4 @@
-# @generated SignedSource<<48dd17c342192496b3d373f29cf947ee>>
+# @generated SignedSource<<44023aea2714326b92e0e6017fb73647>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -185,8 +185,8 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "no_dx": attrs.list(attrs.dep(), default = []),
-        "should_include_classes": attrs.bool(),
-        "should_include_libraries": attrs.bool(),
+        "should_include_classes": attrs.bool(default = True),
+        "should_include_libraries": attrs.bool(default = False),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
     "android_binary": {
