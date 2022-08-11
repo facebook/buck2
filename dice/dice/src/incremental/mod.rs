@@ -212,14 +212,14 @@ where
         self.eval_entry_versioned(k, transaction_ctx, extra).await
     }
 
-    /// Updates the value at K
+    /// Updates the value at K. Returns whether this injected value actually causes a change
     #[instrument(level = "info", skip(self, res, ), fields(k = %k, version = %version))]
     pub(crate) fn update_injected_value(
         self: &Arc<Self>,
         k: K::Key,
         version: VersionNumber,
         res: K::Value,
-    ) {
+    ) -> bool {
         // It is crucial that we `dirty` first before updating the `rdeps`.
         // See `IncrementalEngine::dirty` below for details.
         let node = self
@@ -228,13 +228,17 @@ where
 
         node.mark_invalidated(version);
 
-        if let (_, Some(invalidated)) = self
+        let (new, invalidated) = self
             .versioned_cache
-            .update_injected_value(VersionedGraphKey::new(version, k), res)
-        {
+            .update_injected_value(VersionedGraphKey::new(version, k), res);
+
+        if let Some(invalidated) = invalidated {
             debug!("dirtying rdeps");
             Self::invalidate_rdeps(version, invalidated)
         }
+
+        let is_changed = new.get_history().latest_verified_before(version) == Some(version);
+        is_changed
     }
 
     // NOTE: Avoid making this an `async fn`. This function uses a bit of stack space, and it's
@@ -1459,7 +1463,7 @@ mod tests {
         ));
 
         eval_result.store(10, Ordering::SeqCst);
-        engine.update_injected_value(1, VersionNumber::new(1), 100);
+        assert!(engine.update_injected_value(1, VersionNumber::new(1), 100));
         *dep.lock().unwrap() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
             (1, VersionNumber::new(1)),
@@ -1508,7 +1512,7 @@ mod tests {
         );
 
         // now force the dependency to have version numbers [1, 2]
-        engine.update_injected_value(1, VersionNumber::new(2), 100);
+        assert!(!engine.update_injected_value(1, VersionNumber::new(2), 100));
         is_ran.store(false, Ordering::SeqCst);
         *dep.lock().unwrap() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
@@ -1543,7 +1547,7 @@ mod tests {
         );
 
         // now force the dependency to be different and have versions [3]
-        engine.update_injected_value(1, VersionNumber::new(3), 200);
+        assert!(engine.update_injected_value(1, VersionNumber::new(3), 200));
         eval_result.store(20, Ordering::SeqCst);
         *dep.lock().unwrap() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
