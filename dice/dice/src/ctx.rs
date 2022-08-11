@@ -390,6 +390,8 @@ impl DiceComputationImpl {
                     debug!(msg = "marking value as changed", version = %version, key = %k);
                     let cache = dice.find_cache::<K>();
                     cache.dirty(k, version, true);
+
+                    true
                 }),
             )
         })
@@ -409,7 +411,7 @@ impl DiceComputationImpl {
                 box (move |version| {
                     let cache = dice.find_cache::<K>();
                     debug!(msg = "marking value as updated", version = %version, key = %k);
-                    cache.update_injected_value(k, version, v);
+                    cache.update_injected_value(k, version, v)
                 }),
             )
         })

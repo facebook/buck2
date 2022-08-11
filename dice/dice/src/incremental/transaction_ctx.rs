@@ -87,10 +87,9 @@ impl TransactionCtx {
                 num_changes = num_changes
             );
 
-            changed
-                .ops()
-                .drain(..)
-                .for_each(|change| change(version_for_writes));
+            changed.ops().drain(..).for_each(|change| {
+                change(version_for_writes);
+            });
 
             debug!(
                 old_version = %self.version,
@@ -106,7 +105,7 @@ impl TransactionCtx {
 
 pub(crate) struct Changes {
     keys: Map<dyn Any + Sync + Send>,
-    changes: Vec<Box<dyn FnOnce(VersionNumber) + Send>>,
+    changes: Vec<Box<dyn FnOnce(VersionNumber) -> bool + Send>>,
 }
 
 impl Changes {
@@ -120,7 +119,7 @@ impl Changes {
     pub(crate) fn change<K: Key>(
         &mut self,
         key: K,
-        change: Box<dyn FnOnce(VersionNumber) + Send>,
+        change: Box<dyn FnOnce(VersionNumber) -> bool + Send>,
     ) -> DiceResult<()> {
         let map = self.keys.entry::<HashSet<K>>().or_insert_with(HashSet::new);
         if !map.insert(key.clone()) {
@@ -131,7 +130,7 @@ impl Changes {
         }
     }
 
-    pub fn ops(&mut self) -> &mut Vec<Box<dyn FnOnce(VersionNumber) + Send>> {
+    pub fn ops(&mut self) -> &mut Vec<Box<dyn FnOnce(VersionNumber) -> bool + Send>> {
         &mut self.changes
     }
 }
