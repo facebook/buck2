@@ -1212,6 +1212,8 @@ impl BuckdServer {
             .await
             .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
 
+        dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot());
+
         streaming(req, events, dispatch.dupe(), move |req| async move {
             let result: CommandResult = {
                 let result: anyhow::Result<CommandResult> = try {

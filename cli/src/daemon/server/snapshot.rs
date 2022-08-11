@@ -41,10 +41,18 @@ impl SnapshotCollector {
         }
     }
 
-    /// Create a new Snapshot.
-    pub(crate) fn create_snapshot(&self) -> buck2_data::Snapshot {
+    /// We emit a Snapshot before a BaseCommandContext is made available.
+    /// Initializes snapshot with all information we don't get off a BaseCommandContext.
+    /// This lets us send our first Snapshot before fully initializing/syncing.
+    pub(crate) fn pre_initialization_snapshot() -> buck2_data::Snapshot {
         let mut snapshot = buck2_data::Snapshot::default();
         add_system_metrics(&mut snapshot);
+        snapshot
+    }
+
+    /// Create a new Snapshot.
+    pub(crate) fn create_snapshot(&self) -> buck2_data::Snapshot {
+        let mut snapshot = Self::pre_initialization_snapshot();
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
         snapshot
