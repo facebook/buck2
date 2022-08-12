@@ -684,7 +684,7 @@ async def test_flagfiles_are_located_correctly(buck: Buck) -> None:
     output = build_report.output_for_target("cell//subdir:simple")
     assert output.read_text().rstrip() == "overridden"
 
-    expect_failure(
+    await expect_failure(
         buck.build("@cell/mode/missing", "cell//subdir:simple"),
         stderr_regex="Unable to read flag file at `cell/mode/missing`",
     )
