@@ -72,7 +72,7 @@ pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
 pub async fn async_unordered_traversal<
     'a,
     T: LabeledNode,
-    RootIter: Iterator<Item = &'a T::NodeRef>,
+    RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
     nodes: &dyn AsyncNodeLookup<T>,
     root: RootIter,
@@ -91,7 +91,7 @@ pub async fn async_unordered_traversal<
 pub async fn async_fast_depth_first_postorder_traversal<
     'a,
     T: LabeledNode,
-    RootIter: Iterator<Item = &'a T::NodeRef>,
+    RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
     nodes: &(dyn NodeLookup<T> + Send + Sync),
     root: RootIter,
@@ -176,7 +176,11 @@ pub async fn async_fast_depth_first_postorder_traversal<
     Ok(())
 }
 
-async fn async_traveral_common<'a, T: LabeledNode, RootIter: Iterator<Item = &'a T::NodeRef>>(
+async fn async_traveral_common<
+    'a,
+    T: LabeledNode,
+    RootIter: IntoIterator<Item = &'a T::NodeRef>,
+>(
     nodes: &dyn AsyncNodeLookup<T>,
     root: RootIter,
     delegate: &mut dyn AsyncTraversalDelegate<T>,
@@ -246,7 +250,7 @@ async fn async_traveral_common<'a, T: LabeledNode, RootIter: Iterator<Item = &'a
 pub async fn async_depth_limited_traversal<
     'a,
     T: LabeledNode,
-    RootIter: Iterator<Item = &'a T::NodeRef>,
+    RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
     nodes: &dyn AsyncNodeLookup<T>,
     root: RootIter,
@@ -262,7 +266,7 @@ pub async fn async_depth_limited_traversal<
 pub async fn async_depth_first_postorder_traversal<
     'a,
     T: LabeledNode,
-    Iter: Iterator<Item = &'a T::NodeRef> + Clone,
+    Iter: IntoIterator<Item = &'a T::NodeRef> + Clone,
 >(
     nodes: &dyn AsyncNodeLookup<T>,
     root: Iter,
