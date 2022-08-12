@@ -9,8 +9,10 @@
 
 use std::fmt::Display;
 use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
 
-use indexmap::IndexSet;
+use buck2_common::sorted_index_set::SortedIndexSet;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -53,7 +55,7 @@ pub trait StarlarkArtifactLike: Display {
     /// Gets the main artifact and any other additional entities that should be materialized along with it
     fn get_bound_artifact_and_associated_artifacts(
         &self,
-    ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)>;
+    ) -> anyhow::Result<(Artifact, &Arc<SortedIndexSet<ArtifactGroup>>)>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {
@@ -78,7 +80,7 @@ pub trait StarlarkArtifactLike: Display {
     /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
     /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
     /// as the inputs to Hash/Eq to ensure they are consistent
-    fn fingerprint(&self) -> ArtifactPath<'_>;
+    fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn get_artifact_path(&self) -> ArtifactPath<'_>;
 }
@@ -95,5 +97,21 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactLike<'v> for V {
                 self.downcast_ref::<StarlarkDeclaredArtifact>()
                     .map(|o| o as &dyn StarlarkArtifactLike)
             })
+    }
+}
+
+#[derive(PartialEq)]
+pub struct ArtifactFingerprint<'a> {
+    pub(crate) path: ArtifactPath<'a>,
+    pub(crate) associated_artifacts: &'a SortedIndexSet<ArtifactGroup>,
+}
+
+impl Hash for ArtifactFingerprint<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.path.hash(state);
+        self.associated_artifacts.len().hash(state);
+        self.associated_artifacts
+            .iter()
+            .for_each(|ag| ag.hash(state));
     }
 }

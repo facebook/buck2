@@ -8,13 +8,14 @@
  */
 
 use std::fmt::Display;
+use std::sync::Arc;
 
+use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::collections::StarlarkHasher;
@@ -36,6 +37,7 @@ use crate::actions::artifact::BaseArtifactKind;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::BaseDeferredKey;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -50,6 +52,8 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 #[derive(Debug, Dupe, Clone, PartialEq, ProvidesStaticType)]
 pub struct StarlarkArtifact {
     pub(crate) artifact: Artifact,
+    // A set of ArtifactGroups that should be materialized along with the main artifact
+    pub(crate) associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
 }
 
 starlark_simple_value!(StarlarkArtifact);
@@ -67,7 +71,10 @@ impl<'v> UnpackValue<'v> for StarlarkArtifact {
         if let Some(x) = value.downcast_ref::<StarlarkArtifact>() {
             Some(x.dupe())
         } else if let Some(x) = value.downcast_ref::<StarlarkDeclaredArtifact>() {
-            x.get_bound_deprecated().ok().map(StarlarkArtifact::new)
+            x.get_bound_artifact().ok().map(|a| StarlarkArtifact {
+                artifact: a,
+                associated_artifacts: x.associated_artifacts.dupe(),
+            })
         } else {
             None
         }
@@ -76,7 +83,10 @@ impl<'v> UnpackValue<'v> for StarlarkArtifact {
 
 impl StarlarkArtifact {
     pub fn new(artifact: Artifact) -> Self {
-        StarlarkArtifact { artifact }
+        StarlarkArtifact {
+            artifact,
+            associated_artifacts: Default::default(),
+        }
     }
 
     pub fn artifact(&self) -> Artifact {
@@ -147,8 +157,8 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 
     fn get_bound_artifact_and_associated_artifacts(
         &self,
-    ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)> {
-        Ok((self.get_bound_artifact()?, IndexSet::new()))
+    ) -> anyhow::Result<(Artifact, &Arc<SortedIndexSet<ArtifactGroup>>)> {
+        Ok((self.get_bound_artifact()?, &self.associated_artifacts))
     }
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
@@ -159,8 +169,11 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         self.artifact.get_path()
     }
 
-    fn fingerprint(&self) -> ArtifactPath<'_> {
-        self.artifact.get_path()
+    fn fingerprint(&self) -> ArtifactFingerprint<'_> {
+        ArtifactFingerprint {
+            path: self.artifact.get_path(),
+            associated_artifacts: &self.associated_artifacts,
+        }
     }
 }
 
@@ -172,6 +185,9 @@ impl CommandLineArgLike for StarlarkArtifact {
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         visitor.visit_input(ArtifactGroup::Artifact(self.artifact.dupe()), None);
+        self.associated_artifacts
+            .iter()
+            .for_each(|ag| visitor.visit_input(ag.dupe(), None));
         Ok(())
     }
 

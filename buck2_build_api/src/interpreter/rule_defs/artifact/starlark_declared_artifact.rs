@@ -10,16 +10,17 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Context;
+use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
@@ -45,6 +46,7 @@ use crate::actions::artifact::ArtifactPath;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::BaseDeferredKey;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
@@ -58,7 +60,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 /// The `DeclaredArtifact` may or may not have been bound yet, but must be by the end of the
 /// user's implementation function. This turns into a `StarlarkArtifact` when frozen, and
 /// /must/ have had `ensure_bound()` called on it successfully before freezing.
-#[derive(Debug, ProvidesStaticType, Trace, NoSerialize)]
+#[derive(Clone, Debug, Dupe, NoSerialize, ProvidesStaticType, Trace)]
 pub struct StarlarkDeclaredArtifact {
     // FileSpan is not Hash, and the location is not really relevant for equality.
     // We also expect each artifact to be declared at one unique location anyway.
@@ -66,6 +68,9 @@ pub struct StarlarkDeclaredArtifact {
     pub(super) declaration_location: Option<FileSpan>,
     #[trace(unsafe_ignore)]
     pub(super) artifact: artifact::DeclaredArtifact,
+    // A set of ArtifactGroups that should be materialized along with the main artifact
+    #[trace(unsafe_ignore)]
+    pub(super) associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
 }
 
 impl Display for StarlarkDeclaredArtifact {
@@ -89,6 +94,7 @@ impl StarlarkDeclaredArtifact {
         StarlarkDeclaredArtifact {
             declaration_location,
             artifact,
+            associated_artifacts: Default::default(),
         }
     }
 }
@@ -109,8 +115,8 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
 
     fn get_bound_artifact_and_associated_artifacts(
         &self,
-    ) -> anyhow::Result<(Artifact, IndexSet<ArtifactGroup>)> {
-        Ok((self.get_bound_artifact()?, IndexSet::new()))
+    ) -> anyhow::Result<(Artifact, &Arc<SortedIndexSet<ArtifactGroup>>)> {
+        Ok((self.get_bound_artifact()?, &self.associated_artifacts))
     }
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
@@ -121,8 +127,11 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         self.artifact.get_path()
     }
 
-    fn fingerprint(&self) -> ArtifactPath<'_> {
-        self.artifact.get_path()
+    fn fingerprint(&self) -> ArtifactFingerprint<'_> {
+        ArtifactFingerprint {
+            path: self.artifact.get_path(),
+            associated_artifacts: &self.associated_artifacts,
+        }
     }
 }
 
@@ -139,6 +148,9 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
             ArtifactGroup::Artifact(self.artifact.dupe().ensure_bound()?.into_artifact()),
             None,
         );
+        self.associated_artifacts
+            .iter()
+            .for_each(|ag| visitor.visit_input(ag.dupe(), None));
         Ok(())
     }
 
@@ -162,7 +174,10 @@ impl Freeze for StarlarkDeclaredArtifact {
             .ensure_bound()
             .context("Artifact must be bound by the end of the rule")?
             .into_artifact();
-        Ok(StarlarkArtifact { artifact })
+        Ok(StarlarkArtifact {
+            artifact,
+            associated_artifacts: self.associated_artifacts,
+        })
     }
 }
 
@@ -280,9 +295,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let path = ForwardRelativePath::new(path)?;
         // Not sure if this.declaration_location is or the project() call is more appropriate here.
-        Ok(StarlarkDeclaredArtifact::new(
-            this.declaration_location.dupe(),
-            this.artifact.project(path),
-        ))
+        Ok(StarlarkDeclaredArtifact {
+            declaration_location: this.declaration_location.dupe(),
+            artifact: this.artifact.project(path),
+            associated_artifacts: this.associated_artifacts.dupe(),
+        })
     }
 }

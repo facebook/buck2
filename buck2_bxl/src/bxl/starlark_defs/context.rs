@@ -199,9 +199,11 @@ impl<'v> BxlContext<'v> {
                         .get_bound_artifact_and_associated_artifacts();
                     match artifact_or_err {
                         Err(e) => Err(e),
-                        Ok((artifact, mut associates)) => {
-                            associates.insert(ArtifactGroup::Artifact(artifact));
-                            Ok(associates)
+                        Ok((artifact, associated_artifacts)) => {
+                            let mut artifacts: IndexSet<ArtifactGroup> =
+                                associated_artifacts.iter().map(|ag| ag.dupe()).collect();
+                            artifacts.insert(ArtifactGroup::Artifact(artifact));
+                            Ok(artifacts)
                         }
                     }
                 })

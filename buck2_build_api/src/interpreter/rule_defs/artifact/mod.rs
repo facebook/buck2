@@ -119,9 +119,7 @@ pub mod testing {
                 package,
                 PackageRelativePathBuf::try_from(path.to_owned()).unwrap(),
             );
-            Ok(StarlarkArtifact {
-                artifact: SourceArtifact::new(path).into(),
-            })
+            Ok(StarlarkArtifact::new(SourceArtifact::new(path).into()))
         }
 
         fn bound_artifact(
@@ -136,7 +134,7 @@ pub mod testing {
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
                 id,
             ));
-            Ok(StarlarkArtifact { artifact })
+            Ok(StarlarkArtifact::new(artifact))
         }
 
         fn declared_artifact(
@@ -152,10 +150,7 @@ pub mod testing {
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
             )?;
-            Ok(StarlarkDeclaredArtifact {
-                declaration_location: None,
-                artifact,
-            })
+            Ok(StarlarkDeclaredArtifact::new(None, artifact))
         }
 
         fn declared_bound_artifact(
@@ -187,10 +182,7 @@ pub mod testing {
                     None,
                 ),
             )?;
-            Ok(StarlarkDeclaredArtifact {
-                declaration_location: None,
-                artifact,
-            })
+            Ok(StarlarkDeclaredArtifact::new(None, artifact))
         }
 
         fn stringify_for_cli<'v>(artifact: Value<'v>) -> anyhow::Result<String> {
