@@ -82,7 +82,7 @@ def python_executable(
         main_module: str.type,
         srcs: {str.type: "artifact"},
         resources: {str.type: ("artifact", ["_arglike"])},
-        compile: bool.type = False) -> ("artifact", ["_arglike"], DefaultInfo.type):
+        compile: bool.type = False) -> ("artifact", ["_arglike"], {str.type: ["provider"]}):
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -130,7 +130,7 @@ def python_executable(
 
     source_db = create_source_db_deps(ctx, src_manifest, python_deps)
 
-    output, runtime_files = convert_python_library_to_executable(
+    output, runtime_files, extra = convert_python_library_to_executable(
         ctx,
         main_module,
         info_to_interface(library_info),
@@ -138,7 +138,9 @@ def python_executable(
         compile,
     )
 
-    return (output, runtime_files, source_db)
+    extra["source-db"] = [source_db]
+
+    return (output, runtime_files, extra)
 
 # Note that this is used by rules outside of prelude (e.g., aienv_layer).
 # aienv_layer potentially uses all of this except omnibus linking.
@@ -148,8 +150,10 @@ def convert_python_library_to_executable(
         library: PythonLibraryInterface.type,
         deps: ["dependency"],
         compile: bool.type = False):
+    extra = {}
+
     # Returns a three tuple: the Python binary, all its potential runtime files,
-    # and a provider for its source DB.
+    # and subtarget providers.
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     package_style = _package_style(ctx)
 
@@ -258,7 +262,7 @@ def convert_python_library_to_executable(
 
     runtime_files.extend(hidden)
 
-    return output, runtime_files
+    return output, runtime_files, extra
 
 def python_binary_impl(ctx: "context") -> ["provider"]:
     main_module = ctx.attrs.main_module
@@ -279,7 +283,7 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
         srcs[ctx.attrs.main.short_path] = ctx.attrs.main
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
 
-    output, runtime_files, source_db = python_executable(
+    output, runtime_files, extra = python_executable(
         ctx,
         main_module,
         srcs,
@@ -291,7 +295,7 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(
             default_outputs = [output],
             other_outputs = runtime_files,
-            sub_targets = {"source-db": [source_db]},
+            sub_targets = extra,
         ),
         RunInfo(cmd_args(output).hidden(runtime_files)),
     ]

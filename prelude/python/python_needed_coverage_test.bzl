@@ -11,7 +11,7 @@ load(":python.bzl", "get_python_deps")
 load(":python_test.bzl", "python_test_executable")
 
 def python_needed_coverage_test_impl(ctx: "context") -> ["provider"]:
-    output, runtime_files, source_db = python_test_executable(ctx)
+    output, runtime_files, extra = python_test_executable(ctx)
 
     test_env = {}
     test_env.update(ctx.attrs.env)
@@ -50,7 +50,7 @@ def python_needed_coverage_test_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(
             default_outputs = [output],
             other_outputs = runtime_files,
-            sub_targets = {"source-db": [source_db]},
+            sub_targets = extra,
         ),
         RunInfo(test_cmd),
         ExternalRunnerTestInfo(

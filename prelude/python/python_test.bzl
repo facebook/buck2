@@ -24,7 +24,7 @@ def _write_test_modules_list(
     contents += "]\n"
     return name, ctx.actions.write(name, contents)
 
-def python_test_executable(ctx: "context") -> ("artifact", ["_arglike"], DefaultInfo.type):
+def python_test_executable(ctx: "context") -> ("artifact", ["_arglike"], {str.type: ["provider"]}):
     main_module = value_or(ctx.attrs.main_module, "__test_main__")
 
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.srcs))
@@ -47,7 +47,7 @@ def python_test_executable(ctx: "context") -> ("artifact", ["_arglike"], Default
     )
 
 def python_test_impl(ctx: "context") -> ["provider"]:
-    output, runtime_files, source_db = python_test_executable(ctx)
+    output, runtime_files, extra = python_test_executable(ctx)
     test_cmd = cmd_args(output).hidden(runtime_files)
 
     # Setup a RE executor based on the `remote_execution` param.
@@ -57,7 +57,7 @@ def python_test_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(
             default_outputs = [output],
             other_outputs = runtime_files,
-            sub_targets = {"source-db": [source_db]},
+            sub_targets = extra,
         ),
         RunInfo(test_cmd),
         ExternalRunnerTestInfo(
