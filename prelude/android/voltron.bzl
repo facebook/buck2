@@ -4,6 +4,14 @@ load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_all_java_packaging_d
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx", "flatten")
 
+ROOT_MODULE = "dex"
+
+def is_root_module(module: str.type) -> bool.type:
+    return module == ROOT_MODULE
+
+def all_targets_in_root_module(_module: str.type) -> str.type:
+    return ROOT_MODULE
+
 # In order to calculate which targets belong to each module, we reconstruct a "target graph"
 # from "deps" information that is propagated up through AndroidPackageableInfo.
 # In buck1 we use the underlying "TargetGraph" object that is based on the raw target
