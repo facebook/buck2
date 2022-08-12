@@ -69,27 +69,6 @@ pub trait StarlarkProfiler: Send + Sync {
     fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()>;
 }
 
-/// A profiler that does nothing.
-pub struct Disabled;
-
-impl StarlarkProfiler for Disabled {
-    fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
-        None
-    }
-
-    fn initialize(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn evaluation_complete(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn visit_frozen_module(&mut self, _: Option<&FrozenModule>) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
 /// Collected profile data.
 #[derive(Debug)]
 enum StarlarkProfileData {
