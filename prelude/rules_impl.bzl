@@ -358,7 +358,7 @@ extra_attributes = struct(
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
-        "_testmaingen": attrs.dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
+        "_testmaingen": attrs.exec_dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
     },
 
     #ocaml
