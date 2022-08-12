@@ -9,13 +9,13 @@ def _get_apple_resources_tolchain_attr():
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-resources", providers = [AppleToolchainInfo])
 
 def _impl(ctx: "context") -> ["provider"]:
-    resource_output, resource_group_info = get_apple_bundle_resource_part_list(ctx)
+    resource_output = get_apple_bundle_resource_part_list(ctx)
     return [
         DefaultInfo(),
         AppleBundleResourceInfo(
             resource_output = resource_output,
         ),
-    ] + ([resource_group_info] if resource_group_info else [])
+    ]
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_resource_bundle",
