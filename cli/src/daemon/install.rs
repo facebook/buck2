@@ -31,6 +31,9 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::*;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_core::directory::DirectoryEntry;
@@ -40,6 +43,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
@@ -62,6 +66,7 @@ use install_proto::installer_client::InstallerClient;
 use install_proto::FileReadyRequest;
 use install_proto::InstallInfoRequest;
 use install_proto::ShutdownRequest;
+use itertools::Either;
 use starlark::values::FrozenRef;
 use tempfile::Builder;
 use thiserror::Error;
@@ -79,8 +84,13 @@ pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 pub(crate) enum InstallError {
     #[error("Not install type `{0}` from package `{1}`")]
     NoInstallProvider(TargetName, Package),
+
+    #[error("Installer target `{0}` doesn't expose RunInfo provider")]
+    NoRunInfoProvider(TargetName),
+
     #[error("Error retrieving hash for `{0}`")]
     ErrorRetrievingHash(String),
+
     #[error(
         "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`"
     )]
@@ -90,8 +100,10 @@ pub(crate) enum InstallError {
         path: AbsPathBuf,
         err: String,
     },
+
     #[error("Installer failed for `{install_id}` with `{err}`")]
     InternalInstallerFailure { install_id: String, err: String },
+
     #[error("Communication with the installer failed with `{err}`")]
     InstallerCommunicationFailure { err: String },
 }
@@ -210,14 +222,14 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
-async fn build_install(
-    ctx: &DiceComputations,
+async fn build_install<'a>(
+    ctx: &'a DiceComputations,
     install_log_dir: &AbsPathBuf,
     target_label: &buck2_core::target::ConfiguredTargetLabel,
-    install_info: FrozenRef<'static, FrozenInstallInfo>,
+    install_info: FrozenRef<'a, FrozenInstallInfo>,
     mut installer_run_args: Vec<String>,
 ) -> anyhow::Result<()> {
-    let install_files: &IndexMap<&str, Artifact> = &install_info.get_files()?;
+    let install_files = &install_info.get_files()?;
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let build_files = async move {
         build_files(ctx, install_files, files_tx).await?;
@@ -254,6 +266,7 @@ async fn build_install(
             "--log-path".to_owned(),
             installer_log_filename.to_owned(),
         ]);
+
         build_launch_installer(ctx, install_info, installer_run_args).await?;
 
         let client: InstallerClient<Channel> =
@@ -333,13 +346,52 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
     };
 }
 
-async fn build_launch_installer(
-    ctx: &DiceComputations,
-    install_info: FrozenRef<'static, FrozenInstallInfo>,
+enum InstallerRunInfoResult<'a> {
+    Reference(FrozenRef<'a, FrozenRunInfo>),
+    DerivedFromProvider(FrozenProviderCollectionValue, ConfiguredProvidersLabel),
+}
+
+impl<'a> InstallerRunInfoResult<'a> {
+    async fn to_installer_run_info(&'a self) -> anyhow::Result<FrozenRef<'a, FrozenRunInfo>> {
+        let installer_run_info = match self {
+            Self::Reference(run_info) => *run_info,
+            Self::DerivedFromProvider(frozen_providers, installer_label) => {
+                match RunInfo::from_providers(frozen_providers.provider_collection()) {
+                    Some(installer_run_info_provider) => installer_run_info_provider,
+                    None => {
+                        return Err(InstallError::NoRunInfoProvider(
+                            installer_label.target().name().to_owned(),
+                        )
+                        .into());
+                    }
+                }
+            }
+        };
+        Ok(installer_run_info)
+    }
+}
+
+async fn build_launch_installer<'a>(
+    ctx: &'a DiceComputations,
+    install_info: FrozenRef<'a, FrozenInstallInfo>,
     installer_run_args: Vec<String>,
 ) -> anyhow::Result<()> {
-    let installer_run_info = install_info.get_installer().to_owned();
     let (inputs, run_args) = {
+        let installer_run_info_result: InstallerRunInfoResult =
+            match install_info.get_installer()? {
+                Either::Left(run_info) => InstallerRunInfoResult::Reference(run_info),
+                Either::Right(installer_label) => {
+                    let frozen_providers = ctx
+                        .get_providers(&installer_label)
+                        .await?
+                        .require_compatible()?;
+
+                    InstallerRunInfoResult::DerivedFromProvider(frozen_providers, installer_label)
+                }
+            };
+
+        let installer_run_info = installer_run_info_result.to_installer_run_info().await?;
+
         let artifact_fs = ctx.get_artifact_fs().await?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         installer_run_info.visit_artifacts(&mut artifact_visitor)?;
