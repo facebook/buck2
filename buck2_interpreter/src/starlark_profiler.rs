@@ -56,19 +56,6 @@ impl StarlarkProfilerInstrumentation {
     }
 }
 
-pub trait StarlarkProfiler: Send + Sync {
-    /// Instrumentation level required by `bzl` files loaded by the profiled module.
-    fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation>;
-
-    /// Prepare an Evaluator to capture output relevant to this profiler.
-    fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
-
-    /// Post-analysis, produce the output of this profiler.
-    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
-
-    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()>;
-}
-
 /// Collected profile data.
 #[derive(Debug)]
 enum StarlarkProfileData {
@@ -165,21 +152,22 @@ impl StarlarkProfilerImpl {
                 .context("profile_data not initialized (internal error)")?,
         })
     }
-}
 
-impl StarlarkProfiler for StarlarkProfilerImpl {
+    /// Instrumentation level required by `bzl` files loaded by the profiled module.
     fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
         Some(StarlarkProfilerInstrumentation {
             profile_mode: self.profile_mode.dupe(),
         })
     }
 
+    /// Prepare an Evaluator to capture output relevant to this profiler.
     fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         eval.enable_profile(&self.profile_mode)?;
         self.initialized_at = Some(Instant::now());
         Ok(())
     }
 
+    /// Post-analysis, produce the output of this profiler.
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         self.finalized_at = Some(Instant::now());
         if !matches!(
@@ -220,7 +208,7 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
 
 enum StarlarkProfilerOrInstrumentationImpl<'p> {
     None,
-    Profiler(&'p mut dyn StarlarkProfiler),
+    Profiler(&'p mut StarlarkProfilerImpl),
     Instrumentation(StarlarkProfilerInstrumentation),
 }
 
@@ -230,7 +218,7 @@ pub struct StarlarkProfilerOrInstrumentation<'p>(StarlarkProfilerOrInstrumentati
 
 impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     pub fn new(
-        profiler: &'p mut dyn StarlarkProfiler,
+        profiler: &'p mut StarlarkProfilerImpl,
         instrumentation: Option<StarlarkProfilerInstrumentation>,
     ) -> StarlarkProfilerOrInstrumentation<'p> {
         match (profiler.instrumentation(), instrumentation) {
@@ -248,7 +236,7 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         }
     }
 
-    pub fn for_profiler(profiler: &'p mut dyn StarlarkProfiler) -> Self {
+    pub fn for_profiler(profiler: &'p mut StarlarkProfilerImpl) -> Self {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Profiler(profiler))
     }
 
