@@ -363,7 +363,9 @@ pub async fn profile_analysis(
     profile_mode: &ProfileMode,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
     let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), true);
-    get_analysis_result(ctx, target, &mut profiler).await?;
+    get_analysis_result(ctx, target, &mut profiler)
+        .await?
+        .require_compatible()?;
     profiler.finish()
 }
 
