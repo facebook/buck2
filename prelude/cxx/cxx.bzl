@@ -372,8 +372,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
     ))
 
-    # Create, augment and provide the linkable graph.
+    native_link_target = None
     linkable_graph = create_merged_linkable_graph(ctx.label, first_order_deps)
+
+    # Create, augment and provide the linkable graph.
     add_linkable_node(
         linkable_graph,
         ctx,
@@ -385,12 +387,11 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         excluded = not value_or(ctx.attrs.supports_merged_linking, True),
         exported_deps = first_order_deps,
     )
-    providers.append(linkable_graph)
 
     # Omnibus root provider.
     if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
-        providers.append(create_native_link_target(
+        native_link_target = create_native_link_target(
             name = soname,
             link_info = LinkInfo(
                 name = soname,
@@ -405,7 +406,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                 post_flags = cxx_attr_exported_post_linker_flags(ctx),
             ),
             deps = first_order_deps,
-        ))
+        )
+        providers.append(native_link_target)
+
+    providers.append(linkable_graph)
 
     return providers
 

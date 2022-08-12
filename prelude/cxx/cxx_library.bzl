@@ -400,30 +400,28 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             sub_targets = sub_targets,
         ))
 
-    # Augment and provide the linkable graph.
-    if impl_params.generate_providers.linkable_graph:
-        add_linkable_node(
-            linkable_graph,
-            ctx,
-            preferred_linkage = preferred_linkage,
-            # If we don't have link input for this link style, we pass in `None` so
-            # that omnibus knows to avoid it.
-            link_infos = library_outputs.libraries,
-            shared_libs = library_outputs.solibs,
-            excluded = not value_or(ctx.attrs.supports_merged_linking, True),
-            deps = non_exported_deps,
-            exported_deps = exported_deps,
-        )
-        providers.append(linkable_graph)
+    add_linkable_node(
+        linkable_graph,
+        ctx,
+        preferred_linkage = preferred_linkage,
+        # If we don't have link input for this link style, we pass in `None` so
+        # that omnibus knows to avoid it.
+        link_infos = library_outputs.libraries,
+        shared_libs = library_outputs.solibs,
+        excluded = not value_or(ctx.attrs.supports_merged_linking, True),
+        deps = non_exported_deps,
+        exported_deps = exported_deps,
+    )
 
     # Omnibus root provider.
+    native_link_target = None
     if impl_params.generate_providers.omnibus_root:
         if impl_params.use_soname:
             soname = _soname(ctx)
         else:
             soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
-        providers.append(create_native_link_target(
+        native_link_target = create_native_link_target(
             name = soname,
             link_info = LinkInfo(
                 pre_flags = cxx_attr_exported_linker_flags(ctx),
@@ -435,7 +433,12 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 )],
             ),
             deps = non_exported_deps + exported_deps,
-        ))
+        )
+        providers.append(native_link_target)
+
+    # Augment and provide the linkable graph.
+    if impl_params.generate_providers.linkable_graph:
+        providers.append(linkable_graph)
 
     # C++ resource.
     if impl_params.generate_providers.resources:
