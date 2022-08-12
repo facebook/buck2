@@ -399,6 +399,7 @@ mod tests {
                 anyhow::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                     provider_collection,
                     deferred_result,
+                    None,
                 )))
                 .shared_error(),
             )
@@ -490,6 +491,7 @@ mod tests {
                 anyhow::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                     provider_collection,
                     deferred_result,
+                    None,
                 )))
                 .shared_error(),
             )

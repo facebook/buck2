@@ -17,6 +17,9 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use gazebo::prelude::*;
@@ -24,6 +27,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::eval::ProfileMode;
 use starlark::values::structs::Struct;
 use starlark::values::FrozenRef;
 use starlark::values::Value;
@@ -79,6 +83,7 @@ pub struct AnalysisResult {
     /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
     provider_collection: FrozenProviderCollectionValue,
     deferred: DeferredTable,
+    profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
 }
 
 impl AnalysisResult {
@@ -86,10 +91,12 @@ impl AnalysisResult {
     pub fn new(
         provider_collection: FrozenProviderCollectionValue,
         deferred: DeferredTable,
+        profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
     ) -> Self {
         Self {
             provider_collection,
             deferred,
+            profile_data,
         }
     }
 
@@ -194,7 +201,8 @@ fn run_analysis<'a>(
     execution_platform: &'a ExecutionPlatformResolution,
     impl_function: &'a dyn RuleImplFunction,
     node: &ConfiguredTargetNode,
-    profiler: &mut StarlarkProfilerOrInstrumentation,
+    instrumentation: Option<StarlarkProfilerInstrumentation>,
+    profile_mode: Option<&ProfileMode>,
 ) -> anyhow::Result<AnalysisResult> {
     let analysis_env = AnalysisEnv::new(
         label,
@@ -203,7 +211,7 @@ fn run_analysis<'a>(
         execution_platform,
         impl_function,
     )?;
-    run_analysis_with_env(analysis_env, node, profiler)
+    run_analysis_with_env(analysis_env, node, instrumentation, profile_mode)
 }
 
 impl<'a> AnalysisEnv<'a> {
@@ -236,7 +244,8 @@ impl<'a> AnalysisEnv<'a> {
 fn run_analysis_with_env(
     analysis_env: AnalysisEnv,
     node: &ConfiguredTargetNode,
-    profiler: &mut StarlarkProfilerOrInstrumentation,
+    instrumentation: Option<StarlarkProfilerInstrumentation>,
+    profile_mode: Option<&ProfileMode>,
 ) -> anyhow::Result<AnalysisResult> {
     let env = Module::new();
     let mut eval = Evaluator::new(&env);
@@ -274,6 +283,14 @@ fn run_analysis_with_env(
         registry,
     ));
 
+    let mut profiler_opt =
+        profile_mode.map(|profile_mode| StarlarkProfilerImpl::new(profile_mode.dupe(), true));
+
+    let mut profiler = match &mut profiler_opt {
+        None => StarlarkProfilerOrInstrumentation::maybe_instrumentation(instrumentation),
+        Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
+    };
+
     profiler.initialize(&mut eval)?;
 
     let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
@@ -295,13 +312,19 @@ fn run_analysis_with_env(
         .visit_frozen_module(Some(&frozen_env))
         .context("Profiler heap visitation failed")?;
 
+    let profile_data = profiler_opt.map(|p| p.finish()).transpose()?.map(Arc::new);
+
     let res = frozen_env.get("").unwrap();
     let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
         .expect("just created this, this shouldn't happen");
 
     // this could look nicer if we had the entire analysis be a deferred
     let deferred = DeferredTable::new(deferreds.take_result()?);
-    Ok(AnalysisResult::new(provider_collection, deferred))
+    Ok(AnalysisResult::new(
+        provider_collection,
+        deferred,
+        profile_data,
+    ))
 }
 
 pub fn get_user_defined_rule_impl(

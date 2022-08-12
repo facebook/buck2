@@ -23,11 +23,7 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasEvents;
-use buck2_interpreter::starlark_profiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
-use buck2_interpreter::starlark_profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::compatibility::MaybeCompatible;
@@ -91,11 +87,9 @@ impl RuleAnalysisCalculation for DiceComputations {
         impl Key for AnalysisKey {
             type Value = SharedResult<MaybeCompatible<AnalysisResult>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                Ok(
-                    get_analysis_result(ctx, &self.0, &mut starlark_profiler::Disabled)
-                        .await
-                        .with_context(|| format!("When running analysis for `{}`", &self.0))?,
-                )
+                Ok(get_analysis_result(ctx, &self.0, None)
+                    .await
+                    .with_context(|| format!("When running analysis for `{}`", &self.0))?)
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -218,7 +212,7 @@ async fn resolve_queries_impl(
 async fn get_analysis_result(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
-    profiler: &mut dyn StarlarkProfiler,
+    profile_mode: Option<&ProfileMode>,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
     let configured_node: MaybeCompatible<ConfiguredTargetNode> =
         ctx.get_configured_target_node(target).await?;
@@ -288,10 +282,8 @@ async fn get_analysis_result(
                                         configured_node.execution_platform_resolution(),
                                         &rule_impl,
                                         &configured_node,
-                                        &mut StarlarkProfilerOrInstrumentation::new(
-                                            profiler,
-                                            starlark_profiler_instrumentation,
-                                        ),
+                                        starlark_profiler_instrumentation,
+                                        profile_mode,
                                     ),
                                     buck2_data::AnalysisStageEnd {},
                                 )
@@ -361,12 +353,12 @@ pub async fn profile_analysis(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
     profile_mode: &ProfileMode,
-) -> anyhow::Result<StarlarkProfileDataAndStats> {
-    let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), true);
-    get_analysis_result(ctx, target, &mut profiler)
+) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+    get_analysis_result(ctx, target, Some(profile_mode))
         .await?
-        .require_compatible()?;
-    profiler.finish()
+        .require_compatible()?
+        .profile_data
+        .context("profile_data not set (internal error)")
 }
 
 mod keys {

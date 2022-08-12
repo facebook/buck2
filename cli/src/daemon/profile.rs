@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use anyhow::Context as _;
 use buck2_build_api::analysis;
 use buck2_build_api::calculation::Calculation;
@@ -37,7 +39,7 @@ pub(crate) async fn generate_profile(
     pattern: buck2_data::TargetPattern,
     action: Action,
     profile_mode: &ProfileMode,
-) -> anyhow::Result<StarlarkProfileDataAndStats> {
+) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let ctx = server_ctx.dice_ctx().await?;
     let cells = ctx.get_cell_resolver().await?;
 
@@ -96,7 +98,7 @@ pub(crate) async fn generate_profile(
                 )
                 .await?;
 
-            profiler.finish()
+            profiler.finish().map(Arc::new)
         }
     }
 }
