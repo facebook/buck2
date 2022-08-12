@@ -5,7 +5,8 @@ def _v1_attrs():
     return attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage))))))
 
 def link_group_map_attr():
-    return attrs.option(_v1_attrs(), default = None)
+    v2_attrs = attrs.dep()
+    return attrs.option(attrs.one_of(v2_attrs, _v1_attrs()), default = None)
 
 def _impl(_ctx: "context") -> ["provider"]:
     return [
