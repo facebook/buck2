@@ -59,6 +59,11 @@ enum ConfigurationError {
     LabelIsEmpty,
     #[error("Configuration label is too long: {0:?}")]
     LabelIsTooLong(String),
+    #[error(
+        "Config values must be empty in `PlatformInfo` provider \
+        because we don't use them, we use global buckconfig to resolve selects"
+    )]
+    BuckConfigValuesMustBeEmpty,
 }
 
 #[derive(Debug, Error)]
@@ -107,6 +112,9 @@ impl Configuration {
         if label.len() > 1000 {
             // Sanity check.
             return Err(ConfigurationError::LabelIsTooLong(label).into());
+        }
+        if !data.buckconfigs.is_empty() {
+            return Err(ConfigurationError::BuckConfigValuesMustBeEmpty.into());
         }
         Ok(Self::from_data(HashedPlatformConfigurationData::new(
             PlatformConfigurationData {
