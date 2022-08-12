@@ -7,6 +7,10 @@ def _impl_exists_relative_path(ctx):
 def _impl_not_exists(ctx):
     ctx.output.print(ctx.unstable_fs.exists("does_not_exist"))
 
+def _impl_exists_source_artifact(ctx):
+    node = ctx.configured_targets("root//bin:the_binary")
+    ctx.output.print(ctx.unstable_fs.exists(node.sources()[0]))
+
 exists_absolute_path = bxl(
     impl = _impl_exists_absolute_path,
     cli_args = {
@@ -22,6 +26,12 @@ exists_relative_path = bxl(
 
 not_exists = bxl(
     impl = _impl_not_exists,
+    cli_args = {
+    },
+)
+
+exists_source_artifact = bxl(
+    impl = _impl_exists_source_artifact,
     cli_args = {
     },
 )

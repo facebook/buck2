@@ -102,6 +102,13 @@ impl Artifact {
         }
     }
 
+    pub fn get_source(&self) -> Option<SourceArtifact> {
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(x) => Some(x.dupe()),
+            BaseArtifactKind::Build(_) => None,
+        }
+    }
+
     /// The callsite that declared this artifact, any.
     pub fn owner(&self) -> Option<&BaseDeferredKey> {
         match self.as_parts().0 {

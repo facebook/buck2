@@ -523,3 +523,9 @@ async def test_bxl_fs_exists(buck: Buck) -> None:
     )
 
     assert "True" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl:exists.bxl:exists_source_artifact",
+    )
+
+    assert "True" in result.stdout

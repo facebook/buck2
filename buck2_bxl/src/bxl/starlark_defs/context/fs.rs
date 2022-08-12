@@ -1,20 +1,10 @@
 //! Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
 //! detect simple properties of artifacts, and source directories.
-
-use std::borrow::Cow;
-use std::path::Path;
-
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
-use buck2_core;
-use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::project::ProjectRelativePath;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -32,6 +22,7 @@ use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::file_expr::FileExpr;
 
 #[derive(
     ProvidesStaticType,
@@ -86,18 +77,14 @@ impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
 #[starlark_module]
 fn fs_operations(builder: &mut MethodsBuilder) {
     /// check if a path exists on disk, taking advantage of Buck's cached filesystem
-    fn exists<'v>(this: &BxlFilesystem<'v>, path: &str) -> anyhow::Result<bool> {
-        let fs = this.dice.0.global_data().get_io_provider().fs().dupe();
-        let rel = if Path::new(path).is_absolute() {
-            fs.relativize(AbsPath::new(path)?)?
-        } else {
-            Cow::Borrowed(<&ProjectRelativePath>::try_from(path)?)
-        };
+    fn exists<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
+        let path = expr.get(this.dice);
 
-        this.dice.via_dice(async move |ctx| {
-            let path = ctx.get_cell_resolver().await?.get_cell_path(&rel)?;
-
-            ctx.file_ops().try_exists(&path).await
-        })
+        match path {
+            Ok(p) => this
+                .dice
+                .via_dice(async move |ctx| ctx.file_ops().try_exists(&p).await),
+            Err(e) => Err(e),
+        }
     }
 }
