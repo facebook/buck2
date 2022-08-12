@@ -1,4 +1,5 @@
 load("@fbcode//buck2/prelude:attributes.bzl", "LinkableDepType", "Linkage")
+load("@fbcode//buck2/prelude/apple/user:resource_group_map.bzl", "resource_group_map_attr")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@fbcode//buck2/prelude/cxx/user:link_group_map.bzl", "link_group_map_attr")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
@@ -50,6 +51,7 @@ extra_attributes = {
         "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "apple_bundle": {
+        "resource_group_map": resource_group_map_attr(),
         "_apple_installer": attrs.exec_dep(default = "buck//src/com/facebook/buck/installer/apple:apple_installer", providers = [RunInfo]),
         "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),

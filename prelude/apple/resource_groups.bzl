@@ -1,8 +1,8 @@
 load(
     "@fbcode//buck2/prelude/cxx:groups.bzl",
-    "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "ResourceGraph",  # @unused Used as a type
+    "get_group_mappings_and_info",
     "parse_groups_definitions",
 )
 load(
@@ -66,7 +66,7 @@ def _with_resources_deps(deps: ["dependency"]) -> ["label"]:
     graphs = filter(None, [d[ResourceGraph] for d in deps])
     return [g.label for g in graphs]
 
-def get_resource_groups(ctx: "context") -> [Group.type]:
+def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
     """
     Parses the currently analyzed context for any resource group definitions
     and returns a list of all resource groups with their mappings.
@@ -74,9 +74,22 @@ def get_resource_groups(ctx: "context") -> [Group.type]:
     resource_group_map = ctx.attrs.resource_group_map
 
     if not resource_group_map:
-        return []
+        return None
 
-    return parse_groups_definitions(resource_group_map)
+    if type(resource_group_map) == "dependency":
+        return resource_group_map[ResourceGroupInfo]
+
+    groups = parse_groups_definitions(resource_group_map)
+    resource_groups_deps = [mapping.target for group in groups for mapping in group.mappings]
+    resource_graph = create_resource_graph(
+        root = ctx.label,
+        labels = [],
+        deps = resource_groups_deps,
+        exported_deps = [],
+    )
+
+    _, resource_group_info = get_group_mappings_and_info(group_info_type = ResourceGroupInfo, groups = groups, graph = resource_graph, deps = [])
+    return resource_group_info
 
 def get_filtered_resources(
         resource_graph: ResourceGraph.type,

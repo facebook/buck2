@@ -1,8 +1,9 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "AppleBundleExtension", "Traversal")
+load("@fbcode//buck2/prelude:attributes.bzl", "AppleBundleExtension")
 load("@fbcode//buck2/prelude/apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load("@fbcode//buck2/prelude/apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load(":resource_group_map.bzl", "resource_group_map_attr")
 
 def _get_apple_resources_tolchain_attr():
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-resources", providers = [AppleToolchainInfo])
@@ -30,7 +31,7 @@ registration_spec = RuleRegistrationSpec(
         "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
         "product_name": attrs.option(attrs.string(), default = None),
         "resource_group": attrs.option(attrs.string(), default = None),
-        "resource_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()))))), default = None),
+        "resource_group_map": resource_group_map_attr(),
         # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
         "_apple_toolchain": _get_apple_resources_tolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),

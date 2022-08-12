@@ -1,6 +1,5 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:groups.bzl", "get_group_mappings_and_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(
     ":apple_asset_catalog.bzl",
@@ -25,7 +24,13 @@ load(
     "AppleResourceSpec",  # @unused Used as a type
 )
 load(":apple_resource_utility.bzl", "apple_bundle_destination_from_resource_destination")
-load(":resource_groups.bzl", "ResourceGroupInfo", "create_resource_graph", "get_filtered_resources", "get_resource_groups")
+load(
+    ":resource_groups.bzl",
+    "ResourceGroupInfo",  # @unused Used as a type
+    "create_resource_graph",
+    "get_filtered_resources",
+    "get_resource_group_info",
+)
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
@@ -81,8 +86,13 @@ def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
     return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
 
 def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]), [ResourceGroupInfo.type, None]):
-    resource_groups = get_resource_groups(ctx)
-    resource_groups_deps = [mapping.target for group in resource_groups for mapping in group.mappings]
+    resource_group_info = get_resource_group_info(ctx)
+    if resource_group_info:
+        resource_groups_deps = [mapping.target for group in resource_group_info.groups for mapping in group.mappings]
+        resource_group_mappings = resource_group_info.mappings
+    else:
+        resource_groups_deps = []
+        resource_group_mappings = {}
     deps = ctx.attrs.deps + filter(None, [ctx.attrs.binary])
     resource_graph = create_resource_graph(
         root = ctx.label,
@@ -90,13 +100,7 @@ def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAsset
         deps = deps + resource_groups_deps,
         exported_deps = [],
     )
-    groups_mappings, resource_group_info = get_group_mappings_and_info(
-        group_info_type = ResourceGroupInfo,
-        deps = deps,
-        groups = resource_groups,
-        graph = resource_graph,
-    )
-    return get_filtered_resources(resource_graph, ctx.attrs.resource_group, groups_mappings), resource_group_info
+    return get_filtered_resources(resource_graph, ctx.attrs.resource_group, resource_group_mappings), resource_group_info
 
 def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBundlePart.type]:
     result = []
