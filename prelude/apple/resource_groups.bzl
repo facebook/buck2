@@ -29,6 +29,7 @@ ResourceNode = record(
 )
 
 ResourceGroupInfo = provider(fields = [
+    "groups",  # [Group.type]
     "groups_hash",  # str.type
     "mappings",  # {"label": str.type}
 ])

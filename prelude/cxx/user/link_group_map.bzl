@@ -31,7 +31,7 @@ def _impl(ctx: "context") -> ["provider"]:
     mappings = compute_mappings(groups = link_groups, graph = linkable_graph)
     return [
         DefaultInfo(),
-        LinkGroupInfo(groups_hash = hash(str(link_groups)), mappings = mappings),
+        LinkGroupInfo(groups = link_groups, groups_hash = hash(str(link_groups)), mappings = mappings),
     ]
 
 registration_spec = RuleRegistrationSpec(
