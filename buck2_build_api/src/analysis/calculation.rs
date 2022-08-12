@@ -224,7 +224,7 @@ async fn get_analysis_result(
     let mut dep_analysis = keep_going::try_join_all(
         configured_node
             .deps()
-            .chain(configured_node.execution_deps())
+            .chain(configured_node.exec_deps())
             .map(async move |dep| {
                 let res = ctx
                     .get_analysis_result(dep.name())

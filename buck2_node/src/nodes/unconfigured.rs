@@ -271,7 +271,7 @@ impl TargetNode {
         self.deps_cache().deps.iter()
     }
 
-    pub fn execution_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+    pub fn exec_deps(&self) -> impl Iterator<Item = &TargetLabel> {
         self.deps_cache().exec_deps.iter()
     }
 

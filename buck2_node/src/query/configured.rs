@@ -42,7 +42,7 @@ impl QueryTarget for ConfiguredTargetNode {
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::execution_deps(self).map(|v| v.name())
+        box ConfiguredTargetNode::exec_deps(self).map(|v| v.name())
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {

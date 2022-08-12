@@ -391,7 +391,7 @@ impl ConfiguredTargetNode {
         self.0.deps.iter()
     }
 
-    pub fn execution_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
+    pub fn exec_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
         self.0.exec_deps.iter()
     }
 

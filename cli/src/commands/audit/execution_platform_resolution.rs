@@ -107,7 +107,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 Ok(platform) => {
                     writeln!(stdout, "  Execution platform: {}", platform.cfg())?;
                     writeln!(stdout, "    Execution deps:")?;
-                    for execution_dep in configured_node.execution_deps() {
+                    for execution_dep in configured_node.exec_deps() {
                         writeln!(stdout, "      {}", execution_dep.name())?;
                     }
                     writeln!(stdout, "    Toolchain deps:")?;
