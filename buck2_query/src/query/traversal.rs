@@ -48,14 +48,6 @@ pub trait AsyncTraversalDelegate<T: LabeledNode>: Send + Sync {
     ) -> anyhow::Result<()>;
 }
 
-pub trait TraversalDelegate<T: LabeledNode> {
-    /// visit is called once for each node. When it is called is traversal-dependent.
-    fn visit(&mut self, target: T) -> anyhow::Result<()>;
-
-    /// for_each_child should apply the provided function to each child of the node. This may be called multiple times in some traversals.
-    fn for_each_child(&mut self, target: &T, func: &mut dyn ChildVisitor<T>) -> anyhow::Result<()>;
-}
-
 pub trait NodeLookup<T: LabeledNode> {
     // TODO(cjhopman): Maybe this should be `&mut self` since we only need the one reference to it.
     fn get(&self, label: &T::NodeRef) -> anyhow::Result<T>;
