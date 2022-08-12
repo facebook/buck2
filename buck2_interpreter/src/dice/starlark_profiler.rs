@@ -20,29 +20,122 @@ use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 
+#[derive(Debug, thiserror::Error)]
+enum StarlarkProfilerError {
+    #[error("profiler is not configured to profile last element (internal error)")]
+    ProfilerConfigurationNotLast,
+}
+
+/// Global profiling configuration.
+#[derive(PartialEq, Eq, Clone, Dupe, Debug)]
+pub enum StarlarkProfilerConfiguration {
+    /// No profiling.
+    None,
+    /// Instrument everything, but no profiling.
+    Instrument(StarlarkProfilerInstrumentation),
+    /// Profile loading of one `BUCK`, everything else is instrumented.
+    ProfileLastLoading(ProfileMode),
+    /// Profile analysis of the last target, everything else is instrumented.
+    ProfileLastAnalysis(ProfileMode),
+}
+
+impl Default for StarlarkProfilerConfiguration {
+    fn default() -> StarlarkProfilerConfiguration {
+        StarlarkProfilerConfiguration::None
+    }
+}
+
+impl StarlarkProfilerConfiguration {
+    /// Instrumentation for `.bzl` files.
+    pub fn bzl_instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
+        match self {
+            StarlarkProfilerConfiguration::None => None,
+            StarlarkProfilerConfiguration::Instrument(instrumentation) => {
+                Some(instrumentation.dupe())
+            }
+            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => {
+                Some(StarlarkProfilerInstrumentation::new(profile_mode.dupe()))
+            }
+        }
+    }
+
+    pub fn profile_last_loading(&self) -> anyhow::Result<&ProfileMode> {
+        match self {
+            StarlarkProfilerConfiguration::None
+            | StarlarkProfilerConfiguration::Instrument(_)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_) => {
+                Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
+            }
+            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode) => Ok(profile_mode),
+        }
+    }
+
+    pub fn profile_last_analysis(&self) -> anyhow::Result<&ProfileMode> {
+        match self {
+            StarlarkProfilerConfiguration::None
+            | StarlarkProfilerConfiguration::Instrument(_)
+            | StarlarkProfilerConfiguration::ProfileLastLoading(_) => {
+                Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
+            }
+            StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => Ok(profile_mode),
+        }
+    }
+}
+
+#[derive(Debug, derive_more::Display, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
+#[display(fmt = "{:?}", self)]
+struct StarlarkProfilerConfigurationKey;
+
 #[derive(Debug, derive_more::Display, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkProfilerInstrumentationKey;
 
 #[async_trait]
+impl Key for StarlarkProfilerConfigurationKey {
+    type Value = SharedResult<StarlarkProfilerConfiguration>;
+
+    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        let mut configuration = get_starlark_profiler_instrumentation_override(ctx).await?;
+
+        if let StarlarkProfilerConfiguration::None = configuration {
+            let cell_resolver = ctx.get_cell_resolver().await?;
+            let instr = ctx
+                .parse_legacy_config_property::<ProfileMode>(
+                    cell_resolver.root_cell(),
+                    "buck2",
+                    "starlark_instrumentation_mode",
+                )
+                .await?;
+
+            if let Some(instr) = instr {
+                configuration = StarlarkProfilerConfiguration::Instrument(
+                    StarlarkProfilerInstrumentation::new(instr),
+                );
+            }
+        }
+
+        Ok(configuration)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+#[async_trait]
 impl Key for StarlarkProfilerInstrumentationKey {
     type Value = SharedResult<Option<StarlarkProfilerInstrumentation>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        if let Some(instr) = get_starlark_profiler_instrumentation_override(ctx).await? {
-            return Ok(Some(instr));
-        }
-
-        let cell_resolver = ctx.get_cell_resolver().await?;
-        let instr = ctx
-            .parse_legacy_config_property::<ProfileMode>(
-                cell_resolver.root_cell(),
-                "buck2",
-                "starlark_instrumentation_mode",
-            )
-            .await?;
-
-        Ok(instr.map(StarlarkProfilerInstrumentation::new))
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+    ) -> SharedResult<Option<StarlarkProfilerInstrumentation>> {
+        let configuration = get_starlark_profiler_configuration(ctx).await?;
+        Ok(configuration.bzl_instrumentation())
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -66,7 +159,7 @@ impl Key for StarlarkProfilerInstrumentationKey {
 pub struct StarlarkProfilerInstrumentationOverrideKey;
 
 impl InjectedKey for StarlarkProfilerInstrumentationOverrideKey {
-    type Value = Option<StarlarkProfilerInstrumentation>;
+    type Value = StarlarkProfilerConfiguration;
 
     fn compare(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -77,7 +170,7 @@ impl InjectedKey for StarlarkProfilerInstrumentationOverrideKey {
 pub trait SetStarlarkProfilerInstrumentation {
     fn set_starlark_profiler_instrumentation_override(
         &self,
-        instrumentation: Option<StarlarkProfilerInstrumentation>,
+        instrumentation: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()>;
 }
 
@@ -92,7 +185,7 @@ pub trait GetStarlarkProfilerInstrumentation {
 impl SetStarlarkProfilerInstrumentation for DiceTransaction {
     fn set_starlark_profiler_instrumentation_override(
         &self,
-        instrumentation: Option<StarlarkProfilerInstrumentation>,
+        instrumentation: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()> {
         Ok(self.changed_to([(StarlarkProfilerInstrumentationOverrideKey, instrumentation)])?)
     }
@@ -100,10 +193,20 @@ impl SetStarlarkProfilerInstrumentation for DiceTransaction {
 
 async fn get_starlark_profiler_instrumentation_override(
     ctx: &DiceComputations,
-) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
+) -> anyhow::Result<StarlarkProfilerConfiguration> {
     Ok(ctx
         .compute(&StarlarkProfilerInstrumentationOverrideKey)
         .await?)
+}
+
+/// Global profiler configuration.
+///
+/// This funtion is not exposed outside,
+/// because accessing full configuration may invalidate too much.
+async fn get_starlark_profiler_configuration(
+    ctx: &DiceComputations,
+) -> anyhow::Result<StarlarkProfilerConfiguration> {
+    Ok(ctx.compute(&StarlarkProfilerConfigurationKey).await??)
 }
 
 #[async_trait]

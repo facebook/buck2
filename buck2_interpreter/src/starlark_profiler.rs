@@ -37,7 +37,7 @@ enum StarlarkProfilerError {
 /// "instrumented" otherwise the profiler won't work.
 ///
 /// This struct defines instrumentation level for the module.
-#[derive(Debug, PartialEq, Clone, Dupe)]
+#[derive(Debug, PartialEq, Eq, Clone, Dupe)]
 pub struct StarlarkProfilerInstrumentation {
     profile_mode: ProfileMode,
 }

@@ -43,6 +43,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
+use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -256,7 +257,14 @@ fn main(fb: FacebookInit) -> ExitResult {
                 configure_extension_file_globals,
                 |_| {},
             );
-            setup_interpreter(&ctx, cells.dupe(), configuror, legacy_configs, None, false)?;
+            setup_interpreter(
+                &ctx,
+                cells.dupe(),
+                configuror,
+                legacy_configs,
+                StarlarkProfilerConfiguration::None,
+                false,
+            )?;
 
             let ctx = ctx.commit();
 

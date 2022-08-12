@@ -82,10 +82,10 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_data::*;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
+use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::LocalExecutorOptions;
@@ -451,7 +451,7 @@ pub(crate) struct ServerCommandContext {
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
-    pub starlark_profiler_instrumentation_override: Option<StarlarkProfilerInstrumentation>,
+    pub starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
 
     record_target_call_stacks: bool,
     disable_starlark_types: bool,
@@ -475,7 +475,7 @@ impl ServerCommandContext {
         base_context: BaseCommandContext,
         client_context: &ClientContext,
         build_signals: BuildSignalSender,
-        starlark_profiler_instrumentation_override: Option<StarlarkProfilerInstrumentation>,
+        starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ForwardRelativePathBuf,
         record_target_call_stacks: bool,
@@ -2292,7 +2292,7 @@ impl DaemonApi for BuckdServer {
             fn starlark_profiler_instrumentation_override(
                 &self,
                 req: &ProfileRequest,
-            ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
+            ) -> anyhow::Result<StarlarkProfilerConfiguration> {
                 let profiler_proto = cli_proto::profile_request::Profiler::from_i32(req.profiler)
                     .context("Invalid profiler")?;
 
@@ -2308,7 +2308,17 @@ impl DaemonApi for BuckdServer {
                     Profiler::Typecheck => ProfileMode::Typecheck,
                 };
 
-                Ok(Some(StarlarkProfilerInstrumentation::new(profile_mode)))
+                let action = cli_proto::profile_request::Action::from_i32(req.action)
+                    .context("Invalid action")?;
+
+                Ok(match action {
+                    cli_proto::profile_request::Action::Loading => {
+                        StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
+                    }
+                    cli_proto::profile_request::Action::Analysis => {
+                        StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
+                    }
+                })
             }
         }
 
@@ -2324,11 +2334,8 @@ impl DaemonApi for BuckdServer {
                     let result: anyhow::Result<_> = try {
                         let output: PathBuf = req.destination_path.clone().into();
 
-                        let profile_mode = context
-                            .starlark_profiler_instrumentation_override
-                            .as_ref()
-                            .map(|profiler| profiler.dupe().into_profile_mode())
-                            .context("Missing profile mode")?;
+                        let profile_mode =
+                            context.starlark_profiler_instrumentation_override.dupe();
 
                         let action = cli_proto::profile_request::Action::from_i32(req.action)
                             .context("Invalid action")?;
@@ -2547,8 +2554,8 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
     fn starlark_profiler_instrumentation_override(
         &self,
         _req: &Req,
-    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
-        Ok(None)
+    ) -> anyhow::Result<StarlarkProfilerConfiguration> {
+        Ok(StarlarkProfilerConfiguration::None)
     }
 }
 

@@ -37,6 +37,7 @@ use serde_json::json;
 
 use crate::common::StarlarkModulePath;
 use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
+use crate::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use crate::dice::starlark_types::SetDisableStarlarkTypes;
 use crate::dice::HasCalculationDelegate;
 use crate::dice::HasInterpreterContext;
@@ -91,7 +92,7 @@ fn calculation(fs: &ProjectFilesystemTemp) -> anyhow::Result<DiceTransaction> {
     ctx.set_cell_resolver(resolver.dupe())?;
     ctx.set_interpreter_context(TesterConfiguror::new(rules()))?;
     ctx.set_legacy_configs(cell_configs)?;
-    ctx.set_starlark_profiler_instrumentation_override(None)?;
+    ctx.set_starlark_profiler_instrumentation_override(StarlarkProfilerConfiguration::default())?;
     ctx.set_disable_starlark_types(false)?;
     Ok(ctx.commit())
 }

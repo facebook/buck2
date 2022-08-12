@@ -19,6 +19,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
+use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
@@ -26,7 +27,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use cli_proto::profile_request::Action;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
-use starlark::eval::ProfileMode;
 
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
@@ -38,7 +38,7 @@ pub(crate) async fn generate_profile(
     client_ctx: ClientContext,
     pattern: buck2_data::TargetPattern,
     action: Action,
-    profile_mode: &ProfileMode,
+    profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let ctx = server_ctx.dice_ctx().await?;
     let cells = ctx.get_cell_resolver().await?;
@@ -70,9 +70,13 @@ pub(crate) async fn generate_profile(
                 .get_configured_target(&label, global_target_platform.as_ref())
                 .await?;
 
-            analysis::profile_analysis(&ctx, &configured_target, profile_mode)
-                .await
-                .context("Analysis failed")
+            analysis::profile_analysis(
+                &ctx,
+                &configured_target,
+                profile_mode.profile_last_analysis()?,
+            )
+            .await
+            .context("Analysis failed")
         }
         Action::Loading => {
             match spec {
@@ -89,7 +93,8 @@ pub(crate) async fn generate_profile(
                 )
                 .await?;
 
-            let mut profiler = StarlarkProfiler::new(profile_mode.dupe(), false);
+            let mut profiler =
+                StarlarkProfiler::new(profile_mode.profile_last_loading()?.dupe(), false);
 
             calculation
                 .eval_build_file::<ModuleInternals>(
