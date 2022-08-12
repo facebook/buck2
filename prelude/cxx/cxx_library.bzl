@@ -92,10 +92,6 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(
-    ":groups.bzl",
-    "get_group_mappings_and_info",
-)
-load(
     ":link.bzl",
     "cxx_link_into_shared_library",
     "cxx_link_shared_library",
@@ -103,14 +99,13 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
-    "LinkGroupInfo",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
     "get_link_group",
+    "get_link_group_info",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
-    "get_link_groups",
 )
 load(
     ":linker.bzl",
@@ -261,20 +256,24 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # Link Groups
     link_group = get_link_group(ctx)
-    link_groups = get_link_groups(ctx)
-    link_group_deps = [mapping.target for group in link_groups for mapping in group.mappings]
+    link_group_info = get_link_group_info(ctx, deps = non_exported_deps + exported_deps)
+
+    if link_group_info:
+        link_groups = link_group_info.groups
+        link_group_mappings = link_group_info.mappings
+        link_group_deps = [mapping.target for group in link_group_info.groups for mapping in group.mappings]
+        providers.append(link_group_info)
+    else:
+        link_groups = []
+        link_group_mappings = {}
+        link_group_deps = []
+    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
     linkable_graph = create_merged_linkable_graph(
         ctx.label,
         non_exported_deps + exported_deps + link_group_deps,
     )
-
-    # Calculate link group mappings now that all relevant nodes exist in the linkable graph.
-    link_group_mappings, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = non_exported_deps + exported_deps, groups = link_groups, graph = linkable_graph)
-    if link_group_info:
-        providers.append(link_group_info)
-    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     frameworks_linkable = create_frameworks_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(

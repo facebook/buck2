@@ -8,6 +8,7 @@ load(
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
+    "create_merged_linkable_graph",
     "get_link_info",
     "linkable_deps",
 )
@@ -20,6 +21,7 @@ load(
     "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
+    "get_group_mappings_and_info",
     "parse_groups_definitions",
 )
 
@@ -40,7 +42,7 @@ LinkGroupLinkInfo = record(
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
 
-def get_link_groups(ctx: "context") -> [Group.type]:
+def get_link_group_info(ctx: "context", deps: ["dependency"]) -> [LinkGroupInfo.type, None]:
     """
     Parses the currently analyzed context for any link group definitions
     and returns a list of all link groups with their mappings.
@@ -48,9 +50,21 @@ def get_link_groups(ctx: "context") -> [Group.type]:
     link_group_map = ctx.attrs.link_group_map
 
     if not link_group_map:
-        return []
+        return None
 
-    return parse_groups_definitions(link_group_map)
+    if type(link_group_map) == "dependency":
+        return link_group_map[LinkGroupInfo]
+
+    groups = parse_groups_definitions(link_group_map)
+    link_group_deps = [mapping.target for group in groups for mapping in group.mappings]
+    linkable_graph = create_merged_linkable_graph(
+        ctx.label,
+        link_group_deps,
+    )
+
+    _, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = deps, groups = groups, graph = linkable_graph)
+
+    return link_group_info
 
 def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Linkage.type}:
     return {
