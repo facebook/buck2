@@ -165,6 +165,12 @@ go_fbcode_toolchain(
                     "interpreter",
                 ),
             ),
+            target_compatible_with = select({
+                "DEFAULT": ["ovr_config//:none"],
+                "ovr_config//os:iphoneos": ["ovr_config//os:iphoneos"],
+                "ovr_config//os:macos": ["ovr_config//os:macos"],
+                "ovr_config//runtime:fbcode": ["ovr_config//runtime:fbcode"],
+            }),
             visibility = ["PUBLIC"],
         ),
     ]
