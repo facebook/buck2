@@ -53,17 +53,23 @@ pub mod result_report {
         pub errors: Vec<SharedError>,
     }
 
+    #[derive(Copy, Clone, Dupe)]
+    pub(crate) struct ResultReporterOptions {
+        pub(crate) return_outputs: bool,
+        pub(crate) return_default_other_outputs: bool,
+    }
+
     pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,
-        return_outputs: bool,
+        options: ResultReporterOptions,
         results: Result<Vec<BuildTarget>, SharedErrors>,
     }
 
     impl<'a> ResultReporter<'a> {
-        pub(crate) fn new(artifact_fs: &'a ArtifactFs, return_outputs: bool) -> Self {
+        pub(crate) fn new(artifact_fs: &'a ArtifactFs, options: ResultReporterOptions) -> Self {
             Self {
                 artifact_fs,
-                return_outputs,
+                options,
                 results: Ok(Vec::new()),
             }
         }
@@ -95,7 +101,7 @@ pub mod result_report {
                 .collect::<Vec<_>>();
 
             if let Ok(r) = &mut self.results {
-                let artifacts = if self.return_outputs {
+                let artifacts = if self.options.return_outputs {
                     // NOTE: We use an IndexMap here to preserve the order the rule author wrote, all
                     // the while avoiding duplicates.
                     let mut artifacts = IndexMap::new();
@@ -105,6 +111,12 @@ pub mod result_report {
                             values,
                             provider_type,
                         } = output;
+
+                        if !self.options.return_default_other_outputs
+                            && matches!(provider_type, BuildProviderType::DefaultOther)
+                        {
+                            continue;
+                        }
 
                         for (artifact, _value) in values.iter() {
                             let mut entry =

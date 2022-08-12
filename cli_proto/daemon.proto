@@ -255,6 +255,7 @@ message BuildRequest {
   message ResponseOptions {
     // Include target outputs? [default: false]
     bool return_outputs = 1;
+    bool return_default_other_outputs = 2;
     // TODO(rafaelc): bool return_targets_without_data
     // TODO(rafaelc): bool return_run_args
   }

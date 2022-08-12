@@ -58,6 +58,7 @@ use tracing::info;
 use crate::daemon::build::results::build_report::BuildReportCollector;
 use crate::daemon::build::results::providers::ProvidersPrinter;
 use crate::daemon::build::results::result_report::ResultReporter;
+use crate::daemon::build::results::result_report::ResultReporterOptions;
 use crate::daemon::build::results::BuildOwner;
 use crate::daemon::build::results::BuildResultCollector;
 use crate::daemon::common::parse_patterns_from_cli_args;
@@ -104,7 +105,13 @@ pub(crate) async fn build(
     let build_providers = Arc::new(request.build_providers.unwrap());
     let response_options = request.response_options.unwrap_or_default();
 
-    let mut result_collector = ResultReporter::new(&artifact_fs, response_options.return_outputs);
+    let mut result_collector = ResultReporter::new(
+        &artifact_fs,
+        ResultReporterOptions {
+            return_outputs: response_options.return_outputs,
+            return_default_other_outputs: response_options.return_default_other_outputs,
+        },
+    );
 
     let mut build_report_collector = if build_opts.unstable_print_build_report {
         Some(BuildReportCollector::new(
