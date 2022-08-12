@@ -21,7 +21,7 @@ use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
+use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use cli_proto::profile_request::Action;
 use cli_proto::ClientContext;
@@ -89,7 +89,7 @@ pub(crate) async fn generate_profile(
                 )
                 .await?;
 
-            let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), false);
+            let mut profiler = StarlarkProfiler::new(profile_mode.dupe(), false);
 
             calculation
                 .eval_build_file::<ModuleInternals>(

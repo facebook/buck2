@@ -110,7 +110,7 @@ impl StarlarkProfileDataAndStats {
     }
 }
 
-pub struct StarlarkProfilerImpl {
+pub struct StarlarkProfiler {
     profile_mode: ProfileMode,
     /// Evaluation will freeze the module.
     /// (And frozen module will be passed to `visit_frozen_module`).
@@ -122,8 +122,8 @@ pub struct StarlarkProfilerImpl {
     total_allocated_bytes: Option<usize>,
 }
 
-impl StarlarkProfilerImpl {
-    pub fn new(profile_mode: ProfileMode, will_freeze: bool) -> StarlarkProfilerImpl {
+impl StarlarkProfiler {
+    pub fn new(profile_mode: ProfileMode, will_freeze: bool) -> StarlarkProfiler {
         Self {
             profile_mode,
             will_freeze,
@@ -208,7 +208,7 @@ impl StarlarkProfilerImpl {
 
 enum StarlarkProfilerOrInstrumentationImpl<'p> {
     None,
-    Profiler(&'p mut StarlarkProfilerImpl),
+    Profiler(&'p mut StarlarkProfiler),
     Instrumentation(StarlarkProfilerInstrumentation),
 }
 
@@ -218,7 +218,7 @@ pub struct StarlarkProfilerOrInstrumentation<'p>(StarlarkProfilerOrInstrumentati
 
 impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     pub fn new(
-        profiler: &'p mut StarlarkProfilerImpl,
+        profiler: &'p mut StarlarkProfiler,
         instrumentation: Option<StarlarkProfilerInstrumentation>,
     ) -> StarlarkProfilerOrInstrumentation<'p> {
         match (profiler.instrumentation(), instrumentation) {
@@ -236,7 +236,7 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         }
     }
 
-    pub fn for_profiler(profiler: &'p mut StarlarkProfilerImpl) -> Self {
+    pub fn for_profiler(profiler: &'p mut StarlarkProfiler) -> Self {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Profiler(profiler))
     }
 

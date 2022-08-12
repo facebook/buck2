@@ -18,7 +18,7 @@ use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
+use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -284,7 +284,7 @@ fn run_analysis_with_env(
     ));
 
     let mut profiler_opt =
-        profile_mode.map(|profile_mode| StarlarkProfilerImpl::new(profile_mode.dupe(), true));
+        profile_mode.map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
     let mut profiler = match &mut profiler_opt {
         None => StarlarkProfilerOrInstrumentation::maybe_instrumentation(instrumentation),
