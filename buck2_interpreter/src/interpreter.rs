@@ -610,7 +610,7 @@ impl InterpreterForCell {
         buckconfig: &dyn LegacyBuckConfigView,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        starlark_profiler_instrumentation: StarlarkProfilerInstrumentation,
+        starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
     ) -> SharedResult<FrozenModule> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
         self.eval(
@@ -621,7 +621,7 @@ impl InterpreterForCell {
             loaded_modules,
             None,
             None,
-            &mut StarlarkProfilerOrInstrumentation::instrumentation(
+            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                 starlark_profiler_instrumentation,
             ),
         )?;
@@ -797,13 +797,8 @@ mod tests {
             let interpreter = self.interpreter()?;
             let ParseResult(ast, _) = interpreter.parse(path.into(), content.to_owned())?;
             let buckconfig = LegacyBuckConfig::empty();
-            let env = interpreter.eval_module(
-                path,
-                &buckconfig,
-                ast,
-                loaded_modules.clone(),
-                StarlarkProfilerInstrumentation::default(),
-            )?;
+            let env =
+                interpreter.eval_module(path, &buckconfig, ast, loaded_modules.clone(), None)?;
             Ok(LoadedModule::new(
                 OwnedStarlarkModulePath::new(path),
                 loaded_modules,

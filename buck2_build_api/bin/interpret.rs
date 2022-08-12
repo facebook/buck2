@@ -46,7 +46,6 @@ use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -257,17 +256,7 @@ fn main(fb: FacebookInit) -> ExitResult {
                 configure_extension_file_globals,
                 |_| {},
             );
-            setup_interpreter(
-                &ctx,
-                cells.dupe(),
-                configuror,
-                legacy_configs,
-                // TODO(nga) We pass no-instrumentation here because we don't use "new" profiler API
-                //   in `interpret`. And old API sets up instrumentation level independently.
-                //   When old API replaced with new API, this code should be patched.
-                Some(StarlarkProfilerInstrumentation::default()),
-                false,
-            )?;
+            setup_interpreter(&ctx, cells.dupe(), configuror, legacy_configs, None, false)?;
 
             let ctx = ctx.commit();
 

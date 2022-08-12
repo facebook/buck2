@@ -2308,9 +2308,7 @@ impl DaemonApi for BuckdServer {
                     Profiler::Typecheck => ProfileMode::Typecheck,
                 };
 
-                Ok(Some(StarlarkProfilerInstrumentation::new(Some(
-                    profile_mode,
-                ))))
+                Ok(Some(StarlarkProfilerInstrumentation::new(profile_mode)))
             }
         }
 
@@ -2329,7 +2327,7 @@ impl DaemonApi for BuckdServer {
                         let profile_mode = context
                             .starlark_profiler_instrumentation_override
                             .as_ref()
-                            .and_then(|profiler| profiler.dupe().into_profile_mode())
+                            .map(|profiler| profiler.dupe().into_profile_mode())
                             .context("Missing profile mode")?;
 
                         let action = cli_proto::profile_request::Action::from_i32(req.action)

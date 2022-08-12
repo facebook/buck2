@@ -63,7 +63,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
                     interpreter
                         .eval_build_file::<ModuleInternals>(
                             &self.0,
-                            &mut StarlarkProfilerOrInstrumentation::instrumentation(
+                            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                                 starlark_profiler_instrumentation,
                             ),
                         )

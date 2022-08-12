@@ -161,7 +161,6 @@ mod tests {
     use crate::interpreter::InterpreterConfigForCell;
     use crate::interpreter::InterpreterForCell;
     use crate::interpreter::ParseResult;
-    use crate::starlark_profiler::StarlarkProfilerInstrumentation;
     use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
     fn cells() -> anyhow::Result<(CellAliasResolver, CellResolver, LegacyBuckConfigs)> {
@@ -258,7 +257,7 @@ mod tests {
             &buckconfig,
             ast,
             LoadedModules::default(),
-            StarlarkProfilerInstrumentation::default(),
+            None,
         )?;
         let import_result = LoadedModule::new(
             OwnedStarlarkModulePath::LoadFile(import_path.clone()),

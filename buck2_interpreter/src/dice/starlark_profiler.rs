@@ -26,11 +26,11 @@ pub struct StarlarkProfilerInstrumentationKey;
 
 #[async_trait]
 impl Key for StarlarkProfilerInstrumentationKey {
-    type Value = SharedResult<StarlarkProfilerInstrumentation>;
+    type Value = SharedResult<Option<StarlarkProfilerInstrumentation>>;
 
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         if let Some(instr) = ctx.get_starlark_profiler_instrumentation_override().await? {
-            return Ok(instr);
+            return Ok(Some(instr));
         }
 
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -42,7 +42,7 @@ impl Key for StarlarkProfilerInstrumentationKey {
             )
             .await?;
 
-        Ok(StarlarkProfilerInstrumentation::new(instr))
+        Ok(instr.map(StarlarkProfilerInstrumentation::new))
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -89,7 +89,7 @@ pub trait GetStarlarkProfilerInstrumentation {
 
     async fn get_starlark_profiler_instrumentation(
         &self,
-    ) -> anyhow::Result<StarlarkProfilerInstrumentation>;
+    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>>;
 }
 
 #[async_trait]
@@ -114,7 +114,7 @@ impl GetStarlarkProfilerInstrumentation for DiceComputations {
 
     async fn get_starlark_profiler_instrumentation(
         &self,
-    ) -> anyhow::Result<StarlarkProfilerInstrumentation> {
+    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
         Ok(self.compute(&StarlarkProfilerInstrumentationKey).await??)
     }
 }

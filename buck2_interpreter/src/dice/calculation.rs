@@ -306,7 +306,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     pub(crate) async fn eval_module_uncached(
         &self,
         starlark_file: StarlarkModulePath<'_>,
-        starlark_profiler_instrumentation: StarlarkProfilerInstrumentation,
+        starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
     ) -> SharedResult<LoadedModule> {
         let (ast, deps) = self.prepare_eval(starlark_file.into()).await?;
         let loaded_modules = deps.get_loaded_modules();

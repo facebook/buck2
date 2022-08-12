@@ -47,7 +47,6 @@ pub mod testing {
     use buck2_interpreter::interpreter::InterpreterForCell;
     use buck2_interpreter::interpreter::ParseResult;
     use buck2_interpreter::package_imports::ImplicitImport;
-    use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
     use buck2_node::nodes::unconfigured::TargetsMap;
     use gazebo::cmp::PartialEqAny;
@@ -402,7 +401,7 @@ pub mod testing {
                 buckconfig,
                 ast,
                 loaded_modules.clone(),
-                StarlarkProfilerInstrumentation::default(),
+                None,
             )?;
             Ok(LoadedModule::new(
                 OwnedStarlarkModulePath::LoadFile(path.clone()),

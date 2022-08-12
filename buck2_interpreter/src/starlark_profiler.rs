@@ -37,41 +37,28 @@ enum StarlarkProfilerError {
 /// "instrumented" otherwise the profiler won't work.
 ///
 /// This struct defines instrumentation level for the module.
-#[derive(Debug, Default, PartialEq, Clone, Dupe)]
+#[derive(Debug, PartialEq, Clone, Dupe)]
 pub struct StarlarkProfilerInstrumentation {
-    profile_mode: Option<ProfileMode>,
+    profile_mode: ProfileMode,
 }
 
 impl StarlarkProfilerInstrumentation {
-    pub fn new(profile_mode: Option<ProfileMode>) -> Self {
+    pub fn new(profile_mode: ProfileMode) -> Self {
         Self { profile_mode }
     }
 
     pub fn enable(&self, eval: &mut Evaluator) -> anyhow::Result<()> {
-        if let Some(profile_mode) = &self.profile_mode {
-            eval.enable_profile_instrumentation(profile_mode)?;
-        }
-        Ok(())
+        eval.enable_profile_instrumentation(&self.profile_mode)
     }
 
-    /// True iff the set of instrumentations in this is a subset
-    /// of the set of instrumentations in other.
-    pub fn is_subset(&self, other: &StarlarkProfilerInstrumentation) -> bool {
-        match (&self.profile_mode, &other.profile_mode) {
-            (None, _) => true,
-            (Some(_), None) => false,
-            (Some(profile_mode), Some(other_profile_mode)) => profile_mode == other_profile_mode,
-        }
-    }
-
-    pub fn into_profile_mode(self) -> Option<ProfileMode> {
+    pub fn into_profile_mode(self) -> ProfileMode {
         self.profile_mode
     }
 }
 
 pub trait StarlarkProfiler: Send + Sync {
     /// Instrumentation level required by `bzl` files loaded by the profiled module.
-    fn instrumentation(&self) -> StarlarkProfilerInstrumentation;
+    fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation>;
 
     /// Prepare an Evaluator to capture output relevant to this profiler.
     fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
@@ -86,8 +73,8 @@ pub trait StarlarkProfiler: Send + Sync {
 pub struct Disabled;
 
 impl StarlarkProfiler for Disabled {
-    fn instrumentation(&self) -> StarlarkProfilerInstrumentation {
-        StarlarkProfilerInstrumentation { profile_mode: None }
+    fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
+        None
     }
 
     fn initialize(&mut self, _: &mut Evaluator) -> anyhow::Result<()> {
@@ -202,10 +189,10 @@ impl StarlarkProfilerImpl {
 }
 
 impl StarlarkProfiler for StarlarkProfilerImpl {
-    fn instrumentation(&self) -> StarlarkProfilerInstrumentation {
-        StarlarkProfilerInstrumentation {
-            profile_mode: Some(self.profile_mode.dupe()),
-        }
+    fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
+        Some(StarlarkProfilerInstrumentation {
+            profile_mode: self.profile_mode.dupe(),
+        })
     }
 
     fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
@@ -265,15 +252,20 @@ pub struct StarlarkProfilerOrInstrumentation<'p>(StarlarkProfilerOrInstrumentati
 impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     pub fn new(
         profiler: &'p mut dyn StarlarkProfiler,
-        instrumentation: StarlarkProfilerInstrumentation,
+        instrumentation: Option<StarlarkProfilerInstrumentation>,
     ) -> StarlarkProfilerOrInstrumentation<'p> {
-        // Sanity check.
-        assert!(profiler.instrumentation().is_subset(&instrumentation));
-        // TODO(nga): profiler.instrumentation() is actually profile mode. Rename something.
-        if profiler.instrumentation().profile_mode.is_some() {
-            StarlarkProfilerOrInstrumentation::for_profiler(profiler)
-        } else {
-            StarlarkProfilerOrInstrumentation::instrumentation(instrumentation)
+        match (profiler.instrumentation(), instrumentation) {
+            (None, None) => StarlarkProfilerOrInstrumentation::disabled(),
+            (Some(pi), Some(i)) => {
+                // Sanity check.
+                assert_eq!(
+                    pi.profile_mode, i.profile_mode,
+                    "profiler is incompatible with instrumentation"
+                );
+                StarlarkProfilerOrInstrumentation::for_profiler(profiler)
+            }
+            (None, Some(i)) => StarlarkProfilerOrInstrumentation::instrumentation(i),
+            (Some(_), None) => panic!("profiler, but no instrumentation"),
         }
     }
 
@@ -286,6 +278,14 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Instrumentation(
             instrumentation,
         ))
+    }
+
+    /// Instrumentation only.
+    pub fn maybe_instrumentation(instrumentation: Option<StarlarkProfilerInstrumentation>) -> Self {
+        match instrumentation {
+            None => StarlarkProfilerOrInstrumentation::disabled(),
+            Some(i) => StarlarkProfilerOrInstrumentation::instrumentation(i),
+        }
     }
 
     /// No profiling.
