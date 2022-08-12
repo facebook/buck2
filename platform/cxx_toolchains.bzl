@@ -443,6 +443,101 @@ cxx_toolchain_override = rule(
     },
 )
 
+def _cxx_toolchain_prefix(ctx: "context") -> ["provider"]:
+    base_toolchain = ctx.attrs.base[native.cxx.CxxToolchainInfo]
+
+    base_c_info = base_toolchain.c_compiler_info
+    if ctx.attrs.c_compiler == None:
+        c_info = base_c_info
+    else:
+        c_info = native.cxx.CCompilerInfo(
+            compiler = RunInfo(args = cmd_args(ctx.attrs.c_compiler[RunInfo], base_c_info.compiler)),
+            compiler_flags = base_c_info.compiler_flags,
+            compiler_type = base_c_info.compiler_type,
+            preprocessor = base_c_info.preprocessor,
+            preprocessor_type = base_c_info.preprocessor_type,
+            preprocessor_flags = base_c_info.preprocessor_flags,
+            dep_files_processor = base_c_info.dep_files_processor,
+        )
+
+    base_cxx_info = base_toolchain.cxx_compiler_info
+    if ctx.attrs.cxx_compiler == None:
+        cxx_info = base_cxx_info
+    else:
+        cxx_info = native.cxx.CxxCompilerInfo(
+            compiler = RunInfo(args = cmd_args(ctx.attrs.cxx_compiler[RunInfo], base_cxx_info.compiler)),
+            compiler_flags = base_cxx_info.compiler_flags,
+            compiler_type = base_cxx_info.compiler_type,
+            preprocessor = base_cxx_info.preprocessor,
+            preprocessor_type = base_cxx_info.preprocessor_type,
+            preprocessor_flags = base_cxx_info.preprocessor_flags,
+            dep_files_processor = base_cxx_info.dep_files_processor,
+        )
+
+    base_linker_info = base_toolchain.linker_info
+    if ctx.attrs.linker == None:
+        linker_info = base_linker_info
+    else:
+        linker_info = native.cxx.LinkerInfo(
+            linker = RunInfo(args = cmd_args(ctx.attrs.linker[RunInfo], base_linker_info.linker)),
+            linker_flags = base_linker_info.linker_flags,
+            archiver = base_linker_info.archiver,
+            archive_contents = base_linker_info.archive_contents,
+            archive_objects_locally = base_linker_info.archive_objects_locally,
+            link_binaries_locally = base_linker_info.link_binaries_locally,
+            link_libraries_locally = base_linker_info.link_libraries_locally,
+            link_style = base_linker_info.link_style,
+            link_weight = base_linker_info.link_weight,
+            shlib_interfaces = base_linker_info.shlib_interfaces,
+            mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
+            requires_archives = base_linker_info.requires_archives,
+            requires_objects = base_linker_info.requires_objects,
+            supports_distributed_thinlto = base_linker_info.supports_distributed_thinlto,
+            independent_shlib_interface_linker_flags = base_linker_info.independent_shlib_interface_linker_flags,
+            shared_dep_runtime_ld_flags = base_linker_info.shared_dep_runtime_ld_flags,
+            static_dep_runtime_ld_flags = base_linker_info.static_dep_runtime_ld_flags,
+            static_pic_dep_runtime_ld_flags = base_linker_info.static_pic_dep_runtime_ld_flags,
+            type = base_linker_info.type,
+            use_archiver_flags = base_linker_info.use_archiver_flags,
+        )
+
+    return [
+        DefaultInfo(),
+    ] + native.cxx.cxx_toolchain_infos(
+        platform_name = ctx.attrs.platform_name if ctx.attrs.platform_name != None else ctx.attrs.base[native.cxx.CxxPlatformInfo].name,
+        linker_info = linker_info,
+        c_compiler_info = c_info,
+        cxx_compiler_info = cxx_info,
+        # the rest are used without overrides
+        as_compiler_info = base_toolchain.as_compiler_info,
+        asm_compiler_info = base_toolchain.asm_compiler_info,
+        binary_utilities_info = base_toolchain.binary_utilities_info,
+        bolt_enabled = base_toolchain.bolt_enabled,
+        cuda_compiler_info = base_toolchain.cuda_compiler_info,
+        hip_compiler_info = base_toolchain.hip_compiler_info,
+        header_mode = base_toolchain.header_mode,
+        headers_as_raw_headers_mode = base_toolchain.headers_as_raw_headers_mode,
+        mk_comp_db = base_toolchain.mk_comp_db,
+        mk_hmap = base_toolchain.mk_hmap,
+        dist_lto_tools_info = base_toolchain.dist_lto_tools_info,
+        use_dep_files = base_toolchain.use_dep_files,
+        conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
+        strip_flags_info = base_toolchain.strip_flags_info,
+        split_dwarf_enabled = base_toolchain.split_dwarf_enabled,
+    )
+
+cxx_toolchain_prefix = rule(
+    impl = _cxx_toolchain_prefix,
+    attrs = {
+        "base": attrs.dep(providers = [native.cxx.CxxToolchainInfo]),
+        "c_compiler": attrs.option(attrs.dep(providers = [RunInfo])),
+        "cxx_compiler": attrs.option(attrs.dep(providers = [RunInfo])),
+        "linker": attrs.option(attrs.dep(providers = [RunInfo])),
+        "mk_shlib_intf": attrs.option(attrs.dep(providers = [RunInfo])),
+        "platform_name": attrs.option(attrs.string(), default = None),
+    },
+)
+
 def _cxx_hacks_impl(_ctx):
     return [DefaultInfo(), TemplatePlaceholderInfo(
         unkeyed_variables = {
