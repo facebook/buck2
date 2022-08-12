@@ -299,13 +299,13 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     /// Write a profile to a file.
     /// Only valid if corresponding profiler was enabled.
-    pub fn write_profile<P: AsRef<Path>>(&self, filename: P) -> anyhow::Result<()> {
+    pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> anyhow::Result<()> {
         self.gen_profile()?.write(filename.as_ref())
     }
 
     /// Generate profile for a given mode.
     /// Only valid if corresponding profiler was enabled.
-    pub fn gen_profile(&self) -> anyhow::Result<ProfileData> {
+    pub fn gen_profile(&mut self) -> anyhow::Result<ProfileData> {
         let mode = match &self.profile_or_instrumentation_mode {
             ProfileOrInstrumentationMode::None => {
                 return Err(EvaluatorError::ProfilingNotEnabled.into());
