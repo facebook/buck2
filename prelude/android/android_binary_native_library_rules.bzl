@@ -73,15 +73,15 @@ def _get_native_libs_and_assets(
     )
     native_lib_assets_map = {}
     for module, native_lib_assets in prebuilt_native_library_dir_assets_map.items():
-        native_lib_assets_map[module] = _filter_prebuilt_native_library_dir(
+        native_lib_assets_map[module] = [_filter_prebuilt_native_library_dir(
             ctx,
             native_lib_assets,
             "native_lib_assets_for_module_{}".format(module),
             package_as_assets = True,
-        )
+            module = module,
+        )]
 
     stripped_native_linkables_for_primary_apk, stripped_native_linkable_assets_map = _get_native_linkables(ctx, platform_to_native_linkables, get_module_from_target, is_packaging_native_libs_as_assets_supported)
-    native_libs_for_primary_apk.append(stripped_native_linkables_for_primary_apk)
     for module, native_linkable_assets in stripped_native_linkable_assets_map.items():
         native_lib_assets_map.setdefault(module, []).append(native_linkable_assets)
 
@@ -93,29 +93,28 @@ def _get_native_libs_and_assets(
         else:
             native_lib_assets.append(metadata_file)
 
-    return native_libs_for_primary_apk, native_lib_assets_map
+    return [native_libs_for_primary_apk, stripped_native_linkables_for_primary_apk], native_lib_assets_map
 
 def _filter_prebuilt_native_library_dir(
         ctx: "context",
         native_libs: ["PrebuiltNativeLibraryDir"],
         identifier: str.type,
-        package_as_assets = False) -> ["artifact"]:
+        package_as_assets: bool.type = False,
+        module: str.type = ROOT_MODULE) -> "artifact":
     cpu_filters = ctx.attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     abis = [CPU_FILTER_TO_ABI_DIRECTORY[cpu] for cpu in cpu_filters]
     filter_tool = ctx.attrs._android_toolchain[AndroidToolchainInfo].filter_prebuilt_native_library_dir[RunInfo]
-    libs = []
-    for i, native_lib in enumerate(reversed(native_libs)):
-        lib_identifier = "{}-{}".format(identifier, i)
-        base_output_dir = ctx.actions.declare_output(lib_identifier)
-        output_dir = base_output_dir.project(_NATIVE_LIBS_AS_ASSETS_DIR) if package_as_assets else base_output_dir
-        ctx.actions.run(
-            [filter_tool, native_lib.dir, output_dir.as_output(), "--abis"] + abis,
-            category = "filter_prebuilt_native_library_dir",
-            identifier = lib_identifier,
-        )
-        libs.append(base_output_dir)
+    native_libs_dirs = [native_lib.dir for native_lib in native_libs]
+    native_libs_dirs_file = ctx.actions.write("{}_list.txt".format(identifier), native_libs_dirs)
+    base_output_dir = ctx.actions.declare_output(identifier)
+    output_dir = base_output_dir.project(_get_native_libs_as_assets_dir(module)) if package_as_assets else base_output_dir
+    ctx.actions.run(
+        cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis).hidden(native_libs_dirs),
+        category = "filter_prebuilt_native_library_dir",
+        identifier = identifier,
+    )
 
-    return libs
+    return base_output_dir
 
 def _get_native_linkables(
         ctx: "context",
