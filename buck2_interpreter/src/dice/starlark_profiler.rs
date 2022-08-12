@@ -29,7 +29,7 @@ impl Key for StarlarkProfilerInstrumentationKey {
     type Value = SharedResult<Option<StarlarkProfilerInstrumentation>>;
 
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        if let Some(instr) = ctx.get_starlark_profiler_instrumentation_override().await? {
+        if let Some(instr) = get_starlark_profiler_instrumentation_override(ctx).await? {
             return Ok(Some(instr));
         }
 
@@ -83,10 +83,6 @@ pub trait SetStarlarkProfilerInstrumentation {
 
 #[async_trait]
 pub trait GetStarlarkProfilerInstrumentation {
-    async fn get_starlark_profiler_instrumentation_override(
-        &self,
-    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>>;
-
     async fn get_starlark_profiler_instrumentation(
         &self,
     ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>>;
@@ -102,16 +98,16 @@ impl SetStarlarkProfilerInstrumentation for DiceTransaction {
     }
 }
 
+async fn get_starlark_profiler_instrumentation_override(
+    ctx: &DiceComputations,
+) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
+    Ok(ctx
+        .compute(&StarlarkProfilerInstrumentationOverrideKey)
+        .await?)
+}
+
 #[async_trait]
 impl GetStarlarkProfilerInstrumentation for DiceComputations {
-    async fn get_starlark_profiler_instrumentation_override(
-        &self,
-    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
-        Ok(self
-            .compute(&StarlarkProfilerInstrumentationOverrideKey)
-            .await?)
-    }
-
     async fn get_starlark_profiler_instrumentation(
         &self,
     ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
