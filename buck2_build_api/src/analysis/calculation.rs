@@ -24,7 +24,9 @@ use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentati
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::starlark_profiler;
+use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -40,6 +42,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
+use starlark::eval::ProfileMode;
 
 use crate::analysis::calculation::keys::AnalysisKey;
 use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
@@ -357,10 +360,11 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
 pub async fn profile_analysis(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
-    profiler: &mut dyn StarlarkProfiler,
-) -> anyhow::Result<()> {
-    get_analysis_result(ctx, target, profiler).await?;
-    Ok(())
+    profile_mode: &ProfileMode,
+) -> anyhow::Result<StarlarkProfileDataAndStats> {
+    let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), true);
+    get_analysis_result(ctx, target, &mut profiler).await?;
+    profiler.finish()
 }
 
 mod keys {

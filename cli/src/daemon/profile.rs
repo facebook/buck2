@@ -68,11 +68,9 @@ pub(crate) async fn generate_profile(
                 .get_configured_target(&label, global_target_platform.as_ref())
                 .await?;
 
-            let mut profiler = StarlarkProfilerImpl::new(profile_mode.dupe(), true);
-            analysis::profile_analysis(&ctx, &configured_target, &mut profiler)
+            analysis::profile_analysis(&ctx, &configured_target, profile_mode)
                 .await
-                .context("Analysis failed")?;
-            profiler.finish()
+                .context("Analysis failed")
         }
         Action::Loading => {
             match spec {
