@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::ops::Deref;
 
+use buck2_core::cells::cell_path::CellPath;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
@@ -18,10 +19,12 @@ use gazebo::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
@@ -86,8 +89,37 @@ pub struct StarlarkFileSet(pub FileSet);
 
 starlark_simple_value!(StarlarkFileSet);
 
-impl StarlarkValue<'_> for StarlarkFileSet {
+impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     starlark_type!("file_set");
+
+    fn iterate<'a>(
+        &'a self,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    where
+        'v: 'a,
+    {
+        Ok(box self
+            .0
+            .iter()
+            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone()))))
+    }
+
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        let i = index.unpack_int().ok_or_else(|| {
+            ValueError::IncorrectParameterTypeWithExpected(
+                "int".to_owned(),
+                index.get_type().to_owned(),
+            )
+        })?;
+        if i < 0 {
+            return Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)));
+        }
+        self.0
+            .get_index(i as usize)
+            .ok_or_else(|| anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
+            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone())))
+    }
 }
 
 impl From<FileSet> for StarlarkFileSet {
@@ -102,4 +134,14 @@ impl Deref for StarlarkFileSet {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
+}
+
+#[derive(Debug, Display, ProvidesStaticType, Clone)]
+#[derive(NoSerialize)]
+pub struct StarlarkFileNode(pub CellPath);
+
+starlark_simple_value!(StarlarkFileNode);
+
+impl StarlarkValue<'_> for StarlarkFileNode {
+    starlark_type!("file_node");
 }

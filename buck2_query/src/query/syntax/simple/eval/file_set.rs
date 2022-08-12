@@ -64,4 +64,11 @@ impl FileSet {
     pub fn iter(&self) -> impl Iterator<Item = &CellPath> + '_ {
         self.files.iter().map(|v| &v.0)
     }
+
+    pub fn get_index(&self, index: usize) -> Option<&CellPath> {
+        match self.files.get_index(index) {
+            Some(x) => Some(&x.0),
+            None => None,
+        }
+    }
 }
