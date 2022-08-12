@@ -56,7 +56,7 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
     )
 
     if profiler.endswith("-retained"):
-        expect_failure(
+        await expect_failure(
             command,
             stderr_regex="Retained memory profiling is available only for analysis profile",
         )
@@ -68,7 +68,7 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
 
 @buck_test(inplace=True)
 async def test_profile_shows_errors(buck: Buck) -> None:
-    expect_failure(
+    await expect_failure(
         buck.profile(
             "loading",
             "--mode",
