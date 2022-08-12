@@ -103,6 +103,8 @@ def default_python_toolchain_inner():
             "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform009",
         }),
         "ovr_config//runtime/constraints:platform010": select({
+            "ovr_config//third-party/python/constraints:3.10": "fbcode//buck2/platform:py3.10-platform010",
+            "ovr_config//third-party/python/constraints:3.10.cinder": "fbcode//buck2/platform:py3.10.cinder-platform10",
             "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform010",
             "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform010",
         }),
