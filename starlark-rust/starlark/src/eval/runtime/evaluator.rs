@@ -78,6 +78,8 @@ pub(crate) enum EvaluatorError {
     ProfilingNotEnabled,
     #[error("Cannot generate profile because only profiling instrumentation enabled")]
     InstrumentationEnabled,
+    #[error("Profile data already collected")]
+    ProfileDataAlreadyCollected,
     #[error("Can't call `write_heap_profile` unless you first call `enable_heap_profile`.")]
     HeapProfilingNotEnabled,
     #[error("Can't call `write_stmt_profile` unless you first call `enable_stmt_profile`.")]
@@ -313,8 +315,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileOrInstrumentationMode::Instrumentation(..) => {
                 return Err(EvaluatorError::InstrumentationEnabled.into());
             }
-            ProfileOrInstrumentationMode::Profile(mode) => mode,
+            ProfileOrInstrumentationMode::Collected => {
+                return Err(EvaluatorError::ProfileDataAlreadyCollected.into());
+            }
+            ProfileOrInstrumentationMode::Profile(mode) => mode.dupe(),
         };
+        self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Collected;
         match mode {
             ProfileMode::HeapSummary => self
                 .heap_profile

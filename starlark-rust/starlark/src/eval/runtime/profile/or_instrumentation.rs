@@ -24,6 +24,7 @@ pub(crate) enum ProfileOrInstrumentationMode {
     None,
     Instrumentation(ProfileMode),
     Profile(ProfileMode),
+    Collected,
 }
 
 impl Default for ProfileOrInstrumentationMode {
