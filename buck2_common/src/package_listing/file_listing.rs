@@ -11,7 +11,7 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 
 use crate::package_listing::binary_search::binary_search_by;
-use crate::package_listing::sorted_index_set::SortedIndexSet;
+use crate::sorted_index_set::SortedIndexSet;
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct PackageFileListing {
@@ -86,7 +86,7 @@ pub mod testing {
     use indexmap::IndexSet;
 
     use crate::package_listing::file_listing::PackageFileListing;
-    use crate::package_listing::sorted_index_set::SortedIndexSet;
+    use crate::sorted_index_set::SortedIndexSet;
 
     impl PackageFileListing {
         pub fn testing_new(files: &[&str]) -> PackageFileListing {

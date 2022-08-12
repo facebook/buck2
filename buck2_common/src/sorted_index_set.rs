@@ -12,9 +12,8 @@ use std::hash::Hash;
 use indexmap::IndexSet;
 
 /// An immutable IndexSet with values guaranteed to be sorted.
-/// Used elsewhere to efficiently prefix-query a set of paths.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct SortedIndexSet<T: Eq + Hash> {
+pub struct SortedIndexSet<T: Eq + Hash> {
     inner: IndexSet<T>,
 }
 
@@ -41,6 +40,26 @@ where
     T: Eq + Hash,
 {
     fn as_ref(&self) -> &IndexSet<T> {
+        &self.inner
+    }
+}
+
+impl<T> Default for SortedIndexSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    fn default() -> Self {
+        SortedIndexSet::empty()
+    }
+}
+
+impl<T> std::ops::Deref for SortedIndexSet<T>
+where
+    T: Eq + Hash,
+{
+    type Target = IndexSet<T>;
+
+    fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }

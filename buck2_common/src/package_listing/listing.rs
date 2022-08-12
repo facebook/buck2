@@ -17,7 +17,7 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexSet;
 
 use crate::package_listing::file_listing::PackageFileListing;
-use crate::package_listing::sorted_index_set::SortedIndexSet;
+use crate::sorted_index_set::SortedIndexSet;
 
 #[derive(Clone, Dupe, Eq, PartialEq, Debug)]
 pub struct PackageListing {
@@ -102,7 +102,7 @@ pub mod testing {
     use indexmap::IndexSet;
 
     use crate::package_listing::listing::PackageListing;
-    use crate::package_listing::sorted_index_set::SortedIndexSet;
+    use crate::sorted_index_set::SortedIndexSet;
 
     pub trait PackageListingExt {
         fn testing_empty() -> Self;

@@ -13,4 +13,3 @@ pub mod file_listing;
 pub(crate) mod interpreter;
 pub mod listing;
 pub mod resolver;
-mod sorted_index_set;

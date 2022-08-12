@@ -26,8 +26,8 @@ use crate::file_ops::SimpleDirEntry;
 use crate::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
-use crate::package_listing::sorted_index_set::SortedIndexSet;
 use crate::result::SharedResult;
+use crate::sorted_index_set::SortedIndexSet;
 
 #[derive(Debug, Error)]
 enum PackageListingError {
