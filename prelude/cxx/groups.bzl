@@ -143,10 +143,10 @@ def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], gro
         expect(hash(str(groups)) == computed_groups_info.groups_hash, "The group spec used for a build must be the same.")
         return computed_groups_info.mappings, computed_groups_info
 
-    mappings = _compute_mappings(groups, graph)
+    mappings = compute_mappings(groups, graph)
     return mappings, (group_info_type(groups_hash = hash(str(groups)), mappings = mappings) if mappings else None)
 
-def _compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
+def compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
