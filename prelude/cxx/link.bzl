@@ -79,7 +79,7 @@ def cxx_link(
 
     shell_quoted_args = cmd_args(link_args, quote = "shell")
     argfile, macro_files = ctx.actions.write(
-        output.basename + ".linker.argsfile",
+        output.short_path + ".linker.argsfile",
         shell_quoted_args,
         allow_args = True,
     )
