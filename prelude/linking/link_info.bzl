@@ -78,20 +78,20 @@ FrameworksLinkable = record(
     _type = field(LinkableType.type, LinkableType("frameworks")),
 )
 
-# Input provided to the native linker.
+# Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
     # or when constructing intermediate output paths and does not need to be unique.
     name = field([str.type, None], None),
+    # Opaque cmd_arg-likes to be added pre/post this item on a linker command line.
     pre_flags = field([""], []),
     post_flags = field([""], []),
-    # Input to the linker, containing label-specific groups of ordered flags,
-    # objects, archives, and/or shared libraries, {"label": [arglike things]}
+    # Primary input to the linker, one of the Linkable types above.
     linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]], []),
     use_link_groups = field(bool.type, False),
 )
 
-# Adds additional pre/post-flags to a LinkInfo
+# Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
         inner: LinkInfo.type,
         pre_flags: [""] = [],
@@ -180,6 +180,10 @@ def link_info_filelist(value: LinkInfo.type) -> ["artifact"]:
     return filelists
 
 # Encapsulate all `LinkInfo`s provided by a given rule's link style.
+#
+# We provide both the "default" and (optionally) a pre-"stripped" LinkInfo. For a consumer that doesn't care
+# about debug info (for example, who is going to produce stripped output anyway), it can be significantly
+# cheaper to consume the pre-stripped LinkInfo.
 LinkInfos = record(
     # Link info to use by default.
     default = field(LinkInfo.type),
@@ -244,7 +248,7 @@ def _link_info_has_stripped_filelist(children: [bool.type], infos: ["LinkInfos",
             return True
     return any(children)
 
-# Set of LinkInfos
+# TransitiveSet of LinkInfos.
 LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,

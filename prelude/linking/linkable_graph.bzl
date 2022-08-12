@@ -32,9 +32,19 @@ LinkableNode = record(
     # Linkable deps of this target.
     deps = field(["label"], []),
     # Exported linkable deps of this target.
+    #
+    # We distinguish between deps and exported deps so that when creating shared
+    # libraries in a large graph we only need to link each library against its
+    # deps and their (transitive) exported deps. This helps keep link lines smaller
+    # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
     exported_deps = field(["label"], []),
 )
 
+# The LinkableGraph for a target holds all the transitive nodes, roots, and exclusions
+# from all of its dependencies.
+#
+# TODO(cjhopman): Rather than flattening this at each node, we should build up an actual
+# graph structure.
 LinkableGraph = provider(fields = [
     # Target identifier of the graph.
     "label",  # "label"
