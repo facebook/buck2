@@ -30,7 +30,7 @@ async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) ->
         "analysis",
         "--mode",
         profiler,
-        "fbcode//buck2/tests/targets/rules/sh_test:test",
+        "fbcode//buck2/tests/targets/profile:test",
         "--output",
         file_path,
     )
@@ -50,7 +50,7 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
         "loading",
         "--mode",
         profiler,
-        "fbcode//buck2/tests/targets/rules/sh_test:",
+        "fbcode//buck2/tests/targets/profile:",
         "--output",
         file_path,
     )
