@@ -1,7 +1,14 @@
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+bzl_native.genrule(
+    name = "ddd",
+    out = "ddd.txt",
+    cmd = "echo ddd >$OUT",
+)
+
 bzl_native.sh_test(
     name = "test",
     args = ["arg1"],
     test = "test.py",
+    deps = [":ddd"],
 )
