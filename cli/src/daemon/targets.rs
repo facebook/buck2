@@ -13,6 +13,8 @@ use std::path::Path;
 
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
+use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
@@ -344,8 +346,9 @@ async fn parse_and_get_results(
 
     let target_hashes = match options.target_hash_graph_type {
         TargetHashGraphType::Configured => Some(
-            TargetHashes::compute::<ConfiguredTargetNode>(
+            TargetHashes::compute::<ConfiguredTargetNode, _>(
                 ctx.dupe(),
+                ConfiguredTargetNodeLookup(&ctx),
                 vec_results,
                 target_platform,
                 options.target_hash_mode,
@@ -355,8 +358,9 @@ async fn parse_and_get_results(
             .await?,
         ),
         TargetHashGraphType::Unconfigured => Some(
-            TargetHashes::compute::<TargetNode>(
+            TargetHashes::compute::<TargetNode, _>(
                 ctx.dupe(),
+                TargetNodeLookup(&ctx),
                 vec_results,
                 target_platform,
                 options.target_hash_mode,

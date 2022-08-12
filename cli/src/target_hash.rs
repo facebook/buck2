@@ -15,7 +15,6 @@ use std::sync::Arc;
 
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
@@ -171,9 +170,6 @@ impl FileHasher for PathsAndContentsHasher {
 
 #[async_trait]
 pub(crate) trait TargetHashingTargetNode: QueryTarget + Hash {
-    // Get the (un)Configured Target Node from a (un)Configured Target Label.
-    async fn get_from_ctx(ctx: &DiceTransaction, label: &Self::NodeRef) -> anyhow::Result<Self>;
-
     // Takes in Target Nodes and returns a new set of (un)Configured
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
@@ -186,12 +182,6 @@ pub(crate) trait TargetHashingTargetNode: QueryTarget + Hash {
 
 #[async_trait]
 impl TargetHashingTargetNode for ConfiguredTargetNode {
-    async fn get_from_ctx(ctx: &DiceTransaction, label: &Self::NodeRef) -> anyhow::Result<Self> {
-        Ok(ctx
-            .get_configured_target_node(label)
-            .await?
-            .require_compatible()?)
-    }
     async fn get_target_nodes(
         ctx: &DiceComputations,
         loaded_targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>
@@ -204,10 +194,6 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
 #[async_trait]
 impl TargetHashingTargetNode for TargetNode {
-    async fn get_from_ctx(ctx: &DiceTransaction, label: &Self::NodeRef) -> anyhow::Result<Self> {
-        Ok(ctx.get_target_node(label).await?)
-    }
-
     async fn get_target_nodes(
         _ctx: &DiceComputations,
         loaded_targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>
@@ -242,8 +228,9 @@ impl TargetHashes {
         return self.target_mapping.get(label).cloned();
     }
 
-    pub(crate) async fn compute<T: TargetHashingTargetNode>(
+    pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         ctx: DiceTransaction,
+        lookup: L,
         targets: Vec<(&Package, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
         file_hash_mode: TargetHashFileMode,
@@ -253,17 +240,6 @@ impl TargetHashes {
     where
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
-        struct Lookup {
-            ctx: DiceTransaction,
-        }
-
-        #[async_trait]
-        impl<T: TargetHashingTargetNode> AsyncNodeLookup<T> for Lookup {
-            async fn get(&self, label: &T::NodeRef) -> anyhow::Result<T> {
-                T::get_from_ctx(&self.ctx, label).await
-            }
-        }
-
         struct Delegate<T: QueryTarget> {
             hashes: HashMap<T::NodeRef, Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>>,
             file_hasher: Arc<dyn FileHasher>,
@@ -342,7 +318,6 @@ impl TargetHashes {
         let targets =
             T::get_target_nodes(&ctx, targets.into_iter(), global_target_platform).await?;
 
-        let lookup = Lookup { ctx: ctx.dupe() };
         let file_hasher: Arc<dyn FileHasher> = match file_hash_mode {
             TargetHashFileMode::PathsOnly => Arc::new(PathsOnlyFileHasher {
                 pseudo_changed_paths: modified_paths,

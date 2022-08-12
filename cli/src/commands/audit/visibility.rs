@@ -9,16 +9,14 @@
 
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
-use buck2_build_api::calculation::Calculation;
+use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::pattern::TargetPattern;
-use buck2_core::target::TargetLabel;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
-use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use cli_proto::ClientContext;
@@ -64,18 +62,8 @@ impl AuditVisibilityCommand {
         ctx: DiceTransaction,
         targets: TargetSet<TargetNode>,
     ) -> anyhow::Result<()> {
-        struct Lookup {
-            ctx: DiceTransaction,
-        }
         struct Delegate {
             targets: TargetSet<TargetNode>,
-        }
-
-        #[async_trait]
-        impl AsyncNodeLookup<TargetNode> for Lookup {
-            async fn get(&self, label: &TargetLabel) -> anyhow::Result<TargetNode> {
-                Ok(self.ctx.get_target_node(label).await?)
-            }
         }
 
         #[async_trait]
@@ -96,7 +84,7 @@ impl AuditVisibilityCommand {
             }
         }
 
-        let lookup = Lookup { ctx: ctx.dupe() };
+        let lookup = TargetNodeLookup(&ctx);
 
         let mut delegate = Delegate {
             targets: TargetSet::<TargetNode>::new(),

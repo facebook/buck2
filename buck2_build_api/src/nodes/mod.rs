@@ -9,6 +9,7 @@
 
 pub(crate) mod attr_spec;
 pub mod calculation;
+pub mod lookup;
 pub mod unconfigured;
 
 use buck2_node::attrs::coerced_attr::CoercedAttr;
