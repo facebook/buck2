@@ -1,5 +1,6 @@
 load("@fbcode//buck2/prelude:attributes.bzl", "LinkableDepType", "Linkage")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
+load("@fbcode//buck2/prelude/cxx/user:link_group_map.bzl", "link_group_map_attr")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
@@ -41,6 +42,7 @@ extra_attributes = {
     "apple_binary": {
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_group_map": link_group_map_attr(),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
@@ -60,6 +62,7 @@ extra_attributes = {
     },
     "apple_library": {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_group_map": link_group_map_attr(),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.bool(default = False),

@@ -13,6 +13,7 @@ load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "C
 # C++
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@fbcode//buck2/prelude/cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
+load("@fbcode//buck2/prelude/cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@fbcode//buck2/prelude/go:cgo_library.bzl", "cgo_library_impl")
 
 # Go
@@ -62,7 +63,7 @@ load("@fbcode//buck2/prelude/zip_file:zip_file.bzl", _zip_file_extra_attributes 
 
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
-load(":attributes.bzl", "IncludeType", "Linkage", "Platform", "Traversal", "attributes")
+load(":attributes.bzl", "IncludeType", "Linkage", "Platform", "attributes")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -201,7 +202,7 @@ def _cxx_binary_and_test_attrs():
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),
-        "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage)))))), default = None),
+        "link_group_map": link_group_map_attr(),
         "link_whole": attrs.default_only(attrs.bool(default = False)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
@@ -290,7 +291,7 @@ extra_attributes = struct(
     cxx_library = {
         "allow_huge_dwp": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
-        "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage)))))), default = None),
+        "link_group_map": link_group_map_attr(),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
