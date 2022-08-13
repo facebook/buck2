@@ -169,6 +169,7 @@ go_fbcode_toolchain(
                 "DEFAULT": ["ovr_config//:none"],
                 "ovr_config//os:iphoneos": ["ovr_config//os:iphoneos"],
                 "ovr_config//os:macos": ["ovr_config//os:macos"],
+                "ovr_config//os:windows": ["ovr_config//os:windows"],
                 "ovr_config//runtime:fbcode": ["ovr_config//runtime:fbcode"],
             }),
             visibility = ["PUBLIC"],
