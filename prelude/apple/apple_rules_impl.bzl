@@ -52,7 +52,7 @@ extra_attributes = {
     },
     "apple_bundle": {
         "resource_group_map": resource_group_map_attr(),
-        "_apple_installer": attrs.exec_dep(default = "buck//src/com/facebook/buck/installer/apple:apple_installer", providers = [RunInfo]),
+        "_apple_installer": attrs.label(default = "buck//src/com/facebook/buck/installer/apple:apple_installer"),
         "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain"),
