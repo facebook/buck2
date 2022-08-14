@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::analysis;
+use buck2_build_api::analysis::calculation::profile_analysis;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::module_internals::ModuleInternals;
 use buck2_common::dice::cells::HasCellResolver;
@@ -70,7 +70,7 @@ pub(crate) async fn generate_profile(
                 .get_configured_target(&label, global_target_platform.as_ref())
                 .await?;
 
-            analysis::profile_analysis(
+            profile_analysis(
                 &ctx,
                 &configured_target,
                 profile_mode.profile_last_analysis()?,

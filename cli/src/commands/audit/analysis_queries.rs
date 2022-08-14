@@ -10,7 +10,7 @@
 use std::io::Write;
 
 use async_trait::async_trait;
-use buck2_build_api::analysis::resolve_queries;
+use buck2_build_api::analysis::calculation::resolve_queries;
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
