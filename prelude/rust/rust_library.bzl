@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude:resources.bzl", "ResourceInfo", "gather_resources")
 load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -62,6 +63,7 @@ load(
     "resolve_deps",
     "style_info",
 )
+load(":resources.bzl", "rust_attr_resources")
 
 def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     providers = []
@@ -207,6 +209,12 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         lang_style_param = lang_style_param,
         param_artifact = native_param_artifact,
     )
+
+    providers.append(ResourceInfo(resources = gather_resources(
+        label = ctx.label,
+        resources = rust_attr_resources(ctx),
+        deps = [dep.dep for dep in resolve_deps(ctx)],
+    )))
 
     return providers
 

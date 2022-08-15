@@ -459,6 +459,7 @@ extra_attributes = struct(
         # rust_library.
         "linker_flags": attrs.list(attrs.arg(), default = []),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),
     },

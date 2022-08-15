@@ -3,7 +3,16 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 bzl_native.cxx_library(
     name = "cxx_with_resource",
     resources = [
-        "resource_cxx",
+        "resource_cxx_library",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "rust_with_resource",
+    srcs = ["dependency.rs"],
+    crate_root = "dependency.rs",
+    resources = [
+        "resource_rust_library",
     ],
 )
 
@@ -13,9 +22,10 @@ bzl_native.rust_test(
     crate_root = "test.rs",
     deps = [
         ":cxx_with_resource",
+        ":rust_with_resource",
         "//common/rust/buck_resources:buck_resources",
     ],
     resources = [
-        "resource_rs",
+        "resource_rust_test",
     ],
 )

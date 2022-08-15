@@ -1,4 +1,3 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
     "@fbcode//buck2/prelude:resources.bzl",
     "create_resource_db",
@@ -17,7 +16,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten_dict", "from_named_set")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
     "compile_context",
@@ -38,31 +37,8 @@ load(
     "attr_crate",
     "inherited_non_rust_shared_libs",
 )
+load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "ctx_toolchain_info")
-
-def rust_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
-    """
-    Return the resources provided by this rule, as a map of resource name to
-    a tuple of the resource artifact and any "other" outputs exposed by it.
-    """
-    resources = {}
-
-    for name, resource in from_named_set(ctx.attrs.resources).items():
-        if type(resource) == "artifact":
-            other = []
-        else:
-            info = resource[DefaultInfo]
-            expect(
-                len(info.default_outputs) == 1,
-                "expected exactly one default output from {} ({})"
-                    .format(resource, info.default_outputs),
-            )
-            [resource] = info.default_outputs
-            other = info.other_outputs
-
-        resources[paths.join(ctx.label.package, name)] = (resource, other)
-
-    return resources
 
 def _rust_binary_common(
         ctx: "context",
