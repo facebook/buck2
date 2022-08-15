@@ -167,6 +167,7 @@ go_fbcode_toolchain(
             ),
             target_compatible_with = select({
                 "DEFAULT": ["ovr_config//:none"],
+                "ovr_config//os:android": ["ovr_config//os:android"],
                 "ovr_config//os:iphoneos": ["ovr_config//os:iphoneos"],
                 "ovr_config//os:macos": ["ovr_config//os:macos"],
                 "ovr_config//os:windows": ["ovr_config//os:windows"],
