@@ -11,6 +11,10 @@ def _impl_exists_source_artifact(ctx):
     node = ctx.configured_targets("root//bin:the_binary")
     ctx.output.print(ctx.unstable_fs.exists(node.sources()[0]))
 
+def _impl_exists_file_node(ctx):
+    result = ctx.cquery().inputs("root//bin:the_binary")
+    ctx.output.print(ctx.unstable_fs.exists(result[0]))
+
 exists_absolute_path = bxl(
     impl = _impl_exists_absolute_path,
     cli_args = {
@@ -32,6 +36,12 @@ not_exists = bxl(
 
 exists_source_artifact = bxl(
     impl = _impl_exists_source_artifact,
+    cli_args = {
+    },
+)
+
+exists_file_node = bxl(
+    impl = _impl_exists_file_node,
     cli_args = {
     },
 )
