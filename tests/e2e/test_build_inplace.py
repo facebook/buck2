@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,10 @@ async def test_buildfiles(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile")
 
 
+def extract_gen_folder(output: str) -> str:
+    return output[: output.find("{0}gen{0}".format(os.path.sep)) + 4]
+
+
 if rust_linux_only():
 
     @buck_test(inplace=True)
@@ -38,13 +43,21 @@ if rust_linux_only():
 
         output_dict = result.get_target_to_build_output()
         for _target, output in output_dict.items():
-            gen_folder = output[: output.find("/gen/") + 4]
-            symlink = Path(
-                gen_folder,
-                # v1:   buck2/tests/targets/rules/rust/hello_world/welcome#binary/welcome
-                "fbcode/buck2/tests/targets/rules/rust/hello_world/shared/welcome",
+            gen_folder = extract_gen_folder(output)
+            # v1: buck2/tests/targets/rules/rust/hello_world/welcome#binary/welcome
+            symlink = (
+                Path(gen_folder)
+                / "fbcode"
+                / "buck2"
+                / "tests"
+                / "targets"
+                / "rules"
+                / "rust"
+                / "hello_world"
+                / "shared"
+                / "welcome"
             )
-            assert os.path.exists(symlink)
+            assert symlink.is_symlink()
 
 
 if fbcode_linux_only():
@@ -60,13 +73,20 @@ if fbcode_linux_only():
         result = await buck.build(*args)
         output_dict = result.get_target_to_build_output()
         for _target, output in output_dict.items():
-            gen_folder = output[: output.find("/gen/") + 4]
-            symlink = Path(
-                gen_folder,
-                # v1:   buck2/tests/targets/rules/python/hello_world/welcome.par
-                "fbcode/buck2/tests/targets/rules/python/hello_world/welcome.par",
+            gen_folder = extract_gen_folder(output)
+            # v1: buck2/tests/targets/rules/python/hello_world/welcome.par
+            symlink = (
+                Path(gen_folder)
+                / "fbcode"
+                / "buck2"
+                / "tests"
+                / "targets"
+                / "rules"
+                / "python"
+                / "hello_world"
+                / "welcome.par"
             )
-            assert os.path.exists(symlink)
+            assert symlink.is_symlink()
 
 
 if fbcode_linux_only():
@@ -82,13 +102,20 @@ if fbcode_linux_only():
         result = await buck.build(*args)
         output_dict = result.get_target_to_build_output()
         for _target, output in output_dict.items():
-            gen_folder = output[: output.find("/gen/") + 4]
-            symlink = Path(
-                gen_folder,
-                # v1:   buck2/tests/targets/rules/cxx/hello_world/welcome
-                "fbcode/buck2/tests/targets/rules/cxx/hello_world/welcome",
+            gen_folder = extract_gen_folder(output)
+            # v1: buck2/tests/targets/rules/cxx/hello_world/welcome
+            symlink = (
+                Path(gen_folder)
+                / "fbcode"
+                / "buck2"
+                / "tests"
+                / "targets"
+                / "rules"
+                / "cxx"
+                / "hello_world"
+                / "welcome"
             )
-            assert os.path.exists(symlink)
+            assert symlink.is_symlink()
 
 
 @buck_test(inplace=True)
@@ -102,13 +129,21 @@ async def test_build_symlink_genrule_rule(buck: Buck) -> None:
     result = await buck.build(*args)
     output_dict = result.get_target_to_build_output()
     for _target, output in output_dict.items():
-        gen_folder = output[: output.find("/gen/") + 4]
-        symlink = Path(
-            gen_folder,
-            # v1:   buck2/tests/targets/rules/genrule/hello_world/welcome/out.txt
-            "fbcode/buck2/tests/targets/rules/genrule/hello_world/out/out.txt",
+        gen_folder = extract_gen_folder(output)
+        # v1: buck2/tests/targets/rules/genrule/hello_world/welcome/out.txt
+        symlink = (
+            Path(gen_folder)
+            / "fbcode"
+            / "buck2"
+            / "tests"
+            / "targets"
+            / "rules"
+            / "genrule"
+            / "hello_world"
+            / "out"
+            / "out.txt"
         )
-        assert os.path.exists(symlink)
+        assert symlink.is_symlink()
 
 
 @buck_test(inplace=True)
@@ -117,15 +152,20 @@ async def test_build_symlink_sh_binary(buck: Buck) -> None:
     args = [target, "--show-full-output"]
     if sys.platform == "darwin":
         args.append("@mode/mac")
+    if sys.platform == "win32":
+        args.append("@mode/win")
     result = await buck.build(*args)
     output_dict = result.get_target_to_build_output()
 
     output = output_dict[target]
-    gen_folder = output[: output.find("/gen/") + 4]
-    symlink = Path(
-        gen_folder,
-        "fbcode/buck2/tests/targets/rules/shell/diff",
+    gen_folder = extract_gen_folder(output)
+    symlink = (
+        Path(gen_folder) / "fbcode" / "buck2" / "tests" / "targets" / "rules" / "shell"
     )
+    if sys.platform == "win32":
+        symlink /= "diff.bat"
+    else:
+        symlink /= "diff"
 
     # Verify we can both versions:
     subprocess.check_call([output])
@@ -137,20 +177,24 @@ async def test_build_symlink_does_not_traverse_existing_symlinks(buck: Buck) -> 
     target = "fbcode//buck2/tests/targets/rules/shell:diff"
 
     args = [target, "--show-full-output"]
+    if sys.platform == "darwin":
+        args.append("@mode/mac")
+    if sys.platform == "win32":
+        args.append("@mode/win")
     result = await buck.build(*args)
     output_dict = result.get_target_to_build_output()
 
     output = output_dict[target]
-    gen_folder = output[: output.find("/gen/") + 4]
-    symlink = Path(
-        gen_folder,
-        "fbcode/buck2/tests/targets/rules/shell/diff",
+    gen_folder = extract_gen_folder(output)
+    symlink_folder = (
+        Path(gen_folder) / "fbcode" / "buck2" / "tests" / "targets" / "rules" / "shell"
     )
 
     # Now, overwrite part of the symlink path with something we cannot traverse.
-    path = symlink.parent.parent
-    subprocess.check_call(["rm", "-r", path])
-    subprocess.check_call(["ln", "-s", "/dev/null", path])
+    path = symlink_folder.parent
+    shutil.rmtree(path)
+    # On Windows this is just non existing path.
+    os.symlink("/dev/null", path)
 
     # Can we still build? If we delete the symlink when walking up the path, we
     # can. If we traverse it, we can't.

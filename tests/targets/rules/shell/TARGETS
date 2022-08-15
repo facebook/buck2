@@ -7,11 +7,16 @@ bzl_native.genrule(
     srcs = ["DATA"],
     out = "data.copy",
     bash = "cp $SRCS $OUT",
+    cmd_exe = "copy %SRCS% %OUT%",
 )
 
 bzl_native.sh_binary(
     name = "diff",
-    main = "diff.sh",
+    default_host_platform = "ovr_config//platform/linux:x86_64",
+    main = select({
+        "DEFAULT": "diff.sh",
+        "ovr_config//os:windows": "diff.bat",
+    }),
     resources = [
         "DATA",
         ":copy_data",
@@ -21,5 +26,6 @@ bzl_native.sh_binary(
 bzl_native.genrule(
     name = "gen",
     out = "out.txt",
-    bash = "$(exe :diff) arg1 arg2 > $OUT",
+    bash = "$(exe :diff) > $OUT",
+    cmd_exe = "$(exe :diff) > %OUT%",
 )

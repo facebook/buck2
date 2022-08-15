@@ -4,4 +4,5 @@ buck_genrule(
     name = "welcome",
     out = "out.txt",
     bash = "echo HELLO, WORLD > $OUT",
+    cmd_exe = "echo HELLO, WORLD> %OUT%",
 )
