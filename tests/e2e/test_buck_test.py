@@ -23,8 +23,6 @@ def remove_ansi_escape_sequences(ansi_str: str) -> str:
 
 
 @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
-# FIXME(danydunk): remove once code goes to prod
-@pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
 async def test_sh_test(buck: Buck) -> None:
     await buck.test(
         "fbcode//buck2/tests/targets/rules/sh_test:test",
@@ -53,8 +51,6 @@ async def test_test_build_fail(buck: Buck) -> None:
 if fbcode_linux_only():
 
     @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
-    # FIXME(danydunk): remove once code goes to prod
-    @pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
     async def test_cpp_test(buck: Buck) -> None:
         await buck.test(
             "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
@@ -110,8 +106,6 @@ if fbcode_linux_only() and not is_deployed_buck2():
 if fbcode_linux_only():
 
     @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
-    # FIXME(danydunk): remove once code goes to prod
-    @pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
     async def test_python_test(buck: Buck) -> None:
         await buck.test("fbcode//buck2/tests/targets/rules/python/test:test")
 
@@ -180,8 +174,6 @@ if fbcode_linux_only():
 if fbcode_linux_only():
 
     @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
-    # FIXME(danydunk): remove once code goes to prod
-    @pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
     async def test_listing_failure(buck: Buck) -> None:
         await expect_failure(
             buck.test("fbcode//buck2/tests/targets/rules/python/broken:broken"),
