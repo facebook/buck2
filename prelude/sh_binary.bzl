@@ -74,8 +74,14 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
             "setlocal EnableDelayedExpansion",
             "set __RESOURCES_ROOT=^",
             resources_dir,
-            "set __SCRIPT_DIR=%~dp0",
+            # Fully qualified script path.
+            "set __SRC=%~f0",
+            # This is essentially a realpath.
+            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|find "<SYMLINK>"\') do set "__SRC=%%a"',
+            # Get parent folder.
+            'for %%a in ("%__SRC%") do set "__SCRIPT_DIR=%%~dpa"',
             "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",
+            # ':~3' strips the first 3 chars of __RESOURCES_ROOT.
             "set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\!__RESOURCES_ROOT:~3!",
             "set BUCK_DEFAULT_RUNTIME_RESOURCES=%BUCK_PROJECT_ROOT%",
             "%BUCK_PROJECT_ROOT%\\{} %*".format(main_link),
