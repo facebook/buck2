@@ -32,6 +32,7 @@ use crate::codemap::Span;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::eval::ProfileMode;
 
 #[derive(Debug, thiserror::Error)]
 enum StmtProfileError {
@@ -186,7 +187,7 @@ impl StmtProfile {
         let now = Instant::now();
         self.0
             .as_ref()
-            .map(|data| ProfileData::new(data.write_to_string(now)))
+            .map(|data| ProfileData::new(ProfileMode::Statement, data.write_to_string(now)))
     }
 
     pub(crate) fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {

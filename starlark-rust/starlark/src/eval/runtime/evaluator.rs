@@ -337,9 +337,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 .stmt_profile
                 .gen()
                 .ok_or_else(|| EvaluatorError::StmtProfilingNotEnabled.into()),
-            ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
-                self.bc_profile.gen_csv().map(ProfileData::new)
-            }
+            ProfileMode::Bytecode | ProfileMode::BytecodePairs => self
+                .bc_profile
+                .gen_csv()
+                .map(|csv| ProfileData::new(mode, csv)),
             ProfileMode::TimeFlame => self
                 .flame_profile
                 .gen()

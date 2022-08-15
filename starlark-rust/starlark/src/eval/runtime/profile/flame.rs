@@ -26,6 +26,7 @@ use crate as starlark;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::eval::ProfileMode;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -177,6 +178,9 @@ impl<'v> FlameProfile<'v> {
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
         let names = x.values.map(|x| x.to_repr());
-        ProfileData::new(Stacks::new(&names, &x.frames).render())
+        ProfileData::new(
+            ProfileMode::TimeFlame,
+            Stacks::new(&names, &x.frames).render(),
+        )
     }
 }

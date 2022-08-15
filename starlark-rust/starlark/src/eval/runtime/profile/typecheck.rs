@@ -23,6 +23,7 @@ use crate::collections::SmallMap;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::eval::ProfileMode;
 use crate::values::FrozenStringValue;
 
 #[derive(Default, Debug)]
@@ -65,7 +66,7 @@ impl TypecheckProfile {
         if !self.enabled {
             return None;
         }
-        Some(ProfileData::new(self.gen_csv()))
+        Some(ProfileData::new(ProfileMode::Typecheck, self.gen_csv()))
     }
 }
 
