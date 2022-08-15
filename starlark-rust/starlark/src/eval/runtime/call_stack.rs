@@ -37,7 +37,6 @@ use crate::codemap::FileSpan;
 use crate::codemap::Span;
 use crate::errors::Frame;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
-use crate::values::error::ControlError;
 use crate::values::FrozenRef;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -157,6 +156,8 @@ impl Debug for CheapFrame<'_> {
 enum CallStackError {
     #[error("Requested {0}-th top frame, but stack size is {1} (internal error)")]
     StackIsTooShallowForNthTopFrame(usize, usize),
+    #[error("Starlark call stack overflow")]
+    Overflow,
 }
 
 /// Starlark call stack.
@@ -209,7 +210,7 @@ impl<'v> CheapCallStack<'v> {
         span: Option<FrozenRef<'static, FrozenFileSpan>>,
     ) -> anyhow::Result<()> {
         if unlikely(self.count >= MAX_CALLSTACK_RECURSION) {
-            return Err(ControlError::TooManyRecursionLevel.into());
+            return Err(CallStackError::Overflow.into());
         }
         self.stack[self.count] = CheapFrame { function, span };
         self.count += 1;

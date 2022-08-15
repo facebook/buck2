@@ -62,8 +62,8 @@ def rec6(): rec2()
     assert::is_true(&f("(f5(1, b=2) == {'b': 2})"));
     assert::is_true(&f("(f6(1, 2, 3) == (1, 2, 3))"));
     // Recursion limit
-    assert::fail(&f("rec1()"), "recursion");
-    assert::fail(&f("rec2()"), "recursion");
+    assert::fail(&f("rec1()"), "Starlark call stack overflow");
+    assert::fail(&f("rec2()"), "Starlark call stack overflow");
     // multiple argument with the same name should not be allowed
     assert::fail("def f(a, a=2): pass", "duplicated parameter");
     // Invalid order of parameter
