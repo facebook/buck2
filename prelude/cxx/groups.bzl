@@ -154,10 +154,16 @@ def compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceG
     node_traversed_targets = {}
 
     for group in groups:
+        found_targets_in_group = False
         for mapping in group.mappings:
-            targets_in_group = _find_targets_in_mapping(graph, mapping)
-            for target in targets_in_group:
+            targets_in_mapping = _find_targets_in_mapping(graph, mapping)
+            if not targets_in_mapping:
+                warning("Could not find any targets for mapping: `{}` in group: `{}`".format(mapping, group.name))
+                continue
+            found_targets_in_group = True
+            for target in targets_in_mapping:
                 _update_target_to_group_mapping(graph, target_to_group_map, node_traversed_targets, group.name, mapping, target)
+        expect(found_targets_in_group, "Could not find any targets in group: `{}`".format(group.name))
 
     return target_to_group_map
 
