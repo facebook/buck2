@@ -14,24 +14,54 @@ def suffix_symbols(
     objcopy = cxx_toolchain.binary_utilities_info.objcopy
     nm = cxx_toolchain.binary_utilities_info.nm
     artifacts = []
+    symbols_file = ctx.actions.declare_output(ctx.label.name + "_renamed_syms")
+    objects_args = cmd_args()
+
+    for obj in objects:
+        objects_args.add(cmd_args(obj, format = "{}"))
+
+    script_env = {
+        "NM": nm,
+        "OBJECTS": objects_args,
+        "SYMSFILE": symbols_file.as_output(),
+    }
+
+    # Compile symbols defined by all object files into a de-duplicated list of symbols to rename
+    # --no-sort tells nm not to sort the output because we are sorting it to dedupe anyway
+    # --defined-only prints only the symbols defined by this extension this way we won't rename symbols defined externally e.g. PyList_GetItem, etc...
+    # -j print only the symbol name
+    # sort -u sorts the combined list of symbols and removes any duplicate entries
+    # using awk we format the symbol names 'PyInit_hello' followed by the symbol name with the suffix appended to create the input file for objcopy
+    # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
+    script = (
+        "set -euo pipefail; " +  # fail if any command in the script fails
+        '"$NM" --no-sort --defined-only -j $OBJECTS | sort -u |' +
+        ' awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
+        '"$SYMSFILE";'
+    )
+    ctx.actions.run(
+        [
+            "/bin/bash",
+            "-c",
+            script,
+        ],
+        env = script_env,
+        category = "write_syms_file",
+        identifier = "{}_write_syms_file".format(symbols_file.basename),
+    )
     for original in objects:
-        updated_name = original.short_path + suffix + "_" + original.basename
+        updated_name = suffix + "_" + original.short_path
         artifact = ctx.actions.declare_output(updated_name)
 
         script_env = {
-            "NM": nm,
             "OBJCOPY": objcopy,
             "ORIGINAL": original,
             "OUT": artifact.as_output(),
+            "SYMSFILE": symbols_file,
         }
 
         script = (
             "set -euo pipefail; " +  # fail if any command in the script fails
-            "export SYMSFILE=$(mktemp);" +  # create a temporary file
-            '"$NM" --defined-only "$ORIGINAL" | ' +  # print all defined symbols in the original object
-            # the output from nm looks like this: '0000000000000000 T PyInit_hello'
-            ' awk \'{{print $3" "$3"_{suffix}"}}\' > '.format(suffix = suffix) +  # using awk we print the symbol name 'PyInit_hello' followed by the symbol name with the suffix appended
-            '"$SYMSFILE";' +  # we compile a file with a line for each symbol containing the 'symbol_name symbol_name{suffix}'
             '"$OBJCOPY" --redefine-syms="$SYMSFILE" "$ORIGINAL" "$OUT"'  # using objcopy we pass in the symbols file to re-write the original symbol name to the now suffixed version
         )
 
