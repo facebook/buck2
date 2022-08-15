@@ -147,15 +147,16 @@ and non-split transition to `attrs.split_transition_dep`.
 
 ## Per target transition
 
-We decided to abandon the idea of defining per-target transitions
+We are considering implementing per target transitions
 (i.e. transitions referenced at rule instantiation site as opposed to rule declaration site).
+No specific plans or API at the moment.
 
-It **could** be something like:
+It *could* be something like:
 
 ```python
-genrule(
+cxx_binary(
     name = "foo",
-    cfg = "//transitions:to-windows",
+    cfg = "//transitions:opengl-es-1.0",
     ...
 )
 ```
