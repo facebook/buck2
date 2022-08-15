@@ -23,6 +23,7 @@
 #![feature(never_type)]
 #![feature(path_try_exists)]
 #![feature(pattern)]
+#![cfg_attr(windows, feature(windows_file_type_ext))]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(

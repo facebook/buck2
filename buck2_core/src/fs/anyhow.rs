@@ -108,8 +108,26 @@ pub fn try_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
 }
 
 pub fn remove_file<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
-    fs::remove_file(&path)
-        .with_context(|| format!("remove_file({})", P::as_ref(&path).display()))?;
+    remove_file_impl(path.as_ref())
+        .with_context(|| format!("remove_file({})", P::as_ref(&path).display()))
+}
+
+#[cfg(unix)]
+fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
+    fs::remove_file(&path)?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
+    use std::os::windows::fs::FileTypeExt;
+
+    let file_type = path.symlink_metadata()?.file_type();
+    if !file_type.is_symlink() || file_type.is_symlink_file() {
+        fs::remove_file(&path)?;
+    } else {
+        fs::remove_dir(&path)?;
+    }
     Ok(())
 }
 
@@ -176,28 +194,6 @@ pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn remove_symlink<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
-    remove_symlink_impl(path.as_ref())
-        .with_context(|| format!("remove_symlink({})", P::as_ref(&path).display()))?;
-    Ok(())
-}
-
-#[cfg(unix)]
-fn remove_symlink_impl(path: &Path) -> anyhow::Result<()> {
-    remove_file(path)
-}
-
-#[cfg(windows)]
-fn remove_symlink_impl(path: &Path) -> anyhow::Result<()> {
-    // For windows, follow the symlink to get the underlying type
-    let metadata = metadata(&path)?;
-    if metadata.is_dir() {
-        remove_dir(&path)
-    } else {
-        remove_file(&path)
-    }
-}
-
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     fs::read_to_string(&path)
         .with_context(|| format!("read_to_string({})", P::as_ref(&path).display()))
@@ -221,7 +217,7 @@ mod tests {
     use crate::fs::anyhow::metadata;
     use crate::fs::anyhow::read_to_string;
     use crate::fs::anyhow::remove_dir_all;
-    use crate::fs::anyhow::remove_symlink;
+    use crate::fs::anyhow::remove_file;
     use crate::fs::anyhow::symlink;
     use crate::fs::anyhow::symlink_metadata;
     use crate::fs::anyhow::write;
@@ -241,7 +237,7 @@ mod tests {
         assert!(symlink_metadata(&symlink_dir1)?.is_symlink());
 
         // Remove the symlink, dir1 should still be in tact
-        remove_symlink(&symlink_dir1)?;
+        remove_file(&symlink_dir1)?;
         assert!(symlink_metadata(&dir1)?.is_dir());
         assert_matches!(symlink_metadata(&symlink_dir1), Err(..));
 
@@ -265,7 +261,7 @@ mod tests {
         assert!(symlink_metadata(&symlink_file1)?.is_symlink());
 
         // Remove the symlink, file1 should still be in tact
-        remove_symlink(&symlink_file1)?;
+        remove_file(&symlink_file1)?;
         assert!(symlink_metadata(&file1)?.is_file());
         assert_matches!(symlink_metadata(&symlink_file1), Err(..));
 
@@ -299,6 +295,48 @@ mod tests {
         assert_eq!(read_to_string(symlink2_path.join("file"))?, "Content");
         assert!(metadata(&symlink1_path)?.is_dir());
         assert!(metadata(&symlink2_path)?.is_dir());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_symlink_to_directory() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let symlink_path = tempdir.path().join("symlink_dir");
+        let dir_path = tempdir.path().join("dir");
+        let file_path = dir_path.join("file");
+        create_dir_all(&dir_path)?;
+        write(&file_path, b"File content")?;
+        symlink(&dir_path, &symlink_path)?;
+        let symlinked_path = symlink_path.join("file");
+        assert_eq!(read_to_string(&symlinked_path)?, "File content");
+        remove_file(&symlink_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn remove_directory_as_file() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let dir_path = tempdir.path().join("dir");
+        create_dir_all(&dir_path)?;
+        assert_matches!(remove_file(&dir_path), Err(..));
+        remove_dir_all(&dir_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn remove_broken_symlink() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let symlink_path = tempdir.path().join("symlink");
+        symlink("path_which_doesnt_exist", &symlink_path)?;
+        remove_file(&symlink_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn remove_non_existing_file() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let file_path = tempdir.path().join("file_doesnt_exist");
+        assert_matches!(remove_file(&file_path), Err(..));
         Ok(())
     }
 }
