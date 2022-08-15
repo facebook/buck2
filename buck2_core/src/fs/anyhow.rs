@@ -35,7 +35,6 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 }
 
 /// Create symlink on Windows.
-/// Unlike on Unix, it expects that target file or directory exists.
 #[cfg(windows)]
 fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     use std::borrow::Cow;
@@ -65,17 +64,16 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
         };
         // Check if relative path points to the expected location. Otherwise create symlink to absolute path.
         // `canonicalize` requires path to exist, so check parent directories instead.
-        let target_dir_realpath = fs::canonicalize(
-            target_abspath
-                .parent()
-                .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?,
-        )
-        .context("Failed to get canonical path. Does path exist?")?;
-        let link_dir_realpath = fs::canonicalize(
-            link.parent()
-                .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?,
-        )
-        .context("Failed to get canonical path. Does path exist?")?;
+        let target_dir_realpath = target_abspath
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?
+            .canonicalize()
+            .context("Failed to get canonical path. Does path exist?")?;
+        let link_dir_realpath = link
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Expected parent directory"))?
+            .canonicalize()
+            .context("Failed to get canonical path. Does path exist?")?;
         let computed_target = link_dir_realpath.join(&original);
         let computed_target_dir = computed_target
             .parent()
@@ -87,16 +85,11 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
         }
     };
 
-    let file_type = fs::metadata(&target_abspath)?.file_type();
-    if file_type.is_file() {
-        std::os::windows::fs::symlink_file(target_path.as_ref(), link).map_err(|e| e.into())
-    } else if file_type.is_dir() {
+    // If target doesn't exist yet, default to file symlink.
+    if target_abspath.exists() && target_abspath.metadata()?.is_dir() {
         std::os::windows::fs::symlink_dir(target_path.as_ref(), link).map_err(|e| e.into())
     } else {
-        Err(anyhow::anyhow!(
-            "Symlink target ({}) is not a file or directory",
-            target_abspath.display()
-        ))
+        std::os::windows::fs::symlink_file(target_path.as_ref(), link).map_err(|e| e.into())
     }
 }
 
@@ -225,10 +218,13 @@ mod tests {
     use assert_matches::assert_matches;
 
     use crate::fs::anyhow::create_dir_all;
+    use crate::fs::anyhow::metadata;
+    use crate::fs::anyhow::read_to_string;
     use crate::fs::anyhow::remove_dir_all;
     use crate::fs::anyhow::remove_symlink;
     use crate::fs::anyhow::symlink;
     use crate::fs::anyhow::symlink_metadata;
+    use crate::fs::anyhow::write;
 
     #[test]
     fn create_and_remove_symlink_dir() -> anyhow::Result<()> {
@@ -275,6 +271,34 @@ mod tests {
 
         // Clean up
         remove_dir_all(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn create_symlink_to_file_which_doesnt_exist() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let symlink_path = tempdir.path().join("symlink");
+        let target_path = tempdir.path().join("file");
+        symlink(&target_path, &symlink_path)?;
+        write(&target_path, b"File content")?;
+        assert_eq!(read_to_string(&symlink_path)?, "File content");
+        Ok(())
+    }
+
+    #[test]
+    fn create_symlink_to_symlinked_dir() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let dir_path = tempdir.path().join("dir");
+        let file_path = dir_path.join("file");
+        create_dir_all(&dir_path)?;
+        write(&file_path, b"Content")?;
+        let symlink1_path = tempdir.path().join("symlink1");
+        let symlink2_path = tempdir.path().join("symlink2");
+        symlink(&dir_path, &symlink1_path)?;
+        symlink(&symlink1_path, &symlink2_path)?;
+        assert_eq!(read_to_string(symlink2_path.join("file"))?, "Content");
+        assert!(metadata(&symlink1_path)?.is_dir());
+        assert!(metadata(&symlink2_path)?.is_dir());
         Ok(())
     }
 }
