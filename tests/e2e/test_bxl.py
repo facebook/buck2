@@ -507,31 +507,70 @@ async def test_node_attrs(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl_fs_exists(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl:exists.bxl:exists_relative_path",
+        "//bxl:fs.bxl:exists_relative_path",
     )
 
     assert "True" in result.stdout
 
     result = await buck.bxl(
-        "//bxl:exists.bxl:not_exists",
+        "//bxl:fs.bxl:not_exists",
     )
 
     assert "False" in result.stdout
 
     result = await buck.bxl(
-        "//bxl:exists.bxl:exists_absolute_path", "--", "--root_path", buck.cwd
+        "//bxl:fs.bxl:exists_absolute_path", "--", "--root_path", buck.cwd
     )
 
     assert "True" in result.stdout
 
     result = await buck.bxl(
-        "//bxl:exists.bxl:exists_source_artifact",
+        "//bxl:fs.bxl:exists_source_artifact",
     )
 
     assert "True" in result.stdout
 
     result = await buck.bxl(
-        "//bxl:exists.bxl:exists_file_node",
+        "//bxl:fs.bxl:exists_file_node",
     )
 
     assert "True" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_fs_list(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:fs.bxl:list_relative_path",
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin/TARGETS.fixture",
+        "root//bin/kind",
+    ]
+
+    result = await buck.bxl(
+        "//bxl:fs.bxl:list_absolute_path", "--", "--root_path", buck.cwd
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin/TARGETS.fixture",
+        "root//bin/kind",
+    ]
+
+    result = await buck.bxl(
+        "//bxl:fs.bxl:list_source_artifact",
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin/kind/TARGETS.fixture",
+        "root//bin/kind/rules.bzl",
+    ]
+
+    result = await buck.bxl(
+        "//bxl:fs.bxl:list_file_node",
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin/kind/TARGETS.fixture",
+        "root//bin/kind/rules.bzl",
+    ]

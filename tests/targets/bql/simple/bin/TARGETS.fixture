@@ -12,3 +12,16 @@ foo_binary(
     ],
     cmd = ["$(exe //:bin)", "$(location //:data)"],
 )
+
+foo_binary(
+    name = "the_binary_with_dir_srcs",
+    deps = [
+        "//lib:lib1",
+        "//lib:lib2",
+        "//lib:lib3",
+    ],
+    srcs = [
+        "kind"
+    ],
+    cmd = ["$(exe //:bin)", "$(location //:data)"],
+)

@@ -2,9 +2,11 @@
 //! detect simple properties of artifacts, and source directories.
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
+use buck2_core::fs::paths::ForwardRelativePath;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -23,6 +25,7 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
+use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
 #[derive(
     ProvidesStaticType,
@@ -84,6 +87,29 @@ fn fs_operations(builder: &mut MethodsBuilder) {
             Ok(p) => this
                 .dice
                 .via_dice(async move |ctx| ctx.file_ops().try_exists(&p).await),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn list<'v>(
+        this: &BxlFilesystem<'v>,
+        expr: FileExpr<'v>,
+    ) -> anyhow::Result<Vec<StarlarkFileNode>> {
+        let path = expr.get(this.dice);
+
+        match path {
+            Ok(path) => this.dice.via_dice(async move |ctx| {
+                let files = ctx.file_ops().read_dir(&path).await;
+
+                match files {
+                    Ok(files) => Ok(files.map(|file| {
+                        StarlarkFileNode(
+                            path.join(AsRef::<ForwardRelativePath>::as_ref(&file.file_name)),
+                        )
+                    })),
+                    Err(e) => Err(e.into()),
+                }
+            }),
             Err(e) => Err(e),
         }
     }
