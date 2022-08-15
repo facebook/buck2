@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::derive_partial_eq_without_eq)] // FIXME?
+
 use prost::Message;
 use prost_types::Duration;
 

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::borrow_deref_ref)] // FIXME?
+
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;

@@ -137,6 +137,7 @@ CLIPPY_ALLOW = [
     "clippy::cognitive_complexity",  # This is an arbitrary linter
     "clippy::comparison_chain",  # Generates worse code and harder to read
     "clippy::comparison_to_empty",  # x == "" is clearer than x.is_empty()
+    "clippy::derive_partial_eq_without_eq",  # In generated protobuf code
     "clippy::implicit-hasher",  # Makes code more complex for little benefit
     "clippy::len-without-is-empty",  # len() == 0 is perfectly clear
     "clippy::manual-range-contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)

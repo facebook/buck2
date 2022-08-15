@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::needless_return)] // FIXME?
+
 use std::ffi::OsString;
 use std::io::Cursor;
 use std::path::Path;

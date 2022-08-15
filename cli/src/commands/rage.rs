@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::needless_return)] // FIXME?
+
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;

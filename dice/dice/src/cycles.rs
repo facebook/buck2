@@ -9,6 +9,8 @@
 
 //! Cycle detection in DICE
 
+#![allow(clippy::borrow_deref_ref)] // FIXME?
+
 use std::any::TypeId;
 use std::fmt::Debug;
 use std::fmt::Display;

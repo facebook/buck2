@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::drop_non_drop)] // FIXME?
+
 use std::fmt::Display;
 use std::fmt::Formatter;
 

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
+
 // This triggers on Arc<Arc<...>>, but we do that here for lifetime/ownership reasons
 #![allow(clippy::redundant_allocation)]
 

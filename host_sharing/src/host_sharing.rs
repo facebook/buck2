@@ -1,5 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
+#![allow(clippy::derive_partial_eq_without_eq)] // FIXME?
+
 use futures_intrusive::sync::SharedSemaphore;
 use futures_intrusive::sync::SharedSemaphoreReleaser;
 

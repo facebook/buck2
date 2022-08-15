@@ -1,3 +1,5 @@
+#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
+
 use std::io::Stdin;
 use std::io::StdinLock;
 use std::pin::Pin;

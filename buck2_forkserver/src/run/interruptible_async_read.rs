@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
+
 use std::io;
 use std::io::Cursor;
 use std::io::Read;

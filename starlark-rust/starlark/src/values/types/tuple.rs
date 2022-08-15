@@ -17,6 +17,8 @@
 
 //! The list type, an immutable sequence of values.
 
+#![allow(clippy::extra_unused_lifetimes)] // FIXME?
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;

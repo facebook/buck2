@@ -227,7 +227,7 @@ def rust_compile(
         # Normalize working directory
         "-Zremap-cwd-prefix=",
         # Report unused --extern crates in the notification stream
-        ["--json=unused-externs", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
+        ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         extra_flags,
         lints,
     )

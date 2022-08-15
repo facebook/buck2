@@ -17,6 +17,9 @@
 
 //! Types supporting documentation for code written in or for Starlark.
 
+#![allow(clippy::derive_partial_eq_without_eq)] // FIXME?
+#![allow(clippy::format_push_string)] // FIXME?
+
 // TODO(nga): document it
 #![allow(missing_docs)]
 
