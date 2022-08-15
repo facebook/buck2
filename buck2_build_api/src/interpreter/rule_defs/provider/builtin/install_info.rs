@@ -12,7 +12,7 @@ use std::ops::Deref;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
-use either::Either;
+use buck2_interpreter::types::label::LabelGen;
 use gazebo::any::ProvidesStaticType;
 use indexmap::IndexMap;
 use starlark::collections::SmallMap;
@@ -21,7 +21,6 @@ use starlark::values::dict::*;
 use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
-use starlark::values::FrozenRef;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueError;
@@ -32,8 +31,6 @@ use thiserror::Error;
 use crate::actions::artifact::Artifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
-use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 // Provider that signals a rule is installable (ex. android_binary)
 
 #[derive(Debug, Error)]
@@ -47,8 +44,8 @@ enum InstallInfoProviderErrors {
 #[repr(C)]
 #[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
 pub struct InstallInfoGen<V> {
-    // Either<RunInfo, Label> for the installer
-    #[provider(field_type = "Either<RunInfo, Label>")]
+    // Target's label for the installer
+    #[provider(field_type = "Label")]
     installer: V,
     // list of files that need to be installed
     #[provider(field_type = "DictType<String, StarlarkArtifact>")]
@@ -56,26 +53,17 @@ pub struct InstallInfoGen<V> {
 }
 
 impl FrozenInstallInfo {
-    pub fn get_installer(
-        &self,
-    ) -> anyhow::Result<Either<FrozenRef<'static, FrozenRunInfo>, ConfiguredProvidersLabel>> {
-        let run_info_result = self.installer.downcast_frozen_ref::<FrozenRunInfo>();
-
-        let either = match run_info_result {
-            Some(run_info) => Either::Left(run_info),
-            None => Either::Right(
-                Label::from_value(self.installer.to_value())
-                    .ok_or_else(|| {
-                        InstallInfoProviderErrors::ExpectedLabel(
-                            self.installer.to_value().to_repr(),
-                            self.installer.to_value().get_type().to_owned(),
-                        )
-                    })?
-                    .label()
-                    .to_owned(),
-            ),
-        };
-        Ok(either)
+    pub fn get_installer(&self) -> anyhow::Result<ConfiguredProvidersLabel> {
+        let label = Label::from_value(self.installer.to_value())
+            .ok_or_else(|| {
+                InstallInfoProviderErrors::ExpectedLabel(
+                    self.installer.to_value().to_repr(),
+                    self.installer.to_value().get_type().to_owned(),
+                )
+            })?
+            .label()
+            .to_owned();
+        Ok(label)
     }
 
     pub fn get_files(&self) -> anyhow::Result<IndexMap<&str, Artifact>> {
@@ -96,14 +84,17 @@ impl FrozenInstallInfo {
 #[starlark_module]
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
-        installer: Value<'v>,
+        installer: ValueOf<'v, &'v LabelGen<Value<'v>>>,
         files: ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
     ) -> anyhow::Result<InstallInfo<'v>> {
         for v in files.typed.values() {
             v.as_artifact().ok_or(ValueError::IncorrectParameterType)?;
         }
         let files = files.value;
-        let info = InstallInfo { installer, files };
+        let info = InstallInfo {
+            installer: *installer,
+            files,
+        };
         validate_install_info(&info)?;
         Ok(info)
     }

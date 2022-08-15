@@ -31,9 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::*;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_core::directory::DirectoryEntry;
@@ -43,7 +41,6 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
@@ -66,7 +63,6 @@ use install_proto::installer_client::InstallerClient;
 use install_proto::FileReadyRequest;
 use install_proto::InstallInfoRequest;
 use install_proto::ShutdownRequest;
-use itertools::Either;
 use starlark::values::FrozenRef;
 use tempfile::Builder;
 use thiserror::Error;
@@ -346,83 +342,56 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
     };
 }
 
-enum InstallerRunInfoResult<'a> {
-    Reference(FrozenRef<'a, FrozenRunInfo>),
-    DerivedFromProvider(FrozenProviderCollectionValue, ConfiguredProvidersLabel),
-}
-
-impl<'a> InstallerRunInfoResult<'a> {
-    async fn to_installer_run_info(&'a self) -> anyhow::Result<FrozenRef<'a, FrozenRunInfo>> {
-        let installer_run_info = match self {
-            Self::Reference(run_info) => *run_info,
-            Self::DerivedFromProvider(frozen_providers, installer_label) => {
-                match RunInfo::from_providers(frozen_providers.provider_collection()) {
-                    Some(installer_run_info_provider) => installer_run_info_provider,
-                    None => {
-                        return Err(InstallError::NoRunInfoProvider(
-                            installer_label.target().name().to_owned(),
-                        )
-                        .into());
-                    }
-                }
-            }
-        };
-        Ok(installer_run_info)
-    }
-}
-
 async fn build_launch_installer<'a>(
     ctx: &'a DiceComputations,
     install_info: FrozenRef<'a, FrozenInstallInfo>,
     installer_run_args: Vec<String>,
 ) -> anyhow::Result<()> {
-    let (inputs, run_args) = {
-        let installer_run_info_result: InstallerRunInfoResult =
-            match install_info.get_installer()? {
-                Either::Left(run_info) => InstallerRunInfoResult::Reference(run_info),
-                Either::Right(installer_label) => {
-                    let frozen_providers = ctx
-                        .get_providers(&installer_label)
-                        .await?
-                        .require_compatible()?;
+    let providers_label = install_info.get_installer()?;
+    let frozen_providers = ctx
+        .get_providers(&providers_label)
+        .await?
+        .require_compatible()?;
 
-                    InstallerRunInfoResult::DerivedFromProvider(frozen_providers, installer_label)
-                }
+    if let Some(installer_run_info) =
+        RunInfo::from_providers(frozen_providers.provider_collection())
+    {
+        let (inputs, run_args) = {
+            let artifact_fs = ctx.get_artifact_fs().await?;
+            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
+            installer_run_info.visit_artifacts(&mut artifact_visitor)?;
+            // Produce arguments for local platform.
+            let path_separator = if cfg!(windows) {
+                PathSeparatorKind::Windows
+            } else {
+                PathSeparatorKind::Unix
             };
-
-        let installer_run_info = installer_run_info_result.to_installer_run_info().await?;
-
-        let artifact_fs = ctx.get_artifact_fs().await?;
-        let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        installer_run_info.visit_artifacts(&mut artifact_visitor)?;
-        // Produce arguments for local platform.
-        let path_separator = if cfg!(windows) {
-            PathSeparatorKind::Windows
-        } else {
-            PathSeparatorKind::Unix
+            let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
+            let mut cli = AbsCommandLineBuilder::new(&executor_fs);
+            installer_run_info.add_to_command_line(&mut cli)?;
+            let run_args = cli.build();
+            (artifact_visitor.inputs, run_args)
         };
-        let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
-        let mut cli = AbsCommandLineBuilder::new(&executor_fs);
-        installer_run_info.add_to_command_line(&mut cli)?;
-        let run_args = cli.build();
-        (artifact_visitor.inputs, run_args)
-    };
-    // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
-    future::try_join_all(inputs.into_iter().map(|input| async move {
-        materialize_artifact_group(ctx, &input)
-            .await
-            .map(|value| (input, value))
-    }))
-    .await
-    .context("Failed to build installer")?;
-    background_command(&run_args[0])
-        .args(&run_args[1..])
-        .args(installer_run_args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .context("Failed to spawn installer")?;
-    Ok(())
+        // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
+        future::try_join_all(inputs.into_iter().map(|input| async move {
+            materialize_artifact_group(ctx, &input)
+                .await
+                .map(|value| (input, value))
+        }))
+        .await
+        .context("Failed to build installer")?;
+        background_command(&run_args[0])
+            .args(&run_args[1..])
+            .args(installer_run_args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("Failed to spawn installer")?;
+
+        Ok(())
+    } else {
+        Err(InstallError::NoRunInfoProvider(providers_label.target().name().to_owned()).into())
+    }
 }
 
 #[derive(Debug)]
