@@ -22,10 +22,11 @@ linux_execution_base_platforms = {
 
 def _execution_platform_impl(ctx: "context"):
     infos = [p[BuildModeInfo] for p in ctx.attrs.remote_execution_action_key_providers]
-    kvs = ["platform={}".format(ctx.attrs.remote_execution_properties["platform"])]
-    kvs += ["{}={}".format(info.cell, info.mode) for info in infos if info.mode != None]
+    kvs = ["{}={}".format(info.cell, info.mode) for info in infos if info.mode != None]
 
-    remote_execution_action_key = " ".join(kvs)
+    remote_execution_action_key = None
+    if kvs:
+        remote_execution_action_key = " ".join(kvs)
 
     return [
         DefaultInfo(),
