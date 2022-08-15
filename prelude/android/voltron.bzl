@@ -26,53 +26,22 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
     all_deps = ctx.attrs.deps + flatten(ctx.attrs.application_module_configs.values())
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_deps)
 
-    deps_infos = list(android_packageable_info.deps.traverse()) if android_packageable_info.deps else []
-    deps_map = {deps_info.name: deps_info.deps for deps_info in deps_infos}
-
-    target_graph_file = ctx.actions.write_json("target_graph.json", deps_map)
-    application_module_configs_map = {module_name: [seed.label.raw_target() for seed in seeds if seed[AndroidPackageableInfo]] for module_name, seeds in ctx.attrs.application_module_configs.items()}
-    application_module_configs_file = ctx.actions.write_json("application_module_configs.json", application_module_configs_map)
-    application_module_dependencies_file = ctx.actions.write_json("application_module_dependencies.json", ctx.attrs.application_module_dependencies or {})
-    output = ctx.actions.declare_output("apk_module_metadata.txt")
-
-    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
-    cmd = cmd_args([
-        android_toolchain.apk_module_graph[RunInfo],
-        "--root-target",
-        str(ctx.label.raw_target()),
-        "--target-graph",
-        target_graph_file,
-        "--seed-config-map",
-        application_module_configs_file,
-        "--app-module-dependencies-map",
-        application_module_dependencies_file,
-        "--output",
-        output.as_output(),
-    ])
-
-    # Anything that is used by a wrap script needs to go into the primary APK, as do all
-    # of their deps.
     shared_library_info = merge_shared_libraries(
         ctx.actions,
         deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
     )
     traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
-    used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in traversed_shared_library_info.values() if shared_lib.for_primary_apk]
-    prebuilt_native_library_dirs = list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else []
-    prebuilt_native_library_targets_for_primary_apk = [str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk]
-    if ctx.attrs.application_module_blacklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk:
-        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk
-        if ctx.attrs.application_module_blacklist:
-            all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in flatten(ctx.attrs.application_module_blacklist)])
 
-        application_module_blocklist_file = ctx.actions.write(
-            "application_module_blocklist.txt",
-            all_blocklisted_deps,
-        )
-        cmd.add([
-            "--always-in-main-apk-seeds",
-            application_module_blocklist_file,
-        ])
+    cmd, output = _get_base_cmd_and_output(
+        ctx.actions,
+        ctx.label,
+        android_packageable_info,
+        traversed_shared_library_info,
+        ctx.attrs._android_toolchain[AndroidToolchainInfo],
+        ctx.attrs.application_module_configs,
+        ctx.attrs.application_module_dependencies,
+        ctx.attrs.application_module_blacklist,
+    )
 
     if ctx.attrs.should_include_classes:
         no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
@@ -95,3 +64,57 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd, category = "apk_module_graph")
 
     return [DefaultInfo(default_outputs = [output])]
+
+def _get_base_cmd_and_output(
+        actions: "actions",
+        label: "label",
+        android_packageable_info: "AndroidPackageableInfo",
+        traversed_shared_library_info: {str.type: "SharedLibrary"},
+        android_toolchain: "AndroidToolchainInfo",
+        application_module_configs: {str.type: ["dependency"]},
+        application_module_dependencies: [{str.type: [str.type]}, None],
+        application_module_blocklist: [[["dependency"]], None]) -> ("cmd_args", "artifact"):
+    deps_infos = list(android_packageable_info.deps.traverse()) if android_packageable_info.deps else []
+    deps_map = {deps_info.name: deps_info.deps for deps_info in deps_infos}
+
+    target_graph_file = actions.write_json("target_graph.json", deps_map)
+    application_module_configs_map = {module_name: [seed.label.raw_target() for seed in seeds if seed[AndroidPackageableInfo]] for module_name, seeds in application_module_configs.items()}
+    application_module_configs_file = actions.write_json("application_module_configs.json", application_module_configs_map)
+    application_module_dependencies_file = actions.write_json("application_module_dependencies.json", application_module_dependencies or {})
+    output = actions.declare_output("apk_module_metadata.txt")
+
+    cmd = cmd_args([
+        android_toolchain.apk_module_graph[RunInfo],
+        "--root-target",
+        str(label.raw_target()),
+        "--target-graph",
+        target_graph_file,
+        "--seed-config-map",
+        application_module_configs_file,
+        "--app-module-dependencies-map",
+        application_module_dependencies_file,
+        "--output",
+        output.as_output(),
+    ])
+
+    # Anything that is used by a wrap script needs to go into the primary APK, as do all
+    # of their deps.
+
+    used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in traversed_shared_library_info.values() if shared_lib.for_primary_apk]
+    prebuilt_native_library_dirs = list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else []
+    prebuilt_native_library_targets_for_primary_apk = [str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk]
+    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk:
+        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk
+        if application_module_blocklist:
+            all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in flatten(application_module_blocklist)])
+
+        application_module_blocklist_file = actions.write(
+            "application_module_blocklist.txt",
+            all_blocklisted_deps,
+        )
+        cmd.add([
+            "--always-in-main-apk-seeds",
+            application_module_blocklist_file,
+        ])
+
+    return cmd, output
