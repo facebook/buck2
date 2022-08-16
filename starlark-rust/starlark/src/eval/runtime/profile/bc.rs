@@ -19,14 +19,18 @@
 
 use std::collections::HashMap;
 use std::iter::Sum;
+use std::mem;
 
 use gazebo::prelude::*;
 
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::runtime::evaluator::EvaluatorError;
 use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
+use crate::eval::ProfileData;
+use crate::eval::ProfileMode;
 
-#[derive(Default, Clone, Dupe, Copy)]
+#[derive(Default, Clone, Dupe, Copy, Debug)]
 struct BcInstrStat {
     count: u64,
 }
@@ -41,19 +45,20 @@ impl<'a> Sum<&'a BcInstrStat> for BcInstrStat {
     }
 }
 
-#[derive(Default, Clone, Copy, Dupe)]
+#[derive(Default, Clone, Copy, Dupe, Debug)]
 struct BcInstrPairsStat {
     count: u64,
     // We are not measuring time here, because even time for single opcode
     // is not very accurate or helpful, and time for pairs is even less helpful.
 }
 
-struct BcProfileData {
+#[derive(Clone, Debug)]
+pub(crate) struct BcProfileData {
     by_instr: [BcInstrStat; BcOpcode::COUNT],
 }
 
-#[derive(Default)]
-struct BcPairsProfileData {
+#[derive(Default, Clone, Debug)]
+pub(crate) struct BcPairsProfileData {
     last: Option<BcOpcode>,
     by_instr: HashMap<[BcOpcode; 2], BcInstrPairsStat>,
 }
@@ -72,7 +77,7 @@ impl BcProfileData {
         self.by_instr[opcode as usize].count += 1;
     }
 
-    fn gen_csv(&self) -> String {
+    pub(crate) fn gen_csv(&self) -> String {
         let mut by_instr: Vec<_> = self
             .by_instr
             .iter()
@@ -112,7 +117,7 @@ impl BcPairsProfileData {
         self.last = Some(opcode);
     }
 
-    fn gen_csv(&self) -> String {
+    pub(crate) fn gen_csv(&self) -> String {
         let mut by_instr: Vec<_> = self
             .by_instr
             .iter()
@@ -168,11 +173,23 @@ impl BcProfile {
         }
     }
 
-    pub(crate) fn gen_csv(&self) -> anyhow::Result<String> {
-        match &self.data {
-            BcProfileDataMode::Bc(data) => Ok(data.gen_csv()),
-            BcProfileDataMode::BcPairs(data) => Ok(data.gen_csv()),
-            BcProfileDataMode::Disabled => Err(EvaluatorError::BcProfilingNotEnabled.into()),
+    pub(crate) fn gen_bc_profile(&mut self) -> anyhow::Result<ProfileData> {
+        match mem::replace(&mut self.data, BcProfileDataMode::Disabled) {
+            BcProfileDataMode::Bc(bc) => Ok(ProfileData {
+                profile_mode: ProfileMode::Bytecode,
+                profile: ProfileDataImpl::Bc(bc),
+            }),
+            _ => Err(EvaluatorError::BcProfilingNotEnabled.into()),
+        }
+    }
+
+    pub(crate) fn gen_bc_pairs_profile(&mut self) -> anyhow::Result<ProfileData> {
+        match mem::replace(&mut self.data, BcProfileDataMode::Disabled) {
+            BcProfileDataMode::BcPairs(bc_pairs) => Ok(ProfileData {
+                profile_mode: ProfileMode::BytecodePairs,
+                profile: ProfileDataImpl::BcPairs(*bc_pairs),
+            }),
+            _ => Err(EvaluatorError::BcProfilingNotEnabled.into()),
         }
     }
 
@@ -209,7 +226,7 @@ mod tests {
             &globals,
         )
         .unwrap();
-        let csv = eval.bc_profile.gen_csv().unwrap();
+        let csv = eval.bc_profile.gen_bc_profile().unwrap().gen().unwrap();
         assert!(
             csv.contains(&format!("\n\"{:?}\",1,", BcOpcode::CallFrozenNativePos)),
             "{:?}",
@@ -228,7 +245,12 @@ mod tests {
             &globals,
         )
         .unwrap();
-        let csv = eval.bc_profile.gen_csv().unwrap();
+        let csv = eval
+            .bc_profile
+            .gen_bc_pairs_profile()
+            .unwrap()
+            .gen()
+            .unwrap();
         assert!(
             csv.contains(&format!(
                 "\n\"{:?}\",\"{:?}\",1",

@@ -324,10 +324,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 Err(EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator.into())
             }
             ProfileMode::Statement => self.stmt_profile.gen(),
-            ProfileMode::Bytecode | ProfileMode::BytecodePairs => self
-                .bc_profile
-                .gen_csv()
-                .map(|csv| ProfileData::new(mode, csv)),
+            ProfileMode::Bytecode => self.bc_profile.gen_bc_profile(),
+            ProfileMode::BytecodePairs => self.bc_profile.gen_bc_pairs_profile(),
             ProfileMode::TimeFlame => self.flame_profile.gen(),
             ProfileMode::Typecheck => self.typecheck_profile.gen(),
         }

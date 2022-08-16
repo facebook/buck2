@@ -20,19 +20,23 @@ use std::path::Path;
 
 use anyhow::Context;
 
+use crate::eval::runtime::profile::bc::BcPairsProfileData;
+use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::ProfileMode;
 
 #[derive(Clone, Debug)]
 pub(crate) enum ProfileDataImpl {
+    Bc(Box<BcProfileData>),
+    BcPairs(BcPairsProfileData),
     Other(String),
 }
 
 /// Collected profiling data.
 #[derive(Clone, Debug)]
 pub struct ProfileData {
-    profile_mode: ProfileMode,
+    pub(crate) profile_mode: ProfileMode,
     /// Serialized to text (e.g. CSV or flamegraph).
-    profile: ProfileDataImpl,
+    pub(crate) profile: ProfileDataImpl,
 }
 
 impl ProfileData {
@@ -47,6 +51,8 @@ impl ProfileData {
     pub fn gen(&self) -> anyhow::Result<String> {
         match &self.profile {
             ProfileDataImpl::Other(profile) => Ok(profile.clone()),
+            ProfileDataImpl::Bc(bc) => Ok(bc.gen_csv()),
+            ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs.gen_csv()),
         }
     }
 
