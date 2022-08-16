@@ -23,12 +23,19 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     test_host_app_bundle = _get_test_host_app_bundle(ctx)
     test_host_app_binary = _get_test_host_app_binary(ctx, test_host_app_bundle)
 
+    objc_bridging_header_flags = [
+        # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.
+        "-disable-bridging-pch",
+        "-import-objc-header",
+        cmd_args(ctx.attrs.bridging_header),
+    ] if ctx.attrs.bridging_header else []
+
     constructor_params, _ = apple_library_rule_constructor_params_and_swift_providers(
         ctx,
         AppleLibraryAdditionalParams(
             rule_type = "apple_test",
             extra_exported_link_flags = _get_xctest_framework_linker_flags(ctx) + _get_bundle_loader_flags(test_host_app_binary),
-            extra_swift_compiler_flags = _get_xctest_framework_search_paths_flags(ctx),
+            extra_swift_compiler_flags = _get_xctest_framework_search_paths_flags(ctx) + objc_bridging_header_flags,
             shared_library_flags = SharedLibraryFlagOverrides(
                 # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
                 shared_library_name_linker_flags_format = [],
