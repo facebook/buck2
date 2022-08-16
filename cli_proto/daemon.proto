@@ -516,9 +516,9 @@ message LspResponse {}
 
 message ProfileRequest {
   enum Profiler {
-    HEAP_FLAME = 0;
+    HEAP_FLAME_ALLOCATED = 0;
     HEAP_FLAME_RETAINED = 10;
-    HEAP_SUMMARY = 1;
+    HEAP_SUMMARY_ALLOCATED = 1;
     HEAP_SUMMARY_RETAINED = 11;
     TIME_FLAME = 2;
     STATEMENT = 3;

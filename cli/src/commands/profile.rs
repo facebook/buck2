@@ -59,9 +59,9 @@ impl ProfileCommand {
 #[derive(clap::ValueEnum, Dupe, Clone, Debug)]
 enum BuckProfileMode {
     TimeFlame,
-    HeapFlame,
+    HeapFlameAllocated,
     HeapFlameRetained,
-    HeapSummary,
+    HeapSummaryAllocated,
     HeapSummaryRetained,
     Statement,
     Bytecode,
@@ -98,9 +98,9 @@ pub(crate) struct ProfileSubcommand {
 fn profile_mode_to_profile(mode: &BuckProfileMode) -> Profiler {
     match mode {
         BuckProfileMode::TimeFlame => Profiler::TimeFlame,
-        BuckProfileMode::HeapFlame => Profiler::HeapFlame,
+        BuckProfileMode::HeapFlameAllocated => Profiler::HeapFlameAllocated,
         BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetained,
-        BuckProfileMode::HeapSummary => Profiler::HeapSummary,
+        BuckProfileMode::HeapSummaryAllocated => Profiler::HeapSummaryAllocated,
         BuckProfileMode::HeapSummaryRetained => Profiler::HeapSummaryRetained,
         BuckProfileMode::Statement => Profiler::Statement,
         BuckProfileMode::Bytecode => Profiler::Bytecode,

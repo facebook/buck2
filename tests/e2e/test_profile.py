@@ -7,9 +7,9 @@ from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 PROFILERS = [
-    "heap-flame",
+    "heap-flame-allocated",
     "heap-flame-retained",
-    "heap-summary",
+    "heap-summary-allocated",
     "heap-summary-retained",
     "time-flame",
     "statement",
