@@ -537,6 +537,7 @@ message ProfileRequest {
   string destination_path = 3;
   Profiler profiler = 4;
   Action action = 5;
+  bool recursive = 6;
 }
 
 message ProfileResponse {

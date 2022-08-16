@@ -88,6 +88,11 @@ pub(crate) struct ProfileOptions {
 
     #[clap(long, short = 'm', value_enum)]
     mode: BuckProfileMode,
+
+    /// In analysis profiling, capture the profile of the target and its dependencies,
+    /// and output the merged profile.
+    #[clap(long, short = 'r')]
+    recursive: bool,
 }
 
 pub(crate) struct ProfileSubcommand {
@@ -148,6 +153,7 @@ impl StreamingCommand for ProfileSubcommand {
                         destination_path,
                         profiler: profile_mode_to_profile(profile_mode).into(),
                         action: self.action.into(),
+                        recursive: self.opts.recursive,
                     })
                     .boxed()
             })

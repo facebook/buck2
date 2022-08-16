@@ -1266,12 +1266,20 @@ impl DaemonApi for BuckdServer {
                 let action = cli_proto::profile_request::Action::from_i32(req.action)
                     .context("Invalid action")?;
 
-                Ok(match action {
-                    cli_proto::profile_request::Action::Loading => {
+                Ok(match (action, req.recursive) {
+                    (cli_proto::profile_request::Action::Loading, false) => {
                         StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
                     }
-                    cli_proto::profile_request::Action::Analysis => {
+                    (cli_proto::profile_request::Action::Loading, true) => {
+                        return Err(anyhow::anyhow!(
+                            "Recursive profiling is not supported for loading profiling"
+                        ));
+                    }
+                    (cli_proto::profile_request::Action::Analysis, false) => {
                         StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
+                    }
+                    (cli_proto::profile_request::Action::Analysis, true) => {
+                        StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode)
                     }
                 })
             }
