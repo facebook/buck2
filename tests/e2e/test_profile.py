@@ -23,7 +23,9 @@ PROFILERS = [
     "profiler",
     PROFILERS,
 )
-async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) -> None:
+async def test_profile_analysis_last(
+    buck: Buck, tmpdir: LocalPath, profiler: str
+) -> None:
     file_path = tmpdir.join("profile")
 
     await buck.profile(
@@ -43,7 +45,39 @@ async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) ->
     "profiler",
     PROFILERS,
 )
-async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> None:
+async def test_profile_analysis_recursive(
+    buck: Buck, tmpdir: LocalPath, profiler: str
+) -> None:
+    file_path = tmpdir.join("profile")
+
+    command = buck.profile(
+        "analysis",
+        "--mode",
+        profiler,
+        "fbcode//buck2/tests/targets/profile:test",
+        "--output",
+        file_path,
+        "--recursive",
+    )
+    if profiler.endswith("-retained"):
+        await command
+
+        assert os.path.exists(file_path)
+    else:
+        await expect_failure(
+            command,
+            stderr_regex="merge of profile data for profile mode `.*` is not implemented",
+        )
+
+
+@buck_test(inplace=True)
+@pytest.mark.parametrize(
+    "profiler",
+    PROFILERS,
+)
+async def test_profile_loading_last(
+    buck: Buck, tmpdir: LocalPath, profiler: str
+) -> None:
     file_path = tmpdir.join("profile")
 
     command = buck.profile(
@@ -64,6 +98,32 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
         await command
 
         assert os.path.exists(file_path)
+
+
+@buck_test(inplace=True)
+@pytest.mark.parametrize(
+    "profiler",
+    PROFILERS,
+)
+async def test_profile_loading_recursive(
+    buck: Buck, tmpdir: LocalPath, profiler: str
+) -> None:
+    file_path = tmpdir.join("profile")
+
+    command = buck.profile(
+        "loading",
+        "--mode",
+        profiler,
+        "fbcode//buck2/tests/targets/profile:",
+        "--output",
+        file_path,
+        "--recursive",
+    )
+
+    await expect_failure(
+        command,
+        stderr_regex="Recursive profiling is not supported for loading profiling",
+    )
 
 
 @buck_test(inplace=True)
