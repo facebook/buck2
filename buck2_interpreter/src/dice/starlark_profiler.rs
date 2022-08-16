@@ -38,6 +38,8 @@ pub enum StarlarkProfilerConfiguration {
     ProfileLastLoading(ProfileMode),
     /// Profile analysis of the last target, everything else is instrumented.
     ProfileLastAnalysis(ProfileMode),
+    /// Profile analysis targets recursively.
+    ProfileAnalysisRecursively(ProfileMode),
 }
 
 impl Default for StarlarkProfilerConfiguration {
@@ -55,7 +57,8 @@ impl StarlarkProfilerConfiguration {
                 Some(instrumentation.dupe())
             }
             StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => {
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
+            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
                 Some(StarlarkProfilerInstrumentation::new(profile_mode.dupe()))
             }
         }
@@ -65,7 +68,8 @@ impl StarlarkProfilerConfiguration {
         match self {
             StarlarkProfilerConfiguration::None
             | StarlarkProfilerConfiguration::Instrument(_)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_) => {
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
+            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
                 Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
             }
             StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode) => Ok(profile_mode),
@@ -79,7 +83,10 @@ impl StarlarkProfilerConfiguration {
             | StarlarkProfilerConfiguration::ProfileLastLoading(_) => {
                 Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
             }
-            StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => Ok(profile_mode),
+            StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
+            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
+                Ok(profile_mode)
+            }
         }
     }
 
@@ -95,6 +102,9 @@ impl StarlarkProfilerConfiguration {
                 StarlarkProfileModeOrInstrumentation::Instrument(
                     StarlarkProfilerInstrumentation::new(profile_mode.dupe()),
                 )
+            }
+            StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
+                StarlarkProfileModeOrInstrumentation::Profile(profile_mode.dupe())
             }
         }
     }
