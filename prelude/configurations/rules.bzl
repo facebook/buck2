@@ -55,6 +55,11 @@ def platform_impl(ctx):
     ]
 
 # TODO(cjhopman): Update the attributes for these ruletypes to declare the types of providers that they expect in their references.
+extra_attributes = {
+    "platform": {
+        "constraint_values": attrs.list(attrs.dep(providers = [ConstraintValueInfo]), default = []),
+    },
+}
 
 implemented_rules = {
     "config_setting": config_setting_impl,

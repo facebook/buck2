@@ -5,7 +5,7 @@ load("@fbcode//buck2/prelude/android:android.bzl", _android_extra_attributes = "
 load("@fbcode//buck2/prelude/apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 
 # Configuration
-load("@fbcode//buck2/prelude/configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
+load("@fbcode//buck2/prelude/configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@fbcode//buck2/prelude/cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain.bzl", "cxx_toolchain_impl")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo", "DistLtoToolsInfo")
@@ -529,6 +529,7 @@ extra_attributes = struct(
     **_merge_dictionaries([
         _android_extra_attributes,
         _apple_extra_attributes,
+        _config_extra_attributes,
         _java_extra_attributes,
         _js_extra_attributes,
         _kotlin_extra_attributes,
