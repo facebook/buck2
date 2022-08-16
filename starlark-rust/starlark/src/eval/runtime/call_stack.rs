@@ -191,7 +191,7 @@ impl<'v> Default for CheapCallStack<'v> {
 // [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
 // TODO(nga): count loops in call stack size.
 // TODO(nga): make it configurable.
-const MAX_CALLSTACK_RECURSION: usize = 40;
+const MAX_CALLSTACK_RECURSION: usize = 50;
 
 unsafe impl<'v> Trace<'v> for CheapCallStack<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
