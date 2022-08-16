@@ -10,7 +10,7 @@
 use futures::FutureExt;
 
 use crate::daemon::client::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill the buck daemon")]
@@ -20,7 +20,7 @@ impl KillCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx

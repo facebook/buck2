@@ -13,7 +13,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
@@ -76,7 +76,7 @@ impl StreamingCommand for DocsStarlarkCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let client_context = ctx.client_context(&self.config_opts, matches)?;
 

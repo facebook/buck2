@@ -18,7 +18,7 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
@@ -210,7 +210,7 @@ impl StreamingCommand for UqueryCommand {
         mut self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;

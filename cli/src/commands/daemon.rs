@@ -42,7 +42,7 @@ use crate::daemon::server::BuckdServer;
 use crate::daemon::server::BuckdServerDelegate;
 use crate::paths::Paths;
 use crate::version::BuckVersion;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug, Error)]
 enum DaemonError {
@@ -246,7 +246,7 @@ impl DaemonCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> anyhow::Result<()> {
         let project_root = ctx.paths()?.project_root();
         let daemon_dir = ctx.paths()?.daemon_dir()?;

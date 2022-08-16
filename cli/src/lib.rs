@@ -201,7 +201,7 @@ pub fn exec(
 
 fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
-    ctx: &CommandContext,
+    ctx: &ClientCommandContext,
 ) -> anyhow::Result<Vec<Box<dyn EventSubscriber>>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
@@ -252,14 +252,14 @@ pub(crate) trait StreamingCommand: Sized + Send + Sync {
         self,
         buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult;
 
     /// Provide a list of all options to connect to the server.
     /// By default, just checks to make sure the server is started.
     async fn server_connect_options<'a, 'b>(
         &self,
-        ctx: &'b CommandContext,
+        ctx: &'b ClientCommandContext,
     ) -> anyhow::Result<BuckdConnectOptions> {
         Ok(BuckdConnectOptions {
             subscribers: default_subscribers(self, ctx)?,
@@ -313,7 +313,7 @@ pub(crate) enum CommandKind {
     Lsp(LspCommand),
 }
 
-pub(crate) struct CommandContext {
+pub(crate) struct ClientCommandContext {
     init: fbinit::FacebookInit,
     paths: SharedResult<Paths>,
     detect_cycles: Option<DetectCycles>,
@@ -323,7 +323,7 @@ pub(crate) struct CommandContext {
     async_cleanup_context: AsyncCleanupContext,
 }
 
-impl CommandContext {
+impl ClientCommandContext {
     pub(crate) fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
     }
@@ -335,7 +335,7 @@ impl CommandContext {
         }
     }
 
-    pub(crate) fn with_runtime<Fut: Future, F: FnOnce(CommandContext) -> Fut>(
+    pub(crate) fn with_runtime<Fut: Future, F: FnOnce(ClientCommandContext) -> Fut>(
         self,
         func: F,
     ) -> <Fut as Future>::Output {
@@ -467,13 +467,13 @@ impl Drop for AsyncCleanupContextGuard {
 
 /// Just provides a common interface for buck subcommands for us to interact with here.
 pub(crate) trait BuckSubcommand {
-    fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult;
+    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult;
 }
 
 impl<T: StreamingCommand> BuckSubcommand for T {
     /// Actual call that runs a `StreamingCommand`.
     /// Handles all of the business of setting up a runtime, server, and subscribers.
-    fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         ctx.with_runtime(async move |mut ctx| {
             let work = async {
                 let connect_options = self.server_connect_options(&ctx).await?;
@@ -515,7 +515,7 @@ impl CommandKind {
     ) -> ExitResult {
         let roots = roots::find_current_roots();
         let replay_speed = replayer.as_ref().map(|r| r.speed());
-        let command_ctx = CommandContext {
+        let command_ctx = ClientCommandContext {
             init,
             paths: roots
                 .map(|r| Paths {

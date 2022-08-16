@@ -26,7 +26,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::BuckSubcommand;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -40,7 +40,7 @@ pub(crate) enum ProfileCommand {
 }
 
 impl ProfileCommand {
-    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let submatches = matches.subcommand().expect("subcommand not found").1;
         match self {
             Self::Analysis(opts) => ProfileSubcommand {
@@ -122,7 +122,7 @@ impl StreamingCommand for ProfileSubcommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let context = ctx.client_context(&self.opts.config_opts, matches)?;
 

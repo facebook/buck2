@@ -17,7 +17,7 @@ use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::subscribers::event_log::SerializeForLog;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::stdio;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
@@ -43,7 +43,7 @@ pub struct ShowLogCommand {
 }
 
 impl ShowLogCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self { path, recent } = self;
 
         let path = match path {

@@ -10,13 +10,17 @@
 use buck2_core::exit_result::ExitResult;
 
 use crate::version::BuckVersion;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct InternalVersionCommand {}
 
 impl InternalVersionCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        _ctx: ClientCommandContext,
+    ) -> ExitResult {
         crate::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
         ExitResult::success()
     }

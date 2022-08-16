@@ -16,7 +16,7 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
@@ -29,7 +29,7 @@ impl StreamingCommand for FlushDepFilesCommand {
 
     async fn server_connect_options<'a, 'b>(
         &self,
-        _ctx: &'b CommandContext,
+        _ctx: &'b ClientCommandContext,
     ) -> anyhow::Result<BuckdConnectOptions> {
         Ok(BuckdConnectOptions::existing_only())
     }
@@ -38,7 +38,7 @@ impl StreamingCommand for FlushDepFilesCommand {
         self,
         mut buckd: crate::daemon::client::BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: crate::CommandContext,
+        _ctx: crate::ClientCommandContext,
     ) -> buck2_core::exit_result::ExitResult {
         buckd
             .with_flushing(|client| client.flush_dep_files(FlushDepFilesRequest {}).boxed())

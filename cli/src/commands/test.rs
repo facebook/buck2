@@ -25,7 +25,7 @@ use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 fn print_error_counter(
@@ -136,7 +136,7 @@ impl StreamingCommand for TestCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         let response = buckd

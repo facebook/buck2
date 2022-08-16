@@ -19,7 +19,7 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 // Use non-camel case so the possible values match buck1's
@@ -161,7 +161,7 @@ impl StreamingCommand for TargetsCommand {
         mut self,
         buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let target_hash_use_fast_hash = match self.target_hash_function {
             TargetHashFunction::Sha1 | TargetHashFunction::Sha256 => {

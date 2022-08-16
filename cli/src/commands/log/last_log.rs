@@ -10,7 +10,7 @@
 use buck2_core::exit_result::ExitResult;
 
 use crate::commands::debug::replay::retrieve_nth_recent_log;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
@@ -27,7 +27,7 @@ pub(crate) struct LastLogCommand {
 }
 
 impl LastLogCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self { recent } = self;
         let path = retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?;
         crate::println!("{}", path.display())?;

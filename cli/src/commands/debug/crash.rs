@@ -17,7 +17,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
@@ -30,7 +30,7 @@ impl StreamingCommand for CrashCommand {
 
     async fn server_connect_options<'a, 'b>(
         &self,
-        _ctx: &'b CommandContext,
+        _ctx: &'b ClientCommandContext,
     ) -> anyhow::Result<BuckdConnectOptions> {
         Ok(BuckdConnectOptions::existing_only())
     }
@@ -39,7 +39,7 @@ impl StreamingCommand for CrashCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: CommandContext,
+        _ctx: ClientCommandContext,
     ) -> ExitResult {
         let _err = buckd
             .with_flushing(|client| client.unstable_crash(UnstableCrashRequest {}).boxed())

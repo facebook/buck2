@@ -13,7 +13,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use crate::roots::find_roots;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug)]
 enum RootKind {
@@ -62,7 +62,7 @@ impl RootCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> anyhow::Result<()> {
         let root = match self.kind {
             RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),

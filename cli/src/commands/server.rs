@@ -16,7 +16,7 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
@@ -32,7 +32,7 @@ impl StreamingCommand for ServerCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &ArgMatches,
-        _ctx: CommandContext,
+        _ctx: ClientCommandContext,
     ) -> ExitResult {
         let status = buckd
             .with_flushing(|client| client.status(false).boxed())

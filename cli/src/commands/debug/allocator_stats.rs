@@ -17,7 +17,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
@@ -36,7 +36,7 @@ impl StreamingCommand for AllocatorStatsCommand {
 
     async fn server_connect_options<'a, 'b>(
         &self,
-        _ctx: &'b CommandContext,
+        _ctx: &'b ClientCommandContext,
     ) -> anyhow::Result<BuckdConnectOptions> {
         Ok(BuckdConnectOptions::existing_only())
     }
@@ -45,7 +45,7 @@ impl StreamingCommand for AllocatorStatsCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: CommandContext,
+        _ctx: ClientCommandContext,
     ) -> ExitResult {
         let res = buckd
             .with_flushing(|client| {

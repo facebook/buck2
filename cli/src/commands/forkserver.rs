@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[cfg(unix)]
 type RawFd = std::os::unix::io::RawFd;
@@ -26,7 +26,7 @@ impl ForkserverCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        _ctx: CommandContext,
+        _ctx: ClientCommandContext,
     ) -> anyhow::Result<()> {
         #[cfg(unix)]
         {

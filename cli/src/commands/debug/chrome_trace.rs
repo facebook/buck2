@@ -42,7 +42,7 @@ pub(crate) enum ChromeTraceError {
 use crate::commands::common::subscribers::display;
 use crate::commands::common::subscribers::event_log::Invocation;
 use crate::daemon::client::StreamValue;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct ChromeTraceCommand {
@@ -748,7 +748,11 @@ impl ChromeTraceCommand {
         }
     }
 
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        _ctx: ClientCommandContext,
+    ) -> ExitResult {
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;

@@ -39,7 +39,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::Path;
 use crate::StreamingCommand;
@@ -65,7 +65,7 @@ impl StreamingCommand for RageCommand {
 
     async fn server_connect_options<'a, 'b>(
         &self,
-        _ctx: &'b CommandContext,
+        _ctx: &'b ClientCommandContext,
     ) -> anyhow::Result<BuckdConnectOptions> {
         Ok(BuckdConnectOptions::existing_only())
     }
@@ -74,7 +74,7 @@ impl StreamingCommand for RageCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let log_dir = ctx.paths()?.log_dir();
         let logs_summary = get_local_logs(&log_dir)?
@@ -183,7 +183,7 @@ impl StreamingCommand for RageCommand {
 
 #[allow(unused_variables)] // Conditional compilation
 fn create_scribe_event_dispatcher(
-    ctx: &CommandContext,
+    ctx: &ClientCommandContext,
     trace_id: TraceId,
 ) -> Option<EventDispatcher> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink

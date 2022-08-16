@@ -11,7 +11,7 @@ use events::subscriber::EventSubscriber;
 #[cfg(fbcode_build)]
 use gazebo::dupe::Dupe;
 
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[cfg(fbcode_build)]
 mod imp {
@@ -236,7 +236,7 @@ mod imp {
 
 #[cfg(fbcode_build)]
 pub(crate) fn try_get_invocation_recorder(
-    ctx: &CommandContext,
+    ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
         let recorder = imp::InvocationRecorder::new(
@@ -254,7 +254,7 @@ pub(crate) fn try_get_invocation_recorder(
 
 #[cfg(not(fbcode_build))]
 pub(crate) fn try_get_invocation_recorder(
-    _ctx: &CommandContext,
+    _ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     Ok(None)
 }

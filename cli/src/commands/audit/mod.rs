@@ -30,7 +30,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::server::ctx::ServerCommandContext;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 pub mod analysis_queries;
@@ -121,7 +121,7 @@ impl StreamingCommand for AuditCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        server_ctx: CommandContext,
+        server_ctx: ClientCommandContext,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 

@@ -9,7 +9,7 @@ use crate::commands::build::MaterializationsToProto;
 use crate::commands::common::CommonBuildOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonDaemonCommandOptions;
@@ -60,7 +60,7 @@ impl StreamingCommand for BxlCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd

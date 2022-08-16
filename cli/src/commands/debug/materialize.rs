@@ -17,7 +17,7 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -42,7 +42,7 @@ impl StreamingCommand for MaterializeCommand {
 
     async fn server_connect_options<'a, 'b>(
         &self,
-        _ctx: &'b CommandContext,
+        _ctx: &'b ClientCommandContext,
     ) -> anyhow::Result<BuckdConnectOptions> {
         Ok(BuckdConnectOptions::existing_only())
     }
@@ -51,7 +51,7 @@ impl StreamingCommand for MaterializeCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         buckd

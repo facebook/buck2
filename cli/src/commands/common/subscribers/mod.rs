@@ -28,7 +28,7 @@ use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(
@@ -78,7 +78,7 @@ pub(crate) fn get_console_with_root(
 /// Given the command arguments, conditionally create an event log.
 pub(crate) fn try_get_event_log_subscriber(
     event_log_opts: &CommonDaemonCommandOptions,
-    ctx: &CommandContext,
+    ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if event_log_opts.no_event_log {
         return Ok(None);

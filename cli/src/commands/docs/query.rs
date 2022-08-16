@@ -5,7 +5,7 @@ use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 use gazebo::dupe::Dupe;
 
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]
@@ -63,14 +63,22 @@ fn output(options: QueryDocsOptions, description: QueryEnvironmentDescription) -
 }
 
 impl DocsUqueryCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        _ctx: ClientCommandContext,
+    ) -> ExitResult {
         let description = UqueryEnvironment::describe();
         output(self.docs_options, description)
     }
 }
 
 impl DocsCqueryCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        _ctx: ClientCommandContext,
+    ) -> ExitResult {
         let description = CqueryEnvironment::describe();
         output(self.docs_options, description)
     }

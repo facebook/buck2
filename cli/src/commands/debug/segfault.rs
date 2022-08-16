@@ -28,7 +28,7 @@ impl StreamingCommand for SegfaultCommand {
         self,
         mut buckd: crate::daemon::client::BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: crate::CommandContext,
+        _ctx: crate::ClientCommandContext,
     ) -> buck2_core::exit_result::ExitResult {
         let _err = buckd
             .with_flushing(|client| client.segfault(SegfaultRequest {}).boxed())

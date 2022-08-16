@@ -28,7 +28,7 @@ use crate::commands::common::what_ran::WhatRanRelevantAction;
 use crate::commands::common::what_ran::WhatRanState;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::daemon::client::StreamValue;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(
     Debug,
@@ -103,7 +103,7 @@ pub(crate) struct WhatRanCommand {
 }
 
 impl WhatRanCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self {
             path,
             recent,

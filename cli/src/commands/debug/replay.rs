@@ -17,7 +17,7 @@ use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::NO_EVENT_LOG;
 use crate::daemon::client::Replayer;
 use crate::exec;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Error, Debug)]
 pub(crate) enum ReplayErrors {
@@ -58,7 +58,7 @@ pub(crate) struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self {
             path,
             recent,
@@ -88,7 +88,10 @@ impl ReplayCommand {
     }
 }
 
-pub(crate) fn retrieve_nth_recent_log(ctx: &CommandContext, n: usize) -> anyhow::Result<PathBuf> {
+pub(crate) fn retrieve_nth_recent_log(
+    ctx: &ClientCommandContext,
+    n: usize,
+) -> anyhow::Result<PathBuf> {
     let log_dir = ctx.paths()?.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first

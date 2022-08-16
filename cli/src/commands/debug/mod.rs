@@ -22,7 +22,7 @@ use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
 use crate::BuckSubcommand;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 mod allocator_stats;
 mod chrome_trace;
@@ -71,7 +71,7 @@ pub(crate) enum DebugCommand {
 }
 
 impl DebugCommand {
-    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),

@@ -17,7 +17,7 @@ use once_cell::sync::Lazy;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::stdin_stream::StdinStream;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonDaemonCommandOptions;
@@ -41,7 +41,7 @@ impl StreamingCommand for LspCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: CommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let stdin_reader = StdinStream::new(|stdin| {
             let message = Message::read(stdin)?;

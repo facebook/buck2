@@ -15,7 +15,7 @@ use futures::FutureExt;
 use humantime::format_duration;
 
 use crate::daemon::client::BuckdConnectOptions;
-use crate::CommandContext;
+use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Buckd status")]
@@ -25,7 +25,11 @@ pub(crate) struct StatusCommand {
 }
 
 impl StatusCommand {
-    pub(crate) fn exec(self, _matches: &ArgMatches, ctx: CommandContext) -> anyhow::Result<()> {
+    pub(crate) fn exec(
+        self,
+        _matches: &ArgMatches,
+        ctx: ClientCommandContext,
+    ) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only())
