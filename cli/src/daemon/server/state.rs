@@ -222,8 +222,13 @@ impl DaemonState {
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
         // this list should be safe until we can revert it to Expr::True.
 
-        let file_watcher = <dyn FileWatcher>::new(paths, root_config, cells.dupe(), ignore_specs)
-            .context("Error creating a FileWatcher")?;
+        let file_watcher = <dyn FileWatcher>::new(
+            paths.project_root(),
+            root_config,
+            cells.dupe(),
+            ignore_specs,
+        )
+        .context("Error creating a FileWatcher")?;
 
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).

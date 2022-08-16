@@ -16,6 +16,7 @@ use buck2_common::file_ops::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
@@ -26,7 +27,6 @@ use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
 
 use crate::daemon::server::file_watcher::FileWatcher;
-use crate::paths::Paths;
 use crate::watchman::SyncableQuery;
 use crate::watchman::SyncableQueryProcessor;
 use crate::watchman::WatchmanEvent;
@@ -170,7 +170,7 @@ pub(crate) struct WatchmanFileWatcher {
 /// ensure that any recent changes are flushed and visible to the computation.
 impl WatchmanFileWatcher {
     pub(crate) fn new(
-        paths: &Paths,
+        project_root: &AbsPath,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
@@ -181,7 +181,7 @@ impl WatchmanFileWatcher {
 
         let query = SyncableQuery::new(
             Connector::new(),
-            paths.project_root(),
+            project_root,
             Expr::Any(vec![
                 Expr::FileType(FileType::Regular),
                 Expr::FileType(FileType::Directory),
