@@ -48,9 +48,9 @@ use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::daemon::server;
+use crate::daemon::server::active_commands::ActiveCommandDropGuard;
 use crate::daemon::server::ctx::BaseCommandContext;
 use crate::daemon::server::file_watcher::FileWatcher;
-use crate::daemon::server::ActiveCommandDropGuard;
 use crate::Paths;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.

@@ -10,7 +10,6 @@
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::io;
 use std::io::BufWriter;
 use std::io::Write;
@@ -21,7 +20,6 @@ use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
@@ -54,7 +52,6 @@ use events::metadata;
 use events::ControlEvent;
 use events::Event;
 use events::EventSource;
-use events::TraceId;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::Future;
@@ -62,10 +59,8 @@ use futures::Stream;
 use futures::StreamExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
-use once_cell::sync::Lazy;
 use starlark::eval::ProfileMode;
 use state::DaemonState;
 use tokio::io::AsyncRead;
@@ -91,6 +86,7 @@ use crate::daemon::test::test;
 use crate::daemon::uquery::uquery;
 use crate::paths::Paths;
 
+pub(crate) mod active_commands;
 mod concurrency;
 pub(crate) mod ctx;
 mod dice_tracker;
@@ -108,40 +104,6 @@ pub(crate) trait BuckdServerDelegate: Send + Sync {
     fn force_shutdown(&self) -> anyhow::Result<()>;
 
     fn force_shutdown_with_timeout(&self, timeout: Duration);
-}
-
-pub static ACTIVE_COMMANDS: Lazy<Mutex<HashSet<TraceId>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
-
-pub(crate) struct ActiveCommandDropGuard {
-    trace_id: TraceId,
-}
-
-impl ActiveCommandDropGuard {
-    fn new(trace_id: TraceId) -> Self {
-        let mut active_commands = ACTIVE_COMMANDS.lock().unwrap();
-
-        active_commands.insert(trace_id.dupe());
-
-        if active_commands.len() > 1 {
-            // we use eprintln here on purpose so that this message goes to ALL commands, since
-            // concurrent commands can affect correctness of ALL commands.
-            eprintln!(
-                "Warning! Concurrent commands detected! Concurrent commands are not supported and likely results in crashes and incorrect builds.\n    Currently running commands are `{}`",
-                active_commands
-                    .iter()
-                    .map(|id| format!("https://www.internalfb.com/buck2/{}", id))
-                    .join(" ")
-            );
-        }
-        Self { trace_id }
-    }
-}
-
-impl Drop for ActiveCommandDropGuard {
-    fn drop(&mut self) {
-        ACTIVE_COMMANDS.lock().unwrap().remove(&self.trace_id);
-    }
 }
 
 /// Verify that our working directory is still here. We often run on Eden, and if Eden restarts
