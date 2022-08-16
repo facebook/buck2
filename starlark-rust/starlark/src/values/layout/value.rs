@@ -309,6 +309,18 @@ impl<'v> Value<'v> {
         }
     }
 
+    pub(crate) fn unpack_integer<I>(self) -> Option<I>
+    where
+        I: TryFrom<i32>,
+        I: TryFrom<&'v BigInt>,
+    {
+        match self.unpack_num()? {
+            Num::Float(_) => None,
+            Num::Int(x) => I::try_from(x).ok(),
+            Num::BigInt(x) => x.unpack_integer(),
+        }
+    }
+
     /// Obtain the underlying `bool` if it is a boolean.
     pub fn unpack_bool(self) -> Option<bool> {
         let p = self.0.raw().ptr_value();

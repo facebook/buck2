@@ -160,6 +160,10 @@ impl StarlarkBigInt {
             ))
         }
     }
+
+    pub(crate) fn unpack_integer<'v, I: TryFrom<&'v BigInt>>(&'v self) -> Option<I> {
+        I::try_from(&self.value).ok()
+    }
 }
 
 impl PartialEq<i32> for StarlarkBigInt {

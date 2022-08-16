@@ -22,6 +22,7 @@ use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::UnpackValue;
 use crate::values::Value;
 
 impl StarlarkTypeRepr for u32 {
@@ -141,5 +142,35 @@ impl AllocFrozenValue for isize {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
         }
+    }
+}
+
+impl<'v> UnpackValue<'v> for u32 {
+    fn unpack_value(value: Value<'v>) -> Option<u32> {
+        value.unpack_integer()
+    }
+}
+
+impl<'v> UnpackValue<'v> for u64 {
+    fn unpack_value(value: Value<'v>) -> Option<u64> {
+        value.unpack_integer()
+    }
+}
+
+impl<'v> UnpackValue<'v> for i64 {
+    fn unpack_value(value: Value<'v>) -> Option<i64> {
+        value.unpack_integer()
+    }
+}
+
+impl<'v> UnpackValue<'v> for usize {
+    fn unpack_value(value: Value<'v>) -> Option<usize> {
+        value.unpack_integer()
+    }
+}
+
+impl<'v> UnpackValue<'v> for isize {
+    fn unpack_value(value: Value<'v>) -> Option<isize> {
+        value.unpack_integer()
     }
 }
