@@ -68,9 +68,9 @@ use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::server;
 use crate::daemon::server::file_watcher::FileWatcher;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
+use crate::daemon::server::state::EventLoggingData;
 use crate::daemon::server::ActiveCommandDropGuard;
 use crate::daemon::server::BuckDiceTracker;
-use crate::daemon::server::EventLoggingData;
 use crate::daemon::server::RawOuputGuard;
 use crate::daemon::server::RawOutputWriter;
 

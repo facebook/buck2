@@ -23,7 +23,7 @@ use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use events::TraceId;
 use once_cell::sync::OnceCell;
 
-use crate::daemon::server::DaemonStateData;
+use crate::daemon::server::state::DaemonStateData;
 
 fn get_panic_dump_dir() -> PathBuf {
     temp_dir().join("buck2-dumps")

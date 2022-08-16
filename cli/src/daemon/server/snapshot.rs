@@ -14,8 +14,8 @@ use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
 
 use crate::daemon::server::ctx::BaseCommandContext;
+use crate::daemon::server::state::DaemonStateData;
 use crate::daemon::server::BlockingExecutor;
-use crate::daemon::server::DaemonStateData;
 
 /// Stores state handles necessary to produce snapshots.
 #[derive(Clone, Dupe)]
