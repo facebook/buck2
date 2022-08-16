@@ -65,9 +65,9 @@ use crate::configs::parse_legacy_cells;
 use crate::daemon::common::get_executor_config_for_strategy;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
-use crate::daemon::server;
 use crate::daemon::server::file_watcher::FileWatcher;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
+use crate::daemon::server::host_info;
 use crate::daemon::server::state::EventLoggingData;
 use crate::daemon::server::ActiveCommandDropGuard;
 use crate::daemon::server::BuckDiceTracker;
@@ -282,7 +282,7 @@ impl ServerCommandContext {
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
         let (interpreter_platform, interpreter_architecture) =
-            server::get_host_info(self.host_platform_override);
+            host_info::get_host_info(self.host_platform_override);
         let configuror = BuildInterpreterConfiguror::new(
             Some(prelude_path(&cell_resolver)),
             interpreter_platform,
