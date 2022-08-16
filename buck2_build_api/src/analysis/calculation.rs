@@ -31,6 +31,7 @@ use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::RuleType;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
+use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use dice::DiceComputations;
 use dice::Key;
 use events::dispatch::EventDispatcher;
@@ -344,6 +345,12 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum ProfileAnalysisError {
+    #[error("recursive analysis configured incorrectly (internal error)")]
+    RecursiveProfileConfiguredIncorrectly,
+}
+
 /// Run get_analysis_result but discard the results (public outside the `analysis` module, unlike
 /// get_analysis_result)
 pub async fn profile_analysis(
@@ -360,6 +367,55 @@ pub async fn profile_analysis(
     .require_compatible()?
     .profile_data
     .context("profile_data not set (internal error)")
+}
+
+fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode> {
+    let mut stack = vec![node];
+    let mut visited = LabelIndexedSet::new();
+    while let Some(node) = stack.pop() {
+        if visited.insert(node.dupe()) {
+            stack.extend(node.deps().duped());
+        }
+    }
+    visited
+}
+
+pub async fn profile_analysis_recursively(
+    ctx: &DiceComputations,
+    target: &ConfiguredTargetLabel,
+) -> anyhow::Result<StarlarkProfileDataAndStats> {
+    // Self check.
+    let profile_mode = ctx.get_profile_mode_for_intermediate_analysis().await?;
+    if !matches!(
+        profile_mode,
+        StarlarkProfileModeOrInstrumentation::Profile(_)
+    ) {
+        return Err(ProfileAnalysisError::RecursiveProfileConfiguredIncorrectly.into());
+    }
+
+    let node = ctx
+        .get_configured_target_node(target)
+        .await?
+        .require_compatible()?;
+
+    let all_deps = all_deps(node);
+
+    let mut futures = all_deps
+        .iter()
+        .map(|node| ctx.get_analysis_result(node.name()))
+        .collect::<FuturesOrdered<_>>();
+
+    let mut profile_datas: Vec<Arc<StarlarkProfileDataAndStats>> = Vec::new();
+    while let Some(result) = futures.next().await {
+        profile_datas.push(
+            result?
+                .require_compatible()?
+                .profile_data
+                .context("profile_data not set (internal error)")?,
+        );
+    }
+
+    StarlarkProfileDataAndStats::merge(profile_datas.iter().map(|x| &**x))
 }
 
 mod keys {
