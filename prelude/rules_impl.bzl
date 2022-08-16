@@ -442,6 +442,8 @@ extra_attributes = struct(
     },
     #rust
     rust_binary = {
+        "incremental_build_mode": attrs.option(attrs.string()),
+        "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),
@@ -457,6 +459,8 @@ extra_attributes = struct(
         # them and it simplifies the implementation of Rust rules since they
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
+        "incremental_build_mode": attrs.option(attrs.string()),
+        "incremental_enabled": attrs.bool(default = False),
         "linker_flags": attrs.list(attrs.arg(), default = []),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
@@ -465,6 +469,8 @@ extra_attributes = struct(
     },
     rust_test = {
         "framework": attrs.bool(default = True),
+        "incremental_build_mode": attrs.option(attrs.string()),
+        "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),

@@ -659,8 +659,14 @@ def _rustc_emits(
 
     if emit not in (Emit("expand"), Emit("save-analysis")):
         extra_dir = subdir + "/extras/" + output_filename(crate, emit, params)
-        extra_dir = ctx.actions.declare_output(extra_dir)
-        emit_args.add("--out-dir", extra_dir.as_output())
+        extra_out = ctx.actions.declare_output(extra_dir)
+        emit_args.add("--out-dir", extra_out.as_output())
+
+        if ctx.attrs.incremental_enabled:
+            build_mode = ctx.attrs.incremental_build_mode
+            incremental_out = ctx.actions.declare_output("{}/extras/incremental/{}".format(subdir, build_mode))
+            incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
+            emit_args.add(incremental_cmd)
 
     return (outputs, emit_args)
 
@@ -712,9 +718,17 @@ def _rustc_invoke(
     compile_cmd.add(rustc_cmd)
     compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
 
-    local_only = is_binary and link_cxx_binary_locally(ctx)
+    incremental_enabled = ctx.attrs.incremental_enabled
+    local_only = (is_binary and link_cxx_binary_locally(ctx)) or incremental_enabled
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
-    ctx.actions.run(compile_cmd, env = plain_env, local_only = local_only, category = "rustc", identifier = identifier)
+    ctx.actions.run(
+        compile_cmd,
+        env = plain_env,
+        local_only = local_only,
+        category = "rustc",
+        identifier = identifier,
+        no_outputs_cleanup = incremental_enabled,
+    )
 
     return ({diag + ".json": json_diag, diag + ".txt": txt_diag}, build_status)
 
