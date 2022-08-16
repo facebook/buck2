@@ -70,8 +70,8 @@ use crate::daemon::server::dice_tracker::BuckDiceTracker;
 use crate::daemon::server::file_watcher::FileWatcher;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
 use crate::daemon::server::host_info;
-use crate::daemon::server::RawOuputGuard;
-use crate::daemon::server::RawOutputWriter;
+use crate::daemon::server::raw_output::RawOuputGuard;
+use crate::daemon::server::raw_output::RawOutputWriter;
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonCommunicationError {
