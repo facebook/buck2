@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cmp;
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
@@ -31,6 +32,10 @@ enum StarlarkProfilerError {
     RetainedMemoryNotFrozen,
     #[error("profile mode and profile data are inconsistent (internal error)")]
     InconsistentProfileModeAndProfileData,
+    #[error("profile mode are inconsistent (internal error)")]
+    InconsistentProfileMode,
+    #[error("merge of profile data for profile mode `{0}` is not implemented")]
+    MergeOfProfileDataForProfileModeIsNotImplemented(ProfileMode),
 }
 
 /// When profiling Starlark file, all dependencies of that file must be
@@ -107,6 +112,49 @@ impl StarlarkProfileDataAndStats {
 
     pub fn write(&self, path: &Path) -> anyhow::Result<()> {
         self.profile_data.write(path, &self.profile_mode)
+    }
+
+    pub fn merge<'a>(
+        datas: impl IntoIterator<Item = &'a StarlarkProfileDataAndStats> + Clone,
+    ) -> anyhow::Result<StarlarkProfileDataAndStats> {
+        let mut iter = datas.clone().into_iter();
+        let first = iter.next().context("empty collection of profile data")?;
+        let profile_mode = first.profile_mode.dupe();
+        let mut total_allocated_bytes = first.total_allocated_bytes;
+        let mut initialized_at = first.initialized_at;
+        let mut finalized_at = first.finalized_at;
+
+        for data in iter {
+            if data.profile_mode != profile_mode {
+                return Err(StarlarkProfilerError::InconsistentProfileMode.into());
+            }
+            initialized_at = cmp::min(initialized_at, data.initialized_at);
+            finalized_at = cmp::max(finalized_at, data.finalized_at);
+            total_allocated_bytes += data.total_allocated_bytes;
+        }
+
+        let aggregated_profile_info = datas
+            .into_iter()
+            .map(|data| match &data.profile_data {
+                StarlarkProfileData::Evaluator(_) => Err(
+                    StarlarkProfilerError::MergeOfProfileDataForProfileModeIsNotImplemented(
+                        profile_mode.dupe(),
+                    )
+                    .into(),
+                ),
+                StarlarkProfileData::Frozen(data) => Ok(data),
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        let profile_data = AggregateHeapProfileInfo::merge(aggregated_profile_info.iter().copied());
+
+        Ok(StarlarkProfileDataAndStats {
+            profile_mode,
+            profile_data: StarlarkProfileData::Frozen(profile_data),
+            initialized_at,
+            finalized_at,
+            total_allocated_bytes,
+        })
     }
 }
 
@@ -312,5 +360,33 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         } else {
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use starlark::eval::ProfileMode;
+    use starlark::values::AggregateHeapProfileInfo;
+
+    use crate::starlark_profiler::StarlarkProfileData;
+    use crate::starlark_profiler::StarlarkProfileDataAndStats;
+
+    #[test]
+    fn test_merge() {
+        fn mk() -> StarlarkProfileDataAndStats {
+            let now = Instant::now();
+            StarlarkProfileDataAndStats {
+                profile_mode: ProfileMode::HeapSummaryRetained,
+                profile_data: StarlarkProfileData::Frozen(AggregateHeapProfileInfo::default()),
+                initialized_at: now,
+                finalized_at: now,
+                total_allocated_bytes: 0,
+            }
+        }
+
+        // Smoke test: just check it doesn't fail.
+        StarlarkProfileDataAndStats::merge([&mk(), &mk(), &mk()]).unwrap();
     }
 }
