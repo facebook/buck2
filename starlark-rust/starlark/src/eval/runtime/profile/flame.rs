@@ -32,6 +32,12 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum FlameProfileError {
+    #[error("Flame profile not enabled")]
+    NotEnabled,
+}
+
 /// Index into FlameData.values
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
 struct ValueIndex(usize);
@@ -169,8 +175,11 @@ impl<'v> FlameProfile<'v> {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn gen(&self) -> Option<ProfileData> {
-        self.0.as_ref().map(|box x| Self::gen_profile(x))
+    pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
+        match &self.0 {
+            None => Err(FlameProfileError::NotEnabled.into()),
+            Some(x) => Ok(Self::gen_profile(x)),
+        }
     }
 
     fn gen_profile(x: &FlameData) -> ProfileData {

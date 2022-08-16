@@ -80,18 +80,10 @@ pub(crate) enum EvaluatorError {
     InstrumentationEnabled,
     #[error("Profile data already collected")]
     ProfileDataAlreadyCollected,
-    #[error("Can't call `write_heap_profile` unless you first call `enable_heap_profile`.")]
-    HeapProfilingNotEnabled,
-    #[error("Can't call `write_stmt_profile` unless you first call `enable_stmt_profile`.")]
-    StmtProfilingNotEnabled,
-    #[error("Can't call `write_flame_profile` unless you first call `enable_flame_profile`.")]
-    FlameProfilingNotEnabled,
     #[error("Retained memory profiling can be only obtained from `FrozenModule`")]
     RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
     #[error("Can't call `write_bc_profile` unless you first call `enable_bc_profile`.")]
     BcProfilingNotEnabled,
-    #[error("Typecheck profiling not enabled")]
-    TypecheckProfilingNotEnabled,
     #[error("Profile or instrumentation already enabled")]
     ProfileOrInstrumentationAlreadyEnabled,
     #[error("Top frame is not def (internal error)")]
@@ -324,31 +316,20 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         match mode {
             ProfileMode::HeapSummaryAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::Summary)
-                .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
+                .gen(self.heap(), HeapProfileFormat::Summary),
             ProfileMode::HeapFlameAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::FlameGraph)
-                .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
+                .gen(self.heap(), HeapProfileFormat::FlameGraph),
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
                 Err(EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator.into())
             }
-            ProfileMode::Statement => self
-                .stmt_profile
-                .gen()
-                .ok_or_else(|| EvaluatorError::StmtProfilingNotEnabled.into()),
+            ProfileMode::Statement => self.stmt_profile.gen(),
             ProfileMode::Bytecode | ProfileMode::BytecodePairs => self
                 .bc_profile
                 .gen_csv()
                 .map(|csv| ProfileData::new(mode, csv)),
-            ProfileMode::TimeFlame => self
-                .flame_profile
-                .gen()
-                .ok_or_else(|| EvaluatorError::FlameProfilingNotEnabled.into()),
-            ProfileMode::Typecheck => self
-                .typecheck_profile
-                .gen()
-                .ok_or_else(|| EvaluatorError::TypecheckProfilingNotEnabled.into()),
+            ProfileMode::TimeFlame => self.flame_profile.gen(),
+            ProfileMode::Typecheck => self.typecheck_profile.gen(),
         }
     }
 

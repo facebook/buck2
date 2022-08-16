@@ -26,6 +26,12 @@ use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
 use crate::values::FrozenStringValue;
 
+#[derive(Debug, thiserror::Error)]
+enum TypecheckProfileErorr {
+    #[error("Typecheck profile not enabled")]
+    NotEnabled,
+}
+
 #[derive(Default, Debug)]
 pub(crate) struct TypecheckProfile {
     pub(crate) enabled: bool,
@@ -62,11 +68,11 @@ impl TypecheckProfile {
         w.finish()
     }
 
-    pub(crate) fn gen(&self) -> Option<ProfileData> {
+    pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
         if !self.enabled {
-            return None;
+            return Err(TypecheckProfileErorr::NotEnabled.into());
         }
-        Some(ProfileData::new(ProfileMode::Typecheck, self.gen_csv()))
+        Ok(ProfileData::new(ProfileMode::Typecheck, self.gen_csv()))
     }
 }
 

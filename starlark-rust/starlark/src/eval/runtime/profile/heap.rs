@@ -25,6 +25,12 @@ use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum HeapProfileError {
+    #[error("heap profile not enabled")]
+    NotEnabled,
+}
+
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) enum HeapProfileFormat {
     Summary,
@@ -61,12 +67,15 @@ impl HeapProfile {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn gen(&self, heap: &Heap, format: HeapProfileFormat) -> Option<ProfileData> {
+    pub(crate) fn gen(
+        &self,
+        heap: &Heap,
+        format: HeapProfileFormat,
+    ) -> anyhow::Result<ProfileData> {
         if !self.enabled {
-            None
-        } else {
-            Some(Self::gen_enabled(heap, format))
+            return Err(HeapProfileError::NotEnabled.into());
         }
+        Ok(Self::gen_enabled(heap, format))
     }
 
     pub(crate) fn gen_enabled(heap: &Heap, format: HeapProfileFormat) -> ProfileData {

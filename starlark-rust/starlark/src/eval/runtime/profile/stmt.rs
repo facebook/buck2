@@ -183,11 +183,15 @@ impl StmtProfile {
     }
 
     // None = not applicable because not enabled
-    pub(crate) fn gen(&self) -> Option<ProfileData> {
+    pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
         let now = Instant::now();
-        self.0
-            .as_ref()
-            .map(|data| ProfileData::new(ProfileMode::Statement, data.write_to_string(now)))
+        match &self.0 {
+            Some(data) => Ok(ProfileData::new(
+                ProfileMode::Statement,
+                data.write_to_string(now),
+            )),
+            None => Err(StmtProfileError::NotEnabled.into()),
+        }
     }
 
     pub(crate) fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
