@@ -37,12 +37,12 @@ pub enum ProfileMode {
     /// The heap profile mode provides information about the time spent in each function and allocations
     /// performed by each function. Enabling this mode the side effect of disabling garbage-collection.
     /// This profiling mode is the recommended one.
-    HeapSummary,
+    HeapSummaryAllocated,
     /// Like heap summary, but information about retained memory after module is frozen.
     HeapSummaryRetained,
     /// Like heap profile, but writes output comparible with
     /// [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
-    HeapFlame,
+    HeapFlameAllocated,
     /// Like heap flame, but information about retained memory after module is frozen.
     HeapFlameRetained,
     /// The statement profile mode provides information about time spent in each statement.
@@ -67,9 +67,9 @@ impl Display for ProfileMode {
 impl ProfileMode {
     fn name(&self) -> &str {
         match self {
-            ProfileMode::HeapSummary => "heap-summary",
+            ProfileMode::HeapSummaryAllocated => "heap-summary-allocated",
             ProfileMode::HeapSummaryRetained => "heap-summary-retained",
-            ProfileMode::HeapFlame => "heap-flame",
+            ProfileMode::HeapFlameAllocated => "heap-flame-allocated",
             ProfileMode::HeapFlameRetained => "heap-flame-retained",
             ProfileMode::Statement => "statement",
             ProfileMode::Bytecode => "bytecode",
@@ -85,9 +85,9 @@ impl FromStr for ProfileMode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         for mode in [
-            ProfileMode::HeapSummary,
+            ProfileMode::HeapSummaryAllocated,
             ProfileMode::HeapSummaryRetained,
-            ProfileMode::HeapFlame,
+            ProfileMode::HeapFlameAllocated,
             ProfileMode::HeapFlameRetained,
             ProfileMode::Statement,
             ProfileMode::Bytecode,

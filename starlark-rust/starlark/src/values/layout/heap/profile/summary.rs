@@ -200,7 +200,8 @@ _ignore = str([1])     # allocate a string in non_drop
         let globals = Globals::standard();
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::HeapSummary).unwrap();
+        eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+            .unwrap();
 
         eval.eval_module(ast, &globals).unwrap();
 

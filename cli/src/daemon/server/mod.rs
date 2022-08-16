@@ -1470,9 +1470,9 @@ impl DaemonApi for BuckdServer {
                     .context("Invalid profiler")?;
 
                 let profile_mode = match profiler_proto {
-                    Profiler::HeapFlame => ProfileMode::HeapFlame,
+                    Profiler::HeapFlame => ProfileMode::HeapFlameAllocated,
                     Profiler::HeapFlameRetained => ProfileMode::HeapFlameRetained,
-                    Profiler::HeapSummary => ProfileMode::HeapSummary,
+                    Profiler::HeapSummary => ProfileMode::HeapSummaryAllocated,
                     Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
                     Profiler::TimeFlame => ProfileMode::TimeFlame,
                     Profiler::Statement => ProfileMode::Statement,

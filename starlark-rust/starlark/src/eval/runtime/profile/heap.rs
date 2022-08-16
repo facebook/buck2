@@ -78,12 +78,12 @@ impl HeapProfile {
 
     fn write_flame_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        ProfileData::new(ProfileMode::HeapFlame, stacks.gen_flame_graph())
+        ProfileData::new(ProfileMode::HeapFlameAllocated, stacks.gen_flame_graph())
     }
 
     fn write_summarized_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        ProfileData::new(ProfileMode::HeapSummary, stacks.gen_summary_csv())
+        ProfileData::new(ProfileMode::HeapSummaryAllocated, stacks.gen_summary_csv())
     }
 }
 
@@ -115,7 +115,8 @@ f
         let globals = Globals::standard();
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::HeapSummary).unwrap();
+        eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+            .unwrap();
         let f = eval.eval_module(ast, &globals)?;
         // first check module profiling works
         HeapProfile::write_summarized_heap_profile(module.heap());
@@ -124,7 +125,8 @@ f
         // second check function profiling works
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::HeapSummary).unwrap();
+        eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+            .unwrap();
         eval.eval_function(f, &[Value::new_int(100)], &[])?;
         HeapProfile::write_summarized_heap_profile(module.heap());
         HeapProfile::write_flame_heap_profile(module.heap());
@@ -133,7 +135,8 @@ f
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
         module.heap().alloc("Thing that goes before");
-        eval.enable_profile(&ProfileMode::HeapSummary).unwrap();
+        eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+            .unwrap();
         eval.eval_function(f, &[Value::new_int(100)], &[])?;
         module.heap().alloc("Thing that goes after");
         HeapProfile::write_summarized_heap_profile(module.heap());

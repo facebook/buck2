@@ -231,8 +231,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Profile(mode.dupe());
 
         match mode {
-            ProfileMode::HeapSummary
-            | ProfileMode::HeapFlame
+            ProfileMode::HeapSummaryAllocated
+            | ProfileMode::HeapFlameAllocated
             | ProfileMode::HeapSummaryRetained
             | ProfileMode::HeapFlameRetained => {
                 self.heap_profile.enable();
@@ -287,9 +287,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Statement => {
                 self.before_stmt.instrument = true;
             }
-            ProfileMode::HeapSummary
+            ProfileMode::HeapSummaryAllocated
             | ProfileMode::HeapSummaryRetained
-            | ProfileMode::HeapFlame
+            | ProfileMode::HeapFlameAllocated
             | ProfileMode::HeapFlameRetained
             | ProfileMode::TimeFlame => {
                 self.heap_or_flame_profile = true;
@@ -322,11 +322,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         };
         self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Collected;
         match mode {
-            ProfileMode::HeapSummary => self
+            ProfileMode::HeapSummaryAllocated => self
                 .heap_profile
                 .gen(self.heap(), HeapProfileFormat::Summary)
                 .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
-            ProfileMode::HeapFlame => self
+            ProfileMode::HeapFlameAllocated => self
                 .heap_profile
                 .gen(self.heap(), HeapProfileFormat::FlameGraph)
                 .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
