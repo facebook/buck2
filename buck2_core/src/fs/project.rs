@@ -594,6 +594,10 @@ impl ProjectRelativePath {
         self.0.as_str()
     }
 
+    pub fn as_forward_relative_path(&self) -> &ForwardRelativePath {
+        &self.0
+    }
+
     /// Creates an owned 'ProjectRelativePathBuf' with path adjoined to self.
     ///
     /// ```

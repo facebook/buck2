@@ -964,7 +964,7 @@ mod tests {
             CellName::unchecked_new("cell".to_owned()),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
         )]);
-        let buckout_path = ForwardRelativePathBuf::unchecked_new("buck_out/v2".into());
+        let buckout_path = ProjectRelativePathBuf::unchecked_new("buck_out/v2".into());
         let dice = DiceBuilder::new()
             .set_data(|d| d.set_testing_io_provider(&fs))
             .build(UserComputationData::new())?;

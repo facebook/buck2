@@ -29,7 +29,9 @@ pub(crate) async fn clean(
     let dice_ctx = server_ctx.dice_ctx().await?;
     let out_path = dice_ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.file_system();
-    let buck_out_path = (*out_path).resolve(&filesystem.root);
+    let buck_out_path = out_path
+        .as_forward_relative_path()
+        .resolve(&filesystem.root);
 
     // Try to clean EdenFS based buck-out first. For EdenFS based buck-out, "eden rm"
     // is effecient. Notice eden rm will remove the buck-out root direcotry,

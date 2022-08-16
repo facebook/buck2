@@ -458,7 +458,7 @@ pub(crate) struct ServerCommandContext {
     record_target_call_stacks: bool,
     disable_starlark_types: bool,
 
-    buck_out_dir: ForwardRelativePathBuf,
+    buck_out_dir: ProjectRelativePathBuf,
 
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
@@ -479,7 +479,7 @@ impl ServerCommandContext {
         build_signals: BuildSignalSender,
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
-        buck_out_dir: ForwardRelativePathBuf,
+        buck_out_dir: ProjectRelativePathBuf,
         record_target_call_stacks: bool,
     ) -> anyhow::Result<Self> {
         let abs_path = AbsPath::new(&client_context.working_dir)?;
@@ -855,7 +855,7 @@ impl DaemonState {
     fn create_materializer(
         fb: FacebookInit,
         fs: ProjectFilesystem,
-        buck_out_path: ForwardRelativePathBuf,
+        buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         materialization_method: MaterializationMethod,
@@ -901,13 +901,8 @@ impl DaemonState {
                             fs,
                             re_client_manager.dupe(),
                             blocking_executor,
-                            EdenBuckOut::new(
-                                fb,
-                                ProjectRelativePathBuf::from(buck_out_path),
-                                buck_out_mount,
-                                re_client_manager,
-                            )
-                            .context("Failed to create EdenFS-based buck-out")?,
+                            EdenBuckOut::new(fb, buck_out_path, buck_out_mount, re_client_manager)
+                                .context("Failed to create EdenFS-based buck-out")?,
                         )
                         .context("Failed to create Eden materializer")?,
                     ))

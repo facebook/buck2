@@ -562,7 +562,7 @@ mod tests {
         extra.data.set(RunActionKnobs::default());
 
         let computations = dice_builder.build(extra)?;
-        computations.set_buck_out_path(Some(output_path.into()))?;
+        computations.set_buck_out_path(Some(output_path))?;
         computations.set_cell_resolver(cell_resolver)?;
 
         Ok(computations.commit())

@@ -200,7 +200,7 @@ pub trait Calculation<'c> {
 impl<'c> Calculation<'c> for DiceComputations {
     async fn get_artifact_fs(&self) -> SharedResult<ArtifactFs> {
         let buck_out_path_resolver =
-            BuckOutPathResolver::new((*self.get_buck_out_path().await?).to_buf().into());
+            BuckOutPathResolver::new((*self.get_buck_out_path().await?).to_buf());
         let project_filesystem = (**self.global_data().get_io_provider().fs()).clone();
         let buck_path_resolver = BuckPathResolver::new(self.get_cell_resolver().await?);
         Ok(ArtifactFs::new(

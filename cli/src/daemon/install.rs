@@ -110,7 +110,9 @@ async fn get_installer_log_directory(
 ) -> anyhow::Result<AbsPathBuf> {
     let out_path = ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.file_system();
-    let buck_out_path = (*out_path).resolve(&filesystem.root);
+    let buck_out_path = out_path
+        .as_forward_relative_path()
+        .resolve(&filesystem.root);
     let install_log_dir = buck_out_path.join(ForwardRelativePathBuf::unchecked_new(
         "installer".to_owned(),
     ));

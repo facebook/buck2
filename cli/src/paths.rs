@@ -18,7 +18,8 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 
 use crate::roots::Roots;
 
@@ -125,8 +126,8 @@ impl Paths {
             .join(ForwardRelativePath::unchecked_new("dice_dump"))
     }
 
-    pub(crate) fn buck_out_dir(&self) -> ForwardRelativePathBuf {
-        ForwardRelativePath::unchecked_new("buck-out").join(&self.isolation)
+    pub(crate) fn buck_out_dir(&self) -> ProjectRelativePathBuf {
+        ProjectRelativePath::unchecked_new("buck-out").join(&self.isolation)
     }
 
     pub(crate) fn buck_out_path(&self) -> AbsPathBuf {
@@ -142,7 +143,7 @@ mod tests {
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::fs::paths::ForwardRelativePath;
-    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
 
     use crate::paths::Paths;
     use crate::roots::Roots;
@@ -201,7 +202,7 @@ mod tests {
 
         assert_eq!(
             paths.buck_out_dir(),
-            ForwardRelativePathBuf::unchecked_new("buck-out/isolation".to_owned())
+            ProjectRelativePathBuf::unchecked_new("buck-out/isolation".to_owned())
         );
         let expected_path = if cfg!(windows) {
             "C:\\my\\project\\buck-out\\isolation"
