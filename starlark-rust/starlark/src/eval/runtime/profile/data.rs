@@ -39,13 +39,13 @@ impl ProfileData {
     }
 
     /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
-    pub fn gen(&self) -> String {
-        self.profile.clone()
+    pub fn gen(&self) -> anyhow::Result<String> {
+        Ok(self.profile.clone())
     }
 
     /// Write to a file.
     pub fn write(&self, path: &Path) -> anyhow::Result<()> {
-        fs::write(path, &self.profile).with_context(|| {
+        fs::write(path, &self.gen()?).with_context(|| {
             format!(
                 "write profile `{}` data to `{}`",
                 self.profile_mode,

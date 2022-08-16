@@ -68,7 +68,7 @@ enum StarlarkProfileData {
 impl StarlarkProfileData {
     fn gen(&self, profile_mode: &ProfileMode) -> anyhow::Result<String> {
         match (self, profile_mode) {
-            (StarlarkProfileData::Evaluator(data), _) => Ok(data.gen()),
+            (StarlarkProfileData::Evaluator(data), _) => data.gen(),
             (StarlarkProfileData::Frozen(data), ProfileMode::HeapSummaryRetained) => {
                 Ok(data.gen_summary_csv())
             }
