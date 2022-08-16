@@ -19,16 +19,13 @@ load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_swift_pcm", "get_pcm_deps_tset")
 
-def _add_swiftmodule_search_path(args: "cmd_args", swift_info: "SwiftDependencyInfo"):
-    if swift_info.swiftmodule_path != None:
-        # Value will contain a path to the artifact,
-        # while we need only the folder which contains the artifact.
-        args.add(["-I", cmd_args(swift_info.swiftmodule_path).parent()])
-
-def _hidden_projection(args: "cmd_args", swift_info: "SwiftDependencyInfo"):
+def _add_swiftmodule_search_path(args: "cmd_args", swiftmodule_path: "artifact"):
     # Value will contain a path to the artifact,
     # while we need only the folder which contains the artifact.
-    args.add([swift_info.swiftmodule_path] if swift_info.swiftmodule_path != None else [])
+    args.add(["-I", cmd_args(swiftmodule_path).parent()])
+
+def _hidden_projection(args: "cmd_args", swiftmodule_path: "artifact"):
+    args.add(swiftmodule_path)
 
 SwiftmodulePathsTSet = transitive_set(args_projections = {
     "hidden": _hidden_projection,
@@ -38,10 +35,8 @@ SwiftmodulePathsTSet = transitive_set(args_projections = {
 ExportedHeadersTSet = transitive_set()
 
 SwiftDependencyInfo = provider(fields = [
-    "name",  # str.type
-    "swiftmodule_path",  # ["cmd_args", None] A path to compiled swiftmodule artifact.
-    "swiftmodule_deps_paths",  # [SwiftDependencyInfo]
-    "exported_headers",  # a tset which transitively captures all the exported_headers for a module
+    "swiftmodule_paths",  # SwiftmodulePathsTSet of artifact
+    "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}
 ])
 
 SwiftCompilationOutput = record(
@@ -287,15 +282,13 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
         sdk_deps_tset = get_sdk_deps_tset(ctx, module_name, toolchain)
         swift_deps_tset = ctx.actions.tset(
             SwiftmodulePathsTSet,
-            children = _get_swift_paths_tsets(ctx, ctx.attrs.deps + ctx.attrs.exported_deps),
+            children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
         )
-        swift_deps_list = list(swift_deps_tset.traverse())
-
         swift_module_map_artifact = write_swift_module_map_with_swift_deps(
             ctx,
             module_name,
             list(sdk_deps_tset.traverse()),
-            swift_deps_list,
+            list(swift_deps_tset.traverse()),
         )
         cmd.add([
             "-Xfrontend",
@@ -313,7 +306,7 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
         cmd.hidden(sdk_deps_tset.project_as_args("hidden"))
         cmd.hidden(swift_deps_tset.project_as_args("hidden"))
     else:
-        depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx, ctx.attrs.deps + ctx.attrs.exported_deps))
+        depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
         cmd.add(depset.project_as_args("module_search_path"))
 
 def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
@@ -350,13 +343,9 @@ def _add_mixed_library_flags_to_cmd(
 
     cmd.add("-import-underlying-module")
 
-def _get_swift_paths_tsets(ctx: "context", deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
+def _get_swift_paths_tsets(deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
     return [
-        ctx.actions.tset(
-            SwiftmodulePathsTSet,
-            value = d[SwiftDependencyInfo],
-            children = d[SwiftDependencyInfo].swiftmodule_deps_paths,
-        )
+        d[SwiftDependencyInfo].swiftmodule_paths
         for d in deps
         if d[SwiftDependencyInfo] != None
     ]
@@ -376,17 +365,20 @@ def get_swift_dependency_infos(
         ctx: "context",
         exported_pre: ["CPreprocessor", None],
         output_module: ["artifact", None]) -> [["SwiftPCMCompilationInfo", "SwiftDependencyInfo"]]:
-    deps = ctx.attrs.exported_deps
+    exported_deps = ctx.attrs.exported_deps
     if ctx.attrs.reexport_all_header_dependencies:
-        deps += ctx.attrs.deps
+        exported_deps += ctx.attrs.deps
 
     exported_headers = [_header_basename(header) for header in ctx.attrs.exported_headers]
     exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
 
+    if output_module:
+        swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, value = output_module, children = _get_swift_paths_tsets(exported_deps))
+    else:
+        swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
+
     providers = [SwiftDependencyInfo(
-        name = get_module_name(ctx),
-        swiftmodule_path = output_module,
-        swiftmodule_deps_paths = _get_swift_paths_tsets(ctx, deps),
+        swiftmodule_paths = swiftmodules,
         exported_headers = _get_exported_headers_tset(ctx, exported_headers),
     )]
 

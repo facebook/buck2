@@ -8,7 +8,7 @@ def write_swift_module_map_with_swift_deps(
         ctx: "context",
         module_name: str.type,
         sdk_swift_deps: ["SdkCompiledModuleInfo"],
-        swift_deps: ["SwiftDependencyInfo"]) -> "artifact":
+        swift_deps: ["artifact"]) -> "artifact":
     deps = {}
     for sdk_dep in sdk_swift_deps:
         if sdk_dep.is_swiftmodule:
@@ -19,12 +19,13 @@ def write_swift_module_map_with_swift_deps(
             }
 
     for swift_dep in swift_deps:
-        if swift_dep.swiftmodule_path:
-            deps[swift_dep.name] = {
-                "isFramework": False,
-                "moduleName": swift_dep.name,
-                "modulePath": swift_dep.swiftmodule_path,
-            }
+        # The swiftmodule filename always matches the module name
+        name = swift_dep.basename[:-12]
+        deps[name] = {
+            "isFramework": False,
+            "moduleName": name,
+            "modulePath": swift_dep,
+        }
 
     return ctx.actions.write_json(
         module_name + ".swift_module_map.json",
