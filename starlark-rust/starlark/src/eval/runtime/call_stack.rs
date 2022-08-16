@@ -179,11 +179,18 @@ impl<'v> Default for CheapCallStack<'v> {
     }
 }
 
-/// At 50 we see the C stack overflowing, so limit to 40 (which seems quite low...).
-///
-/// Note some calls may be inlined (special functions like `len`
-/// or simple functions like `def f(): return 1`), so effectively call stack
-/// may be larger depending on what optimizations applied.
+// Currently, each frame typically allocates about 1K of native stack size (see `test_frame_size`),
+// but it is a bit more complicated:
+// * each for loop in a frame allocates more native stack
+// * inlined functions do not allocate native stack
+// Practically max call stack depends on native stack size,
+// and depending on environment, it may be configured differently, for example:
+// * macOS default stack size is 512KB
+// * Linux default stack size is 8MB
+// * [tokio default stack size is 2MB][1]
+// [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
+// TODO(nga): count loops in call stack size.
+// TODO(nga): make it configurable.
 const MAX_CALLSTACK_RECURSION: usize = 40;
 
 unsafe impl<'v> Trace<'v> for CheapCallStack<'v> {
