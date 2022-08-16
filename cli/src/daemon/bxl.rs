@@ -29,7 +29,7 @@ use itertools::Itertools;
 
 use crate::daemon::common::parse_bxl_label_from_cli;
 use crate::daemon::common::ConvertMaterializationContext;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug)]
 pub(crate) struct BxlResult {

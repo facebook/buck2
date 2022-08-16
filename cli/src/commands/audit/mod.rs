@@ -29,7 +29,7 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 use crate::CommandContext;
 use crate::StreamingCommand;
 

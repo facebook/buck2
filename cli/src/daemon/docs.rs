@@ -47,7 +47,7 @@ use starlark::values::docs::Identifier;
 use starlark::values::docs::Member;
 use starlark::values::StarlarkValue;
 
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,

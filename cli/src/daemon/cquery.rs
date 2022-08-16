@@ -24,7 +24,7 @@ use dice::DiceComputations;
 use gazebo::prelude::*;
 
 use crate::daemon::common::target_platform_from_client_context;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 use crate::query::printer::ProviderLookUp;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;

@@ -33,7 +33,7 @@ use gazebo::prelude::*;
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
 use crate::daemon::common::target_platform_from_client_context;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,

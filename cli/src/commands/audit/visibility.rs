@@ -28,7 +28,7 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::common::parse_patterns_from_cli_args;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(thiserror::Error, Debug)]
 enum VisibilityCommandError {

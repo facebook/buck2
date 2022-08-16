@@ -13,7 +13,7 @@ use anyhow::Context as _;
 use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
 
-use crate::daemon::server::BaseCommandContext;
+use crate::daemon::server::ctx::BaseCommandContext;
 use crate::daemon::server::BlockingExecutor;
 use crate::daemon::server::DaemonStateData;
 

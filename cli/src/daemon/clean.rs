@@ -20,7 +20,7 @@ use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 pub(crate) async fn clean(
     server_ctx: ServerCommandContext,

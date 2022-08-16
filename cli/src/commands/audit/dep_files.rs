@@ -31,7 +31,7 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::target_platform_from_client_context;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

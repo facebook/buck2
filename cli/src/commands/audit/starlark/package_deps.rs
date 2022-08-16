@@ -23,7 +23,7 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use cli_proto::ClientContext;
 
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

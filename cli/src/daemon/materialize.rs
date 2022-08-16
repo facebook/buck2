@@ -9,7 +9,7 @@
 
 use buck2_core::fs::project::ProjectRelativePath;
 
-use crate::daemon::server::BaseCommandContext;
+use crate::daemon::server::ctx::BaseCommandContext;
 
 pub(crate) async fn materialize(
     server_ctx: &BaseCommandContext,

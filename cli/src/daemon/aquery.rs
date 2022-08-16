@@ -14,7 +14,7 @@ use cli_proto::AqueryRequest;
 use cli_proto::AqueryResponse;
 
 use crate::daemon::common::target_platform_from_client_context;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 

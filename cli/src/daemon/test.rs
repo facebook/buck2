@@ -64,7 +64,7 @@ use test_api::protocol::TestExecutor;
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
 use crate::daemon::common::target_platform_from_client_context;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct TestReport {

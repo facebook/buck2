@@ -36,7 +36,7 @@ use regex::RegexSet;
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::json::quote_json_string;
-use crate::daemon::server::ServerCommandContext;
+use crate::daemon::server::ctx::ServerCommandContext;
 use crate::target_hash::BuckTargetHash;
 use crate::target_hash::TargetHashes;
 
