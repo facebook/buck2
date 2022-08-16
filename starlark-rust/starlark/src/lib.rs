@@ -349,6 +349,7 @@
 #![allow(stable_features)]
 #![feature(alloc_layout_extra)]
 #![feature(backtrace)]
+#![feature(bench_black_box)]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(cell_filter_map)]

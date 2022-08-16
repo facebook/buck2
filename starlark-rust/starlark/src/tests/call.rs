@@ -17,8 +17,14 @@
 
 //! Test call expression and parameter binding.
 
+use std::hint;
+
+use crate as starlark;
 use crate::assert;
 use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::values::UnpackValue;
+use crate::values::Value;
 
 #[test]
 fn funcall_test() {
@@ -241,5 +247,52 @@ def f(x, *, y):
 f(1)
 "#,
         "Missing parameter `y`",
+    );
+}
+
+#[test]
+fn test_frame_size() {
+    #[starlark_module]
+    fn natives(builder: &mut GlobalsBuilder) {
+        fn stack_ptr(args: Vec<Value>) -> anyhow::Result<usize> {
+            drop(args);
+
+            // Taking a pointer of a stack variable is UB or something, I don't know.
+            // So pass it through `black_box` to skip compiler optimizations.
+            let x = 1;
+            let ptr = hint::black_box(&x);
+            Ok(ptr as *const i32 as usize)
+        }
+    }
+
+    let program = r#"
+def f(x):
+    return stack_ptr(x)
+
+def g(x):
+    noop(x)
+    return f(x)
+
+F_PTR = f([])
+G_F_PTR = g([])
+    "#;
+
+    let mut a = Assert::new();
+    a.globals_add(natives);
+    let module = a.pass_module(program);
+    let one = usize::unpack_value(module.get("F_PTR").unwrap().value()).unwrap();
+    let two = usize::unpack_value(module.get("G_F_PTR").unwrap().value()).unwrap();
+    assert!(
+        two < one,
+        "stack grows down everywhere we support starlark-rust"
+    );
+    // At the moment of writing it is about 1K.
+    // Note, actual frame size may be larger a frame contains for loops.
+    let frame_native_size = one - two;
+    assert!(frame_native_size > 20, "sanity check");
+    assert!(
+        frame_native_size < 2024,
+        "native frame size is too large: {}, evaluation may result in native stack overflow",
+        frame_native_size,
     );
 }
