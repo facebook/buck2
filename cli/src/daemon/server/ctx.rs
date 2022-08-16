@@ -81,7 +81,7 @@ enum DaemonCommunicationError {
 
 /// BaseCommandContext provides access to the global daemon state and information specific to a command (like the
 /// EventDispatcher). Most commands use a ServerCommandContext which has more command/client-specific information.
-pub(crate) struct BaseCommandContext {
+pub(crate) struct BaseServerCommandContext {
     /// An fbinit token for using things that require fbinit. fbinit is initialized on daemon startup.
     pub _fb: fbinit::FacebookInit,
     /// Absolute path to the project root.
@@ -109,7 +109,7 @@ pub(crate) struct BaseCommandContext {
     pub(crate) file_watcher: Arc<dyn FileWatcher>,
 }
 
-impl BaseCommandContext {
+impl BaseServerCommandContext {
     pub(crate) fn file_system(&self) -> ProjectFilesystem {
         ProjectFilesystem::new(self.project_root.clone())
     }
@@ -146,7 +146,7 @@ impl BaseCommandContext {
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
 /// the implementation of DaemonApi endpoints (ex. targets, query, build).
 pub(crate) struct ServerCommandContext {
-    pub(crate) base_context: BaseCommandContext,
+    pub(crate) base_context: BaseServerCommandContext,
 
     /// The working directory of the client. This is used for resolving things in the request in a
     /// working-dir relative way. For example, it's common to resolve target patterns relative to
@@ -192,7 +192,7 @@ pub(crate) struct ServerCommandContext {
 
 impl ServerCommandContext {
     pub(crate) fn new(
-        base_context: BaseCommandContext,
+        base_context: BaseServerCommandContext,
         client_context: &ClientContext,
         build_signals: BuildSignalSender,
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,

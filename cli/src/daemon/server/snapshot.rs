@@ -13,7 +13,7 @@ use anyhow::Context as _;
 use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
 
-use crate::daemon::server::ctx::BaseCommandContext;
+use crate::daemon::server::ctx::BaseServerCommandContext;
 use crate::daemon::server::state::DaemonStateData;
 use crate::daemon::server::BlockingExecutor;
 
@@ -27,7 +27,7 @@ pub(crate) struct SnapshotCollector {
 impl SnapshotCollector {
     // NOTE: This would probably be easier if BaseCommandContext just embedded DaemonStateData, or
     // parts thereof we care about, but it's only two fields for now.
-    pub(crate) fn from_command(ctx: &BaseCommandContext) -> Self {
+    pub(crate) fn from_command(ctx: &BaseServerCommandContext) -> Self {
         Self {
             re_client_manager: ctx.re_client_manager.dupe(),
             blocking_executor: ctx.blocking_executor.dupe(),

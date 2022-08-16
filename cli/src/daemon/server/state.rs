@@ -49,7 +49,7 @@ use gazebo::variants::VariantName;
 
 use crate::daemon::server;
 use crate::daemon::server::active_commands::ActiveCommandDropGuard;
-use crate::daemon::server::ctx::BaseCommandContext;
+use crate::daemon::server::ctx::BaseServerCommandContext;
 use crate::daemon::server::file_watcher::FileWatcher;
 use crate::Paths;
 
@@ -370,7 +370,7 @@ impl DaemonState {
     pub(crate) async fn prepare_command(
         &self,
         dispatcher: EventDispatcher,
-    ) -> SharedResult<BaseCommandContext> {
+    ) -> SharedResult<BaseServerCommandContext> {
         server::check_working_dir()?;
 
         let data = self.data().await?;
@@ -390,7 +390,7 @@ impl DaemonState {
         // Sync any FS changes and invalidate DICE state if necessary.
         data.io.settle().await?;
 
-        Ok(BaseCommandContext {
+        Ok(BaseServerCommandContext {
             _fb: self.fb,
             project_root: self.paths.project_root().to_owned(),
             dice: data.dice.dupe(),

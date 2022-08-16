@@ -15,7 +15,7 @@ use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 use tokio::task::JoinHandle;
 
-use crate::daemon::server::ctx::BaseCommandContext;
+use crate::daemon::server::ctx::BaseServerCommandContext;
 use crate::daemon::server::snapshot;
 
 // Spawns a thread to occasionally output snapshots of resource utilization.
@@ -26,7 +26,7 @@ pub struct HeartbeatGuard {
 }
 
 impl HeartbeatGuard {
-    pub(crate) fn new(ctx: &BaseCommandContext) -> Self {
+    pub(crate) fn new(ctx: &BaseServerCommandContext) -> Self {
         let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
         let collector = snapshot::SnapshotCollector::from_command(ctx);
 
