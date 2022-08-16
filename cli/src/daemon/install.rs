@@ -41,6 +41,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
@@ -63,7 +64,6 @@ use install_proto::installer_client::InstallerClient;
 use install_proto::FileReadyRequest;
 use install_proto::InstallInfoRequest;
 use install_proto::ShutdownRequest;
-use starlark::values::FrozenRef;
 use tempfile::Builder;
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -142,6 +142,15 @@ pub(crate) async fn install(
             .await?;
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
+
+    let install_log_dir = get_installer_log_directory(&server_ctx, &ctx).await?;
+
+    // https://github.com/rust-lang/rust/issues/63033#issuecomment-521234696
+    let mut installer_run_args = Vec::new();
+    for arg in &request.installer_run_args {
+        installer_run_args.push(arg.clone());
+    }
+
     for (package, spec) in resolved_pattern.specs {
         let ctx = &ctx;
         let targets: anyhow::Result<Vec<ProvidersPattern>> = match spec {
@@ -173,18 +182,16 @@ pub(crate) async fn install(
             let providers = frozen_providers.provider_collection();
             match providers.get_provider(InstallInfoCallable::provider_id_t()) {
                 Some(install_info) => {
-                    // https://github.com/rust-lang/rust/issues/63033#issuecomment-521234696
-                    let mut installer_run_args = Vec::new();
-                    for arg in &request.installer_run_args {
-                        installer_run_args.push(arg.clone());
-                    }
-                    let install_log_dir = get_installer_log_directory(&server_ctx, ctx).await?;
-                    build_install(
+                    let install_id = format!("{}", providers_label.target());
+                    let install_files = &install_info.get_files()?;
+                    let installer_label = install_info.get_installer()?;
+                    handle_install_request(
                         ctx,
                         &install_log_dir,
-                        providers_label.target(),
-                        install_info,
-                        installer_run_args,
+                        &install_id,
+                        install_files,
+                        installer_label,
+                        &installer_run_args,
                     )
                     .await?;
                 }
@@ -220,22 +227,20 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
-async fn build_install<'a>(
+async fn handle_install_request<'a>(
     ctx: &'a DiceComputations,
     install_log_dir: &AbsPathBuf,
-    target_label: &buck2_core::target::ConfiguredTargetLabel,
-    install_info: FrozenRef<'a, FrozenInstallInfo>,
-    mut installer_run_args: Vec<String>,
+    install_id: &str,
+    install_files: &IndexMap<&str, Artifact>,
+    installer_label: ConfiguredProvidersLabel,
+    initial_installer_run_args: &[String],
 ) -> anyhow::Result<()> {
-    let install_files = &install_info.get_files()?;
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let build_files = async move {
         build_files(ctx, install_files, files_tx).await?;
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
-        let install_id = format!("{}", target_label);
-
         let tmp_dir = Builder::new().tempdir()?;
         let uds_socket_filename =
             format!("{}/installer.sock", tmp_dir.into_path().to_str().unwrap());
@@ -256,6 +261,8 @@ async fn build_install<'a>(
             calculate_hash(&install_id)
         );
 
+        let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
+
         installer_run_args.extend(vec![
             "--named-pipe".to_owned(),
             uds_socket_filename.to_owned(),
@@ -265,18 +272,18 @@ async fn build_install<'a>(
             installer_log_filename.to_owned(),
         ]);
 
-        build_launch_installer(ctx, install_info, installer_run_args).await?;
+        build_launch_installer(ctx, installer_label, installer_run_args).await?;
 
         let client: InstallerClient<Channel> =
             connect_to_installer(uds_socket_filename.to_owned(), tcp_port).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
 
-        send_install_info(client.clone(), &install_id, install_files, &artifact_fs).await?;
+        send_install_info(client.clone(), install_id, install_files, &artifact_fs).await?;
 
         let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
             .try_for_each_concurrent(None, |file| {
-                send_file(&install_id, file, &artifact_fs, client.clone())
+                send_file(install_id, file, &artifact_fs, client.clone())
             })
             .await;
         send_shutdown_command(client.clone()).await?;
@@ -346,10 +353,9 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
 
 async fn build_launch_installer<'a>(
     ctx: &'a DiceComputations,
-    install_info: FrozenRef<'a, FrozenInstallInfo>,
+    providers_label: ConfiguredProvidersLabel,
     installer_run_args: Vec<String>,
 ) -> anyhow::Result<()> {
-    let providers_label = install_info.get_installer()?;
     let frozen_providers = ctx
         .get_providers(&providers_label)
         .await?
