@@ -196,7 +196,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
 }
 
 /// Aggregated stack frame data.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct StackFrame {
     /// Aggregated callees.
     pub(crate) callees: SmallMap<StringId, StackFrame>,
@@ -307,6 +307,22 @@ impl Debug for AggregateHeapProfileInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("AggregateHeapProfileInfo")
             .finish_non_exhaustive()
+    }
+}
+
+impl Default for AggregateHeapProfileInfo {
+    fn default() -> AggregateHeapProfileInfo {
+        let mut strings = StringIndex::default();
+        let totals_id = strings.index(AggregateHeapProfileInfo::TOTALS_STR);
+        let root_id = strings.index(AggregateHeapProfileInfo::ROOT_STR);
+        let blank_id = strings.index(AggregateHeapProfileInfo::BLANK_STR);
+        AggregateHeapProfileInfo {
+            root: StackFrame::default(),
+            strings,
+            totals_id,
+            root_id,
+            blank_id,
+        }
     }
 }
 
