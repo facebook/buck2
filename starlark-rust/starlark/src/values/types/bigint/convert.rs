@@ -24,6 +24,30 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 
+impl StarlarkTypeRepr for u32 {
+    fn starlark_type_repr() -> String {
+        i32::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for u32 {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match i32::try_from(self) {
+            Ok(x) => Value::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint(self.into(), heap),
+        }
+    }
+}
+
+impl AllocFrozenValue for u32 {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match i32::try_from(self) {
+            Ok(x) => FrozenValue::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
+        }
+    }
+}
+
 impl StarlarkTypeRepr for u64 {
     fn starlark_type_repr() -> String {
         i32::starlark_type_repr()
@@ -64,6 +88,54 @@ impl<'v> AllocValue<'v> for i64 {
 }
 
 impl AllocFrozenValue for i64 {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match i32::try_from(self) {
+            Ok(x) => FrozenValue::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
+        }
+    }
+}
+
+impl StarlarkTypeRepr for usize {
+    fn starlark_type_repr() -> String {
+        i32::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for usize {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match i32::try_from(self) {
+            Ok(x) => Value::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint(self.into(), heap),
+        }
+    }
+}
+
+impl AllocFrozenValue for usize {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match i32::try_from(self) {
+            Ok(x) => FrozenValue::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
+        }
+    }
+}
+
+impl StarlarkTypeRepr for isize {
+    fn starlark_type_repr() -> String {
+        i32::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for isize {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match i32::try_from(self) {
+            Ok(x) => Value::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint(self.into(), heap),
+        }
+    }
+}
+
+impl AllocFrozenValue for isize {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         match i32::try_from(self) {
             Ok(x) => FrozenValue::new_int(x),
