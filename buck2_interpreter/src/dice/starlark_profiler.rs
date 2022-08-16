@@ -18,6 +18,7 @@ use dice::Key;
 use gazebo::dupe::Dupe;
 use starlark::eval::ProfileMode;
 
+use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 
 #[derive(Debug, thiserror::Error)]
@@ -81,6 +82,22 @@ impl StarlarkProfilerConfiguration {
             StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => Ok(profile_mode),
         }
     }
+
+    /// Profile mode for intermediate target analysis.
+    pub fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileModeOrInstrumentation {
+        match self {
+            StarlarkProfilerConfiguration::None => StarlarkProfileModeOrInstrumentation::None,
+            StarlarkProfilerConfiguration::Instrument(instrumentation) => {
+                StarlarkProfileModeOrInstrumentation::Instrument(instrumentation.dupe())
+            }
+            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => {
+                StarlarkProfileModeOrInstrumentation::Instrument(
+                    StarlarkProfilerInstrumentation::new(profile_mode.dupe()),
+                )
+            }
+        }
+    }
 }
 
 #[derive(Debug, derive_more::Display, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
@@ -90,6 +107,10 @@ struct StarlarkProfilerConfigurationKey;
 #[derive(Debug, derive_more::Display, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkProfilerInstrumentationKey;
+
+#[derive(Debug, derive_more::Display, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
+#[display(fmt = "{:?}", self)]
+pub struct StarlarkProfileModeForIntermediateAnalysisKey;
 
 #[async_trait]
 impl Key for StarlarkProfilerConfigurationKey {
@@ -146,6 +167,26 @@ impl Key for StarlarkProfilerInstrumentationKey {
     }
 }
 
+#[async_trait]
+impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
+    type Value = SharedResult<StarlarkProfileModeOrInstrumentation>;
+
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+    ) -> SharedResult<StarlarkProfileModeOrInstrumentation> {
+        let configuration = get_starlark_profiler_configuration(ctx).await?;
+        Ok(configuration.profile_mode_for_intermediate_analysis())
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
 /// Global Starlark compiler instrumentation level.
 ///
 /// We profile only leaf computations (`BUCK` files or analysis),
@@ -179,6 +220,11 @@ pub trait GetStarlarkProfilerInstrumentation {
     async fn get_starlark_profiler_instrumentation(
         &self,
     ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>>;
+
+    /// Profile mode for non-final targe analysis.
+    async fn get_profile_mode_for_intermediate_analysis(
+        &self,
+    ) -> anyhow::Result<StarlarkProfileModeOrInstrumentation>;
 }
 
 #[async_trait]
@@ -215,5 +261,13 @@ impl GetStarlarkProfilerInstrumentation for DiceComputations {
         &self,
     ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
         Ok(self.compute(&StarlarkProfilerInstrumentationKey).await??)
+    }
+
+    async fn get_profile_mode_for_intermediate_analysis(
+        &self,
+    ) -> anyhow::Result<StarlarkProfileModeOrInstrumentation> {
+        Ok(self
+            .compute(&StarlarkProfileModeForIntermediateAnalysisKey)
+            .await??)
     }
 }

@@ -18,8 +18,8 @@ use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
+use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use gazebo::prelude::*;
@@ -27,7 +27,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::eval::ProfileMode;
 use starlark::values::structs::Struct;
 use starlark::values::FrozenRef;
 use starlark::values::Value;
@@ -199,8 +198,7 @@ fn run_analysis<'a>(
     execution_platform: &'a ExecutionPlatformResolution,
     impl_function: &'a dyn RuleImplFunction,
     node: &ConfiguredTargetNode,
-    instrumentation: Option<StarlarkProfilerInstrumentation>,
-    profile_mode: Option<&ProfileMode>,
+    profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
     let analysis_env = AnalysisEnv::new(
         label,
@@ -209,7 +207,7 @@ fn run_analysis<'a>(
         execution_platform,
         impl_function,
     )?;
-    run_analysis_with_env(analysis_env, node, instrumentation, profile_mode)
+    run_analysis_with_env(analysis_env, node, profile_mode)
 }
 
 impl<'a> AnalysisEnv<'a> {
@@ -242,8 +240,7 @@ impl<'a> AnalysisEnv<'a> {
 fn run_analysis_with_env(
     analysis_env: AnalysisEnv,
     node: &ConfiguredTargetNode,
-    instrumentation: Option<StarlarkProfilerInstrumentation>,
-    profile_mode: Option<&ProfileMode>,
+    profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
     let env = Module::new();
     let mut eval = Evaluator::new(&env);
@@ -281,11 +278,14 @@ fn run_analysis_with_env(
         registry,
     ));
 
-    let mut profiler_opt =
-        profile_mode.map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
+    let mut profiler_opt = profile_mode
+        .profile_mode()
+        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
     let mut profiler = match &mut profiler_opt {
-        None => StarlarkProfilerOrInstrumentation::maybe_instrumentation(instrumentation),
+        None => {
+            StarlarkProfilerOrInstrumentation::maybe_instrumentation(profile_mode.instrumentation())
+        }
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 

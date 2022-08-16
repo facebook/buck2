@@ -206,6 +206,34 @@ impl StarlarkProfiler {
     }
 }
 
+/// How individual starlark invocation (`bzl`, `BUCK` or analysis) should be interpreted.
+#[derive(Clone, Dupe, Eq, PartialEq)]
+pub enum StarlarkProfileModeOrInstrumentation {
+    None,
+    Instrument(StarlarkProfilerInstrumentation),
+    Profile(ProfileMode),
+}
+
+impl StarlarkProfileModeOrInstrumentation {
+    pub fn profile_mode(&self) -> Option<&ProfileMode> {
+        match self {
+            StarlarkProfileModeOrInstrumentation::Profile(profile) => Some(profile),
+            StarlarkProfileModeOrInstrumentation::Instrument(_)
+            | StarlarkProfileModeOrInstrumentation::None => None,
+        }
+    }
+
+    pub fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
+        match self {
+            StarlarkProfileModeOrInstrumentation::None => None,
+            StarlarkProfileModeOrInstrumentation::Instrument(instrument) => Some(instrument.dupe()),
+            StarlarkProfileModeOrInstrumentation::Profile(profile) => {
+                Some(StarlarkProfilerInstrumentation::new(profile.dupe()))
+            }
+        }
+    }
+}
+
 enum StarlarkProfilerOrInstrumentationImpl<'p> {
     None,
     Profiler(&'p mut StarlarkProfiler),
