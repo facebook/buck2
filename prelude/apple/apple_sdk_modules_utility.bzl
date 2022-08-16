@@ -27,9 +27,9 @@ def _check_if_no_sdk_modules_are_provided(toolchain: "SwiftToolchainInfo") -> bo
 def get_sdk_deps_tset(
         ctx: "context",
         module_name: str.type,
-        toolchain: "SwiftToolchainInfo") -> ["SDKDepTSet", None]:
+        toolchain: "SwiftToolchainInfo") -> "SDKDepTSet":
     if _check_if_no_sdk_modules_are_provided(toolchain):
-        return None
+        return ctx.actions.tset(SDKDepTSet)
     all_sdk_deps = []
 
     # Adding all direct and transitive SDK dependencies.

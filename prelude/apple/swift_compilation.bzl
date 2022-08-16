@@ -401,7 +401,7 @@ def get_swift_dependency_infos(
 
     # If exported PP exists, we need to precompile a modulemap,
     # in order to enable consuming by Swift.
-    if exported_pre and exported_pre.modulemap_path:
+    if exported_pre and exported_pre.modulemap_path and ctx.attrs.modular:
         providers.append(compile_swift_pcm(
             ctx,
             exported_pre,
