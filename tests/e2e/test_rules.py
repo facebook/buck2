@@ -2,10 +2,12 @@ import json
 import os
 import re
 import sys
+import typing
 from pathlib import Path
 
 import pytest
 from xplat.build_infra.buck_e2e.api.buck import Buck
+from xplat.build_infra.buck_e2e.api.buck_result import BuckResult
 from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
 
@@ -658,3 +660,101 @@ if fbcode_linux_only():
         await buck.run(
             "fbcode//buck2/tests/targets/rules/cxx/dist_lto/cpp_calls_rust:main"
         )
+
+
+def _get_last_json_log(result: BuckResult) -> typing.Dict[str, typing.Any]:
+    last_log_line = result.stdout.strip().split("\n")[-1]
+    assert len(last_log_line) != 0, "expected 'buck2 log what-ran' to generate stdout"
+    return json.loads(last_log_line)
+
+
+def _assert_incremental_build(
+    result: BuckResult,
+    target: str,
+    build_mode: typing.Optional[str] = None,
+) -> None:
+    data = _get_last_json_log(result)
+    assert data["reason"] == "build"
+    assert target in data["identity"]
+    assert data["reproducer"]["executor"] == "Local"
+
+    rustc_incremental_flag = list(
+        filter(
+            lambda x: x.startswith("-Cincremental"),
+            data["reproducer"]["details"].get("command", []),
+        )
+    )
+    assert len(rustc_incremental_flag) == 1
+
+    if build_mode is not None:
+        assert f"/{build_mode}" in rustc_incremental_flag[0]
+
+
+def _assert_not_incremental_build(
+    result: BuckResult,
+    target: str,
+) -> None:
+    data = _get_last_json_log(result)
+    assert data["reason"] == "build"
+    assert target in data["identity"]
+    assert data["reproducer"]["executor"] != "Local"
+
+    rustc_incremental_flag = list(
+        filter(
+            lambda x: x.startswith("-Cincremental"),
+            data["reproducer"]["details"].get("command", []),
+        )
+    )
+    assert len(rustc_incremental_flag) == 0
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_rust_bin_incremental_compilation(buck: Buck) -> None:
+        target = "fbcode//buck2/tests/targets/rules/rust/rustdoc:self_contained_binary"
+        await buck.build(
+            target,
+            "-c",
+            "rust.incremental=buck2/tests/targets/rules/rust/rustdoc",
+        )
+
+        result = await buck.log("what-ran", "--format", "json")
+        _assert_incremental_build(result, target)
+
+    @buck_test(inplace=True)
+    async def test_rust_lib_incremental_compilation(buck: Buck) -> None:
+        target = "fbcode//buck2/tests/targets/rules/rust/rustdoc:self_contained"
+        await buck.build(
+            target,
+            "-c",
+            "rust.incremental=buck2/tests/targets/rules/rust/rustdoc",
+        )
+
+        result = await buck.log("what-ran", "--format", "json")
+        _assert_incremental_build(result, target)
+
+    @buck_test(inplace=True)
+    async def test_rust_incremental_compilation_invalid_config(buck: Buck) -> None:
+        target = "fbcode//buck2/tests/targets/rules/rust/rustdoc:self_contained"
+        await buck.build(
+            target,
+            "-c",
+            "rust.incremental=invalid/path",
+        )
+
+        result = await buck.log("what-ran", "--format", "json")
+        _assert_not_incremental_build(result, target)
+
+    @buck_test(inplace=True)
+    async def test_rust_incremental_compilation_with_build_mode(buck: Buck) -> None:
+        target = "fbcode//buck2/tests/targets/rules/rust/rustdoc:self_contained"
+        await buck.build(
+            target,
+            "@//mode/opt",
+            "-c",
+            "rust.incremental=buck2/tests/targets/rules/rust/rustdoc",
+        )
+
+        result = await buck.log("what-ran", "--format", "json")
+        _assert_incremental_build(result, target, build_mode="opt")
