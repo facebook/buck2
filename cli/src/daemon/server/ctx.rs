@@ -68,7 +68,6 @@ use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::server::file_watcher::FileWatcher;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
 use crate::daemon::server::host_info;
-use crate::daemon::server::state::EventLoggingData;
 use crate::daemon::server::ActiveCommandDropGuard;
 use crate::daemon::server::BuckDiceTracker;
 use crate::daemon::server::RawOuputGuard;
@@ -104,8 +103,6 @@ pub(crate) struct BaseCommandContext {
     pub forkserver: Option<ForkserverClient>,
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
-    /// Event logging configuration for this command context.
-    pub _event_config: Arc<EventLoggingData>,
     /// Removes this command from the set of active commands when dropped.
     pub(crate) _drop_guard: ActiveCommandDropGuard,
     /// The file watcher that keeps buck2 up to date with disk changes.

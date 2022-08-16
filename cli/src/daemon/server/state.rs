@@ -401,7 +401,6 @@ impl DaemonState {
             file_watcher: data.file_watcher.dupe(),
             events: dispatcher,
             forkserver: data.forkserver.dupe(),
-            _event_config: data.event_logging_data.dupe(),
             _drop_guard: drop_guard,
         })
     }
