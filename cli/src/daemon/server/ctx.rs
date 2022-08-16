@@ -65,11 +65,11 @@ use crate::configs::parse_legacy_cells;
 use crate::daemon::common::get_executor_config_for_strategy;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
+use crate::daemon::server::dice_tracker::BuckDiceTracker;
 use crate::daemon::server::file_watcher::FileWatcher;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
 use crate::daemon::server::host_info;
 use crate::daemon::server::ActiveCommandDropGuard;
-use crate::daemon::server::BuckDiceTracker;
 use crate::daemon::server::RawOuputGuard;
 use crate::daemon::server::RawOutputWriter;
 

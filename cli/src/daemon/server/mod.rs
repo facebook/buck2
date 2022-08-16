@@ -41,7 +41,6 @@ use buck2_common::truncate::truncate;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
 use buck2_core::pattern::ProvidersPattern;
-use buck2_data::*;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
@@ -50,9 +49,6 @@ use cli_proto::profile_request::Profiler;
 use cli_proto::*;
 use ctx::ServerCommandContext;
 use dice::cycles::DetectCycles;
-use dice::DiceEvent;
-use dice::DiceTracker;
-use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
 use events::metadata;
 use events::ControlEvent;
@@ -60,7 +56,6 @@ use events::Event;
 use events::EventSource;
 use events::TraceId;
 use futures::channel::mpsc;
-use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 use futures::Future;
 use futures::Stream;
@@ -98,6 +93,7 @@ use crate::paths::Paths;
 
 mod concurrency;
 pub(crate) mod ctx;
+mod dice_tracker;
 mod file_watcher;
 pub(crate) mod heartbeat_guard;
 mod host_info;
@@ -145,83 +141,6 @@ impl ActiveCommandDropGuard {
 impl Drop for ActiveCommandDropGuard {
     fn drop(&mut self) {
         ACTIVE_COMMANDS.lock().unwrap().remove(&self.trace_id);
-    }
-}
-
-/// The BuckDiceTracker keeps track of the started/finished events for a dice computation and periodically sends a snapshot to the client.
-///
-/// There are too many events coming out of dice for us to forward them all to the client, so we need to aggregate
-/// them in some way in the daemon.
-///
-/// The tracker will send a snapshot event every 500ms (only if there have been changes since the last snapshot).
-///
-/// A client won't necessarily get a final snapshot before a command returns.
-struct BuckDiceTracker {
-    event_forwarder: UnboundedSender<DiceEvent>,
-}
-
-const DICE_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(500);
-
-impl BuckDiceTracker {
-    fn new(events: EventDispatcher) -> Self {
-        let (event_forwarder, receiver) = mpsc::unbounded();
-
-        std::thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            runtime.block_on(with_dispatcher_async(
-                events.dupe(),
-                Self::run_task(events, receiver),
-            ))
-        });
-
-        Self { event_forwarder }
-    }
-
-    async fn run_task(events: EventDispatcher, mut receiver: UnboundedReceiver<DiceEvent>) {
-        let mut needs_update = false;
-        let mut states = HashMap::new();
-        let mut interval = tokio::time::interval(DICE_SNAPSHOT_INTERVAL);
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        // This will loop until the sender side of the channel is dropped.
-        loop {
-            tokio::select! {
-                ev = receiver.next() => {
-                    needs_update = true;
-                    match ev {
-                        Some(DiceEvent::Started{key_type}) => {
-                            states.entry(key_type).or_insert_with(DiceKeyState::default).started += 1;
-                        }
-                        Some(DiceEvent::Finished{key_type}) => {
-                            states.entry(key_type).or_insert_with(DiceKeyState::default).finished += 1;
-                        }
-                        None => {
-                            // This indicates that the sender side has been dropped and we can exit.
-                            break;
-                        }
-                    }
-                }
-                _ = interval.tick() => {
-                    if needs_update {
-                        needs_update = false;
-                        events.instant_event(DiceComputationStateSnapshot {
-                            key_states: states
-                                .iter()
-                                .map(|(k, v)| ((*k).to_owned(), v.clone()))
-                                .collect(),
-                        });
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl DiceTracker for BuckDiceTracker {
-    fn event(&self, event: DiceEvent) {
-        let _ = self.event_forwarder.unbounded_send(event);
     }
 }
 
