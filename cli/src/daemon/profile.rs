@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_build_api::analysis::calculation::profile_analysis;
+use buck2_build_api::analysis::calculation::profile_analysis_recursively;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::module_internals::ModuleInternals;
 use buck2_common::dice::cells::HasCellResolver;
@@ -54,13 +55,20 @@ async fn generate_profile_analysis(
         .get_configured_target(&label, global_target_platform.as_ref())
         .await?;
 
-    profile_analysis(
-        &ctx,
-        &configured_target,
-        profile_mode.profile_last_analysis()?,
-    )
-    .await
-    .context("Analysis failed")
+    match profile_mode {
+        StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => {
+            profile_analysis(&ctx, &configured_target, profile_mode)
+                .await
+                .context("Analysis failed")
+        }
+        StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
+            profile_analysis_recursively(&ctx, &configured_target)
+                .await
+                .context("Analysis failed")
+                .map(Arc::new)
+        }
+        _ => Err(anyhow::anyhow!("Incorrect profile mode (internal error)")),
+    }
 }
 
 async fn generate_profile_loading(
