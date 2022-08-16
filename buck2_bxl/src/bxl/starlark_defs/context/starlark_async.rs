@@ -1,6 +1,9 @@
 use std::future::Future;
 
+use buck2_interpreter::dice::HasEvents;
 use dice::DiceComputations;
+use events::dispatch::with_dispatcher_async;
+use gazebo::prelude::*;
 
 /// Provides a safe blocking calls to async functions for starlark that requires operations to
 /// be not async.
@@ -20,7 +23,8 @@ impl<'a> BxlSafeDiceComputations<'a> {
     where
         Fut: Future<Output = R>,
     {
-        tokio::runtime::Handle::current().block_on(f(self.0))
+        let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
+        tokio::runtime::Handle::current().block_on(with_dispatcher_async(dispatcher, f(self.0)))
     }
 
     /// runs any async computation
@@ -28,6 +32,7 @@ impl<'a> BxlSafeDiceComputations<'a> {
     where
         Fut: Future<Output = R>,
     {
-        tokio::runtime::Handle::current().block_on(f())
+        let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
+        tokio::runtime::Handle::current().block_on(with_dispatcher_async(dispatcher, f()))
     }
 }

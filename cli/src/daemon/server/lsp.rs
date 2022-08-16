@@ -33,9 +33,12 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::TargetName;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use cli_proto::*;
 use dice::DiceTransaction;
+use events::dispatch::with_dispatcher;
+use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
 use futures::channel::mpsc::UnboundedSender;
 use futures::FutureExt;
@@ -408,54 +411,60 @@ impl BuckLspContext {
 
 impl LspContext for BuckLspContext {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
-        self.runtime().block_on(async {
-            match uri {
-                LspUrl::File(_) | LspUrl::Starlark(_) => {
-                    match self.parse_file_with_contents(uri, content).await {
-                        Ok(result) => result,
-                        Err(e) => {
-                            let message = EvalMessage::from_anyhow(uri.path(), e.inner());
-                            LspEvalResult {
-                                diagnostics: vec![message.into()],
-                                ast: None,
+        let dispatcher = self.dice_ctx.per_transaction_data().get_dispatcher().dupe();
+        self.runtime()
+            .block_on(with_dispatcher_async(dispatcher, async {
+                match uri {
+                    LspUrl::File(_) | LspUrl::Starlark(_) => {
+                        match self.parse_file_with_contents(uri, content).await {
+                            Ok(result) => result,
+                            Err(e) => {
+                                let message = EvalMessage::from_anyhow(uri.path(), e.inner());
+                                LspEvalResult {
+                                    diagnostics: vec![message.into()],
+                                    ast: None,
+                                }
                             }
                         }
                     }
+                    _ => LspEvalResult::default(),
                 }
-                _ => LspEvalResult::default(),
-            }
-        })
+            }))
     }
 
     fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
-        self.runtime().block_on(async {
-            match current_file {
-                LspUrl::File(current_file) => {
-                    let current_import_path = self.import_path(current_file)?;
-                    let calculator = self
-                        .dice_ctx
-                        .get_interpreter_calculator(
-                            current_import_path.cell(),
-                            current_import_path.build_file_cell(),
-                        )
-                        .await?;
+        let dispatcher = self.dice_ctx.per_transaction_data().get_dispatcher().dupe();
+        self.runtime()
+            .block_on(with_dispatcher_async(dispatcher, async {
+                match current_file {
+                    LspUrl::File(current_file) => {
+                        let current_import_path = self.import_path(current_file)?;
+                        let calculator = self
+                            .dice_ctx
+                            .get_interpreter_calculator(
+                                current_import_path.cell(),
+                                current_import_path.build_file_cell(),
+                            )
+                            .await?;
 
-                    let starlark_file = StarlarkPath::LoadFile(&current_import_path);
-                    let loaded_import_path = calculator.resolve_load(starlark_file, path).await?;
-                    let relative_path = self
-                        .cell_resolver
-                        .resolve_path(loaded_import_path.borrow().path())?;
-                    let abs_path = self.fs.resolve(&relative_path);
-                    let url = Url::from_file_path(abs_path).unwrap().try_into()?;
+                        let starlark_file = StarlarkPath::LoadFile(&current_import_path);
+                        let loaded_import_path =
+                            calculator.resolve_load(starlark_file, path).await?;
+                        let relative_path = self
+                            .cell_resolver
+                            .resolve_path(loaded_import_path.borrow().path())?;
+                        let abs_path = self.fs.resolve(&relative_path);
+                        let url = Url::from_file_path(abs_path).unwrap().try_into()?;
 
-                    Ok(url)
+                        Ok(url)
+                    }
+                    _ => Err(ResolveLoadError::WrongScheme(
+                        "file://".to_owned(),
+                        current_file.clone(),
+                    )
+                    .into()),
                 }
-                _ => Err(
-                    ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone())
-                        .into(),
-                ),
-            }
-        })
+            }))
     }
 
     fn resolve_string_literal(
@@ -471,46 +480,51 @@ impl LspContext for BuckLspContext {
             )),
         }?;
         let current_package = Package::from_cell_path(import_path.path());
-        let runtime = self.runtime();
-        runtime.block_on(async move {
-            // Right now we swallow the errors up as they can happen for a lot of reasons that are
-            // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
-            // package path, an absolute path is requested, etc).
-            //
-            // anyhow::Error sort of obscures the root causes, so we just have
-            // to assume if it failed, it's fine, and we can maybe try the next thing.
-            if let Ok(Some(string_literal)) = self
-                .parse_target_from_string(&current_package, literal)
-                .await
-            {
-                Ok(Some(string_literal))
-            } else if let Ok(Some(string_literal)) =
-                self.parse_file_from_string(&current_package, literal).await
-            {
-                Ok(Some(string_literal))
-            } else {
-                Ok(None)
-            }
-        })
+        let dispatcher = self.dice_ctx.per_transaction_data().get_dispatcher().dupe();
+        self.runtime()
+            .block_on(with_dispatcher_async(dispatcher, async {
+                // Right now we swallow the errors up as they can happen for a lot of reasons that are
+                // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
+                // package path, an absolute path is requested, etc).
+                //
+                // anyhow::Error sort of obscures the root causes, so we just have
+                // to assume if it failed, it's fine, and we can maybe try the next thing.
+                if let Ok(Some(string_literal)) = self
+                    .parse_target_from_string(&current_package, literal)
+                    .await
+                {
+                    Ok(Some(string_literal))
+                } else if let Ok(Some(string_literal)) =
+                    self.parse_file_from_string(&current_package, literal).await
+                {
+                    Ok(Some(string_literal))
+                } else {
+                    Ok(None)
+                }
+            }))
     }
 
     fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
-        self.runtime().block_on(async {
-            match uri {
-                LspUrl::File(path) => {
-                    let path = self.import_path(path)?;
-                    match self.dice_ctx.file_ops().read_file(path.path()).await {
-                        Ok(s) => Ok(Some(s)),
-                        Err(e) => match e.downcast_ref::<io::Error>() {
-                            Some(inner_e) if inner_e.kind() == ErrorKind::NotFound => Ok(None),
-                            _ => Err(e),
-                        },
+        let dispatcher = self.dice_ctx.per_transaction_data().get_dispatcher().dupe();
+        self.runtime()
+            .block_on(with_dispatcher_async(dispatcher, async {
+                match uri {
+                    LspUrl::File(path) => {
+                        let path = self.import_path(path)?;
+                        match self.dice_ctx.file_ops().read_file(path.path()).await {
+                            Ok(s) => Ok(Some(s)),
+                            Err(e) => match e.downcast_ref::<io::Error>() {
+                                Some(inner_e) if inner_e.kind() == ErrorKind::NotFound => Ok(None),
+                                _ => Err(e),
+                            },
+                        }
                     }
+                    LspUrl::Starlark(_) => Ok(self.docs_cache.native_starlark_file(uri).cloned()),
+                    _ => Err(
+                        LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into(),
+                    ),
                 }
-                LspUrl::Starlark(_) => Ok(self.docs_cache.native_starlark_file(uri).cloned()),
-                _ => Err(LoadContentsError::WrongScheme("file://".to_owned(), uri.clone()).into()),
-            }
-        })
+            }))
     }
 
     fn get_url_for_global_symbol(
@@ -572,17 +586,20 @@ pub(crate) async fn run_lsp_server(
         runtime.block_on(recv_from_lsp(client_receiver, events_from_server))
     });
 
-    let server_thread = std::thread::spawn(move || {
-        server_with_connection(
-            connection,
-            BuckLspContext {
-                dice_ctx,
-                fs,
-                cell_resolver,
-                docs_cache,
-            },
-        )
-    });
+    let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
+    let server_thread = std::thread::spawn(with_dispatcher(dispatcher, || {
+        move || {
+            server_with_connection(
+                connection,
+                BuckLspContext {
+                    dice_ctx,
+                    fs,
+                    cell_resolver,
+                    docs_cache,
+                },
+            )
+        }
+    }));
 
     let res = loop {
         let message_handler_res = tokio::select! {
