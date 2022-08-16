@@ -13,6 +13,7 @@ load(
     "LinkedObject",
     "unpack_link_args",
 )
+load("@fbcode//buck2/prelude/linking:link_postprocessor.bzl", "postprocess")
 load("@fbcode//buck2/prelude/linking:strip.bzl", "strip_shared_library")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -51,7 +52,8 @@ def cxx_link(
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
         generate_dwp: bool.type = True,
-        executable_link = False) -> LinkedObject.type:
+        executable_link = False,
+        link_postprocessor: ["cmd_args", None] = None) -> LinkedObject.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -100,14 +102,15 @@ def cxx_link(
         cmd.add('""').add(command)
         cmd.hidden(command)
         command = cmd
-
     ctx.actions.run(command, prefer_local = prefer_local, local_only = local_only, weight = link_weight, category = category, identifier = identifier)
     if strip:
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    if link_postprocessor:
+        output = postprocess(ctx, output, link_postprocessor)
 
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
@@ -157,7 +160,8 @@ def cxx_link_shared_library(
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
-        strip_args_factory = None) -> LinkedObject.type:
+        strip_args_factory = None,
+        link_postprocessor: ["cmd_args", None] = None) -> LinkedObject.type:
     """
     Link a shared library into the supplied output.
     """
@@ -181,6 +185,7 @@ def cxx_link_shared_library(
         is_shared = True,
         strip = strip,
         strip_args_factory = strip_args_factory,
+        link_postprocessor = link_postprocessor,
     )
 
 def cxx_link_into_shared_library(
@@ -200,7 +205,8 @@ def cxx_link_into_shared_library(
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
-        strip_args_factory = None) -> LinkedObject.type:
+        strip_args_factory = None,
+        link_postprocessor: ["cmd_args", None] = None) -> LinkedObject.type:
     output = ctx.actions.declare_output(name)
     return cxx_link_shared_library(
         ctx,
@@ -215,4 +221,5 @@ def cxx_link_into_shared_library(
         shared_library_flags = shared_library_flags,
         strip = strip,
         strip_args_factory = strip_args_factory,
+        link_postprocessor = link_postprocessor,
     )

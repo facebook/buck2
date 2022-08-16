@@ -824,6 +824,7 @@ def _shared_library(
         shared_library_flags = impl_params.shared_library_flags,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
+        link_postprocessor = impl_params.link_postprocessor,
     )
 
     exported_shlib = shlib.output

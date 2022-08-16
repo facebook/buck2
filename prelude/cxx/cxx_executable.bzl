@@ -240,6 +240,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
+        link_postprocessor = impl_params.link_postprocessor,
     )
 
     # Define the xcode data sub target
@@ -350,7 +351,8 @@ def _link_into_executable(
         prefer_local: bool.type = False,
         enable_distributed_thinlto = False,
         strip: bool.type = False,
-        strip_args_factory = None) -> (LinkedObject.type, ["artifact"], ["artifact", None], [""]):
+        strip_args_factory = None,
+        link_postprocessor: ["cmd_args", None] = None) -> (LinkedObject.type, ["artifact"], ["artifact", None], [""]):
     output = ctx.actions.declare_output(get_cxx_excutable_product_name(ctx))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(ctx, output, shared_libs)
     exe = cxx_link(
@@ -364,6 +366,7 @@ def _link_into_executable(
         strip = strip,
         strip_args_factory = strip_args_factory,
         executable_link = True,
+        link_postprocessor = link_postprocessor,
     )
     return (exe, runtime_files, shared_libs_symlink_tree, extra_args)
 

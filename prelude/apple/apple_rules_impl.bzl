@@ -40,6 +40,7 @@ extra_attributes = {
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_group_map": link_group_map_attr(),
+        "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
@@ -50,6 +51,7 @@ extra_attributes = {
     "apple_library": {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_group_map": link_group_map_attr(),
+        "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.bool(default = False),
@@ -71,6 +73,7 @@ extra_attributes = {
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(default = "xctest"),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.
         "link_style": attrs.enum(LinkableDepType, default = "static"),
