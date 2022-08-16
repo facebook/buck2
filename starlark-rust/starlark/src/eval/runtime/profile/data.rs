@@ -22,25 +22,32 @@ use anyhow::Context;
 
 use crate::eval::ProfileMode;
 
+#[derive(Clone, Debug)]
+pub(crate) enum ProfileDataImpl {
+    Other(String),
+}
+
 /// Collected profiling data.
 #[derive(Clone, Debug)]
 pub struct ProfileData {
     profile_mode: ProfileMode,
     /// Serialized to text (e.g. CSV or flamegraph).
-    profile: String,
+    profile: ProfileDataImpl,
 }
 
 impl ProfileData {
     pub(crate) fn new(profile_mode: ProfileMode, profile: String) -> ProfileData {
         ProfileData {
             profile_mode,
-            profile,
+            profile: ProfileDataImpl::Other(profile),
         }
     }
 
     /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
     pub fn gen(&self) -> anyhow::Result<String> {
-        Ok(self.profile.clone())
+        match &self.profile {
+            ProfileDataImpl::Other(profile) => Ok(profile.clone()),
+        }
     }
 
     /// Write to a file.
