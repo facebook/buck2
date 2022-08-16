@@ -118,7 +118,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
-        extra_link_flags = get_min_deployment_version_target_linker_flags(ctx),
+        extra_link_flags = [_get_linker_flags(ctx, swift_providers)],
         extra_link_input = swift_object_files,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre, swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [exported_pre]),
@@ -168,3 +168,11 @@ def _get_shared_link_style_sub_targets_and_providers(
     return ({
         DSYM_SUBTARGET: [DefaultInfo(default_outputs = [dsym_artifact])],
     }, [AppleDebuggableInfo(dsyms = [dsym_artifact])] + min_version_providers)
+
+def _get_linker_flags(ctx: "context", swift_providers: ["provider"]) -> "cmd_args":
+    cmd = cmd_args(get_min_deployment_version_target_linker_flags(ctx))
+    for p in swift_providers:
+        if hasattr(p, "transitive_swiftmodule_paths"):
+            cmd.add(p.transitive_swiftmodule_paths.project_as_args("linker_args"))
+
+    return cmd
