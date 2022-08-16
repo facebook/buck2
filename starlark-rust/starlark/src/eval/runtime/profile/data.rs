@@ -23,11 +23,19 @@ use anyhow::Context;
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::ProfileMode;
+use crate::values::AggregateHeapProfileInfo;
+
+#[derive(Debug, thiserror::Error)]
+enum ProfileDataError {
+    #[error("Profile data is not consistent with profile mode (internal error)")]
+    ProfileDataNotConsistent,
+}
 
 #[derive(Clone, Debug)]
 pub(crate) enum ProfileDataImpl {
     Bc(Box<BcProfileData>),
     BcPairs(BcPairsProfileData),
+    AggregateHeapProfileInfo(Box<AggregateHeapProfileInfo>),
     Other(String),
 }
 
@@ -49,10 +57,21 @@ impl ProfileData {
 
     /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
     pub fn gen(&self) -> anyhow::Result<String> {
-        match &self.profile {
-            ProfileDataImpl::Other(profile) => Ok(profile.clone()),
-            ProfileDataImpl::Bc(bc) => Ok(bc.gen_csv()),
-            ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs.gen_csv()),
+        match (&self.profile, &self.profile_mode) {
+            (ProfileDataImpl::Other(profile), _) => Ok(profile.clone()),
+            (ProfileDataImpl::Bc(bc), _) => Ok(bc.gen_csv()),
+            (ProfileDataImpl::BcPairs(bc_pairs), _) => Ok(bc_pairs.gen_csv()),
+            (
+                ProfileDataImpl::AggregateHeapProfileInfo(profile),
+                ProfileMode::HeapFlameRetained | ProfileMode::HeapFlameAllocated,
+            ) => Ok(profile.gen_flame_graph()),
+            (
+                ProfileDataImpl::AggregateHeapProfileInfo(profile),
+                ProfileMode::HeapSummaryRetained | ProfileMode::HeapSummaryAllocated,
+            ) => Ok(profile.gen_summary_csv()),
+            (ProfileDataImpl::AggregateHeapProfileInfo(_), _) => {
+                Err(ProfileDataError::ProfileDataNotConsistent.into())
+            }
         }
     }
 

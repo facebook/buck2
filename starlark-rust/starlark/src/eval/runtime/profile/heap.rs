@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use gazebo::dupe::Dupe;
 
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::ProfileMode;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
@@ -87,12 +88,18 @@ impl HeapProfile {
 
     fn write_flame_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        ProfileData::new(ProfileMode::HeapFlameAllocated, stacks.gen_flame_graph())
+        ProfileData {
+            profile_mode: ProfileMode::HeapFlameAllocated,
+            profile: ProfileDataImpl::AggregateHeapProfileInfo(box stacks),
+        }
     }
 
     fn write_summarized_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
-        ProfileData::new(ProfileMode::HeapSummaryAllocated, stacks.gen_summary_csv())
+        ProfileData {
+            profile_mode: ProfileMode::HeapSummaryAllocated,
+            profile: ProfileDataImpl::AggregateHeapProfileInfo(box stacks),
+        }
     }
 }
 
