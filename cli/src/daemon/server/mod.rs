@@ -102,7 +102,6 @@ use once_cell::sync::Lazy;
 use starlark::eval::ProfileMode;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
-use tokio::task::JoinHandle;
 use tonic::transport::server::Connected;
 use tonic::transport::Server;
 use tonic::Code;
@@ -128,6 +127,7 @@ use crate::paths::Paths;
 mod concurrency;
 pub(crate) mod ctx;
 mod file_watcher;
+pub(crate) mod heartbeat_guard;
 pub(crate) mod lsp;
 mod snapshot;
 
@@ -926,58 +926,6 @@ impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
             )),
         }?;
         request.try_into()
-    }
-}
-
-// Spawns a thread to occasionally output snapshots of resource utilization.
-struct HeartbeatGuard {
-    handle: JoinHandle<()>,
-    collector: snapshot::SnapshotCollector,
-    events: Arc<Mutex<Option<EventDispatcher>>>,
-}
-
-impl HeartbeatGuard {
-    fn new(ctx: &BaseCommandContext) -> Self {
-        let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
-        let collector = snapshot::SnapshotCollector::from_command(ctx);
-
-        // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
-        // exact lifetime of the dispatcher.
-        let handle = tokio::spawn({
-            let events = events.dupe();
-            let collector = collector.dupe();
-            async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(1));
-                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                loop {
-                    let snapshot = collector.create_snapshot();
-                    match events.lock().expect("Poisoned lock").as_ref() {
-                        Some(events) => events.instant_event(snapshot),
-                        None => break,
-                    }
-                    interval.tick().await;
-                }
-            }
-        });
-
-        Self {
-            handle,
-            collector,
-            events,
-        }
-    }
-}
-
-impl Drop for HeartbeatGuard {
-    fn drop(&mut self) {
-        let mut maybe_events = self.events.lock().expect("Poisoned lock");
-        // Synchronously remove access for sending new heartbeats.
-        if let Some(events) = maybe_events.take() {
-            // Send one last snapshot.
-            events.instant_event(self.collector.create_snapshot());
-        }
-        // Cancel the task as well.
-        self.handle.abort();
     }
 }
 
