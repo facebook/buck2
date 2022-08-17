@@ -36,7 +36,6 @@ use buck2_common::memory;
 use buck2_common::truncate::truncate;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
-use buck2_core::pattern::ProvidersPattern;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
@@ -55,7 +54,6 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
-use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
@@ -74,7 +72,6 @@ use tracing::debug_span;
 use crate::daemon::build::build;
 use crate::daemon::bxl::bxl;
 use crate::daemon::clean::clean;
-use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::ToProtoDuration;
 use crate::daemon::install::install;
 use crate::daemon::materialize::materialize;
@@ -711,8 +708,9 @@ impl DaemonApi for BuckdServer {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let project_root = context.base_context.project_root.to_string();
             let metadata = request_metadata(&context).await?;
-            let patterns_for_logging =
-                canonicalize_patterns_for_logging(&context, &req.target_patterns).await?;
+            let patterns_for_logging = context
+                .canonicalize_patterns_for_logging(&req.target_patterns)
+                .await?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::BuildCommandStart {}.into()),
@@ -804,8 +802,9 @@ impl DaemonApi for BuckdServer {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let metadata = request_metadata(&context).await?;
             let events = context.base_context.events.dupe();
-            let patterns_for_logging =
-                canonicalize_patterns_for_logging(&context, &req.target_patterns).await?;
+            let patterns_for_logging = context
+                .canonicalize_patterns_for_logging(&req.target_patterns)
+                .await?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::TestCommandStart {}.into()),
@@ -1090,8 +1089,9 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let metadata = request_metadata(&context).await?;
-            let patterns_for_logging =
-                canonicalize_patterns_for_logging(&context, &req.target_patterns).await?;
+            let patterns_for_logging = context
+                .canonicalize_patterns_for_logging(&req.target_patterns)
+                .await?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::InstallCommandStart {}.into()),
@@ -1527,34 +1527,6 @@ struct DefaultCommandOptions;
 
 impl OneshotCommandOptions for DefaultCommandOptions {}
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}
-
-/// The target patterns sent to the Buck2 daemon are ambiguous and require some amount of disambiguation prior to
-/// running a command. There are two key things that need to be disambiguated by the Buck2 daemon:
-///   1) Target patterns can be relative to the Buck2 client's current working directory, in which case we must
-///      canonicalize the path to the root of the nearest cell,
-///   2) Target patterns do not require an explicit cell at the root of the path, in which case Buck2 infers the cell
-///      based on configuration.
-///
-/// This function produces a canonicalized list of target patterns from a command-supplied list of target patterns, with
-/// all ambiguities resolved. This greatly simplifies logging as we only ever log unambiguous target patterns and do not
-/// need to log things like the command's working directory or cell.
-async fn canonicalize_patterns_for_logging(
-    ctx: &ServerCommandContext,
-    patterns: &[buck2_data::TargetPattern],
-) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
-    let dice_txn = ctx.dice_ctx().await?;
-    let providers_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
-        patterns,
-        &dice_txn.get_cell_resolver().await?,
-        &dice_txn.get_legacy_configs().await?,
-        &ctx.working_dir,
-    )?;
-    let patterns = providers_patterns.into_map(|pat| buck2_data::TargetPattern {
-        value: format!("{}", pat),
-    });
-
-    Ok(patterns)
-}
 
 #[cfg(unix)]
 async fn maybe_launch_forkserver(

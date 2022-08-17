@@ -33,13 +33,16 @@ use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
@@ -58,12 +61,14 @@ use dice::DiceTransaction;
 use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
+use gazebo::prelude::VecExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 
 use crate::configs::parse_legacy_cells;
 use crate::daemon::common::get_executor_config_for_strategy;
 use crate::daemon::common::parse_concurrency;
+use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::server::active_commands::ActiveCommandDropGuard;
 use crate::daemon::server::dice_tracker::BuckDiceTracker;
@@ -253,6 +258,34 @@ impl ServerCommandContext {
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
         })
+    }
+
+    /// The target patterns sent to the Buck2 daemon are ambiguous and require some amount of disambiguation prior to
+    /// running a command. There are two key things that need to be disambiguated by the Buck2 daemon:
+    ///   1) Target patterns can be relative to the Buck2 client's current working directory, in which case we must
+    ///      canonicalize the path to the root of the nearest cell,
+    ///   2) Target patterns do not require an explicit cell at the root of the path, in which case Buck2 infers the cell
+    ///      based on configuration.
+    ///
+    /// This function produces a canonicalized list of target patterns from a command-supplied list of target patterns, with
+    /// all ambiguities resolved. This greatly simplifies logging as we only ever log unambiguous target patterns and do not
+    /// need to log things like the command's working directory or cell.
+    pub(crate) async fn canonicalize_patterns_for_logging(
+        &self,
+        patterns: &[buck2_data::TargetPattern],
+    ) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
+        let dice_txn = self.dice_ctx().await?;
+        let providers_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+            patterns,
+            &dice_txn.get_cell_resolver().await?,
+            &dice_txn.get_legacy_configs().await?,
+            &self.working_dir,
+        )?;
+        let patterns = providers_patterns.into_map(|pat| buck2_data::TargetPattern {
+            value: format!("{}", pat),
+        });
+
+        Ok(patterns)
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
