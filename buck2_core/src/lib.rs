@@ -15,6 +15,7 @@
 #![feature(const_fn_trait_bound)]
 #![feature(const_panic)]
 #![feature(control_flow_enum)]
+#![feature(is_some_with)]
 #![feature(fs_try_exists)]
 #![feature(map_first_last)]
 #![feature(termination_trait_lib)]

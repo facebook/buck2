@@ -38,6 +38,7 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 #[cfg(windows)]
 fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     use std::borrow::Cow;
+    use std::io::ErrorKind;
 
     let target_abspath = if original.is_absolute() {
         Cow::Borrowed(original)
@@ -86,11 +87,17 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     };
 
     // If target doesn't exist yet, default to file symlink.
-    if target_abspath.exists() && target_abspath.metadata()?.is_dir() {
-        std::os::windows::fs::symlink_dir(target_path.as_ref(), link).map_err(|e| e.into())
+    let target_metadata = target_abspath.metadata();
+    if target_metadata.is_ok_and(|m| m.is_dir()) {
+        std::os::windows::fs::symlink_dir(target_path.as_ref(), link)?;
+    } else if target_metadata.is_ok()
+        || target_metadata.is_err_and(|e| e.kind() == ErrorKind::NotFound)
+    {
+        std::os::windows::fs::symlink_file(target_path.as_ref(), link)?;
     } else {
-        std::os::windows::fs::symlink_file(target_path.as_ref(), link).map_err(|e| e.into())
-    }
+        return Err(target_metadata.err().unwrap().into());
+    };
+    Ok(())
 }
 
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
