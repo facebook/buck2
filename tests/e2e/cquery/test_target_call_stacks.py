@@ -8,7 +8,7 @@ from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 async def test_target_call_stacks_default(buck: Buck) -> None:
     out = await buck.cquery(
         "--target-call-stacks",
-        "fbcode//buck2/tests/targets/uquery/target_call_stacks:test",
+        "fbcode//buck2/tests/e2e/cquery/test_target_call_stacks_data:test",
     )
 
     assert "export_file" in out.stdout
@@ -19,7 +19,7 @@ async def test_target_call_stacks_json(buck: Buck) -> None:
     out = await buck.cquery(
         "--target-call-stacks",
         "--output-attribute=.*",
-        "fbcode//buck2/tests/targets/uquery/target_call_stacks:test",
+        "fbcode//buck2/tests/e2e/cquery/test_target_call_stacks_data:test",
     )
 
     out = json.loads(out.stdout)
