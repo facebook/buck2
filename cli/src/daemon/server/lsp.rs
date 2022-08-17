@@ -67,7 +67,7 @@ use tonic::Status;
 use crate::daemon::docs::get_builtin_docs;
 use crate::daemon::docs::get_prelude_docs;
 use crate::daemon::server::ctx::ServerCommandContext;
-use crate::daemon::server::StreamingRequestHandler;
+use crate::daemon::server::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";

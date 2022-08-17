@@ -11,7 +11,6 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -57,6 +56,7 @@ use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::eval::ProfileMode;
 use state::DaemonState;
+use streaming_request_handler::StreamingRequestHandler;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::server::Connected;
@@ -90,6 +90,7 @@ pub(crate) mod lsp;
 mod raw_output;
 mod snapshot;
 pub(crate) mod state;
+mod streaming_request_handler;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -352,37 +353,6 @@ impl BuckdServer {
         } else {
             Ok(())
         }
-    }
-}
-
-/// Simple container that holds onto a stream of incoming client requests.
-///
-/// The primary use for this is pulling messages of a specific type from
-/// the client via [`StreamingRequestHandler::message`]
-pub(crate) struct StreamingRequestHandler<T: TryFrom<StreamingRequest, Error = Status>> {
-    client_stream: tonic::Streaming<StreamingRequest>,
-    _phantom: PhantomData<T>,
-}
-
-impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
-    fn new(client_stream: tonic::Streaming<StreamingRequest>) -> Self {
-        Self {
-            client_stream,
-            _phantom: PhantomData::default(),
-        }
-    }
-
-    /// Get a message of type [`T`] from inside of a [`StreamingRequest`] envelope.
-    ///
-    /// Returns an error if the message is of the wrong type.
-    pub(crate) async fn message(&mut self) -> Result<T, Status> {
-        let request = match self.client_stream.message().await? {
-            Some(m) => Ok(m),
-            None => Err(Status::failed_precondition(
-                "received a message that is not a `StreamingRequest`",
-            )),
-        }?;
-        request.try_into()
     }
 }
 
