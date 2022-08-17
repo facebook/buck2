@@ -65,6 +65,36 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
 
     return [DefaultInfo(default_outputs = [output])]
 
+def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["artifact", None]:
+    if not ctx.attrs.application_module_configs:
+        return None
+
+    all_deps = deps + flatten(ctx.attrs.application_module_configs.values())
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_deps)
+
+    shared_library_info = merge_shared_libraries(
+        ctx.actions,
+        deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
+    )
+    traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
+
+    cmd, output = _get_base_cmd_and_output(
+        ctx.actions,
+        ctx.label,
+        android_packageable_info,
+        traversed_shared_library_info,
+        ctx.attrs._android_toolchain[AndroidToolchainInfo],
+        ctx.attrs.application_module_configs,
+        ctx.attrs.application_module_dependencies,
+        ctx.attrs.application_module_blacklist,
+    )
+
+    cmd.add("--output-target-to-module-only")
+
+    ctx.actions.run(cmd, category = "apk_module_graph")
+
+    return output
+
 def _get_base_cmd_and_output(
         actions: "actions",
         label: "label",

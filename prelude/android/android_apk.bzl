@@ -7,6 +7,7 @@ load("@fbcode//buck2/prelude/android:configuration.bzl", "get_deps_by_platform")
 load("@fbcode//buck2/prelude/android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@fbcode//buck2/prelude/android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@fbcode//buck2/prelude/android:proguard.bzl", "get_proguard_output")
+load("@fbcode//buck2/prelude/android:voltron.bzl", "get_target_to_module_mapping")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "KeystoreInfo", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
@@ -85,7 +86,8 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
                 is_optimized = has_proguard_config,
             )
 
-    native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
+    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
+    native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
     unstripped_native_libs = native_library_info.unstripped_libs
     sub_targets["unstripped_native_libraries"] = [
         DefaultInfo(
