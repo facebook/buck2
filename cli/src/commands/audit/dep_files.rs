@@ -19,6 +19,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::BaseDeferredKey;
 use buck2_build_api::execute::materializer::HasMaterializer;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
@@ -76,7 +77,8 @@ impl AuditSubcommand for AuditDepFilesCommand {
             &[buck2_data::TargetPattern {
                 value: self.pattern.clone(),
             }],
-            &ctx,
+            &cells,
+            &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
         )
         .await?

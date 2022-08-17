@@ -97,7 +97,14 @@ pub(crate) async fn build(
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args(&request.target_patterns, &ctx, cwd).await?;
+    let parsed_patterns = parse_patterns_from_cli_args(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )
+    .await?;
+
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 

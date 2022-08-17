@@ -16,6 +16,7 @@ use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
@@ -289,8 +290,13 @@ pub(crate) async fn targets(
     let target_platform =
         target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-    let parsed_target_patterns =
-        parse_patterns_from_cli_args::<TargetPattern>(&request.target_patterns, &ctx, cwd).await?;
+    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )
+    .await?;
 
     // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
     // print them out. This expects the aliases to resolve to individual targets.

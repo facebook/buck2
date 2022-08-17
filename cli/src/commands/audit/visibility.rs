@@ -10,6 +10,8 @@
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::pattern::TargetPattern;
@@ -141,7 +143,8 @@ impl AuditSubcommand for AuditVisibilityCommand {
             &self
                 .patterns
                 .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-            &ctx,
+            &ctx.get_cell_resolver().await?,
+            &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
         )
         .await?;

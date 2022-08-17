@@ -34,6 +34,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::*;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
@@ -137,9 +138,13 @@ pub(crate) async fn install(
     .await?;
 
     // Note <TargetName> does not return the providers
-    let parsed_patterns =
-        parse_patterns_from_cli_args::<ProvidersPattern>(&request.target_patterns, &ctx, cwd)
-            .await?;
+    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )
+    .await?;
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 

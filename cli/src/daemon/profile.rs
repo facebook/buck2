@@ -16,6 +16,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::module_internals::ModuleInternals;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
@@ -117,9 +118,13 @@ pub(crate) async fn generate_profile(
         target_platform_from_client_context(Some(&client_ctx), &cells, &server_ctx.working_dir)
             .await?;
 
-    let parsed_patterns =
-        parse_patterns_from_cli_args::<TargetPattern>(&[pattern], &ctx, &server_ctx.working_dir)
-            .await?;
+    let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+        &[pattern],
+        &cells,
+        &ctx.get_legacy_configs().await?,
+        &server_ctx.working_dir,
+    )
+    .await?;
 
     let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
 

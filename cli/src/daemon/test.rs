@@ -186,7 +186,14 @@ pub(crate) async fn test(
         .as_ref()
         .to_owned();
 
-    let parsed_patterns = parse_patterns_from_cli_args(&request.target_patterns, &ctx, cwd).await?;
+    let parsed_patterns = parse_patterns_from_cli_args(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )
+    .await?;
+
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 

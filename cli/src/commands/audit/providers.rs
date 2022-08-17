@@ -14,6 +14,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -77,7 +78,8 @@ impl AuditSubcommand for AuditProvidersCommand {
             &self
                 .patterns
                 .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-            &ctx,
+            &cells,
+            &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
         )
         .await?;

@@ -27,9 +27,7 @@ use buck2_build_api::execute::commands::re::ReExecutorGlobalKnobs;
 use buck2_build_api::execute::commands::ExecutorPreference;
 use buck2_build_api::execute::commands::PreparedCommandExecutor;
 use buck2_build_api::execute::materializer::Materializer;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::FileOps;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -58,7 +56,6 @@ use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::ClientContext;
 use dashmap::DashMap;
-use dice::DiceTransaction;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
@@ -148,15 +145,11 @@ impl PatternParser {
 /// See `ParsedPattern::parse_relaxed` for details.
 pub(crate) async fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns: &[buck2_data::TargetPattern],
-    ctx: &DiceTransaction,
+    cell_resolver: &CellResolver,
+    configs: &LegacyBuckConfigs,
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {
-    let parser = PatternParser::new(
-        &ctx.get_cell_resolver().await?,
-        &ctx.get_legacy_configs().await?,
-        cwd,
-    )
-    .await?;
+    let parser = PatternParser::new(cell_resolver, configs, cwd).await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }

@@ -1543,9 +1543,13 @@ async fn canonicalize_patterns_for_logging(
     patterns: &[buck2_data::TargetPattern],
 ) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
     let dice_txn = ctx.dice_ctx().await?;
-    let providers_patterns =
-        parse_patterns_from_cli_args::<ProvidersPattern>(patterns, &dice_txn, &ctx.working_dir)
-            .await?;
+    let providers_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+        patterns,
+        &dice_txn.get_cell_resolver().await?,
+        &dice_txn.get_legacy_configs().await?,
+        &ctx.working_dir,
+    )
+    .await?;
     let patterns = providers_patterns.into_map(|pat| buck2_data::TargetPattern {
         value: format!("{}", pat),
     });
