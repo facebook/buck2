@@ -138,6 +138,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     async fn on_fresh_instance(
         &self,
         ctx: DiceTransaction,
+        mergebase: &Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
         eprintln!("watchman fresh instance event, clearing cache");
 
@@ -153,6 +154,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         Ok((
             buck2_data::WatchmanStats {
                 fresh_instance: true,
+                branched_from_revision: mergebase.clone().unwrap_or_default(),
                 ..Default::default()
             },
             ctx,

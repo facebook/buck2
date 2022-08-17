@@ -55,6 +55,7 @@ impl SyncableQueryProcessor for TestQueryProcessor {
     async fn on_fresh_instance(
         &self,
         payload: Self::Payload,
+        _mergebase: &Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)> {
         Ok((Out::FreshInstance, payload))
     }

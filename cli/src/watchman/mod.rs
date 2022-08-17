@@ -171,6 +171,7 @@ pub(crate) trait SyncableQueryProcessor: Send + Sync {
     async fn on_fresh_instance(
         &self,
         dice: Self::Payload,
+        mergebase: &Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)>;
 }
 
@@ -280,14 +281,18 @@ where
                     )
                 } else {
                     (
-                        self.processor.on_fresh_instance(payload).await?,
+                        self.processor
+                            .on_fresh_instance(payload, &merge_base)
+                            .await?,
                         merge_base,
                         clock,
                     )
                 }
             }
             WatchmanSyncResult::FreshInstance { merge_base, clock } => (
-                self.processor.on_fresh_instance(payload).await?,
+                self.processor
+                    .on_fresh_instance(payload, &merge_base)
+                    .await?,
                 merge_base,
                 clock,
             ),

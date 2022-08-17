@@ -869,6 +869,7 @@ message WatchmanStats {
   bool fresh_instance = 1;
   uint64 events_total = 2;
   uint64 events_processed = 3;
+  string branched_from_revision = 4;
 }
 
 message WatchmanEnd {
