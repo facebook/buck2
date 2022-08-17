@@ -125,6 +125,17 @@ impl ProfileData {
                 let profile = BcPairsProfileData::merge(profiles);
                 ProfileDataImpl::BcPairs(profile)
             }
+            ProfileMode::HeapSummaryAllocated
+            | ProfileMode::HeapSummaryRetained
+            | ProfileMode::HeapFlameAllocated
+            | ProfileMode::HeapFlameRetained => {
+                let profiles = profiles.try_map(|p| match &p.profile {
+                    ProfileDataImpl::AggregateHeapProfileInfo(profile) => Ok(&**profile),
+                    _ => Err(ProfileDataError::ProfileDataNotConsistent),
+                })?;
+                let profile = AggregateHeapProfileInfo::merge(profiles);
+                ProfileDataImpl::AggregateHeapProfileInfo(box profile)
+            }
             profile_mode => {
                 return Err(ProfileDataError::MergeNotImplemented(profile_mode.dupe()).into());
             }
@@ -138,11 +149,14 @@ impl ProfileData {
 
 #[cfg(test)]
 mod tests {
+    use gazebo::dupe::Dupe;
+
     use crate::eval::runtime::profile::bc::BcPairsProfileData;
     use crate::eval::runtime::profile::bc::BcProfileData;
     use crate::eval::runtime::profile::data::ProfileDataImpl;
     use crate::eval::ProfileData;
     use crate::eval::ProfileMode;
+    use crate::values::AggregateHeapProfileInfo;
 
     #[test]
     fn merge_bc() {
@@ -162,5 +176,24 @@ mod tests {
         };
         // Smoke.
         ProfileData::merge([&profile, &profile]).unwrap();
+    }
+
+    #[test]
+    fn merge_aggregated_heap_profile() {
+        for profile_mode in [
+            ProfileMode::HeapFlameRetained,
+            ProfileMode::HeapFlameAllocated,
+            ProfileMode::HeapSummaryRetained,
+            ProfileMode::HeapSummaryAllocated,
+        ] {
+            let profile = ProfileData {
+                profile_mode: profile_mode.dupe(),
+                profile: ProfileDataImpl::AggregateHeapProfileInfo(
+                    box AggregateHeapProfileInfo::default(),
+                ),
+            };
+            // Smoke.
+            ProfileData::merge([&profile, &profile]).unwrap();
+        }
     }
 }
