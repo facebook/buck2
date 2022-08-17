@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
 use buck2_core::pattern::TargetPattern;
 use cli_proto::ClientContext;
@@ -55,7 +56,12 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         let ctx = server_ctx.dice_ctx().await?;
         let cell_resolver = ctx.get_cell_resolver().await?;
 
-        let pattern_parser = PatternParser::new(&ctx, &server_ctx.working_dir).await?;
+        let pattern_parser = PatternParser::new(
+            &cell_resolver,
+            &ctx.get_legacy_configs().await?,
+            &server_ctx.working_dir,
+        )
+        .await?;
 
         let mut configured_patterns = Vec::new();
         let mut target_patterns = Vec::new();

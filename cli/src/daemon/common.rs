@@ -30,6 +30,7 @@ use buck2_build_api::execute::materializer::Materializer;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
@@ -104,11 +105,10 @@ pub(crate) struct PatternParser {
 
 impl PatternParser {
     pub(crate) async fn new(
-        ctx: &DiceTransaction,
+        cell_resolver: &CellResolver,
+        config: &LegacyBuckConfigs,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        let cell_resolver = ctx.get_cell_resolver().await?;
-
         let cwd = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
         let cell_name = cwd.as_cell_path().cell();
 
@@ -119,13 +119,7 @@ impl PatternParser {
             .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
             .dupe();
 
-        // The same goes for target aliases.
-        let config = ctx
-            .get_legacy_config_for_cell(cell_name)
-            .await
-            .with_context(|| format!("No configuration for cell: `{}`", cell_name))?;
-
-        let target_alias_resolver = config.target_alias_resolver();
+        let target_alias_resolver = config.get(cell_name)?.target_alias_resolver();
 
         Ok(Self {
             cell,
@@ -157,7 +151,12 @@ pub(crate) async fn parse_patterns_from_cli_args<T: PatternType>(
     ctx: &DiceTransaction,
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {
-    let parser = PatternParser::new(ctx, cwd).await?;
+    let parser = PatternParser::new(
+        &ctx.get_cell_resolver().await?,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )
+    .await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }
