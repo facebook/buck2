@@ -59,13 +59,6 @@ _rust_flavors = _fbcode_cxx_flavors + [
     "macosx-x86_64_minimal_xcode",
 ]
 
-_fbcode_python_platforms = {
-    platform: python_versioning.get_platform_python_versions(platform)
-    for platform in fbcode_toolchains.PLATFORMS + [
-        "macosx-x86_64",
-    ]
-}
-
 [config_backed_cxx_toolchain(
     name = flavor,
     flavor = flavor,
@@ -139,46 +132,43 @@ go_fbcode_toolchain(
     visibility = ["PUBLIC"],
 )
 
-# Define fbcode-based Python toolchains.
+# The Python toolchains to setup, using 2-tuples of platform flavor and constraints
+# to use for `target_compatible_with`.
+_fbcode_python_platforms = [
+    (platform, ["ovr_config//runtime:fbcode"])
+    for platform in fbcode_toolchains.PLATFORMS
+]
+_non_fbcode_python_platforms = [
+    ("macosx-x86_64", []),
+]
+
+# Define fbcode Python toolchains.
 [
-    [
-        config_backed_python_toolchain(
-            flavor = platform_utils.get_buck_python_platform(platform, version),
-            # For fbcode platforms, we pick a host interpreter that's compatble with
-            # the target platform but can run on the exec platform (e.g. use
-            # platform010's py3.8 for py3.8 builds targeting platform010-aarch64).
-            #
-            # Note that host_interpreter is special and this select will actually be pushed down
-            # into an exec_dep of the toolchain and will be resolved in the exec configuration.
-            # We encode information about the target configuration from the use of platform/version
-            # to construct the select.
-            #
-            # If we add more overridden values here, we should explicitly separate the exec-config part
-            # into a separate target here rather than in the macro.
-            host_interpreter = selects2.apply(
-                select({
-                    "DEFAULT": None,
-                    "ovr_config//runtime:fbcode": fbcode_toolchains.get_exec_fbcode_platform(platform),
-                }),
-                lambda platform: read_config(
-                    "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
-                    "interpreter",
-                ),
+    config_backed_python_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        # For fbcode platforms, we pick a host interpreter that's compatble with
+        # the target platform but can run on the exec platform (e.g. use
+        # platform010's py3.8 for py3.8 builds targeting platform010-aarch64).
+        #
+        # Note that host_interpreter is special and this select will actually be pushed down
+        # into an exec_dep of the toolchain and will be resolved in the exec configuration.
+        # We encode information about the target configuration from the use of platform/version
+        # to construct the select.
+        #
+        # If we add more overridden values here, we should explicitly separate the exec-config part
+        # into a separate target here rather than in the macro.
+        host_interpreter = selects2.apply(
+            fbcode_toolchains.get_exec_fbcode_platform(platform),
+            lambda platform: read_config(
+                "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
+                "interpreter",
             ),
-            target_compatible_with = select({
-                "DEFAULT": ["ovr_config//:none"],
-                "fbcode//buck2/platform/execution:fat_platform_enabled": ["fbcode//buck2/platform/execution:fat_platform_enabled"],
-                "ovr_config//os:android": ["ovr_config//os:android"],
-                "ovr_config//os:iphoneos": ["ovr_config//os:iphoneos"],
-                "ovr_config//os:macos": ["ovr_config//os:macos"],
-                "ovr_config//os:windows": ["ovr_config//os:windows"],
-                "ovr_config//runtime:fbcode": ["ovr_config//runtime:fbcode"],
-            }),
-            visibility = ["PUBLIC"],
         ),
-    ]
-    for platform, versions in _fbcode_python_platforms.items()
-    for version in versions
+        target_compatible_with = constraints,
+        visibility = ["PUBLIC"],
+    )
+    for platform, constraints in _fbcode_python_platforms
+    for version in python_versioning.get_platform_python_versions(platform)
 ]
 
 # For legacy reasons, the fbcode's platform009 Python toolchain set in the
@@ -192,14 +182,26 @@ config_backed_python_toolchain(
     visibility = ["PUBLIC"],
 )
 
-# Define fbcode-based bootstrap Python toolchains.
+# Define non-fbcode Python toolchains.
+[
+    config_backed_python_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        target_compatible_with = constraints,
+        visibility = ["PUBLIC"],
+    )
+    for platform, constraints in _non_fbcode_python_platforms
+    for version in python_versioning.get_platform_python_versions(platform)
+]
+
+# Define bootstrap Python toolchains.
 [
     config_backed_python_bootstrap_toolchain(
         flavor = platform_utils.get_buck_python_platform(platform, version),
         visibility = ["PUBLIC"],
     )
-    for platform, versions in _fbcode_python_platforms.items()
-    for version in versions
+    # TODO(agallagher): We should add `target_compatible_with` here.
+    for platform, _constraints in (_fbcode_python_platforms + _non_fbcode_python_platforms)
+    for version in python_versioning.get_platform_python_versions(platform)
 ]
 
 [config_backed_rust_toolchain(
