@@ -4,7 +4,8 @@ from os.path import exists
 from py._path.local import LocalPath
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.asserts import expect_failure
-from xplat.build_infra.buck_e2e.buck_workspace import buck_test
+from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
+
 
 # Currently installer grpc doesn't compile on Mac
 def linux_only() -> bool:
@@ -14,6 +15,7 @@ def linux_only() -> bool:
 if linux_only():
 
     @buck_test(inplace=True)
+    @env("BUCK_LOG", "info")
     async def test_success_install(buck: Buck, tmpdir: LocalPath) -> None:
         tmp_dir = tmpdir.mkdir("install_test")
         args = ["--dst", f"{tmp_dir}"]
@@ -24,6 +26,7 @@ if linux_only():
         assert exists(f"{tmp_dir}/artifact_b.txt")
 
     @buck_test(inplace=True)
+    @env("BUCK_LOG", "info")
     async def test_artifact_fails_to_install(buck: Buck) -> None:
         await expect_failure(
             buck.install(
@@ -33,6 +36,7 @@ if linux_only():
         )
 
     @buck_test(inplace=True)
+    @env("BUCK_LOG", "info")
     async def test_fail_to_build_artifact(buck: Buck) -> None:
         await expect_failure(
             buck.install("fbcode//buck2/tests/targets/rules/install:bad_artifacts"),
@@ -40,6 +44,7 @@ if linux_only():
         )
 
     @buck_test(inplace=True)
+    @env("BUCK_LOG", "info")
     async def test_install_id_mismatch(buck: Buck) -> None:
         await expect_failure(
             buck.install(
@@ -50,6 +55,7 @@ if linux_only():
 
 
 @buck_test(inplace=True)
+@env("BUCK_LOG", "info")
 async def test_fail_to_build_installer(buck: Buck) -> None:
     await expect_failure(
         buck.install("fbcode//buck2/tests/targets/rules/install:bad_installer_target"),

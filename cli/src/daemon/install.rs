@@ -69,6 +69,8 @@ use tempfile::Builder;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
@@ -395,8 +397,8 @@ async fn build_launch_installer<'a>(
         background_command(&run_args[0])
             .args(&run_args[1..])
             .args(installer_run_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(get_stdio()?)
+            .stderr(get_stdio()?)
             .spawn()
             .context("Failed to spawn installer")?;
 
@@ -404,6 +406,22 @@ async fn build_launch_installer<'a>(
     } else {
         Err(InstallError::NoRunInfoProvider(providers_label.target().name().to_owned()).into())
     }
+}
+
+fn get_stdio() -> anyhow::Result<Stdio> {
+    // TODO: handle exit code, std.out and std.err from the install app command,
+    // and print outputs in case exit code is not equals 0
+
+    let log_level = match std::env::var("BUCK_LOG") {
+        Ok(v) => v,
+        Err(_) => "warn".to_owned(),
+    };
+
+    let level_filter = EnvFilter::try_new(log_level)?;
+    if level_filter.max_level_hint().unwrap() <= LevelFilter::INFO {
+        return Ok(Stdio::inherit());
+    }
+    Ok(Stdio::piped())
 }
 
 #[derive(Debug)]

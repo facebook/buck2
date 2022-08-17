@@ -94,6 +94,7 @@ rust_library(
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tower",
         "fbsource//third-party/rust:tracing",
+        "fbsource//third-party/rust:tracing-subscriber",
         "fbsource//third-party/rust:walkdir",
         "//buck2/buck2_build_api:buck2_build_api",
         "//buck2/buck2_bxl:buck2_bxl",
