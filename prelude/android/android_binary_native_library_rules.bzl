@@ -5,6 +5,32 @@ load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "all_targets_i
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
 
+# Native libraries on Android are built for a particular Application Binary Interface (ABI). We
+# package native libraries for one (or more, for multi-arch builds) ABIs into an Android APK.
+#
+# Our native libraries come from two sources:
+# 1. "Prebuilt native library dirs", which are directory artifacts whose sub-directories are ABIs,
+#    and those ABI subdirectories contain native libraries. These come from `android_prebuilt_aar`s
+#    and `prebuilt_native_library`s, for example.
+# 2. "Native linkables". These are each a single shared library - `.so`s for one particular ABI.
+#
+# Native libraries can be packaged into Android APKs in two ways.
+# 1. As native libraries. This means that they are passed to the APK builder as native libraries,
+#    and the APK builder will package `<ABI>/library.so` into the APK at `libs/<ABI>/library.so`.
+# 2. As assets. These are passed to the APK build as assets, and are stored at
+#    `assets/lib/<ABI>/library.so` In the root module, we only package a native library as an
+#    asset if it is eligible to be an asset (e.g. `can_be_asset` on a `cxx_library`), and
+#    `package_asset_libraries` is set to True for the APK. We will additionally compress all the
+#    assets into a single `assets/lib/libs.xz` (or `assets/libs/libs.zstd` for `zstd` compression)
+#    if `compress_asset_libraries` is set to True for the APK. Regardless of whether we compress
+#    the assets or not, we create a metadata file at `assets/libs/metadata.txt` that has a single
+#    line entry for each packaged asset consisting of '<ABI/library_name> <file_size> <sha256>'.
+#
+#    Any native library that is not part of the root module (i.e. it is part of some other Voltron
+#    module) is automatically packaged as an asset, and the assets for each module are compressed
+#    to a single `assets/<module_name>/libs.xz`. Similarly, the metadata for each module is stored
+#    at `assets/<module_name>/libs.txt`.
+
 def get_android_binary_native_library_info(
         ctx: "context",
         android_packageable_info: "AndroidPackageableInfo",
@@ -49,8 +75,54 @@ def get_android_binary_native_library_info(
             native_lib_assets = native_lib_assets,
         )
     else:
-        fail("apk_module_graph_file support is not yet added!")
+        native_libs_for_primary_apk = ctx.actions.declare_output("native_libs_for_primary_apk_symlink")
+        stripped_native_linkables_for_primary_apk = ctx.actions.declare_output("stripped_native_linkables_for_primary_apk_symlink")
+        native_lib_assets_for_primary_apk = ctx.actions.declare_output("native_lib_assets_for_primary_apk_symlink")
+        stripped_native_linkable_assets_for_primary_apk = ctx.actions.declare_output("stripped_native_linkable_assets_for_primary_apk_symlink")
+        metadata_assets = ctx.actions.declare_output("metadata_assets_symlink")
+        compressed_lib_assets = ctx.actions.declare_output("compressed_lib_assets_symlink")
 
+        outputs = [
+            native_libs_for_primary_apk,
+            stripped_native_linkables_for_primary_apk,
+            native_lib_assets_for_primary_apk,
+            stripped_native_linkable_assets_for_primary_apk,
+            metadata_assets,
+            compressed_lib_assets,
+        ]
+
+        def get_native_libs_info_modular(ctx: "context"):
+            get_module_from_target = _get_apk_module_graph_mapping_function(ctx, apk_module_graph_file)
+            dynamic_info = _get_native_libs_and_assets(
+                ctx,
+                get_module_from_target,
+                all_prebuilt_native_library_dirs,
+                platform_to_native_linkables,
+            )
+
+            # Since we are using a dynamic action, we need to declare the outputs in advance.
+            # Rather than passing the created outputs into `_get_native_libs_and_assets`, we
+            # just symlink to the outputs that function produces.
+            ctx.actions.symlink_file(ctx.outputs[native_libs_for_primary_apk], dynamic_info.native_libs_for_primary_apk)
+            ctx.actions.symlink_file(ctx.outputs[stripped_native_linkables_for_primary_apk], dynamic_info.stripped_native_linkables_for_primary_apk)
+            ctx.actions.symlink_file(ctx.outputs[native_lib_assets_for_primary_apk], dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
+            ctx.actions.symlink_file(ctx.outputs[stripped_native_linkable_assets_for_primary_apk], dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
+            ctx.actions.symlink_file(ctx.outputs[metadata_assets], dynamic_info.metadata_assets)
+            ctx.actions.symlink_file(ctx.outputs[compressed_lib_assets], dynamic_info.compressed_lib_assets)
+
+        ctx.actions.dynamic_output([apk_module_graph_file], [], outputs, get_native_libs_info_modular)
+
+        return AndroidBinaryNativeLibsInfo(
+            apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
+            apk_under_test_shared_libraries = all_shared_libraries,
+            native_libs_for_primary_apk = [native_libs_for_primary_apk, stripped_native_linkables_for_primary_apk],
+            unstripped_libs = unstripped_libs,
+            native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, metadata_assets, compressed_lib_assets],
+        )
+
+# We could just return one artifact of libs for the primary APK, and one artifact of assets,
+# but we'd need an extra action in order to combine them (we can't use `symlinked_dir` since
+# the paths overlap) so it's easier to just be explicit about exactly what we produce.
 _NativeLibsAndAssetsInfo = record(
     native_libs_for_primary_apk = "artifact",
     stripped_native_linkables_for_primary_apk = "artifact",
@@ -121,12 +193,14 @@ def _get_native_libs_and_assets(
         if ctx.attrs.compress_asset_libraries:
             compressed_lib_dir = _get_compressed_native_libs_as_assets(ctx, assets_for_primary_apk, native_library_paths, ROOT_MODULE)
             compressed_lib_srcs[_get_native_libs_as_assets_dir(ROOT_MODULE)] = compressed_lib_dir
+
+            # Since we're storing these as compressed assets, we need to ignore the uncompressed libs.
             native_lib_assets_for_primary_apk = None
             stripped_native_linkable_assets_for_primary_apk = None
 
     for module, native_lib_assets in native_lib_module_assets_map.items():
         metadata_file, native_library_paths = _get_native_libs_as_assets_metadata(ctx, native_lib_assets, module)
-        metadata_srcs[paths.join(_get_native_libs_as_assets_dir(module), "metadata.txt")] = metadata_file
+        metadata_srcs[paths.join(_get_native_libs_as_assets_dir(module), "libs.txt")] = metadata_file
         compressed_lib_dir = _get_compressed_native_libs_as_assets(ctx, native_lib_assets, native_library_paths, module)
         compressed_lib_srcs[_get_native_libs_as_assets_dir(module)] = compressed_lib_dir
 
@@ -252,3 +326,15 @@ def _get_compressed_native_libs_as_assets(
 
 def _get_native_libs_as_assets_dir(module: str.type) -> str.type:
     return "assets/{}".format("lib" if is_root_module(module) else module)
+
+def _get_apk_module_graph_mapping_function(ctx: "context", apk_module_graph_file: "artifact") -> "function":
+    mapping = {}
+    apk_module_graph_lines = ctx.artifacts[apk_module_graph_file].read_string().split("\n")[:-1]
+    for line in apk_module_graph_lines:
+        target, module = line.split(" ")
+        mapping[target] = module
+
+    def mapping_function(raw_target: str.type):
+        return mapping.get(raw_target)
+
+    return mapping_function
