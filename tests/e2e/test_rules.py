@@ -697,7 +697,6 @@ def _assert_not_incremental_build(
     data = _get_last_json_log(result)
     assert data["reason"] == "build"
     assert target in data["identity"]
-    assert data["reproducer"]["executor"] != "Local"
 
     rustc_incremental_flag = list(
         filter(
@@ -758,3 +757,11 @@ if fbcode_linux_only():
 
         result = await buck.log("what-ran", "--format", "json")
         _assert_incremental_build(result, target, build_mode="opt")
+
+    @buck_test(inplace=True)
+    async def test_rust_incremental_compilation_no_config(buck: Buck) -> None:
+        target = "fbcode//buck2/tests/targets/rules/rust/rustdoc:self_contained"
+        await buck.build(target)
+
+        result = await buck.log("what-ran", "--format", "json")
+        _assert_not_incremental_build(result, target)
