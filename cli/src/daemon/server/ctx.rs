@@ -33,9 +33,7 @@ use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::io::IoProvider;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -282,11 +280,11 @@ impl ServerCommandContext {
         &self,
         patterns: &[buck2_data::TargetPattern],
     ) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
-        let dice_txn = self.dice_ctx().await?;
+        let (cells, configs) = self.cells_and_configs()?;
         let providers_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
             patterns,
-            &dice_txn.get_cell_resolver().await?,
-            &dice_txn.get_legacy_configs().await?,
+            &cells,
+            &configs,
             &self.working_dir,
         )?;
         let patterns = providers_patterns.into_map(|pat| buck2_data::TargetPattern {
