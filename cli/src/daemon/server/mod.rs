@@ -29,8 +29,6 @@ use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::spawner::BuckSpawner;
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_common::truncate::truncate;
@@ -670,7 +668,7 @@ impl DaemonApi for BuckdServer {
             req,
             CleanRunCommandOptions { shut_down_after },
             move |context, req| async move {
-                let metadata = request_metadata(&context).await?;
+                let metadata = request_metadata(&context)?;
                 let start_event = buck2_data::CommandStart {
                     metadata: metadata.clone(),
                     data: Some(buck2_data::CleanCommandStart {}.into()),
@@ -707,7 +705,7 @@ impl DaemonApi for BuckdServer {
     async fn build(&self, req: Request<BuildRequest>) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let project_root = context.base_context.project_root.to_string();
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let patterns_for_logging = context
                 .canonicalize_patterns_for_logging(&req.target_patterns)
                 .await?;
@@ -756,7 +754,7 @@ impl DaemonApi for BuckdServer {
     async fn bxl(&self, req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let project_root = context.base_context.project_root.to_string();
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(
@@ -800,7 +798,7 @@ impl DaemonApi for BuckdServer {
     type TestStream = ResponseStream;
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let events = context.base_context.events.dupe();
             let patterns_for_logging = context
                 .canonicalize_patterns_for_logging(&req.target_patterns)
@@ -845,7 +843,7 @@ impl DaemonApi for BuckdServer {
         req: Request<AqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::AqueryCommandStart {}.into()),
@@ -881,7 +879,7 @@ impl DaemonApi for BuckdServer {
         req: Request<UqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::QueryCommandStart {}.into()),
@@ -917,7 +915,7 @@ impl DaemonApi for BuckdServer {
         req: Request<CqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(
@@ -960,7 +958,7 @@ impl DaemonApi for BuckdServer {
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
@@ -994,7 +992,7 @@ impl DaemonApi for BuckdServer {
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
@@ -1031,7 +1029,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let req = req; // capture req into async block
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::AuditCommandStart {}.into()),
@@ -1088,7 +1086,7 @@ impl DaemonApi for BuckdServer {
         req: Request<InstallRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let patterns_for_logging = context
                 .canonicalize_patterns_for_logging(&req.target_patterns)
                 .await?;
@@ -1206,7 +1204,7 @@ impl DaemonApi for BuckdServer {
         req: Request<UnstableDocsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::DocsCommandStart {}.into()),
@@ -1286,7 +1284,7 @@ impl DaemonApi for BuckdServer {
         }
 
         self.run_streaming(req, ProfileCommandOptions, move |context, req| async move {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::ProfileCommandStart {}.into()),
@@ -1347,7 +1345,7 @@ impl DaemonApi for BuckdServer {
         req: Request<MaterializeRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = request_metadata(&context).await?;
+            let metadata = request_metadata(&context)?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::MaterializeCommandStart {}.into()),
@@ -1386,7 +1384,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, _client_ctx, req: StreamingRequestHandler<LspRequest>| async move {
-                let metadata = request_metadata(&ctx).await?;
+                let metadata = request_metadata(&ctx)?;
                 let start_event = buck2_data::CommandStart {
                     metadata: metadata.clone(),
                     data: Some(buck2_data::LspCommandStart {}.into()),
@@ -1415,7 +1413,7 @@ impl DaemonApi for BuckdServer {
 }
 
 /// Gathers metadata to attach to events for when a command starts and stops.
-async fn request_metadata(ctx: &ServerCommandContext) -> anyhow::Result<HashMap<String, String>> {
+fn request_metadata(ctx: &ServerCommandContext) -> anyhow::Result<HashMap<String, String>> {
     // Facebook only: metadata collection for Scribe writes
     facebook_only();
 
@@ -1443,11 +1441,10 @@ async fn request_metadata(ctx: &ServerCommandContext) -> anyhow::Result<HashMap<
     let mut metadata = metadata::collect();
     // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
     // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-    if let Ok(dice_ctx) = ctx.dice_ctx().await {
-        let cells = dice_ctx.get_cell_resolver().await?;
-        let root_cell_config = dice_ctx.get_legacy_config_for_cell(cells.root_cell()).await;
+    if let Ok((cells, configs)) = ctx.cells_and_configs() {
+        let root_cell_config = configs.get(cells.root_cell());
         if let Ok(config) = root_cell_config {
-            add_config(&mut metadata, &config, "log", "repository", "repository");
+            add_config(&mut metadata, config, "log", "repository", "repository");
 
             // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
             // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
@@ -1468,8 +1465,8 @@ async fn request_metadata(ctx: &ServerCommandContext) -> anyhow::Result<HashMap<
             // to consider adding support to the protocol for integer metadata.
 
             if let Ok(cwd_cell_name) = cells.find(&ctx.working_dir) {
-                let cwd_cell_config = dice_ctx.get_legacy_config_for_cell(cwd_cell_name).await;
-                if let Some(normals_obj) = extract_scuba_defaults(cwd_cell_config.as_ref().ok()) {
+                let cwd_cell_config = configs.get(cwd_cell_name).ok();
+                if let Some(normals_obj) = extract_scuba_defaults(cwd_cell_config) {
                     for (key, value) in normals_obj.iter() {
                         if let Some(value) = value.as_str() {
                             metadata.insert(key.clone(), value.to_owned());
@@ -1479,11 +1476,11 @@ async fn request_metadata(ctx: &ServerCommandContext) -> anyhow::Result<HashMap<
 
                 // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
                 // the root cell.
-                if let Ok(config) = cwd_cell_config {
-                    add_config(&mut metadata, &config, "client", "id", "client");
+                if let Some(config) = cwd_cell_config {
+                    add_config(&mut metadata, config, "client", "id", "client");
                     add_config(
                         &mut metadata,
-                        &config,
+                        config,
                         "cache",
                         "schedule_type",
                         "schedule_type",
