@@ -781,10 +781,7 @@ impl DaemonApi for BuckdServer {
                 .span_async(start_event, async {
                     let result = test(context, req).await;
                     let (is_success, error_messages) = match &result {
-                        Ok(response) => (
-                            response.error_messages.is_empty(),
-                            response.error_messages.clone(),
-                        ),
+                        Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
                         Err(e) => (false, vec![format!("{:#}", e)]),
                     };
                     let end_event = buck2_data::CommandEnd {
