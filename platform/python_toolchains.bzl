@@ -34,7 +34,7 @@ _python_toolchain_execution_config = rule(
 
 # TODO(nmj): When upstream buildifier is landed, add types back
 #def config_backed_python_toolchain(flavor: str.type) -> None:
-def config_backed_python_toolchain(flavor, **kwargs):
+def config_backed_python_toolchain(flavor, name = None, **kwargs):
     sections = ["python#" + flavor, "python"]
 
     keys = {
@@ -67,18 +67,22 @@ def config_backed_python_toolchain(flavor, **kwargs):
         kwargs = {k: v for (k, v) in kwargs.items()}
         kwargs["target_compatible_with"] = target_compatible_with + fat_platform_incompatible()
 
+    if name == None:
+        name = flavor
+
     # We want to be able to make decisions about the host interpreter based on the exec
     # configuration (because it will be invoked as part of the build), so we push that
     # to a helper target that's an exec dep.
     host_interpreter = kwargs.pop("host_interpreter", None)
-    execution_config_name = "{}-exec".format(flavor)
+    execution_config_name = "{}-exec".format(name)
     _python_toolchain_execution_config(
         name = execution_config_name,
         host_interpreter = host_interpreter,
     )
 
     _config_backed_python_toolchain_rule(
-        name = flavor,
+        name = name,
+        platform_name = flavor,
         _execution_config = ":" + execution_config_name,
         **kwargs
     )
@@ -110,7 +114,7 @@ def _config_backed_python_toolchain_rule_impl(ctx):
             build_standalone_binaries_locally = not value_or(ctx.attrs.cache_binaries, True),
         ),
         PythonPlatformInfo(
-            name = ctx.attrs.name,
+            name = value_or(ctx.attrs.platform_name, ctx.attrs.name),
         ),
     ]
 
@@ -129,6 +133,7 @@ _config_backed_python_toolchain_rule = rule(
         "path_to_pex_inplace": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_inplace", providers = [RunInfo]),
         "path_to_pex_modules": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_modules", providers = [RunInfo]),
         "pex_extension": attrs.string(default = ".par"),
+        "platform_name": attrs.option(attrs.string()),
         "version": attrs.string(),
         "_execution_config": attrs.exec_dep(providers = [PythonToolchainExecConfigInfo]),
     },
