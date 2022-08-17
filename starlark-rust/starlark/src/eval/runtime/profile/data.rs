@@ -19,6 +19,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::Context;
+use gazebo::prelude::*;
 
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;
@@ -29,6 +30,12 @@ use crate::values::AggregateHeapProfileInfo;
 enum ProfileDataError {
     #[error("Profile data is not consistent with profile mode (internal error)")]
     ProfileDataNotConsistent,
+    #[error("Empty profile list cannot be merged")]
+    EmptyProfileList,
+    #[error("Different profile modes in profile")]
+    DifferentProfileModes,
+    #[error("Merge of profile data for profile mode `{0}` is not implemented")]
+    MergeNotImplemented(ProfileMode),
 }
 
 #[derive(Clone, Debug)]
@@ -85,5 +92,22 @@ impl ProfileData {
             )
         })?;
         Ok(())
+    }
+
+    /// Merge profiles (aggregate).
+    pub fn merge<'a>(
+        profiles: impl IntoIterator<Item = &'a ProfileData>,
+    ) -> anyhow::Result<ProfileData> {
+        let profiles = Vec::from_iter(profiles);
+        let profile_mode = match profiles.first() {
+            None => return Err(ProfileDataError::EmptyProfileList.into()),
+            Some(p) => p.profile_mode.dupe(),
+        };
+        for p in &profiles {
+            if p.profile_mode != profile_mode {
+                return Err(ProfileDataError::DifferentProfileModes.into());
+            }
+        }
+        Err(ProfileDataError::MergeNotImplemented(profile_mode.dupe()).into())
     }
 }
