@@ -66,7 +66,7 @@ async def test_profile_analysis_recursive(
     else:
         await expect_failure(
             command,
-            stderr_regex="merge of profile data for profile mode `.*` is not implemented",
+            stderr_regex="Merge of profile data for profile mode `.*` is not implemented",
         )
 
 

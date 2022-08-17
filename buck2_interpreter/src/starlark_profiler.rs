@@ -34,8 +34,6 @@ enum StarlarkProfilerError {
     InconsistentProfileModeAndProfileData,
     #[error("profile mode are inconsistent (internal error)")]
     InconsistentProfileMode,
-    #[error("merge of profile data for profile mode `{0}` is not implemented")]
-    MergeOfProfileDataForProfileModeIsNotImplemented(ProfileMode),
 }
 
 /// When profiling Starlark file, all dependencies of that file must be
@@ -133,24 +131,41 @@ impl StarlarkProfileDataAndStats {
             total_allocated_bytes += data.total_allocated_bytes;
         }
 
-        let aggregated_profile_info = datas
-            .into_iter()
-            .map(|data| match &data.profile_data {
-                StarlarkProfileData::Evaluator(_) => Err(
-                    StarlarkProfilerError::MergeOfProfileDataForProfileModeIsNotImplemented(
-                        profile_mode.dupe(),
-                    )
-                    .into(),
-                ),
-                StarlarkProfileData::Frozen(data) => Ok(data),
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        let profile_data = match profile_mode {
+            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
+                let aggregated_profile_info = datas
+                    .into_iter()
+                    .map(|data| match &data.profile_data {
+                        StarlarkProfileData::Evaluator(_) => {
+                            Err(StarlarkProfilerError::InconsistentProfileModeAndProfileData.into())
+                        }
+                        StarlarkProfileData::Frozen(data) => Ok(data),
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?;
 
-        let profile_data = AggregateHeapProfileInfo::merge(aggregated_profile_info.iter().copied());
+                let profile_data =
+                    AggregateHeapProfileInfo::merge(aggregated_profile_info.iter().copied());
+                StarlarkProfileData::Frozen(profile_data)
+            }
+            _ => {
+                let profile_datas = datas
+                    .into_iter()
+                    .map(|data| match &data.profile_data {
+                        StarlarkProfileData::Frozen(_) => {
+                            Err(StarlarkProfilerError::InconsistentProfileModeAndProfileData.into())
+                        }
+                        StarlarkProfileData::Evaluator(data) => Ok(data),
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?;
+
+                let profile_data = ProfileData::merge(profile_datas.iter().copied())?;
+                StarlarkProfileData::Evaluator(profile_data)
+            }
+        };
 
         Ok(StarlarkProfileDataAndStats {
             profile_mode,
-            profile_data: StarlarkProfileData::Frozen(profile_data),
+            profile_data,
             initialized_at,
             finalized_at,
             total_allocated_bytes,
