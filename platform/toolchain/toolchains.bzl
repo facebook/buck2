@@ -96,7 +96,7 @@ def default_python_toolchain_inner():
         # TODO: Ideally we don't need this, `.buckconfig`s set the coarser fbcode
         # platform to work with v1, which leaks into the few rules which don't
         # set a more granular default.
-        "DEFAULT": "fbcode//buck2/platform:py3.8-{}".format(_default_fbcode_platform),
+        "DEFAULT": "fbcode//buck2/platform:py3.8-{}-for-default".format(_default_fbcode_platform),
         "ovr_config//os:macos": "fbcode//buck2/platform:py3.8-macosx-x86_64",
         "ovr_config//runtime/constraints:platform009": select({
             "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform009",

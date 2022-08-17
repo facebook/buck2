@@ -181,6 +181,17 @@ go_fbcode_toolchain(
     for version in versions
 ]
 
+# For legacy reasons, the fbcode's platform009 Python toolchain set in the
+# DEFAULT clause of the Python toolchain select, and it's really difficult to
+# move out (ARVR at least seems dependent on it).  So, to decouple setting a
+# more constrained `target_compatible_with` on the fbcode Python toolchains,
+# create a separate toolchain to keep in the default.
+config_backed_python_toolchain(
+    name = "py3.8-platform010-for-default",
+    flavor = "py3.8-platform010",
+    visibility = ["PUBLIC"],
+)
+
 # Define fbcode-based bootstrap Python toolchains.
 [
     config_backed_python_bootstrap_toolchain(
