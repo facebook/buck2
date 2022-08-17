@@ -464,3 +464,10 @@ if not is_deployed_buck2():
             ),
         )
         assert "AssertionError: 41 != 42" not in tests.stderr
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_bundle_sharding(buck: Buck) -> None:
+        tests = await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:multi_tests",
+        )
+        assert "Pass 4" in tests.stdout

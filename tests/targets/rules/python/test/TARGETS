@@ -67,3 +67,17 @@ python_unittest(
     ],
     deps = [":lib"],
 )
+
+python_unittest(
+    name = "multi_tests",
+    srcs = [
+        "multi_tests.py",
+    ],
+    env = {
+        "TEST_ENV": "pass",
+    },
+    tags = [
+        "run_as_bundle",
+        "tpx:experimental-shard-size-for-bundle=1",
+    ],
+)
