@@ -555,12 +555,14 @@ def build_java_library(
 
             # Replace whatever compiler plugins are present with the AST dumper instead
             ast_output = ctx.actions.declare_output("ast_json")
+            ast_output_arg = cmd_args(ast_output.as_output())
             ast_dumping_plugin_params = create_plugin_params([ast_dumper])
+            ast_dumper_args_file = ctx.actions.write("dump_ast_args", ast_output_arg)
             ast_dumping_plugin_params = PluginParams(
                 processors = ast_dumping_plugin_params.processors,
                 deps = ast_dumping_plugin_params.deps,
                 args = {
-                    "DumpAstPlugin": cmd_args(ast_output.as_output()),
+                    "DumpAstPlugin": cmd_args(ast_dumper_args_file).hidden(ast_output_arg),
                 },
             )
 
