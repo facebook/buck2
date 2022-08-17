@@ -36,8 +36,11 @@ use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -64,6 +67,7 @@ use gazebo::dupe::Dupe;
 use gazebo::prelude::VecExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
+use once_cell::sync::OnceCell;
 
 use crate::configs::parse_legacy_cells;
 use crate::daemon::common::get_executor_config_for_strategy;
@@ -186,6 +190,9 @@ pub(crate) struct ServerCommandContext {
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
 
+    /// The CellResolver and Configs for this command
+    cells_and_configs: OnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
+
     /// The DiceTransaction to use when servicing computations triggered by this command.
     dice: AsyncOnceCell<SharedResult<DiceTransaction>>,
 
@@ -253,6 +260,7 @@ impl ServerCommandContext {
             starlark_profiler_instrumentation_override,
             buck_out_dir,
             build_options: build_options.cloned(),
+            cells_and_configs: OnceCell::new(),
             dice: AsyncOnceCell::new(),
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
@@ -296,6 +304,17 @@ impl ServerCommandContext {
             .dupe()
     }
 
+    pub(crate) fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
+        self.cells_and_configs
+            .get_or_init(|| {
+                let fs = self.file_system();
+                let cwd = &self.working_dir;
+                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)
+                    .shared_error()
+            })
+            .clone()
+    }
+
     async fn construct_dice_ctx(&self) -> SharedResult<DiceTransaction> {
         let execution_strategy = self
             .build_options
@@ -305,10 +324,7 @@ impl ServerCommandContext {
                 ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
             });
 
-        let fs = self.file_system();
-        let cwd = &self.working_dir;
-        let (cell_resolver, legacy_configs) =
-            parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)?;
+        let (cell_resolver, legacy_configs) = self.cells_and_configs()?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
         let (interpreter_platform, interpreter_architecture) =
