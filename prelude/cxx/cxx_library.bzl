@@ -703,7 +703,7 @@ def _get_shared_library_links(
     # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
     # for the resolved nodes in the graph.
     # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-    frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(filtered_links, frameworks_linkable)
+    frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable)
     if frameworks_link_info:
         filtered_links.append(frameworks_link_info)
 

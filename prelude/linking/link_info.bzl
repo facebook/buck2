@@ -70,9 +70,16 @@ FrameworksLinkable = record(
     # A list of trimmed framework paths, example: ["Foundation", "UIKit"]
     # Used to construct `-framework` args.
     framework_names = field([str.type], []),
-    # A list of sysroot-relative framework paths.
-    # Used to construct `-F` args.
-    resolved_framework_paths = field([str.type], []),
+    # A list of unresolved framework paths (i.e., containing $SDKROOT, etc).
+    # Used to construct `-F` args for compilation and linking.
+    #
+    # Framework path resolution _must_ happen at the target site because
+    # different targets might use different toolchains. For example,
+    # an `apple_library()` might get _compiled_ using one toolchain
+    # and then linked by as part of an `apple_binary()` using another
+    # compatible toolchain. The resolved framework directories passed
+    # using `-F` would be different for the compilation and the linking.
+    unresolved_framework_paths = field([str.type], []),
     # A list of library names, used to construct `-l` args.
     library_names = field([str.type], []),
     _type = field(LinkableType.type, LinkableType("frameworks")),
@@ -510,13 +517,13 @@ def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> F
         # use a set to track each used entry, order does not matter.
         for framework in linkable.framework_names:
             unique_framework_names[framework] = True
-        for framework_path in linkable.resolved_framework_paths:
+        for framework_path in linkable.unresolved_framework_paths:
             unique_framework_paths[framework_path] = True
         for library_name in linkable.library_names:
             unique_library_names[library_name] = True
 
     return FrameworksLinkable(
         framework_names = unique_framework_names.keys(),
-        resolved_framework_paths = unique_framework_paths.keys(),
+        unresolved_framework_paths = unique_framework_paths.keys(),
         library_names = unique_library_names.keys(),
     )
