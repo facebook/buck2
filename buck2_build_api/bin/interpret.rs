@@ -34,7 +34,6 @@ use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::exit_result::ExitResult;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::package::Package;
@@ -197,7 +196,7 @@ impl TargetPrinter for TargetNamePrinter {
 }
 
 #[fbinit::main]
-fn main(fb: FacebookInit) -> ExitResult {
+fn main(fb: FacebookInit) -> anyhow::Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -283,7 +282,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             parse_and_print_results(&ctx, &mut *printer, resolved_pattern).await?;
         }
 
-        ExitResult::success()
+        Ok(())
     })
 }
 
