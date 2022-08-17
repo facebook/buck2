@@ -63,8 +63,7 @@ pub(crate) async fn targets_show_outputs(
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
         cwd,
-    )
-    .await?;
+    )?;
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 

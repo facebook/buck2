@@ -79,8 +79,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
             &cells,
             &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
-        )
-        .await?;
+        )?;
         let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
         let events = ctx.per_transaction_data().get_dispatcher();
 

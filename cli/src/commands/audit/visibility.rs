@@ -146,8 +146,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
             &ctx.get_cell_resolver().await?,
             &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
-        )
-        .await?;
+        )?;
 
         let parsed_target_patterns = load_patterns(&ctx, parsed_patterns).await?;
 

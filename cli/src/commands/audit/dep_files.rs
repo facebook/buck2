@@ -80,8 +80,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
             &cells,
             &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
-        )
-        .await?
+        )?
         .into_iter()
         .next()
         .context("Parsing patterns returned nothing")?

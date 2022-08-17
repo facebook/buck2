@@ -143,8 +143,7 @@ pub(crate) async fn install(
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
         cwd,
-    )
-    .await?;
+    )?;
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 

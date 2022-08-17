@@ -60,8 +60,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
             &cell_resolver,
             &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
-        )
-        .await?;
+        )?;
 
         let mut configured_patterns = Vec::new();
         let mut target_patterns = Vec::new();

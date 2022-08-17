@@ -295,8 +295,7 @@ pub(crate) async fn targets(
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
         cwd,
-    )
-    .await?;
+    )?;
 
     // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
     // print them out. This expects the aliases to resolve to individual targets.

@@ -1548,8 +1548,7 @@ async fn canonicalize_patterns_for_logging(
         &dice_txn.get_cell_resolver().await?,
         &dice_txn.get_legacy_configs().await?,
         &ctx.working_dir,
-    )
-    .await?;
+    )?;
     let patterns = providers_patterns.into_map(|pat| buck2_data::TargetPattern {
         value: format!("{}", pat),
     });

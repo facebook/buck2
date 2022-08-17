@@ -81,8 +81,7 @@ impl AuditSubcommand for AuditProvidersCommand {
             &cells,
             &ctx.get_legacy_configs().await?,
             &server_ctx.working_dir,
-        )
-        .await?;
+        )?;
         let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
 
         let mut futs = FuturesOrdered::new();

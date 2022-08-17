@@ -101,7 +101,7 @@ pub(crate) struct PatternParser {
 }
 
 impl PatternParser {
-    pub(crate) async fn new(
+    pub(crate) fn new(
         cell_resolver: &CellResolver,
         config: &LegacyBuckConfigs,
         cwd: &ProjectRelativePath,
@@ -143,13 +143,13 @@ impl PatternParser {
 /// The format allowed here is more relaxed than in build files and elsewhere, so only use this
 /// with strings passed by the user on the CLI.
 /// See `ParsedPattern::parse_relaxed` for details.
-pub(crate) async fn parse_patterns_from_cli_args<T: PatternType>(
+pub(crate) fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns: &[buck2_data::TargetPattern],
     cell_resolver: &CellResolver,
     configs: &LegacyBuckConfigs,
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {
-    let parser = PatternParser::new(cell_resolver, configs, cwd).await?;
+    let parser = PatternParser::new(cell_resolver, configs, cwd)?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }
