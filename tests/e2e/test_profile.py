@@ -59,7 +59,7 @@ async def test_profile_analysis_recursive(
         file_path,
         "--recursive",
     )
-    if profiler.endswith("-retained"):
+    if profiler.endswith("-retained") or profiler.startswith("bytecode"):
         await command
 
         assert os.path.exists(file_path)

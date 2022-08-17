@@ -20,6 +20,7 @@
 use std::collections::HashMap;
 use std::iter::Sum;
 use std::mem;
+use std::ops::AddAssign;
 
 use gazebo::prelude::*;
 
@@ -45,6 +46,13 @@ impl<'a> Sum<&'a BcInstrStat> for BcInstrStat {
     }
 }
 
+impl<'a> AddAssign<&'a BcInstrStat> for BcInstrStat {
+    fn add_assign(&mut self, other: &'a BcInstrStat) {
+        let BcInstrStat { count } = other;
+        self.count += count;
+    }
+}
+
 #[derive(Default, Clone, Copy, Dupe, Debug)]
 struct BcInstrPairsStat {
     count: u64,
@@ -52,15 +60,39 @@ struct BcInstrPairsStat {
     // is not very accurate or helpful, and time for pairs is even less helpful.
 }
 
+impl<'a> AddAssign<&'a BcInstrPairsStat> for BcInstrPairsStat {
+    fn add_assign(&mut self, other: &'a BcInstrPairsStat) {
+        let BcInstrPairsStat { count } = other;
+        self.count += count;
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct BcProfileData {
     by_instr: [BcInstrStat; BcOpcode::COUNT],
+}
+
+impl<'a> AddAssign<&'a BcProfileData> for BcProfileData {
+    fn add_assign(&mut self, rhs: &'a BcProfileData) {
+        for (lhs, rhs) in self.by_instr.iter_mut().zip(rhs.by_instr.iter()) {
+            *lhs += rhs;
+        }
+    }
 }
 
 #[derive(Default, Clone, Debug)]
 pub(crate) struct BcPairsProfileData {
     last: Option<BcOpcode>,
     by_instr: HashMap<[BcOpcode; 2], BcInstrPairsStat>,
+}
+
+impl<'a> AddAssign<&'a BcPairsProfileData> for BcPairsProfileData {
+    fn add_assign(&mut self, rhs: &'a BcPairsProfileData) {
+        self.last = None;
+        for (pair, stat) in &rhs.by_instr {
+            *self.by_instr.entry(*pair).or_default() += stat;
+        }
+    }
 }
 
 // Derive doesn't work here.
@@ -104,6 +136,14 @@ impl BcProfileData {
         }
         csv.finish()
     }
+
+    pub(crate) fn merge<'a>(iter: impl IntoIterator<Item = &'a BcProfileData>) -> BcProfileData {
+        let mut sum = BcProfileData::default();
+        for profile in iter {
+            sum += profile;
+        }
+        sum
+    }
 }
 
 impl BcPairsProfileData {
@@ -137,6 +177,16 @@ impl BcPairsProfileData {
             csv.finish_row();
         }
         csv.finish()
+    }
+
+    pub(crate) fn merge<'a>(
+        iter: impl IntoIterator<Item = &'a BcPairsProfileData>,
+    ) -> BcPairsProfileData {
+        let mut sum = BcPairsProfileData::default();
+        for profile in iter {
+            sum += profile;
+        }
+        sum
     }
 }
 
@@ -210,6 +260,8 @@ mod tests {
     use crate::environment::Globals;
     use crate::environment::Module;
     use crate::eval::bc::opcode::BcOpcode;
+    use crate::eval::runtime::profile::bc::BcPairsProfileData;
+    use crate::eval::runtime::profile::bc::BcProfileData;
     use crate::eval::Evaluator;
     use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
@@ -260,5 +312,19 @@ mod tests {
             "{:?}",
             csv
         );
+    }
+
+    #[test]
+    fn test_bc_profile_data_merge() {
+        let bc = BcProfileData::default();
+        // Smoke test.
+        BcProfileData::merge([&bc, &bc, &bc]);
+    }
+
+    #[test]
+    fn test_bc_pairs_profile_data_merge() {
+        let bc = BcPairsProfileData::default();
+        // Smoke test.
+        BcPairsProfileData::merge([&bc, &bc, &bc]);
     }
 }

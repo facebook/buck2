@@ -108,6 +108,59 @@ impl ProfileData {
                 return Err(ProfileDataError::DifferentProfileModes.into());
             }
         }
-        Err(ProfileDataError::MergeNotImplemented(profile_mode.dupe()).into())
+        let profile = match &profile_mode {
+            ProfileMode::Bytecode => {
+                let profiles = profiles.try_map(|p| match &p.profile {
+                    ProfileDataImpl::Bc(bc) => Ok(&**bc),
+                    _ => Err(ProfileDataError::ProfileDataNotConsistent),
+                })?;
+                let profile = BcProfileData::merge(profiles);
+                ProfileDataImpl::Bc(box profile)
+            }
+            ProfileMode::BytecodePairs => {
+                let profiles = profiles.try_map(|p| match &p.profile {
+                    ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs),
+                    _ => Err(ProfileDataError::ProfileDataNotConsistent),
+                })?;
+                let profile = BcPairsProfileData::merge(profiles);
+                ProfileDataImpl::BcPairs(profile)
+            }
+            profile_mode => {
+                return Err(ProfileDataError::MergeNotImplemented(profile_mode.dupe()).into());
+            }
+        };
+        Ok(ProfileData {
+            profile_mode,
+            profile,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::eval::runtime::profile::bc::BcPairsProfileData;
+    use crate::eval::runtime::profile::bc::BcProfileData;
+    use crate::eval::runtime::profile::data::ProfileDataImpl;
+    use crate::eval::ProfileData;
+    use crate::eval::ProfileMode;
+
+    #[test]
+    fn merge_bc() {
+        let profile = ProfileData {
+            profile_mode: ProfileMode::Bytecode,
+            profile: ProfileDataImpl::Bc(box BcProfileData::default()),
+        };
+        // Smoke.
+        ProfileData::merge([&profile, &profile]).unwrap();
+    }
+
+    #[test]
+    fn merge_bc_pairs() {
+        let profile = ProfileData {
+            profile_mode: ProfileMode::BytecodePairs,
+            profile: ProfileDataImpl::BcPairs(BcPairsProfileData::default()),
+        };
+        // Smoke.
+        ProfileData::merge([&profile, &profile]).unwrap();
     }
 }
