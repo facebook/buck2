@@ -126,6 +126,28 @@ def _process_plugins(
             "--javac_processors_classpath_file",
         )
 
+def _build_classpath(actions: "actions", deps: ["dependency"], additional_classpath_entries: ["artifact"], classpath_args_projection: "string") -> ["cmd_args", None]:
+    compiling_deps_tset = derive_compiling_deps(actions, None, deps)
+
+    compiling_classpath = None
+    if additional_classpath_entries or compiling_deps_tset:
+        compiling_classpath = classpath_args(additional_classpath_entries)
+        if compiling_deps_tset:
+            compiling_classpath = classpath_args([compiling_deps_tset.project_as_args(classpath_args_projection), compiling_classpath])
+
+    return compiling_classpath
+
+def _build_bootclasspath(bootclasspath_entries: ["artifact"], source_level: int.type, java_toolchain: "JavaToolchainInfo") -> ["artifact"]:
+    bootclasspath_list = []
+    if source_level in [7, 8]:
+        if bootclasspath_entries:
+            bootclasspath_list = bootclasspath_entries
+        elif source_level == 7:
+            bootclasspath_list = java_toolchain.bootclasspath_7
+        elif source_level == 8:
+            bootclasspath_list = java_toolchain.bootclasspath_8
+    return bootclasspath_list
+
 def _append_javac_params(
         actions: "actions",
         actions_prefix: str.type,
@@ -154,12 +176,8 @@ def _append_javac_params(
     if actions_prefix:
         actions_prefix += "_"
 
-    compiling_deps_tset = derive_compiling_deps(actions, None, deps)
-
-    if additional_classpath_entries or compiling_deps_tset:
-        compiling_classpath = classpath_args(additional_classpath_entries)
-        if compiling_deps_tset:
-            compiling_classpath = classpath_args([compiling_deps_tset.project_as_args("args_for_compiling"), compiling_classpath])
+    compiling_classpath = _build_classpath(actions, deps, additional_classpath_entries, "args_for_compiling")
+    if compiling_classpath:
         _process_classpath(
             actions,
             compiling_classpath,
@@ -175,15 +193,7 @@ def _append_javac_params(
     javac_args.add("-target")
     javac_args.add(str(target_level))
 
-    bootclasspath_list = []
-    if source_level in [7, 8]:
-        if bootclasspath_entries:
-            bootclasspath_list = bootclasspath_entries
-        elif source_level == 7:
-            bootclasspath_list = java_toolchain.bootclasspath_7
-        elif source_level == 8:
-            bootclasspath_list = java_toolchain.bootclasspath_8
-
+    bootclasspath_list = _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
     if bootclasspath_list:
         _process_classpath(
             actions,
