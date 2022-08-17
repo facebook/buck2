@@ -184,6 +184,7 @@ def _cxx_python_extension_attrs():
 
 def _python_test_attrs():
     return {
+        "allow_huge_dwp": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
@@ -413,12 +414,14 @@ extra_attributes = struct(
         "_python_toolchain": _python_toolchain(),
     },
     python_library = {
+        "allow_huge_dwp": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_python_toolchain": _python_toolchain(),
     },
     python_binary = {
+        "allow_huge_dwp": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
