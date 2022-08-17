@@ -34,7 +34,11 @@ _python_toolchain_execution_config = rule(
 
 # TODO(nmj): When upstream buildifier is landed, add types back
 #def config_backed_python_toolchain(flavor: str.type) -> None:
-def config_backed_python_toolchain(flavor, name = None, **kwargs):
+def config_backed_python_toolchain(
+        flavor,
+        name = None,
+        target_compatible_with = [],
+        **kwargs):
     sections = ["python#" + flavor, "python"]
 
     keys = {
@@ -63,9 +67,8 @@ def config_backed_python_toolchain(flavor, name = None, **kwargs):
     # more exhaustive so we don't get strange errors (even better would be to have targets that
     # represent the interpreters and place such compatibility there).
     if kwargs["interpreter"] not in fat_platform_compatible_interpreters:
-        target_compatible_with = kwargs.get("target_compatible_with", [])
         kwargs = {k: v for (k, v) in kwargs.items()}
-        kwargs["target_compatible_with"] = target_compatible_with + fat_platform_incompatible()
+        target_compatible_with = target_compatible_with + fat_platform_incompatible()
 
     if name == None:
         name = flavor
@@ -78,12 +81,14 @@ def config_backed_python_toolchain(flavor, name = None, **kwargs):
     _python_toolchain_execution_config(
         name = execution_config_name,
         host_interpreter = host_interpreter,
+        target_compatible_with = target_compatible_with,
     )
 
     _config_backed_python_toolchain_rule(
         name = name,
         platform_name = flavor,
         _execution_config = ":" + execution_config_name,
+        target_compatible_with = target_compatible_with,
         **kwargs
     )
 
