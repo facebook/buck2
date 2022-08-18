@@ -286,12 +286,12 @@ G_F_PTR = g([])
         two < one,
         "stack grows down everywhere we support starlark-rust"
     );
-    // At the moment of writing it is about 1K.
+    // At the moment of writing it is about 1K in O1 and O2 modes, but about 10K in O0.
     // Note, actual frame size may be larger a frame contains for loops.
     let frame_native_size = one - two;
     assert!(frame_native_size > 20, "sanity check");
     assert!(
-        frame_native_size < 2024,
+        frame_native_size < 20000,
         "native frame size is too large: {}, evaluation may result in native stack overflow",
         frame_native_size,
     );
