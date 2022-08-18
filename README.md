@@ -7,7 +7,7 @@ This directory contains the code for the Buck2 build system - the successor to t
 
 ## Development
 
-For the setup guide and basics, continue reading below. For tips and techniques for debugging, see [`docs/developers.md`](docs/developers.md).
+For the setup guide and basics, continue reading below. For tips and techniques for debugging, see [`docs/developers/developers.md`](docs/developers/developers.md).
 
 Commands below assume the use of bash/zsh, modify accordingly for other shells.
 
@@ -113,7 +113,7 @@ To debug Rust code install [the CodeLLDB extension](https://marketplace.visualst
 
 * To debug a test, set whatever breakpoints you want, then click the `Debug` hover link above the `#[test]` annotation.
 * To debug a binary, hit the `Run` icon (play icon with an insect beneath it) on the VS Code left menu and you should see a little green play icon at the top with `Debug buck-build`. Set whatever breakpoints you want, then hit the green play icon. To modify the command or arguments (it defaults to building `process_wrapper` with `buck-build`) see `.vscode/launch.json` in the `buck2` directory (or just click the cog icon next to "Debug buck-build"). In most cases, don't commit your modifications. See this [screenshot](https://pxl.cl/1Cp5F) for visual guidance.
-* To debug a running buck2 daemon, see the instructions in [`docs/developers.md`](docs/developers.md).
+* To debug a running buck2 daemon, see the instructions in [`docs/developers/developers.md`](docs/developers/developers.md).
 
 ### Starlark VS Code Extension
 
