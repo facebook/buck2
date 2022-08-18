@@ -10,7 +10,6 @@
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
 use std::collections::HashMap;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -80,6 +79,7 @@ use crate::daemon::server::jemalloc_stats::jemalloc_stats;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 
+mod check_working_dir;
 mod concurrency;
 mod forkserver;
 mod jemalloc_stats;
@@ -92,30 +92,6 @@ pub(crate) trait BuckdServerDelegate: Send + Sync {
     fn force_shutdown(&self) -> anyhow::Result<()>;
 
     fn force_shutdown_with_timeout(&self, timeout: Duration);
-}
-
-/// Verify that our working directory is still here. We often run on Eden, and if Eden restarts
-/// ungracefully, our working dir will become unreadable and we are just about done.
-fn check_working_dir() -> anyhow::Result<()> {
-    use std::fs;
-
-    let err = match fs::metadata(".") {
-        Ok(..) => return Ok(()),
-        Err(e) => e,
-    };
-
-    if err.kind() == io::ErrorKind::NotConnected {
-        let err = "Buck2 is running in an Eden mount but Eden restarted uncleanly. \
-            This error is unrecoverable and you should restart Buck using `buck2 kill`.";
-        return Err(anyhow::anyhow!(err));
-    }
-
-    tracing::warn!(
-        "Buck2 is unable to read its current working directory: {}. Consider restarting",
-        err
-    );
-
-    Ok(())
 }
 
 struct DaemonShutdown {

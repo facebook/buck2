@@ -51,7 +51,7 @@ use fbinit::FacebookInit;
 use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 
-use crate::daemon::server;
+use crate::daemon::server::check_working_dir;
 use crate::daemon::server::forkserver::maybe_launch_forkserver;
 use crate::Paths;
 
@@ -380,7 +380,7 @@ impl DaemonState {
         &self,
         dispatcher: EventDispatcher,
     ) -> SharedResult<BaseServerCommandContext> {
-        server::check_working_dir()?;
+        check_working_dir::check_working_dir()?;
 
         let data = self.data().await?;
 
