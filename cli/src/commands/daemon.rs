@@ -134,14 +134,16 @@ impl DaemonCommand {
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning
         memory::enable_background_threads()?;
 
-        #[cfg(all(fbcode_build, target_os = "linux"))]
-        {
-            gflags::set_gflag_value(
-                fb,
-                "cgroup2_reader_update_interval_ms",
-                gflags::GflagValue::U32(2000),
-            )
-            .expect("failed to set gflag --cgroup2_reader_update_interval_ms");
+        if cfg!(target_os = "linux") {
+            #[cfg(fbcode_build)]
+            {
+                gflags::set_gflag_value(
+                    fb,
+                    "cgroup2_reader_update_interval_ms",
+                    gflags::GflagValue::U32(2000),
+                )
+                .expect("failed to set gflag --cgroup2_reader_update_interval_ms");
+            }
         }
 
         let mut builder = Builder::new_multi_thread();
