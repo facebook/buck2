@@ -29,6 +29,8 @@ os-specific binary at runtime).
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 load(
     ":defs.bzl",
+    "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY",
+    "MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY",
     "execution_platform",
     "execution_platforms",
     "fat_platform_transition_helper",
@@ -61,24 +63,24 @@ remote_execution_action_key_providers = [
 
 mac_platforms = execution_platform(
     name = "macos-minimal",
-    base_platform = mac_execution_base_platforms["x86_64_minimal_xcode"],
+    base_platform = mac_execution_base_platforms[MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY],
     local_enabled = local_mac_execution,
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
         "platform": "mac",
-        "subplatform": mac_execution_subplatforms["x86_64_minimal_xcode"],
+        "subplatform": mac_execution_subplatforms[MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY],
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 ) + execution_platform(
     name = "macos",
-    base_platform = mac_execution_base_platforms["x86_64-fbsource"],
+    base_platform = mac_execution_base_platforms[MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY],
     local_enabled = local_mac_execution,
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
         "platform": "mac",
-        "subplatform": mac_execution_subplatforms["x86_64-fbsource"],
+        "subplatform": mac_execution_subplatforms[MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY],
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
@@ -236,7 +238,7 @@ prelude.platform(
     # the fbsource platforms just aren't that useful yet.
     constraint_values = [
         ":fat_platform_enabled",
-        ":fat_platform_mac=x86_64-fbsource",
+        ":fat_platform_mac={}".format(MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY),
         ":fat_platform_linux=platform010",
     ],
     visibility = ["PUBLIC"],
