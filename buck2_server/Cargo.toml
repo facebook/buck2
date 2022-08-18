@@ -41,8 +41,6 @@ watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
 
 buck2_build_api = { path = "../buck2_build_api" }
-# TODO(nga): remove dependency on buck2_bxl, and this crate can be compiled in parallel with it.
-buck2_bxl = { path = "../buck2_bxl" }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }

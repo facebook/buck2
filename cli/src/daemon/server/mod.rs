@@ -27,6 +27,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_common::truncate::truncate;
@@ -288,6 +289,7 @@ impl BuckdServer {
                             req.build_options(),
                             daemon_state.paths.buck_out_dir(),
                             req.record_target_call_stacks(),
+                            configure_bxl_file_globals,
                         )?;
 
                         let result = match func(context, req).await {

@@ -36,7 +36,6 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:walkdir",
         "//buck2/buck2_build_api:buck2_build_api",
-        "//buck2/buck2_bxl:buck2_bxl",
         "//buck2/buck2_common:buck2_common",
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",

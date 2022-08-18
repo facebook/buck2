@@ -32,7 +32,6 @@ use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::spawner::BuckSpawner;
-use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
@@ -65,6 +64,7 @@ use gazebo::prelude::VecExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use once_cell::sync::OnceCell;
+use starlark::environment::GlobalsBuilder;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::configs::parse_legacy_cells;
@@ -193,6 +193,8 @@ pub struct ServerCommandContext {
     /// Option so that we can ensure heartbeat events are cancelled before everything else is
     /// dropped.
     heartbeat_guard_handle: Option<HeartbeatGuard>,
+
+    configure_bxl_file_globals: fn(&mut GlobalsBuilder),
 }
 
 impl ServerCommandContext {
@@ -204,6 +206,7 @@ impl ServerCommandContext {
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
         record_target_call_stacks: bool,
+        configure_bxl_file_globals: fn(&mut GlobalsBuilder),
     ) -> anyhow::Result<Self> {
         let abs_path = AbsPath::new(&client_context.working_dir)?;
 
@@ -258,6 +261,7 @@ impl ServerCommandContext {
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
+            configure_bxl_file_globals,
         })
     }
 
@@ -329,7 +333,7 @@ impl ServerCommandContext {
             self.record_target_call_stacks,
             configure_build_file_globals,
             configure_extension_file_globals,
-            configure_bxl_file_globals,
+            self.configure_bxl_file_globals,
         );
 
         let root_config = legacy_configs
