@@ -50,10 +50,6 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::execute::config::PathSeparatorKind;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
-use buck2_server::daemon::common::resolve_patterns;
-use buck2_server::daemon::common::target_platform_from_client_context;
 use chrono::DateTime;
 use chrono::NaiveDateTime;
 use chrono::Utc;
@@ -80,10 +76,15 @@ use tonic::transport::Channel;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
+use crate::ctx::ServerCommandContext;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+
 pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, Error)]
-pub(crate) enum InstallError {
+pub enum InstallError {
     #[error("Not install type `{0}` from package `{1}`")]
     NoInstallProvider(TargetName, Package),
 
@@ -126,7 +127,7 @@ async fn get_installer_log_directory(
     Ok(install_log_dir)
 }
 
-pub(crate) async fn install(
+pub async fn install(
     server_ctx: ServerCommandContext,
     request: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
@@ -449,7 +450,7 @@ fn get_stdio() -> anyhow::Result<Stdio> {
 }
 
 #[derive(Debug)]
-pub(crate) struct FileResult {
+pub struct FileResult {
     name: String,
     artifact: Artifact,
     artifact_value: ArtifactValue,
@@ -514,9 +515,9 @@ async fn connect_to_installer(
 ) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
-    use buck2_server::client_utils::get_channel;
-    use buck2_server::client_utils::retrying;
-    use buck2_server::client_utils::ConnectionType;
+    use crate::client_utils::get_channel;
+    use crate::client_utils::retrying;
+    use crate::client_utils::ConnectionType;
 
     // These numbers might need to be configured based on the installer
     let initial_delay = Duration::from_millis(100);

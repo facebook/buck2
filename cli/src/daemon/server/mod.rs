@@ -40,6 +40,7 @@ use buck2_server::build::build;
 use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
+use buck2_server::install::install;
 use buck2_server::lsp::run_lsp_server;
 use buck2_server::materialize::materialize;
 use buck2_server::profile::generate_profile;
@@ -76,7 +77,6 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
-use crate::daemon::install::install;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 

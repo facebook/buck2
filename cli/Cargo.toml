@@ -40,7 +40,6 @@ humantime = "2.0.1"
 indent_write = "2.2.0"
 indexmap = { version = "1.6", features = ["serde-1"] }
 buck2_interpreter = {path = "../buck2_interpreter"}
-install_proto = {path = "../install_proto"}
 itertools = "0.10.0"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
@@ -66,7 +65,6 @@ serde_json = "1.0.48"
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 sync_wrapper = "0.1.0"
-tempfile = "3.1"
 termimad = "0.20.1"
 termwiz = "0.15"
 test_api = { path = "../test_api" }
@@ -100,6 +98,7 @@ winapi = { version = "0.3", features = ["everything"] }
 [dev-dependencies]
 assert_matches = "1.5"
 pretty_assertions = "0.6"
+tempfile = "3.1"
 
 [[bin]]
 name = "buck2"
