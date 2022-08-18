@@ -7,6 +7,7 @@ AppleToolchainRuleType = enum(
 
 AppleToolchainType = enum(
     "apple-xcode-13.4-macos",
+    "apple-xcode-14.0-macos",
     "meta-pika-13.3-linux",
     "meta-pika-13.3-macos",
     "meta-pika-14-linux",
@@ -23,6 +24,7 @@ _APPLE_TOOLCHAIN_RULE_TYPE = AppleToolchainRuleType("apple")
 _CXX_TOOLCHAIN_RULE_TYPE = AppleToolchainRuleType("cxx")
 
 _APPLE_XCODE_13_4_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-13.4-macos")
+_APPLE_XCODE_14_0_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-14.0-macos")
 _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-linux")
 _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-macos")
 _META_PIKA_14_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-14-linux")
@@ -96,6 +98,7 @@ def _get_iphone_device_toolchain_select_map(rule_type: AppleToolchainRuleType.ty
     select_map = {
         "DEFAULT": _get_apple_iphone_device_arch_select(rule_type = rule_type, xcode_version = _DEFAULT_XCODE_VERSION),
         _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_device_arch_select(rule_type = rule_type, xcode_version = "13.4"),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_14_0_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_device_arch_select(rule_type = rule_type, xcode_version = "14.0"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphoneos"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphoneos"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_14_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-14", host = "linux", sdk = "iphoneos"),
@@ -110,6 +113,7 @@ def _get_watch_simulator_toolchain_select_map(rule_type: AppleToolchainRuleType.
         # watchOS targets must always be built with Xcode-based toolchains due to lack of upstream LLVM support for the archs
         "DEFAULT": _get_apple_watch_simulator_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = _DEFAULT_XCODE_VERSION),
         _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watch_simulator_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = "13.4"),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_14_0_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watch_simulator_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = "14.0"),
         _get_toolchain_select_config(toolchain_type = _META_XCODE_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
     }
 
@@ -120,6 +124,7 @@ def _get_watchos_device_toolchain_select_map(rule_type: AppleToolchainRuleType.t
         # watchOS targets must always be built with Xcode-based toolchains due to lack of upstream LLVM support for the archs
         "DEFAULT": _get_apple_watchos_device_arch_select(rule_type = rule_type, xcode_version = _DEFAULT_XCODE_VERSION),
         _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watchos_device_arch_select(rule_type = rule_type, xcode_version = "13.4"),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_14_0_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watchos_device_arch_select(rule_type = rule_type, xcode_version = "14.0"),
         _get_toolchain_select_config(toolchain_type = _META_XCODE_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "xcode", host = "macos", sdk = "watchos"),
     }
 
@@ -129,6 +134,7 @@ def _get_iphone_simulator_toolchain_select_map(rule_type: AppleToolchainRuleType
     select_map = {
         "DEFAULT": _get_apple_iphone_simulator_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = _DEFAULT_XCODE_VERSION),
         _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_simulator_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = "13.4"),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_14_0_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_simulator_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = "14.0"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_14_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-14", host = "linux", sdk = "iphonesimulator"),
@@ -144,6 +150,7 @@ def _get_apple_macos_select_map(rule_type: AppleToolchainRuleType.type, usage_ty
         "DEFAULT": select({
             "DEFAULT": _get_apple_macosx_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = _DEFAULT_XCODE_VERSION),
             _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_macosx_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = "13.4"),
+            _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_14_0_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_macosx_arch_select(rule_type = rule_type, default_arch = default_arch, xcode_version = "14.0"),
             _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
             _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
             _get_toolchain_select_config(toolchain_type = _META_PIKA_14_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-14", host = "linux", sdk = "macosx"),
