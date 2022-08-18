@@ -56,6 +56,7 @@ use buck2_server::daemon::common::parse_concurrency;
 use buck2_server::daemon::common::parse_patterns_from_cli_args;
 use buck2_server::daemon::common::CommandExecutorFactory;
 use buck2_server::file_watcher::FileWatcher;
+use buck2_server::host_info;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::ClientContext;
@@ -75,7 +76,6 @@ use once_cell::sync::OnceCell;
 use crate::daemon::server::active_commands::ActiveCommandDropGuard;
 use crate::daemon::server::dice_tracker::BuckDiceTracker;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
-use crate::daemon::server::host_info;
 use crate::daemon::server::raw_output::RawOuputGuard;
 use crate::daemon::server::raw_output::RawOutputWriter;
 

@@ -83,7 +83,6 @@ mod concurrency;
 pub(crate) mod ctx;
 mod dice_tracker;
 pub(crate) mod heartbeat_guard;
-mod host_info;
 pub(crate) mod lsp;
 mod raw_output;
 mod snapshot;

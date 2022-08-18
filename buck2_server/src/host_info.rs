@@ -11,7 +11,7 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use cli_proto::client_context::HostPlatformOverride;
 
-pub(crate) fn get_host_info(
+pub fn get_host_info(
     host_platform: HostPlatformOverride,
 ) -> (InterpreterHostPlatform, InterpreterHostArchitecture) {
     let linux = InterpreterHostPlatform::Linux;
