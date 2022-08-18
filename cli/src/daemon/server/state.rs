@@ -39,6 +39,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_server::active_commands::ActiveCommandDropGuard;
 use buck2_server::ctx::BaseServerCommandContext;
+use buck2_server::daemon::panic::DaemonStatePanicDiceDump;
 use buck2_server::file_watcher::FileWatcher;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::cycles::DetectCycles;
@@ -113,6 +114,12 @@ impl DaemonStateData {
         format: DiceDumpFormat,
     ) -> anyhow::Result<()> {
         buck2_server::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
+    }
+}
+
+impl DaemonStatePanicDiceDump for DaemonStateData {
+    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+        self.dice_dump(path, format)
     }
 }
 
@@ -414,7 +421,7 @@ impl DaemonState {
                     .await
                     .context("Error initializing DaemonStateData");
                 if let Ok(ref data) = result {
-                    crate::daemon::panic::initialize(data.dupe());
+                    buck2_server::daemon::panic::initialize(data.dupe());
                 }
                 result.shared_error()
             })

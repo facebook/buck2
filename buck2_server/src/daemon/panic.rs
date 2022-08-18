@@ -14,6 +14,7 @@
 use std::env::temp_dir;
 use std::panic;
 use std::panic::PanicInfo;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,7 +24,9 @@ use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use events::TraceId;
 use once_cell::sync::OnceCell;
 
-use crate::daemon::server::state::DaemonStateData;
+pub trait DaemonStatePanicDiceDump: Send + Sync + 'static {
+    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()>;
+}
 
 fn get_panic_dump_dir() -> PathBuf {
     temp_dir().join("buck2-dumps")
@@ -52,7 +55,7 @@ async fn remove_old_panic_dumps() -> anyhow::Result<()> {
 }
 
 /// Initializes the panic hook.
-pub(crate) fn initialize(daemon_state: Arc<DaemonStateData>) {
+pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
     let hook = panic::take_hook();
     panic::set_hook(box move |info| {
         daemon_panic_hook(&daemon_state, info);
@@ -66,14 +69,18 @@ pub(crate) fn initialize(daemon_state: Arc<DaemonStateData>) {
 /// This cell prevents a circular set of panics if this happens.
 static ALREADY_DUMPED_DICE: OnceCell<()> = OnceCell::new();
 
-fn daemon_panic_hook(daemon_state: &Arc<DaemonStateData>, info: &PanicInfo) {
+fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicInfo) {
     if ALREADY_DUMPED_DICE.set(()).is_ok() {
         let panic_id = TraceId::new();
         maybe_dice_dump(daemon_state, info, &panic_id);
     }
 }
 
-fn maybe_dice_dump(daemon_state: &Arc<DaemonStateData>, info: &PanicInfo, panic_id: &TraceId) {
+fn maybe_dice_dump(
+    daemon_state: &Arc<dyn DaemonStatePanicDiceDump>,
+    info: &PanicInfo,
+    panic_id: &TraceId,
+) {
     let is_dice_panic = info.location().map_or(false, |loc| {
         loc.file().split(&['/', '\\']).any(|x| x == "dice")
     });
