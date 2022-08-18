@@ -35,6 +35,7 @@ use buck2_core::facebook_only;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
+use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::profile::generate_profile;
@@ -71,7 +72,6 @@ use tracing::debug_span;
 
 use crate::daemon::build::build;
 use crate::daemon::bxl::bxl;
-use crate::daemon::clean::clean;
 use crate::daemon::install::install;
 use crate::daemon::materialize::materialize;
 use crate::daemon::server::lsp::run_lsp_server;

@@ -14,14 +14,15 @@ use anyhow::Context as _;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_server::ctx::ServerCommandContext;
 use cli_proto::CleanRequest;
 use cli_proto::CleanResponse;
 use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-pub(crate) async fn clean(
+use crate::ctx::ServerCommandContext;
+
+pub async fn clean(
     server_ctx: ServerCommandContext,
     request: CleanRequest,
 ) -> anyhow::Result<CleanResponse> {
