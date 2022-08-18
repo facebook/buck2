@@ -10,10 +10,10 @@
 use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_server::daemon::common::target_platform_from_client_context;
 use cli_proto::UqueryRequest;
 use cli_proto::UqueryResponse;
 
-use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::server::ctx::ServerCommandContext;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;

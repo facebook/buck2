@@ -20,6 +20,8 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
 use buck2_core::package::Package;
 use buck2_interpreter::common::StarlarkModulePath;
+use buck2_server::daemon::common::parse_bxl_label_from_cli;
+use buck2_server::daemon::common::ConvertMaterializationContext;
 use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
 use dice::DiceComputations;
@@ -27,8 +29,6 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::daemon::common::parse_bxl_label_from_cli;
-use crate::daemon::common::ConvertMaterializationContext;
 use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug)]

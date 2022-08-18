@@ -13,9 +13,8 @@ use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_server::daemon::common::ConfigType;
 use cli_proto::ConfigOverride;
-
-use crate::daemon::common::ConfigType;
 
 pub(crate) fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,

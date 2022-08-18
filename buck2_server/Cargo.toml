@@ -1,0 +1,29 @@
+[package]
+description = "Some parts of Buck2 server"
+edition = "2021"
+name = "buck2_server"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.51"
+dashmap = "4.0.2"
+once_cell = "1.3"
+num_cpus = "1.11"
+prost-types = "0.10"
+thiserror = "1.0.9"
+tracing = "0.1.22"
+
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+dice = { path = "../dice/dice" }
+
+buck2_build_api = { path = "../buck2_build_api" }
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_forkserver = { path = "../buck2_forkserver" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_node = { path = "../buck2_node" }
+cli_proto = { path = "../cli_proto" }
+host_sharing = { path = "../host_sharing" }

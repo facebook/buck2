@@ -16,6 +16,7 @@ buck2_query = { path = "../buck2_query" }
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
 buck2_node = { path = "../buck2_node" }
+buck2_server = { path = "../buck2_server" }
 buck2_test = { path = "../buck2_test" }
 bytes = { version = "1.1.0" }
 chrono = "0.4.19"
@@ -92,7 +93,6 @@ watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
-dashmap = "4.0"
 shlex = "1.1"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip"] }
 crossterm = "0.23"

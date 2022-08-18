@@ -34,6 +34,9 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::dice::HasEvents;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_server::daemon::common::parse_patterns_from_cli_args;
+use buck2_server::daemon::common::resolve_patterns;
+use buck2_server::daemon::common::target_platform_from_client_context;
 use buck2_test::downward_api::BuckTestDownwardApi;
 use buck2_test::executor_launcher::ExecutorLaunch;
 use buck2_test::executor_launcher::ExecutorLauncher;
@@ -61,9 +64,6 @@ use test_api::data::TestResult;
 use test_api::data::TestStatus;
 use test_api::protocol::TestExecutor;
 
-use crate::daemon::common::parse_patterns_from_cli_args;
-use crate::daemon::common::resolve_patterns;
-use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, Serialize)]

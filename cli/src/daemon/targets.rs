@@ -25,6 +25,8 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_server::daemon::common::parse_patterns_from_cli_args;
+use buck2_server::daemon::common::target_platform_from_client_context;
 use cli_proto::targets_request::TargetHashFileMode;
 use cli_proto::targets_request::TargetHashGraphType;
 use cli_proto::TargetsRequest;
@@ -34,8 +36,6 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
 
-use crate::daemon::common::parse_patterns_from_cli_args;
-use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::json::quote_json_string;
 use crate::daemon::server::ctx::ServerCommandContext;
 use crate::target_hash::BuckTargetHash;

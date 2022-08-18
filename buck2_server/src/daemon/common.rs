@@ -61,7 +61,7 @@ use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 
-pub(crate) trait ToProtoDuration {
+pub trait ToProtoDuration {
     fn to_proto(&self) -> prost_types::Duration;
 }
 
@@ -74,7 +74,7 @@ impl ToProtoDuration for Duration {
     }
 }
 
-pub(crate) enum ConfigType {
+pub enum ConfigType {
     Value = 0,
     File = 1,
 }
@@ -94,14 +94,14 @@ impl TryFrom<i32> for ConfigType {
     }
 }
 
-pub(crate) struct PatternParser {
+pub struct PatternParser {
     cell: CellInstance,
     cwd: Package,
     target_alias_resolver: BuckConfigTargetAliasResolver,
 }
 
 impl PatternParser {
-    pub(crate) fn new(
+    pub fn new(
         cell_resolver: &CellResolver,
         config: &LegacyBuckConfigs,
         cwd: &ProjectRelativePath,
@@ -125,10 +125,7 @@ impl PatternParser {
         })
     }
 
-    pub(crate) fn parse_pattern<T: PatternType>(
-        &self,
-        pattern: &str,
-    ) -> anyhow::Result<ParsedPattern<T>> {
+    pub fn parse_pattern<T: PatternType>(&self, pattern: &str) -> anyhow::Result<ParsedPattern<T>> {
         ParsedPattern::parse_relaxed(
             &self.target_alias_resolver,
             self.cell.cell_alias_resolver(),
@@ -143,7 +140,7 @@ impl PatternParser {
 /// The format allowed here is more relaxed than in build files and elsewhere, so only use this
 /// with strings passed by the user on the CLI.
 /// See `ParsedPattern::parse_relaxed` for details.
-pub(crate) fn parse_patterns_from_cli_args<T: PatternType>(
+pub fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns: &[buck2_data::TargetPattern],
     cell_resolver: &CellResolver,
     configs: &LegacyBuckConfigs,
@@ -154,7 +151,7 @@ pub(crate) fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }
 
-pub(crate) async fn resolve_patterns<T: PatternType>(
+pub async fn resolve_patterns<T: PatternType>(
     patterns: &[ParsedPattern<T>],
     cell_resolver: &CellResolver,
     file_ops: &dyn FileOps,
@@ -173,7 +170,7 @@ pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
 }
 
 /// Extract target configuration (platform) label from [`ClientContext`].
-pub(crate) async fn target_platform_from_client_context(
+pub async fn target_platform_from_client_context(
     client_context: Option<&ClientContext>,
     cell_resolver: &CellResolver,
     working_dir: &ProjectRelativePathBuf,
@@ -377,7 +374,7 @@ impl ExecutionStrategyExt for ExecutionStrategy {
     }
 }
 
-pub(crate) fn get_executor_config_for_strategy(
+pub fn get_executor_config_for_strategy(
     strategy: ExecutionStrategy,
     host_platform: HostPlatformOverride,
 ) -> CommandExecutorConfig {
@@ -474,7 +471,7 @@ pub fn parse_bxl_label_from_cli(
     })
 }
 
-pub(crate) trait ConvertMaterializationContext {
+pub trait ConvertMaterializationContext {
     fn from(self) -> MaterializationContext;
 }
 
