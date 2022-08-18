@@ -36,6 +36,7 @@ use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
 use buck2_server::daemon::common::ToProtoDuration;
+use buck2_server::snapshot;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
@@ -83,7 +84,6 @@ pub(crate) mod ctx;
 pub(crate) mod heartbeat_guard;
 pub(crate) mod lsp;
 mod raw_output;
-mod snapshot;
 pub(crate) mod state;
 mod streaming_request_handler;
 

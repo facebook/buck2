@@ -14,4 +14,5 @@ pub mod daemon;
 pub mod dice_tracker;
 pub mod file_watcher;
 pub mod host_info;
+pub mod snapshot;
 pub mod watchman;
