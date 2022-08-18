@@ -10,13 +10,13 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::path::Path;
 use std::ptr;
 
 use anyhow::Context as _;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_node::execute::config::PathSeparatorKind;
 use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
@@ -148,7 +148,7 @@ impl CommandLineArgLike for String {
 /// CommandLineLocation.
 #[derive(Debug, Clone)]
 pub struct CommandLineLocation<'a> {
-    root: Option<&'a Path>,
+    root: Option<&'a ProjectRoot>,
     path: RelativePathBuf,
     path_separator: PathSeparatorKind,
 }
@@ -168,7 +168,7 @@ impl CommandLineLocation<'_> {
         let mut root_buf;
         let res = match root {
             Some(root) => {
-                root_buf = root.to_path_buf();
+                root_buf = root.root.to_path_buf();
                 root_buf.extend(path.iter());
                 root_buf.to_string_lossy()
             }
@@ -188,7 +188,7 @@ impl CommandLineLocation<'_> {
 
 impl<'a> CommandLineLocation<'a> {
     pub fn from_root(
-        root: &'a Path,
+        root: &'a ProjectRoot,
         path: RelativePathBuf,
         path_separator: PathSeparatorKind,
     ) -> Self {

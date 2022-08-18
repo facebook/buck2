@@ -134,7 +134,7 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_root(
-            &self.0.fs().fs().fs().root,
+            self.0.fs().fs().fs(),
             path.into(),
             self.fs().path_separator(),
         ))
