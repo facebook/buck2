@@ -5,138 +5,21 @@ from pathlib import Path
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
+bxl_label = "fbcode//buck2/prelude/intellij_project/main.bxl:generate_intellij_project"
+expected_dir_relative_path = "buck2/tests/e2e/intellij_project/testdata"
+
 
 @buck_test(inplace=True)
 async def test_generate_intellij_project(buck: Buck) -> None:
-    bxl_label = (
-        "fbcode//buck2/prelude/intellij_project/main.bxl:generate_intellij_project"
-    )
+    expected_dir = buck.cwd / expected_dir_relative_path / "apk" / ".idea"
     result = await buck.bxl(
         bxl_label,
         "--",
         "--targets",
         "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/apk:apk",
     )
-
     output_dir = Path(result.stdout.strip())
-    assert (
-        (output_dir / "modules.xml").read_text()
-        == """\
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectModuleManager">
-    <modules>
-    </modules>
-  </component>
-</project>
-"""
-    )
-
-    libraries_dir = output_dir / "libraries"
-    assert len(list(libraries_dir.iterdir())) == 1
-
-    with (
-        libraries_dir
-        / "__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_prebuilt__.json"
-    ).open("r") as json_file:
-        assert json.load(json_file) == {
-            "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt",
-            "type": "DEFAULT",
-            "binaryJars": [
-                "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar"
-            ],
-            "javadocUrls": ["http://prebuilt_jar_javadoc.url"],
-            "sourceJars": [
-                "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar"
-            ],
-        }
-
-    modules_dir = output_dir / "modules"
-    assert len(list(modules_dir.iterdir())) == 2
-
-    with (
-        modules_dir
-        / "fbandroid_buck2_tests_good_sample_intellij_project_android_main.json"
-    ).open("r") as json_file:
-        assert _sanitize_buck_out_paths(json.load(json_file)) == {
-            "dependencies": {
-                "LIBRARY": [
-                    {
-                        "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt"
-                    }
-                ],
-                "MODULE": [
-                    {
-                        "name": "fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib"
-                    }
-                ],
-                "MODULE-LIBRARY": [
-                    {
-                        "library": {
-                            "binaryJars": [
-                                "buck-out-path",
-                            ],
-                            "classPaths": [
-                                "buck-out-path",
-                            ],
-                            "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/android_prebuilt_aar:aar",
-                            "sourceJars": [],
-                            "type": "DEFAULT",
-                        }
-                    },
-                    {
-                        "library": {
-                            "binaryJars": [
-                                "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources/prebuilt_no_sources.jar"
-                            ],
-                            "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources:prebuilt_no_sources",
-                            "sourceJars": [],
-                            "type": "DEFAULT",
-                        }
-                    },
-                ],
-            }
-        }
-
-    with (
-        modules_dir
-        / "fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib.json"
-    ).open("r") as json_file:
-        assert json.load(json_file) == {
-            "dependencies": {
-                "LIBRARY": [
-                    {
-                        "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt"
-                    }
-                ],
-                "MODULE": [],
-                "MODULE-LIBRARY": [
-                    {
-                        "library": {
-                            "binaryJars": [
-                                "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/another_prebuilt.jar"
-                            ],
-                            "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt_in_same_package",
-                            "sourceJars": [],
-                            "type": "DEFAULT",
-                        }
-                    }
-                ],
-            }
-        }
-
-
-@buck_test(inplace=True)
-async def test_generate_sample_project(buck: Buck) -> None:
-    bxl_label = "fbcode//buck2/prelude/intellij_project/sample.bxl:project_gen"
-    await buck.bxl(
-        bxl_label,
-        "--",
-        "--roots",
-        "fbcode//buck2/gazebo/gazebo:gazebo",
-        "--mode",
-        "foo",
-    )
+    assert verify_expected_files(expected_dir, output_dir)
 
 
 def _sanitize_buck_out_paths(data):
@@ -150,3 +33,22 @@ def _sanitize_buck_out_paths(data):
         raise Exception(
             "Unknown data type for _sanitize_buck_out_paths: {}".format(type(data))
         )
+
+
+def verify_expected_files(expected_dir: Path, output_dir: Path) -> bool:
+    for cur_file in expected_dir.rglob("*.expected"):
+        relative_path = cur_file.relative_to(expected_dir).parent
+        generated_file = output_dir / relative_path / cur_file.stem
+
+        if generated_file.suffix == ".json":
+            with cur_file.open("r") as cur_json_file, generated_file.open(
+                "r"
+            ) as gen_json_file:
+                expected = json.load(cur_json_file)
+                actual = _sanitize_buck_out_paths(json.load(gen_json_file))
+                if actual != expected:
+                    return False
+        else:
+            if cur_file.read_text() != generated_file.read_text():
+                return False
+    return True

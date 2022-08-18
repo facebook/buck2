@@ -1,0 +1,22 @@
+{
+    "dependencies": {
+        "LIBRARY": [
+            {
+                "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt"
+            }
+        ],
+        "MODULE": [],
+        "MODULE-LIBRARY": [
+            {
+                "library": {
+                    "binaryJars": [
+                        "fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/another_prebuilt.jar"
+                    ],
+                    "name": "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt_in_same_package",
+                    "sourceJars": [],
+                    "type": "DEFAULT"
+                }
+            }
+        ]
+    }
+}
