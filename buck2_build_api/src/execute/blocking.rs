@@ -12,7 +12,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -58,7 +58,7 @@ impl dyn BlockingExecutor {
 }
 
 pub trait IoRequest: Send + Sync + 'static {
-    fn execute(self: Box<Self>, project_fs: &ProjectFilesystem) -> anyhow::Result<()>;
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()>;
 }
 
 struct ThreadPoolIoRequest {
@@ -84,7 +84,7 @@ impl BuckBlockingExecutor {
     /// host. This is because those operations often have to do CPU bound work to generate the data
     /// they are trying to write, and writing to multiple files doesn't have the negative scaling
     /// issues modifying the directory structure does.
-    pub fn default_concurrency(fs: ProjectFilesystem) -> anyhow::Result<Self> {
+    pub fn default_concurrency(fs: ProjectRoot) -> anyhow::Result<Self> {
         static IO_THREADS: EnvHelper<usize> = EnvHelper::new("BUCK2_IO_THREADS");
         static IO_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_IO_SEMAPHORE");
 
@@ -173,7 +173,7 @@ pub mod testing {
     use super::*;
 
     pub struct DummyBlockingExecutor {
-        pub fs: ProjectFilesystem,
+        pub fs: ProjectRoot,
     }
 
     #[async_trait]

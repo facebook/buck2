@@ -29,7 +29,7 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -120,7 +120,7 @@ impl<'v> BxlContext<'v> {
         current_bxl: BxlKey,
         cli_args: Value<'v>,
         target_alias_resolver: BuckConfigTargetAliasResolver,
-        project_fs: Arc<ProjectFilesystem>,
+        project_fs: Arc<ProjectRoot>,
         artifact_fs: ArtifactFs,
         cell: CellInstance,
         async_ctx: BxlSafeDiceComputations<'v>,
@@ -152,7 +152,7 @@ impl<'v> BxlContext<'v> {
     ) -> anyhow::Result<DiceQueryDelegate<'_>> {
         let cwd = AbsPathBuf::try_from(std::env::current_dir()?)?;
         let working_dir = {
-            let fs = ProjectFilesystem::new(cwd.clone());
+            let fs = ProjectRoot::new(cwd.clone());
             fs.relativize(&cwd)?.as_ref().to_owned()
         };
         let cell_resolver = ctx.get_cell_resolver().await?;

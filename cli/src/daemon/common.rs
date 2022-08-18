@@ -35,9 +35,9 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
@@ -240,7 +240,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
     fn get_command_executor(
         &self,
         artifact_fs: &ArtifactFs,
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let local_executor_new = |_options| {

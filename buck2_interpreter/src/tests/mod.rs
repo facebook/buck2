@@ -21,9 +21,9 @@ use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_core::fs::project::ProjectFilesystemTemp;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::Package;
 use dice::cycles::DetectCycles;
 use dice::Dice;
@@ -70,7 +70,7 @@ fn root_cell() -> CellName {
     CellName::unchecked_new("".to_owned())
 }
 
-fn calculation(fs: &ProjectFilesystemTemp) -> anyhow::Result<DiceTransaction> {
+fn calculation(fs: &ProjectRootTemp) -> anyhow::Result<DiceTransaction> {
     let mut dice = Dice::builder();
     dice.set(EventDispatcher::null());
     dice.set_testing_io_provider(fs);
@@ -99,7 +99,7 @@ fn calculation(fs: &ProjectFilesystemTemp) -> anyhow::Result<DiceTransaction> {
 
 #[tokio::test]
 async fn test_eval_import() -> anyhow::Result<()> {
-    let fs = ProjectFilesystemTemp::new()?;
+    let fs = ProjectRootTemp::new()?;
     fs.path().write_file(
         ProjectRelativePath::new("package/two.bzl")?,
         indoc!(
@@ -131,7 +131,7 @@ async fn test_eval_import() -> anyhow::Result<()> {
 // TODO: this test require imports extractions
 #[tokio::test]
 async fn test_eval_import_with_load() -> anyhow::Result<()> {
-    let fs = ProjectFilesystemTemp::new()?;
+    let fs = ProjectRootTemp::new()?;
 
     fs.path().write_file(
         ProjectRelativePath::new("imports/one.bzl")?,
@@ -177,7 +177,7 @@ async fn test_eval_import_with_load() -> anyhow::Result<()> {
 // TODO: this test require imports extractions
 #[tokio::test]
 async fn test_eval_build_file() -> anyhow::Result<()> {
-    let fs = ProjectFilesystemTemp::new()?;
+    let fs = ProjectRootTemp::new()?;
     fs.path().write_file(
         ProjectRelativePath::new("imports/one.bzl")?,
         indoc!(

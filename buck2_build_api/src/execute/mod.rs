@@ -23,9 +23,9 @@ use blocking::IoRequest;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_interpreter::dice::HasEvents;
 use buck2_node::execute::config::CommandExecutorConfig;
 use derivative::Derivative;
@@ -466,7 +466,7 @@ pub struct CleanOutputPaths {
 impl CleanOutputPaths {
     pub(crate) fn clean<'a>(
         paths: impl Iterator<Item = &'a ProjectRelativePath>,
-        fs: &'a ProjectFilesystem,
+        fs: &'a ProjectRoot,
     ) -> anyhow::Result<()> {
         for path in paths {
             cleanup_path(fs, path)
@@ -476,7 +476,7 @@ impl CleanOutputPaths {
     }
 }
 
-fn cleanup_path(fs: &ProjectFilesystem, mut path: &ProjectRelativePath) -> anyhow::Result<()> {
+fn cleanup_path(fs: &ProjectRoot, mut path: &ProjectRelativePath) -> anyhow::Result<()> {
     fs.remove_path_recursive(path)?;
 
     // Be aware of T85589819 - the parent directory might already exist, but as a _file_.  It might
@@ -538,7 +538,7 @@ fn cleanup_path(fs: &ProjectFilesystem, mut path: &ProjectRelativePath) -> anyho
 }
 
 impl IoRequest for CleanOutputPaths {
-    fn execute(self: Box<Self>, project_fs: &ProjectFilesystem) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
         Self::clean(self.paths.iter().map(AsRef::as_ref), project_fs)
     }
 }
@@ -562,9 +562,9 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
     use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::Package;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
@@ -620,7 +620,7 @@ mod tests {
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
         )]);
 
-        let temp_fs = ProjectFilesystemTemp::new().unwrap();
+        let temp_fs = ProjectRootTemp::new().unwrap();
 
         let project_fs = temp_fs.path().clone();
         let artifact_fs = ArtifactFs::new(
@@ -773,7 +773,7 @@ mod tests {
 
     #[test]
     fn test_cleanup_path_missing() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux/xx"))?;
@@ -783,7 +783,7 @@ mod tests {
 
     #[test]
     fn test_cleanup_path_present() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
@@ -794,7 +794,7 @@ mod tests {
 
     #[test]
     fn test_cleanup_path_overlap() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
@@ -805,7 +805,7 @@ mod tests {
 
     #[test]
     fn test_cleanup_path_overlap_deep() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;
         cleanup_path(

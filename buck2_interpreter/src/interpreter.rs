@@ -673,7 +673,7 @@ mod tests {
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_core::cells::CellName;
     use buck2_core::fs::paths::AbsPathBuf;
-    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRoot;
     use indexmap::map::IndexMap;
     use indoc::indoc;
     use serde_json::json;
@@ -713,7 +713,7 @@ mod tests {
 
     fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         let repo_root = if cfg!(windows) { "C:/" } else { "/" };
-        let project_fs = ProjectFilesystem::new(AbsPathBuf::unchecked_new(repo_root.to_owned()));
+        let project_fs = ProjectRoot::new(AbsPathBuf::unchecked_new(repo_root.to_owned()));
         let BuckConfigBasedCells {
             cell_resolver,
             configs_by_name,

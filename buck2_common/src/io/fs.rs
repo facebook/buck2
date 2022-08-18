@@ -21,8 +21,8 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -40,11 +40,11 @@ use crate::io::IoProvider;
 
 #[derive(PartialEq, Clone, Dupe)]
 pub struct FsIoProvider {
-    fs: Arc<ProjectFilesystem>,
+    fs: Arc<ProjectRoot>,
 }
 
 impl FsIoProvider {
-    pub fn new(fs: Arc<ProjectFilesystem>) -> Self {
+    pub fn new(fs: Arc<ProjectRoot>) -> Self {
         Self { fs }
     }
 }
@@ -133,7 +133,7 @@ impl IoProvider for FsIoProvider {
         PartialEqAny::new(self)
     }
 
-    fn fs(&self) -> &Arc<ProjectFilesystem> {
+    fn fs(&self) -> &Arc<ProjectRoot> {
         &self.fs
     }
 }

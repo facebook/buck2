@@ -16,8 +16,8 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -45,14 +45,14 @@ use crate::execute::CleanOutputPaths;
 
 /// Materializer that materializes everything immediately on declare.
 pub struct ImmediateMaterializer {
-    fs: ProjectFilesystem,
+    fs: ProjectRoot,
     re_client_manager: Arc<ReConnectionManager>,
     io_executor: Arc<dyn BlockingExecutor>,
 }
 
 impl ImmediateMaterializer {
     pub fn new(
-        fs: ProjectFilesystem,
+        fs: ProjectRoot,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
     ) -> Self {
@@ -217,7 +217,7 @@ impl Materializer for ImmediateMaterializer {
 }
 
 pub async fn write_to_disk<'a>(
-    fs: &ProjectFilesystem,
+    fs: &ProjectRoot,
     io_executor: &dyn BlockingExecutor,
     gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> anyhow::Result<Vec<ArtifactValue>> {

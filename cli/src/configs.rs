@@ -12,7 +12,7 @@ use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use cli_proto::ConfigOverride;
 
 use crate::daemon::common::ConfigType;
@@ -36,7 +36,7 @@ pub(crate) fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverrid
 pub(crate) fn parse_legacy_cells<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
     cwd: &AbsPath,
-    fs: &ProjectFilesystem,
+    fs: &ProjectRoot,
 ) -> anyhow::Result<(CellResolver, LegacyBuckConfigs)> {
     let config_values = get_legacy_config_args(config_overrides)?;
     // TODO: We do not need to reparse _all_ configs, instead we just need to

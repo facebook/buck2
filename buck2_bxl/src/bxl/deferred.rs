@@ -31,7 +31,7 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_interpreter::common::BxlFilePath;
     use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
@@ -80,7 +80,7 @@ mod tests {
         let data1 = deferred.defer(FakeDeferred(5, IndexSet::new(), executed1.dupe()));
         let deferred_result = DeferredTable::new(deferred.take_result()?);
 
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
             .set_data(|data| data.set_testing_io_provider(&fs))
             .set_data(|data| data.set::<&dyn BxlCalculationDyn>(&BxlCalculationImpl))

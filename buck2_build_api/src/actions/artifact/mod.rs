@@ -599,9 +599,9 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
-    use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
@@ -677,7 +677,7 @@ mod tests {
         ));
 
         let project_fs =
-            ProjectFilesystem::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
+            ProjectRoot::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
@@ -698,7 +698,7 @@ mod tests {
     #[test]
     fn writes_files() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let project_fs = ProjectFilesystem::new(AbsPathBuf::try_from(tempdir.into_path()).unwrap());
+        let project_fs = ProjectRoot::new(AbsPathBuf::try_from(tempdir.into_path()).unwrap());
 
         let target = ConfiguredTargetLabel::testing_new(
             Package::testing_new("cell", "pkg"),

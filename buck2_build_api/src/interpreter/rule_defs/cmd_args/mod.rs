@@ -153,8 +153,8 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
 #[cfg(test)]
 pub mod tester {
     use buck2_core::fs::paths::AbsPathBuf;
-    use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_node::execute::config::PathSeparatorKind;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
@@ -174,7 +174,7 @@ pub mod tester {
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                 "buck-out/v2".to_owned(),
             )),
-            ProjectFilesystem::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap()),
+            ProjectRoot::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap()),
         )
     }
 

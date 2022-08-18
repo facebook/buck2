@@ -31,9 +31,9 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -88,7 +88,7 @@ pub trait DeferredCtx {
 
     fn registry(&mut self) -> &mut DeferredRegistry;
 
-    fn project_filesystem(&self) -> &Arc<ProjectFilesystem>;
+    fn project_filesystem(&self) -> &Arc<ProjectRoot>;
 }
 
 /// DeferredCtx with already resolved values
@@ -100,7 +100,7 @@ pub struct ResolveDeferredCtx<'a> {
     artifacts: HashMap<Artifact, ArtifactValue>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     registry: &'a mut DeferredRegistry,
-    project_filesystem: Arc<ProjectFilesystem>,
+    project_filesystem: Arc<ProjectRoot>,
 }
 
 impl<'a> ResolveDeferredCtx<'a> {
@@ -112,7 +112,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         artifacts: HashMap<Artifact, ArtifactValue>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         registry: &'a mut DeferredRegistry,
-        project_filesystem: Arc<ProjectFilesystem>,
+        project_filesystem: Arc<ProjectRoot>,
     ) -> Self {
         Self {
             key,
@@ -164,7 +164,7 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
         self.registry
     }
 
-    fn project_filesystem(&self) -> &Arc<ProjectFilesystem> {
+    fn project_filesystem(&self) -> &Arc<ProjectRoot> {
         &self.project_filesystem
     }
 }
@@ -759,7 +759,7 @@ mod tests {
 
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::AbsPath;
-    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
@@ -843,13 +843,13 @@ mod tests {
         ))
     }
 
-    fn dummy_project_filesystem() -> Arc<ProjectFilesystem> {
+    fn dummy_project_filesystem() -> Arc<ProjectRoot> {
         let cwd = if cfg!(windows) {
             AbsPath::new("c:/tmp").unwrap().to_owned()
         } else {
             AbsPath::new("/dev/null").unwrap().to_owned()
         };
-        Arc::new(ProjectFilesystem::new(cwd))
+        Arc::new(ProjectRoot::new(cwd))
     }
 
     #[test]

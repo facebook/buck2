@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 
 use crate::actions::artifact_utils::materialize_dirs_and_syms;
 use crate::actions::directory::ActionDirectoryEntry;
@@ -21,7 +21,7 @@ pub struct MaterializeTreeStructure {
 }
 
 impl IoRequest for MaterializeTreeStructure {
-    fn execute(self: Box<Self>, project_fs: &ProjectFilesystem) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
         materialize_dirs_and_syms(self.entry.as_ref(), &project_fs.root.join(&self.path))?;
 
         Ok(())

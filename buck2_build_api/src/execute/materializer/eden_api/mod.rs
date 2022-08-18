@@ -17,8 +17,8 @@ use buck2_common::eden::EdenConnectionManager;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::process::background_command;
 use edenfs::client::EdenService;
 use edenfs::CheckoutMode;
@@ -278,7 +278,7 @@ impl EdenBuckOut {
 
     async fn remove_path_recursive(
         &self,
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         path: &ProjectRelativePathBuf,
     ) -> anyhow::Result<()> {
         // Existence check would not trigger materialization since EdenFS will fast
@@ -312,7 +312,7 @@ impl EdenBuckOut {
 
     pub async fn remove_paths_recursive(
         &self,
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<()> {
         let futs = paths.iter().map(|path| async move {

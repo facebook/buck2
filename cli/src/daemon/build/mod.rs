@@ -33,7 +33,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -233,7 +233,7 @@ pub(crate) async fn build(
 fn create_unhashed_outputs(
     provider_artifacts: Vec<ProviderArtifacts>,
     artifact_fs: &ArtifactFs,
-    fs: &ProjectFilesystem,
+    fs: &ProjectRoot,
 ) -> anyhow::Result<()> {
     let buck_out_root = fs.resolve(artifact_fs.buck_out_path_resolver().root());
 

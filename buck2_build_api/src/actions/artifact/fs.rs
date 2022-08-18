@@ -1,6 +1,6 @@
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_node::execute::config::PathSeparatorKind;
 use either::Either;
 
@@ -16,14 +16,14 @@ use crate::path::BuckPathResolver;
 pub struct ArtifactFs {
     buck_path_resolver: BuckPathResolver,
     buck_out_path_resolver: BuckOutPathResolver,
-    project_filesystem: ProjectFilesystem,
+    project_filesystem: ProjectRoot,
 }
 
 impl ArtifactFs {
     pub fn new(
         buck_path_resolver: BuckPathResolver,
         buck_out_path_resolver: BuckOutPathResolver,
-        project_filesystem: ProjectFilesystem,
+        project_filesystem: ProjectRoot,
     ) -> Self {
         Self {
             buck_path_resolver,
@@ -100,7 +100,7 @@ impl ArtifactFs {
         self.project_filesystem.copy(&src_path, &dest_path)
     }
 
-    pub fn fs(&self) -> &ProjectFilesystem {
+    pub fn fs(&self) -> &ProjectRoot {
         &self.project_filesystem
     }
 

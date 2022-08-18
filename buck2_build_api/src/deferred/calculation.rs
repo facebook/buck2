@@ -320,7 +320,7 @@ mod tests {
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_node::compatibility::MaybeCompatible;
@@ -391,7 +391,7 @@ mod tests {
         let data1 = deferred.defer(FakeDeferred(5, IndexSet::new(), executed1.dupe()));
         let deferred_result = DeferredTable::new(deferred.take_result()?);
 
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
             .set_data(|data| data.set_testing_io_provider(&fs))
             .mock_and_return(
@@ -483,7 +483,7 @@ mod tests {
         let data = deferred.defer(DeferringDeferred(8, IndexSet::new(), executed.dupe()));
         let deferred_result = DeferredTable::new(deferred.take_result()?);
 
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
             .set_data(|data| data.set_testing_io_provider(&fs))
             .mock_and_return(

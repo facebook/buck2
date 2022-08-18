@@ -295,8 +295,8 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
@@ -386,7 +386,7 @@ mod tests {
             bar => bar_meta.dupe(),
         ]);
 
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
 
         let mut dice_builder = DiceBuilder::new()
             .mock_and_return(FileOpsKey(), Ok(Arc::new(files)))

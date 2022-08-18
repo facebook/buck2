@@ -16,9 +16,9 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -49,7 +49,7 @@ pub struct EdenMaterializer {
     re_client_manager: Arc<ReConnectionManager>,
     delegator: Arc<dyn Materializer>,
     eden_buck_out: EdenBuckOut,
-    fs: ProjectFilesystem,
+    fs: ProjectRoot,
 }
 
 #[async_trait]
@@ -226,7 +226,7 @@ impl Materializer for EdenMaterializer {
 
 impl EdenMaterializer {
     pub fn new(
-        fs: ProjectFilesystem,
+        fs: ProjectRoot,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         eden_buck_out: EdenBuckOut,

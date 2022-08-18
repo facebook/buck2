@@ -16,8 +16,8 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use derivative::Derivative;
 use edenfs::types::FileAttributes;
 use edenfs::types::GetAttributesFromFilesParams;
@@ -52,10 +52,7 @@ pub struct EdenIoProvider {
 }
 
 impl EdenIoProvider {
-    pub async fn new(
-        fb: FacebookInit,
-        fs: &Arc<ProjectFilesystem>,
-    ) -> anyhow::Result<Option<Self>> {
+    pub async fn new(fb: FacebookInit, fs: &Arc<ProjectRoot>) -> anyhow::Result<Option<Self>> {
         if cfg!(not(fbcode_build)) {
             tracing::warn!("Disabling Eden I/O: Cargo build detected");
             return Ok(None);
@@ -279,7 +276,7 @@ impl IoProvider for EdenIoProvider {
         PartialEqAny::new(self)
     }
 
-    fn fs(&self) -> &Arc<ProjectFilesystem> {
+    fn fs(&self) -> &Arc<ProjectRoot> {
         self.fs.fs()
     }
 }

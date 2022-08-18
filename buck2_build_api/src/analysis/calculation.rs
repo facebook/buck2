@@ -455,8 +455,8 @@ mod tests {
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellsAggregator;
     use buck2_core::configuration::Configuration;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
     use buck2_core::provider::id::testing::ProviderIdExt;
@@ -566,7 +566,7 @@ mod tests {
             PackageListing::testing_new(&[], "BUCK"),
         )?;
 
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
             .mock_and_return(
                 EvalImportKey(OwnedStarlarkModulePath::LoadFile(bzlfile.clone())),

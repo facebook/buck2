@@ -13,8 +13,8 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use reqwest::Client;
@@ -138,7 +138,7 @@ pub async fn http_head(client: &Client, url: &str) -> anyhow::Result<Response> {
 
 pub async fn http_download(
     client: &Client,
-    fs: &ProjectFilesystem,
+    fs: &ProjectRoot,
     path: &ProjectRelativePath,
     url: &str,
     checksum: &Checksum,

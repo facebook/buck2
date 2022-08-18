@@ -940,8 +940,8 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use events::dispatch::EventDispatcher;
@@ -958,7 +958,7 @@ mod tests {
         BuckTestOrchestrator,
         UnboundedReceiver<anyhow::Result<TestResultOrExitCode>>,
     )> {
-        let fs = ProjectFilesystemTemp::new().unwrap();
+        let fs = ProjectRootTemp::new().unwrap();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("cell".to_owned()),

@@ -13,9 +13,9 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -111,7 +111,7 @@ pub struct ReExecutor {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub project_fs: ProjectFilesystem,
+    pub project_fs: ProjectRoot,
     pub re_platform: RE::Platform,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
@@ -122,7 +122,7 @@ pub struct ReExecutor {
 impl ReExecutor {
     pub fn new(
         artifact_fs: ArtifactFs,
-        project_fs: ProjectFilesystem,
+        project_fs: ProjectRoot,
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
         re_properties: Vec<(String, String)>,

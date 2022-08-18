@@ -157,9 +157,9 @@ use crate::fs::paths::AbsPath;
 use crate::fs::paths::AbsPathBuf;
 use crate::fs::paths::FileNameBuf;
 use crate::fs::paths::RelativePath;
-use crate::fs::project::ProjectFilesystem;
 use crate::fs::project::ProjectRelativePath;
 use crate::fs::project::ProjectRelativePathBuf;
+use crate::fs::project::ProjectRoot;
 
 /// Errors from cell creation
 #[derive(Error, Debug)]
@@ -410,7 +410,7 @@ impl CellResolver {
     pub fn get_cell_path_from_abs_or_rel_path(
         &self,
         path: &Path,
-        fs: &ProjectFilesystem,
+        fs: &ProjectRoot,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<CellPath> {
         if path.is_absolute() {
@@ -434,7 +434,7 @@ impl CellResolver {
         &self,
         cell_alias: &str,
         cell_relative_path: &str,
-        project_filesystem: &ProjectFilesystem,
+        project_filesystem: &ProjectRoot,
         cwd: &AbsPath,
     ) -> anyhow::Result<AbsPathBuf> {
         // We expect this to always succeed as long as the client connects to the

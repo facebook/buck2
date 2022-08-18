@@ -19,8 +19,8 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use gazebo::prelude::*;
 
 use crate::actions::artifact::ArtifactValue;
@@ -38,12 +38,12 @@ use crate::actions::directory::INTERNER;
 
 pub struct ArtifactValueBuilder<'a> {
     /// Only used to relativize paths; no disk operations performed!
-    project_fs: &'a ProjectFilesystem,
+    project_fs: &'a ProjectRoot,
     builder: ActionDirectoryBuilder,
 }
 
 impl<'a> ArtifactValueBuilder<'a> {
-    pub fn new(project_fs: &'a ProjectFilesystem) -> Self {
+    pub fn new(project_fs: &'a ProjectRoot) -> Self {
         Self {
             project_fs,
             builder: ActionDirectoryBuilder::empty(),
@@ -279,7 +279,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
     use crate::actions::directory::Symlink;
@@ -311,7 +311,7 @@ mod tests {
         // | |-target
 
         let entry = {
-            let fs = ProjectFilesystemTemp::new().unwrap();
+            let fs = ProjectRootTemp::new().unwrap();
             let mut builder = ArtifactValueBuilder::new(fs.path());
             builder.add_copied(
                 &get_symlink_artifact_value("../../../d6/target"),

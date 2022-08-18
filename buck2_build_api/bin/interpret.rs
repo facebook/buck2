@@ -35,7 +35,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
@@ -211,7 +211,7 @@ fn main(fb: FacebookInit) -> anyhow::Result<()> {
 
         for _ in 0..opt.repeat {
             let cwd = AbsPathBuf::try_from(std::env::current_dir()?)?;
-            let fs = ProjectFilesystem::new(cwd.clone());
+            let fs = ProjectRoot::new(cwd.clone());
 
             let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
             let (legacy_configs, cells) =

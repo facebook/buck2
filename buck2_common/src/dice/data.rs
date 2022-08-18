@@ -41,17 +41,17 @@ impl SetIoProvider for DiceDataBuilder {
 }
 
 pub mod testing {
-    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
     use crate::io::fs::FsIoProvider;
 
     pub trait SetTestingIoProvider {
-        fn set_testing_io_provider(&mut self, fs: &ProjectFilesystemTemp);
+        fn set_testing_io_provider(&mut self, fs: &ProjectRootTemp);
     }
 
     impl SetTestingIoProvider for DiceDataBuilder {
-        fn set_testing_io_provider(&mut self, fs: &ProjectFilesystemTemp) {
+        fn set_testing_io_provider(&mut self, fs: &ProjectRootTemp) {
             self.set_io_provider(Arc::new(FsIoProvider::new(Arc::new(fs.path().clone()))))
         }
     }

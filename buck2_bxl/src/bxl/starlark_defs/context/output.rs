@@ -9,7 +9,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -65,7 +65,7 @@ pub struct OutputStream<'v> {
     artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    project_fs: Arc<ProjectFilesystem>,
+    project_fs: Arc<ProjectRoot>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     artifact_fs: ArtifactFs,
@@ -73,7 +73,7 @@ pub struct OutputStream<'v> {
 
 impl<'v> OutputStream<'v> {
     pub fn new(
-        project_fs: Arc<ProjectFilesystem>,
+        project_fs: Arc<ProjectRoot>,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
     ) -> Self {
@@ -169,7 +169,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         struct SerializeValue<'a, 'v> {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
-            project_fs: &'a ProjectFilesystem,
+            project_fs: &'a ProjectRoot,
         }
 
         impl<'a, 'v> SerializeValue<'a, 'v> {

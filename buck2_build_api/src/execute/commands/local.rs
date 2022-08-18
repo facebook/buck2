@@ -709,8 +709,8 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
-    use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use host_sharing::HostSharingStrategy;
 
     use super::*;
@@ -786,7 +786,7 @@ mod tests {
         Ok(())
     }
 
-    fn artifact_fs(project_fs: ProjectFilesystem) -> ArtifactFs {
+    fn artifact_fs(project_fs: ProjectRoot) -> ArtifactFs {
         ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
@@ -800,7 +800,7 @@ mod tests {
     fn test_executor() -> anyhow::Result<(LocalExecutor, AbsPathBuf, impl Drop)> {
         let dir = tempfile::tempdir()?;
         let root = AbsPathBuf::try_from(dir.path().canonicalize()?)?;
-        let project_fs = ProjectFilesystem::new(root.clone());
+        let project_fs = ProjectRoot::new(root.clone());
         let artifact_fs = artifact_fs(project_fs.clone());
 
         let executor = LocalExecutor::new(

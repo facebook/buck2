@@ -22,7 +22,7 @@
 //!
 //! Sample uses
 //! ```
-//! use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePathBuf, ProjectRelativePath};
+//! use buck2_core::fs::project::{ProjectRoot, ProjectRelativePathBuf, ProjectRelativePath};
 //! use buck2_core::fs::paths::{AbsPathBuf, AbsPath, ForwardRelativePath};
 //! use relative_path::RelativePath;
 //! use std::{borrow::Cow, convert::TryFrom};
@@ -38,7 +38,7 @@
 //!     AbsPath::new("c:/open/fbsource/buck/BUCK")?
 //! };
 //!
-//! let fs = ProjectFilesystem::new(root);
+//! let fs = ProjectRoot::new(root);
 //! let project_rel = fs.relativize(some_path)?;
 //!
 //! assert_eq!(Cow::Borrowed(ProjectRelativePath::new("buck/BUCK")?), project_rel);
@@ -100,33 +100,33 @@ pub struct ProjectRelativePathBuf(
 /// library. The cwd will be the directory from which the command was invoked,
 /// which is within the project root and hence relativized against it.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ProjectFilesystem {
+pub struct ProjectRoot {
     pub root: AbsPathBuf,
 }
 
-pub struct ProjectFilesystemTemp {
-    path: ProjectFilesystem,
+pub struct ProjectRootTemp {
+    path: ProjectRoot,
     // Important field as we want to keep this alive while the path is in use
     _temp: tempfile::TempDir,
 }
 
-impl ProjectFilesystemTemp {
+impl ProjectRootTemp {
     /// creates a filesystem at a temporary root where the cwd is set to the
     /// same root
     pub fn new() -> anyhow::Result<Self> {
         let temp = tempfile::tempdir()?;
-        let path = ProjectFilesystem::new(AbsPathBuf::try_from(temp.path().to_owned())?);
+        let path = ProjectRoot::new(AbsPathBuf::try_from(temp.path().to_owned())?);
         Ok(Self { path, _temp: temp })
     }
 
-    pub fn path(&self) -> &ProjectFilesystem {
+    pub fn path(&self) -> &ProjectRoot {
         &self.path
     }
 }
 
-impl ProjectFilesystem {
+impl ProjectRoot {
     pub fn new(root: AbsPathBuf) -> Self {
-        ProjectFilesystem { root }
+        ProjectRoot { root }
     }
 
     ///
@@ -135,12 +135,12 @@ impl ProjectFilesystem {
     ///
     /// ```
     ///
-    /// use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath};
+    /// use buck2_core::fs::project::{ProjectRoot, ProjectRelativePath};
     /// use buck2_core::fs::paths::AbsPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsPathBuf::from("/usr/local/fbsource/".into())?;
-    ///     let fs = ProjectFilesystem::new(root);
+    ///     let fs = ProjectRoot::new(root);
     ///
     ///     assert_eq!(
     ///         AbsPathBuf::from("/usr/local/fbsource/buck/BUCK".into())?,
@@ -148,7 +148,7 @@ impl ProjectFilesystem {
     ///     );
     /// } else {
     ///     let root = AbsPathBuf::from("c:/open/fbsource/".into())?;
-    ///     let fs = ProjectFilesystem::new(root);
+    ///     let fs = ProjectRoot::new(root);
     ///
     ///     assert_eq!(
     ///         AbsPathBuf::from("c:/open/fbsource/buck/BUCK".into())?,
@@ -167,7 +167,7 @@ impl ProjectFilesystem {
     ///
     /// ```
     ///
-    /// use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath};
+    /// use buck2_core::fs::project::{ProjectRoot, ProjectRelativePath};
     /// use buck2_core::fs::paths::AbsPathBuf;
     /// use std::path::PathBuf;
     ///
@@ -176,7 +176,7 @@ impl ProjectFilesystem {
     /// } else {
     ///     AbsPathBuf::from("c:/open/fbsource/".into())?
     /// };
-    /// let fs = ProjectFilesystem::new(root);
+    /// let fs = ProjectRoot::new(root);
     ///
     /// assert_eq!(
     ///     PathBuf::from("buck/BUCK"),
@@ -198,12 +198,12 @@ impl ProjectFilesystem {
     ///
     /// ```
     /// use std::borrow::Cow;
-    /// use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath};
+    /// use buck2_core::fs::project::{ProjectRoot, ProjectRelativePath};
     /// use buck2_core::fs::paths::{AbsPathBuf, AbsPath};
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsPathBuf::from("/usr/local/fbsource/".into())?;
-    ///     let fs = ProjectFilesystem::new(root);
+    ///     let fs = ProjectRoot::new(root);
     ///
     ///     assert_eq!(
     ///         Cow::Borrowed(ProjectRelativePath::new("src/buck.java")?),
@@ -212,7 +212,7 @@ impl ProjectFilesystem {
     ///     assert!(fs.relativize(AbsPath::new("/other/path")?).is_err());
     /// } else {
     ///     let root = AbsPathBuf::from("c:/open/fbsource/".into())?;
-    ///     let fs = ProjectFilesystem::new(root);
+    ///     let fs = ProjectRoot::new(root);
     ///
     ///     assert_eq!(
     ///         Cow::Borrowed(ProjectRelativePath::new("src/buck.java")?),
@@ -248,19 +248,23 @@ impl ProjectFilesystem {
         }
     }
 
+    // TODO(nga): inline and use `std::fs` API directly.
     pub fn exists(&self, p: impl PathLike) -> bool {
         p.resolve(self).exists()
     }
 
+    // TODO(nga): inline and use `std::fs` API directly.
     pub fn symlink_metadata(&self, p: impl PathLike) -> anyhow::Result<Metadata> {
         fs::symlink_metadata(&*p.resolve(self))
     }
 
+    // TODO(nga): inline and use `std::fs` API directly.
     pub fn create_dir(&self, path: impl PathLike) -> anyhow::Result<()> {
         let path = path.resolve(self);
         fs::create_dir_all(&*path)
     }
 
+    // TODO(nga): refactor this to global function.
     pub fn write_file(
         &self,
         path: impl PathLike,
@@ -287,6 +291,7 @@ impl ProjectFilesystem {
         Ok(())
     }
 
+    // TODO(nga): refactor this to global function.
     pub fn create_file(&self, path: impl PathLike, executable: bool) -> anyhow::Result<File> {
         let abs_path = path.resolve(self);
         if let Some(parent) = abs_path.parent() {
@@ -308,6 +313,7 @@ impl ProjectFilesystem {
         Ok(file)
     }
 
+    // TODO(nga): refactor this to global function.
     #[cfg(unix)]
     pub fn set_executable(&self, path: impl PathLike) -> anyhow::Result<()> {
         use std::os::unix::fs::PermissionsExt;
@@ -319,6 +325,7 @@ impl ProjectFilesystem {
         Ok(())
     }
 
+    // TODO(nga): refactor this to global function.
     #[cfg(not(unix))]
     pub fn set_executable(&self, _path: impl PathLike) -> anyhow::Result<()> {
         // Nothing to do
@@ -336,6 +343,7 @@ impl ProjectFilesystem {
     /// require things like "is a project relative path", etc.
     ///
     /// Filesystems that do not support soft links will return `Err`.
+    // TODO(nga): refactor this to global function.
     pub fn soft_link_raw(&self, src: impl AsRef<Path>, dest: impl PathLike) -> anyhow::Result<()> {
         let dest_abs = self.resolve(dest);
 
@@ -359,6 +367,7 @@ impl ProjectFilesystem {
     ///         using the relative traversal between the two
     ///
     /// Errors if the link could not be created (generally due to FS support of symlinks)
+    // TODO(nga): refactor this to global function.
     pub fn soft_link_relativized(
         &self,
         src: impl PathLike,
@@ -380,6 +389,7 @@ impl ProjectFilesystem {
     ///  - Copying directories recursively
     ///  - Re-writing relative symlinks. That is, a link to `foo/bar` might end up
     ///    as `../../../other/foo/bar` in the destination. Absolute symlinks are not changed.
+    // TODO(nga): refactor this to global function.
     pub fn copy(&self, src: impl PathLike, dest: impl PathLike) -> anyhow::Result<()> {
         let src_abs = self.resolve(src);
         let dest_abs = self.resolve(dest);
@@ -418,6 +428,7 @@ impl ProjectFilesystem {
     /// Remove a path recursively, regardless of it being a file or a directory (all contents
     /// deleted).
     /// This does not follow symlinks, and only removes the link itself.
+    // TODO(nga): refactor this to global function.
     pub fn remove_path_recursive(&self, path: impl PathLike) -> anyhow::Result<()> {
         let path = self.resolve(path);
         if !path.exists() {
@@ -1056,38 +1067,38 @@ mod internals {
 
     use crate::fs::paths::AbsPath;
     use crate::fs::paths::AbsPathBuf;
-    use crate::fs::project::ProjectFilesystem;
     use crate::fs::project::ProjectRelativePath;
     use crate::fs::project::ProjectRelativePathBuf;
+    use crate::fs::project::ProjectRoot;
 
     pub trait PathLike: PathLikeResolvable {}
 
     impl<T> PathLike for T where T: PathLikeResolvable {}
 
     pub trait PathLikeResolvable {
-        fn resolve(&self, fs: &ProjectFilesystem) -> Cow<'_, AbsPath>;
+        fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsPath>;
     }
 
     impl PathLikeResolvable for &AbsPath {
-        fn resolve(&self, _fs: &ProjectFilesystem) -> Cow<'_, AbsPath> {
+        fn resolve(&self, _fs: &ProjectRoot) -> Cow<'_, AbsPath> {
             Cow::Borrowed(self)
         }
     }
 
     impl PathLikeResolvable for &AbsPathBuf {
-        fn resolve(&self, _fs: &ProjectFilesystem) -> Cow<'_, AbsPath> {
+        fn resolve(&self, _fs: &ProjectRoot) -> Cow<'_, AbsPath> {
             Cow::Borrowed(self)
         }
     }
 
     impl PathLikeResolvable for &ProjectRelativePath {
-        fn resolve(&self, fs: &ProjectFilesystem) -> Cow<'_, AbsPath> {
+        fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsPath> {
             Cow::Owned(self.0.resolve(&fs.root))
         }
     }
 
     impl PathLikeResolvable for &ProjectRelativePathBuf {
-        fn resolve(&self, fs: &ProjectFilesystem) -> Cow<'_, AbsPath> {
+        fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsPath> {
             Cow::Owned(self.0.resolve(&fs.root))
         }
     }
@@ -1100,10 +1111,10 @@ mod tests {
 
     use crate::fs::anyhow as fs;
     use crate::fs::paths::ForwardRelativePath;
-    use crate::fs::project::ProjectFilesystem;
-    use crate::fs::project::ProjectFilesystemTemp;
     use crate::fs::project::ProjectRelativePath;
     use crate::fs::project::ProjectRelativePathBuf;
+    use crate::fs::project::ProjectRoot;
+    use crate::fs::project::ProjectRootTemp;
 
     #[test]
     fn path_display_is_readable() -> anyhow::Result<()> {
@@ -1165,7 +1176,7 @@ mod tests {
 
     #[test]
     fn copy_works() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let dir1 = ProjectRelativePath::new("dir1")?;
         let dir2 = ProjectRelativePath::new("dir1/dir2")?;
         let dir3 = ProjectRelativePath::new("dir1/dir2/dir3")?;
@@ -1275,7 +1286,7 @@ mod tests {
 
     #[test]
     fn test_copy_symlink() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let symlink1 = ProjectRelativePath::new("symlink1")?;
         let symlink2 = ProjectRelativePath::new("symlink2")?;
         let file = ProjectRelativePath::new("file")?;
@@ -1290,7 +1301,7 @@ mod tests {
 
     #[test]
     fn test_symlink_relativized() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
 
         let target1 = ProjectRelativePath::new("foo1/bar1/target")?;
         let target2 = ProjectRelativePath::new("foo2/bar")?;
@@ -1357,7 +1368,7 @@ mod tests {
 
     #[test]
     fn test_symlink_to_directory() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
         let source_dir = ProjectRelativePath::new("foo")?;
         let source_file = ProjectRelativePath::new("foo/file")?;
         let dest_dir = ProjectRelativePath::new("bar")?;
@@ -1380,7 +1391,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn test_remove_readonly_path_recursive() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
 
         // We can delete a read-only file
         let file = ProjectRelativePath::new("foo/bar/link")?;
@@ -1396,7 +1407,7 @@ mod tests {
 
     #[test]
     fn test_relativizes_paths_correct() -> anyhow::Result<()> {
-        let fs = ProjectFilesystemTemp::new()?;
+        let fs = ProjectRootTemp::new()?;
 
         let test_cases = vec![
             ("foo/bar/baz", "notfoo/bar/quz", "../../foo/bar/baz"),
@@ -1420,10 +1431,8 @@ mod tests {
             let target = ProjectRelativePath::new(target_str)?;
             let dest = ProjectRelativePath::new(dest_str)?;
 
-            let actual = ProjectFilesystem::find_relative_path(
-                &fs.path.resolve(target),
-                &fs.path.resolve(dest),
-            );
+            let actual =
+                ProjectRoot::find_relative_path(&fs.path.resolve(target), &fs.path.resolve(dest));
             assert_eq!(
                 expected,
                 actual,

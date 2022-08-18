@@ -41,8 +41,8 @@ use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_forkserver::client::ForkserverClient;
@@ -117,8 +117,8 @@ pub(crate) struct BaseServerCommandContext {
 }
 
 impl BaseServerCommandContext {
-    pub(crate) fn file_system(&self) -> ProjectFilesystem {
-        ProjectFilesystem::new(self.project_root.clone())
+    pub(crate) fn file_system(&self) -> ProjectRoot {
+        ProjectRoot::new(self.project_root.clone())
     }
 
     /// Provides a DiceComputations. This may be missing some data or injected keys that
@@ -438,7 +438,7 @@ impl ServerCommandContext {
         Ok(dice_ctx.commit())
     }
 
-    pub(crate) fn file_system(&self) -> ProjectFilesystem {
+    pub(crate) fn file_system(&self) -> ProjectRoot {
         self.base_context.file_system()
     }
 

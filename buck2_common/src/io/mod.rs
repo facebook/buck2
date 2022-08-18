@@ -5,8 +5,8 @@ pub mod fs;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use gazebo::cmp::PartialEqAny;
 
 use crate::file_ops::PathMetadataOrRedirection;
@@ -32,7 +32,7 @@ pub trait IoProvider: Send + Sync {
 
     fn eq_token(&self) -> PartialEqAny<'_>;
 
-    fn fs(&self) -> &Arc<ProjectFilesystem>;
+    fn fs(&self) -> &Arc<ProjectRoot>;
 }
 
 impl PartialEq for dyn IoProvider {
@@ -43,7 +43,7 @@ impl PartialEq for dyn IoProvider {
 
 pub async fn create_io_provider(
     fb: fbinit::FacebookInit,
-    project_fs: Arc<ProjectFilesystem>,
+    project_fs: Arc<ProjectRoot>,
     root_config: Option<&LegacyBuckConfig>,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(all(unix, feature = "eden_io"))]

@@ -28,9 +28,9 @@ use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use derive_more::Display;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -111,7 +111,7 @@ pub struct DeferredMaterializer {
     defer_write_actions: bool,
 
     /// To be removed, used to implement write for now.
-    fs: ProjectFilesystem,
+    fs: ProjectRoot,
     io_executor: Arc<dyn BlockingExecutor>,
 }
 
@@ -129,7 +129,7 @@ pub struct DeferredMaterializerConfigs {
 }
 
 struct DeferredMaterializerCommandProcessor {
-    fs: ProjectFilesystem,
+    fs: ProjectRoot,
     re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
     io_executor: Arc<dyn BlockingExecutor>,
@@ -500,7 +500,7 @@ impl DeferredMaterializer {
     /// Creates and returns a new `DeferredMaterializer` that aborts those
     /// threads when dropped.
     pub fn new(
-        fs: ProjectFilesystem,
+        fs: ProjectRoot,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
         configs: DeferredMaterializerConfigs,

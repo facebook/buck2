@@ -412,9 +412,9 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::directory::DirectoryEntry;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
-    use buck2_core::fs::project::ProjectFilesystem;
-    use buck2_core::fs::project::ProjectFilesystemTemp;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
@@ -518,7 +518,7 @@ mod tests {
 
     fn make_default_dice_state(
         dry_run_tracker: Arc<Mutex<Vec<DryRunEntry>>>,
-        temp_fs: &ProjectFilesystemTemp,
+        temp_fs: &ProjectRootTemp,
         mocks: Vec<Box<dyn FnOnce(DiceBuilder) -> DiceBuilder>>,
     ) -> anyhow::Result<DiceTransaction> {
         let fs = temp_fs.path().clone();
@@ -544,7 +544,7 @@ mod tests {
             fn get_command_executor(
                 &self,
                 artifact_fs: &ArtifactFs,
-                _project_fs: &ProjectFilesystem,
+                _project_fs: &ProjectRoot,
                 _config: &CommandExecutorConfig,
             ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
                 Ok(Arc::new(DryRunExecutor::new(
@@ -599,7 +599,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_action() -> anyhow::Result<()> {
-        let temp_fs = ProjectFilesystemTemp::new()?;
+        let temp_fs = ProjectRootTemp::new()?;
         let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(
@@ -647,7 +647,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_artifact() -> anyhow::Result<()> {
-        let temp_fs = ProjectFilesystemTemp::new()?;
+        let temp_fs = ProjectRootTemp::new()?;
         let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(
@@ -688,7 +688,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
-        let temp_fs = ProjectFilesystemTemp::new()?;
+        let temp_fs = ProjectRootTemp::new()?;
         let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(

@@ -51,8 +51,8 @@ pub mod testing {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
-    use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::Package;
     use buck2_core::pattern::ParsedPattern;
@@ -187,9 +187,8 @@ pub mod testing {
 
         fn stringify_for_cli<'v>(artifact: Value<'v>) -> anyhow::Result<String> {
             let cell_info = cells(None).unwrap();
-            let project_fs = ProjectFilesystem::new(
-                AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
-            );
+            let project_fs =
+                ProjectRoot::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
             let fs = ArtifactFs::new(
                 BuckPathResolver::new(cell_info.1),
                 BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(

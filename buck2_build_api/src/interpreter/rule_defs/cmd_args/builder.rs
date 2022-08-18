@@ -165,8 +165,8 @@ mod tests {
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::paths::AbsPathBuf;
-    use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_node::execute::config::PathSeparatorKind;
 
     use super::*;
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn adds_args_and_builds() -> anyhow::Result<()> {
         let project_fs =
-            ProjectFilesystem::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
+            ProjectRoot::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),

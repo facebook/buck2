@@ -261,7 +261,7 @@ enum ResolvedLegacyConfigArg {
 
 /// State required to perform resolution of cell-relative paths.
 struct CellResolutionState<'a> {
-    project_filesystem: &'a ProjectFilesystem,
+    project_filesystem: &'a ProjectRoot,
     cwd: &'a AbsPath,
     cell_resolver: OnceCell<CellResolver>,
 }
@@ -1185,15 +1185,13 @@ impl BuckConfigBasedCells {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    pub fn parse_immediate_cell_mapping(
-        project_fs: &ProjectFilesystem,
-    ) -> anyhow::Result<CellResolver> {
+    pub fn parse_immediate_cell_mapping(project_fs: &ProjectRoot) -> anyhow::Result<CellResolver> {
         Self::parse_immediate_cell_mapping_with_file_ops(project_fs, &DefaultConfigParserFileOps {})
     }
 
     /// Private function with semantics of `parse_immediate_cell_mapping` but usable for testing.
     fn parse_immediate_cell_mapping_with_file_ops(
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         file_ops: &dyn ConfigParserFileOps,
     ) -> anyhow::Result<CellResolver> {
         let opts = BuckConfigParseOptions {
@@ -1214,7 +1212,7 @@ impl BuckConfigBasedCells {
         Ok(cells.cell_resolver)
     }
 
-    pub fn parse(project_fs: &ProjectFilesystem) -> anyhow::Result<Self> {
+    pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
             project_fs,
             &DefaultConfigParserFileOps {},
@@ -1224,7 +1222,7 @@ impl BuckConfigBasedCells {
     }
 
     pub fn parse_with_config_args(
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         config_args: &[LegacyConfigCmdArg],
         cwd: &AbsPath,
     ) -> anyhow::Result<Self> {
@@ -1232,7 +1230,7 @@ impl BuckConfigBasedCells {
     }
 
     pub fn parse_with_file_ops(
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         file_ops: &dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
         cwd: &AbsPath,
@@ -1245,7 +1243,7 @@ impl BuckConfigBasedCells {
     }
 
     fn parse_with_file_ops_and_options(
-        project_fs: &ProjectFilesystem,
+        project_fs: &ProjectRoot,
         file_ops: &dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
         cwd: &AbsPath,
@@ -1647,12 +1645,12 @@ mod tests {
         };
     }
 
-    fn create_project_filesystem() -> ProjectFilesystem {
+    fn create_project_filesystem() -> ProjectRoot {
         #[cfg(not(windows))]
         let root_path = "/".to_owned();
         #[cfg(windows)]
         let root_path = "C:/".to_owned();
-        ProjectFilesystem::new(AbsPathBuf::unchecked_new(root_path))
+        ProjectRoot::new(AbsPathBuf::unchecked_new(root_path))
     }
 
     #[test]

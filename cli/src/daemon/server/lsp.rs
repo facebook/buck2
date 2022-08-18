@@ -25,8 +25,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
@@ -96,7 +96,7 @@ impl DocsCache {
     async fn get_prelude_uri(
         location: &Location,
         dice_ctx: &DiceTransaction,
-        fs: &ProjectFilesystem,
+        fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<LspUrl> {
         // We strip the "@" off of the path normally to avoid having it in the docs,
@@ -130,7 +130,7 @@ impl DocsCache {
     async fn new(
         builtin_symbols: &[Doc],
         dice_ctx: &DiceTransaction,
-        fs: &ProjectFilesystem,
+        fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         Self::new_with_lookup(builtin_symbols, |location| async {
@@ -272,7 +272,7 @@ pub fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<ForwardRelativePathBuf
 
 struct BuckLspContext {
     dice_ctx: DiceTransaction,
-    fs: ProjectFilesystem,
+    fs: ProjectRoot,
     cell_resolver: CellResolver,
     docs_cache: DocsCache,
 }

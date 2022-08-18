@@ -34,8 +34,8 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_forkserver::client::ForkserverClient;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::cycles::DetectCycles;
@@ -144,7 +144,7 @@ impl DaemonState {
         paths: &Paths,
         detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
-        let fs = ProjectFilesystem::new(paths.project_root().to_owned());
+        let fs = ProjectRoot::new(paths.project_root().to_owned());
 
         let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
         let (legacy_configs, cells) = (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
@@ -249,7 +249,7 @@ impl DaemonState {
 
     fn create_materializer(
         fb: FacebookInit,
-        fs: ProjectFilesystem,
+        fs: ProjectRoot,
         buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,

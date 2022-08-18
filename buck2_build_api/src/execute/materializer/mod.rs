@@ -57,7 +57,7 @@ pub struct EdenBuckOut {
 impl EdenBuckOut {
     pub async fn remove_paths_recursive(
         &self,
-        _project_fs: &buck2_core::fs::project::ProjectFilesystem,
+        _project_fs: &buck2_core::fs::project::ProjectRoot,
         _paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<()> {
         self.not_implemented

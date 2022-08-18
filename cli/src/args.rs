@@ -21,7 +21,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::process::background_command;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
@@ -64,7 +64,7 @@ struct ArgCellPathResolver<'a> {
 /// unless necessary (e.g., encountering a cell-relative path).
 struct ArgCellPathResolverData {
     cell_resolver: CellResolver,
-    project_filesystem: ProjectFilesystem,
+    project_filesystem: ProjectRoot,
 }
 
 impl<'a> ArgCellPathResolver<'a> {
@@ -102,7 +102,7 @@ impl<'a> ArgCellPathResolver<'a> {
                 let project_root = AbsPath::new(&roots.project_root)?.to_owned();
 
                 // See comment in `ArgCellPathResolver` about why we use `OnceCell` rather than `Lazy`
-                let project_filesystem = ProjectFilesystem::new(project_root);
+                let project_filesystem = ProjectRoot::new(project_root);
                 let cell_resolver =
                     BuckConfigBasedCells::parse_immediate_cell_mapping(&project_filesystem)?;
 

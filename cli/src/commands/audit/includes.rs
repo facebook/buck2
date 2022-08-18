@@ -23,7 +23,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -198,7 +198,7 @@ async fn load_and_collect_includes(
 
 fn resolve_path(
     cells: &CellResolver,
-    fs: &ProjectFilesystem,
+    fs: &ProjectRoot,
     current_cell: &CellInstance,
     path: &str,
 ) -> anyhow::Result<CellPath> {
@@ -227,7 +227,7 @@ impl AuditSubcommand for AuditIncludesCommand {
         let cells = ctx.get_cell_resolver().await?;
         let cwd = &server_ctx.working_dir;
         let current_cell = cells.get(cells.find(cwd)?)?;
-        let fs = ProjectFilesystem::new(server_ctx.project_root().to_buf());
+        let fs = ProjectRoot::new(server_ctx.project_root().to_buf());
 
         let futures: FuturesOrdered<_> = self
             .patterns

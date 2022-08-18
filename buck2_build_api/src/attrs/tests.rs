@@ -14,8 +14,8 @@ use buck2_core::cells::testing::CellResolverExt;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -806,9 +806,8 @@ fn test_user_placeholders() -> anyhow::Result<()> {
         let resolution_ctx = resolution_ctx();
         configured.resolve_single(&resolution_ctx).map(|v| {
             // TODO: this is way too unnecessarily verbose for a test.
-            let project_fs = ProjectFilesystem::new(
-                AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
-            );
+            let project_fs =
+                ProjectRoot::new(AbsPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
             let fs = ArtifactFs::new(
                 BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                     CellName::unchecked_new("cell".into()),
