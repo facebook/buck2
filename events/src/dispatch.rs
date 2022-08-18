@@ -150,7 +150,7 @@ impl EventDispatcher {
         End: Into<span_end_event::Data>,
         F: FnOnce() -> (R, End),
     {
-        let mut span = Span::start(self, start);
+        let mut span = Span::start(self.dupe(), start);
         let (result, end) = span.call_in_span(func);
         span.end(end);
         result
@@ -167,7 +167,7 @@ impl EventDispatcher {
         End: Into<span_end_event::Data>,
         Fut: Future<Output = (R, End)>,
     {
-        let mut span = Span::start(self, start);
+        let mut span = Span::start(self.dupe(), start);
 
         futures::pin_mut!(fut);
         let (result, end) = future::poll_fn(|cx| span.call_in_span(|| fut.as_mut().poll(cx))).await;
@@ -190,17 +190,17 @@ struct SpanStats {
 
 /// Utility to track the start & end of a span
 #[must_use = "You must end a Span you started"]
-struct Span<'a> {
+pub struct Span {
+    dispatcher: EventDispatcher,
     start_instant: Instant,
-    dispatcher: &'a EventDispatcher,
     span_id: SpanId,
     stats: SpanStats,
     parent_id: Option<SpanId>,
     event_data: Option<span_end_event::Data>,
 }
 
-impl<'a> Span<'a> {
-    fn start<D>(dispatcher: &'a EventDispatcher, data: D) -> Self
+impl Span {
+    pub fn start<D>(dispatcher: EventDispatcher, data: D) -> Self
     where
         D: Into<span_start_event::Data>,
     {
@@ -217,8 +217,8 @@ impl<'a> Span<'a> {
         );
 
         Self {
-            start_instant,
             dispatcher,
+            start_instant,
             span_id,
             parent_id,
             stats: Default::default(),
@@ -226,7 +226,7 @@ impl<'a> Span<'a> {
         }
     }
 
-    fn end<D>(mut self, data: D)
+    pub fn end<D>(mut self, data: D)
     where
         D: Into<span_end_event::Data>,
     {
@@ -255,7 +255,7 @@ impl<'a> Span<'a> {
     }
 }
 
-impl<'a> Drop for Span<'a> {
+impl Drop for Span {
     /// When dropping a Span, send a SpanEndEvent. We do this in Drop to ensure that even if we
     /// never `end()` a Span, we notify clients (if any exist).
     fn drop(&mut self) {
@@ -565,7 +565,7 @@ mod tests {
         let (dispatcher, _, _) = create_dispatcher();
         let (start, _) = create_start_end_events();
 
-        let mut span = Span::start(&dispatcher, start);
+        let mut span = Span::start(dispatcher.dupe(), start);
         span.call_in_span(|| std::thread::sleep(Duration::from_millis(10)));
         assert_eq!(span.stats.max_poll_time, span.stats.total_poll_time);
 
