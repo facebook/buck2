@@ -76,11 +76,13 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
+use crate::daemon::server::jemalloc_stats::jemalloc_stats;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 
 mod concurrency;
 mod forkserver;
+mod jemalloc_stats;
 pub(crate) mod state;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
@@ -479,29 +481,6 @@ where
         )),
     })))
 }
-
-#[cfg(all(unix, not(fbcode_build)))]
-fn jemalloc_stats(response: &mut StatusResponse) {
-    use jemalloc_ctl::epoch;
-    use jemalloc_ctl::stats;
-
-    fn set<T>(to: &mut u64, from: Result<usize, T>) {
-        if let Ok(from) = from {
-            *to = from as u64;
-        }
-    }
-
-    // Many statistics are cached and only updated when the epoch is advanced.
-    if epoch::advance().is_err() {
-        return;
-    }
-    set(&mut response.bytes_allocated, stats::allocated::read());
-    set(&mut response.bytes_resident, stats::resident::read());
-    set(&mut response.bytes_retained, stats::retained::read());
-}
-
-#[cfg(not(all(unix, not(fbcode_build))))]
-fn jemalloc_stats(_response: &mut StatusResponse) {}
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<CommandProgress, Status>> + Send + Sync>>;
 #[async_trait]
