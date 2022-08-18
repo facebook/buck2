@@ -34,3 +34,4 @@ pub mod target_hash;
 pub mod targets;
 pub mod targets_show_outputs;
 pub mod watchman;
+pub mod with_current_directory;

@@ -50,10 +50,9 @@ pub(crate) async fn get_channel_uds(
 ) -> anyhow::Result<Channel> {
     use std::path::Path;
 
+    use buck2_server::with_current_directory::WithCurrentDirectory;
     use tonic::codegen::http::Uri;
     use tower::service_fn;
-
-    use crate::daemon::with_current_directory::WithCurrentDirectory;
 
     // change directory to the daemon directory to connect to unix domain socket
     // then change directory back to the current directory since the unix domain socket

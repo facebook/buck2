@@ -15,12 +15,12 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 
-pub(crate) struct WithCurrentDirectory {
+pub struct WithCurrentDirectory {
     current_dir: Box<PathBuf>,
 }
 
 impl WithCurrentDirectory {
-    pub(crate) fn new(new_dir: &Path) -> anyhow::Result<Self> {
+    pub fn new(new_dir: &Path) -> anyhow::Result<Self> {
         let dir = Self {
             current_dir: box (env::current_dir()?),
         };
