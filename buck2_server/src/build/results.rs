@@ -12,7 +12,7 @@
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 
-use crate::daemon::build::BuildTargetResult;
+use crate::build::BuildTargetResult;
 
 pub(crate) enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
@@ -44,9 +44,9 @@ pub mod result_report {
     use gazebo::prelude::*;
     use indexmap::IndexMap;
 
-    use crate::daemon::build::results::BuildOwner;
-    use crate::daemon::build::results::BuildResultCollector;
-    use crate::daemon::build::BuildTargetResult;
+    use crate::build::results::BuildOwner;
+    use crate::build::results::BuildResultCollector;
+    use crate::build::BuildTargetResult;
 
     /// Simple container for multiple [`SharedError`]s
     pub(crate) struct SharedErrors {
@@ -197,9 +197,9 @@ pub mod build_report {
     use itertools::Itertools;
     use serde::Serialize;
 
-    use crate::daemon::build::results::BuildOwner;
-    use crate::daemon::build::results::BuildResultCollector;
-    use crate::daemon::build::BuildTargetResult;
+    use crate::build::results::BuildOwner;
+    use crate::build::results::BuildResultCollector;
+    use crate::build::BuildTargetResult;
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -426,9 +426,9 @@ pub mod build_report {
 }
 
 pub mod providers {
-    use crate::daemon::build::results::BuildOwner;
-    use crate::daemon::build::results::BuildResultCollector;
-    use crate::daemon::build::BuildTargetResult;
+    use crate::build::results::BuildOwner;
+    use crate::build::results::BuildResultCollector;
+    use crate::build::BuildTargetResult;
 
     pub(crate) struct ProvidersPrinter;
 

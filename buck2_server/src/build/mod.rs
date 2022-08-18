@@ -41,11 +41,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
-use buck2_server::daemon::common::resolve_patterns;
-use buck2_server::daemon::common::target_platform_from_client_context;
-use buck2_server::daemon::common::ConvertMaterializationContext;
 use cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;
@@ -60,23 +55,28 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use tracing::info;
 
-use crate::daemon::build::results::build_report::BuildReportCollector;
-use crate::daemon::build::results::providers::ProvidersPrinter;
-use crate::daemon::build::results::result_report::ResultReporter;
-use crate::daemon::build::results::result_report::ResultReporterOptions;
-use crate::daemon::build::results::BuildOwner;
-use crate::daemon::build::results::BuildResultCollector;
+use crate::build::results::build_report::BuildReportCollector;
+use crate::build::results::providers::ProvidersPrinter;
+use crate::build::results::result_report::ResultReporter;
+use crate::build::results::result_report::ResultReporterOptions;
+use crate::build::results::BuildOwner;
+use crate::build::results::BuildResultCollector;
+use crate::ctx::ServerCommandContext;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::common::ConvertMaterializationContext;
 
 pub mod results;
 
 #[derive(Debug)]
-pub(crate) struct BuildResult {
+pub struct BuildResult {
     pub build_targets: Vec<BuildTarget>,
     pub serialized_build_report: Option<String>,
     pub error_messages: Vec<String>,
 }
 
-pub(crate) async fn build(
+pub async fn build(
     server_ctx: ServerCommandContext,
     request: BuildRequest,
 ) -> anyhow::Result<BuildResult> {

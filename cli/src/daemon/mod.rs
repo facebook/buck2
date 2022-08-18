@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod build;
 pub mod bxl;
 pub mod client;
 pub mod client_utils;

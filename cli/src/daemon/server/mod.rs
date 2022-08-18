@@ -36,6 +36,7 @@ use buck2_core::facebook_only;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
+use buck2_server::build::build;
 use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
@@ -74,7 +75,6 @@ use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
 
-use crate::daemon::build::build;
 use crate::daemon::bxl::bxl;
 use crate::daemon::install::install;
 use crate::daemon::test::test;

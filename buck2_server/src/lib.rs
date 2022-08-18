@@ -11,6 +11,7 @@
 #![feature(async_closure)]
 
 pub mod active_commands;
+pub mod build;
 pub mod clean;
 pub mod configs;
 pub mod ctx;
