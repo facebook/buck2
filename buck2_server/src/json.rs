@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-pub(crate) fn quote_json_string(s: &str) -> String {
+pub fn quote_json_string(s: &str) -> String {
     serde_json::ser::to_string(s).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::daemon::json::quote_json_string;
+    use crate::json::quote_json_string;
 
     #[test]
     fn test_quote_json_string() {

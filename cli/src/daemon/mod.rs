@@ -15,7 +15,6 @@ pub mod client_utils;
 #[cfg_attr(windows, path = "daemon_windows.rs")]
 pub mod daemon_utils;
 pub mod install;
-pub(crate) mod json;
 pub mod panic;
 pub mod server;
 pub mod targets;
