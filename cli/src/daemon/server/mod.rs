@@ -966,7 +966,7 @@ impl DaemonApi for BuckdServer {
             let response = events
                 .span_async(start_event, async {
                     let result =
-                        crate::daemon::targets_show_outputs::targets_show_outputs(context, req)
+                        buck2_server::targets_show_outputs::targets_show_outputs(context, req)
                             .await;
                     let (is_success, error_messages) = match &result {
                         Ok(_e) => (true, vec![]),

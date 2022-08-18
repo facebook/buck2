@@ -23,7 +23,6 @@ pub mod materialize;
 pub mod panic;
 pub mod server;
 pub mod targets;
-pub mod targets_show_outputs;
 pub mod test;
 pub mod uquery;
 pub(crate) mod with_current_directory;

@@ -1,4 +1,3 @@
-#![feature(box_syntax)]
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -7,6 +6,9 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
+
+#![feature(box_syntax)]
+#![feature(async_closure)]
 
 pub mod active_commands;
 pub mod configs;
@@ -20,4 +22,5 @@ pub mod host_info;
 pub mod profile;
 mod raw_output;
 pub mod snapshot;
+pub mod targets_show_outputs;
 pub mod watchman;

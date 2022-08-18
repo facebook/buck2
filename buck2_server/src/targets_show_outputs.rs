@@ -26,10 +26,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
-use buck2_server::daemon::common::resolve_patterns;
-use buck2_server::daemon::common::target_platform_from_client_context;
 use cli_proto::targets_show_outputs_response::TargetPaths;
 use cli_proto::TargetsRequest;
 use cli_proto::TargetsShowOutputsResponse;
@@ -40,12 +36,17 @@ use gazebo::prelude::IterDuped;
 use gazebo::prelude::VecExt;
 use tokio_stream::StreamExt;
 
-pub(crate) struct TargetsArtifacts {
+use crate::ctx::ServerCommandContext;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+
+pub struct TargetsArtifacts {
     providers_label: ConfiguredProvidersLabel,
     artifacts: Vec<Artifact>,
 }
 
-pub(crate) async fn targets_show_outputs(
+pub async fn targets_show_outputs(
     server_ctx: ServerCommandContext,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
