@@ -18,13 +18,13 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
+use buck2_server::ctx::ServerCommandContext;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

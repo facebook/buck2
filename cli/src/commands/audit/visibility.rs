@@ -21,6 +21,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
+use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::parse_patterns_from_cli_args;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
@@ -30,7 +31,6 @@ use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(thiserror::Error, Debug)]
 enum VisibilityCommandError {

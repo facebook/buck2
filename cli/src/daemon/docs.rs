@@ -35,6 +35,7 @@ use buck2_interpreter::interpreter::GlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_server::ctx::ServerCommandContext;
 use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use dice::DiceTransaction;
@@ -46,8 +47,6 @@ use starlark::values::docs::DocItem;
 use starlark::values::docs::Identifier;
 use starlark::values::docs::Member;
 use starlark::values::StarlarkValue;
-
-use crate::daemon::server::ctx::ServerCommandContext;
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,

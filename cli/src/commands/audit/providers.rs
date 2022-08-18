@@ -19,6 +19,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::parse_patterns_from_cli_args;
 use buck2_server::daemon::common::resolve_patterns;
 use buck2_server::daemon::common::target_platform_from_client_context;
@@ -31,7 +32,6 @@ use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

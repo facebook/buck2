@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_server::ctx::ServerCommandContext;
 use cli_proto::ClientContext;
 use cli_proto::GenericRequest;
 use futures::FutureExt;
@@ -28,7 +29,6 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::server::ctx::ServerCommandContext;
 use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 use crate::StreamingCommand;

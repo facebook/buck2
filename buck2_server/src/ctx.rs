@@ -50,15 +50,6 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::LocalExecutorOptions;
-use buck2_server::active_commands::ActiveCommandDropGuard;
-use buck2_server::configs::parse_legacy_cells;
-use buck2_server::daemon::common::get_executor_config_for_strategy;
-use buck2_server::daemon::common::parse_concurrency;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
-use buck2_server::daemon::common::CommandExecutorFactory;
-use buck2_server::dice_tracker::BuckDiceTracker;
-use buck2_server::file_watcher::FileWatcher;
-use buck2_server::host_info;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::ClientContext;
@@ -75,9 +66,18 @@ use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use once_cell::sync::OnceCell;
 
-use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
-use crate::daemon::server::raw_output::RawOuputGuard;
-use crate::daemon::server::raw_output::RawOutputWriter;
+use crate::active_commands::ActiveCommandDropGuard;
+use crate::configs::parse_legacy_cells;
+use crate::daemon::common::get_executor_config_for_strategy;
+use crate::daemon::common::parse_concurrency;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::CommandExecutorFactory;
+use crate::dice_tracker::BuckDiceTracker;
+use crate::file_watcher::FileWatcher;
+use crate::heartbeat_guard::HeartbeatGuard;
+use crate::host_info;
+use crate::raw_output::RawOuputGuard;
+use crate::raw_output::RawOutputWriter;
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonCommunicationError {
@@ -87,7 +87,7 @@ enum DaemonCommunicationError {
 
 /// BaseCommandContext provides access to the global daemon state and information specific to a command (like the
 /// EventDispatcher). Most commands use a ServerCommandContext which has more command/client-specific information.
-pub(crate) struct BaseServerCommandContext {
+pub struct BaseServerCommandContext {
     /// An fbinit token for using things that require fbinit. fbinit is initialized on daemon startup.
     pub _fb: fbinit::FacebookInit,
     /// Absolute path to the project root.
@@ -95,9 +95,9 @@ pub(crate) struct BaseServerCommandContext {
     /// A reference to the dice graph. Most interesting things are accessible from this (and new interesting things should be
     /// added there rather than as fields here). This has some per-request setup done already (like attaching a per-request
     /// event dispatcher).
-    pub(crate) dice: Arc<Dice>,
+    pub dice: Arc<Dice>,
     /// A reference to the I/O provider.
-    pub(crate) io: Arc<dyn IoProvider>,
+    pub io: Arc<dyn IoProvider>,
     /// The RE connection, managed such that all build commands that are concurrently active uses
     /// the same connection.
     pub re_client_manager: Arc<ReConnectionManager>,
@@ -110,9 +110,9 @@ pub(crate) struct BaseServerCommandContext {
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
     /// Removes this command from the set of active commands when dropped.
-    pub(crate) _drop_guard: ActiveCommandDropGuard,
+    pub _drop_guard: ActiveCommandDropGuard,
     /// The file watcher that keeps buck2 up to date with disk changes.
-    pub(crate) file_watcher: Arc<dyn FileWatcher>,
+    pub file_watcher: Arc<dyn FileWatcher>,
 }
 
 impl BaseServerCommandContext {
@@ -147,8 +147,8 @@ impl BaseServerCommandContext {
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
 /// the implementation of DaemonApi endpoints (ex. targets, query, build).
-pub(crate) struct ServerCommandContext {
-    pub(crate) base_context: BaseServerCommandContext,
+pub struct ServerCommandContext {
+    pub base_context: BaseServerCommandContext,
 
     /// The working directory of the client. This is used for resolving things in the request in a
     /// working-dir relative way. For example, it's common to resolve target patterns relative to
@@ -196,7 +196,7 @@ pub(crate) struct ServerCommandContext {
 }
 
 impl ServerCommandContext {
-    pub(crate) fn new(
+    pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
         build_signals: BuildSignalSender,
@@ -271,7 +271,7 @@ impl ServerCommandContext {
     /// This function produces a canonicalized list of target patterns from a command-supplied list of target patterns, with
     /// all ambiguities resolved. This greatly simplifies logging as we only ever log unambiguous target patterns and do not
     /// need to log things like the command's working directory or cell.
-    pub(crate) async fn canonicalize_patterns_for_logging(
+    pub async fn canonicalize_patterns_for_logging(
         &self,
         patterns: &[buck2_data::TargetPattern],
     ) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
@@ -290,14 +290,14 @@ impl ServerCommandContext {
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    pub(crate) async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
+    pub async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
         self.dice
             .get_or_init(self.construct_dice_ctx())
             .await
             .dupe()
     }
 
-    pub(crate) fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
+    pub fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.cells_and_configs
             .get_or_init(|| {
                 let fs = self.project_root();
@@ -433,19 +433,19 @@ impl ServerCommandContext {
         Ok(dice_ctx.commit())
     }
 
-    pub(crate) fn project_root(&self) -> &ProjectRoot {
+    pub fn project_root(&self) -> &ProjectRoot {
         &self.base_context.project_root
     }
 
-    pub(crate) fn get_re_connection(&self) -> ReConnectionHandle {
+    pub fn get_re_connection(&self) -> ReConnectionHandle {
         self.base_context.re_client_manager.get_re_connection()
     }
 
-    pub(crate) fn events(&self) -> &EventDispatcher {
+    pub fn events(&self) -> &EventDispatcher {
         &self.base_context.events
     }
 
-    pub(crate) fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>> {
+    pub fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>> {
         // Buffer until MESSAGE_BUFFER_SIZE bytes get written to save gRPC communication overheads
         Ok(RawOuputGuard {
             _phantom: PhantomData,

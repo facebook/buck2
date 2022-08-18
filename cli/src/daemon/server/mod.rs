@@ -35,12 +35,12 @@ use buck2_core::facebook_only;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
+use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::snapshot;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
-use ctx::ServerCommandContext;
 use dice::cycles::DetectCycles;
 use events::dispatch::EventDispatcher;
 use events::metadata;
@@ -80,10 +80,7 @@ use crate::daemon::uquery::uquery;
 use crate::Paths;
 
 mod concurrency;
-pub(crate) mod ctx;
-pub(crate) mod heartbeat_guard;
 pub(crate) mod lsp;
-mod raw_output;
 pub(crate) mod state;
 mod streaming_request_handler;
 

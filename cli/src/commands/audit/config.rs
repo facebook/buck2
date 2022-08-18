@@ -17,6 +17,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
 use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::*;
+use buck2_server::ctx::ServerCommandContext;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 use serde_json::json;
@@ -25,7 +26,6 @@ use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(
     Debug,

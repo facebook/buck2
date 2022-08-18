@@ -110,7 +110,6 @@ rust_library(
         "//buck2/events:events",
         "//buck2/facebook/find_certs:find_certs",
         "//buck2/gazebo/gazebo:gazebo",
-        "//buck2/host_sharing:host_sharing",
         "//buck2/install_proto:install_proto",
         "//buck2/shed/more_futures:more_futures",
         "//buck2/starlark-rust/starlark:starlark",

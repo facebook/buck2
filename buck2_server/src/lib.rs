@@ -10,9 +10,12 @@
 
 pub mod active_commands;
 pub mod configs;
+pub mod ctx;
 pub mod daemon;
 pub mod dice_tracker;
 pub mod file_watcher;
+pub mod heartbeat_guard;
 pub mod host_info;
+mod raw_output;
 pub mod snapshot;
 pub mod watchman;

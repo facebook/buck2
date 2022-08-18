@@ -16,11 +16,11 @@ use buck2_core::env_helper::EnvHelper;
 use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 
-use crate::daemon::server::ctx::ServerCommandContext;
+use crate::ctx::ServerCommandContext;
 
-pub(crate) struct RawOuputGuard<'a> {
-    pub(crate) _phantom: PhantomData<&'a mut ServerCommandContext>,
-    pub(crate) inner: BufWriter<RawOutputWriter>,
+pub struct RawOuputGuard<'a> {
+    pub _phantom: PhantomData<&'a mut ServerCommandContext>,
+    pub inner: BufWriter<RawOutputWriter>,
 }
 
 /// A writer that fires InstantEvent (RawOutput) when `write` function is called.
@@ -52,7 +52,7 @@ impl<'a> Drop for RawOuputGuard<'a> {
 }
 
 impl RawOutputWriter {
-    pub(crate) fn new(context: &ServerCommandContext) -> anyhow::Result<Self> {
+    pub fn new(context: &ServerCommandContext) -> anyhow::Result<Self> {
         Ok(Self {
             dispatcher: context.base_context.events.dupe(),
             chunk_size: RawOutputWriter::get_chunk_size()?,

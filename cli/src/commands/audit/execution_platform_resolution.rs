@@ -16,6 +16,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
 use buck2_core::pattern::TargetPattern;
+use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::target_platform_from_client_context;
 use buck2_server::daemon::common::PatternParser;
 use cli_proto::ClientContext;
@@ -25,7 +26,6 @@ use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

@@ -41,6 +41,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::parse_patterns_from_cli_args;
 use buck2_server::daemon::common::resolve_patterns;
 use buck2_server::daemon::common::target_platform_from_client_context;
@@ -65,7 +66,6 @@ use crate::daemon::build::results::result_report::ResultReporter;
 use crate::daemon::build::results::result_report::ResultReporterOptions;
 use crate::daemon::build::results::BuildOwner;
 use crate::daemon::build::results::BuildResultCollector;
-use crate::daemon::server::ctx::ServerCommandContext;
 
 pub mod results;
 

@@ -20,6 +20,7 @@ thiserror = "1.0.9"
 tokio = {version = "1.5", features = ["full"]}
 tracing = "0.1.22"
 
+fbinit = { path = "../../common/rust/shed/fbinit" }
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
@@ -28,6 +29,7 @@ watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
 
 buck2_build_api = { path = "../buck2_build_api" }
+buck2_bxl = { path = "../buck2_bxl" }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }

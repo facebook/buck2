@@ -7,16 +7,18 @@
  * of this source tree.
  */
 
+#![allow(clippy::significant_drop_in_scrutinee)]
+
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use buck2_server::snapshot;
 use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 use tokio::task::JoinHandle;
 
-use crate::daemon::server::ctx::BaseServerCommandContext;
+use crate::ctx::BaseServerCommandContext;
+use crate::snapshot;
 
 // Spawns a thread to occasionally output snapshots of resource utilization.
 pub struct HeartbeatGuard {
@@ -26,7 +28,7 @@ pub struct HeartbeatGuard {
 }
 
 impl HeartbeatGuard {
-    pub(crate) fn new(ctx: &BaseServerCommandContext) -> Self {
+    pub fn new(ctx: &BaseServerCommandContext) -> Self {
         let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
         let collector = snapshot::SnapshotCollector::new(
             ctx.re_client_manager.dupe(),

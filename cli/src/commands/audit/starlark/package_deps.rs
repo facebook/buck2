@@ -21,9 +21,8 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_server::ctx::ServerCommandContext;
 use cli_proto::ClientContext;
-
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

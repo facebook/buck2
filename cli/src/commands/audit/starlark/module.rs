@@ -16,9 +16,8 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_server::ctx::ServerCommandContext;
 use cli_proto::ClientContext;
-
-use crate::daemon::server::ctx::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

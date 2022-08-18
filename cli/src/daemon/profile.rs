@@ -27,6 +27,7 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::parse_patterns_from_cli_args;
 use buck2_server::daemon::common::resolve_patterns;
 use buck2_server::daemon::common::target_platform_from_client_context;
@@ -34,8 +35,6 @@ use cli_proto::profile_request::Action;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
-
-use crate::daemon::server::ctx::ServerCommandContext;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
