@@ -1177,7 +1177,7 @@ impl DaemonApi for BuckdServer {
             let events = context.events().dupe();
             let result = events
                 .span_async(start_event, async {
-                    let result = crate::daemon::docs::docs(context, req).await;
+                    let result = buck2_server::docs::docs(context, req).await;
                     let (is_success, error_messages) = match &result {
                         Ok(_e) => (true, vec![]),
                         Err(e) => (false, vec![format!("{:#}", e)]),

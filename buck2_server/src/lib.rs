@@ -13,6 +13,7 @@ pub mod configs;
 pub mod ctx;
 pub mod daemon;
 pub mod dice_tracker;
+pub mod docs;
 pub mod file_watcher;
 pub mod heartbeat_guard;
 pub mod host_info;

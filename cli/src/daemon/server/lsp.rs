@@ -36,6 +36,8 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server::docs::get_builtin_docs;
+use buck2_server::docs::get_prelude_docs;
 use cli_proto::*;
 use dice::DiceTransaction;
 use events::dispatch::with_dispatcher;
@@ -65,8 +67,6 @@ use starlark::values::docs::Doc;
 use starlark::values::docs::Location;
 use tonic::Status;
 
-use crate::daemon::docs::get_builtin_docs;
-use crate::daemon::docs::get_prelude_docs;
 use crate::daemon::server::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";

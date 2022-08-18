@@ -35,7 +35,6 @@ use buck2_interpreter::interpreter::GlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
-use buck2_server::ctx::ServerCommandContext;
 use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use dice::DiceTransaction;
@@ -47,6 +46,8 @@ use starlark::values::docs::DocItem;
 use starlark::values::docs::Identifier;
 use starlark::values::docs::Member;
 use starlark::values::StarlarkValue;
+
+use crate::ctx::ServerCommandContext;
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -155,7 +156,7 @@ fn get_ctx_docs() -> Vec<Doc> {
     docs
 }
 
-pub(crate) fn get_builtin_docs(
+pub fn get_builtin_docs(
     cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
@@ -180,7 +181,7 @@ pub(crate) fn get_builtin_docs(
 /// Creates top level docs for member functions of "native" too,
 /// presuming that those symbols don't already exist in `existing_globals`
 /// (to avoid re-exporting and overriding the real builtins if there is conflict)
-pub(crate) async fn get_prelude_docs(
+pub async fn get_prelude_docs(
     ctx: &DiceTransaction,
     existing_globals: &HashSet<&str>,
 ) -> anyhow::Result<Vec<Doc>> {
@@ -281,7 +282,7 @@ async fn get_docs_from_module(
     Ok(docs)
 }
 
-pub(crate) async fn docs(
+pub async fn docs(
     server_ctx: ServerCommandContext,
     request: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
