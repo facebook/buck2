@@ -28,7 +28,10 @@ pub struct HeartbeatGuard {
 impl HeartbeatGuard {
     pub(crate) fn new(ctx: &BaseServerCommandContext) -> Self {
         let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
-        let collector = snapshot::SnapshotCollector::from_command(ctx);
+        let collector = snapshot::SnapshotCollector::new(
+            ctx.re_client_manager.dupe(),
+            ctx.blocking_executor.dupe(),
+        );
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
         // exact lifetime of the dispatcher.

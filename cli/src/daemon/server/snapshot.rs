@@ -10,12 +10,9 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
-
-use crate::daemon::server::ctx::BaseServerCommandContext;
-use crate::daemon::server::state::DaemonStateData;
-use crate::daemon::server::BlockingExecutor;
 
 /// Stores state handles necessary to produce snapshots.
 #[derive(Clone, Dupe)]
@@ -25,19 +22,13 @@ pub(crate) struct SnapshotCollector {
 }
 
 impl SnapshotCollector {
-    // NOTE: This would probably be easier if BaseCommandContext just embedded DaemonStateData, or
-    // parts thereof we care about, but it's only two fields for now.
-    pub(crate) fn from_command(ctx: &BaseServerCommandContext) -> Self {
-        Self {
-            re_client_manager: ctx.re_client_manager.dupe(),
-            blocking_executor: ctx.blocking_executor.dupe(),
-        }
-    }
-
-    pub(crate) fn from_state(state: &DaemonStateData) -> Self {
-        Self {
-            re_client_manager: state.re_client_manager.dupe(),
-            blocking_executor: state.blocking_executor.dupe(),
+    pub(crate) fn new(
+        re_client_manager: Arc<ReConnectionManager>,
+        blocking_executor: Arc<dyn BlockingExecutor>,
+    ) -> SnapshotCollector {
+        SnapshotCollector {
+            re_client_manager,
+            blocking_executor,
         }
     }
 

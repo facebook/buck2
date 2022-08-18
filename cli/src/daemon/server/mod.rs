@@ -26,7 +26,6 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
-use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
@@ -560,7 +559,13 @@ impl DaemonApi for BuckdServer {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
                 let data = daemon_state.data().await?;
-                Some(snapshot::SnapshotCollector::from_state(&data).create_snapshot())
+                Some(
+                    snapshot::SnapshotCollector::new(
+                        data.re_client_manager.dupe(),
+                        data.blocking_executor.dupe(),
+                    )
+                    .create_snapshot(),
+                )
             } else {
                 None
             };
