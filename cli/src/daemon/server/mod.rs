@@ -33,7 +33,6 @@ use buck2_common::memory;
 use buck2_common::truncate::truncate;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
 use buck2_server::build::build;
@@ -81,6 +80,7 @@ use crate::daemon::test::test;
 use crate::paths::Paths;
 
 mod concurrency;
+mod forkserver;
 pub(crate) mod state;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
@@ -1489,32 +1489,3 @@ struct DefaultCommandOptions;
 
 impl OneshotCommandOptions for DefaultCommandOptions {}
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}
-
-#[cfg(unix)]
-async fn maybe_launch_forkserver(
-    root_config: &LegacyBuckConfig,
-) -> anyhow::Result<Option<ForkserverClient>> {
-    use buck2_core::rollout_percentage::RolloutPercentage;
-
-    static DEFAULT_TO_FORKSERVER: EnvHelper<RolloutPercentage> =
-        EnvHelper::new("BUCK2_FORKSERVER_DEFAULT");
-    let default = DEFAULT_TO_FORKSERVER.get()?;
-
-    let config = root_config.parse::<RolloutPercentage>("buck2", "forkserver")?;
-
-    let merged_config = config.or(*default).unwrap_or_else(RolloutPercentage::never);
-
-    if !merged_config.roll() {
-        return Ok(None);
-    }
-
-    let exe = std::env::current_exe().context("Cannot access current_exe")?;
-    Some(buck2_forkserver::unix::launch_forkserver(exe, &["forkserver"]).await).transpose()
-}
-
-#[cfg(not(unix))]
-async fn maybe_launch_forkserver(
-    _root_config: &LegacyBuckConfig,
-) -> anyhow::Result<Option<ForkserverClient>> {
-    Ok(None)
-}

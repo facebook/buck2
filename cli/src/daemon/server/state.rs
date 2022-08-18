@@ -52,6 +52,7 @@ use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::daemon::server;
+use crate::daemon::server::forkserver::maybe_launch_forkserver;
 use crate::Paths;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
@@ -224,7 +225,7 @@ impl DaemonState {
             detect_cycles,
         )?;
 
-        let forkserver = server::maybe_launch_forkserver(root_config).await?;
+        let forkserver = maybe_launch_forkserver(root_config).await?;
 
         // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
