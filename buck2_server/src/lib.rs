@@ -17,6 +17,7 @@ pub mod docs;
 pub mod file_watcher;
 pub mod heartbeat_guard;
 pub mod host_info;
+pub mod profile;
 mod raw_output;
 pub mod snapshot;
 pub mod watchman;

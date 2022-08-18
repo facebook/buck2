@@ -21,7 +21,6 @@ pub mod install;
 pub(crate) mod json;
 pub mod materialize;
 pub mod panic;
-pub mod profile;
 pub mod server;
 pub mod targets;
 pub mod targets_show_outputs;
