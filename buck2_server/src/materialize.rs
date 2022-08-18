@@ -8,9 +8,10 @@
  */
 
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_server::ctx::BaseServerCommandContext;
 
-pub(crate) async fn materialize(
+use crate::ctx::BaseServerCommandContext;
+
+pub async fn materialize(
     server_ctx: &BaseServerCommandContext,
     paths: Vec<String>,
 ) -> anyhow::Result<()> {

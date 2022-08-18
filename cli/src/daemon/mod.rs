@@ -16,7 +16,6 @@ pub mod client_utils;
 pub mod daemon_utils;
 pub mod install;
 pub(crate) mod json;
-pub mod materialize;
 pub mod panic;
 pub mod server;
 pub mod targets;

@@ -39,6 +39,7 @@ use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::lsp::run_lsp_server;
+use buck2_server::materialize::materialize;
 use buck2_server::profile::generate_profile;
 use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
@@ -75,7 +76,6 @@ use tracing::debug_span;
 use crate::daemon::build::build;
 use crate::daemon::bxl::bxl;
 use crate::daemon::install::install;
-use crate::daemon::materialize::materialize;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 
