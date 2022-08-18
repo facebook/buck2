@@ -12,6 +12,18 @@ def is_root_module(module: str.type) -> bool.type:
 def all_targets_in_root_module(_module: str.type) -> str.type:
     return ROOT_MODULE
 
+def get_apk_module_graph_mapping_function(ctx: "context", apk_module_graph_file: "artifact") -> "function":
+    mapping = {}
+    apk_module_graph_lines = ctx.artifacts[apk_module_graph_file].read_string().split("\n")[:-1]
+    for line in apk_module_graph_lines:
+        target, module = line.split(" ")
+        mapping[target] = module
+
+    def mapping_function(raw_target: str.type) -> str.type:
+        return mapping.get(raw_target)
+
+    return mapping_function
+
 # In order to calculate which targets belong to each module, we reconstruct a "target graph"
 # from "deps" information that is propagated up through AndroidPackageableInfo.
 # In buck1 we use the underlying "TargetGraph" object that is based on the raw target
