@@ -13,6 +13,7 @@
 pub mod active_commands;
 pub mod build;
 pub mod clean;
+pub mod client_utils;
 pub mod configs;
 pub mod ctx;
 pub mod daemon;

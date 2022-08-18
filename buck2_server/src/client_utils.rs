@@ -20,18 +20,18 @@ pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";
 
 #[derive(Debug, Error)]
-pub(crate) enum ParseError {
+pub enum ParseError {
     #[error("Failed to parse correct endpoint information {0}")]
     ParseError(String),
 }
 
-pub(crate) enum ConnectionType {
+pub enum ConnectionType {
     Uds { unix_socket: String },
     Tcp { socket: String, port: String },
 }
 // This function could potentialy change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable
-pub(crate) async fn get_channel(
+pub async fn get_channel(
     endpoint: ConnectionType,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
@@ -44,15 +44,16 @@ pub(crate) async fn get_channel(
 }
 
 #[cfg(unix)]
-pub(crate) async fn get_channel_uds(
+pub async fn get_channel_uds(
     unix_socket: &str,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
     use std::path::Path;
 
-    use buck2_server::with_current_directory::WithCurrentDirectory;
     use tonic::codegen::http::Uri;
     use tower::service_fn;
+
+    use crate::with_current_directory::WithCurrentDirectory;
 
     // change directory to the daemon directory to connect to unix domain socket
     // then change directory back to the current directory since the unix domain socket
@@ -96,14 +97,14 @@ pub async fn get_channel_uds(_unix_filename: &str, _chg_dir: bool) -> anyhow::Re
     ))
 }
 
-pub(crate) async fn get_channel_tcp(socket_addr: &str, port: &str) -> anyhow::Result<Channel> {
+pub async fn get_channel_tcp(socket_addr: &str, port: &str) -> anyhow::Result<Channel> {
     Endpoint::try_from(format!("http://{}:{}", socket_addr, port))?
         .connect()
         .await
         .with_context(|| format!("failed to connect to port {}", port))
 }
 
-pub(crate) async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut>(
+pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut>(
     initial_delay: Duration,
     max_delay: Duration,
     timeout: Duration,

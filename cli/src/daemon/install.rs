@@ -514,9 +514,9 @@ async fn connect_to_installer(
 ) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
-    use super::client_utils::get_channel;
-    use super::client_utils::retrying;
-    use super::client_utils::ConnectionType;
+    use buck2_server::client_utils::get_channel;
+    use buck2_server::client_utils::retrying;
+    use buck2_server::client_utils::ConnectionType;
 
     // These numbers might need to be configured based on the installer
     let initial_delay = Duration::from_millis(100);

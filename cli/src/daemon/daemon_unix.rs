@@ -12,6 +12,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task;
 
+use buck2_server::client_utils::UDS_DAEMON_FILENAME;
 use buck2_server::with_current_directory::WithCurrentDirectory;
 use futures::Stream;
 use futures::TryFutureExt;
@@ -20,8 +21,6 @@ use tokio::io::AsyncWrite;
 use tokio::io::ReadBuf;
 use tokio::net::UnixListener;
 use tonic::transport::server::Connected;
-
-use crate::daemon::client_utils::UDS_DAEMON_FILENAME;
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
