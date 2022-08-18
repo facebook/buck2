@@ -10,7 +10,9 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use anyhow::anyhow;
 use buck2_core::process::background_command;
+use buck2_core::soft_error;
 use buck2_data::buck_event;
 use buck2_data::instant_event::Data::HgInfo;
 use buck2_data::span_end_event;
@@ -311,7 +313,14 @@ where
 fn get_dispatcher() -> Option<EventDispatcher> {
     match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
         Ok(dispatcher) => Some(dispatcher),
-        Err(_) => None,
+        Err(_) => {
+            if let Ok("1") = std::env::var("ENFORCE_DISPATCHER_SET").as_deref() {
+                None // panic on unwrap
+            } else {
+                let _ignored = soft_error!(anyhow!("Task local event dispatcher not set."));
+                Some(EventDispatcher::null())
+            }
+        }
     }
 }
 
