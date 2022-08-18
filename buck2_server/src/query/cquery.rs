@@ -18,18 +18,18 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::target_platform_from_client_context;
 use cli_proto::CqueryRequest;
 use cli_proto::CqueryResponse;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
+use crate::ctx::ServerCommandContext;
+use crate::daemon::common::target_platform_from_client_context;
 use crate::query::printer::ProviderLookUp;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
-pub(crate) async fn cquery(
+pub async fn cquery(
     mut server_ctx: ServerCommandContext,
     request: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {

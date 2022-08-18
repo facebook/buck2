@@ -7,34 +7,34 @@
  * of this source tree.
  */
 
-use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
+use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::target_platform_from_client_context;
-use cli_proto::UqueryRequest;
-use cli_proto::UqueryResponse;
+use cli_proto::AqueryRequest;
+use cli_proto::AqueryResponse;
 
+use crate::ctx::ServerCommandContext;
+use crate::daemon::common::target_platform_from_client_context;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
-pub(crate) async fn uquery(
+pub async fn aquery(
     mut server_ctx: ServerCommandContext,
-    request: UqueryRequest,
-) -> anyhow::Result<UqueryResponse> {
+    request: AqueryRequest,
+) -> anyhow::Result<AqueryResponse> {
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
+
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
         &request.output_attributes,
         request.unstable_output_format,
     )?;
 
-    let UqueryRequest {
+    let AqueryRequest {
         query,
         query_args,
         context,
-        target_call_stacks,
         ..
     } = request;
 
@@ -45,14 +45,13 @@ pub(crate) async fn uquery(
     )
     .await?;
 
-    let evaluator = get_uquery_evaluator(
+    let evaluator = get_aquery_evaluator(
         &ctx,
         &server_ctx.working_dir,
         server_ctx.project_root().clone(),
         global_target_platform,
     )
     .await?;
-    let evaluator = &evaluator;
 
     let query_result = evaluator.eval_query(&query, &query_args).await?;
 
@@ -61,30 +60,18 @@ pub(crate) async fn uquery(
     let result = match query_result {
         QueryEvaluationResult::Single(targets) => {
             output_configuration
-                .print_single_output(
-                    &mut stdout,
-                    targets,
-                    target_call_stacks,
-                    ShouldPrintProviders::No,
-                )
+                .print_single_output(&mut stdout, targets, false, ShouldPrintProviders::No)
                 .await
         }
         QueryEvaluationResult::Multiple(results) => {
             output_configuration
-                .print_multi_output(
-                    &mut stdout,
-                    results,
-                    target_call_stacks,
-                    ShouldPrintProviders::No,
-                )
+                .print_multi_output(&mut stdout, results, false, ShouldPrintProviders::No)
                 .await
         }
     };
-
     let error_messages = match result {
         Ok(_) => vec![],
         Err(e) => vec![format!("{:#}", e)],
     };
-
-    Ok(UqueryResponse { error_messages })
+    Ok(AqueryResponse { error_messages })
 }

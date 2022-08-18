@@ -22,9 +22,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
-use buck2_server::dot::targets::DotTargetGraph;
-use buck2_server::dot::Dot;
-use buck2_server::dot::DotCompact;
 use cli_proto::QueryOutputFormat;
 use gazebo::prelude::*;
 use gazebo::variants::UnpackVariants;
@@ -35,22 +32,25 @@ use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::dot::targets::DotTargetGraph;
+use crate::dot::Dot;
+use crate::dot::DotCompact;
 use crate::query::QueryCommandError;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
-pub(crate) enum ShouldPrintProviders<'a, T> {
+pub enum ShouldPrintProviders<'a, T> {
     No,
     Yes(&'a dyn ProviderLookUp<T>),
 }
 
 #[async_trait]
-pub(crate) trait ProviderLookUp<T: QueryTarget>: Send + Sync {
+pub trait ProviderLookUp<T: QueryTarget>: Send + Sync {
     async fn lookup(&self, t: &T)
     -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 }
 
 #[derive(Debug)]
-pub(crate) struct QueryResultPrinter<'a> {
+pub struct QueryResultPrinter<'a> {
     resolver: &'a CellResolver,
     attributes: Option<RegexSet>,
     output_format: QueryOutputFormat,
@@ -192,7 +192,7 @@ impl<'a> Serialize for FileSetJsonPrinter<'a> {
 
 impl<'a> QueryResultPrinter<'a> {
     /// Utility for creating from the options in their protobuf form.
-    pub(crate) fn from_request_options(
+    pub fn from_request_options(
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: i32,
@@ -205,7 +205,7 @@ impl<'a> QueryResultPrinter<'a> {
         )
     }
 
-    pub(crate) fn from_options(
+    pub fn from_options(
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: QueryOutputFormat,
@@ -229,7 +229,7 @@ impl<'a> QueryResultPrinter<'a> {
         })
     }
 
-    pub(crate) async fn print_multi_output<'b, T: QueryTarget, W: std::io::Write>(
+    pub async fn print_multi_output<'b, T: QueryTarget, W: std::io::Write>(
         &self,
         mut output: W,
         multi_result: MultiQueryResult<T>,
@@ -295,7 +295,7 @@ impl<'a> QueryResultPrinter<'a> {
         }
     }
 
-    pub(crate) async fn print_single_output<'b, T: QueryTarget, W: std::io::Write>(
+    pub async fn print_single_output<'b, T: QueryTarget, W: std::io::Write>(
         &self,
         mut output: W,
         result: QueryEvaluationValue<T>,

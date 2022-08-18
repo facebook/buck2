@@ -23,6 +23,7 @@ pub mod heartbeat_guard;
 pub mod host_info;
 pub mod lsp;
 pub mod profile;
+pub mod query;
 mod raw_output;
 pub mod snapshot;
 pub mod streaming_request_handler;

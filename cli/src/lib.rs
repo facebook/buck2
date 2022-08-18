@@ -102,7 +102,6 @@ pub mod commands;
 pub mod daemon;
 pub mod exit_result;
 pub mod paths;
-pub mod query;
 pub mod roots;
 mod stdin_stream;
 mod stdio;

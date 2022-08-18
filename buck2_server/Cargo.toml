@@ -11,6 +11,7 @@ crossbeam-channel = "0.5"
 dashmap = "4.0.2"
 flate2 = "1.0.22"
 futures = "0.3"
+indent_write = "2.2.0"
 indexmap = { version = "1.6", features = ["serde-1"] }
 itertools = "0.10.0"
 libc = "0.2.103"

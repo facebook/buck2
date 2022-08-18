@@ -40,6 +40,7 @@ use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::lsp::run_lsp_server;
 use buck2_server::profile::generate_profile;
+use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
 use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use cli_proto::daemon_api_server::*;
@@ -76,8 +77,7 @@ use crate::daemon::bxl::bxl;
 use crate::daemon::install::install;
 use crate::daemon::materialize::materialize;
 use crate::daemon::test::test;
-use crate::daemon::uquery::uquery;
-use crate::Paths;
+use crate::paths::Paths;
 
 mod concurrency;
 pub(crate) mod state;
@@ -814,7 +814,7 @@ impl DaemonApi for BuckdServer {
             let events = context.base_context.events.dupe();
             events
                 .span_async(start_event, async {
-                    let result = crate::daemon::aquery::aquery(context, req).await;
+                    let result = buck2_server::query::aquery::aquery(context, req).await;
                     let (is_success, error_messages) = match &result {
                         Ok(response) => (
                             response.error_messages.is_empty(),
@@ -893,7 +893,7 @@ impl DaemonApi for BuckdServer {
             let events = context.base_context.events.dupe();
             events
                 .span_async(start_event, async {
-                    let result = crate::daemon::cquery::cquery(context, req).await;
+                    let result = buck2_server::query::cquery::cquery(context, req).await;
                     let (is_success, error_messages) = match &result {
                         Ok(response) => (
                             response.error_messages.is_empty(),

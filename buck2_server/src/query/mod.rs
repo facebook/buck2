@@ -9,7 +9,10 @@
 
 use thiserror::Error;
 
+pub mod aquery;
+pub mod cquery;
 pub mod printer;
+pub mod uquery;
 
 #[derive(Debug, Error)]
 enum QueryCommandError {
