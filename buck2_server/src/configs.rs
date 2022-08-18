@@ -13,10 +13,11 @@ use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_server::daemon::common::ConfigType;
 use cli_proto::ConfigOverride;
 
-pub(crate) fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
+use crate::daemon::common::ConfigType;
+
+pub fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
 ) -> anyhow::Result<Vec<LegacyConfigCmdArg>> {
     config_overrides
@@ -32,7 +33,7 @@ pub(crate) fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverrid
 }
 
 /// Read the configs, returning the cell resolver and the legacy configs
-pub(crate) fn parse_legacy_cells<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
+pub fn parse_legacy_cells<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
     cwd: &AbsPath,
     fs: &ProjectRoot,
