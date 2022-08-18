@@ -18,12 +18,12 @@ use once_cell::sync::Lazy;
 pub static ACTIVE_COMMANDS: Lazy<Mutex<HashSet<TraceId>>> =
     Lazy::new(|| Mutex::new(HashSet::new()));
 
-pub(crate) struct ActiveCommandDropGuard {
+pub struct ActiveCommandDropGuard {
     trace_id: TraceId,
 }
 
 impl ActiveCommandDropGuard {
-    pub(crate) fn new(trace_id: TraceId) -> Self {
+    pub fn new(trace_id: TraceId) -> Self {
         let mut active_commands = ACTIVE_COMMANDS.lock().unwrap();
 
         active_commands.insert(trace_id.dupe());

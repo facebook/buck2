@@ -122,7 +122,7 @@ mod imp {
     /// Collects metadata from the current environment for use in LogView.
     fn get_metadata_for_panic() -> HashMap<String, String> {
         let mut map = metadata::collect();
-        if let Ok(commands) = crate::daemon::server::active_commands::ACTIVE_COMMANDS.lock() {
+        if let Ok(commands) = buck2_server::active_commands::ACTIVE_COMMANDS.lock() {
             let commands = commands.iter().map(|id| id.to_string()).collect::<Vec<_>>();
             map.insert("active_commands".to_owned(), commands.join(","));
         }

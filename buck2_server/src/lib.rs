@@ -8,6 +8,7 @@
  * of this source tree.
  */
 
+pub mod active_commands;
 pub mod configs;
 pub mod daemon;
 pub mod dice_tracker;

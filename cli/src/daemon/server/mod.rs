@@ -78,7 +78,6 @@ use crate::daemon::test::test;
 use crate::daemon::uquery::uquery;
 use crate::Paths;
 
-pub(crate) mod active_commands;
 mod concurrency;
 pub(crate) mod ctx;
 pub(crate) mod heartbeat_guard;

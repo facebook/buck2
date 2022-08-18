@@ -37,6 +37,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_server::active_commands::ActiveCommandDropGuard;
 use buck2_server::file_watcher::FileWatcher;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::cycles::DetectCycles;
@@ -49,7 +50,6 @@ use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::daemon::server;
-use crate::daemon::server::active_commands::ActiveCommandDropGuard;
 use crate::daemon::server::ctx::BaseServerCommandContext;
 use crate::Paths;
 

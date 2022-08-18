@@ -50,6 +50,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::LocalExecutorOptions;
+use buck2_server::active_commands::ActiveCommandDropGuard;
 use buck2_server::configs::parse_legacy_cells;
 use buck2_server::daemon::common::get_executor_config_for_strategy;
 use buck2_server::daemon::common::parse_concurrency;
@@ -74,7 +75,6 @@ use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use once_cell::sync::OnceCell;
 
-use crate::daemon::server::active_commands::ActiveCommandDropGuard;
 use crate::daemon::server::heartbeat_guard::HeartbeatGuard;
 use crate::daemon::server::raw_output::RawOuputGuard;
 use crate::daemon::server::raw_output::RawOutputWriter;
