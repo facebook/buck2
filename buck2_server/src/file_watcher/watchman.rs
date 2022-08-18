@@ -26,7 +26,7 @@ use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
 
-use crate::daemon::server::file_watcher::FileWatcher;
+use crate::file_watcher::FileWatcher;
 use crate::watchman::SyncableQuery;
 use crate::watchman::SyncableQueryProcessor;
 use crate::watchman::WatchmanEvent;
@@ -35,13 +35,13 @@ use crate::watchman::WatchmanKind;
 
 const MAX_WATCHMAN_MESSAGES: u64 = 3;
 
-pub(crate) struct WatchmanQueryProcessor {
+pub struct WatchmanQueryProcessor {
     pub cells: CellResolver,
     pub ignore_specs: HashMap<CellName, IgnoreSet>,
 }
 
 impl WatchmanQueryProcessor {
-    pub(crate) async fn process_events_impl(
+    pub async fn process_events_impl(
         &self,
         ctx: DiceTransaction,
         events: Vec<WatchmanEvent>,
@@ -162,7 +162,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     }
 }
 
-pub(crate) struct WatchmanFileWatcher {
+pub struct WatchmanFileWatcher {
     query: SyncableQuery<buck2_data::WatchmanStats, DiceTransaction>,
 }
 
@@ -171,7 +171,7 @@ pub(crate) struct WatchmanFileWatcher {
 /// .watchmanconfig itself). Before any new computation request is started, it will be synced to
 /// ensure that any recent changes are flushed and visible to the computation.
 impl WatchmanFileWatcher {
-    pub(crate) fn new(
+    pub fn new(
         project_root: &AbsPath,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,

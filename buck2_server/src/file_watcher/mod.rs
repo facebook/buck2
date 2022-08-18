@@ -22,7 +22,7 @@ use events::dispatch::EventDispatcher;
 mod watchman;
 
 #[async_trait]
-pub(crate) trait FileWatcher: Send + Sync + 'static {
+pub trait FileWatcher: Send + Sync + 'static {
     async fn sync(
         &self,
         dice: DiceTransaction,
@@ -33,7 +33,7 @@ pub(crate) trait FileWatcher: Send + Sync + 'static {
 impl dyn FileWatcher {
     /// Create a new FileWatcher. Note that this is not async, since it's called during daemon
     /// startup and shouldn't be doing any work that could warrant suspending.
-    pub(crate) fn new(
+    pub fn new(
         project_root: &AbsPath,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,

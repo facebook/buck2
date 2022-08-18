@@ -119,7 +119,6 @@ rust_library(
         "//common/rust/gflags:gflags",
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/hostcaps:hostcaps",
-        "//watchman/rust/watchman_client:watchman_client",
     ],
 )
 

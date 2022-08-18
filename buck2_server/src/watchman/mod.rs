@@ -43,7 +43,7 @@ mod types {
     }
 
     impl BuckQueryResult {
-        pub(crate) fn into_event(self) -> Option<WatchmanEvent> {
+        pub fn into_event(self) -> Option<WatchmanEvent> {
             let kind = match *self.file_type {
                 FileType::BlockSpecial
                 | FileType::CharSpecial
@@ -76,14 +76,14 @@ mod types {
 use types::*;
 
 #[derive(Debug)]
-pub(crate) enum WatchmanEventType {
+pub enum WatchmanEventType {
     Create,
     Modify,
     Delete,
 }
 
 #[derive(Debug)]
-pub(crate) enum WatchmanKind {
+pub enum WatchmanKind {
     File,
     Directory,
     Symlink,
@@ -100,7 +100,7 @@ impl WatchmanKind {
 }
 
 #[derive(Debug)]
-pub(crate) struct WatchmanEvent {
+pub struct WatchmanEvent {
     pub kind: WatchmanKind,
     pub event: WatchmanEventType,
     pub path: PathBuf,
@@ -119,7 +119,7 @@ impl Display for WatchmanEvent {
 }
 
 #[derive(Dupe, Clone)]
-pub(crate) struct WatchmanClient(Arc<(watchman_client::Client, ResolvedRoot)>);
+pub struct WatchmanClient(Arc<(watchman_client::Client, ResolvedRoot)>);
 
 impl Debug for WatchmanClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -128,7 +128,7 @@ impl Debug for WatchmanClient {
 }
 
 impl WatchmanClient {
-    pub(crate) async fn connect(
+    pub async fn connect(
         connector: &Connector,
         path: CanonicalPath,
     ) -> anyhow::Result<WatchmanClient> {
@@ -137,7 +137,7 @@ impl WatchmanClient {
         Ok(Self(Arc::new((client, root))))
     }
 
-    pub(crate) async fn query<
+    pub async fn query<
         F: serde::de::DeserializeOwned + std::fmt::Debug + Clone + QueryFieldList,
     >(
         &self,
@@ -156,7 +156,7 @@ impl WatchmanClient {
 }
 
 #[async_trait]
-pub(crate) trait SyncableQueryProcessor: Send + Sync {
+pub trait SyncableQueryProcessor: Send + Sync {
     type Output;
     type Payload;
 
@@ -190,11 +190,11 @@ enum SyncableQueryCommand<T, P> {
 ///
 /// In the background, the SyncableQuery may use a subscription to eagerly process updates, but this is
 /// only an optimization and users should use `sync()` when they want events to have been processed.
-pub(crate) struct SyncableQuery<T, P> {
+pub struct SyncableQuery<T, P> {
     control_tx: UnboundedSender<SyncableQueryCommand<T, P>>,
 }
 
-pub(crate) enum WatchmanSyncResult {
+pub enum WatchmanSyncResult {
     FreshInstance {
         merge_base: Option<String>,
         clock: ClockSpec,
@@ -408,10 +408,7 @@ where
     P: Send + 'static,
 {
     /// Ensures that the processor has been sent all changes that watchman has seen.
-    pub(crate) fn sync(
-        &self,
-        dice: P,
-    ) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
+    pub fn sync(&self, dice: P) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx
@@ -429,7 +426,7 @@ where
         }
     }
 
-    pub(crate) fn new(
+    pub fn new(
         connector: Connector,
         path: impl AsRef<Path>,
         expr: Expr,

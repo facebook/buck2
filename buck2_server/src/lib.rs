@@ -1,3 +1,4 @@
+#![feature(box_syntax)]
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -9,3 +10,5 @@
 
 pub mod configs;
 pub mod daemon;
+pub mod file_watcher;
+pub mod watchman;
