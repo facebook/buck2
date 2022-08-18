@@ -140,7 +140,11 @@ impl<'c> Iterator for ChunkIter<'c> {
 }
 
 impl Arena {
+    /// Number of allocated bytes plus padding size.
     pub fn allocated_bytes(&self) -> usize {
+        // This overestimates the allocates size, see `Bump::allocated_bytes()`:
+        // "those padding bytes will add to this method’s resulting sum".
+        // https://docs.rs/bumpalo/3.11.0/bumpalo/struct.Bump.html#method.allocated_bytes
         self.drop.allocated_bytes() + self.non_drop.allocated_bytes()
     }
 
@@ -510,6 +514,7 @@ mod tests {
         assert_eq!(res.len(), 1);
         let entry = res.values().next().unwrap();
         assert_eq!(entry.count, 2);
-        assert_eq!(entry.bytes, arena.allocated_bytes());
+        // Because `arena.allocated_bytes` over-approximates.
+        assert!(entry.bytes <= arena.allocated_bytes());
     }
 }
