@@ -1,4 +1,5 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "DexFilesInfo")
+load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE")
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
@@ -188,6 +189,12 @@ def _filter_pre_dexed_libs(
 
     return pre_dexed_lib_with_class_names_files
 
+_SortedPreDexedInputs = record(
+    module = str.type,
+    primary_dex_inputs = [DexInputWithSpecifiedClasses.type],
+    secondary_dex_inputs = [[DexInputWithSpecifiedClasses.type]],
+)
+
 def merge_to_split_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
@@ -218,66 +225,69 @@ def merge_to_split_dex(
     outputs = [primary_dex_output, primary_dex_artifact_list, initial_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context"):
-        primary_dex_inputs, secondary_dex_inputs = _sort_pre_dexed_files(ctx, pre_dexed_lib_with_class_names_files, split_dex_merge_config)
+        sorted_pre_dexed_inputs = _sort_pre_dexed_files(ctx, pre_dexed_lib_with_class_names_files, split_dex_merge_config)
         secondary_dexes_for_symlinking = {}
 
-        pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
-        primary_dex_class_list = ctx.actions.write(
-            "class_list_for_primary_dex.txt",
-            flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
-        )
-
-        _merge_dexes(
-            ctx,
-            android_toolchain,
-            ctx.outputs[primary_dex_output],
-            pre_dexed_artifacts,
-            ctx.outputs[primary_dex_artifact_list],
-            class_names_to_include = primary_dex_class_list,
-        )
-
-        metadata_line_artifacts = []
-        for i in range(len(secondary_dex_inputs)):
-            if split_dex_merge_config.dex_compression == "jar":
-                secondary_dex_path = _get_jar_secondary_dex_path(i)
-                secondary_dex_jar_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, i)
-                secondary_dexes_for_symlinking[secondary_dex_jar_metadata_config.secondary_dex_metadata_path] = secondary_dex_jar_metadata_config.secondary_dex_metadata_file
-                metadata_line_artifacts.append(secondary_dex_jar_metadata_config.secondary_dex_metadata_line)
-            else:
-                secondary_dex_path = _get_raw_secondary_dex_path(i)
-                secondary_dex_jar_metadata_config = None
-
-            secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
-            secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}.txt".format(i + 2))
-            secondary_dex_class_list = ctx.actions.write(
-                "class_list_for_secondary_dex_{}.txt".format(i + 2),
-                flatten([secondary_dex_input.dex_class_names for secondary_dex_input in secondary_dex_inputs[i]]),
+        for sorted_pre_dexed_input in sorted_pre_dexed_inputs:
+            primary_dex_inputs = sorted_pre_dexed_input.primary_dex_inputs
+            pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
+            primary_dex_class_list = ctx.actions.write(
+                "class_list_for_primary_dex.txt",
+                flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
             )
-            pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
+
             _merge_dexes(
                 ctx,
                 android_toolchain,
-                secondary_dex_output,
+                ctx.outputs[primary_dex_output],
                 pre_dexed_artifacts,
-                secondary_dex_artifact_list,
-                class_names_to_include = secondary_dex_class_list,
-                secondary_dex_jar_metadata_config = secondary_dex_jar_metadata_config,
+                ctx.outputs[primary_dex_artifact_list],
+                class_names_to_include = primary_dex_class_list,
             )
 
-            secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
+            metadata_line_artifacts = []
+            secondary_dex_inputs = sorted_pre_dexed_input.secondary_dex_inputs
+            for i in range(len(secondary_dex_inputs)):
+                if split_dex_merge_config.dex_compression == "jar":
+                    secondary_dex_path = _get_jar_secondary_dex_path(i)
+                    secondary_dex_jar_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, i)
+                    secondary_dexes_for_symlinking[secondary_dex_jar_metadata_config.secondary_dex_metadata_path] = secondary_dex_jar_metadata_config.secondary_dex_metadata_file
+                    metadata_line_artifacts.append(secondary_dex_jar_metadata_config.secondary_dex_metadata_line)
+                else:
+                    secondary_dex_path = _get_raw_secondary_dex_path(i)
+                    secondary_dex_jar_metadata_config = None
 
-        if split_dex_merge_config.dex_compression == "jar":
-            metadata_dot_txt_path = "{}/metadata.txt".format(_SECONDARY_DEX_SUBDIR)
-            metadata_dot_txt_file = ctx.actions.declare_output(metadata_dot_txt_path)
-            secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
+                secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
+                secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}.txt".format(i + 2))
+                secondary_dex_class_list = ctx.actions.write(
+                    "class_list_for_secondary_dex_{}.txt".format(i + 2),
+                    flatten([secondary_dex_input.dex_class_names for secondary_dex_input in secondary_dex_inputs[i]]),
+                )
+                pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
+                _merge_dexes(
+                    ctx,
+                    android_toolchain,
+                    secondary_dex_output,
+                    pre_dexed_artifacts,
+                    secondary_dex_artifact_list,
+                    class_names_to_include = secondary_dex_class_list,
+                    secondary_dex_jar_metadata_config = secondary_dex_jar_metadata_config,
+                )
 
-            def write_metadata_dot_txt(ctx: "context"):
-                metadata_lines = []
-                for metadata_line_artifact in metadata_line_artifacts:
-                    metadata_lines.append(ctx.artifacts[metadata_line_artifact].read_string().strip())
-                ctx.actions.write(ctx.outputs[metadata_dot_txt_file], metadata_lines)
+                secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
 
-            ctx.actions.dynamic_output(metadata_line_artifacts, [], [metadata_dot_txt_file], write_metadata_dot_txt)
+            if split_dex_merge_config.dex_compression == "jar":
+                metadata_dot_txt_path = "{}/metadata.txt".format(_SECONDARY_DEX_SUBDIR)
+                metadata_dot_txt_file = ctx.actions.declare_output(metadata_dot_txt_path)
+                secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
+
+                def write_metadata_dot_txt(ctx: "context"):
+                    metadata_lines = []
+                    for metadata_line_artifact in metadata_line_artifacts:
+                        metadata_lines.append(ctx.artifacts[metadata_line_artifact].read_string().strip())
+                    ctx.actions.write(ctx.outputs[metadata_dot_txt_file], metadata_lines)
+
+                ctx.actions.dynamic_output(metadata_line_artifacts, [], [metadata_dot_txt_file], write_metadata_dot_txt)
 
         ctx.actions.symlinked_dir(
             ctx.outputs[initial_secondary_dexes_dir],
@@ -345,7 +355,7 @@ def _merge_dexes(
 def _sort_pre_dexed_files(
         ctx: "context",
         pre_dexed_lib_with_class_names_files: ["DexInputWithClassNamesFile"],
-        split_dex_merge_config: "SplitDexMergeConfig") -> ([DexInputWithSpecifiedClasses.type], [[DexInputWithSpecifiedClasses.type]]):
+        split_dex_merge_config: "SplitDexMergeConfig") -> [_SortedPreDexedInputs.type]:
     primary_dex_inputs = []
     secondary_dex_inputs = []
     current_secondary_dex_size = 0
@@ -377,7 +387,11 @@ def _sort_pre_dexed_files(
                 DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = secondary_dex_class_names),
             )
 
-    return (primary_dex_inputs, secondary_dex_inputs)
+    return [_SortedPreDexedInputs(
+        module = ROOT_MODULE,
+        primary_dex_inputs = primary_dex_inputs,
+        secondary_dex_inputs = secondary_dex_inputs,
+    )]
 
 def _get_raw_secondary_dex_path(index: int.type):
     return "classes{}.dex".format(index + 2)
