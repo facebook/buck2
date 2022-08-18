@@ -248,12 +248,6 @@ impl ProjectRoot {
         }
     }
 
-    // TODO(nga): inline and use `std::fs` API directly.
-    pub fn create_dir(&self, path: impl PathLike) -> anyhow::Result<()> {
-        let path = path.resolve(self);
-        fs::create_dir_all(&*path)
-    }
-
     // TODO(nga): refactor this to global function.
     pub fn write_file(
         &self,

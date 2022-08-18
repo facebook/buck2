@@ -546,6 +546,7 @@ impl IoRequest for CleanOutputPaths {
 mod tests {
     use std::borrow::Cow;
     use std::collections::HashMap;
+    use std::fs;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -774,7 +775,7 @@ mod tests {
     fn test_cleanup_path_missing() -> anyhow::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
-        fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
+        fs::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux/xx"))?;
         assert!(
             fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux"))
@@ -787,7 +788,7 @@ mod tests {
     fn test_cleanup_path_present() -> anyhow::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
-        fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
+        fs::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
         assert!(
             !fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux"))

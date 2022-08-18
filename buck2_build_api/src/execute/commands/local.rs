@@ -227,7 +227,7 @@ impl LocalExecutor {
                     if request.custom_tmpdir {
                         let project_fs = self.artifact_fs.fs();
                         project_fs.remove_path_recursive(&scratch_dir)?;
-                        project_fs.create_dir(&scratch_dir)?;
+                        fs::create_dir_all(&*project_fs.resolve(&scratch_dir))?;
                     }
 
                     create_output_dirs(
@@ -598,7 +598,7 @@ pub async fn create_output_dirs(
     let project_fs = artifact_fs.fs();
     for output in outputs {
         if let Some(path) = output.path_to_create() {
-            project_fs.create_dir(path)?;
+            fs::create_dir_all(project_fs.resolve(path))?;
         }
     }
 

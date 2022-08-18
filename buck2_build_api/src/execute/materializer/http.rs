@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fs;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -146,7 +147,7 @@ pub async fn http_download(
 ) -> anyhow::Result<TrackedFileDigest> {
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
-        fs.create_dir(dir)?;
+        fs::create_dir_all(fs.resolve(dir))?;
     }
 
     let file = std::fs::OpenOptions::new()
