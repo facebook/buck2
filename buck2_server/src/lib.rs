@@ -23,5 +23,6 @@ pub mod host_info;
 pub mod profile;
 mod raw_output;
 pub mod snapshot;
+pub mod streaming_request_handler;
 pub mod targets_show_outputs;
 pub mod watchman;

@@ -21,6 +21,7 @@ thiserror = "1.0.9"
 threadpool = "1.8.1"
 tokio = {version = "1.5", features = ["full"]}
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
+tonic = "0.7.2"
 tracing = "0.1.22"
 walkdir = "2.3.2"
 

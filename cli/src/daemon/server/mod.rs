@@ -40,6 +40,7 @@ use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::profile::generate_profile;
 use buck2_server::snapshot;
+use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
@@ -59,7 +60,6 @@ use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::eval::ProfileMode;
 use state::DaemonState;
-use streaming_request_handler::StreamingRequestHandler;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::server::Connected;
@@ -82,7 +82,6 @@ use crate::Paths;
 mod concurrency;
 pub(crate) mod lsp;
 pub(crate) mod state;
-mod streaming_request_handler;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);

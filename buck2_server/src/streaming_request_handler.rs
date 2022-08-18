@@ -16,23 +16,23 @@ use tonic::Status;
 ///
 /// The primary use for this is pulling messages of a specific type from
 /// the client via [`StreamingRequestHandler::message`]
-pub(crate) struct StreamingRequestHandler<T: TryFrom<StreamingRequest, Error = Status>> {
+pub struct StreamingRequestHandler<T: TryFrom<StreamingRequest, Error = Status>> {
     client_stream: tonic::Streaming<StreamingRequest>,
     _phantom: PhantomData<T>,
 }
 
 impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
-    pub(crate) fn new(client_stream: tonic::Streaming<StreamingRequest>) -> Self {
+    pub fn new(client_stream: tonic::Streaming<StreamingRequest>) -> Self {
         Self {
             client_stream,
             _phantom: PhantomData::default(),
         }
     }
 
-    /// Get a message of type [`T`] from inside of a [`StreamingRequest`] envelope.
+    /// Get a message of type `T` from inside of a [`StreamingRequest`] envelope.
     ///
     /// Returns an error if the message is of the wrong type.
-    pub(crate) async fn message(&mut self) -> Result<T, Status> {
+    pub async fn message(&mut self) -> Result<T, Status> {
         let request = match self.client_stream.message().await? {
             Some(m) => Ok(m),
             None => Err(Status::failed_precondition(

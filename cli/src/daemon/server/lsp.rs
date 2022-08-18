@@ -38,6 +38,7 @@ use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::docs::get_builtin_docs;
 use buck2_server::docs::get_prelude_docs;
+use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use cli_proto::*;
 use dice::DiceTransaction;
 use events::dispatch::with_dispatcher;
@@ -66,8 +67,6 @@ use starlark::syntax::AstModule;
 use starlark::values::docs::Doc;
 use starlark::values::docs::Location;
 use tonic::Status;
-
-use crate::daemon::server::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
