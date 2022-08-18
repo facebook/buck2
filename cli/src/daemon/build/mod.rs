@@ -81,7 +81,7 @@ pub(crate) async fn build(
     request: BuildRequest,
 ) -> anyhow::Result<BuildResult> {
     // TODO(nmj): Move build report printing logic out of here.
-    let fs = server_ctx.file_system();
+    let fs = server_ctx.project_root();
     let cwd = &server_ctx.working_dir;
 
     let build_opts = request.build_opts.expect("should have build options");
@@ -188,7 +188,7 @@ pub(crate) async fn build(
     }
 
     if should_create_unhashed_links.unwrap_or(false) {
-        create_unhashed_outputs(provider_artifacts, &artifact_fs, &fs)?;
+        create_unhashed_outputs(provider_artifacts, &artifact_fs, fs)?;
     }
 
     let mut serialized_build_report = None;

@@ -116,10 +116,6 @@ pub(crate) struct BaseServerCommandContext {
 }
 
 impl BaseServerCommandContext {
-    pub(crate) fn file_system(&self) -> ProjectRoot {
-        self.project_root.clone()
-    }
-
     /// Provides a DiceComputations. This may be missing some data or injected keys that
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
     fn unsafe_dice_ctx_with_more_data<F: FnOnce(UserComputationData) -> UserComputationData>(
@@ -304,9 +300,9 @@ impl ServerCommandContext {
     pub(crate) fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.cells_and_configs
             .get_or_init(|| {
-                let fs = self.file_system();
+                let fs = self.project_root();
                 let cwd = &self.working_dir;
-                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)
+                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
                     .shared_error()
             })
             .clone()
@@ -437,12 +433,8 @@ impl ServerCommandContext {
         Ok(dice_ctx.commit())
     }
 
-    pub(crate) fn file_system(&self) -> ProjectRoot {
-        self.base_context.file_system()
-    }
-
-    pub(crate) fn project_root(&self) -> &AbsPath {
-        &self.base_context.project_root.root
+    pub(crate) fn project_root(&self) -> &ProjectRoot {
+        &self.base_context.project_root
     }
 
     pub(crate) fn get_re_connection(&self) -> ReConnectionHandle {

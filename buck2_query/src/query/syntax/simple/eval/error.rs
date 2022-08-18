@@ -9,7 +9,7 @@
 
 //! Implementation of the cli and query_* attr query language.
 
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_query_parser::spanned::Spanned;
 use thiserror::Error;
 
@@ -46,8 +46,8 @@ pub enum QueryError {
     ArgNotYetSupported(String, String),
     #[error("Invalid traversal depth `{0}`")]
     InvalidDepth(i32),
-    #[error("File literal `{1}` not within the project root `{}`", .0.display())]
-    FileLiteralNotInProject(AbsPathBuf, String),
+    #[error("File literal `{1}` not within the project root `{}`", .0)]
+    FileLiteralNotInProject(ProjectRoot, String),
     #[error("query function {0} not available in this context")]
     NotAvailableInContext(&'static str),
     #[error(

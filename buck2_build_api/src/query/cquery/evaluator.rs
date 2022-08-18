@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::result::ToSharedResultExt;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::target::TargetLabel;
@@ -85,7 +85,7 @@ impl CqueryEvaluator<'_> {
 pub async fn get_cquery_evaluator<'c>(
     ctx: &'c DiceComputations,
     working_dir: &ProjectRelativePath,
-    project_root: AbsPathBuf,
+    project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<CqueryEvaluator<'c>> {
     let dice_query_delegate = Arc::new(

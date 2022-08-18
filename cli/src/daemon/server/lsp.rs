@@ -543,7 +543,7 @@ pub(crate) async fn run_lsp_server(
 ) -> anyhow::Result<LspResponse> {
     let dice_ctx: DiceTransaction = ctx.dice_ctx().await?;
     let cell_resolver: CellResolver = dice_ctx.get_cell_resolver().await?;
-    let fs = ctx.file_system();
+    let fs = ctx.project_root().clone();
 
     // This gets a bit messy because the various frameworks don't quite work the same way.
     // - tonic has async streams (which we pull from with .message().await)

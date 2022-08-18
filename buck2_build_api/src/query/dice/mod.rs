@@ -30,11 +30,11 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
@@ -67,7 +67,7 @@ pub mod aquery;
 pub(crate) struct LiteralParser {
     // file and target literals are resolved relative to the working dir.
     working_dir: Package,
-    project_root: AbsPathBuf,
+    project_root: ProjectRoot,
     cell_resolver: CellResolver,
     cell_alias_resolver: CellAliasResolver,
     target_alias_resolver: BuckConfigTargetAliasResolver,
@@ -105,12 +105,15 @@ impl LiteralParser {
             true => {
                 // TODO(cjhopman): This doesn't properly handle normalization.
                 let abs_path = AbsPath::new(&path)?;
-                let relative_path = abs_path.strip_prefix(&self.project_root).map_err(|_| {
-                    QueryError::FileLiteralNotInProject(
-                        self.project_root.to_owned(),
-                        literal.to_owned(),
-                    )
-                })?;
+                let relative_path =
+                    abs_path
+                        .strip_prefix(&self.project_root.root)
+                        .map_err(|_| {
+                            QueryError::FileLiteralNotInProject(
+                                self.project_root.clone(),
+                                literal.to_owned(),
+                            )
+                        })?;
                 match relative_path {
                     Cow::Borrowed(p) => ProjectRelativePath::ref_cast(p).to_owned(),
                     Cow::Owned(p) => ProjectRelativePathBuf::from(p),
@@ -141,7 +144,7 @@ impl<'c> DiceQueryDelegate<'c> {
     pub fn new(
         ctx: &'c DiceComputations,
         working_dir: &ProjectRelativePath,
-        project_root: AbsPathBuf,
+        project_root: ProjectRoot,
         cell_resolver: CellResolver,
         global_target_platform: Option<TargetLabel>,
         package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
@@ -364,7 +367,7 @@ impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
 pub(crate) async fn get_dice_query_delegate<'c>(
     ctx: &'c DiceComputations,
     working_dir: &ProjectRelativePath,
-    project_root: AbsPathBuf,
+    project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<DiceQueryDelegate<'c>> {
     let cell_resolver = ctx.get_cell_resolver().await?;

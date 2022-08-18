@@ -453,7 +453,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .await?
                     .get(this.ctx.current_bxl.label().bxl_path.cell())?
                     .path(),
-                ctx.global_data().get_io_provider().fs().root.clone(),
+                (**ctx.global_data().get_io_provider().fs()).clone(),
                 this.target_platform.dupe(),
             )
             .await

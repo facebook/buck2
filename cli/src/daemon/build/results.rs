@@ -185,9 +185,9 @@ pub mod build_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::configuration::Configuration;
-    use buck2_core::fs::paths::AbsPath;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetLabel;
     use derivative::Derivative;
@@ -264,7 +264,7 @@ pub mod build_report {
         artifact_fs: &'a ArtifactFs,
         build_report_results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
         overall_success: bool,
-        project_root: &'a AbsPath,
+        project_root: &'a ProjectRoot,
         include_unconfigured_section: bool,
         include_other_outputs: bool,
     }
@@ -273,7 +273,7 @@ pub mod build_report {
         pub(crate) fn new(
             trace_id: &'a TraceId,
             artifact_fs: &'a ArtifactFs,
-            project_root: &'a AbsPath,
+            project_root: &'a ProjectRoot,
             include_unconfigured_section: bool,
             include_other_outputs: bool,
         ) -> Self {
@@ -294,7 +294,7 @@ pub mod build_report {
                 success: self.overall_success,
                 results: self.build_report_results,
                 failures: HashMap::new(),
-                project_root: self.project_root.to_buf(),
+                project_root: self.project_root.root.clone(),
                 // In buck1 we may truncate build report for a large number of targets.
                 // Setting this to false since we don't currently truncate buck2's build report.
                 truncated: false,

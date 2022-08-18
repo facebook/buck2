@@ -10,8 +10,8 @@
 //! Implementation of the cli and query_* attr query language.
 use std::sync::Arc;
 
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -53,7 +53,7 @@ impl AqueryEvaluator<'_> {
 pub async fn get_aquery_evaluator<'c>(
     ctx: &'c DiceComputations,
     working_dir: &ProjectRelativePath,
-    project_root: AbsPathBuf,
+    project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<AqueryEvaluator<'c>> {
     let dice_query_delegate =

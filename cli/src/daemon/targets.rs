@@ -281,7 +281,7 @@ pub(crate) async fn targets(
         }
     };
 
-    let fs = server_ctx.file_system();
+    let fs = server_ctx.project_root();
     let cwd = &server_ctx.working_dir;
 
     let ctx = server_ctx.dice_ctx().await?;
@@ -316,7 +316,7 @@ pub(crate) async fn targets(
     let target_hash_modified_paths = request
         .target_hash_modified_paths
         .iter()
-        .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), &fs, cwd))
+        .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
         .collect::<anyhow::Result<_>>()?;
 
     let results_to_print = parse_and_get_results(

@@ -227,7 +227,7 @@ impl AuditSubcommand for AuditIncludesCommand {
         let cells = ctx.get_cell_resolver().await?;
         let cwd = &server_ctx.working_dir;
         let current_cell = cells.get(cells.find(cwd)?)?;
-        let fs = ProjectRoot::new(server_ctx.project_root().to_buf());
+        let fs = server_ctx.project_root();
 
         let futures: FuturesOrdered<_> = self
             .patterns
@@ -236,7 +236,7 @@ impl AuditSubcommand for AuditIncludesCommand {
             .map(|path| {
                 let path = path.to_owned();
                 let ctx = ctx.dupe();
-                let cell_path = resolve_path(&cells, &fs, current_cell, &path);
+                let cell_path = resolve_path(&cells, fs, current_cell, &path);
                 async move {
                     let load_result = try {
                         let cell_path = cell_path?;
