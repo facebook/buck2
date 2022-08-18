@@ -213,6 +213,7 @@ pub(crate) fn display_event(
             Data::Command(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Watchman(..) => Ok("Syncing file changes (via Watchman)".to_owned()),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
+            Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

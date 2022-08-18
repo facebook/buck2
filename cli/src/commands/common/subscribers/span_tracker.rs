@@ -253,6 +253,7 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             | Data::TestDiscovery(..)
             | Data::TestStart(..)
             | Data::Watchman(..)
+            | Data::SharedTask(..)
             | Data::Fake(..),
         ) => true,
         None => false,

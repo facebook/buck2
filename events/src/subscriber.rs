@@ -167,6 +167,9 @@ pub trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::MatchDepFiles(dep_files) => {
                 self.handle_match_dep_files_start(dep_files, event)
             }
+            buck2_data::span_start_event::Data::SharedTask(shared_task) => {
+                self.handle_shared_task_start(shared_task, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -215,6 +218,9 @@ pub trait EventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::Watchman(watchman) => {
                 self.handle_watchman_end(watchman, event)
+            }
+            buck2_data::span_end_event::Data::SharedTask(shared_task) => {
+                self.handle_shared_task_end(shared_task, event)
             }
             buck2_data::span_end_event::Data::MatchDepFiles(dep_files) => {
                 self.handle_match_dep_files_end(dep_files, event)
@@ -476,6 +482,20 @@ pub trait EventSubscriber: Send {
     async fn handle_watchman_end(
         &mut self,
         _watchman: &buck2_data::WatchmanEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_shared_task_start(
+        &mut self,
+        _shared_task: &buck2_data::SharedTaskStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_shared_task_end(
+        &mut self,
+        _shared_task: &buck2_data::SharedTaskEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
