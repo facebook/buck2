@@ -494,7 +494,7 @@ fn cleanup_path(fs: &ProjectRoot, mut path: &ProjectRelativePath) -> anyhow::Res
             }
         };
 
-        match fs.symlink_metadata(path) {
+        match fs.resolve(path).symlink_metadata() {
             Ok(m) => {
                 if m.is_dir() {
                     // It's a dir, no need to go further, and no need to delete.
@@ -513,8 +513,7 @@ fn cleanup_path(fs: &ProjectRoot, mut path: &ProjectRelativePath) -> anyhow::Res
                     // If we get ENOENT that guarantees there is no file on the path. If there was
                     // one, we would get ENOTDIR. TODO (T123279320) This probably works on Windows,
                     // but it wasn't tested there.
-                    let is_enoent = e.downcast_ref::<io::Error>().map(|e| e.kind())
-                        == Some(io::ErrorKind::NotFound);
+                    let is_enoent = e.kind() == io::ErrorKind::NotFound;
 
                     if is_enoent {
                         return Ok(());

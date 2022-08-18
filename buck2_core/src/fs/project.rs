@@ -56,7 +56,6 @@
 use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::fs::File;
-use std::fs::Metadata;
 use std::ops::Deref;
 use std::path::Component;
 use std::path::Path;
@@ -247,11 +246,6 @@ impl ProjectRoot {
             Cow::Borrowed(p) => Ok(Cow::Borrowed(ProjectRelativePath::ref_cast(p))),
             Cow::Owned(p) => Ok(Cow::Owned(ProjectRelativePathBuf::from(p))),
         }
-    }
-
-    // TODO(nga): inline and use `std::fs` API directly.
-    pub fn symlink_metadata(&self, p: impl PathLike) -> anyhow::Result<Metadata> {
-        fs::symlink_metadata(&*p.resolve(self))
     }
 
     // TODO(nga): inline and use `std::fs` API directly.
