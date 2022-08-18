@@ -9,7 +9,6 @@
 
 use std::path::PathBuf;
 
-use buck2_core::exit_result::ExitResult;
 use thiserror::Error;
 use tokio::runtime::Runtime;
 
@@ -17,6 +16,7 @@ use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::NO_EVENT_LOG;
 use crate::daemon::client::Replayer;
 use crate::exec;
+use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 
 #[derive(Error, Debug)]

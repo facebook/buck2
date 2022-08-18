@@ -8,7 +8,6 @@
  */
 
 use allocator_stats::AllocatorStatsCommand;
-use buck2_core::exit_result::ExitResult;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;
@@ -21,6 +20,7 @@ use replay::ReplayCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
+use crate::exit_result::ExitResult;
 use crate::BuckSubcommand;
 use crate::ClientCommandContext;
 

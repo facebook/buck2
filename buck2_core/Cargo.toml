@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.51"
 async-trait = "0.1.24"
-cli_proto = { path = "../cli_proto" }
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"

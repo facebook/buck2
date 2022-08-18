@@ -47,7 +47,6 @@ pub mod cells;
 pub mod configuration;
 pub mod directory;
 pub mod env_helper;
-pub mod exit_result;
 pub mod fs;
 pub mod package;
 pub mod pattern;

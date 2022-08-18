@@ -131,7 +131,6 @@ buck_rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:tracing-subscriber",
-        "//buck2/buck2_core:buck2_core",
         "//buck2/cli:cli",
         "//buck2/events:events",
         "//common/rust/folly/logging:logging",

@@ -8,12 +8,12 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::exit_result::ExitResult;
 use cli_proto::SegfaultRequest;
 use futures::FutureExt;
 
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
+use crate::exit_result::ExitResult;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
@@ -29,7 +29,7 @@ impl StreamingCommand for SegfaultCommand {
         mut buckd: crate::daemon::client::BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: crate::ClientCommandContext,
-    ) -> buck2_core::exit_result::ExitResult {
+    ) -> crate::exit_result::ExitResult {
         let _err = buckd
             .with_flushing(|client| client.segfault(SegfaultRequest {}).boxed())
             .await?;

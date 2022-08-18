@@ -1,10 +1,10 @@
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_build_api::query::uquery::environment::UqueryEnvironment;
-use buck2_core::exit_result::ExitResult;
 use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 use gazebo::dupe::Dupe;
 
+use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]

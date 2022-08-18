@@ -9,13 +9,13 @@
 
 use std::path::PathBuf;
 
-use buck2_core::exit_result::ExitResult;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::subscribers::event_log::SerializeForLog;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
+use crate::exit_result::ExitResult;
 use crate::stdio;
 use crate::ClientCommandContext;
 

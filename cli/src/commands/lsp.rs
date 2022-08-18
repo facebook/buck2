@@ -8,7 +8,6 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::exit_result::ExitResult;
 use cli_proto::LspRequest;
 use futures::FutureExt;
 use lsp_server::Message;
@@ -16,6 +15,7 @@ use once_cell::sync::Lazy;
 
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
 use crate::stdin_stream::StdinStream;
 use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;

@@ -16,8 +16,8 @@
 use std::io;
 
 use anyhow::Context as _;
-use buck2_core::exit_result::ExitResult;
 use cli::exec;
+use cli::exit_result::ExitResult;
 use cli::panic;
 use fbinit::FacebookInit;
 use tracing_subscriber::EnvFilter;

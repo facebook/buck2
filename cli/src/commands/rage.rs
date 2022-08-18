@@ -11,7 +11,6 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::exit_result::ExitResult;
 use buck2_core::fs::anyhow::create_dir_all;
 use buck2_core::fs::anyhow::remove_dir_all;
 use buck2_core::process::async_background_command;
@@ -38,6 +37,7 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
 use crate::BuckdConnectOptions;
 use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;

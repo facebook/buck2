@@ -11,8 +11,7 @@ pub mod last_log;
 pub mod show_log;
 pub mod what_ran;
 
-use buck2_core::exit_result::ExitResult;
-
+use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Subcommand)]

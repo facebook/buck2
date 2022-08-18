@@ -99,8 +99,8 @@ impl ExitResult {
 }
 
 /// We can produce a ExitResult from a `anyhow::Result` for convenience.
-impl From<::anyhow::Result<()>> for ExitResult {
-    fn from(e: ::anyhow::Result<()>) -> Self {
+impl From<anyhow::Result<()>> for ExitResult {
+    fn from(e: anyhow::Result<()>) -> Self {
         match e {
             Ok(()) => Self::success(),
             Err(e) => Self::Err(e),
@@ -108,8 +108,8 @@ impl From<::anyhow::Result<()>> for ExitResult {
     }
 }
 
-impl From<::anyhow::Result<u8>> for ExitResult {
-    fn from(e: ::anyhow::Result<u8>) -> Self {
+impl From<anyhow::Result<u8>> for ExitResult {
+    fn from(e: anyhow::Result<u8>) -> Self {
         match e {
             Ok(code) => Self::status(code),
             Err(e) => Self::Err(e),
@@ -165,7 +165,7 @@ impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResul
 /// Implementing Termination lets us set the exit code for the process.
 impl Termination for ExitResult {
     fn report(self) -> ExitCode {
-        // NOTE: We use writeln! instead of println! so we don't panic if stderr is closed. This
+        // NOTE: We use writeln instead of println so we don't panic if stderr is closed. This
         // ensures we get the desired exit code printed instead of potentially a panic.
         match self {
             Self::Status(v) => ExitCode::from(v),

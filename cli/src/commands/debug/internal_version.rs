@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::exit_result::ExitResult;
-
+use crate::exit_result::ExitResult;
 use crate::version::BuckVersion;
 use crate::ClientCommandContext;
 

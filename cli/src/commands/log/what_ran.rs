@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use buck2_core::exit_result::ExitResult;
 use futures::TryStreamExt;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
@@ -28,6 +27,7 @@ use crate::commands::common::what_ran::WhatRanRelevantAction;
 use crate::commands::common::what_ran::WhatRanState;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::daemon::client::StreamValue;
+use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 
 #[derive(

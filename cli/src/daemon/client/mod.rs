@@ -15,7 +15,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
-use buck2_core::exit_result::ExitResult;
 use buck2_data::BuckEvent;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
@@ -35,6 +34,7 @@ use tonic::Status;
 use crate::daemon::client::events_ctx::EventsCtx;
 use crate::daemon::client::events_ctx::FileTailers;
 use crate::daemon::common::ToProtoDuration;
+use crate::exit_result::ExitResult;
 use crate::version::BuckVersion;
 
 pub(crate) mod connect;

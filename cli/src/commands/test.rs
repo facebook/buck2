@@ -8,7 +8,6 @@
  */
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::exit_result::ExitResult;
 use cli_proto::CounterWithExamples;
 use cli_proto::TestRequest;
 use cli_proto::TestSessionOptions;
@@ -25,6 +24,7 @@ use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 use crate::StreamingCommand;
 

@@ -15,7 +15,7 @@ use std::fmt::Arguments;
 use std::io;
 use std::io::Write;
 
-use buck2_core::exit_result::FailureExitCode;
+use crate::exit_result::FailureExitCode;
 
 #[macro_export]
 macro_rules! print {
