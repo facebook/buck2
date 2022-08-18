@@ -25,12 +25,6 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
-use buck2_server::daemon::common::target_platform_from_client_context;
-use buck2_server::json::quote_json_string;
-use buck2_server::target_hash::BuckTargetHash;
-use buck2_server::target_hash::TargetHashes;
 use cli_proto::targets_request::TargetHashFileMode;
 use cli_proto::targets_request::TargetHashGraphType;
 use cli_proto::TargetsRequest;
@@ -39,6 +33,13 @@ use dice::DiceTransaction;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
+
+use crate::ctx::ServerCommandContext;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::json::quote_json_string;
+use crate::target_hash::BuckTargetHash;
+use crate::target_hash::TargetHashes;
 
 struct TargetInfo<'a> {
     node: &'a TargetNode,
@@ -239,7 +240,7 @@ struct TargetsOptions {
     target_hash_graph_type: TargetHashGraphType,
 }
 
-pub(crate) async fn targets(
+pub async fn targets(
     server_ctx: ServerCommandContext,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {

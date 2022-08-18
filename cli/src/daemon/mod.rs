@@ -17,6 +17,5 @@ pub mod daemon_utils;
 pub mod install;
 pub mod panic;
 pub mod server;
-pub mod targets;
 pub mod test;
 pub(crate) mod with_current_directory;
