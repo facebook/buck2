@@ -100,7 +100,6 @@ pub mod panic;
 pub mod args;
 pub mod commands;
 pub mod daemon;
-pub mod dot;
 pub mod exit_result;
 pub mod paths;
 pub mod query;

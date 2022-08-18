@@ -22,6 +22,9 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
+use buck2_server::dot::targets::DotTargetGraph;
+use buck2_server::dot::Dot;
+use buck2_server::dot::DotCompact;
 use cli_proto::QueryOutputFormat;
 use gazebo::prelude::*;
 use gazebo::variants::UnpackVariants;
@@ -32,9 +35,6 @@ use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::dot::targets::DotTargetGraph;
-use crate::dot::Dot;
-use crate::dot::DotCompact;
 use crate::query::QueryCommandError;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]

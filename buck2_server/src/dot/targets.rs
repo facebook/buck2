@@ -19,10 +19,10 @@ use crate::dot::DotEdge;
 use crate::dot::DotNode;
 use crate::dot::DotNodeAttrs;
 
-pub(crate) struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
+pub struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
 
 /// A simple adapter for creating a DotDiGraph for a TargetSet.
-pub(crate) struct DotTargetGraph<T: QueryTarget> {
+pub struct DotTargetGraph<T: QueryTarget> {
     pub targets: TargetSet<T>,
     pub attributes: Option<RegexSet>,
 }

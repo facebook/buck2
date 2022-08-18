@@ -11,6 +11,7 @@ crossbeam-channel = "0.5"
 dashmap = "4.0.2"
 flate2 = "1.0.22"
 futures = "0.3"
+indexmap = { version = "1.6", features = ["serde-1"] }
 itertools = "0.10.0"
 libc = "0.2.103"
 lsp-server = "0.5"
@@ -18,6 +19,7 @@ lsp-types = "0.93.0"
 once_cell = "1.3"
 num_cpus = "1.11"
 prost-types = "0.10"
+regex = "1.3.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"
 thiserror = "1.0.9"
@@ -46,6 +48,7 @@ buck2_data = { path = "../buck2_data" }
 buck2_forkserver = { path = "../buck2_forkserver" }
 buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_node = { path = "../buck2_node" }
+buck2_query = { path = "../buck2_query" }
 cli_proto = { path = "../cli_proto" }
 events = { path = "../events" }
 host_sharing = { path = "../host_sharing" }

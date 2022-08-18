@@ -31,7 +31,7 @@ use regex::Regex;
 pub mod targets;
 
 #[derive(Default, Debug)]
-pub(crate) struct DotNodeAttrs {
+pub struct DotNodeAttrs {
     pub style: Option<String>,
     pub color: Option<String>,
     pub label: Option<String>,
@@ -61,18 +61,18 @@ impl Display for DotNodeAttrs {
 }
 
 /// A node in the graph.
-pub(crate) trait DotNode {
+pub trait DotNode {
     fn attrs(&self) -> anyhow::Result<DotNodeAttrs>;
     fn id(&self) -> String;
 }
 
 /// Represents a directed edge between two nodes, identified by their id.
-pub(crate) struct DotEdge<'a> {
+pub struct DotEdge<'a> {
     from: &'a str,
     to: &'a str,
 }
 
-pub(crate) trait DotDigraph<'a> {
+pub trait DotDigraph<'a> {
     type Node: DotNode;
 
     fn name(&self) -> &str;
@@ -111,13 +111,10 @@ fn escape_id(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\\\""))
 }
 
-pub(crate) struct Dot {}
+pub struct Dot {}
 
 impl Dot {
-    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
-        graph: &'a T,
-        mut w: W,
-    ) -> anyhow::Result<()> {
+    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
         graph.for_each_node(|node| {
             let attrs = node.attrs()?;
@@ -133,13 +130,10 @@ impl Dot {
     }
 }
 
-pub(crate) struct DotCompact {}
+pub struct DotCompact {}
 
 impl DotCompact {
-    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
-        graph: &'a T,
-        mut w: W,
-    ) -> anyhow::Result<()> {
+    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
 
         let mut next_id: u32 = 0;
