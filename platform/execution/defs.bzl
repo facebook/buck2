@@ -1,5 +1,5 @@
 load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
-load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 
 MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY = "x86_64-fbsource"
 MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode"
@@ -22,6 +22,33 @@ linux_execution_base_platforms = {
     "platform010": "ovr_config//platform/linux:x86_64-fbcode-platform010-clang-nosan",
     "platform010-aarch64": "ovr_config//platform/linux:aarch64-fbcode-platform010-aarch64-clang-nosan",
 }
+
+# Those targets will result in extra data being injected into RE action keys.
+# The targets listed here need to expose a BuildModeInfo provider.
+remote_execution_action_key_providers = [
+    "fbcode//buck2/platform/build_mode:build_mode",
+]
+remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 30 * 1024)
+allow_hybrid_fallbacks_on_failure = read_bool("remoteexecution", "is_local_fallback_enabled_for_completed_actions")
+
+host_is_mac = host_info().os.is_macos
+local_mac_execution = read_bool("build", "enable_local_mac_execution", host_is_mac)
+remote_mac_execution = read_bool("build", "enable_remote_mac_execution", True)
+
+def mac_execution_platform(name: str.type, platform_key: str.type):
+    return execution_platform(
+        name = name,
+        base_platform = mac_execution_base_platforms[platform_key],
+        local_enabled = local_mac_execution,
+        remote_enabled = remote_mac_execution,
+        remote_execution_properties = {
+            "platform": "mac",
+            "subplatform": mac_execution_subplatforms[platform_key],
+        },
+        remote_execution_action_key_providers = remote_execution_action_key_providers,
+        remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+        allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+    )
 
 def _execution_platform_impl(ctx: "context"):
     infos = [p[BuildModeInfo] for p in ctx.attrs.remote_execution_action_key_providers]

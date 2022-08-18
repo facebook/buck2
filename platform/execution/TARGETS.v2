@@ -26,65 +26,39 @@ simple wrapper over a c++ binary that supported a fat platform by delegating to 
 os-specific binary at runtime).
 """
 
-load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 load(
     ":defs.bzl",
     "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY",
     "MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY",
+    "allow_hybrid_fallbacks_on_failure",
     "execution_platform",
     "execution_platforms",
     "fat_platform_transition_helper",
     "linux_execution_base_platforms",
     "mac_execution_base_platforms",
-    "mac_execution_subplatforms",
+    "mac_execution_platform",
     "ordered_platforms_by_host_type",
+    "remote_execution_action_key_providers",
+    "remote_execution_max_input_files_mebibytes",
 )
 load(":util.bzl", "fat_platform_incompatible")
 
 prelude = native
-host_is_mac = host_info().os.is_macos
 host_is_linux = host_info().os.is_linux
 host_is_windows = host_info().os.is_windows
 
-local_mac_execution = read_bool("build", "enable_local_mac_execution", host_is_mac)
-remote_mac_execution = read_bool("build", "enable_remote_mac_execution", True)
 local_linux_execution = read_bool("build", "enable_local_linux_execution", host_is_linux)
 local_windows_execution = read_bool("build", "enable_local_windows_execution", host_is_windows)
 
-remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 30 * 1024)
 fat_platforms_enabled = read_bool("build", "enable_fat_platforms", True)
-allow_hybrid_fallbacks_on_failure = read_bool("remoteexecution", "is_local_fallback_enabled_for_completed_actions")
 
-# Those targets will result in extra data being injected into RE action keys.
-# The targets listed here need to expose a BuildModeInfo provider.
-remote_execution_action_key_providers = [
-    "fbcode//buck2/platform/build_mode:build_mode",
-]
-
-mac_platforms = execution_platform(
+mac_platforms = mac_execution_platform(
     name = "macos-minimal",
-    base_platform = mac_execution_base_platforms[MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY],
-    local_enabled = local_mac_execution,
-    remote_enabled = remote_mac_execution,
-    remote_execution_properties = {
-        "platform": "mac",
-        "subplatform": mac_execution_subplatforms[MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY],
-    },
-    remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
-    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
-) + execution_platform(
+    platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
+) + mac_execution_platform(
     name = "macos",
-    base_platform = mac_execution_base_platforms[MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY],
-    local_enabled = local_mac_execution,
-    remote_enabled = remote_mac_execution,
-    remote_execution_properties = {
-        "platform": "mac",
-        "subplatform": mac_execution_subplatforms[MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY],
-    },
-    remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
-    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+    platform_key = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
 )
 
 linux_platforms = execution_platform(
