@@ -81,7 +81,6 @@ use crate::Paths;
 pub(crate) mod active_commands;
 mod concurrency;
 pub(crate) mod ctx;
-mod dice_tracker;
 pub(crate) mod heartbeat_guard;
 pub(crate) mod lsp;
 mod raw_output;

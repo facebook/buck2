@@ -31,14 +31,14 @@ use gazebo::dupe::Dupe;
 /// The tracker will send a snapshot event every 500ms (only if there have been changes since the last snapshot).
 ///
 /// A client won't necessarily get a final snapshot before a command returns.
-pub(crate) struct BuckDiceTracker {
+pub struct BuckDiceTracker {
     event_forwarder: UnboundedSender<DiceEvent>,
 }
 
 const DICE_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(500);
 
 impl BuckDiceTracker {
-    pub(crate) fn new(events: EventDispatcher) -> Self {
+    pub fn new(events: EventDispatcher) -> Self {
         let (event_forwarder, receiver) = mpsc::unbounded();
 
         std::thread::spawn(move || {
