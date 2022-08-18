@@ -777,7 +777,10 @@ mod tests {
         let fs = fs.path();
         fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux/xx"))?;
-        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo/bar/qux")));
+        assert!(
+            fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux"))
+                .exists()
+        );
         Ok(())
     }
 
@@ -787,8 +790,14 @@ mod tests {
         let fs = fs.path();
         fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
-        assert!(!fs.exists(ProjectRelativePath::unchecked_new("foo/bar/qux")));
-        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo/bar")));
+        assert!(
+            !fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux"))
+                .exists()
+        );
+        assert!(
+            fs.resolve(ProjectRelativePath::unchecked_new("foo/bar"))
+                .exists()
+        );
         Ok(())
     }
 
@@ -798,8 +807,14 @@ mod tests {
         let fs = fs.path();
         fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
-        assert!(!fs.exists(ProjectRelativePath::unchecked_new("foo/bar")));
-        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo")));
+        assert!(
+            !fs.resolve(ProjectRelativePath::unchecked_new("foo/bar"))
+                .exists()
+        );
+        assert!(
+            fs.resolve(ProjectRelativePath::unchecked_new("foo"))
+                .exists()
+        );
         Ok(())
     }
 
@@ -812,8 +827,14 @@ mod tests {
             fs,
             ProjectRelativePath::unchecked_new("foo/bar/qux/1/2/3/4"),
         )?;
-        assert!(!fs.exists(ProjectRelativePath::unchecked_new("foo/bar")));
-        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo")));
+        assert!(
+            !fs.resolve(ProjectRelativePath::unchecked_new("foo/bar"))
+                .exists()
+        );
+        assert!(
+            fs.resolve(ProjectRelativePath::unchecked_new("foo"))
+                .exists()
+        );
         Ok(())
     }
 }

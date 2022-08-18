@@ -250,11 +250,6 @@ impl ProjectRoot {
     }
 
     // TODO(nga): inline and use `std::fs` API directly.
-    pub fn exists(&self, p: impl PathLike) -> bool {
-        p.resolve(self).exists()
-    }
-
-    // TODO(nga): inline and use `std::fs` API directly.
     pub fn symlink_metadata(&self, p: impl PathLike) -> anyhow::Result<Metadata> {
         fs::symlink_metadata(&*p.resolve(self))
     }
@@ -1402,7 +1397,7 @@ mod tests {
         perm.set_readonly(true);
         fs::set_permissions(&real_file, perm)?;
         fs.path.remove_path_recursive(file)?;
-        assert!(!fs.path.exists(file));
+        assert!(!fs.path.resolve(file).exists());
         Ok(())
     }
 

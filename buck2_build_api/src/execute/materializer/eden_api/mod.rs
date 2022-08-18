@@ -284,7 +284,7 @@ impl EdenBuckOut {
         // Existence check would not trigger materialization since EdenFS will fast
         // return by not materialization the path. So the only cost is Eden will load
         // path's ancestors, which should be relatively inexpensive.
-        if !project_fs.exists(path) {
+        if !project_fs.resolve(path).exists() {
             return Ok(());
         }
 
