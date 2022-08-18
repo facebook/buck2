@@ -10,7 +10,7 @@ rust_library(
         "fbsource//third-party/rust:enum-map",
         "fbsource//third-party/rust:nom",
         "fbsource//third-party/rust:thiserror",
-        "//buck2/buck2_common:buck2_common",
+        "//buck2/events:events",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )

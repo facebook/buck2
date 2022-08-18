@@ -7,7 +7,6 @@ mod fbcode {
 
     use std::time::SystemTime;
 
-    use buck2_common::truncate::truncate;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::Panic;
@@ -15,6 +14,7 @@ mod fbcode {
     use prost::Message;
 
     use crate::metadata;
+    use crate::truncate::truncate;
     use crate::BuckEvent;
     use crate::ControlEvent;
     use crate::EventSink;

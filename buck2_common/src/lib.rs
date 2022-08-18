@@ -42,4 +42,3 @@ pub mod result;
 mod sorted_hash_map;
 pub mod sorted_index_set;
 pub mod target_aliases;
-pub mod truncate;

@@ -11,7 +11,6 @@ byteorder = "1.4.3"
 cli_proto = { path = "../cli_proto" }
 derive_more = "0.99.3"
 # @oss-disable: build_info = { path = "../../common/rust/build_info", optional = true }
-buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
 fbinit.version = "0.1"
