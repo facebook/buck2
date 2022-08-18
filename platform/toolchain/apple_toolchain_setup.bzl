@@ -184,39 +184,39 @@ def _get_apple_xcode_current_suffix(rule_type: AppleToolchainRuleType.type) -> s
 def _get_apple_watch_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type) -> "selector":
     suffix = _get_apple_xcode_current_suffix(rule_type)
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-watchsimulator-" + default_arch + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-watchsimulator-arm64" + suffix,
-        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-watchsimulator-x86_64" + suffix,
+        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchsimulator-" + default_arch + suffix,
+        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchsimulator-arm64" + suffix,
+        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchsimulator-x86_64" + suffix,
     })
 
 def _get_apple_macosx_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type) -> "selector":
     suffix = _get_apple_xcode_current_suffix(rule_type)
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-macosx-" + default_arch + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-macosx-arm64" + suffix,
-        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-macosx-x86_64" + suffix,
+        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-macosx-" + default_arch + suffix,
+        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-macosx-arm64" + suffix,
+        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-macosx-x86_64" + suffix,
     })
 
 def _get_apple_iphone_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type) -> "selector":
     suffix = _get_apple_xcode_current_suffix(rule_type)
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-iphonesimulator-" + default_arch + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-iphonesimulator-arm64" + suffix,
-        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-iphonesimulator-x86_64" + suffix,
+        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphonesimulator-" + default_arch + suffix,
+        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphonesimulator-arm64" + suffix,
+        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphonesimulator-x86_64" + suffix,
     })
 
 def _get_apple_iphone_device_arch_select(rule_type: AppleToolchainRuleType.type) -> "selector":
     suffix = _get_apple_xcode_current_suffix(rule_type)
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-iphoneos-arm64" + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-iphoneos-arm64" + suffix,
+        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphoneos-arm64" + suffix,
+        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphoneos-arm64" + suffix,
     })
 
 def _get_apple_watchos_device_arch_select(rule_type: AppleToolchainRuleType.type) -> "selector":
     suffix = _get_apple_xcode_current_suffix(rule_type)
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-watchos-arm64_32" + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-watchos-arm64_32" + suffix,
+        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchos-arm64_32" + suffix,
+        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchos-arm64_32" + suffix,
     })
 
 # Meta Pika
