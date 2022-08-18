@@ -36,6 +36,7 @@ def _get_fbcode_select_map(prefix):
         # set the coarser fbcode platform to work with v1, which leaks into the
         # few rules which don't set a more granular default.
         "DEFAULT": prefix + _default_fbcode_platform + "-clang",
+        "ovr_config//toolchain/cxx/constraints:arvr": "fbsource//arvr/tools/buck:default_cxx_toolchain",
         "ovr_config//toolchain/fb:platform009-clang": prefix + "platform009-clang",
         "ovr_config//toolchain/fb:platform009-clang-nosan": prefix + "platform009-clang-nosan",
         "ovr_config//toolchain/fb:platform009-clang-nosan-split-dwarf": prefix + "platform009-clang-nosan-split-dwarf",
