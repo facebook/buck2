@@ -3,6 +3,8 @@ load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 
 MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY = "x86_64-fbsource"
 MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode"
+MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY = "x86_64-fbsource-xcode-14"
+MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY = "x86_64_minimal_xcode_14"
 
 # NB: The platforms' constraints for Xcode must match the values defined
 #     by `mac_execution_subplatforms`. Mismatch will be detected as all
@@ -10,11 +12,15 @@ MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode"
 mac_execution_base_platforms = {
     MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
     MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
+    MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: "ovr_config//platform/macos:x86_64-fbsource-xcode-14.0",
+    MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY: "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-14.0",
 }
 
 mac_execution_subplatforms = {
     MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: "xcode-13.4",
     MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: "xcode-13.4",
+    MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: "xcode-14.0",
+    MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY: "xcode-14.0",
 }
 
 linux_execution_base_platforms = {

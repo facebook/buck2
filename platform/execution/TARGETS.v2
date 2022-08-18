@@ -30,7 +30,9 @@ load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 load(
     ":defs.bzl",
     "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY",
+    "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY",
     "MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY",
+    "MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY",
     "allow_hybrid_fallbacks_on_failure",
     "execution_platform",
     "execution_platforms",
@@ -59,6 +61,12 @@ mac_platforms = mac_execution_platform(
 ) + mac_execution_platform(
     name = "macos",
     platform_key = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
+) + mac_execution_platform(
+    name = "macos-minimal-xcode-14.0",
+    platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
+) + mac_execution_platform(
+    name = "macos-xcode-14.0",
+    platform_key = MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
 )
 
 linux_platforms = execution_platform(
