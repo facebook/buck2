@@ -104,7 +104,7 @@ pub(crate) struct DaemonStateData {
 
 impl DaemonStateData {
     pub(crate) fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
-        crate::daemon::dice_dump::dice_dump(&self.dice, path, format)
+        buck2_server::daemon::dice_dump::dice_dump(&self.dice, path, format)
     }
 
     pub(crate) async fn spawn_dice_dump(
@@ -112,7 +112,7 @@ impl DaemonStateData {
         path: &Path,
         format: DiceDumpFormat,
     ) -> anyhow::Result<()> {
-        crate::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
+        buck2_server::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
     }
 }
 

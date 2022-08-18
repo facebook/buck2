@@ -19,7 +19,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use gazebo::dupe::Dupe;
 
-pub(crate) async fn dice_dump_spawn(
+pub async fn dice_dump_spawn(
     dice: &Arc<Dice>,
     path: &Path,
     format: DiceDumpFormat,
@@ -33,18 +33,14 @@ pub(crate) async fn dice_dump_spawn(
     Ok(())
 }
 
-pub(crate) fn dice_dump(
-    dice: &Arc<Dice>,
-    path: &Path,
-    format: DiceDumpFormat,
-) -> anyhow::Result<()> {
+pub fn dice_dump(dice: &Arc<Dice>, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
     match format {
         DiceDumpFormat::Tsv => dice_dump_tsv(dice, path),
         DiceDumpFormat::Serde => dice_dump_serde(dice, path),
     }
 }
 
-pub(crate) fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
+pub fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
     let path = path.to_path_buf();
     let nodes_path = path.join("nodes.gz");
     let edges_path = path.join("edges.gz");
@@ -76,7 +72,7 @@ pub(crate) fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
-pub(crate) fn dice_dump_serde(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
+pub fn dice_dump_serde(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
     let path = path.to_path_buf();
     std::fs::create_dir_all(path.parent().unwrap()).context("Failed to create directory")?;
     let out =

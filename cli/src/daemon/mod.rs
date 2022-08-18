@@ -17,7 +17,6 @@ pub mod cquery;
 #[cfg_attr(unix, path = "daemon_unix.rs")]
 #[cfg_attr(windows, path = "daemon_windows.rs")]
 pub mod daemon_utils;
-pub mod dice_dump;
 pub mod docs;
 pub mod install;
 pub(crate) mod json;
