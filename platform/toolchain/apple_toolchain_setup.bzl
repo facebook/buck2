@@ -6,7 +6,7 @@ AppleToolchainRuleType = enum(
 )
 
 AppleToolchainType = enum(
-    "apple-xcode-current-macos",
+    "apple-xcode-13.4-macos",
     "meta-pika-13.3-linux",
     "meta-pika-13.3-macos",
     "meta-pika-14-linux",
@@ -22,7 +22,7 @@ AppleToolchainUsageType = enum(
 _APPLE_TOOLCHAIN_RULE_TYPE = AppleToolchainRuleType("apple")
 _CXX_TOOLCHAIN_RULE_TYPE = AppleToolchainRuleType("cxx")
 
-_APPLE_XCODE_CURRENT_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-current-macos")
+_APPLE_XCODE_13_4_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-13.4-macos")
 _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-linux")
 _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-macos")
 _META_PIKA_14_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-14-linux")
@@ -93,7 +93,7 @@ def _get_toolchain_select_config(toolchain_type: AppleToolchainType.type, usage_
 def _get_iphone_device_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = {
         "DEFAULT": _get_apple_iphone_device_arch_select(rule_type = rule_type),
-        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_CURRENT_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_device_arch_select(rule_type = rule_type),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_device_arch_select(rule_type = rule_type),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphoneos"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphoneos"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_14_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-14", host = "linux", sdk = "iphoneos"),
@@ -107,7 +107,7 @@ def _get_watch_simulator_toolchain_select_map(rule_type: AppleToolchainRuleType.
     select_map = {
         # watchOS targets must always be built with Xcode-based toolchains due to lack of upstream LLVM support for the archs
         "DEFAULT": _get_apple_watch_simulator_arch_select(rule_type = rule_type, default_arch = default_arch),
-        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_CURRENT_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watch_simulator_arch_select(rule_type = rule_type, default_arch = default_arch),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watch_simulator_arch_select(rule_type = rule_type, default_arch = default_arch),
         _get_toolchain_select_config(toolchain_type = _META_XCODE_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
     }
 
@@ -117,7 +117,7 @@ def _get_watchos_device_toolchain_select_map(rule_type: AppleToolchainRuleType.t
     select_map = {
         # watchOS targets must always be built with Xcode-based toolchains due to lack of upstream LLVM support for the archs
         "DEFAULT": _get_apple_watchos_device_arch_select(rule_type = rule_type),
-        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_CURRENT_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watchos_device_arch_select(rule_type = rule_type),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_watchos_device_arch_select(rule_type = rule_type),
         _get_toolchain_select_config(toolchain_type = _META_XCODE_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "xcode", host = "macos", sdk = "watchos"),
     }
 
@@ -126,7 +126,7 @@ def _get_watchos_device_toolchain_select_map(rule_type: AppleToolchainRuleType.t
 def _get_iphone_simulator_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, default_arch: str.type):
     select_map = {
         "DEFAULT": _get_apple_iphone_simulator_arch_select(rule_type = rule_type, default_arch = default_arch),
-        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_CURRENT_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_simulator_arch_select(rule_type = rule_type, default_arch = default_arch),
+        _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_iphone_simulator_arch_select(rule_type = rule_type, default_arch = default_arch),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
         _get_toolchain_select_config(toolchain_type = _META_PIKA_14_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-14", host = "linux", sdk = "iphonesimulator"),
@@ -141,7 +141,7 @@ def _get_apple_macos_select_map(rule_type: AppleToolchainRuleType.type, usage_ty
         # Minimal Xcode takes priority over toolchain selection, so we have nested DEFAULT statements
         "DEFAULT": select({
             "DEFAULT": _get_apple_macosx_arch_select(rule_type = rule_type, default_arch = default_arch),
-            _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_CURRENT_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_macosx_arch_select(rule_type = rule_type, default_arch = default_arch),
+            _get_toolchain_select_config(toolchain_type = _APPLE_XCODE_13_4_TOOLCHAIN_TYPE, usage_type = usage_type): _get_apple_macosx_arch_select(rule_type = rule_type, default_arch = default_arch),
             _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
             _get_toolchain_select_config(toolchain_type = _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
             _get_toolchain_select_config(toolchain_type = _META_PIKA_14_LINUX_TOOLCHAIN_TYPE, usage_type = usage_type): _get_pika_arch_select(rule_type = rule_type, toolchain_name = "pika-14", host = "linux", sdk = "macosx"),
@@ -171,9 +171,9 @@ def _get_default_arch_for_macos_and_simulator_targets():
         # so just default to x86 which can work on both ARM64 (using Rosetta) and x86 Macs.
         return "x86_64"
 
-# apple-xcode-current-macos
+# apple-xcode-13.4-macos
 
-def _get_apple_xcode_current_suffix(rule_type: AppleToolchainRuleType.type) -> str.type:
+def _get_apple_xcode_suffix(rule_type: AppleToolchainRuleType.type) -> str.type:
     if rule_type == _APPLE_TOOLCHAIN_RULE_TYPE:
         return "-apple-toolchain"
     elif rule_type == _CXX_TOOLCHAIN_RULE_TYPE:
@@ -182,7 +182,7 @@ def _get_apple_xcode_current_suffix(rule_type: AppleToolchainRuleType.type) -> s
         fail("Unknown toolchain type: {}".format(rule_type))
 
 def _get_apple_watch_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type) -> "selector":
-    suffix = _get_apple_xcode_current_suffix(rule_type)
+    suffix = _get_apple_xcode_suffix(rule_type)
     return select({
         "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchsimulator-" + default_arch + suffix,
         "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchsimulator-arm64" + suffix,
@@ -190,7 +190,7 @@ def _get_apple_watch_simulator_arch_select(rule_type: AppleToolchainRuleType.typ
     })
 
 def _get_apple_macosx_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type) -> "selector":
-    suffix = _get_apple_xcode_current_suffix(rule_type)
+    suffix = _get_apple_xcode_suffix(rule_type)
     return select({
         "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-macosx-" + default_arch + suffix,
         "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-macosx-arm64" + suffix,
@@ -198,7 +198,7 @@ def _get_apple_macosx_arch_select(rule_type: AppleToolchainRuleType.type, defaul
     })
 
 def _get_apple_iphone_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type) -> "selector":
-    suffix = _get_apple_xcode_current_suffix(rule_type)
+    suffix = _get_apple_xcode_suffix(rule_type)
     return select({
         "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphonesimulator-" + default_arch + suffix,
         "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphonesimulator-arm64" + suffix,
@@ -206,14 +206,14 @@ def _get_apple_iphone_simulator_arch_select(rule_type: AppleToolchainRuleType.ty
     })
 
 def _get_apple_iphone_device_arch_select(rule_type: AppleToolchainRuleType.type) -> "selector":
-    suffix = _get_apple_xcode_current_suffix(rule_type)
+    suffix = _get_apple_xcode_suffix(rule_type)
     return select({
         "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphoneos-arm64" + suffix,
         "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-iphoneos-arm64" + suffix,
     })
 
 def _get_apple_watchos_device_arch_select(rule_type: AppleToolchainRuleType.type) -> "selector":
-    suffix = _get_apple_xcode_current_suffix(rule_type)
+    suffix = _get_apple_xcode_suffix(rule_type)
     return select({
         "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchos-arm64_32" + suffix,
         "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-13.4-watchos-arm64_32" + suffix,
