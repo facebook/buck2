@@ -28,7 +28,7 @@ def create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None
         framework_names = [to_framework_name(x) for x in ctx.attrs.frameworks],
     )
 
-def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLinkable.type, None]) -> [""]:
+def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLinkable.type, None]) -> "cmd_args":
     if not linkable:
         return []
 
@@ -36,22 +36,22 @@ def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLink
     flags = _get_framework_search_path_flags(expanded_frameworks_paths)
 
     for framework_name in linkable.framework_names:
-        flags.extend(["-framework", framework_name])
+        flags.add(["-framework", framework_name])
 
     for library_name in linkable.library_names:
-        flags.extend(["-l" + library_name])
+        flags.add("-l" + library_name)
 
     return flags
 
-def get_framework_search_path_flags(ctx: "context") -> [""]:
+def get_framework_search_path_flags(ctx: "context") -> "cmd_args":
     unresolved_framework_dirs = _get_non_sdk_unresolved_framework_directories(ctx.attrs.frameworks)
     expanded_framework_dirs = _expand_sdk_framework_paths(ctx, unresolved_framework_dirs)
     return _get_framework_search_path_flags(expanded_framework_dirs)
 
-def _get_framework_search_path_flags(frameworks: [""]) -> [""]:
-    flags = []
+def _get_framework_search_path_flags(frameworks: ["cmd_args"]) -> "cmd_args":
+    flags = cmd_args()
     for directory in frameworks:
-        flags.extend(["-F", directory])
+        flags.add(["-F", directory])
 
     return flags
 
@@ -72,24 +72,32 @@ def _library_name(library: str.type) -> str.type:
         fail("unexpected library: {}".format(library))
     return paths.split_extension(name[3:])[0]
 
-def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str.type]) -> [str.type]:
+def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str.type]) -> ["cmd_args"]:
     return [_expand_sdk_framework_path(ctx, unresolved_framework_path) for unresolved_framework_path in unresolved_framework_paths]
 
-def _expand_sdk_framework_path(ctx: "context", framework_path: str.type) -> str.type:
+def _expand_sdk_framework_path(ctx: "context", framework_path: str.type) -> "cmd_args":
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     path_expansion_map = {
-        "$PLATFORM_DIR": apple_toolchain_info.platform_path,
-        "$SDKROOT": apple_toolchain_info.sdk_path,
+        "$PLATFORM_DIR/": apple_toolchain_info.platform_path,
+        "$SDKROOT/": apple_toolchain_info.sdk_path,
     }
 
-    expanded_path = framework_path
-    for (path_variable, path_value) in path_expansion_map.items():
-        expanded_path = expanded_path.replace(path_variable, path_value)
+    for (trailing_path_variable, path_value) in path_expansion_map.items():
+        (before, separator, relative_path) = framework_path.partition(trailing_path_variable)
+        if separator == trailing_path_variable:
+            if len(before) > 0:
+                fail("Framework symbolic path not anchored at the beginning, tried expanding `{}`".format(framework_path))
+            if relative_path.count("$") > 0:
+                fail("Framework path contains multiple symbolic paths, tried expanding `{}`".format(framework_path))
+            if len(relative_path) == 0:
+                fail("Framework symbolic path contains no relative path to expand, tried expanding `{}`, relative path: `{}`, before: `{}`, separator `{}`".format(framework_path, relative_path, before, separator))
 
-    if expanded_path.find("$") == 0:
-        fail("Failed to expand framework path: {}".format(expanded_path))
+            return cmd_args([path_value, relative_path], delimiter = "/")
 
-    return expanded_path
+    if framework_path.find("$") == 0:
+        fail("Failed to expand framework path: {}".format(framework_path))
+
+    return cmd_args(framework_path)
 
 def _non_sdk_unresolved_framework_directory(framework_path: str.type) -> [str.type, None]:
     # We must only drop any framework paths that are part of the implicit
@@ -147,5 +155,5 @@ def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [Framew
 def _link_info_from_frameworks_linkable(ctx: "context", framework_linkables: [[FrameworksLinkable.type, None]]) -> [LinkInfo.type, None]:
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, merge_framework_linkables(framework_linkables))
     return LinkInfo(
-        pre_flags = framework_link_args,
+        pre_flags = [framework_link_args],
     ) if framework_link_args else None

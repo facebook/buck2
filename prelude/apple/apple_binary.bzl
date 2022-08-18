@@ -22,7 +22,7 @@ load(":xcode.bzl", "apple_populate_xcode_attributes")
 def apple_binary_impl(ctx: "context") -> ["provider"]:
     extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx)
     framework_search_path_pre = CPreprocessor(
-        args = [cmd_args(get_framework_search_path_flags(ctx))],
+        args = [get_framework_search_path_flags(ctx)],
     )
     constructor_params = CxxRuleConstructorParams(
         rule_type = "apple_binary",

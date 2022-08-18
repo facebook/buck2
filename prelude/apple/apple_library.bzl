@@ -111,7 +111,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     )
 
     framework_search_path_pre = CPreprocessor(
-        args = [cmd_args(get_framework_search_path_flags(ctx))],
+        args = [get_framework_search_path_flags(ctx)],
     )
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
