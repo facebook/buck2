@@ -166,7 +166,7 @@ def junit_toolchain(name, **kwargs):
 
     kwargs["java_custom_class_loader_class"] = "com.facebook.IndexClassLoader" if use_custom_class_loader_for_junit_test else None
     kwargs["java_custom_class_loader_library_jar"] = "fbsource//xplat/buck2/tools/android/index_classloader:index_classloader" if use_custom_class_loader_for_junit_test else None
-    kwargs["java_custom_class_loader_vm_args"] = [] if use_custom_class_loader_for_junit_test else None
+    kwargs["java_custom_class_loader_vm_args"] = ["--add-exports", "java.base/jdk.internal.loader=ALL-UNNAMED"] if use_custom_class_loader_for_junit_test else None
     kwargs["junit_test_runner_library_jar"] = "buck//src/com/facebook/buck/testrunner:testrunner-bin-fixed"
     kwargs["junit_test_runner_main_class_args"] = ["com.facebook.buck.jvm.java.runner.FileClassPathRunner", "com.facebook.buck.testrunner.JUnitMain"]
     kwargs["list_class_names"] = "fbsource//xplat/buck2/tools/java:list_class_names"
