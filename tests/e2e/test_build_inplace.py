@@ -206,9 +206,7 @@ async def test_cquery(buck: Buck) -> None:
     result = await buck.cquery(
         """deps(fbcode//buck2/tests/targets/commands:exported)"""
     )
-    assert result.stdout.startswith(
-        "fbcode//buck2/tests/targets/commands:exported (ovr_config//platform/linux:x86_64-fbcode"
-    )
+    assert "fbcode//buck2/tests/targets/commands:exported" in result.stdout
 
 
 @buck_test(inplace=True)
