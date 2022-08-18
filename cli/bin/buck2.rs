@@ -95,13 +95,17 @@ fn check_cargo() {
 // it must be single-threaded. Commands that want to be multi-threaded/async
 // will start up their own tokio runtime.
 #[fbinit::main]
-fn main(init: fbinit::FacebookInit) -> ExitResult {
-    panic::initialize(init);
-    check_cargo();
-    init_logging(init)?;
+fn main(init: fbinit::FacebookInit) -> ! {
+    fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
+        panic::initialize(init);
+        check_cargo();
+        init_logging(init)?;
 
-    let args = std::env::args().collect::<Vec<String>>();
-    let cwd = std::env::current_dir()?;
+        let args = std::env::args().collect::<Vec<String>>();
+        let cwd = std::env::current_dir()?;
 
-    exec(args, cwd, init, None)
+        exec(args, cwd, init, None)
+    }
+
+    main_with_result(init).report()
 }

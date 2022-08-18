@@ -15,8 +15,6 @@ use std::io::Write;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
 use std::ops::Try;
-use std::process::ExitCode;
-use std::process::Termination;
 
 use anyhow::Context;
 use cli_proto::command_result;
@@ -163,12 +161,12 @@ impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResul
 }
 
 /// Implementing Termination lets us set the exit code for the process.
-impl Termination for ExitResult {
-    fn report(self) -> ExitCode {
+impl ExitResult {
+    pub fn report(self) -> ! {
         // NOTE: We use writeln instead of println so we don't panic if stderr is closed. This
         // ensures we get the desired exit code printed instead of potentially a panic.
-        match self {
-            Self::Status(v) => ExitCode::from(v),
+        let mut exit_code = match self {
+            Self::Status(v) => v,
             Self::Exec(prog, argv) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
@@ -180,31 +178,49 @@ impl Termination for ExitResult {
                 match e.downcast_ref::<FailureExitCode>() {
                     None => {
                         let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
-                        ExitCode::FAILURE
+                        1
                     }
                     Some(FailureExitCode::SignalInterrupt) => {
                         tracing::debug!("Interrupted");
-                        ExitCode::from(130)
+                        130
                     }
                     Some(FailureExitCode::StdoutBrokenPipe) => {
                         // Report a broken pipe, but don't print anything to stderr by default. If
                         // the user wants to find out why we exited non-zero, they'll have to look
                         // at the output or raise the log level.
                         tracing::debug!("stdout pipe was broken");
-                        ExitCode::from(141)
+                        141
                     }
                     Some(FailureExitCode::StderrBrokenPipe) => {
                         // Not much point in printing anything here, since we know stderr is
                         // closed.
-                        ExitCode::from(141)
+                        141
                     }
                     Some(FailureExitCode::OutputFileBrokenPipe) => {
                         tracing::debug!("--out pipe was broken");
-                        ExitCode::from(141)
+                        141
                     }
                 }
             }
+        };
+
+        // Global destructors in C++ dependencies destroy global state,
+        // while running background threads rely on this state.
+        // So the result is non-reproducible crash of the buck2 client.
+        // https://fburl.com/7u7kizm7
+        // So let's disable global destructors.
+        // Global destructors are hard (if even possible) to do safely anyway.
+
+        if io::stdout().flush().is_err() {
+            exit_code = 141;
         }
+
+        // Stderr should be autoflushed, but just in case...
+        if io::stderr().flush().is_err() {
+            exit_code = 141;
+        }
+
+        unsafe { libc::_exit(exit_code as libc::c_int) }
     }
 }
 
