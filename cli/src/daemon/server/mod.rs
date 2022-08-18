@@ -38,6 +38,7 @@ use buck2_interpreter::dice::HasEvents;
 use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
+use buck2_server::lsp::run_lsp_server;
 use buck2_server::profile::generate_profile;
 use buck2_server::snapshot;
 use buck2_server::streaming_request_handler::StreamingRequestHandler;
@@ -74,13 +75,11 @@ use crate::daemon::build::build;
 use crate::daemon::bxl::bxl;
 use crate::daemon::install::install;
 use crate::daemon::materialize::materialize;
-use crate::daemon::server::lsp::run_lsp_server;
 use crate::daemon::test::test;
 use crate::daemon::uquery::uquery;
 use crate::Paths;
 
 mod concurrency;
-pub(crate) mod lsp;
 pub(crate) mod state;
 
 // TODO(cjhopman): Figure out a reasonable value for this.

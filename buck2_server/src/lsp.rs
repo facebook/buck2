@@ -35,10 +35,6 @@ use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::docs::get_builtin_docs;
-use buck2_server::docs::get_prelude_docs;
-use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use cli_proto::*;
 use dice::DiceTransaction;
 use events::dispatch::with_dispatcher;
@@ -67,6 +63,11 @@ use starlark::syntax::AstModule;
 use starlark::values::docs::Doc;
 use starlark::values::docs::Location;
 use tonic::Status;
+
+use crate::ctx::ServerCommandContext;
+use crate::docs::get_builtin_docs;
+use crate::docs::get_prelude_docs;
+use crate::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
@@ -536,7 +537,7 @@ impl LspContext for BuckLspContext {
 }
 
 /// Run an LSP server for a given client.
-pub(crate) async fn run_lsp_server(
+pub async fn run_lsp_server(
     ctx: ServerCommandContext,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {
@@ -683,6 +684,7 @@ fn handle_outgoing_lsp_message(
 #[cfg(test)]
 mod test {
     use lsp_types::Url;
+    use maplit::hashmap;
     use starlark::lsp::server::LspUrl;
     use starlark::values::docs::Doc;
     use starlark::values::docs::DocItem;
@@ -690,8 +692,8 @@ mod test {
     use starlark::values::docs::Identifier;
     use starlark::values::docs::Location;
 
-    use crate::daemon::server::lsp::DocsCache;
-    use crate::daemon::server::lsp::DOCS_DIRECTORY_KEY;
+    use crate::lsp::DocsCache;
+    use crate::lsp::DOCS_DIRECTORY_KEY;
 
     #[test]
     fn cache_builds() -> anyhow::Result<()> {

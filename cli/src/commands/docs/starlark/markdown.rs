@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_server::lsp::output_subdir_for_doc;
 use itertools::Itertools;
 use starlark::values::docs::markdown::AsMarkdown;
 use starlark::values::docs::markdown::MarkdownFlavor;
 use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
-
-use crate::daemon::server::lsp::output_subdir_for_doc;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
