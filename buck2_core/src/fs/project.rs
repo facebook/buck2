@@ -99,7 +99,8 @@ pub struct ProjectRelativePathBuf(
 /// directory (cwd). The root path is the project root as defined in this
 /// library. The cwd will be the directory from which the command was invoked,
 /// which is within the project root and hence relativized against it.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, derive_more::Display)]
+#[display(fmt = "{root}")]
 pub struct ProjectRoot {
     pub root: AbsPathBuf,
 }

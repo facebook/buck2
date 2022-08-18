@@ -11,6 +11,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -24,7 +25,7 @@ enum BuckCliError {
 #[derive(Clone)]
 pub(crate) struct Roots {
     pub cell_root: AbsPathBuf,
-    pub project_root: AbsPathBuf,
+    pub project_root: ProjectRoot,
 }
 
 /// This finds the cell root and the project root.
@@ -66,7 +67,7 @@ pub(crate) fn find_roots(from: &Path) -> anyhow::Result<Roots> {
     match (project_root, cell_root) {
         (Some(project_root), Some(cell_root)) => Ok(Roots {
             cell_root: AbsPathBuf::try_from(cell_root)?,
-            project_root: AbsPathBuf::try_from(project_root)?,
+            project_root: ProjectRoot::new(AbsPathBuf::try_from(project_root)?),
         }),
         _ => Err(BuckCliError::NoBuckRoot(from.to_owned()).into()),
     }

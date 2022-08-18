@@ -99,10 +99,9 @@ impl<'a> ArgCellPathResolver<'a> {
             .data
             .get_or_try_init(|| {
                 let roots = find_current_roots()?;
-                let project_root = AbsPath::new(&roots.project_root)?.to_owned();
 
                 // See comment in `ArgCellPathResolver` about why we use `OnceCell` rather than `Lazy`
-                let project_filesystem = ProjectRoot::new(project_root);
+                let project_filesystem = roots.project_root;
                 let cell_resolver =
                     BuckConfigBasedCells::parse_immediate_cell_mapping(&project_filesystem)?;
 

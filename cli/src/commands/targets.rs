@@ -227,7 +227,7 @@ impl StreamingCommand for TargetsCommand {
             targets_show_outputs(buckd, target_request, None).await
         } else if self.show_full_output {
             let project_root = ctx.paths?.roots.project_root;
-            targets_show_outputs(buckd, target_request, Some(&project_root)).await
+            targets_show_outputs(buckd, target_request, Some(&project_root.root)).await
         } else {
             targets(buckd, target_request).await
         }

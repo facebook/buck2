@@ -40,7 +40,6 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ProvidersPattern;
@@ -92,7 +91,7 @@ pub(crate) struct BaseServerCommandContext {
     /// An fbinit token for using things that require fbinit. fbinit is initialized on daemon startup.
     pub _fb: fbinit::FacebookInit,
     /// Absolute path to the project root.
-    pub project_root: AbsPathBuf,
+    pub project_root: ProjectRoot,
     /// A reference to the dice graph. Most interesting things are accessible from this (and new interesting things should be
     /// added there rather than as fields here). This has some per-request setup done already (like attaching a per-request
     /// event dispatcher).
@@ -118,7 +117,7 @@ pub(crate) struct BaseServerCommandContext {
 
 impl BaseServerCommandContext {
     pub(crate) fn file_system(&self) -> ProjectRoot {
-        ProjectRoot::new(self.project_root.clone())
+        self.project_root.clone()
     }
 
     /// Provides a DiceComputations. This may be missing some data or injected keys that
@@ -213,7 +212,7 @@ impl ServerCommandContext {
         let abs_path = AbsPath::new(&client_context.working_dir)?;
 
         let project_path = abs_path
-            .strip_prefix(&base_context.project_root)
+            .strip_prefix(&base_context.project_root.root)
             .map_err(|_| {
                 Into::<anyhow::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
                     client_context.working_dir.clone(),
@@ -443,7 +442,7 @@ impl ServerCommandContext {
     }
 
     pub(crate) fn project_root(&self) -> &AbsPath {
-        &self.base_context.project_root
+        &self.base_context.project_root.root
     }
 
     pub(crate) fn get_re_connection(&self) -> ReConnectionHandle {

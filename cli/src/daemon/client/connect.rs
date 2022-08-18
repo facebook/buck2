@@ -78,7 +78,7 @@ impl<'a> BuckdLifecycle<'a> {
 
         let mut cmd =
             async_background_command(std::env::current_exe().context("Failed to get current exe")?);
-        cmd.current_dir(project_dir)
+        cmd.current_dir(&project_dir.root)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             // --isolation-dir is an option on the root `buck` cli, not the subcommand.
@@ -102,7 +102,7 @@ impl<'a> BuckdLifecycle<'a> {
 
             let mut title = OsString::new();
             title.push("buck2d");
-            if let Some(dir) = project_dir.file_name() {
+            if let Some(dir) = project_dir.root.file_name() {
                 title.push("[");
                 title.push(dir);
                 title.push("]");

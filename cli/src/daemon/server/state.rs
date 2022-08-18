@@ -144,7 +144,7 @@ impl DaemonState {
         paths: &Paths,
         detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
-        let fs = ProjectRoot::new(paths.project_root().to_owned());
+        let fs = paths.project_root().clone();
 
         let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
         let (legacy_configs, cells) = (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
@@ -186,6 +186,7 @@ impl DaemonState {
             Some(
                 paths
                     .project_root()
+                    .root
                     .join(paths.buck_out_dir())
                     .join(ForwardRelativePathBuf::unchecked_new("re_logs".to_owned()))
                     .to_string(),
@@ -223,7 +224,7 @@ impl DaemonState {
         // this list should be safe until we can revert it to Expr::True.
 
         let file_watcher = <dyn FileWatcher>::new(
-            paths.project_root(),
+            &paths.project_root().root,
             root_config,
             cells.dupe(),
             ignore_specs,
@@ -392,7 +393,7 @@ impl DaemonState {
 
         Ok(BaseServerCommandContext {
             _fb: self.fb,
-            project_root: self.paths.project_root().to_owned(),
+            project_root: self.paths.project_root().clone(),
             dice: data.dice.dupe(),
             io: data.io.dupe(),
             re_client_manager: data.re_client_manager.dupe(),

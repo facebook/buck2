@@ -71,8 +71,8 @@ impl RootCommand {
                 None => ctx.paths()?.cell_root().to_owned(),
             },
             RootKind::Project => match self.dir {
-                Some(dir) => find_roots(&dir)?.project_root,
-                None => ctx.paths()?.project_root().to_owned(),
+                Some(dir) => find_roots(&dir)?.project_root.root,
+                None => ctx.paths()?.project_root().root.clone(),
             },
             RootKind::Daemon => ctx.paths()?.daemon_dir()?,
         };
