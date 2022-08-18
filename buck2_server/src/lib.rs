@@ -28,5 +28,6 @@ pub mod query;
 mod raw_output;
 pub mod snapshot;
 pub mod streaming_request_handler;
+pub mod target_hash;
 pub mod targets_show_outputs;
 pub mod watchman;

@@ -49,7 +49,7 @@ use siphasher::sip128::Hasher128;
 use siphasher::sip128::SipHasher24;
 
 #[derive(Clone, Dupe)]
-pub(crate) struct BuckTargetHash(pub u128);
+pub struct BuckTargetHash(pub u128);
 
 trait BuckTargetHasher: Hasher + Send + 'static {
     fn finish_u128(&mut self) -> BuckTargetHash;
@@ -169,7 +169,7 @@ impl FileHasher for PathsAndContentsHasher {
 }
 
 #[async_trait]
-pub(crate) trait TargetHashingTargetNode: QueryTarget + Hash {
+pub trait TargetHashingTargetNode: QueryTarget + Hash {
     // Takes in Target Nodes and returns a new set of (un)Configured
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
@@ -210,7 +210,7 @@ impl TargetHashingTargetNode for TargetNode {
         Ok(target_set)
     }
 }
-pub(crate) struct TargetHashes {
+pub struct TargetHashes {
     // key is an unconfigured target label, but the hash is generated from the configured target label.
     target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>>,
 }
@@ -224,11 +224,11 @@ enum TargetHashError {
 }
 
 impl TargetHashes {
-    pub(crate) fn get(&self, label: &TargetLabel) -> Option<SharedResult<BuckTargetHash>> {
+    pub fn get(&self, label: &TargetLabel) -> Option<SharedResult<BuckTargetHash>> {
         return self.target_mapping.get(label).cloned();
     }
 
-    pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
+    pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         ctx: DiceTransaction,
         lookup: L,
         targets: Vec<(&Package, SharedResult<Vec<TargetNode>>)>,
