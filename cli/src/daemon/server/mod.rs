@@ -50,6 +50,8 @@ use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
 use dice::cycles::DetectCycles;
+use events::dispatch::instant_hg;
+use events::dispatch::span_async;
 use events::dispatch::EventDispatcher;
 use events::metadata;
 use events::truncate::truncate;
@@ -363,16 +365,6 @@ impl<T: Stream<Item = Result<CommandProgress, Status>> + Send> Stream for SyncSt
     }
 }
 
-struct EventsCtx {
-    dispatcher: EventDispatcher,
-}
-
-impl HasEvents for EventsCtx {
-    fn get_dispatcher(&self) -> &EventDispatcher {
-        &self.dispatcher
-    }
-}
-
 /// Dispatches a request to the given function and returns a stream of responses, suitable for streaming to a client.
 #[allow(clippy::mut_mut)] // select! does this internally
 async fn streaming<
@@ -397,6 +389,16 @@ where
     //
     // The function `func` is the computation that we are going to run. It communicates its success or failure using
     // control events; our first step is to spawn it.
+
+    struct EventsCtx {
+        dispatcher: EventDispatcher,
+    }
+    impl HasEvents for EventsCtx {
+        fn get_dispatcher(&self) -> &EventDispatcher {
+            &self.dispatcher
+        }
+    }
+
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
     let cancellable = spawn_dropcancel(
@@ -592,24 +594,22 @@ impl DaemonApi for BuckdServer {
                     metadata: metadata.clone(),
                     data: Some(buck2_data::CleanCommandStart {}.into()),
                 };
-                let events = context.base_context.events.dupe();
-                let res = events
-                    .span_async(start_event, async {
-                        let result = clean(context, req).await;
-                        let (is_success, error_messages) = match &result {
-                            Ok(_e) => (true, vec![]),
-                            Err(e) => (false, vec![format!("{:#}", e)]),
-                        };
-                        let end_event = buck2_data::CommandEnd {
-                            metadata,
-                            data: Some(buck2_data::CleanCommandEnd {}.into()),
-                            is_success,
-                            error_messages,
-                        };
+                let res = span_async(start_event, async {
+                    let result = clean(context, req).await;
+                    let (is_success, error_messages) = match &result {
+                        Ok(_e) => (true, vec![]),
+                        Err(e) => (false, vec![format!("{:#}", e)]),
+                    };
+                    let end_event = buck2_data::CommandEnd {
+                        metadata,
+                        data: Some(buck2_data::CleanCommandEnd {}.into()),
+                        is_success,
+                        error_messages,
+                    };
 
-                        (result, end_event)
-                    })
-                    .await;
+                    (result, end_event)
+                })
+                .await;
 
                 // Ensure that if all goes well, the drop guard lives until this point.
                 drop(drop_guard);
@@ -632,32 +632,30 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::BuildCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
-            let result = events
-                .span_async(start_event, async {
-                    let result = build(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(response) => (
-                            response.error_messages.is_empty(),
-                            response.error_messages.clone(),
-                        ),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata,
-                        data: Some(
-                            buck2_data::BuildCommandEnd {
-                                target_patterns: patterns_for_logging,
-                            }
-                            .into(),
-                        ),
-                        is_success,
-                        error_messages,
-                    };
+            let result = span_async(start_event, async {
+                let result = build(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(response) => (
+                        response.error_messages.is_empty(),
+                        response.error_messages.clone(),
+                    ),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata,
+                    data: Some(
+                        buck2_data::BuildCommandEnd {
+                            target_patterns: patterns_for_logging,
+                        }
+                        .into(),
+                    ),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
 
             Ok(BuildResponse {
                 build_targets: result.build_targets,
@@ -683,28 +681,26 @@ impl DaemonApi for BuckdServer {
                     .into(),
                 ),
             };
-            let events = context.base_context.events.dupe();
-            let result = events
-                .span_async(start_event, async {
-                    let bxl_label = req.bxl_label.clone();
-                    let result = bxl(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(response) => (
-                            response.error_messages.is_empty(),
-                            response.error_messages.clone(),
-                        ),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata,
-                        data: Some(buck2_data::BxlCommandEnd { bxl_label }.into()),
-                        is_success,
-                        error_messages,
-                    };
+            let result = span_async(start_event, async {
+                let bxl_label = req.bxl_label.clone();
+                let result = bxl(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(response) => (
+                        response.error_messages.is_empty(),
+                        response.error_messages.clone(),
+                    ),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata,
+                    data: Some(buck2_data::BxlCommandEnd { bxl_label }.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
 
             Ok(BxlResponse {
                 project_root,
@@ -718,7 +714,6 @@ impl DaemonApi for BuckdServer {
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {
             let metadata = request_metadata(&context)?;
-            let events = context.base_context.events.dupe();
             let patterns_for_logging = context
                 .canonicalize_patterns_for_logging(&req.target_patterns)
                 .await?;
@@ -726,28 +721,27 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::TestCommandStart {}.into()),
             };
-            let test_response = events
-                .span_async(start_event, async {
-                    let result = test(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(
-                            buck2_data::TestCommandEnd {
-                                target_patterns: patterns_for_logging,
-                            }
-                            .into(),
-                        ),
-                        is_success,
-                        error_messages,
-                    };
+            let test_response = span_async(start_event, async {
+                let result = test(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(
+                        buck2_data::TestCommandEnd {
+                            target_patterns: patterns_for_logging,
+                        }
+                        .into(),
+                    ),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
             Ok(test_response)
         })
         .await
@@ -764,27 +758,25 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::AqueryCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
-            events
-                .span_async(start_event, async {
-                    let result = buck2_server::query::aquery::aquery(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(response) => (
-                            response.error_messages.is_empty(),
-                            response.error_messages.clone(),
-                        ),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::AqueryCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            span_async(start_event, async {
+                let result = buck2_server::query::aquery::aquery(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(response) => (
+                        response.error_messages.is_empty(),
+                        response.error_messages.clone(),
+                    ),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::AqueryCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await
+                (result, end_event)
+            })
+            .await
         })
         .await
     }
@@ -800,27 +792,25 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::QueryCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
-            events
-                .span_async(start_event, async {
-                    let result = uquery(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(response) => (
-                            response.error_messages.is_empty(),
-                            response.error_messages.clone(),
-                        ),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::QueryCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            span_async(start_event, async {
+                let result = uquery(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(response) => (
+                        response.error_messages.is_empty(),
+                        response.error_messages.clone(),
+                    ),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::QueryCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await
+                (result, end_event)
+            })
+            .await
         })
         .await
     }
@@ -843,27 +833,25 @@ impl DaemonApi for BuckdServer {
                     .into(),
                 ),
             };
-            let events = context.base_context.events.dupe();
-            events
-                .span_async(start_event, async {
-                    let result = buck2_server::query::cquery::cquery(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(response) => (
-                            response.error_messages.is_empty(),
-                            response.error_messages.clone(),
-                        ),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::CQueryCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            span_async(start_event, async {
+                let result = buck2_server::query::cquery::cquery(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(response) => (
+                        response.error_messages.is_empty(),
+                        response.error_messages.clone(),
+                    ),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::CQueryCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await
+                (result, end_event)
+            })
+            .await
         })
         .await
     }
@@ -879,24 +867,22 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
-            let response = events
-                .span_async(start_event, async {
-                    let result = buck2_server::targets::targets(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::TargetsCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            let response = span_async(start_event, async {
+                let result = buck2_server::targets::targets(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(_e) => (true, vec![]),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::TargetsCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
             Ok(response)
         })
         .await
@@ -913,26 +899,23 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
-            let response = events
-                .span_async(start_event, async {
-                    let result =
-                        buck2_server::targets_show_outputs::targets_show_outputs(context, req)
-                            .await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::TargetsCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            let response = span_async(start_event, async {
+                let result =
+                    buck2_server::targets_show_outputs::targets_show_outputs(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(_e) => (true, vec![]),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::TargetsCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
             Ok(response)
         })
         .await
@@ -950,7 +933,6 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::AuditCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
             let command: crate::commands::audit::AuditCommand =
                 serde_json::from_str(&req.serialized_opts)?;
             let dir = context.working_dir.as_str().to_owned();
@@ -958,38 +940,37 @@ impl DaemonApi for BuckdServer {
 
             static LOG_REPRODUCE: EnvHelper<bool> = EnvHelper::new("LOG_REPRODUCE");
             if LOG_REPRODUCE.get()?.unwrap_or(false) {
-                events.instant_hg().await;
+                instant_hg().await;
             }
 
-            events
-                .span_async(start_event, async {
-                    let result = command
-                        .server_execute(
-                            context,
-                            req.context.expect("buck cli always sets a client context"),
-                        )
-                        .await;
-                    let (status, error_messages) = match &result {
-                        Ok(_e) => (0, vec![]),
-                        Err(e) => (1, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(
-                            buck2_data::AuditCommandEnd {
-                                status,
-                                args: req.serialized_opts.to_owned(),
-                                dir,
-                            }
-                            .into(),
-                        ),
-                        is_success: status == 0,
-                        error_messages,
-                    };
+            span_async(start_event, async {
+                let result = command
+                    .server_execute(
+                        context,
+                        req.context.expect("buck cli always sets a client context"),
+                    )
+                    .await;
+                let (status, error_messages) = match &result {
+                    Ok(_e) => (0, vec![]),
+                    Err(e) => (1, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(
+                        buck2_data::AuditCommandEnd {
+                            status,
+                            args: req.serialized_opts.to_owned(),
+                            dir,
+                        }
+                        .into(),
+                    ),
+                    is_success: status == 0,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
 
             Ok(GenericResponse {})
         })
@@ -1010,29 +991,27 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::InstallCommandStart {}.into()),
             };
-            let events = context.base_context.events.dupe();
-            events
-                .span_async(start_event, async {
-                    let result = install(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata,
-                        data: Some(
-                            buck2_data::InstallCommandEnd {
-                                target_patterns: patterns_for_logging,
-                            }
-                            .into(),
-                        ),
-                        is_success,
-                        error_messages,
-                    };
+            span_async(start_event, async {
+                let result = install(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(_e) => (true, vec![]),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata,
+                    data: Some(
+                        buck2_data::InstallCommandEnd {
+                            target_patterns: patterns_for_logging,
+                        }
+                        .into(),
+                    ),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await
+                (result, end_event)
+            })
+            .await
         })
         .await
     }
@@ -1125,24 +1104,22 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::DocsCommandStart {}.into()),
             };
-            let events = context.events().dupe();
-            let result = events
-                .span_async(start_event, async {
-                    let result = buck2_server::docs::docs(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::DocsCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            let result = span_async(start_event, async {
+                let result = buck2_server::docs::docs(context, req).await;
+                let (is_success, error_messages) = match &result {
+                    Ok(_e) => (true, vec![]),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::DocsCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
             Ok(result)
         })
         .await
@@ -1205,50 +1182,47 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::ProfileCommandStart {}.into()),
             };
-            let events = context.events().dupe();
-            let result = events
-                .span_async(start_event, async {
-                    let result: anyhow::Result<_> = try {
-                        let output: PathBuf = req.destination_path.clone().into();
+            let result = span_async(start_event, async {
+                let result: anyhow::Result<_> = try {
+                    let output: PathBuf = req.destination_path.clone().into();
 
-                        let profile_mode =
-                            context.starlark_profiler_instrumentation_override.dupe();
+                    let profile_mode = context.starlark_profiler_instrumentation_override.dupe();
 
-                        let action = cli_proto::profile_request::Action::from_i32(req.action)
-                            .context("Invalid action")?;
+                    let action = cli_proto::profile_request::Action::from_i32(req.action)
+                        .context("Invalid action")?;
 
-                        let profile_data = generate_profile(
-                            context,
-                            req.context.context("Missing client context")?,
-                            req.target_pattern.context("Missing target pattern")?,
-                            action,
-                            &profile_mode,
-                        )
-                        .await?;
+                    let profile_data = generate_profile(
+                        context,
+                        req.context.context("Missing client context")?,
+                        req.target_pattern.context("Missing target pattern")?,
+                        action,
+                        &profile_mode,
+                    )
+                    .await?;
 
-                        profile_data.write(&output)?;
+                    profile_data.write(&output)?;
 
-                        ProfileResponse {
-                            elapsed: Some(profile_data.elapsed().into()),
-                            total_allocated_bytes: profile_data.total_allocated_bytes() as u64,
-                        }
-                    };
+                    ProfileResponse {
+                        elapsed: Some(profile_data.elapsed().into()),
+                        total_allocated_bytes: profile_data.total_allocated_bytes() as u64,
+                    }
+                };
 
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
+                let (is_success, error_messages) = match &result {
+                    Ok(_e) => (true, vec![]),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
 
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::ProfileCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::ProfileCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await?;
+                (result, end_event)
+            })
+            .await?;
 
             Ok(result)
         })
@@ -1266,27 +1240,25 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(buck2_data::MaterializeCommandStart {}.into()),
             };
-            let events = context.events().dupe();
-            events
-                .span_async(start_event, async move {
-                    let result = materialize(&context.base_context, req.paths)
-                        .await
-                        .map(|()| MaterializeResponse {})
-                        .context("Failed to materialize paths");
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata: metadata.clone(),
-                        data: Some(buck2_data::MaterializeCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+            span_async(start_event, async move {
+                let result = materialize(&context.base_context, req.paths)
+                    .await
+                    .map(|()| MaterializeResponse {})
+                    .context("Failed to materialize paths");
+                let (is_success, error_messages) = match &result {
+                    Ok(_e) => (true, vec![]),
+                    Err(e) => (false, vec![format!("{:#}", e)]),
+                };
+                let end_event = buck2_data::CommandEnd {
+                    metadata: metadata.clone(),
+                    data: Some(buck2_data::MaterializeCommandEnd {}.into()),
+                    is_success,
+                    error_messages,
+                };
 
-                    (result, end_event)
-                })
-                .await
+                (result, end_event)
+            })
+            .await
         })
         .await
     }
@@ -1305,23 +1277,21 @@ impl DaemonApi for BuckdServer {
                     metadata: metadata.clone(),
                     data: Some(buck2_data::LspCommandStart {}.into()),
                 };
-                let events = ctx.base_context.events.dupe();
-                events
-                    .span_async(start_event, async move {
-                        let result = run_lsp_server(ctx, req).await;
-                        let (is_success, error_messages) = match &result {
-                            Ok(_e) => (true, vec![]),
-                            Err(e) => (false, vec![format!("{:#}", e)]),
-                        };
-                        let end_event = buck2_data::CommandEnd {
-                            metadata,
-                            data: Some(buck2_data::LspCommandEnd {}.into()),
-                            is_success,
-                            error_messages,
-                        };
-                        (result, end_event)
-                    })
-                    .await
+                span_async(start_event, async move {
+                    let result = run_lsp_server(ctx, req).await;
+                    let (is_success, error_messages) = match &result {
+                        Ok(_e) => (true, vec![]),
+                        Err(e) => (false, vec![format!("{:#}", e)]),
+                    };
+                    let end_event = buck2_data::CommandEnd {
+                        metadata,
+                        data: Some(buck2_data::LspCommandEnd {}.into()),
+                        is_success,
+                        error_messages,
+                    };
+                    (result, end_event)
+                })
+                .await
             },
         )
         .await

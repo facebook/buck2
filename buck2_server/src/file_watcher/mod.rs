@@ -17,17 +17,12 @@ use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use dice::DiceTransaction;
-use events::dispatch::EventDispatcher;
 
 mod watchman;
 
 #[async_trait]
 pub trait FileWatcher: Send + Sync + 'static {
-    async fn sync(
-        &self,
-        dice: DiceTransaction,
-        dispatcher: &EventDispatcher,
-    ) -> anyhow::Result<DiceTransaction>;
+    async fn sync(&self, dice: DiceTransaction) -> anyhow::Result<DiceTransaction>;
 }
 
 impl dyn FileWatcher {

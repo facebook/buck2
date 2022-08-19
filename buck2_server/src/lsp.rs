@@ -37,9 +37,9 @@ use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use cli_proto::*;
 use dice::DiceTransaction;
+use events::dispatch::instant_event;
 use events::dispatch::with_dispatcher;
 use events::dispatch::with_dispatcher_async;
-use events::dispatch::EventDispatcher;
 use futures::channel::mpsc::UnboundedSender;
 use futures::FutureExt;
 use futures::SinkExt;
@@ -607,7 +607,7 @@ pub async fn run_lsp_server(
                 handle_incoming_lsp_message(&send_to_server, m)
             },
             m = events_to_client.next() => {
-                Ok(handle_outgoing_lsp_message(ctx.events(), m))
+                Ok(handle_outgoing_lsp_message(m))
             },
         };
         match message_handler_res {
@@ -668,13 +668,10 @@ fn handle_incoming_lsp_message(
 ///     - `None` if the message could be passed to the client / event dispatcher.
 ///     - `Some(LspResponse)` if there was no message. This happens when the server is done
 ///                           sending messages, and the stream should be disconnected.
-fn handle_outgoing_lsp_message(
-    events: &EventDispatcher,
-    event: Option<buck2_data::LspResult>,
-) -> Option<LspResponse> {
+fn handle_outgoing_lsp_message(event: Option<buck2_data::LspResult>) -> Option<LspResponse> {
     match event {
         Some(event) => {
-            events.instant_event(event);
+            instant_event(event);
             None
         }
         None => Some(LspResponse {}),

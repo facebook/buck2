@@ -19,7 +19,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use dice::DiceTransaction;
-use events::dispatch::EventDispatcher;
+use events::dispatch::span_async;
 use tracing::info;
 use tracing::warn;
 use watchman_client::expr::Expr;
@@ -202,19 +202,14 @@ impl WatchmanFileWatcher {
 
 #[async_trait]
 impl FileWatcher for WatchmanFileWatcher {
-    async fn sync(
-        &self,
-        dice: DiceTransaction,
-        dispatcher: &EventDispatcher,
-    ) -> anyhow::Result<DiceTransaction> {
-        dispatcher
-            .span_async(buck2_data::WatchmanStart {}, async {
-                let (stats, res) = match self.query.sync(dice).await {
-                    Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
-                    Err(e) => (None, Err(e)),
-                };
-                (res, buck2_data::WatchmanEnd { stats })
-            })
-            .await
+    async fn sync(&self, dice: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+        span_async(buck2_data::WatchmanStart {}, async {
+            let (stats, res) = match self.query.sync(dice).await {
+                Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
+                Err(e) => (None, Err(e)),
+            };
+            (res, buck2_data::WatchmanEnd { stats })
+        })
+        .await
     }
 }

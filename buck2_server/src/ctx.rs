@@ -411,11 +411,7 @@ impl ServerCommandContext {
             });
 
         // this sync call my clear the dice ctx, but that's okay as we reset everything below.
-        let dice_ctx = self
-            .base_context
-            .file_watcher
-            .sync(dice_ctx, &self.base_context.events)
-            .await?;
+        let dice_ctx = self.base_context.file_watcher.sync(dice_ctx).await?;
 
         dice_ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 
