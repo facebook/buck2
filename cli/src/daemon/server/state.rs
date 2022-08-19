@@ -14,6 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::blocking::BuckBlockingExecutor;
@@ -24,7 +25,6 @@ use buck2_build_api::execute::materializer::deferred::DeferredMaterializerConfig
 use buck2_build_api::execute::materializer::immediate::ImmediateMaterializer;
 use buck2_build_api::execute::materializer::MaterializationMethod;
 use buck2_build_api::execute::materializer::Materializer;
-use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::BuckConfigBasedCells;
@@ -66,6 +66,8 @@ pub(crate) struct DaemonState {
 
     /// Whether to detect cycles in Dice
     detect_cycles: Option<DetectCycles>,
+
+    bxl: &'static dyn BxlCalculationDyn,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -136,12 +138,14 @@ impl DaemonState {
         fb: fbinit::FacebookInit,
         paths: Paths,
         detect_cycles: Option<DetectCycles>,
+        bxl: &'static dyn BxlCalculationDyn,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             fb,
             paths,
             data: AsyncOnceCell::new(),
             detect_cycles,
+            bxl,
         })
     }
 
@@ -151,6 +155,7 @@ impl DaemonState {
         fb: fbinit::FacebookInit,
         paths: &Paths,
         detect_cycles: Option<DetectCycles>,
+        bxl: &'static dyn BxlCalculationDyn,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = paths.project_root().clone();
 
@@ -218,12 +223,7 @@ impl DaemonState {
             .unwrap_or(10000);
         let event_logging_data = Arc::new(EventLoggingData { buffer_size });
 
-        let dice = configure_dice_for_buck(
-            io.dupe(),
-            &BxlCalculationImpl,
-            Some(root_config),
-            detect_cycles,
-        )?;
+        let dice = configure_dice_for_buck(io.dupe(), bxl, Some(root_config), detect_cycles)?;
 
         let forkserver = maybe_launch_forkserver(root_config).await?;
 
@@ -418,7 +418,7 @@ impl DaemonState {
     pub(crate) async fn data(&self) -> SharedResult<Arc<DaemonStateData>> {
         self.data
             .get_or_init(async move {
-                let result = Self::init_data(self.fb, &self.paths, self.detect_cycles)
+                let result = Self::init_data(self.fb, &self.paths, self.detect_cycles, self.bxl)
                     .await
                     .context("Error initializing DaemonStateData");
                 if let Ok(ref data) = result {

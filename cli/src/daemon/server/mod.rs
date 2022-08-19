@@ -26,6 +26,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
@@ -161,7 +162,12 @@ impl BuckdServer {
                 delegate,
                 shutdown_channel,
             }),
-            daemon_state: Arc::new(DaemonState::new(fb, paths, detect_cycles)?),
+            daemon_state: Arc::new(DaemonState::new(
+                fb,
+                paths,
+                detect_cycles,
+                &BxlCalculationImpl,
+            )?),
         };
 
         let server = Server::builder()
