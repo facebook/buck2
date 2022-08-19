@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
@@ -20,6 +21,14 @@ def watchman_dependency_linux_only() -> bool:
     return sys.platform == "linux"
 
 
+def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> None:
+    with open(file, encoding=encoding) as f:
+        file_content = f.read()
+    file_content = file_content.replace(old, new)
+    with open(file, "w", encoding=encoding) as f:
+        f.write(file_content)
+
+
 @buck_test(inplace=False, data_dir="modify_deferred_materialization")
 async def test_modify_input_source(buck: Buck) -> None:
     await buck.build("//:urandom_dep")
@@ -27,13 +36,7 @@ async def test_modify_input_source(buck: Buck) -> None:
     targets_file = buck.cwd / "TARGETS.fixture"
 
     # Change the label in Targets.
-    with open(targets_file, encoding="utf-8") as f:
-        targets = f.read()
-
-    targets = targets.replace("__NOT_A_REAL_LABEL__", "buck2_test_local_exec")
-
-    with open(targets_file, "w", encoding="utf-8") as f:
-        f.write(targets)
+    replace_in_file("__NOT_A_REAL_LABEL__", "buck2_test_local_exec", file=targets_file)
 
     await buck.build("//:urandom_dep")
 
@@ -74,14 +77,11 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
 async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
     # Disable local caching of RE artifacts
     buckconfig_file = buck.cwd / ".buckconfig"
-    with open(buckconfig_file, encoding="utf-8") as f:
-        buckconfig = f.read()
-    buckconfig = buckconfig.replace(
+    replace_in_file(
         "enable_local_caching_of_re_artifacts = true",
         "enable_local_caching_of_re_artifacts = false",
+        file=buckconfig_file,
     )
-    with open(buckconfig_file, "w", encoding="utf-8") as f:
-        f.write(buckconfig)
 
     target = "root//:remote_text"
     result = await buck.build(target)
@@ -110,14 +110,9 @@ def set_materializer(buck: Buck, old: str, new: str) -> None:
     config_file = buck.cwd / ".buckconfig"
 
     # Change the label in Targets.
-    with open(config_file, encoding="utf-8") as f:
-        config = f.read()
     old_config = "materializations = {}".format(old)
     new_config = "materializations = {}".format(new)
-    config = config.replace(old_config, new_config)
-
-    with open(config_file, "w", encoding="utf-8") as f:
-        f.write(config)
+    replace_in_file(old_config, new_config, file=config_file)
 
 
 if eden_linux_only():
