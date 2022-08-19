@@ -50,9 +50,7 @@ async def test_modify_dep_materialization(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
 @env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
-async def test_local_caching_of_re_artifacts_on_deferred_materializer(
-    buck: Buck,
-) -> None:
+async def test_matching_artifact_optimization(buck: Buck) -> None:
     target = "root//:remote_text"
     result = await buck.build(target)
     # Check output is correctly materialized
@@ -73,9 +71,7 @@ async def test_local_caching_of_re_artifacts_on_deferred_materializer(
 
 @buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
 @env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
-async def test_local_caching_of_re_artifacts_on_deferred_materializer_disabled_without_buckconfig(
-    buck: Buck,
-) -> None:
+async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
     # Disable local caching of RE artifacts
     buckconfig_file = buck.cwd / ".buckconfig"
     with open(buckconfig_file, encoding="utf-8") as f:
