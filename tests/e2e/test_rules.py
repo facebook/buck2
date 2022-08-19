@@ -245,6 +245,13 @@ if fbcode_linux_only():
             f"python.package_style={package_style}",
         )
 
+    @buck_test(inplace=True)
+    async def test_native_python_binary(buck: Buck) -> None:
+        await buck.run(
+            "@//mode/opt",
+            "fbcode//python_efficiency/experimental/linking/tests:cpython_greetings",
+        )
+
 
 @buck_test(inplace=True)
 async def test_remote_file(buck: Buck) -> None:
