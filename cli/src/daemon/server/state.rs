@@ -39,6 +39,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_server::active_commands::ActiveCommandDropGuard;
 use buck2_server::ctx::BaseServerCommandContext;
+use buck2_server::daemon::check_working_dir;
 use buck2_server::daemon::panic::DaemonStatePanicDiceDump;
 use buck2_server::file_watcher::FileWatcher;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
@@ -51,7 +52,6 @@ use fbinit::FacebookInit;
 use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 
-use crate::daemon::server::check_working_dir;
 use crate::daemon::server::forkserver::maybe_launch_forkserver;
 use crate::Paths;
 

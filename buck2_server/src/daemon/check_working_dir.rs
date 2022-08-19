@@ -9,7 +9,7 @@
 
 /// Verify that our working directory is still here. We often run on Eden, and if Eden restarts
 /// ungracefully, our working dir will become unreadable and we are just about done.
-pub(crate) fn check_working_dir() -> anyhow::Result<()> {
+pub fn check_working_dir() -> anyhow::Result<()> {
     use std::fs;
     use std::io;
 

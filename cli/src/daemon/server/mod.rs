@@ -79,7 +79,6 @@ use crate::daemon::bxl::bxl;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 
-mod check_working_dir;
 mod concurrency;
 mod forkserver;
 pub(crate) mod state;
