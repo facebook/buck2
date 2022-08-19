@@ -96,7 +96,6 @@ python_library(
         ":query",
         ":selection",
         ":target_attributes",
-        ":target_merger",
         ":target_node",
         ":xcode_data",
     ],
@@ -230,27 +229,6 @@ python_unittest(
         "fbcode//buck2/facebook/apple_project/xcode:pbx",
         ":target_attributes",
         ":target_node",
-    ],
-)
-
-python_library(
-    name = "target_merger",
-    srcs = ["target_merger.py"],
-    tests = [":target_merger_test"],
-    deps = [
-        "fbcode//buck2/facebook/apple_project/buck:buck",
-        "fbcode//buck2/facebook/apple_project/buck:build_target_language",
-        "fbcode//libfb/py/frozen:frozen",
-        ":selection",
-        ":target_node",
-    ],
-)
-
-python_unittest(
-    name = "target_merger_test",
-    srcs = ["target_merger_test.py"],
-    deps = [
-        ":target_merger",
     ],
 )
 
