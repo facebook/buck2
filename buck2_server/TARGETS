@@ -6,10 +6,12 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:maplit",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-condvar-fair",
         "fbsource//third-party/rust:async-recursion",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",
@@ -28,6 +30,7 @@ rust_library(
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:os_str_bytes",
+        "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",

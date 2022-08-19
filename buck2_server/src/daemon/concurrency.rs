@@ -22,7 +22,7 @@ use starlark::collections::SmallMap;
 /// Currently, we allow concurrency if two `DiceTransactions` are deemed equivalent, such that
 /// any computation result that occurs in one is directly reusable by another.
 #[derive(Clone, Dupe)]
-pub(crate) struct ConcurrencyHandler {
+pub struct ConcurrencyHandler {
     data: Arc<FairMutex<ConcurrencyHandlerData>>,
     // use an async condvar because the `wait` to `notify` spans across an async function (namely
     // the entire command execution). Luckily, this implementation is also "fair", waking up the
@@ -42,7 +42,7 @@ struct ConcurrencyHandlerData {
 
 #[allow(unused)] // TODO(bobyf) temporary
 impl ConcurrencyHandler {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 active_dice: None,
@@ -54,12 +54,7 @@ impl ConcurrencyHandler {
 
     /// Enters a critical section that requires concurrent command synchronization,
     /// and runs the given `exec` function in the critical section.
-    pub(crate) async fn enter<F, Fut, R>(
-        &self,
-        transaction: DiceTransaction,
-        trace: TraceId,
-        exec: F,
-    ) -> R
+    pub async fn enter<F, Fut, R>(&self, transaction: DiceTransaction, trace: TraceId, exec: F) -> R
     where
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send + 'static,
@@ -163,7 +158,7 @@ mod tests {
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
 
-    use crate::daemon::server::concurrency::ConcurrencyHandler;
+    use crate::daemon::concurrency::ConcurrencyHandler;
 
     #[tokio::test]
     async fn concurrent_same_transaction() {

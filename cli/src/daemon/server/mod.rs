@@ -79,7 +79,6 @@ use crate::daemon::bxl::bxl;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 
-mod concurrency;
 pub(crate) mod state;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
