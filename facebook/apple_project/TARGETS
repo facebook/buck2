@@ -261,7 +261,7 @@ python_library(
         ":xcode_data_test",
     ],
     deps = [
-        "fbcode//buck2/facebook/apple_project/buck:build",
+        "fbcode//buck2/facebook/apple_project/buck:buck",
         "fbcode//buck2/facebook/apple_project/buck:build_target",
     ],
 )
