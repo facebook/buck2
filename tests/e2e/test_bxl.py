@@ -284,6 +284,32 @@ async def test_cli_target_pattern(buck: Buck) -> None:
             "invalid/...",
         )
     )
+    await expect_failure(
+        buck.bxl(
+            "//bxl/cli_args.bxl:target_expr_test",
+            "--",
+            "--targets",
+            "root/bin:fake_name",
+        )
+    )
+
+    await expect_failure(
+        buck.bxl(
+            "//bxl/cli_args.bxl:target_expr_test",
+            "--",
+            "--targets",
+            "root/bin/fake_name:",
+        )
+    )
+
+    await expect_failure(
+        buck.bxl(
+            "//bxl/cli_args.bxl:target_expr_test",
+            "--",
+            "--targets",
+            "root/bin/fake_name:fake_name",
+        )
+    )
 
 
 @buck_test(inplace=False, data_dir="bql/simple")

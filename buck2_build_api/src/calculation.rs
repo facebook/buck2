@@ -40,6 +40,7 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use gazebo::dupe::Dupe;
+use itertools::Itertools;
 use owning_ref::ArcRef;
 use thiserror::Error;
 
@@ -378,14 +379,14 @@ impl<T> LoadedPatterns<T> {
         self.results.into_iter()
     }
 
-    pub fn iter_loaded_targets(&self) -> impl Iterator<Item = &TargetNode> + Clone {
+    pub fn iter_loaded_targets(&self) -> impl Iterator<Item = SharedResult<&TargetNode>> {
         self.results
             .values()
-            .filter_map(|e| match e {
-                Ok(e) => Some(e),
-                Err(_) => None,
+            .map(|result| match result {
+                Ok(label_to_node) => Ok(label_to_node.values()),
+                Err(e) => Err(e.dupe()),
             })
-            .flat_map(|e| e.values())
+            .flatten_ok()
     }
 
     pub fn iter_loaded_targets_by_package(

@@ -18,6 +18,7 @@ use anyhow::Context as _;
 use async_std_ext::prelude::AsyncOptionExt;
 use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::load_patterns;
+use buck2_common::result::SharedResult;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
@@ -430,13 +431,12 @@ impl CliArgType {
                         &ctx.relative_dir,
                         x,
                     )?;
-
                     let loaded = load_patterns(ctx.dice, vec![pattern]).await?;
                     Some(CliArgValue::List(
                         loaded
                             .iter_loaded_targets()
-                            .map(|t| CliArgValue::TargetLabel(t.label().dupe()))
-                            .collect(),
+                            .map_ok(|t| CliArgValue::TargetLabel(t.label().dupe()))
+                            .collect::<SharedResult<_>>()?,
                     ))
                 }
             })
