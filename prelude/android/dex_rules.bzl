@@ -77,6 +77,8 @@ def get_multi_dex(
     secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir")
     multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir.as_output())
 
+    multi_dex_cmd.add("--module", ROOT_MODULE)
+
     multi_dex_cmd.add("--primary-dex-patterns-path", ctx.actions.write("primary_dex_patterns", primary_dex_patterns))
 
     jar_to_dex_file = ctx.actions.write("jars_to_dex_file.txt", java_library_jars)
@@ -282,7 +284,7 @@ def merge_to_split_dex(
                 secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
 
                 def write_metadata_dot_txt(ctx: "context"):
-                    metadata_lines = []
+                    metadata_lines = [".id {}".format(sorted_pre_dexed_input.module)]
                     for metadata_line_artifact in metadata_line_artifacts:
                         metadata_lines.append(ctx.artifacts[metadata_line_artifact].read_string().strip())
                     ctx.actions.write(ctx.outputs[metadata_dot_txt_file], metadata_lines)
@@ -306,6 +308,7 @@ def merge_to_split_dex(
         multi_dex_cmd.add("--raw-secondary-dexes-dir", initial_secondary_dexes_dir)
         multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
         multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
+        multi_dex_cmd.add("--module", ROOT_MODULE)
 
         ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
 
