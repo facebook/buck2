@@ -48,9 +48,17 @@ CxxRuleProviderParams = record(
     preprocessor_for_tests = field(bool.type, True),
 )
 
+# Params to handle an argsfile for non-Clang sources which may present in Apple rules.
+CxxAdditionalArgsfileParams = record(
+    file = field("artifact"),
+    # Hidden args necessary for the argsfile to reference
+    hidden_args = field([["artifacts", "cmd_args"]]),
+)
+
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
+    argsfiles = field([CxxAdditionalArgsfileParams.type], []),
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.
