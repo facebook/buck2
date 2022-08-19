@@ -146,7 +146,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
     )
-    output, comp_db_info = cxx_executable(ctx, params)
+    output, comp_db_info, xcode_data_info = cxx_executable(ctx, params)
 
     return [
         DefaultInfo(
@@ -156,6 +156,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
         ),
         RunInfo(args = cmd_args(output.binary).hidden(output.runtime_files)),
         comp_db_info,
+        xcode_data_info,
     ]
 
 def _prebuilt_item(
@@ -430,7 +431,7 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
     )
-    output, comp_db_info = cxx_executable(ctx, params, is_cxx_test = True)
+    output, comp_db_info, xcode_data_info = cxx_executable(ctx, params, is_cxx_test = True)
 
     command = [cmd_args(output.binary).hidden(output.runtime_files)] + ctx.attrs.args
 
@@ -454,4 +455,5 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
             use_project_relative_paths = re_executor != None,
         ),
         comp_db_info,
+        xcode_data_info,
     ]

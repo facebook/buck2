@@ -105,7 +105,7 @@ _CxxExecutableOutput = record(
 )
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
-def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type):
+def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type, "XcodeDataInfo"):
     first_order_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
 
     # Gather preprocessor inputs.
@@ -244,7 +244,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     )
 
     # Define the xcode data sub target
-    sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(
         ctx,
         rule_type = impl_params.rule_type,
         output = binary.output,
@@ -253,6 +253,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         argsfiles_by_ext = compile_cmd_output.source_commands.argsfile_by_ext,
         product_name = get_cxx_excutable_product_name(ctx),
     )
+    sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
     # Info about dynamic-linked libraries for fbpkg integration:
     # - the symlink dir that's part of RPATH
@@ -336,7 +337,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         runtime_files = runtime_files,
         sub_targets = sub_targets,
         link_args = links,
-    ), comp_db_info
+    ), comp_db_info, xcode_data_info
 
 # Returns a tuple of:
 # - the resulting executable

@@ -35,7 +35,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
         link_postprocessor = get_apple_link_postprocessor(ctx),
     )
-    (cxx_output, _comp_db_info) = cxx_executable(ctx, constructor_params)
+    (cxx_output, _comp_db_info, xcode_data_info) = cxx_executable(ctx, constructor_params)
 
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
@@ -62,6 +62,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
         AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
         AppleDebuggableInfo(dsyms = [dsym_artifact]),
+        xcode_data_info,
     ] + [resource_graph] + min_version_providers
 
 def _entitlements_link_flags(ctx: "context") -> [""]:

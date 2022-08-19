@@ -17,6 +17,7 @@ load(
 load(
     "@fbcode//buck2/prelude/ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
+    "XcodeDataInfo",
     "generate_xcode_data",
 )
 load(
@@ -184,6 +185,9 @@ _CxxLibraryParameterizedOutput = record(
     sub_targets = field({str.type: ["provider"]}),
     # Any generated providers as requested by impl_params
     providers = field(["provider"]),
+    # XcodeDataInfo provider, returned separately as we cannot check
+    # provider type from providers above
+    xcode_data_info = field([XcodeDataInfo.type, None], None),
 )
 
 def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
@@ -341,8 +345,9 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     default_output = library_outputs.outputs[actual_link_style]
 
     # Define the xcode data sub target
+    xcode_data_info = None
     if impl_params.generate_sub_targets.xcode_data:
-        sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(
+        xcode_data_default_info, xcode_data_info = generate_xcode_data(
             ctx,
             rule_type = impl_params.rule_type,
             output = default_output.default if default_output else None,
@@ -351,6 +356,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             argsfiles_by_ext = compiled_srcs.compile_cmds.source_commands.argsfile_by_ext,
             product_name = get_default_cxx_library_product_name(ctx),
         )
+        sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
+        providers.append(xcode_data_info)
 
     # Gather link inputs.
     inherited_non_exported_link = cxx_inherited_link_info(ctx, non_exported_deps)
@@ -502,7 +509,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_providers.android_packageable_info:
         providers.append(merge_android_packageable_info(ctx.label, ctx.actions, non_exported_deps + exported_deps))
 
-    return _CxxLibraryParameterizedOutput(default_output = default_output, all_outputs = library_outputs, sub_targets = sub_targets, providers = providers)
+    return _CxxLibraryParameterizedOutput(default_output = default_output, all_outputs = library_outputs, sub_targets = sub_targets, providers = providers, xcode_data_info = xcode_data_info)
 
 def get_default_cxx_library_product_name(ctx) -> str.type:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)

@@ -118,7 +118,8 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
     # Define the xcode data sub target
-    sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
+    sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
     install_data = generate_install_data(ctx)
     product_name_sanitized = get_product_name(ctx).replace(" ", "_")
 
@@ -134,6 +135,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
                 install_info_data: install_data,
             },
         ),
+        xcode_data_info,
     ]
 
 def _has_xctoolchain(ctx: "context") -> bool.type:

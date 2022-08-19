@@ -116,6 +116,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
                 "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
             },
         ),
+        cxx_library_output.xcode_data_info,
     ]
 
 def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
