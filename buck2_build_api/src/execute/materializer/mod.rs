@@ -25,10 +25,10 @@ use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::UserComputationData;
+use events::dispatch::span_async;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -516,29 +516,27 @@ impl ArtifactMaterializer for DiceComputations {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
         let path = artifact_fs.resolve_build(artifact);
-        let events = self.per_transaction_data().get_dispatcher();
 
         let start_event = buck2_data::MaterializeRequestedArtifactStart {
             artifact: Some(artifact.as_proto()),
         };
 
-        events
-            .span_async(start_event, async move {
-                let result: anyhow::Result<_> = try {
-                    if required {
-                        materializer.ensure_materialized(vec![path]).await?;
-                    } else {
-                        materializer.try_materialize_final_artifact(path).await?;
-                    }
-                };
+        span_async(start_event, async move {
+            let result: anyhow::Result<_> = try {
+                if required {
+                    materializer.ensure_materialized(vec![path]).await?;
+                } else {
+                    materializer.try_materialize_final_artifact(path).await?;
+                }
+            };
 
-                (
-                    result,
-                    buck2_data::MaterializeRequestedArtifactEnd {
-                        artifact: Some(artifact.as_proto()),
-                    },
-                )
-            })
-            .await
+            (
+                result,
+                buck2_data::MaterializeRequestedArtifactEnd {
+                    artifact: Some(artifact.as_proto()),
+                },
+            )
+        })
+        .await
     }
 }

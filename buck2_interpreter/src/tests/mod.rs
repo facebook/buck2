@@ -29,6 +29,7 @@ use dice::cycles::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
 use dice::UserComputationData;
+use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 use indoc::indoc;
@@ -222,12 +223,14 @@ async fn test_eval_build_file() -> anyhow::Result<()> {
         &root_cell(),
         CellRelativePath::new(ForwardRelativePath::new("package")?),
     );
-    let eval_result = calculation
-        .eval_build_file::<TesterExtraContext>(
+    let eval_result = with_dispatcher_async(
+        EventDispatcher::null(),
+        calculation.eval_build_file::<TesterExtraContext>(
             &package,
             &mut StarlarkProfilerOrInstrumentation::disabled(),
-        )
-        .await?;
+        ),
+    )
+    .await?;
     assert_eq!(package, eval_result.package);
     assert_eq!(
         json!({

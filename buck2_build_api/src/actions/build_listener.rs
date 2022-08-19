@@ -19,6 +19,7 @@ use buck2_data::CriticalPathEntry;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
+use events::dispatch::instant_event;
 use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
@@ -131,7 +132,7 @@ impl BuildSignalReceiver {
         }
     }
 
-    pub async fn run_and_log(&mut self, events: EventDispatcher) -> anyhow::Result<()> {
+    pub async fn run_and_log(&mut self) -> anyhow::Result<()> {
         while let Some(event) = self.receiver.next().await {
             match event {
                 BuildSignal::ActionExecution(execution) => self.process_action(execution)?,
@@ -145,7 +146,7 @@ impl BuildSignalReceiver {
             }
         }
 
-        events.instant_event(BuildGraphExecutionInfo {
+        instant_event(BuildGraphExecutionInfo {
             critical_path: self
                 .extract_critical_path()
                 .into_map(|(name, duration, action)| CriticalPathEntry {
@@ -314,7 +315,7 @@ where
 {
     let (sender, mut receiver) = create_matched_pair();
     let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
-        receiver.run_and_log(events).await
+        receiver.run_and_log().await
     }));
     let result = func(sender.dupe()).await;
     sender.signal(BuildSignal::BuildFinished);

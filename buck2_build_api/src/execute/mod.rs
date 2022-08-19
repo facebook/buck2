@@ -572,6 +572,7 @@ mod tests {
     use buck2_core::target::TargetName;
     use buck2_node::execute::config::CommandExecutorConfig;
     use buck2_node::execute::config::PathSeparatorKind;
+    use events::dispatch::with_dispatcher_async;
     use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
     use indexmap::indexset;
@@ -759,11 +760,13 @@ mod tests {
             },
             CommandExecutorConfig::testing_local(),
         );
-        let res = executor
-            .execute(Default::default(), &action)
-            .await
-            .0
-            .unwrap();
+        let res = with_dispatcher_async(
+            EventDispatcher::null(),
+            executor.execute(Default::default(), &action),
+        )
+        .await
+        .0
+        .unwrap();
         let outputs = outputs
             .iter()
             .map(|o| (o.dupe(), ArtifactValue::empty_file()))

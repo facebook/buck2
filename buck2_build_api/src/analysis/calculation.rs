@@ -22,7 +22,6 @@ use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::HasCalculationDelegate;
-use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
@@ -34,7 +33,8 @@ use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use dice::DiceComputations;
 use dice::Key;
-use events::dispatch::EventDispatcher;
+use events::dispatch::span;
+use events::dispatch::span_async;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -131,7 +131,6 @@ impl RuleAnalysisCalculation for DiceComputations {
 
 pub async fn resolve_queries(
     ctx: &DiceComputations,
-    events: &EventDispatcher,
     configured_node: &ConfiguredTargetNode,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let mut queries = configured_node.queries().peekable();
@@ -140,19 +139,18 @@ pub async fn resolve_queries(
         return Ok(Default::default());
     }
 
-    events
-        .span_async(
-            buck2_data::AnalysisStageStart {
-                stage: Some(buck2_data::analysis_stage_start::Stage::ResolveQueries(())),
-            },
-            async {
-                (
-                    resolve_queries_impl(ctx, queries).await,
-                    buck2_data::AnalysisStageEnd {},
-                )
-            },
-        )
-        .await
+    span_async(
+        buck2_data::AnalysisStageStart {
+            stage: Some(buck2_data::analysis_stage_start::Stage::ResolveQueries(())),
+        },
+        async {
+            (
+                resolve_queries_impl(ctx, queries).await,
+                buck2_data::AnalysisStageEnd {},
+            )
+        },
+    )
+    .await
 }
 
 async fn resolve_queries_impl(
@@ -257,52 +255,47 @@ async fn get_analysis_result(
                 rule: func.to_string(),
             };
 
-            let events = ctx.per_transaction_data().get_dispatcher();
+            span_async(start_event, async {
+                let mut profile = None;
 
-            events
-                .span_async(start_event, async {
-                    let mut profile = None;
+                let result: anyhow::Result<_> = try {
+                    let query_results = resolve_queries(ctx, &configured_node).await?;
 
-                    let result: anyhow::Result<_> = try {
-                        let query_results = resolve_queries(ctx, events, &configured_node).await?;
-
-                        let result = events.span(
-                            buck2_data::AnalysisStageStart {
-                                stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(
-                                    (),
-                                )),
-                            },
-                            || {
-                                (
-                                    run_analysis(
-                                        target,
-                                        dep_analysis,
-                                        query_results,
-                                        configured_node.execution_platform_resolution(),
-                                        &rule_impl,
-                                        &configured_node,
-                                        profile_mode,
-                                    ),
-                                    buck2_data::AnalysisStageEnd {},
-                                )
-                            },
-                        )?;
-
-                        profile = Some(make_analysis_profile(&result));
-
-                        MaybeCompatible::Compatible(result)
-                    };
-
-                    (
-                        result,
-                        buck2_data::AnalysisEnd {
-                            target: Some(target.as_proto()),
-                            rule: func.to_string(),
-                            profile,
+                    let result = span(
+                        buck2_data::AnalysisStageStart {
+                            stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(())),
                         },
-                    )
-                })
-                .await
+                        || {
+                            (
+                                run_analysis(
+                                    target,
+                                    dep_analysis,
+                                    query_results,
+                                    configured_node.execution_platform_resolution(),
+                                    &rule_impl,
+                                    &configured_node,
+                                    profile_mode,
+                                ),
+                                buck2_data::AnalysisStageEnd {},
+                            )
+                        },
+                    )?;
+
+                    profile = Some(make_analysis_profile(&result));
+
+                    MaybeCompatible::Compatible(result)
+                };
+
+                (
+                    result,
+                    buck2_data::AnalysisEnd {
+                        target: Some(target.as_proto()),
+                        rule: func.to_string(),
+                        profile,
+                    },
+                )
+            })
+            .await
         }
         RuleType::Forward => {
             assert!(dep_analysis.len() == 1);
@@ -488,6 +481,7 @@ mod tests {
     use crate::interpreter::context::BuildInterpreterConfiguror;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::testing::Tester;
+    use crate::spawner::BuckSpawner;
 
     #[tokio::test]
     async fn test_analysis_calculation() -> anyhow::Result<()> {
@@ -585,6 +579,7 @@ mod tests {
                     CommandExecutorConfig::testing_local(),
                 );
                 data.data.set(EventDispatcher::null());
+                data.spawner = Arc::new(BuckSpawner::default());
                 data
             })?;
         setup_interpreter_basic(

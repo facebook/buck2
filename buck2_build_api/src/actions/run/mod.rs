@@ -14,6 +14,7 @@ use std::fmt::Display;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
+use events::dispatch::span_async;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
@@ -304,9 +305,8 @@ impl IncrementalActionExecutable for RunAction {
         let dep_files = if !process_dep_files {
             None
         } else {
-            let (matching_result, dep_files) = ctx
-                .events()
-                .span_async(buck2_data::MatchDepFilesStart {}, async {
+            let (matching_result, dep_files) =
+                span_async(buck2_data::MatchDepFilesStart {}, async {
                     let res: anyhow::Result<_> = try {
                         let dep_files_key =
                             DepFilesKey::from_command_execution_target(ctx.target());

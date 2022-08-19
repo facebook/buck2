@@ -17,7 +17,6 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::dice::HasEvents;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::parse_patterns_from_cli_args;
 use buck2_server::daemon::common::resolve_patterns;
@@ -81,7 +80,6 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
             &server_ctx.working_dir,
         )?;
         let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
-        let events = ctx.per_transaction_data().get_dispatcher();
 
         let mut stdout = server_ctx.stdout()?;
 
@@ -95,7 +93,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                             .await?;
                         let node = ctx.get_configured_target_node(&configured_target).await?;
                         let node = node.require_compatible()?;
-                        let query_results = resolve_queries(&ctx, events, &node).await?;
+                        let query_results = resolve_queries(&ctx, &node).await?;
                         writeln!(stdout, "{}:", label)?;
                         for (query, result) in &query_results {
                             writeln!(stdout, "  {}", query)?;

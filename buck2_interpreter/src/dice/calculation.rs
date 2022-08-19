@@ -29,7 +29,8 @@ use buck2_core::package::Package;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use events::dispatch::EventDispatcher;
+use events::dispatch::span;
+use events::dispatch::span_async;
 use gazebo::prelude::*;
 use starlark::syntax::AstModule;
 
@@ -40,7 +41,6 @@ use crate::dice::calculation::keys::EvalImportKey;
 use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use crate::dice::starlark_types::GetDisableStarlarkTypes;
 use crate::dice::HasCalculationDelegate;
-use crate::dice::HasEvents;
 use crate::dice::HasGlobalInterpreterState;
 use crate::dice::HasInterpreterContext;
 use crate::dice::HasPackageListingResolver;
@@ -107,7 +107,6 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
                 .get(cell)
                 .expect("Should be impossible to get a cell without a config.")
                 .dupe(),
-            event_dispatcher: self.per_transaction_data().get_dispatcher().dupe(),
         })
     }
 }
@@ -154,7 +153,6 @@ pub struct DiceCalculationDelegate<'c> {
     ctx: &'c DiceComputations,
     fs: DiceFileOps<'c>,
     configs: Arc<InterpreterConfigForCell>,
-    event_dispatcher: EventDispatcher,
 }
 
 impl<'c> DiceCalculationDelegate<'c> {
@@ -233,10 +231,6 @@ impl<'c> DiceCalculationDelegate<'c> {
             .get_legacy_configs_on_dice()
             .await?
             .get(self.build_file_cell.name())
-    }
-
-    fn event_dispatcher(&self) -> &EventDispatcher {
-        &self.event_dispatcher
     }
 
     async fn get_package_boundary_exception(&self, path: &CellPath) -> SharedResult<bool> {
@@ -335,22 +329,20 @@ impl<'c> DiceCalculationDelegate<'c> {
         package: &Package,
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
     ) -> SharedResult<T::EvalResult> {
-        let listing = self
-            .event_dispatcher()
-            .span_async(
-                buck2_data::LoadPackageStart {
-                    path: package.as_cell_path().to_string(),
-                },
-                async {
-                    (
-                        self.resolve_package_listing(package).await,
-                        buck2_data::LoadPackageEnd {
-                            path: package.as_cell_path().to_string(),
-                        },
-                    )
-                },
-            )
-            .await?;
+        let listing = span_async(
+            buck2_data::LoadPackageStart {
+                path: package.as_cell_path().to_string(),
+            },
+            async {
+                (
+                    self.resolve_package_listing(package).await,
+                    buck2_data::LoadPackageEnd {
+                        path: package.as_cell_path().to_string(),
+                    },
+                )
+            },
+        )
+        .await?;
         let package_boundary_exception = self
             .get_package_boundary_exception(package.as_cell_path())
             .await?;
@@ -366,7 +358,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await?;
         let interpreter = self.get_interpreter_for_cell().await?;
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
-        self.event_dispatcher().span(start_event, move || {
+        span(start_event, move || {
             let result = try {
                 interpreter.eval_build_file::<T>(
                     &build_file_path,

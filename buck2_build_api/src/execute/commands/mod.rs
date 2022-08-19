@@ -34,6 +34,8 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::execute::config::PathSeparatorKind;
 use derive_more::Display;
 use derive_more::From;
+use events::dispatch::span;
+use events::dispatch::span_async;
 use events::dispatch::EventDispatcher;
 use futures::future::Future;
 use gazebo::prelude::*;
@@ -190,8 +192,7 @@ impl CommandExecutionManager {
             stage: Some(stage.into()),
         };
 
-        self.events
-            .span(event, || (f(), buck2_data::ExecutorStageEnd {}))
+        span(event, || (f(), buck2_data::ExecutorStageEnd {}))
     }
 
     pub async fn stage_async<F: Future>(
@@ -202,13 +203,11 @@ impl CommandExecutionManager {
         let event = buck2_data::ExecutorStageStart {
             stage: Some(stage.into()),
         };
-
-        self.events
-            .span_async(
-                event,
-                async move { (f.await, buck2_data::ExecutorStageEnd {}) },
-            )
-            .await
+        span_async(
+            event,
+            async move { (f.await, buck2_data::ExecutorStageEnd {}) },
+        )
+        .await
     }
 
     /// An exec_cmd request might go to multiple executors. try_claim() indicates that an executor wants to claim the work item.

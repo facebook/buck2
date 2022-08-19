@@ -15,10 +15,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
-use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use events::dispatch::span_async;
 use futures::future;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
@@ -122,7 +122,6 @@ impl ActionCalculation for DiceComputations {
                 .await?;
 
                 // TODO check input based cache and compute keys
-                let events = ctx.per_transaction_data().get_dispatcher();
                 let start_event = buck2_data::ActionExecutionStart {
                     key: Some(action.key().as_proto()),
                     kind: action.kind().into(),
@@ -135,100 +134,99 @@ impl ActionCalculation for DiceComputations {
                 let executor = ctx.get_action_executor(action.execution_config()).await?;
 
                 // this can be RE
-                events
-                    .span_async(start_event, async move {
-                        let (execute_result, command_reports) =
-                            executor.execute(materialized_inputs, &action).await;
+                span_async(start_event, async move {
+                    let (execute_result, command_reports) =
+                        executor.execute(materialized_inputs, &action).await;
 
-                        let allow_omit_details = execute_result.is_ok();
+                    let allow_omit_details = execute_result.is_ok();
 
-                        let commands = future::join_all(
-                            command_reports
+                    let commands = future::join_all(
+                        command_reports
+                            .iter()
+                            .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
+                    )
+                    .await;
+
+                    let action_result;
+                    let execution_kind;
+                    let wall_time;
+                    let error;
+                    let output_size;
+
+                    match execute_result {
+                        Ok((outputs, meta)) => {
+                            if let Some(signals) = build_signals {
+                                signals.signal(ActionExecutionSignal {
+                                    action: action.dupe(),
+                                    duration: meta.timing.wall_time,
+                                });
+                            }
+
+                            output_size = outputs.calc_output_bytes();
+                            action_result = Ok(outputs);
+                            execution_kind = Some(meta.execution_kind.as_enum());
+                            wall_time = Some(meta.timing.wall_time);
+                            error = None;
+                        }
+                        Err(e) => {
+                            // Because we already are sending the error message in the
+                            // ActionExecutionEnd event, we slim the error down in the result.
+                            // We can then unconditionally print the error message for compute(),
+                            // including ones near the beginning of this method, and also not
+                            // duplicate any error messages.
+                            action_result = Err(anyhow::anyhow!(
+                                "Failed to build artifact(s) for '{}'",
+                                action.owner()
+                            )
+                            .into());
+                            // TODO (torozco): Remove (see protobuf file)?
+                            execution_kind = command_reports
+                                .last()
+                                .and_then(|r| r.status.execution_kind())
+                                .map(|e| e.as_enum());
+                            wall_time = None;
+                            error = Some(error_to_proto(&e));
+                            output_size = 0;
+                        }
+                    };
+
+                    let outputs = action_result
+                        .as_ref()
+                        .map(|outputs| {
+                            outputs
                                 .iter()
-                                .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
-                        )
-                        .await;
-
-                        let action_result;
-                        let execution_kind;
-                        let wall_time;
-                        let error;
-                        let output_size;
-
-                        match execute_result {
-                            Ok((outputs, meta)) => {
-                                if let Some(signals) = build_signals {
-                                    signals.signal(ActionExecutionSignal {
-                                        action: action.dupe(),
-                                        duration: meta.timing.wall_time,
-                                    });
-                                }
-
-                                output_size = outputs.calc_output_bytes();
-                                action_result = Ok(outputs);
-                                execution_kind = Some(meta.execution_kind.as_enum());
-                                wall_time = Some(meta.timing.wall_time);
-                                error = None;
-                            }
-                            Err(e) => {
-                                // Because we already are sending the error message in the
-                                // ActionExecutionEnd event, we slim the error down in the result.
-                                // We can then unconditionally print the error message for compute(),
-                                // including ones near the beginning of this method, and also not
-                                // duplicate any error messages.
-                                action_result = Err(anyhow::anyhow!(
-                                    "Failed to build artifact(s) for '{}'",
-                                    action.owner()
-                                )
-                                .into());
-                                // TODO (torozco): Remove (see protobuf file)?
-                                execution_kind = command_reports
-                                    .last()
-                                    .and_then(|r| r.status.execution_kind())
-                                    .map(|e| e.as_enum());
-                                wall_time = None;
-                                error = Some(error_to_proto(&e));
-                                output_size = 0;
-                            }
-                        };
-
-                        let outputs = action_result
-                            .as_ref()
-                            .map(|outputs| {
-                                outputs
-                                    .iter()
-                                    .filter_map(|(_artifact, value)| {
-                                        Some(buck2_data::ActionOutput {
-                                            tiny_digest: value.digest()?.tiny_digest().to_string(),
-                                        })
+                                .filter_map(|(_artifact, value)| {
+                                    Some(buck2_data::ActionOutput {
+                                        tiny_digest: value.digest()?.tiny_digest().to_string(),
                                     })
-                                    .collect()
-                            })
-                            .unwrap_or_default();
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
 
-                        (
-                            action_result,
-                            buck2_data::ActionExecutionEnd {
-                                key: Some(action.key().as_proto()),
-                                kind: action.kind().into(),
-                                name: Some(buck2_data::ActionName {
-                                    category: action.category().as_str().to_owned(),
-                                    identifier: action.identifier().unwrap_or("").to_owned(),
-                                }),
-                                failed: error.is_some(),
-                                error,
-                                always_print_stderr: action.always_print_stderr(),
-                                wall_time: wall_time.map(Into::into),
-                                execution_kind: execution_kind
-                                    .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
-                                    as i32,
-                                output_size,
-                                commands,
-                                outputs,
-                            },
-                        )
-                    })
-                    .await
+                    (
+                        action_result,
+                        buck2_data::ActionExecutionEnd {
+                            key: Some(action.key().as_proto()),
+                            kind: action.kind().into(),
+                            name: Some(buck2_data::ActionName {
+                                category: action.category().as_str().to_owned(),
+                                identifier: action.identifier().unwrap_or("").to_owned(),
+                            }),
+                            failed: error.is_some(),
+                            error,
+                            always_print_stderr: action.always_print_stderr(),
+                            wall_time: wall_time.map(Into::into),
+                            execution_kind: execution_kind
+                                .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
+                                as i32,
+                            output_size,
+                            commands,
+                            outputs,
+                        },
+                    )
+                })
+                .await
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -425,6 +423,7 @@ mod tests {
     use dice::testing::DiceBuilder;
     use dice::DiceTransaction;
     use dice::UserComputationData;
+    use events::dispatch::with_dispatcher_async;
     use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
     use indexmap::indexset;
@@ -464,6 +463,7 @@ mod tests {
     use crate::execute::commands::PreparedCommandExecutor;
     use crate::execute::materializer::nodisk::NoDiskMaterializer;
     use crate::execute::materializer::SetMaterializer;
+    use crate::spawner::BuckSpawner;
 
     fn create_test_build_artifact(
         package_cell: &str,
@@ -560,6 +560,7 @@ mod tests {
         extra.set_materializer(Arc::new(NoDiskMaterializer));
         extra.data.set(EventDispatcher::null());
         extra.data.set(RunActionKnobs::default());
+        extra.spawner = Arc::new(BuckSpawner::default());
 
         let computations = dice_builder.build(extra)?;
         computations.set_buck_out_path(Some(output_path))?;
@@ -592,7 +593,11 @@ mod tests {
         );
         let dice_computations = dice_builder.build(UserComputationData::new())?;
 
-        let result = dice_computations.get_action(build_artifact.key()).await;
+        let result = with_dispatcher_async(
+            EventDispatcher::null(),
+            dice_computations.get_action(build_artifact.key()),
+        )
+        .await;
         assert_eq!(result?, registered_action);
         Ok(())
     }
@@ -670,7 +675,11 @@ mod tests {
             }]
         })?;
 
-        let result = dice_computations.build_artifact(&build_artifact).await;
+        let result = with_dispatcher_async(
+            EventDispatcher::null(),
+            dice_computations.build_artifact(&build_artifact),
+        )
+        .await;
 
         assert!(result.is_ok());
 
@@ -711,9 +720,12 @@ mod tests {
             }]
         })?;
 
-        let result = dice_computations
-            .ensure_artifact_group(&ArtifactGroup::Artifact(build_artifact.dupe().into()))
-            .await;
+        let result = with_dispatcher_async(
+            EventDispatcher::null(),
+            dice_computations
+                .ensure_artifact_group(&ArtifactGroup::Artifact(build_artifact.dupe().into())),
+        )
+        .await;
 
         assert!(result.is_ok());
 
@@ -754,12 +766,14 @@ mod tests {
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());
-        let result = dice_computations
-            .ensure_artifact_group(&input)
-            .await?
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let result = with_dispatcher_async(
+            EventDispatcher::null(),
+            dice_computations.ensure_artifact_group(&input),
+        )
+        .await?
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
 
         assert_eq!(
             &result,
@@ -798,12 +812,14 @@ mod tests {
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());
-        let result = dice_computations
-            .ensure_artifact_group(&input)
-            .await?
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let result = with_dispatcher_async(
+            EventDispatcher::null(),
+            dice_computations.ensure_artifact_group(&input),
+        )
+        .await?
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
 
         assert_eq!(
             &result,
