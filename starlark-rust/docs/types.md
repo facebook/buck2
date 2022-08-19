@@ -45,7 +45,7 @@ In addition to these built-in types, we provide records and enumerations as spec
 
 ## Record types
 
-We provides a `record` type, representing a set of named values, each with their own type. For example:
+We provide a `record` type, representing a set of named values, each with their own type. For example:
 
 ```python
 MyRecord = record(host=str.type, port=int.type)
