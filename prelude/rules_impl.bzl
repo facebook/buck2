@@ -474,6 +474,7 @@ extra_attributes = struct(
         "framework": attrs.bool(default = True),
         "incremental_build_mode": attrs.option(attrs.string()),
         "incremental_enabled": attrs.bool(default = False),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),

@@ -16,6 +16,10 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load(
+    "@fbcode//buck2/prelude/tests:re_utils.bzl",
+    "get_re_executor_from_props",
+)
 load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
@@ -201,6 +205,9 @@ def rust_test_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type, External
 
     providers, args = _rust_binary_common(ctx, ["main.rs", "lib.rs"], extra_flags)
 
+    # Setup a RE executor based on the `remote_execution` param.
+    re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)
+
     return providers + [
         ExternalRunnerTestInfo(
             type = "rust",
@@ -208,5 +215,10 @@ def rust_test_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type, External
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
+            default_executor = re_executor,
+            # We implicitly make this test via the project root, instead of
+            # the cell root (e.g. fbcode root).
+            run_from_project_root = re_executor != None,
+            use_project_relative_paths = re_executor != None,
         ),
     ]
