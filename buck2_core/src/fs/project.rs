@@ -562,6 +562,10 @@ impl ProjectRelativePath {
         ProjectRelativePath::ref_cast(ForwardRelativePath::unchecked_new(s))
     }
 
+    pub fn empty() -> &'static Self {
+        ProjectRelativePath::unchecked_new("")
+    }
+
     /// Creates an 'ProjectRelativePath' if the given string represents a
     /// forward, normalized relative path, otherwise error.
     ///

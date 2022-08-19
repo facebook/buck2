@@ -880,7 +880,7 @@ fn create_prepare_for_local_execution_result(
 ) -> PrepareForLocalExecutionResult {
     let relative_cwd = request
         .working_directory()
-        .unwrap_or_else(|| ProjectRelativePath::unchecked_new(""));
+        .unwrap_or_else(|| ProjectRelativePath::empty());
     let cwd = fs.fs().resolve(relative_cwd);
     let cmd = request.args().map(String::from);
 

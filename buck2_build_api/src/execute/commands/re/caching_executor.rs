@@ -83,7 +83,7 @@ impl CachingExecutor {
                 .upload(
                     &self.materializer,
                     action_blobs,
-                    ProjectRelativePath::unchecked_new(""),
+                    ProjectRelativePath::empty(),
                     &action_paths.inputs,
                     &self.re_use_case,
                     &self.knobs,

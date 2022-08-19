@@ -110,7 +110,7 @@ impl Materializer for EdenMaterializer {
             .upload(
                 &self.delegator,
                 &ActionBlobs::new(),
-                ProjectRelativePath::unchecked_new(""),
+                ProjectRelativePath::empty(),
                 &input_dir,
                 &Default::default(),
                 &ReExecutorGlobalKnobs {
