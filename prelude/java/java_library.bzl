@@ -129,13 +129,14 @@ def _process_plugins(
 def _build_classpath(actions: "actions", deps: ["dependency"], additional_classpath_entries: ["artifact"], classpath_args_projection: "string") -> ["cmd_args", None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
-    compiling_classpath = None
     if additional_classpath_entries or compiling_deps_tset:
-        compiling_classpath = classpath_args(additional_classpath_entries)
+        args = cmd_args()
         if compiling_deps_tset:
-            compiling_classpath = classpath_args([compiling_deps_tset.project_as_args(classpath_args_projection), compiling_classpath])
+            args.add(compiling_deps_tset.project_as_args(classpath_args_projection))
+        args.add(additional_classpath_entries)
+        return args
 
-    return compiling_classpath
+    return None
 
 def _build_bootclasspath(bootclasspath_entries: ["artifact"], source_level: int.type, java_toolchain: "JavaToolchainInfo") -> ["artifact"]:
     bootclasspath_list = []
@@ -180,7 +181,7 @@ def _append_javac_params(
     if compiling_classpath:
         _process_classpath(
             actions,
-            compiling_classpath,
+            classpath_args(compiling_classpath),
             cmd,
             "{}classpath_args".format(actions_prefix),
             "--javac_classpath_file",
@@ -523,6 +524,7 @@ def build_java_library(
     javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
 
     outputs = None
+    common_compile_kwargs = None
     sub_targets = {}
     if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
         abi_generation_mode = {
@@ -559,34 +561,39 @@ def build_java_library(
             **common_compile_kwargs
         )
 
-        java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
-        if not java_toolchain.is_bootstrap_toolchain:
-            ast_dumper = java_toolchain.ast_dumper
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    if common_compile_kwargs and not java_toolchain.is_bootstrap_toolchain:
+        ast_dumper = java_toolchain.ast_dumper
 
-            # Replace whatever compiler plugins are present with the AST dumper instead
-            ast_output = ctx.actions.declare_output("ast_json")
-            ast_output_arg = cmd_args(ast_output.as_output())
-            ast_dumping_plugin_params = create_plugin_params([ast_dumper])
-            ast_dumper_args_file = ctx.actions.write("dump_ast_args", ast_output_arg)
-            ast_dumping_plugin_params = PluginParams(
-                processors = ast_dumping_plugin_params.processors,
-                deps = ast_dumping_plugin_params.deps,
-                args = {
-                    "DumpAstPlugin": cmd_args(ast_dumper_args_file).hidden(ast_output_arg),
-                },
-            )
+        # Replace whatever compiler plugins are present with the AST dumper instead
+        ast_output = ctx.actions.declare_output("ast_json")
+        dump_ast_args = cmd_args(ast_output.as_output(), "--target-label", '"{}"'.format(ctx.label))
+        for dep in _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain):
+            dump_ast_args.add("--dependency", '"{}"'.format(dep.owner), dep)
+        classpath_args = _build_classpath(ctx.actions, first_order_deps, additional_classpath_entries, "args_for_ast_dumper")
+        if classpath_args:
+            dump_ast_args.add(classpath_args)
+        ast_dumping_plugin_params = create_plugin_params([ast_dumper])
+        ast_dumper_args_file = ctx.actions.write("dump_ast_args", dump_ast_args)
+        ast_dumping_plugin_params = PluginParams(
+            processors = ast_dumping_plugin_params.processors,
+            deps = ast_dumping_plugin_params.deps,
+            args = {
+                "DumpAstPlugin": cmd_args(ast_dumper_args_file).hidden(dump_ast_args),
+            },
+        )
 
-            # We don't actually care about the jar output this time; we just want the AST from the
-            # plugin
-            compile_to_jar(
-                ctx,
-                actions_prefix = "ast",
-                plugin_params = ast_dumping_plugin_params,
-                javac_tool = java_toolchain.fallback_javac,
-                **common_compile_kwargs
-            )
+        # We don't actually care about the jar output this time; we just want the AST from the
+        # plugin
+        compile_to_jar(
+            ctx,
+            actions_prefix = "ast",
+            plugin_params = ast_dumping_plugin_params,
+            javac_tool = java_toolchain.fallback_javac,
+            **common_compile_kwargs
+        )
 
-            sub_targets["ast"] = [DefaultInfo(default_outputs = [ast_output])]
+        sub_targets["ast"] = [DefaultInfo(default_outputs = [ast_output])]
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
         ctx,

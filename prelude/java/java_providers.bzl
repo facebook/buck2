@@ -82,11 +82,17 @@ JavaClasspathEntry = record(
     required_for_source_only_abi = field(bool.type),
 )
 
+def _args_for_ast_dumper(args: "cmd_args", entry: JavaClasspathEntry.type):
+    args.add("--dependency")
+    args.add('"{}"'.format(entry.abi.owner))
+    args.add(entry.abi)
+
 def _args_for_compiling(args: "cmd_args", entry: JavaClasspathEntry.type):
     args.add(entry.abi)
 
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
+        "args_for_ast_dumper": _args_for_ast_dumper,
         "args_for_compiling": _args_for_compiling,
     },
 )
