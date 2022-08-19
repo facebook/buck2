@@ -1,6 +1,13 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude:resources.bzl", "gather_resources")
+load("@fbcode//buck2/prelude/cxx:compile.bzl", "CxxSrcWithFlags")
+load("@fbcode//buck2/prelude/cxx:cxx_executable.bzl", "cxx_executable")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load(
+    "@fbcode//buck2/prelude/cxx:cxx_types.bzl",
+    "CxxRuleConstructorParams",
+)
+load("@fbcode//buck2/prelude/cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load(
     "@fbcode//buck2/prelude/cxx:omnibus.bzl",
     "add_omnibus_exclusions",
@@ -24,6 +31,7 @@ load(
 load(":make_pex.bzl", "PexModules", "make_pex")
 load(
     ":manifest.bzl",
+    "create_manifest_for_entries",
     "create_manifest_for_extensions",
     "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
@@ -171,6 +179,7 @@ def convert_python_library_to_executable(
     }
 
     extensions = {}
+    extra_manifests = None
     for manifest in library.iter_manifests():
         if manifest.extensions:
             _merge_extensions(extensions, manifest.label, manifest.extensions)
@@ -202,12 +211,46 @@ def convert_python_library_to_executable(
             for dest, (_, label) in extensions.items()
         }
         native_libs = omnibus_libs.libraries
+    elif _link_strategy(ctx) == NativeLinkStrategy("native"):
+        expect(package_style == PackageStyle("standalone"), "native_link_strategy=native is only supported for standalone builds")
+        cxx_executable_srcs = [CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = [])]
+        impl_params = CxxRuleConstructorParams(
+            rule_type = "python_binary",
+            headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
+            srcs = cxx_executable_srcs,
+            extra_link_flags = ["-Wl,--allow-multiple-definition,--enable-huge-text,--strip-all"],
+        )
+        updated_extensions = []
+
+        executable_info, _, _ = cxx_executable(ctx, impl_params)
+
+        # Pretend the new exe is an extension so it get's packaged in the par
+        updated_extensions.append(("runtime/bin/{}".format(ctx.attrs.executable_name), executable_info.binary, str(ctx.label)))
+
+        # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
+        # Replace extensions with stubs
+        for dest, (_, label) in extensions.items():
+            # TODO (T129254399) can we avoid this?
+            # currently we need the package to exist in order to import an extension from inside of it.
+            lines = [
+                "# auto generated stub\n",
+            ]
+
+            # don't write stubs for top level modules
+            if "/" in dest:
+                updated_extensions.append((dest + ".empty_stub", ctx.actions.write(dest + ".empty_stub", lines), str(label)))
+
+        # We still need native_libs that are direct dependencies of python_wheels
+        native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
+        extra_manifests = create_manifest_for_entries(ctx, "extension_stubs", updated_extensions)
+        extensions = {}
     else:
         native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
 
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
         manifests = library.manifests(),
+        extra_manifests = extra_manifests,
         compile = compile,
         extensions = create_manifest_for_extensions(
             ctx,

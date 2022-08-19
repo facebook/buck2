@@ -19,6 +19,7 @@ load(":toolchain.bzl", "PackageStyle")
 PexModules = record(
     manifests = field(PythonLibraryManifestsInterface.type),
     extensions = field([ManifestInfo.type, None], None),
+    extra_manifests = field([ManifestInfo.type, None], None),
     compile = field(bool.type, False),
 )
 
@@ -160,6 +161,10 @@ def _pex_modules_args(
     if pex_modules.compile:
         srcs.extend(pex_modules.manifests.bytecode_manifests())
         src_artifacts.extend(pex_modules.manifests.bytecode_artifacts())
+
+    if pex_modules.extra_manifests:
+        srcs.append(pex_modules.extra_manifests.manifest)
+        src_artifacts.extend(pex_modules.extra_manifests.artifacts)
 
     resources = pex_modules.manifests.resource_manifests()
     resource_artifacts = pex_modules.manifests.resource_artifacts()
