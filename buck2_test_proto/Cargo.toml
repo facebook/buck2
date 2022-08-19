@@ -1,5 +1,5 @@
 [package]
-name = "test_proto"
+name = "buck2_test_proto"
 
 edition = "2021"
 version = "0.1.0"

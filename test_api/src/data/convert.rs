@@ -28,12 +28,12 @@ use crate::data::TestStatus;
 use crate::protocol::convert::host_sharing_requirements_from_grpc;
 use crate::protocol::convert::host_sharing_requirements_to_grpc;
 
-impl TryFrom<test_proto::DisplayMetadata> for DisplayMetadata {
+impl TryFrom<buck2_test_proto::DisplayMetadata> for DisplayMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::DisplayMetadata) -> Result<Self, Self::Error> {
-        use test_proto::display_metadata::*;
-        use test_proto::Testing;
+    fn try_from(s: buck2_test_proto::DisplayMetadata) -> Result<Self, Self::Error> {
+        use buck2_test_proto::display_metadata::*;
+        use buck2_test_proto::Testing;
 
         let res = match s.item.context("Missing `item`")? {
             Item::Listing(Listing { suite }) => Self::Listing(suite),
@@ -44,27 +44,27 @@ impl TryFrom<test_proto::DisplayMetadata> for DisplayMetadata {
     }
 }
 
-impl TryInto<test_proto::DisplayMetadata> for DisplayMetadata {
+impl TryInto<buck2_test_proto::DisplayMetadata> for DisplayMetadata {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::DisplayMetadata, Self::Error> {
-        use test_proto::display_metadata::*;
-        use test_proto::Testing;
+    fn try_into(self) -> Result<buck2_test_proto::DisplayMetadata, Self::Error> {
+        use buck2_test_proto::display_metadata::*;
+        use buck2_test_proto::Testing;
 
         let item = match self {
             Self::Listing(suite) => Item::Listing(Listing { suite }),
             Self::Testing { suite, testcases } => Item::Testing(Testing { suite, testcases }),
         };
 
-        Ok(test_proto::DisplayMetadata { item: Some(item) })
+        Ok(buck2_test_proto::DisplayMetadata { item: Some(item) })
     }
 }
 
-impl TryFrom<test_proto::ExecutionStream> for ExecutionStream {
+impl TryFrom<buck2_test_proto::ExecutionStream> for ExecutionStream {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ExecutionStream) -> Result<Self, Self::Error> {
-        use test_proto::execution_stream::*;
+    fn try_from(s: buck2_test_proto::ExecutionStream) -> Result<Self, Self::Error> {
+        use buck2_test_proto::execution_stream::*;
 
         Ok(match s.item.context("Missing `item`")? {
             Item::Inline(bytes) => Self::Inline(bytes),
@@ -72,25 +72,25 @@ impl TryFrom<test_proto::ExecutionStream> for ExecutionStream {
     }
 }
 
-impl TryInto<test_proto::ExecutionStream> for ExecutionStream {
+impl TryInto<buck2_test_proto::ExecutionStream> for ExecutionStream {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ExecutionStream, Self::Error> {
-        use test_proto::execution_stream::*;
+    fn try_into(self) -> Result<buck2_test_proto::ExecutionStream, Self::Error> {
+        use buck2_test_proto::execution_stream::*;
 
         let item = match self {
             Self::Inline(bytes) => Item::Inline(bytes),
         };
 
-        Ok(test_proto::ExecutionStream { item: Some(item) })
+        Ok(buck2_test_proto::ExecutionStream { item: Some(item) })
     }
 }
 
-impl TryFrom<test_proto::ExecutionStatus> for ExecutionStatus {
+impl TryFrom<buck2_test_proto::ExecutionStatus> for ExecutionStatus {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ExecutionStatus) -> Result<Self, Self::Error> {
-        use test_proto::execution_status::*;
+    fn try_from(s: buck2_test_proto::ExecutionStatus) -> Result<Self, Self::Error> {
+        use buck2_test_proto::execution_status::*;
 
         Ok(match s.status.context("Missing `status`")? {
             Status::Finished(exitcode) => Self::Finished { exitcode },
@@ -101,47 +101,47 @@ impl TryFrom<test_proto::ExecutionStatus> for ExecutionStatus {
     }
 }
 
-impl TryInto<test_proto::ExecutionStatus> for ExecutionStatus {
+impl TryInto<buck2_test_proto::ExecutionStatus> for ExecutionStatus {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ExecutionStatus, Self::Error> {
-        use test_proto::execution_status::*;
+    fn try_into(self) -> Result<buck2_test_proto::ExecutionStatus, Self::Error> {
+        use buck2_test_proto::execution_status::*;
 
         let status = match self {
             Self::Finished { exitcode } => Status::Finished(exitcode),
             Self::TimedOut { duration } => Status::TimedOut(duration.into()),
         };
 
-        Ok(test_proto::ExecutionStatus {
+        Ok(buck2_test_proto::ExecutionStatus {
             status: Some(status),
         })
     }
 }
 
-impl TryFrom<test_proto::ConfiguredTargetHandle> for ConfiguredTargetHandle {
+impl TryFrom<buck2_test_proto::ConfiguredTargetHandle> for ConfiguredTargetHandle {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ConfiguredTargetHandle) -> Result<Self, Self::Error> {
+    fn try_from(s: buck2_test_proto::ConfiguredTargetHandle) -> Result<Self, Self::Error> {
         let handle = s.id.try_into().context("Invalid `id`")?;
         Ok(Self(handle))
     }
 }
 
-impl TryInto<test_proto::ConfiguredTargetHandle> for ConfiguredTargetHandle {
+impl TryInto<buck2_test_proto::ConfiguredTargetHandle> for ConfiguredTargetHandle {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ConfiguredTargetHandle, Self::Error> {
-        Ok(test_proto::ConfiguredTargetHandle {
+    fn try_into(self) -> Result<buck2_test_proto::ConfiguredTargetHandle, Self::Error> {
+        Ok(buck2_test_proto::ConfiguredTargetHandle {
             id: self.0.try_into().context("Invalid `handle`")?,
         })
     }
 }
 
-impl TryFrom<test_proto::ConfiguredTarget> for ConfiguredTarget {
+impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ConfiguredTarget) -> Result<Self, Self::Error> {
-        let test_proto::ConfiguredTarget {
+    fn try_from(s: buck2_test_proto::ConfiguredTarget) -> Result<Self, Self::Error> {
+        let buck2_test_proto::ConfiguredTarget {
             handle,
             name,
             cell,
@@ -168,11 +168,11 @@ impl TryFrom<test_proto::ConfiguredTarget> for ConfiguredTarget {
     }
 }
 
-impl TryInto<test_proto::ConfiguredTarget> for ConfiguredTarget {
+impl TryInto<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ConfiguredTarget, Self::Error> {
-        Ok(test_proto::ConfiguredTarget {
+    fn try_into(self) -> Result<buck2_test_proto::ConfiguredTarget, Self::Error> {
+        Ok(buck2_test_proto::ConfiguredTarget {
             handle: Some(self.handle.try_into().context("Invalid `handle`")?),
             name: self.name,
             cell: self.cell,
@@ -188,20 +188,22 @@ impl TryFrom<i32> for TestStatus {
     type Error = anyhow::Error;
 
     fn try_from(s: i32) -> Result<Self, Self::Error> {
-        let s = test_proto::TestStatus::from_i32(s).context("Invalid `status`")?;
+        let s = buck2_test_proto::TestStatus::from_i32(s).context("Invalid `status`")?;
 
         Ok(match s {
-            test_proto::TestStatus::NotSet => return Err(anyhow::Error::msg("Missing `status`")),
-            test_proto::TestStatus::Pass => TestStatus::PASS,
-            test_proto::TestStatus::Fail => TestStatus::FAIL,
-            test_proto::TestStatus::Skip => TestStatus::SKIP,
-            test_proto::TestStatus::Omitted => TestStatus::OMITTED,
-            test_proto::TestStatus::Fatal => TestStatus::FATAL,
-            test_proto::TestStatus::Timeout => TestStatus::TIMEOUT,
-            test_proto::TestStatus::Unknown => TestStatus::UNKNOWN,
-            test_proto::TestStatus::Rerun => TestStatus::RERUN,
-            test_proto::TestStatus::ListingSuccess => TestStatus::LISTING_SUCCESS,
-            test_proto::TestStatus::ListingFailed => TestStatus::LISTING_FAILED,
+            buck2_test_proto::TestStatus::NotSet => {
+                return Err(anyhow::Error::msg("Missing `status`"));
+            }
+            buck2_test_proto::TestStatus::Pass => TestStatus::PASS,
+            buck2_test_proto::TestStatus::Fail => TestStatus::FAIL,
+            buck2_test_proto::TestStatus::Skip => TestStatus::SKIP,
+            buck2_test_proto::TestStatus::Omitted => TestStatus::OMITTED,
+            buck2_test_proto::TestStatus::Fatal => TestStatus::FATAL,
+            buck2_test_proto::TestStatus::Timeout => TestStatus::TIMEOUT,
+            buck2_test_proto::TestStatus::Unknown => TestStatus::UNKNOWN,
+            buck2_test_proto::TestStatus::Rerun => TestStatus::RERUN,
+            buck2_test_proto::TestStatus::ListingSuccess => TestStatus::LISTING_SUCCESS,
+            buck2_test_proto::TestStatus::ListingFailed => TestStatus::LISTING_FAILED,
         })
     }
 }
@@ -211,25 +213,25 @@ impl TryInto<i32> for TestStatus {
 
     fn try_into(self) -> Result<i32, Self::Error> {
         Ok(match self {
-            TestStatus::PASS => test_proto::TestStatus::Pass,
-            TestStatus::FAIL => test_proto::TestStatus::Fail,
-            TestStatus::SKIP => test_proto::TestStatus::Skip,
-            TestStatus::OMITTED => test_proto::TestStatus::Omitted,
-            TestStatus::FATAL => test_proto::TestStatus::Fatal,
-            TestStatus::TIMEOUT => test_proto::TestStatus::Timeout,
-            TestStatus::UNKNOWN => test_proto::TestStatus::Unknown,
-            TestStatus::RERUN => test_proto::TestStatus::Rerun,
-            TestStatus::LISTING_SUCCESS => test_proto::TestStatus::ListingSuccess,
-            TestStatus::LISTING_FAILED => test_proto::TestStatus::ListingFailed,
+            TestStatus::PASS => buck2_test_proto::TestStatus::Pass,
+            TestStatus::FAIL => buck2_test_proto::TestStatus::Fail,
+            TestStatus::SKIP => buck2_test_proto::TestStatus::Skip,
+            TestStatus::OMITTED => buck2_test_proto::TestStatus::Omitted,
+            TestStatus::FATAL => buck2_test_proto::TestStatus::Fatal,
+            TestStatus::TIMEOUT => buck2_test_proto::TestStatus::Timeout,
+            TestStatus::UNKNOWN => buck2_test_proto::TestStatus::Unknown,
+            TestStatus::RERUN => buck2_test_proto::TestStatus::Rerun,
+            TestStatus::LISTING_SUCCESS => buck2_test_proto::TestStatus::ListingSuccess,
+            TestStatus::LISTING_FAILED => buck2_test_proto::TestStatus::ListingFailed,
         } as i32)
     }
 }
 
-impl TryFrom<test_proto::TestResult> for TestResult {
+impl TryFrom<buck2_test_proto::TestResult> for TestResult {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::TestResult) -> Result<Self, Self::Error> {
-        let test_proto::TestResult {
+    fn try_from(s: buck2_test_proto::TestResult) -> Result<Self, Self::Error> {
+        let buck2_test_proto::TestResult {
             target,
             name,
             status,
@@ -257,13 +259,13 @@ impl TryFrom<test_proto::TestResult> for TestResult {
     }
 }
 
-impl TryInto<test_proto::TestResult> for TestResult {
+impl TryInto<buck2_test_proto::TestResult> for TestResult {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::TestResult, Self::Error> {
-        use test_proto::test_result::*;
+    fn try_into(self) -> Result<buck2_test_proto::TestResult, Self::Error> {
+        use buck2_test_proto::test_result::*;
 
-        Ok(test_proto::TestResult {
+        Ok(buck2_test_proto::TestResult {
             target: Some(self.target.try_into().context("Invalid `target`")?),
             name: self.name,
             status: self.status.try_into().context("Invalid `status`")?,
@@ -274,11 +276,11 @@ impl TryInto<test_proto::TestResult> for TestResult {
     }
 }
 
-impl TryFrom<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
+impl TryFrom<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ExternalRunnerSpec) -> Result<Self, Self::Error> {
-        let test_proto::ExternalRunnerSpec {
+    fn try_from(s: buck2_test_proto::ExternalRunnerSpec) -> Result<Self, Self::Error> {
+        let buck2_test_proto::ExternalRunnerSpec {
             target,
             test_type,
             command,
@@ -308,10 +310,10 @@ impl TryFrom<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
     }
 }
 
-impl TryInto<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
+impl TryInto<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ExternalRunnerSpec, Self::Error> {
+    fn try_into(self) -> Result<buck2_test_proto::ExternalRunnerSpec, Self::Error> {
         let ExternalRunnerSpec {
             target,
             test_type,
@@ -321,7 +323,7 @@ impl TryInto<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             contacts,
             oncall,
         } = self;
-        Ok(test_proto::ExternalRunnerSpec {
+        Ok(buck2_test_proto::ExternalRunnerSpec {
             target: Some(target.try_into().context("Invalid `target`")?),
             test_type,
             command: command
@@ -338,11 +340,11 @@ impl TryInto<test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
     }
 }
 
-impl TryFrom<test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecValue {
+impl TryFrom<buck2_test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecValue {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ExternalRunnerSpecValue) -> Result<Self, Self::Error> {
-        use test_proto::external_runner_spec_value::*;
+    fn try_from(s: buck2_test_proto::ExternalRunnerSpecValue) -> Result<Self, Self::Error> {
+        use buck2_test_proto::external_runner_spec_value::*;
         Ok(match s.value.context("Missing `value`")? {
             Value::Verbatim(val) => ExternalRunnerSpecValue::Verbatim(val),
             Value::ArgHandle(val) => {
@@ -353,11 +355,11 @@ impl TryFrom<test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecValue {
     }
 }
 
-impl TryInto<test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecValue {
+impl TryInto<buck2_test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecValue {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ExternalRunnerSpecValue, Self::Error> {
-        use test_proto::external_runner_spec_value::*;
+    fn try_into(self) -> Result<buck2_test_proto::ExternalRunnerSpecValue, Self::Error> {
+        use buck2_test_proto::external_runner_spec_value::*;
 
         let value = match self {
             Self::Verbatim(val) => Value::Verbatim(val),
@@ -367,11 +369,11 @@ impl TryInto<test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecValue {
             Self::EnvHandle(EnvHandle(val)) => Value::EnvHandle(val),
         };
 
-        Ok(test_proto::ExternalRunnerSpecValue { value: Some(value) })
+        Ok(buck2_test_proto::ExternalRunnerSpecValue { value: Some(value) })
     }
 }
 
-impl From<DeclaredOutput> for test_proto::DeclaredOutput {
+impl From<DeclaredOutput> for buck2_test_proto::DeclaredOutput {
     fn from(o: DeclaredOutput) -> Self {
         Self {
             name: o.name.as_str().to_owned(),
@@ -379,16 +381,16 @@ impl From<DeclaredOutput> for test_proto::DeclaredOutput {
     }
 }
 
-impl TryFrom<test_proto::DeclaredOutput> for DeclaredOutput {
+impl TryFrom<buck2_test_proto::DeclaredOutput> for DeclaredOutput {
     type Error = anyhow::Error;
 
-    fn try_from(o: test_proto::DeclaredOutput) -> Result<Self, Self::Error> {
+    fn try_from(o: buck2_test_proto::DeclaredOutput) -> Result<Self, Self::Error> {
         let name = ForwardRelativePathBuf::try_from(o.name)?;
         Ok(Self { name })
     }
 }
 
-impl From<ExecutorConfigOverride> for test_proto::ExecutorConfigOverride {
+impl From<ExecutorConfigOverride> for buck2_test_proto::ExecutorConfigOverride {
     fn from(o: ExecutorConfigOverride) -> Self {
         Self {
             name: o.name.as_str().to_owned(),
@@ -396,27 +398,29 @@ impl From<ExecutorConfigOverride> for test_proto::ExecutorConfigOverride {
     }
 }
 
-impl From<test_proto::ExecutorConfigOverride> for ExecutorConfigOverride {
-    fn from(o: test_proto::ExecutorConfigOverride) -> Self {
+impl From<buck2_test_proto::ExecutorConfigOverride> for ExecutorConfigOverride {
+    fn from(o: buck2_test_proto::ExecutorConfigOverride) -> Self {
         Self { name: o.name }
     }
 }
 
-impl TryInto<test_proto::ArgValue> for ArgValue {
+impl TryInto<buck2_test_proto::ArgValue> for ArgValue {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ArgValue, Self::Error> {
-        Ok(test_proto::ArgValue {
+    fn try_into(self) -> Result<buck2_test_proto::ArgValue, Self::Error> {
+        Ok(buck2_test_proto::ArgValue {
             content: Some(self.content.try_into().context("Invalid `content`")?),
-            format: self.format.map(|f| test_proto::ArgFormat { format: f }),
+            format: self
+                .format
+                .map(|f| buck2_test_proto::ArgFormat { format: f }),
         })
     }
 }
 
-impl TryFrom<test_proto::ArgValue> for ArgValue {
+impl TryFrom<buck2_test_proto::ArgValue> for ArgValue {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ArgValue) -> Result<Self, Self::Error> {
+    fn try_from(s: buck2_test_proto::ArgValue) -> Result<Self, Self::Error> {
         let content = s
             .content
             .context("Missing `content`")?
@@ -428,11 +432,11 @@ impl TryFrom<test_proto::ArgValue> for ArgValue {
     }
 }
 
-impl TryInto<test_proto::ArgValueContent> for ArgValueContent {
+impl TryInto<buck2_test_proto::ArgValueContent> for ArgValueContent {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ArgValueContent, Self::Error> {
-        use test_proto::arg_value_content::*;
+    fn try_into(self) -> Result<buck2_test_proto::ArgValueContent, Self::Error> {
+        use buck2_test_proto::arg_value_content::*;
 
         let value = match self {
             Self::ExternalRunnerSpecValue(value) => Value::SpecValue(
@@ -443,15 +447,15 @@ impl TryInto<test_proto::ArgValueContent> for ArgValueContent {
             Self::DeclaredOutput(value) => Value::DeclaredOutput(value.into()),
         };
 
-        Ok(test_proto::ArgValueContent { value: Some(value) })
+        Ok(buck2_test_proto::ArgValueContent { value: Some(value) })
     }
 }
 
-impl TryFrom<test_proto::ArgValueContent> for ArgValueContent {
+impl TryFrom<buck2_test_proto::ArgValueContent> for ArgValueContent {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ArgValueContent) -> Result<Self, Self::Error> {
-        use test_proto::arg_value_content::*;
+    fn try_from(s: buck2_test_proto::ArgValueContent) -> Result<Self, Self::Error> {
+        use buck2_test_proto::arg_value_content::*;
 
         Ok(match s.value.context("Missing `value`")? {
             Value::SpecValue(value) => Self::ExternalRunnerSpecValue(
@@ -466,11 +470,11 @@ impl TryFrom<test_proto::ArgValueContent> for ArgValueContent {
     }
 }
 
-impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
+impl TryFrom<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ExecuteRequest2) -> Result<Self, Self::Error> {
-        let test_proto::ExecuteRequest2 {
+    fn try_from(s: buck2_test_proto::ExecuteRequest2) -> Result<Self, Self::Error> {
+        let buck2_test_proto::ExecuteRequest2 {
             test_executable,
             timeout,
             host_sharing_requirements,
@@ -502,17 +506,17 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
     }
 }
 
-impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
+impl TryInto<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ExecuteRequest2, Self::Error> {
+    fn try_into(self) -> Result<buck2_test_proto::ExecuteRequest2, Self::Error> {
         let test_executable = Some(
             self.test_executable
                 .try_into()
                 .context("Invalid `test_executable`")?,
         );
 
-        Ok(test_proto::ExecuteRequest2 {
+        Ok(buck2_test_proto::ExecuteRequest2 {
             test_executable,
             timeout: Some(self.timeout.into()),
             host_sharing_requirements: Some(
@@ -524,11 +528,11 @@ impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
     }
 }
 
-impl TryInto<test_proto::Output> for Output {
+impl TryInto<buck2_test_proto::Output> for Output {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::Output, Self::Error> {
-        use test_proto::output::*;
+    fn try_into(self) -> Result<buck2_test_proto::Output, Self::Error> {
+        use buck2_test_proto::output::*;
 
         let value = match self {
             Self::LocalPath(value) => {
@@ -536,15 +540,15 @@ impl TryInto<test_proto::Output> for Output {
             }
         };
 
-        Ok(test_proto::Output { value: Some(value) })
+        Ok(buck2_test_proto::Output { value: Some(value) })
     }
 }
 
-impl TryFrom<test_proto::Output> for Output {
+impl TryFrom<buck2_test_proto::Output> for Output {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::Output) -> Result<Self, Self::Error> {
-        use test_proto::output::*;
+    fn try_from(s: buck2_test_proto::Output) -> Result<Self, Self::Error> {
+        use buck2_test_proto::output::*;
 
         Ok(match s.value.context("Missing `value`")? {
             Value::LocalPath(value) => {
@@ -554,11 +558,11 @@ impl TryFrom<test_proto::Output> for Output {
     }
 }
 
-impl TryInto<test_proto::ExecutionResult2> for ExecutionResult2 {
+impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::ExecutionResult2, Self::Error> {
-        Ok(test_proto::ExecutionResult2 {
+    fn try_into(self) -> Result<buck2_test_proto::ExecutionResult2, Self::Error> {
+        Ok(buck2_test_proto::ExecutionResult2 {
             status: Some(self.status.try_into().context("Invalid `status`")?),
             stdout: Some(self.stdout.try_into().context("Invalid `stdout`")?),
             stderr: Some(self.stderr.try_into().context("Invalid `stderr`")?),
@@ -566,7 +570,7 @@ impl TryInto<test_proto::ExecutionResult2> for ExecutionResult2 {
                 .outputs
                 .into_iter()
                 .map(|(k, v)| {
-                    Ok(test_proto::OutputEntry {
+                    Ok(buck2_test_proto::OutputEntry {
                         declared_output: Some(k.try_into().context("Invalid `declared_output`")?),
                         output: Some(v.try_into().context("Invalid `output`")?),
                     })
@@ -583,11 +587,11 @@ impl TryInto<test_proto::ExecutionResult2> for ExecutionResult2 {
     }
 }
 
-impl TryFrom<test_proto::ExecutionResult2> for ExecutionResult2 {
+impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::ExecutionResult2) -> Result<Self, Self::Error> {
-        let test_proto::ExecutionResult2 {
+    fn try_from(s: buck2_test_proto::ExecutionResult2) -> Result<Self, Self::Error> {
+        let buck2_test_proto::ExecutionResult2 {
             status,
             stdout,
             stderr,
@@ -611,7 +615,7 @@ impl TryFrom<test_proto::ExecutionResult2> for ExecutionResult2 {
         let outputs = outputs
             .into_iter()
             .map(|entry| {
-                let test_proto::OutputEntry {
+                let buck2_test_proto::OutputEntry {
                     declared_output,
                     output,
                 } = entry;
@@ -646,11 +650,11 @@ impl TryFrom<test_proto::ExecutionResult2> for ExecutionResult2 {
     }
 }
 
-impl TryFrom<test_proto::TestExecutable> for TestExecutable {
+impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::TestExecutable) -> Result<Self, Self::Error> {
-        let test_proto::TestExecutable {
+    fn try_from(s: buck2_test_proto::TestExecutable) -> Result<Self, Self::Error> {
+        let buck2_test_proto::TestExecutable {
             ui_prints,
             target,
             cmd,
@@ -694,10 +698,10 @@ impl TryFrom<test_proto::TestExecutable> for TestExecutable {
     }
 }
 
-impl TryInto<test_proto::TestExecutable> for TestExecutable {
+impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::TestExecutable, Self::Error> {
+    fn try_into(self) -> Result<buck2_test_proto::TestExecutable, Self::Error> {
         let ui_prints = Some(self.ui_prints.try_into().context("Invalid `ui_prints`")?);
         let target = Some(self.target.try_into().context("Invalid `target`")?);
         let cmd = self
@@ -711,7 +715,7 @@ impl TryInto<test_proto::TestExecutable> for TestExecutable {
             .map(|(k, v)| {
                 v.try_into()
                     .context("Invalid `env`")
-                    .map(|v: test_proto::ArgValue| (k, v))
+                    .map(|v: buck2_test_proto::ArgValue| (k, v))
             })
             .collect::<anyhow::Result<_>>()?;
 
@@ -720,7 +724,7 @@ impl TryInto<test_proto::TestExecutable> for TestExecutable {
             .into_try_map(|i| i.try_into())
             .context("Invalid `pre_create_dirs`")?;
 
-        Ok(test_proto::TestExecutable {
+        Ok(buck2_test_proto::TestExecutable {
             ui_prints,
             target,
             cmd,
@@ -730,13 +734,13 @@ impl TryInto<test_proto::TestExecutable> for TestExecutable {
     }
 }
 
-impl TryInto<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
+impl TryInto<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<test_proto::PrepareForLocalExecutionResult, Self::Error> {
+    fn try_into(self) -> Result<buck2_test_proto::PrepareForLocalExecutionResult, Self::Error> {
         let cwd = self.cwd.to_str().context("Invalid cwd path")?.to_owned();
 
-        Ok(test_proto::PrepareForLocalExecutionResult {
+        Ok(buck2_test_proto::PrepareForLocalExecutionResult {
             cmd: self.cmd,
             env: self.env,
             cwd,
@@ -744,11 +748,11 @@ impl TryInto<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExec
     }
 }
 
-impl TryFrom<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
+impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
     type Error = anyhow::Error;
 
-    fn try_from(s: test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
-        let test_proto::PrepareForLocalExecutionResult { cmd, env, cwd } = s;
+    fn try_from(s: buck2_test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
+        let buck2_test_proto::PrepareForLocalExecutionResult { cmd, env, cwd } = s;
         let cwd = cwd.try_into().context("Invalid cwd value.")?;
 
         Ok(PrepareForLocalExecutionResult { cmd, env, cwd })
@@ -811,7 +815,7 @@ mod tests {
             contacts: vec!["contact1".to_owned(), "contact2".to_owned()],
             oncall: Some("contact1".to_owned()),
         };
-        assert_roundtrips::<test_proto::ExternalRunnerSpec, ExternalRunnerSpec>(&test_spec);
+        assert_roundtrips::<buck2_test_proto::ExternalRunnerSpec, ExternalRunnerSpec>(&test_spec);
     }
 
     #[test]
@@ -856,7 +860,7 @@ mod tests {
                 name: "foo".to_owned(),
             }),
         };
-        assert_roundtrips::<test_proto::ExecuteRequest2, ExecuteRequest2>(&request);
+        assert_roundtrips::<buck2_test_proto::ExecuteRequest2, ExecuteRequest2>(&request);
     }
 
     #[test]
@@ -882,7 +886,7 @@ mod tests {
             start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(123),
             execution_time: Duration::from_secs(456),
         };
-        assert_roundtrips::<test_proto::ExecutionResult2, ExecutionResult2>(&result);
+        assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }
 
     #[test]
@@ -903,7 +907,7 @@ mod tests {
         let result = PrepareForLocalExecutionResult { cmd, env, cwd };
 
         assert_roundtrips::<
-            test_proto::PrepareForLocalExecutionResult,
+            buck2_test_proto::PrepareForLocalExecutionResult,
             PrepareForLocalExecutionResult,
         >(&result);
     }
@@ -943,6 +947,6 @@ mod tests {
             pre_create_dirs: vec![declared_output],
         };
 
-        assert_roundtrips::<test_proto::TestExecutable, TestExecutable>(&test_executable);
+        assert_roundtrips::<buck2_test_proto::TestExecutable, TestExecutable>(&test_executable);
     }
 }

@@ -4,7 +4,7 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 load("//buck2:proto_defs.bzl", "rust_protobuf_library")
 
 rust_protobuf_library(
-    name = "test_proto",
+    name = "buck2_test_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
     spec = "test.proto",

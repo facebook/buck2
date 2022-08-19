@@ -3,9 +3,9 @@ use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
 
 pub fn host_sharing_requirements_from_grpc(
-    input: test_proto::HostSharingRequirements,
+    input: buck2_test_proto::HostSharingRequirements,
 ) -> anyhow::Result<HostSharingRequirements> {
-    use test_proto::host_sharing_requirements::*;
+    use buck2_test_proto::host_sharing_requirements::*;
 
     let requirements = match input.requirements.context("Missing `requirements`")? {
         Requirements::Shared(Shared { weight }) => {
@@ -27,8 +27,8 @@ pub fn host_sharing_requirements_from_grpc(
 
 pub fn host_sharing_requirements_to_grpc(
     input: HostSharingRequirements,
-) -> anyhow::Result<test_proto::HostSharingRequirements> {
-    use test_proto::host_sharing_requirements::*;
+) -> anyhow::Result<buck2_test_proto::HostSharingRequirements> {
+    use buck2_test_proto::host_sharing_requirements::*;
 
     let requirements = match input {
         host_sharing::HostSharingRequirements::Shared(WeightClass::Permits(weight)) => {
@@ -48,7 +48,7 @@ pub fn host_sharing_requirements_to_grpc(
         }),
     };
 
-    Ok(test_proto::HostSharingRequirements {
+    Ok(buck2_test_proto::HostSharingRequirements {
         requirements: Some(requirements),
     })
 }

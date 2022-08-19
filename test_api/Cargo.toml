@@ -19,14 +19,15 @@ downward_api_proto = { path = "../downward_api_proto" }
 events = { path = "../events" }
 futures = "0.3"
 host_sharing = { path = "../host_sharing" }
-test_proto = { path = "../test_proto" }
 tonic = "0.7.2"
 tower-layer = "0.3.1"
 tower-service = "0.3.2"
 tokio = {version = "1.5", features = ["full"]}
 tracing = "0.1.22"
 prost-types = "0.10"
+
 buck2_grpc = { path = "../buck2_grpc" }
+buck2_test_proto = { path = "../buck2_test_proto" }
 
 [dev-dependencies]
 assert_matches = "1.5"

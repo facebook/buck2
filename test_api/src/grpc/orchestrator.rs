@@ -8,6 +8,16 @@ use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
 use buck2_grpc::ServerHandle;
+use buck2_test_proto::test_orchestrator_client;
+use buck2_test_proto::test_orchestrator_server;
+use buck2_test_proto::Empty;
+use buck2_test_proto::EndOfTestResultsRequest;
+use buck2_test_proto::ExecuteResponse2;
+use buck2_test_proto::PrepareForLocalExecutionResponse;
+use buck2_test_proto::ReportTestResultRequest;
+use buck2_test_proto::ReportTestSessionRequest;
+use buck2_test_proto::ReportTestsDiscoveredRequest;
+use buck2_test_proto::Testing;
 use downward_api::DownwardApi;
 use downward_api_proto::downward_api_client;
 use downward_api_proto::downward_api_server;
@@ -20,16 +30,6 @@ use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
-use test_proto::test_orchestrator_client;
-use test_proto::test_orchestrator_server;
-use test_proto::Empty;
-use test_proto::EndOfTestResultsRequest;
-use test_proto::ExecuteResponse2;
-use test_proto::PrepareForLocalExecutionResponse;
-use test_proto::ReportTestResultRequest;
-use test_proto::ReportTestSessionRequest;
-use test_proto::ReportTestsDiscoveredRequest;
-use test_proto::Testing;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
@@ -139,7 +139,8 @@ impl TestOrchestrator for TestOrchestratorClient {
             executor_override,
         };
 
-        let req: test_proto::ExecuteRequest2 = req.try_into().context("Invalid execute request")?;
+        let req: buck2_test_proto::ExecuteRequest2 =
+            req.try_into().context("Invalid execute request")?;
 
         let ExecuteResponse2 { result } = self
             .test_orchestrator_client
@@ -225,11 +226,11 @@ impl TestOrchestrator for TestOrchestratorClient {
             pre_create_dirs,
         };
 
-        let executable: test_proto::TestExecutable = executable
+        let executable: buck2_test_proto::TestExecutable = executable
             .try_into()
             .context("Invalid prepare_for_local_execution request")?;
 
-        let request = test_proto::PrepareForLocalExecutionRequest {
+        let request = buck2_test_proto::PrepareForLocalExecutionRequest {
             test_executable: Some(executable),
         };
         let PrepareForLocalExecutionResponse { result } = self
@@ -259,7 +260,7 @@ where
 {
     async fn execute2(
         &self,
-        request: tonic::Request<test_proto::ExecuteRequest2>,
+        request: tonic::Request<buck2_test_proto::ExecuteRequest2>,
     ) -> Result<tonic::Response<ExecuteResponse2>, tonic::Status> {
         to_tonic(async move {
             let ExecuteRequest2 {
@@ -386,10 +387,10 @@ where
 
     async fn prepare_for_local_execution(
         &self,
-        request: tonic::Request<test_proto::PrepareForLocalExecutionRequest>,
+        request: tonic::Request<buck2_test_proto::PrepareForLocalExecutionRequest>,
     ) -> Result<tonic::Response<PrepareForLocalExecutionResponse>, tonic::Status> {
         to_tonic(async move {
-            let test_proto::PrepareForLocalExecutionRequest { test_executable } =
+            let buck2_test_proto::PrepareForLocalExecutionRequest { test_executable } =
                 request.into_inner();
 
             let TestExecutable {
