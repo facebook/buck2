@@ -429,7 +429,7 @@ def _sort_pre_dexed_files(
             weight_estimate = int(ctx.artifacts[pre_dexed_lib.weight_estimate].read_string().strip())
             current_secondary_dex_size = current_secondary_dex_size_map.get(module, 0)
             if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
-                current_secondary_dex_size[module] = 0
+                current_secondary_dex_size = 0
                 current_secondary_dex_inputs_map[module] = []
 
             current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
