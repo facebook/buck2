@@ -35,11 +35,11 @@ Next, install the Rust toolchain using:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Finally, you need to prepare your shell environment. The main aspect is to include Rust's toolchain in your `PATH`. Depending on your shell, you should put the following directives in either `~/.profile`, `~/.bashrc`, `~/.zshrc` or `~/.zshenv`. Consult your shell documentation.
+Finally, you need to include Rust's toolchain in your `PATH`. Depending on your shell, you should put the following directive in either `~/.profile`, `~/.bashrc`, `~/.zshrc` or `~/.zshenv`. Consult your shell documentation.
 
 NB: macOS Catalina (10.15) changed the default shell from Bash to Zsh.
 
-NB: The Rust toolchain could have adjusted your shell environment (it says as part of the installation). If that's the case, you would not need to `source` the Cargo environment.
+NB: The Rust toolchain probably already adjusted your shell environment (it says as part of the installation). If that's the case, you don't need to add the following directive.
 
 ```shell
 source "$HOME/.cargo/env"
