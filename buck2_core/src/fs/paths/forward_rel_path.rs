@@ -71,6 +71,10 @@ impl ForwardRelativePath {
         ForwardRelativePath::ref_cast(s.as_ref())
     }
 
+    pub fn empty() -> &'static Self {
+        ForwardRelativePath::unchecked_new("")
+    }
+
     /// Creates an 'ForwardRelativePath' if the given path represents a forward,
     /// normalized relative path, otherwise error.
     ///
@@ -218,7 +222,7 @@ impl ForwardRelativePath {
         if s.is_empty() {
             None
         } else {
-            Some(ForwardRelativePath::unchecked_new(""))
+            Some(ForwardRelativePath::empty())
         }
     }
 
@@ -267,10 +271,7 @@ impl ForwardRelativePath {
         if s.is_empty() {
             None
         } else {
-            Some((
-                FileName::unchecked_new(s),
-                ForwardRelativePath::unchecked_new(""),
-            ))
+            Some((FileName::unchecked_new(s), ForwardRelativePath::empty()))
         }
     }
 
@@ -314,7 +315,7 @@ impl ForwardRelativePath {
             Ok(self)
         } else if self.starts_with(base) {
             if self.0.len() == base.0.len() {
-                Ok(ForwardRelativePath::unchecked_new(""))
+                Ok(ForwardRelativePath::empty())
             } else {
                 Ok(ForwardRelativePath::unchecked_new(
                     &self.0[base.0.len() + 1..],
@@ -612,7 +613,7 @@ impl ForwardRelativePathBuf {
     /// path.push(ForwardRelativePath::unchecked_new("more/file.rs"));
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()), path);
     ///
-    /// path.push(ForwardRelativePath::unchecked_new(""));
+    /// path.push(ForwardRelativePath::empty());
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()), path);
     ///
     /// let mut path = ForwardRelativePathBuf::unchecked_new("".to_owned());
