@@ -25,8 +25,8 @@ use buck2_core::fs::project::ProjectRoot;
 use crate::roots::Roots;
 
 #[derive(Clone)]
-pub(crate) struct Paths {
-    pub(crate) roots: Roots,
+pub struct Paths {
+    pub roots: Roots,
 
     /// The isolation dir is a dir relative path used to create unique directories for
     /// all on-disk state relating to a daemon. This allows multiple daemons to run in
@@ -47,11 +47,11 @@ pub(crate) struct Paths {
     /// 2. generally to support recursive buck invocations. while our ideal may be that these
     /// eventually are not allowed, the most pragmatic approach currently is to support them
     /// but push them into isolated, temporary daemons.
-    pub(crate) isolation: FileNameBuf,
+    pub isolation: FileNameBuf,
 }
 
 impl Paths {
-    pub(crate) fn daemon_dir(&self) -> anyhow::Result<AbsPathBuf> {
+    pub fn daemon_dir(&self) -> anyhow::Result<AbsPathBuf> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
             use buck2_core::fs::paths::ForwardRelativePathNormalizer;
@@ -110,29 +110,29 @@ impl Paths {
         Ok(ret)
     }
 
-    pub(crate) fn cell_root(&self) -> &AbsPath {
+    pub fn cell_root(&self) -> &AbsPath {
         &self.roots.cell_root
     }
 
-    pub(crate) fn project_root(&self) -> &ProjectRoot {
+    pub fn project_root(&self) -> &ProjectRoot {
         &self.roots.project_root
     }
 
-    pub(crate) fn log_dir(&self) -> AbsPathBuf {
+    pub fn log_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
             .join(ForwardRelativePath::unchecked_new("log"))
     }
 
-    pub(crate) fn dice_dump_dir(&self) -> AbsPathBuf {
+    pub fn dice_dump_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
             .join(ForwardRelativePath::unchecked_new("dice_dump"))
     }
 
-    pub(crate) fn buck_out_dir(&self) -> ProjectRelativePathBuf {
+    pub fn buck_out_dir(&self) -> ProjectRelativePathBuf {
         ProjectRelativePath::unchecked_new("buck-out").join(&self.isolation)
     }
 
-    pub(crate) fn buck_out_path(&self) -> AbsPathBuf {
+    pub fn buck_out_path(&self) -> AbsPathBuf {
         self.roots.project_root.root.join(&self.buck_out_dir())
     }
 }

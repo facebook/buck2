@@ -26,6 +26,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_server::paths::Paths;
 use cli_proto::DaemonProcessInfo;
 use dice::cycles::DetectCycles;
 use futures::channel::mpsc;
@@ -40,7 +41,6 @@ use tokio::runtime::Builder;
 use crate::daemon::daemon_utils::create_listener;
 use crate::daemon::server::BuckdServer;
 use crate::daemon::server::BuckdServerDelegate;
-use crate::paths::Paths;
 use crate::version::BuckVersion;
 use crate::ClientCommandContext;
 

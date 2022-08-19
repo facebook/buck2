@@ -23,11 +23,10 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::process::background_command;
+use buck2_server::roots::find_current_roots;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;
-
-use crate::roots::find_current_roots;
 
 #[derive(Error, Debug)]
 enum ArgExpansionError {

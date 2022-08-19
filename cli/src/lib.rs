@@ -36,6 +36,8 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::FileNameBuf;
+use buck2_server::paths::Paths;
+use buck2_server::roots;
 use clap::AppSettings;
 use clap::Parser;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
@@ -91,7 +93,6 @@ use crate::commands::uquery::UqueryCommand;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::daemon::client::Replayer;
-use crate::paths::Paths;
 use crate::version::BuckVersion;
 
 #[macro_use]
@@ -101,8 +102,6 @@ pub mod args;
 pub mod commands;
 pub mod daemon;
 pub mod exit_result;
-pub mod paths;
-pub mod roots;
 mod stdin_stream;
 mod stdio;
 pub mod version;

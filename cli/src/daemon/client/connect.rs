@@ -21,6 +21,7 @@ use buck2_server::client_utils::retrying;
 use buck2_server::client_utils::ConnectionType;
 use buck2_server::client_utils::ParseError;
 use buck2_server::client_utils::SOCKET_ADDR;
+use buck2_server::paths::Paths;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
 use events::subscriber::EventSubscriber;
@@ -40,7 +41,6 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::ClientKind;
 use crate::daemon::client::Replayer;
 use crate::daemon::client::VersionCheckResult;
-use crate::paths::Paths;
 /// Responsible for starting the daemon when no daemon is running.
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {

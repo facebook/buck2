@@ -41,6 +41,7 @@ use buck2_server::install::install;
 use buck2_server::jemalloc_stats::jemalloc_stats;
 use buck2_server::lsp::run_lsp_server;
 use buck2_server::materialize::materialize;
+use buck2_server::paths::Paths;
 use buck2_server::profile::generate_profile;
 use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
@@ -77,7 +78,6 @@ use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
 use crate::daemon::test::test;
-use crate::paths::Paths;
 
 pub(crate) mod state;
 

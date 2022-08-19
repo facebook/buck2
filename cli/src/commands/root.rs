@@ -10,9 +10,9 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use buck2_server::roots::find_roots;
 use thiserror::Error;
 
-use crate::roots::find_roots;
 use crate::ClientCommandContext;
 
 #[derive(Debug)]

@@ -24,7 +24,6 @@ cli_proto = { path = "../cli_proto" }
 buck2_common = { path = "../buck2_common" }
 derive_more = "0.99"
 dice = { path = "../dice/dice" }
-dirs = "3.0.1"
 events = { path = "../events" }
 buck2_data = { path = "../buck2_data" }
 fs2 = "0.4.3"

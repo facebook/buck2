@@ -23,7 +23,7 @@ enum BuckCliError {
 }
 
 #[derive(Clone)]
-pub(crate) struct Roots {
+pub struct Roots {
     pub cell_root: AbsPathBuf,
     pub project_root: ProjectRoot,
 }
@@ -44,7 +44,7 @@ pub(crate) struct Roots {
 /// Doing this without those requirements (i.e. doing it correctly), would require us to
 /// parse the buckconfig files (including all file includes). It's unclear if we'll ever
 /// do that within the buckd client dir.
-pub(crate) fn find_roots(from: &Path) -> anyhow::Result<Roots> {
+pub fn find_roots(from: &Path) -> anyhow::Result<Roots> {
     let mut cell_root = None;
     let mut project_root = None;
 
@@ -75,6 +75,6 @@ pub(crate) fn find_roots(from: &Path) -> anyhow::Result<Roots> {
 
 /// Finds the cell root and the project root starting at the cwd.
 /// For more details, see `find_roots`.
-pub(crate) fn find_current_roots() -> anyhow::Result<Roots> {
+pub fn find_current_roots() -> anyhow::Result<Roots> {
     find_roots(&std::env::current_dir()?)
 }
