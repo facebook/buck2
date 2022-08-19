@@ -24,11 +24,11 @@ rust_library(
         "//buck2/buck2_grpc:buck2_grpc",
         "//buck2/buck2_interpreter:buck2_interpreter",
         "//buck2/buck2_node:buck2_node",
+        "//buck2/buck2_test_api:buck2_test_api",
         "//buck2/dice/dice:dice",
         "//buck2/downward_api:downward_api",
         "//buck2/events:events",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/host_sharing:host_sharing",
-        "//buck2/test_api:test_api",
     ],
 )

@@ -9,6 +9,7 @@
 
 use std::fmt;
 
+use buck2_test_api::data::TestStatus;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
 use crossterm::style::ResetColor;
@@ -19,7 +20,6 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
-use test_api::data::TestStatus;
 
 use crate::commands::common::subscribers::superconsole::SessionInfo;
 

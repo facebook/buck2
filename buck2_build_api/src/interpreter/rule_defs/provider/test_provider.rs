@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
+use buck2_test_api::data::ConfiguredTarget;
+use buck2_test_api::data::ExternalRunnerSpec;
+use buck2_test_api::data::ExternalRunnerSpecValue;
+use buck2_test_api::protocol::TestExecutor;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use itertools::Itertools;
-use test_api::data::ConfiguredTarget;
-use test_api::data::ExternalRunnerSpec;
-use test_api::data::ExternalRunnerSpecValue;
-use test_api::protocol::TestExecutor;
 
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;

@@ -59,7 +59,7 @@ strsim = "0.10.0"
 structopt = "0.3.0"
 take_mut = "0.2.2"
 tempfile = "3.1"
-test_api = { path = "../test_api" }
+buck2_test_api = { path = "../buck2_test_api" }
 thiserror = "1.0.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"

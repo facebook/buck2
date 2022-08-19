@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! Implementation of the `TestOrchestrator` from `test_api`.
+//! Implementation of the `TestOrchestrator` from `buck2_test_api`.
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -75,6 +75,20 @@ use buck2_data::TestSuite;
 use buck2_interpreter::dice::HasEvents;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_test_api::data::ArgValue;
+use buck2_test_api::data::ArgValueContent;
+use buck2_test_api::data::ConfiguredTargetHandle;
+use buck2_test_api::data::DeclaredOutput;
+use buck2_test_api::data::DisplayMetadata;
+use buck2_test_api::data::ExecutionResult2;
+use buck2_test_api::data::ExecutionStatus;
+use buck2_test_api::data::ExecutionStream;
+use buck2_test_api::data::ExecutorConfigOverride;
+use buck2_test_api::data::ExternalRunnerSpecValue;
+use buck2_test_api::data::Output;
+use buck2_test_api::data::PrepareForLocalExecutionResult;
+use buck2_test_api::data::TestResult;
+use buck2_test_api::protocol::TestOrchestrator;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceTransaction;
@@ -85,20 +99,6 @@ use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
-use test_api::data::ArgValue;
-use test_api::data::ArgValueContent;
-use test_api::data::ConfiguredTargetHandle;
-use test_api::data::DeclaredOutput;
-use test_api::data::DisplayMetadata;
-use test_api::data::ExecutionResult2;
-use test_api::data::ExecutionStatus;
-use test_api::data::ExecutionStream;
-use test_api::data::ExecutorConfigOverride;
-use test_api::data::ExternalRunnerSpecValue;
-use test_api::data::Output;
-use test_api::data::PrepareForLocalExecutionResult;
-use test_api::data::TestResult;
-use test_api::protocol::TestOrchestrator;
 use uuid::Uuid;
 
 use crate::orchestrator::commands::CommandExecutionOutput;
@@ -942,6 +942,8 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_test_api::data::testing::ConfiguredTargetHandleExt;
+    use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use events::dispatch::EventDispatcher;
@@ -949,8 +951,6 @@ mod tests {
     use futures::channel::mpsc::UnboundedReceiver;
     use futures::future;
     use futures::stream::TryStreamExt;
-    use test_api::data::testing::ConfiguredTargetHandleExt;
-    use test_api::data::TestStatus;
 
     use super::*;
 

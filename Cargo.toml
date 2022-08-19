@@ -19,7 +19,7 @@ members = [
     "remote_execution/stub",
     "shed/internment_tweaks",
     "shed/more_futures",
-    "test_api",
+    "buck2_test_api",
     "test_proto",
     "install_proto",
 ]

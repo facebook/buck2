@@ -11,7 +11,7 @@
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use test_api::data::ConfiguredTarget;
+use buck2_test_api::data::ConfiguredTarget;
 
 use crate::session::TestSession;
 
@@ -50,9 +50,9 @@ fn test_target_name(target: &ConfiguredProvidersLabel) -> String {
 }
 
 pub fn convert_test_result(
-    test_result: test_api::data::TestResult,
+    test_result: buck2_test_api::data::TestResult,
 ) -> anyhow::Result<buck2_data::TestResult> {
-    let test_api::data::TestResult {
+    let buck2_test_api::data::TestResult {
         name,
         status,
         msg,

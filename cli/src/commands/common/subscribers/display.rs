@@ -22,6 +22,7 @@ use buck2_data::BxlFunctionKey;
 use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
+use buck2_test_api::data::TestStatus;
 use events::BuckEvent;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -29,7 +30,6 @@ use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Stylize;
 use superconsole::Lines;
 use superconsole::Span;
-use test_api::data::TestStatus;
 use thiserror::Error;
 
 use crate::commands::common::verbosity::Verbosity;

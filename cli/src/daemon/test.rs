@@ -47,6 +47,9 @@ use buck2_test::orchestrator::TestResultOrExitCode;
 use buck2_test::session::TestSession;
 use buck2_test::session::TestSessionOptions;
 use buck2_test::translations::build_configured_target_handle;
+use buck2_test_api::data::TestResult;
+use buck2_test_api::data::TestStatus;
+use buck2_test_api::protocol::TestExecutor;
 use cli_proto::TestRequest;
 use cli_proto::TestResponse;
 use dice::DiceComputations;
@@ -61,9 +64,6 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use serde::Serialize;
-use test_api::data::TestResult;
-use test_api::data::TestStatus;
-use test_api::protocol::TestExecutor;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct TestReport {

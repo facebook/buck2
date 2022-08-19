@@ -32,5 +32,5 @@ buck2_node = { path = "../buck2_node" }
 downward_api = { path = "../downward_api" }
 events = { path = "../events" }
 host_sharing = { path = "../host_sharing" }
-test_api = { path = "../test_api" }
+buck2_test_api = { path = "../buck2_test_api" }
 buck2_grpc = { path = "../buck2_grpc" }
