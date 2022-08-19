@@ -352,7 +352,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             rule_type = impl_params.rule_type,
             output = default_output.default if default_output else None,
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
-            srcs = impl_params.srcs + impl_params.additional_srcs,
+            srcs = impl_params.srcs + impl_params.additional.srcs,
             argsfiles_by_ext = compiled_srcs.compile_cmds.source_commands.argsfile_by_ext,
             product_name = get_default_cxx_library_product_name(ctx),
         )

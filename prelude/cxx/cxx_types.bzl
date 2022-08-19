@@ -48,6 +48,11 @@ CxxRuleProviderParams = record(
     preprocessor_for_tests = field(bool.type, True),
 )
 
+# Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
+CxxRuleAdditionalParams = record(
+    srcs = field([CxxSrcWithFlags.type], []),
+)
+
 # Parameters that allows to configure/extend generic implementation of C++ rules.
 # Apple-specific rules (such as `apple_binary` and `apple_library`) and regular C++
 # rules (such as `cxx_binary` and `cxx_library`) have too much in common, though
@@ -79,9 +84,7 @@ CxxRuleConstructorParams = record(
     # The source files to compile as part of this rule. This list can be generated
     # from ctx.attrs with the `get_srcs_with_flags` function.
     srcs = field([CxxSrcWithFlags.type]),
-    # The source files to compile as part of this rule, which are not Clang sources,
-    # e.g. Swift files that can be a part of apple_library rule.
-    additional_srcs = field([CxxSrcWithFlags.type], []),
+    additional = field(CxxRuleAdditionalParams.type, CxxRuleAdditionalParams()),
     # A function which enables the caller to inject subtargets into the link_style provider
     # as well as create custom providers based on the link styles.
     link_style_sub_targets_and_providers_factory = field("function", lambda _link_style, _context, _executable, _object_files: ({}, [])),

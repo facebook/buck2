@@ -249,7 +249,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         rule_type = impl_params.rule_type,
         output = binary.output,
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
-        srcs = impl_params.srcs + impl_params.additional_srcs,
+        srcs = impl_params.srcs + impl_params.additional.srcs,
         argsfiles_by_ext = compile_cmd_output.source_commands.argsfile_by_ext,
         product_name = get_cxx_excutable_product_name(ctx),
     )

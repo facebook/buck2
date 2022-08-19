@@ -4,7 +4,7 @@ load("@fbcode//buck2/prelude/apple:swift_compilation.bzl", "compile_swift", "get
 load("@fbcode//buck2/prelude/cxx:cxx.bzl", "get_srcs_with_flags")
 load("@fbcode//buck2/prelude/cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
-load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
+load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
     "@fbcode//buck2/prelude/cxx:linker.bzl",
@@ -123,7 +123,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre, swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [exported_pre]),
         srcs = cxx_srcs,
-        additional_srcs = swift_srcs,
+        additional = CxxRuleAdditionalParams(srcs = swift_srcs),
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
