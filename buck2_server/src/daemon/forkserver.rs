@@ -11,7 +11,7 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_forkserver::client::ForkserverClient;
 
 #[cfg(unix)]
-pub(crate) async fn maybe_launch_forkserver(
+pub async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
     use anyhow::Context;
@@ -35,7 +35,7 @@ pub(crate) async fn maybe_launch_forkserver(
 }
 
 #[cfg(not(unix))]
-pub(crate) async fn maybe_launch_forkserver(
+pub async fn maybe_launch_forkserver(
     _root_config: &LegacyBuckConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
     Ok(None)

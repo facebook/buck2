@@ -10,4 +10,5 @@
 pub mod check_working_dir;
 pub mod common;
 pub mod dice_dump;
+pub mod forkserver;
 pub mod panic;
