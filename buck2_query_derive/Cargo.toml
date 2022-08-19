@@ -3,7 +3,7 @@ authors = ["Facebook"]
 description = "Proc macros for Buck's buck_query crate"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-name = "buck2_query_proc_macro"
+name = "buck2_query_derive"
 version = "0.4.1"
 
 [lib]

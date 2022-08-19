@@ -10,7 +10,7 @@
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
-use buck2_query_proc_macro::query_module;
+use buck2_query_derive::query_module;
 use gazebo::variants::VariantName;
 
 use crate::query::environment::QueryEnvironment;

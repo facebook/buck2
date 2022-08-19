@@ -18,7 +18,7 @@
 
 pub mod query;
 
-pub use buck2_query_proc_macro::query_module;
+pub use buck2_query_derive::query_module;
 
 // Required for use of #[query_module] within this crate (it allows query_module generated code to reference this crate as
 // ::buck2_query like it would when used in other crates).
