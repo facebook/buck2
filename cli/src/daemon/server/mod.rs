@@ -25,9 +25,11 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
+use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
+use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
@@ -51,6 +53,7 @@ use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
 use dice::cycles::DetectCycles;
+use dice::Dice;
 use events::dispatch::instant_hg;
 use events::dispatch::span_async;
 use events::dispatch::EventDispatcher;
@@ -80,6 +83,7 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
+use crate::daemon::server::state::DaemonStateDiceConstructor;
 use crate::daemon::test::test;
 
 pub(crate) mod state;
@@ -114,6 +118,26 @@ impl DaemonShutdown {
         // Ignore errrors on shutdown_channel as that would mean we've already started shutdown;
         let _ = self.shutdown_channel.unbounded_send(());
         self.delegate.force_shutdown_with_timeout(timeout);
+    }
+}
+
+struct DaemonStateDiceConstructorImpl {
+    /// Whether to detect cycles in Dice
+    detect_cycles: Option<DetectCycles>,
+}
+
+impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
+    fn construct_dice(
+        &self,
+        io: Arc<dyn IoProvider>,
+        root_config: &LegacyBuckConfig,
+    ) -> anyhow::Result<Arc<Dice>> {
+        configure_dice_for_buck(
+            io,
+            &BxlCalculationImpl,
+            Some(root_config),
+            self.detect_cycles,
+        )
     }
 }
 
@@ -165,8 +189,7 @@ impl BuckdServer {
             daemon_state: Arc::new(DaemonState::new(
                 fb,
                 paths,
-                detect_cycles,
-                &BxlCalculationImpl,
+                box DaemonStateDiceConstructorImpl { detect_cycles },
             )?),
         };
 

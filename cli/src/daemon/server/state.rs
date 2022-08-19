@@ -14,8 +14,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::bxl::calculation::BxlCalculationDyn;
-use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::blocking::BuckBlockingExecutor;
 use buck2_build_api::execute::commands::re::client::RemoteExecutionStaticMetadata;
@@ -44,7 +42,6 @@ use buck2_server::daemon::forkserver::maybe_launch_forkserver;
 use buck2_server::daemon::panic::DaemonStatePanicDiceDump;
 use buck2_server::file_watcher::FileWatcher;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use dice::cycles::DetectCycles;
 use dice::Dice;
 use events::dispatch::EventDispatcher;
 use events::EventSource;
@@ -64,10 +61,7 @@ pub(crate) struct DaemonState {
     /// This holds the main data shared across different commands.
     data: AsyncOnceCell<SharedResult<Arc<DaemonStateData>>>,
 
-    /// Whether to detect cycles in Dice
-    detect_cycles: Option<DetectCycles>,
-
-    bxl: &'static dyn BxlCalculationDyn,
+    dice_constructor: Box<dyn DaemonStateDiceConstructor>,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -133,19 +127,25 @@ pub(crate) struct EventLoggingData {
     buffer_size: usize,
 }
 
+pub(crate) trait DaemonStateDiceConstructor: Send + Sync + 'static {
+    fn construct_dice(
+        &self,
+        io: Arc<dyn IoProvider>,
+        root_config: &LegacyBuckConfig,
+    ) -> anyhow::Result<Arc<Dice>>;
+}
+
 impl DaemonState {
     pub(crate) fn new(
         fb: fbinit::FacebookInit,
         paths: Paths,
-        detect_cycles: Option<DetectCycles>,
-        bxl: &'static dyn BxlCalculationDyn,
+        dice_constructor: Box<dyn DaemonStateDiceConstructor>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             fb,
             paths,
             data: AsyncOnceCell::new(),
-            detect_cycles,
-            bxl,
+            dice_constructor,
         })
     }
 
@@ -154,8 +154,7 @@ impl DaemonState {
     async fn init_data(
         fb: fbinit::FacebookInit,
         paths: &Paths,
-        detect_cycles: Option<DetectCycles>,
-        bxl: &'static dyn BxlCalculationDyn,
+        dice_constructor: &dyn DaemonStateDiceConstructor,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = paths.project_root().clone();
 
@@ -223,7 +222,7 @@ impl DaemonState {
             .unwrap_or(10000);
         let event_logging_data = Arc::new(EventLoggingData { buffer_size });
 
-        let dice = configure_dice_for_buck(io.dupe(), bxl, Some(root_config), detect_cycles)?;
+        let dice = dice_constructor.construct_dice(io.dupe(), root_config)?;
 
         let forkserver = maybe_launch_forkserver(root_config).await?;
 
@@ -418,7 +417,7 @@ impl DaemonState {
     pub(crate) async fn data(&self) -> SharedResult<Arc<DaemonStateData>> {
         self.data
             .get_or_init(async move {
-                let result = Self::init_data(self.fb, &self.paths, self.detect_cycles, self.bxl)
+                let result = Self::init_data(self.fb, &self.paths, &*self.dice_constructor)
                     .await
                     .context("Error initializing DaemonStateData");
                 if let Ok(ref data) = result {
