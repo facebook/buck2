@@ -62,6 +62,9 @@ events = { path = "../events" }
 host_sharing = { path = "../host_sharing" }
 install_proto = {path = "../install_proto"}
 
+[target.'cfg(unix)'.dependencies]
+jemalloc-ctl = "0.3.3"
+
 [dev-dependencies]
 assert_matches = "1.5"
 maplit = "1.0.2"

@@ -90,7 +90,6 @@ daemonize = "0.5"
 [target.'cfg(unix)'.dependencies]
 daemonize = "0.5"
 jemallocator = { version = "0.3.2", features = ["profiling"] }
-jemalloc-ctl = "0.3.3"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["everything"] }

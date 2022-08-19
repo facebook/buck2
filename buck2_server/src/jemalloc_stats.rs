@@ -10,7 +10,7 @@
 use cli_proto::StatusResponse;
 
 #[cfg(all(unix, not(fbcode_build)))]
-pub(crate) fn jemalloc_stats(response: &mut StatusResponse) {
+pub fn jemalloc_stats(response: &mut StatusResponse) {
     use jemalloc_ctl::epoch;
     use jemalloc_ctl::stats;
 
@@ -30,4 +30,4 @@ pub(crate) fn jemalloc_stats(response: &mut StatusResponse) {
 }
 
 #[cfg(not(all(unix, not(fbcode_build))))]
-pub(crate) fn jemalloc_stats(_response: &mut StatusResponse) {}
+pub fn jemalloc_stats(_response: &mut StatusResponse) {}

@@ -24,6 +24,7 @@ pub mod file_watcher;
 pub mod heartbeat_guard;
 pub mod host_info;
 pub mod install;
+pub mod jemalloc_stats;
 pub mod json;
 pub mod lsp;
 pub mod materialize;

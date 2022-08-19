@@ -38,6 +38,7 @@ use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::install::install;
+use buck2_server::jemalloc_stats::jemalloc_stats;
 use buck2_server::lsp::run_lsp_server;
 use buck2_server::materialize::materialize;
 use buck2_server::profile::generate_profile;
@@ -75,14 +76,12 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
-use crate::daemon::server::jemalloc_stats::jemalloc_stats;
 use crate::daemon::test::test;
 use crate::paths::Paths;
 
 mod check_working_dir;
 mod concurrency;
 mod forkserver;
-mod jemalloc_stats;
 pub(crate) mod state;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
