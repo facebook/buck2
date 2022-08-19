@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "DexFilesInfo")
-load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "is_root_module")
+load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_mapping_function", "is_root_module")
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
@@ -215,7 +215,8 @@ def merge_to_split_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
         pre_dexed_libs: ["DexLibraryInfo"],
-        split_dex_merge_config: "SplitDexMergeConfig") -> "DexFilesInfo":
+        split_dex_merge_config: "SplitDexMergeConfig",
+        apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
     primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns)
 
     pre_dexed_lib_with_class_names_files = []
@@ -233,7 +234,11 @@ def merge_to_split_dex(
             ),
         )
 
-    input_artifacts = flatten([[input.lib.dex, input.lib.weight_estimate, input.filtered_class_names_file] for input in pre_dexed_lib_with_class_names_files])
+    input_artifacts = flatten([[
+        input.lib.dex,
+        input.lib.weight_estimate,
+        input.filtered_class_names_file,
+    ] for input in pre_dexed_lib_with_class_names_files]) + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
     initial_secondary_dexes_dir = ctx.actions.declare_output("initial_secondary_dexes_dir")
@@ -241,7 +246,13 @@ def merge_to_split_dex(
     outputs = [primary_dex_output, primary_dex_artifact_list, initial_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context"):
-        sorted_pre_dexed_inputs = _sort_pre_dexed_files(ctx, pre_dexed_lib_with_class_names_files, split_dex_merge_config)
+        target_to_module_mapping_function = get_apk_module_graph_mapping_function(ctx, apk_module_graph_file) if apk_module_graph_file else all_targets_in_root_module
+        sorted_pre_dexed_inputs = _sort_pre_dexed_files(
+            ctx,
+            pre_dexed_lib_with_class_names_files,
+            split_dex_merge_config,
+            target_to_module_mapping_function,
+        )
         secondary_dexes_for_symlinking = {}
 
         for sorted_pre_dexed_input in sorted_pre_dexed_inputs:
@@ -379,43 +390,60 @@ def _merge_dexes(
 def _sort_pre_dexed_files(
         ctx: "context",
         pre_dexed_lib_with_class_names_files: ["DexInputWithClassNamesFile"],
-        split_dex_merge_config: "SplitDexMergeConfig") -> [_SortedPreDexedInputs.type]:
-    primary_dex_inputs = []
-    secondary_dex_inputs = []
-    current_secondary_dex_size = 0
-    current_secondary_dex_inputs = []
+        split_dex_merge_config: "SplitDexMergeConfig",
+        get_module_from_target: "function") -> [_SortedPreDexedInputs.type]:
+    sorted_pre_dexed_inputs_map = {}
+    current_secondary_dex_size_map = {}
+    current_secondary_dex_inputs_map = {}
     for pre_dexed_lib_with_class_names_file in pre_dexed_lib_with_class_names_files:
         pre_dexed_lib = pre_dexed_lib_with_class_names_file.lib
+        module = get_module_from_target(str(pre_dexed_lib.dex.owner.raw_target()))
         primary_dex_data, secondary_dex_data = ctx.artifacts[pre_dexed_lib_with_class_names_file.filtered_class_names_file].read_string().split(";")
         primary_dex_class_names = primary_dex_data.split(",") if primary_dex_data else []
         secondary_dex_class_names = secondary_dex_data.split(",") if secondary_dex_data else []
 
+        module_pre_dexed_inputs = sorted_pre_dexed_inputs_map.setdefault(module, _SortedPreDexedInputs(
+            module = module,
+            primary_dex_inputs = [],
+            secondary_dex_inputs = [],
+        ))
+
+        primary_dex_inputs = module_pre_dexed_inputs.primary_dex_inputs
+        secondary_dex_inputs = module_pre_dexed_inputs.secondary_dex_inputs
+
         if len(primary_dex_class_names) > 0:
+            expect(
+                is_root_module(module),
+                "Non-root modules should not have anything that belongs in the primary dex, " +
+                "but {} is assigned to module {} and has the following class names in the primary dex: {}\n".format(
+                    pre_dexed_lib.dex.owner,
+                    module,
+                    "\n".join(primary_dex_class_names),
+                ),
+            )
             primary_dex_inputs.append(
                 DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = primary_dex_class_names),
             )
 
         if len(secondary_dex_class_names) > 0:
             weight_estimate = int(ctx.artifacts[pre_dexed_lib.weight_estimate].read_string().strip())
+            current_secondary_dex_size = current_secondary_dex_size_map.get(module, 0)
             if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
-                current_secondary_dex_size = 0
-                current_secondary_dex_inputs = []
+                current_secondary_dex_size[module] = 0
+                current_secondary_dex_inputs_map[module] = []
 
+            current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
             if len(current_secondary_dex_inputs) == 0:
                 canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attrs._dex_toolchain[DexToolchainInfo])
                 current_secondary_dex_inputs.append(canary_class_dex_input)
                 secondary_dex_inputs.append(current_secondary_dex_inputs)
 
-            current_secondary_dex_size += weight_estimate
+            current_secondary_dex_size_map[module] = current_secondary_dex_size + weight_estimate
             current_secondary_dex_inputs.append(
                 DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = secondary_dex_class_names),
             )
 
-    return [_SortedPreDexedInputs(
-        module = ROOT_MODULE,
-        primary_dex_inputs = primary_dex_inputs,
-        secondary_dex_inputs = secondary_dex_inputs,
-    )]
+    return sorted_pre_dexed_inputs_map.values()
 
 def _get_raw_secondary_dex_path(index: int.type):
     return "classes{}.dex".format(index + 2)
