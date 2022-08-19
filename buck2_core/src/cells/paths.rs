@@ -83,6 +83,10 @@ impl CellRelativePath {
         CellRelativePath::ref_cast(ForwardRelativePath::unchecked_new(s))
     }
 
+    pub fn empty() -> &'static Self {
+        CellRelativePath::unchecked_new("")
+    }
+
     /// Creates a 'CellRelativePath' if the given string represents a
     /// forward, normalized relative path, otherwise error.
     ///

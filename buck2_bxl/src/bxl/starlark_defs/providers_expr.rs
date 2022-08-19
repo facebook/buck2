@@ -88,7 +88,7 @@ impl ProvidersExpr {
                     ParsedPattern::<ProvidersPattern>::parse_relaxed(
                         &ctx.target_alias_resolver,
                         ctx.cell.cell_alias_resolver(),
-                        &Package::new(ctx.cell.name(), CellRelativePath::unchecked_new("")),
+                        &Package::new(ctx.cell.name(), CellRelativePath::empty()),
                         s,
                     )?
                     .as_providers_label(s)?,

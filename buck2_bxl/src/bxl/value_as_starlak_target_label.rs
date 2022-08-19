@@ -46,7 +46,7 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
                 ParsedPattern::<TargetPattern>::parse_relaxed(
                     target_alias_resolver,
                     cell.cell_alias_resolver(),
-                    &Package::new(cell.name(), CellRelativePath::unchecked_new("")),
+                    &Package::new(cell.name(), CellRelativePath::empty()),
                     s,
                 )?
                 .as_target_label(s)?,
