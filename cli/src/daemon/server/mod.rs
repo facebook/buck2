@@ -48,6 +48,8 @@ use buck2_server::build::build;
 use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ToProtoDuration;
+use buck2_server::daemon::state::DaemonState;
+use buck2_server::daemon::state::DaemonStateDiceConstructor;
 use buck2_server::install::install;
 use buck2_server::jemalloc_stats::jemalloc_stats;
 use buck2_server::lsp::run_lsp_server;
@@ -71,7 +73,6 @@ use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::eval::ProfileMode;
-use state::DaemonState;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::server::Connected;
@@ -83,10 +84,7 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
-use crate::daemon::server::state::DaemonStateDiceConstructor;
 use crate::daemon::test::test;
-
-pub(crate) mod state;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);

@@ -72,3 +72,8 @@ jemalloc-ctl = "0.3.3"
 assert_matches = "1.5"
 derive_more = "0.99.3"
 maplit = "1.0.2"
+
+[features]
+# @oss-disable: default = ["eden_materializer"]
+# @oss-disable: eden_materializer = []
+eden_materializer = [] # @oss-enable

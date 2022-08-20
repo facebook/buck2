@@ -38,25 +38,25 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::EventSource;
 use buck2_events::TraceId;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_server::active_commands::ActiveCommandDropGuard;
-use buck2_server::ctx::BaseServerCommandContext;
-use buck2_server::daemon::check_working_dir;
-use buck2_server::daemon::forkserver::maybe_launch_forkserver;
-use buck2_server::daemon::panic::DaemonStatePanicDiceDump;
-use buck2_server::file_watcher::FileWatcher;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
 use fbinit::FacebookInit;
 use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 
-use crate::Paths;
+use crate::active_commands::ActiveCommandDropGuard;
+use crate::ctx::BaseServerCommandContext;
+use crate::daemon::check_working_dir;
+use crate::daemon::forkserver::maybe_launch_forkserver;
+use crate::daemon::panic::DaemonStatePanicDiceDump;
+use crate::file_watcher::FileWatcher;
+use crate::paths::Paths;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
-pub(crate) struct DaemonState {
+pub struct DaemonState {
     fb: fbinit::FacebookInit,
 
-    pub(crate) paths: Paths,
+    pub paths: Paths,
 
     /// This holds the main data shared across different commands.
     data: AsyncOnceCell<SharedResult<Arc<DaemonStateData>>>,
@@ -66,7 +66,7 @@ pub(crate) struct DaemonState {
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
 /// the first command that requires it.
-pub(crate) struct DaemonStateData {
+pub struct DaemonStateData {
     /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
     /// (or DaemonState) itself and instead they should be represented on the computation graph.
     dice: Arc<Dice>,
@@ -80,10 +80,10 @@ pub(crate) struct DaemonStateData {
     /// The RE connection, managed such that all build commands that are concurrently active uses
     /// the same connection. Once there are no active build commands, the connection will be
     /// terminated
-    pub(crate) re_client_manager: Arc<ReConnectionManager>,
+    pub re_client_manager: Arc<ReConnectionManager>,
 
     /// Executor responsible for coordinating and rate limiting I/O.
-    pub(crate) blocking_executor: Arc<dyn BlockingExecutor>,
+    pub blocking_executor: Arc<dyn BlockingExecutor>,
 
     /// Most materializations go through the materializer, providing a single point
     /// where the most expensive network and fs IO operations are performed. It
@@ -101,16 +101,12 @@ pub(crate) struct DaemonStateData {
 }
 
 impl DaemonStateData {
-    pub(crate) fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
-        buck2_server::daemon::dice_dump::dice_dump(&self.dice, path, format)
+    pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+        crate::daemon::dice_dump::dice_dump(&self.dice, path, format)
     }
 
-    pub(crate) async fn spawn_dice_dump(
-        &self,
-        path: &Path,
-        format: DiceDumpFormat,
-    ) -> anyhow::Result<()> {
-        buck2_server::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
+    pub async fn spawn_dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+        crate::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
     }
 }
 
@@ -122,12 +118,12 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
 
 /// Configuration pertaining to event logging.
 #[cfg_attr(not(fbcode_build), allow(dead_code))]
-pub(crate) struct EventLoggingData {
+pub struct EventLoggingData {
     /// The size of the queue for in-flight messages.
     buffer_size: usize,
 }
 
-pub(crate) trait DaemonStateDiceConstructor: Send + Sync + 'static {
+pub trait DaemonStateDiceConstructor: Send + Sync + 'static {
     fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
@@ -136,7 +132,7 @@ pub(crate) trait DaemonStateDiceConstructor: Send + Sync + 'static {
 }
 
 impl DaemonState {
-    pub(crate) fn new(
+    pub fn new(
         fb: fbinit::FacebookInit,
         paths: Paths,
         dice_constructor: Box<dyn DaemonStateDiceConstructor>,
@@ -326,7 +322,7 @@ impl DaemonState {
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given
     /// EventDispatcher will log to the returned EventSource and (optionally) to Scribe if enabled via buckconfig.
     #[cfg(fbcode_build)]
-    pub(crate) async fn prepare_events(
+    pub async fn prepare_events(
         &self,
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
@@ -364,7 +360,7 @@ impl DaemonState {
     }
 
     #[cfg(not(fbcode_build))]
-    pub(crate) async fn prepare_events(
+    pub async fn prepare_events(
         &self,
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
@@ -375,7 +371,7 @@ impl DaemonState {
     /// Prepares a ServerCommandContext for processing a complex command (that accesses the dice computation graph, for example).
     ///
     /// This initializes (if necessary) the shared daemon state and syncs the watchman query (to flush any recent filesystem events).
-    pub(crate) async fn prepare_command(
+    pub async fn prepare_command(
         &self,
         dispatcher: EventDispatcher,
     ) -> SharedResult<BaseServerCommandContext> {
@@ -414,14 +410,14 @@ impl DaemonState {
     }
 
     /// Initializes and returns the DaemonStateData, if it hasn't already been initialized already.
-    pub(crate) async fn data(&self) -> SharedResult<Arc<DaemonStateData>> {
+    pub async fn data(&self) -> SharedResult<Arc<DaemonStateData>> {
         self.data
             .get_or_init(async move {
                 let result = Self::init_data(self.fb, &self.paths, &*self.dice_constructor)
                     .await
                     .context("Error initializing DaemonStateData");
                 if let Ok(ref data) = result {
-                    buck2_server::daemon::panic::initialize(data.dupe());
+                    crate::daemon::panic::initialize(data.dupe());
                 }
                 result.shared_error()
             })

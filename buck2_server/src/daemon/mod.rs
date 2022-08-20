@@ -13,3 +13,4 @@ mod concurrency;
 pub mod dice_dump;
 pub mod forkserver;
 pub mod panic;
+pub mod state;
