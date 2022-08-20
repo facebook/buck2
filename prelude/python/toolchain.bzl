@@ -2,8 +2,6 @@ load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
 
 # The ways that Python exectuables handle native linkable dependencies.
 NativeLinkStrategy = enum(
-    # Statically links extensions into an embedded python binary
-    "native",
     # Pull transitive native deps in as fully linked standalone shared libraries.
     # This is typically the fastest build-time link strategy, as it requires no
     # top-level context and therefore can shared build artifacts with all other

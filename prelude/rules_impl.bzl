@@ -63,7 +63,7 @@ load("@fbcode//buck2/prelude/zip_file:zip_file.bzl", _zip_file_extra_attributes 
 
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
-load(":attributes.bzl", "IncludeType", "LinkableDepType", "Linkage", "Platform", "attributes")
+load(":attributes.bzl", "IncludeType", "Linkage", "Platform", "attributes")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -172,7 +172,6 @@ def _cxx_python_extension_attrs():
     res.update({
         # Copied from cxx_library.
         "allow_huge_dwp": attrs.bool(default = False),
-        "link_whole": attrs.default_only(attrs.bool(default = True)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
         "use_link_groups": attrs.bool(default = False),
@@ -212,30 +211,6 @@ def _cxx_binary_and_test_attrs():
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     }
-
-NativeLinkStrategy = ["separate", "native", "merged"]
-
-def _python_binary_attrs():
-    cxx_binary_attrs = {k: v for k, v in attributes["cxx_binary"].items()}
-    cxx_binary_attrs.update(_cxx_binary_and_test_attrs())
-    python_binary_attrs = attributes["python_binary"]
-    updated_attrs = {k: attrs.default_only(cxx_binary_attrs[k]) for k in cxx_binary_attrs if k not in python_binary_attrs}
-
-    # allow non-default value for the args below
-    updated_attrs.update({
-        "allow_huge_dwp": attrs.bool(default = False),
-        "bundled_runtime": attrs.bool(default = False),
-        "cxx_main": attrs.option(attrs.source(), default = None),
-        "executable_name": attrs.option(attrs.string(), default = None),
-        "link_style": attrs.enum(LinkableDepType, default = "static"),
-        "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
-        "package_split_dwarf_dwp": attrs.bool(default = False),
-        "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
-        "_python_toolchain": _python_toolchain(),
-    })
-    return updated_attrs
 
 def _toolchain(lang: str.type, providers: [""]) -> "attribute":
     return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
@@ -445,7 +420,15 @@ extra_attributes = struct(
         "_cxx_toolchain": _cxx_toolchain(),
         "_python_toolchain": _python_toolchain(),
     },
-    python_binary = _python_binary_attrs(),
+    python_binary = {
+        "allow_huge_dwp": attrs.bool(default = False),
+        "bundled_runtime": attrs.bool(default = False),
+        "package_split_dwarf_dwp": attrs.bool(default = False),
+        "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
+        "_cxx_toolchain": _cxx_toolchain(),
+        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_python_toolchain": _python_toolchain(),
+    },
     python_needed_coverage_test = dict(
         attributes["python_test"],
         **_python_test_attrs()

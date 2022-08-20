@@ -32,7 +32,6 @@ load(
     "LinkStyle",
     "MergedLinkInfo",
     "merge_framework_linkables",
-    "wrap_link_info",
 )
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
@@ -111,15 +110,12 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module).replace("/", "_")
         static_info = libraries.libraries[LinkStyle("static")].default
         if qualified_name == "":
-            symbol_name = "PyInit_{}".format(module_name)
             static_link_info = static_info
         else:
-            suffix = qualified_name + module_name
-            symbol_name = "PyInit_{}_{}".format(module_name, suffix)
             cxx_toolchain = get_cxx_toolchain_info(ctx)
             new_linkable = suffix_symbols(
                 ctx,
-                suffix,
+                qualified_name + module_name,
                 static_output.object_files,
                 cxx_toolchain,
             )
@@ -130,14 +126,6 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 linkables = [new_linkable],
                 use_link_groups = static_info.use_link_groups,
             )
-
-        # We need to dynamically export the modules PyInit function so that we
-        # can find and import it with dlsym. TODO (T129253406) Remove this when
-        # we statically register symbols
-        static_link_info = wrap_link_info(
-            inner = static_link_info,
-            pre_flags = ["-Wl,--export-dynamic-symbol={}".format(symbol_name)],
-        )
     else:
         static_link_info = LinkInfo()
 

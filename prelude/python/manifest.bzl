@@ -1,3 +1,8 @@
+load(
+    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "LinkedObject",  # @unused Used as a type
+)
+
 # Manifests are files containing information how to map sources into a package.
 # The files are JSON lists with an entry per source, where each source is 3-tuple
 # of relative destination path, artifact path, and a short description of the
@@ -69,7 +74,7 @@ def create_manifest_for_source_dir(
 
 def create_manifest_for_extensions(
         ctx: "context",
-        extensions: {str.type: ("_a", "label")},
+        extensions: {str.type: (LinkedObject.type, "label")},
         # Whether to include DWP files.
         dwp: bool.type = False) -> ManifestInfo.type:
     entries = []

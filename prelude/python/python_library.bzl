@@ -4,17 +4,11 @@ load(
     "ResourceInfo",
     "gather_resources",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_inherited_link_info")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@fbcode//buck2/prelude/cxx:omnibus.bzl",
     "add_omnibus_exclusions",
     "add_omnibus_roots",
-)
-load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
-    "cxx_inherited_preprocessor_infos",
-    "cxx_merge_cpreprocessors",
 )
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
@@ -287,10 +281,6 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, flatten(raw_deps))]
 
     providers.append(DefaultInfo(sub_targets = sub_targets))
-
-    # provide inherited link info
-    providers.append(cxx_inherited_link_info(ctx, flatten(raw_deps)))
-    providers.append(cxx_merge_cpreprocessors(ctx, [], cxx_inherited_preprocessor_infos(flatten(raw_deps))))
 
     # Create, augment and provide the linkable graph.
     linkable_graph = create_merged_linkable_graph(ctx.label, flatten(raw_deps))
