@@ -25,7 +25,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use buck2_core::fs::anyhow as fs;
-use buck2_server::daemon::common::ConfigType;
+use buck2_server::configs::ConfigType;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::ConfigOverride;
 use gazebo::prelude::*;

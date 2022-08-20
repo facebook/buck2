@@ -15,7 +15,25 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use cli_proto::ConfigOverride;
 
-use crate::daemon::common::ConfigType;
+pub enum ConfigType {
+    Value = 0,
+    File = 1,
+}
+
+impl TryFrom<i32> for ConfigType {
+    type Error = anyhow::Error;
+
+    fn try_from(v: i32) -> anyhow::Result<Self> {
+        match v {
+            x if x == ConfigType::Value as i32 => Ok(ConfigType::Value),
+            x if x == ConfigType::File as i32 => Ok(ConfigType::File),
+            _ => Err(anyhow::anyhow!(
+                "Unknown ConfigType enum value `{}` when trying to deserialize",
+                v,
+            )),
+        }
+    }
+}
 
 fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,

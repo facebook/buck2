@@ -10,7 +10,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::build::MaterializationContext;
@@ -65,26 +64,6 @@ impl ToProtoDuration for Duration {
         prost_types::Duration {
             seconds: self.as_secs() as i64,
             nanos: self.subsec_nanos() as i32,
-        }
-    }
-}
-
-pub enum ConfigType {
-    Value = 0,
-    File = 1,
-}
-
-impl TryFrom<i32> for ConfigType {
-    type Error = anyhow::Error;
-
-    fn try_from(v: i32) -> anyhow::Result<Self> {
-        match v {
-            x if x == ConfigType::Value as i32 => Ok(ConfigType::Value),
-            x if x == ConfigType::File as i32 => Ok(ConfigType::File),
-            _ => Err(anyhow!(
-                "Unknown ConfigType enum value `{}` when trying to deserialize",
-                v,
-            )),
         }
     }
 }
