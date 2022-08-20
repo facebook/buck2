@@ -23,6 +23,13 @@ from typing import Dict, IO, List, NamedTuple, Optional, Tuple
 DEBUG = False
 
 
+def key_value_arg(s: str) -> Tuple[str, str]:
+    key_value = s.split("=", maxsplit=1)
+    if len(key_value) == 2:
+        return (key_value[0], key_value[1])
+    raise argparse.ArgumentTypeError(f"expected the form `key=value` for `{s}`")
+
+
 class Args(NamedTuple):
     diag_json: Optional[IO[str]]
     diag_txt: Optional[IO[str]]
@@ -51,23 +58,23 @@ def arg_parse() -> Args:
     )
     parser.add_argument(
         "--env",
-        nargs=2,
         action="append",
-        metavar=("NAME", "VALUE"),
+        type=key_value_arg,
+        metavar="NAME=VALUE",
         help="Set environment",
     )
     parser.add_argument(
         "--path-env",
-        nargs=2,
         action="append",
-        metavar=("NAME", "PATH"),
+        type=key_value_arg,
+        metavar="NAME=PATH",
         help="Set path environment (to be made absolute)",
     )
     parser.add_argument(
         "--crate-map",
-        nargs=2,
         action="append",
-        metavar=("CRATE", "TARGET"),
+        type=key_value_arg,
+        metavar="CRATE=TARGET",
         help="Crate name to target map for unused crate diagnostics",
     )
     parser.add_argument(

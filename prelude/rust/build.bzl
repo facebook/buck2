@@ -115,14 +115,16 @@ def generate_rustdoc(
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustc_action[RunInfo],
-        [["--env", k, v] for k, v in plain_env.items()],
-        [["--path-env", k, v] for k, v in path_env.items()],
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         toolchain_info.rustdoc,
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
+        common_args.args,
+        # FIXME: fbcode/common/rust/rustdoc/compress/main.rs expects
+        # `-o` and `--buck-target` in this form.
         "-o",
         output.as_output(),
-        common_args.args,
         "--buck-target",
         str(ctx.label.raw_target()),
     )
@@ -146,8 +148,8 @@ def generate_rustdoc(
             name = info.crate
 
         rustdoc_cmd.add(
-            "--extern-html-root-url",
-            "{}={}/{}:{}".format(name, url_prefix, dep.label.package, dep.label.name),
+            "--extern-html-root-url={}={}/{}:{}"
+                .format(name, url_prefix, dep.label.package, dep.label.name),
         )
 
     rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
@@ -221,8 +223,7 @@ def rust_compile(
 
     rustc_cmd = cmd_args(
         common_args.args,
-        "--remap-path-prefix",
-        cmd_args(compile_ctx.symlinked_srcs, format = "{}/=" + ctx.label.package),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", ctx.label.package, delimiter = ""),
         compile_ctx.linker_args,
         # Normalize working directory
         "-Zremap-cwd-prefix=",
@@ -372,11 +373,10 @@ def _dependency_args(
             artifact = style.rlib
             transitive_artifacts = style.transitive_deps
 
-        args.add("--extern")
         flags = ""
         if x.flags != []:
             flags = ",".join(x.flags) + ":"
-        args.add(cmd_args(flags + crate, "=", artifact, delimiter = ""))
+        args.add(cmd_args("--extern=", flags, crate, "=", artifact, delimiter = ""))
         crate_targets[crate] = dep.label
 
         # Unwanted transitive_deps have already been excluded
@@ -457,7 +457,7 @@ def _compute_common_args(
     )
 
     if crate_type == CrateType("proc-macro"):
-        dependency_args.add("--extern", "proc_macro")
+        dependency_args.add("--extern=proc_macro")
 
     if crate_type == CrateType("cdylib") and not is_check:
         linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
@@ -483,7 +483,7 @@ def _compute_common_args(
         toolchain_info.rustc_flags,
         toolchain_info.rustc_check_flags if is_check else [],
         ctx.attrs.rustc_flags,
-        _feature_args(ctx),
+        cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
         dependency_args,
     )
 
@@ -552,13 +552,6 @@ def _linker_args(ctx: "context") -> "cmd_args":
 def _shell_quote(args: "cmd_args") -> "cmd_args":
     return cmd_args(args, quote = "shell")
 
-def _feature_args(ctx: "context") -> [str.type]:
-    args = []
-    for feature in ctx.attrs.features:
-        args.append("--cfg")
-        args.append('feature="{}"'.format(feature))
-    return args
-
 # Returns the full label and its hash. The full label is used for `-Cmetadata`
 # which provided the primary disambiguator for two otherwise identically named
 # crates. The hash is added to the filename to give them a lower likelihood of
@@ -611,7 +604,6 @@ def _rustc_emits(
                     not crate_type_codegen(crate_type)
 
     emit_args = cmd_args()
-    extra_hash = ""
     if emit in predeclared_outputs:
         output = predeclared_outputs[emit]
     else:
@@ -619,7 +611,7 @@ def _rustc_emits(
             filename = "{}/save-analysis/{}{}.json".format(subdir, params.prefix, crate)
         else:
             extra_hash = "-" + _metadata(ctx.label)[1]
-            emit_args.add("-Cextra-filename=" + extra_hash)
+            emit_args.add("-Cextra-filename={}".format(extra_hash))
             if pipeline_meta:
                 # Make sure hollow rlibs are distinct from real ones
                 filename = subdir + "/hollow/" + output_filename(crate, Emit("link"), params, extra_hash)
@@ -637,30 +629,30 @@ def _rustc_emits(
         # crate which is generating code (MIR, etc).
         # Requires https://github.com/rust-lang/rust/pull/86045
         emit_args.add(
-            "--emit",
-            cmd_args(output.as_output(), format = "link={}"),
+            cmd_args(output.as_output(), format = "--emit=link={}"),
             "-Zno-codegen",
         )
     elif emit == Emit("expand"):
-        emit_args.add("-Zunpretty=expanded", "-o", output.as_output())
+        emit_args.add(
+            "-Zunpretty=expanded",
+            cmd_args(output.as_output(), format = "-o{}"),
+        )
     elif emit == Emit("save-analysis"):
         emit_args.add(
-            "--emit",
-            "metadata",
+            "--emit=metadata",
             "-Zsave-analysis",
             # No way to explicitly set the output location except with the output dir
-            "--out-dir",
-            cmd_args(output.as_output()).parent(2),
+            cmd_args(output.as_output(), format = "--out-dir={}").parent(2),
         )
     else:
         # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
         # https://github.com/rust-lang/rust/pull/85362 is applied)
-        emit_args.add("--emit", cmd_args(output.as_output(), format = emit.value + "={}"))
+        emit_args.add(cmd_args("--emit=", emit.value, "=", output.as_output(), delimiter = ""))
 
     if emit not in (Emit("expand"), Emit("save-analysis")):
         extra_dir = subdir + "/extras/" + output_filename(crate, emit, params)
         extra_out = ctx.actions.declare_output(extra_dir)
-        emit_args.add("--out-dir", extra_out.as_output())
+        emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
         if ctx.attrs.incremental_enabled:
             build_mode = ctx.attrs.incremental_build_mode
@@ -693,25 +685,23 @@ def _rustc_invoke(
 
     compile_cmd = cmd_args(
         rustc_action,
-        "--diag-json",
-        json_diag.as_output(),
-        "--diag-txt",
-        txt_diag.as_output(),
-        "--buck-target",
-        str(ctx.label.raw_target()),
+        cmd_args(json_diag.as_output(), format = "--diag-json={}"),
+        cmd_args(txt_diag.as_output(), format = "--diag-txt={}"),
+        "--buck-target={}".format(ctx.label.raw_target()),
     )
+
     for k, v in crate_map.items():
-        compile_cmd.add("--crate-map", k, str(v.raw_target()))
+        compile_cmd.add(cmd_args("--crate-map=", k, "=", str(v.raw_target()), delimiter = ""))
     for k, v in plain_env.items():
-        compile_cmd.add("--env", k, v)
+        compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():
-        compile_cmd.add("--path-env", k, v)
+        compile_cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
 
     build_status = None
     if toolchain_info.failure_filter:
         # Build status for fail filter
         build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag))
-        compile_cmd.add("--failure-filter", build_status.as_output())
+        compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
         for out in outputs:
             compile_cmd.add("--required-output", out.short_path, out.as_output())
 
