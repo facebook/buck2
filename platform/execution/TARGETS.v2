@@ -48,6 +48,7 @@ load(":util.bzl", "fat_platform_incompatible")
 
 prelude = native
 host_is_linux = host_info().os.is_linux
+host_is_linux_aarch64 = host_is_linux and host_info().arch.is_aarch64
 host_is_windows = host_info().os.is_windows
 
 local_linux_execution = read_bool("build", "enable_local_linux_execution", host_is_linux)
@@ -87,7 +88,7 @@ linux_platforms = execution_platform(
 ) + execution_platform(
     name = "linux-aarch64",
     base_platform = linux_execution_base_platforms["platform010-aarch64"],
-    local_enabled = host_is_linux and host_info().arch.is_aarch64,
+    local_enabled = host_is_linux_aarch64,
     # NOTE(agallagher): We don't have aarch64 RE workers.
     remote_enabled = False,
     remote_execution_action_key_providers = remote_execution_action_key_providers,
@@ -111,7 +112,7 @@ windows_platforms = execution_platform(
 fat_mac_linux = execution_platform(
     name = "fat_mac_linux",
     base_platform = ":fat_platform_posix_platform010",
-    local_enabled = not (host_is_linux and host_info().arch.is_aarch64),
+    local_enabled = not host_is_linux_aarch64,
     remote_enabled = True,
     remote_execution_properties = {
         "platform": "linux-remote-execution",
@@ -122,7 +123,7 @@ fat_mac_linux = execution_platform(
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 
-fat_platforms = fat_mac_linux if fat_platforms_enabled and not host_is_windows else []
+fat_platforms = fat_mac_linux if fat_platforms_enabled and not host_is_windows and not host_is_linux_aarch64 else []
 
 execution_platforms(
     name = "platforms",
