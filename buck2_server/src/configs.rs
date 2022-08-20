@@ -17,7 +17,7 @@ use cli_proto::ConfigOverride;
 
 use crate::daemon::common::ConfigType;
 
-pub fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
+fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
 ) -> anyhow::Result<Vec<LegacyConfigCmdArg>> {
     config_overrides
