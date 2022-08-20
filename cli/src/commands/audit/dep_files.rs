@@ -25,8 +25,8 @@ use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::pattern::TargetPattern;
 use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
-use buck2_server::daemon::common::target_platform_from_client_context;
+use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::AuditSubcommand;

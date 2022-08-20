@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "buck2_server_ctx",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/cli_proto:cli_proto",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
+)

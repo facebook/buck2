@@ -22,7 +22,7 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_patterns_from_cli_args;
+use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;

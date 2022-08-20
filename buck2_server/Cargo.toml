@@ -60,6 +60,7 @@ buck2_forkserver = { path = "../buck2_forkserver" }
 buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_node = { path = "../buck2_node" }
 buck2_query = { path = "../buck2_query" }
+buck2_server_ctx = { path = "../buck2_server_ctx" }
 cli_proto = { path = "../cli_proto" }
 buck2_events = { path = "../buck2_events" }
 host_sharing = { path = "../host_sharing" }

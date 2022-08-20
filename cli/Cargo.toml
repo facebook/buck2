@@ -16,6 +16,7 @@ buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
 buck2_node = { path = "../buck2_node" }
 buck2_server = { path = "../buck2_server" }
+buck2_server_ctx = { path = "../buck2_server_ctx" }
 buck2_test = { path = "../buck2_test" }
 bytes = { version = "1.1.0" }
 chrono = "0.4.19"
