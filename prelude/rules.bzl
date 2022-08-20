@@ -20,7 +20,7 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
     # native code but need the toolchains if they depend on native code and in
     # that case incompatibility is transitive and they'll get it.
     fat_platform_compatible = True
-    if name not in ("python_library", "python_binary"):
+    if name not in ("python_library", "python_binary", "python_test"):
         if "_cxx_toolchain" in attributes or "_apple_toolchain" in attributes:
             fat_platform_compatible = False
 
