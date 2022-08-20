@@ -131,7 +131,10 @@ impl ActionCalculation for DiceComputations {
                     }),
                 };
 
-                let executor = ctx.get_action_executor(action.execution_config()).await?;
+                let executor = ctx
+                    .get_action_executor(action.execution_config())
+                    .await
+                    .context(format!("for action `{}`", action))?;
 
                 // this can be RE
                 span_async(start_event, async move {
