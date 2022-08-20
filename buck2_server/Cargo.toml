@@ -61,7 +61,7 @@ buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_node = { path = "../buck2_node" }
 buck2_query = { path = "../buck2_query" }
 cli_proto = { path = "../cli_proto" }
-events = { path = "../events" }
+buck2_events = { path = "../buck2_events" }
 host_sharing = { path = "../host_sharing" }
 install_proto = {path = "../install_proto"}
 

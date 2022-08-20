@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::dice::HasEvents;
-use events::dispatch::with_dispatcher_async;
 use futures::future::BoxFuture;
 use gazebo::dupe::Dupe;
 use more_futures::spawner::Spawner;
@@ -31,14 +31,14 @@ mod tests {
 
     use buck2_data::CommandEnd;
     use buck2_data::CommandStart;
+    use buck2_events::create_source_sink_pair;
+    use buck2_events::dispatch::span;
+    use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::BuckEvent;
+    use buck2_events::EventSource;
+    use buck2_events::TraceId;
     use dice::data::DiceData;
     use dice::UserComputationData;
-    use events::create_source_sink_pair;
-    use events::dispatch::span;
-    use events::dispatch::EventDispatcher;
-    use events::BuckEvent;
-    use events::EventSource;
-    use events::TraceId;
     use futures::future::FutureExt;
     use gazebo::prelude::*;
     use more_futures::spawn::spawn_task;

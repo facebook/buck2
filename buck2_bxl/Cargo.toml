@@ -28,7 +28,7 @@ gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 dice = { path = "../dice/dice" }
-events = { path = "../events" }
+buck2_events = { path = "../buck2_events" }
 # For `SmallMap`
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }

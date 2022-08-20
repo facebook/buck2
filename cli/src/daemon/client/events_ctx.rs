@@ -12,10 +12,10 @@ use std::path::Path;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_events::subscriber::EventSubscriber;
+use buck2_events::subscriber::Tick;
 use cli_proto::command_result;
 use cli_proto::CommandResult;
-use events::subscriber::EventSubscriber;
-use events::subscriber::Tick;
 use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
@@ -342,7 +342,7 @@ impl EventSubscriber for EventsCtx {
             .await
     }
 
-    async fn handle_event(&mut self, event: &events::BuckEvent) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, event: &buck2_events::BuckEvent) -> anyhow::Result<()> {
         self.handle_subscribers(|subscriber| subscriber.handle_event(event))
             .await
     }

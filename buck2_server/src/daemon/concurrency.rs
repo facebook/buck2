@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_condvar_fair::BatonExt;
 use async_condvar_fair::Condvar;
+use buck2_events::TraceId;
 use dice::DiceTransaction;
-use events::TraceId;
 use gazebo::prelude::*;
 use parking_lot::FairMutex;
 use starlark::collections::SmallMap;
@@ -148,12 +148,12 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
+    use buck2_events::TraceId;
     use derive_more::Display;
     use dice::cycles::DetectCycles;
     use dice::Dice;
     use dice::DiceComputations;
     use dice::Key;
-    use events::TraceId;
     use gazebo::prelude::*;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;

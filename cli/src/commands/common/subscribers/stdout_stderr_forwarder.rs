@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use events::subscriber::EventSubscriber;
+use buck2_events::subscriber::EventSubscriber;
 
 ///The only purpose of this subscriber is to print out stderr/stdout from the daemon that was not properly
 /// sent over the events pipeline.

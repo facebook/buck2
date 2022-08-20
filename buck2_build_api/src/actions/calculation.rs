@@ -15,10 +15,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_events::dispatch::span_async;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use events::dispatch::span_async;
 use futures::future;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
@@ -422,12 +422,12 @@ mod tests {
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
+    use buck2_events::dispatch::with_dispatcher_async;
+    use buck2_events::dispatch::EventDispatcher;
     use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::DiceTransaction;
     use dice::UserComputationData;
-    use events::dispatch::with_dispatcher_async;
-    use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
     use indexmap::indexset;
 

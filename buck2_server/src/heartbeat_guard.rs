@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use events::dispatch::EventDispatcher;
+use buck2_events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 use tokio::task::JoinHandle;
 

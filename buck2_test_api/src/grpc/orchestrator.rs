@@ -4,6 +4,8 @@ use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_events::dispatch::with_dispatcher_async;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
@@ -24,8 +26,6 @@ use downward_api_proto::downward_api_server;
 use downward_api_proto::ConsoleRequest;
 use downward_api_proto::ExternalEventRequest;
 use downward_api_proto::LogRequest;
-use events::dispatch::with_dispatcher_async;
-use events::dispatch::EventDispatcher;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use gazebo::prelude::*;

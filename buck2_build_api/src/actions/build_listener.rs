@@ -16,12 +16,12 @@ use std::time::Duration;
 
 use buck2_data::BuildGraphExecutionInfo;
 use buck2_data::CriticalPathEntry;
+use buck2_events::dispatch::instant_event;
+use buck2_events::dispatch::with_dispatcher_async;
+use buck2_events::dispatch::EventDispatcher;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
-use events::dispatch::instant_event;
-use events::dispatch::with_dispatcher_async;
-use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;

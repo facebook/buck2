@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use buck2_data::*;
+use buck2_events::dispatch::with_dispatcher_async;
+use buck2_events::dispatch::EventDispatcher;
 use dice::DiceEvent;
 use dice::DiceTracker;
-use events::dispatch::with_dispatcher_async;
-use events::dispatch::EventDispatcher;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;

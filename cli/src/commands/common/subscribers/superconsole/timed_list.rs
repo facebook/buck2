@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use events::subscriber::Tick;
+use buck2_events::subscriber::Tick;
 use superconsole::components::bordering::BorderedSpec;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bordered;
@@ -334,10 +334,10 @@ mod tests {
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
-    use events::subscriber::Tick;
-    use events::BuckEvent;
-    use events::SpanId;
-    use events::TraceId;
+    use buck2_events::subscriber::Tick;
+    use buck2_events::BuckEvent;
+    use buck2_events::SpanId;
+    use buck2_events::TraceId;
     use superconsole::style::style;
 
     use super::*;

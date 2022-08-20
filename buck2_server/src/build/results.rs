@@ -190,8 +190,8 @@ pub mod build_report {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetLabel;
+    use buck2_events::TraceId;
     use derivative::Derivative;
-    use events::TraceId;
     use gazebo::prelude::*;
     use indexmap::IndexSet;
     use itertools::Itertools;

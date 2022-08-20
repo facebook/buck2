@@ -22,9 +22,9 @@ use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellName;
+use buck2_events::dispatch::EventDispatcher;
 use dice::DiceComputations;
 use dice::UserComputationData;
-use events::dispatch::EventDispatcher;
 
 use crate::dice::calculation::DiceCalculationDelegate;
 use crate::extra::InterpreterConfiguror;

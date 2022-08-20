@@ -13,7 +13,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 
 use buck2_core::env_helper::EnvHelper;
-use events::dispatch::EventDispatcher;
+use buck2_events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 
 use crate::ctx::ServerCommandContext;

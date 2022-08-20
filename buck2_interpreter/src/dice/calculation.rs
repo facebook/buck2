@@ -26,11 +26,11 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::package::Package;
+use buck2_events::dispatch::span;
+use buck2_events::dispatch::span_async;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use events::dispatch::span;
-use events::dispatch::span_async;
 use gazebo::prelude::*;
 use starlark::syntax::AstModule;
 

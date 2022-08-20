@@ -4,9 +4,9 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use events::subscriber::unpack_event;
-use events::subscriber::UnpackedBuckEvent;
-use events::BuckEvent;
+use buck2_events::subscriber::unpack_event;
+use buck2_events::subscriber::UnpackedBuckEvent;
+use buck2_events::BuckEvent;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 use superconsole::Component;

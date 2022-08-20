@@ -16,13 +16,13 @@ use buck2_core::fs::anyhow::remove_dir_all;
 use buck2_core::process::async_background_command;
 use buck2_core::process::background_command;
 use buck2_data::RageInvoked;
+use buck2_events::dispatch::EventDispatcher;
+use buck2_events::metadata;
+use buck2_events::TraceId;
 use chrono::offset::Local;
 use chrono::DateTime;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
-use events::dispatch::EventDispatcher;
-use events::metadata;
-use events::TraceId;
 use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use futures::TryStreamExt;
@@ -190,7 +190,7 @@ fn create_scribe_event_dispatcher(
     // without using configurations at the call site
     #[cfg(fbcode_build)]
     {
-        use events::sink::scribe;
+        use buck2_events::sink::scribe;
         if scribe::is_enabled() {
             Some(EventDispatcher::new(
                 trace_id,

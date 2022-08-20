@@ -24,14 +24,14 @@ use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_data::buck_event;
 use buck2_data::instant_event;
+use buck2_events::subscriber::EventSubscriber;
+use buck2_events::subscriber::Tick;
+use buck2_events::BuckEvent;
+use buck2_events::TraceId;
 use bytes::BytesMut;
 use chrono::offset::Utc;
 use chrono::DateTime;
 use cli_proto::*;
-use events::subscriber::EventSubscriber;
-use events::subscriber::Tick;
-use events::BuckEvent;
-use events::TraceId;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream::Stream;
@@ -812,8 +812,8 @@ mod tests {
 
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
-    use events::BuckEventError;
-    use events::SpanId;
+    use buck2_events::BuckEventError;
+    use buck2_events::SpanId;
     use futures::TryStreamExt;
     use tempfile::TempDir;
 
@@ -873,7 +873,7 @@ mod tests {
 
         //Get event
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
-            StreamValue::Event(e) => events::BuckEvent::try_from(e),
+            StreamValue::Event(e) => buck2_events::BuckEvent::try_from(e),
             StreamValue::Result(_) => Err(BuckEventError::FoundResult),
         }?;
 

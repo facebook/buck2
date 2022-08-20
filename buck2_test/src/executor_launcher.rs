@@ -11,12 +11,12 @@ use std::pin::Pin;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
 use buck2_test_api::grpc::spawn_orchestrator_server;
 use buck2_test_api::grpc::TestExecutorClient;
 use derive_more::Display;
-use events::dispatch::EventDispatcher;
 use futures::future::try_join3;
 use futures::future::Future;
 use futures::future::FutureExt;

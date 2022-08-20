@@ -16,7 +16,7 @@ gazebo_lint.optional = true
 buck2_core = { path = "../buck2_core" }
 downward_api = { path = "../downward_api" }
 downward_api_proto = { path = "../downward_api_proto" }
-events = { path = "../events" }
+buck2_events = { path = "../buck2_events" }
 futures = "0.3"
 host_sharing = { path = "../host_sharing" }
 tonic = "0.7.2"

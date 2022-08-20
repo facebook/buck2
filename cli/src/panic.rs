@@ -54,7 +54,7 @@ mod imp {
 
     use backtrace::Backtrace;
     use buck2_data::Location;
-    use events::metadata;
+    use buck2_events::metadata;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
 
@@ -154,11 +154,11 @@ mod imp {
 
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
-        use events::sink::scribe;
-        use events::sink::scribe::ThriftScribeSink;
-        use events::BuckEvent;
-        use events::EventSink;
-        use events::TraceId;
+        use buck2_events::sink::scribe;
+        use buck2_events::sink::scribe::ThriftScribeSink;
+        use buck2_events::BuckEvent;
+        use buck2_events::EventSink;
+        use buck2_events::TraceId;
 
         facebook_only();
         if !scribe::is_enabled() {

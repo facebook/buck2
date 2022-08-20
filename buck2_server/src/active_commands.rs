@@ -10,7 +10,7 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-use events::TraceId;
+use buck2_events::TraceId;
 use gazebo::dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;

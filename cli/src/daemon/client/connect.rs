@@ -16,6 +16,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::process::async_background_command;
+use buck2_events::subscriber::EventSubscriber;
 use buck2_server::client_utils::get_channel;
 use buck2_server::client_utils::retrying;
 use buck2_server::client_utils::ConnectionType;
@@ -24,7 +25,6 @@ use buck2_server::client_utils::SOCKET_ADDR;
 use buck2_server::paths::Paths;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
-use events::subscriber::EventSubscriber;
 use fs2::FileExt;
 use futures::future::try_join3;
 use futures::FutureExt;
@@ -91,7 +91,7 @@ impl<'a> BuckdLifecycle<'a> {
         // this; the `buck2 daemon` command must also be instructed to log to Scribe if the top-level CLI was itself
         // instructed to log.
         // This environment variable ensures that Scribe logging is enabled upon entry of the buck2 daemon command.
-        if !events::sink::scribe::is_enabled() {
+        if !buck2_events::sink::scribe::is_enabled() {
             cmd.env("BUCK2_ENABLE_SCRIBE", "0");
         }
 

@@ -14,7 +14,7 @@ use std::fmt::Display;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use events::dispatch::span_async;
+use buck2_events::dispatch::span_async;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;

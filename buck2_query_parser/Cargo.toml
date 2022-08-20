@@ -18,7 +18,7 @@ enum-map = "0.6.4"
 nom = "6.1.2"
 structopt = "0.3.0"
 thiserror = "1.0.9"
-events = { path = "../events" }
+buck2_events = { path = "../buck2_events" }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

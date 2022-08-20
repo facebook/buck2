@@ -10,8 +10,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_node::execute::config::HybridExecutionLevel;
-use events::dispatch::EventDispatcher;
 use futures::future;
 use futures::future::Either;
 use futures::future::Future;

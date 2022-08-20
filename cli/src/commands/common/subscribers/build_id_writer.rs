@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use async_trait::async_trait;
-use events::subscriber::EventSubscriber;
-use events::BuckEvent;
+use buck2_events::subscriber::EventSubscriber;
+use buck2_events::BuckEvent;
 
 pub struct BuildIdWriter {
     path: PathBuf,

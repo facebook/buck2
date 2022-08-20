@@ -34,6 +34,9 @@ use buck2_core::cells::CellName;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_events::dispatch::EventDispatcher;
+use buck2_events::EventSource;
+use buck2_events::TraceId;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_server::active_commands::ActiveCommandDropGuard;
 use buck2_server::ctx::BaseServerCommandContext;
@@ -43,9 +46,6 @@ use buck2_server::daemon::panic::DaemonStatePanicDiceDump;
 use buck2_server::file_watcher::FileWatcher;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
-use events::dispatch::EventDispatcher;
-use events::EventSource;
-use events::TraceId;
 use fbinit::FacebookInit;
 use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
@@ -331,16 +331,16 @@ impl DaemonState {
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
         use buck2_core::facebook_only;
-        use events::sink::scribe;
-        use events::sink::scribe::ThriftScribeSink;
-        use events::sink::tee::TeeSink;
+        use buck2_events::sink::scribe;
+        use buck2_events::sink::scribe::ThriftScribeSink;
+        use buck2_events::sink::tee::TeeSink;
 
         // The Scribe category to which we'll write buck2 events.
         const BUCK2_EVENTS_CATEGORY: &str = "buck2_events";
 
         // facebook only: logging events to Scribe.
         facebook_only();
-        let (events, sink) = events::create_source_sink_pair();
+        let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data().await?;
         let dispatcher = if scribe::is_enabled() {
             EventDispatcher::new(
@@ -368,7 +368,7 @@ impl DaemonState {
         &self,
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
-        let (events, sink) = events::create_source_sink_pair();
+        let (events, sink) = buck2_events::create_source_sink_pair();
         Ok((events, EventDispatcher::new(trace_id, sink)))
     }
 

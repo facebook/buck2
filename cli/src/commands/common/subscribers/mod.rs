@@ -18,8 +18,8 @@ pub(crate) mod stdout_stderr_forwarder;
 pub mod superconsole;
 
 use ::superconsole::Component;
+use buck2_events::subscriber::EventSubscriber;
 pub(crate) use event_log::EventLog;
-use events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
 pub(crate) use simpleconsole::SimpleConsole;
 

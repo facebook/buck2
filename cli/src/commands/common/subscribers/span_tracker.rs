@@ -12,10 +12,10 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_data::SpanStartEvent;
+use buck2_events::subscriber::EventSubscriber;
+use buck2_events::BuckEvent;
+use buck2_events::SpanId;
 use derive_more::From;
-use events::subscriber::EventSubscriber;
-use events::BuckEvent;
-use events::SpanId;
 use gazebo::prelude::*;
 use linked_hash_map::LinkedHashMap;
 
@@ -272,7 +272,7 @@ impl WhatRanState<OptionalSpanId> for SpanTracker {
 }
 
 /// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
-/// Option<SpanId> on events::BuckEvent.
+/// Option<SpanId> on buck2_events::BuckEvent.
 #[derive(From, Copy, Clone, Dupe)]
 pub(crate) struct OptionalSpanId(Option<SpanId>);
 

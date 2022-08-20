@@ -53,7 +53,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
         .init();
     #[cfg(fbcode_build)]
     {
-        use events::sink::scribe;
+        use buck2_events::sink::scribe;
         use gflags::GflagValue;
 
         // There are two sources of log spew when building buck2 with Buck and linking against fbcode:

@@ -18,9 +18,9 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_common::convert::ProstDurationExt;
-use events::subscriber::VisitorError;
-use events::BuckEvent;
-use events::SpanId;
+use buck2_events::subscriber::VisitorError;
+use buck2_events::BuckEvent;
+use buck2_events::SpanId;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
 use serde::Serialize;
@@ -82,9 +82,9 @@ struct ChromeTraceFirstPass {
     ///    only if they appear in the CriticalPath, but the CriticalPath is one
     ///    of the last events.
     /// So this first pass builds up several lists of "interesting" span IDs.
-    pub long_analyses: HashSet<events::SpanId>,
-    pub long_loads: HashSet<events::SpanId>,
-    pub local_actions: HashSet<events::SpanId>,
+    pub long_analyses: HashSet<buck2_events::SpanId>,
+    pub long_loads: HashSet<buck2_events::SpanId>,
+    pub local_actions: HashSet<buck2_events::SpanId>,
     pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
 }
 
@@ -422,7 +422,7 @@ impl AverageRateOfChangeCounters {
 struct SpanCounters {
     counter: SimpleCounters<i32>,
     // Stores how current open spans contribute to counter values.
-    open_spans: HashMap<events::SpanId, (&'static str, i32)>,
+    open_spans: HashMap<buck2_events::SpanId, (&'static str, i32)>,
 }
 
 impl SpanCounters {
@@ -458,7 +458,7 @@ impl SpanCounters {
 
 struct ChromeTraceWriter {
     trace_events: Vec<serde_json::Value>,
-    open_spans: HashMap<events::SpanId, ChromeTraceOpenSpan>,
+    open_spans: HashMap<buck2_events::SpanId, ChromeTraceOpenSpan>,
     invocation: Invocation,
     first_pass: ChromeTraceFirstPass,
     span_counters: SpanCounters,
@@ -711,7 +711,9 @@ impl ChromeTraceWriter {
 }
 
 impl ChromeTraceCommand {
-    async fn load_events(path: PathBuf) -> anyhow::Result<(Invocation, Vec<events::BuckEvent>)> {
+    async fn load_events(
+        path: PathBuf,
+    ) -> anyhow::Result<(Invocation, Vec<buck2_events::BuckEvent>)> {
         let log_path = EventLogPathBuf::infer(path)?;
         let (invocation, mut stream_values) = log_path.unpack_stream().await?;
 
@@ -720,7 +722,7 @@ impl ChromeTraceCommand {
         while let Some(stream_value) = stream_values.try_next().await? {
             match stream_value {
                 StreamValue::Event(e) => {
-                    let buck_event_result = events::BuckEvent::try_from(e);
+                    let buck_event_result = buck2_events::BuckEvent::try_from(e);
                     match buck_event_result {
                         Ok(buck_event) => buck_events.push(buck_event),
                         Err(e) => crate::eprintln!("Error converting event-log: {:#}", e)?,

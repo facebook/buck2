@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use events::subscriber::EventSubscriber;
+use buck2_events::subscriber::EventSubscriber;
 #[cfg(fbcode_build)]
 use gazebo::dupe::Dupe;
 
@@ -24,11 +24,11 @@ mod imp {
 
     use async_trait::async_trait;
     use buck2_common::convert::ProstDurationExt;
-    use events::sink::scribe::ThriftScribeSink;
-    use events::subscriber::EventSubscriber;
-    use events::BuckEvent;
-    use events::EventSink;
-    use events::TraceId;
+    use buck2_events::sink::scribe::ThriftScribeSink;
+    use buck2_events::subscriber::EventSubscriber;
+    use buck2_events::BuckEvent;
+    use buck2_events::EventSink;
+    use buck2_events::TraceId;
     use futures::FutureExt;
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
@@ -238,10 +238,10 @@ mod imp {
 pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
-    if events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
+    if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
         let recorder = imp::InvocationRecorder::new(
             ctx.async_cleanup_context().dupe(),
-            events::sink::scribe::ThriftScribeSink::new(
+            buck2_events::sink::scribe::ThriftScribeSink::new(
                 ctx.fbinit(),
                 "buck2_events".to_owned(),
                 1,
