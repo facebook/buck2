@@ -14,7 +14,6 @@ use anyhow::anyhow;
 use anyhow::Context as _;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::build::MaterializationContext;
-use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
 use buck2_build_api::execute::commands::hybrid::HybridExecutor;
@@ -43,9 +42,6 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::TargetLabel;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_interpreter::common::BxlFilePath;
-use buck2_interpreter::parse_import::parse_import_with_config;
-use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::HybridExecutionLevel;
@@ -59,7 +55,6 @@ use dashmap::DashMap;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
-use thiserror::Error;
 
 pub trait ToProtoDuration {
     fn to_proto(&self) -> prost_types::Duration;
@@ -433,42 +428,6 @@ fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecution
             v => unimplemented!("no support yet for operating system `{}`", v),
         },
     }
-}
-
-#[derive(Debug, Error)]
-#[error("bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`")]
-struct BxlLabelError(String);
-
-/// Parse the bxl function label out of cli pattern
-pub fn parse_bxl_label_from_cli(
-    cwd: &ProjectRelativePath,
-    bxl_label: &str,
-    cell_resolver: &CellResolver,
-) -> anyhow::Result<BxlFunctionLabel> {
-    let current_cell = cell_resolver.get_cell_path(cwd)?;
-
-    // Targets with cell aliases should be resolved against the cell mapping
-    // as defined the cell derived from the cwd.
-    let cell_alias_resolver = cell_resolver
-        .get(current_cell.cell())
-        .unwrap()
-        .cell_alias_resolver();
-
-    let (bxl_path, bxl_fn) = bxl_label
-        .rsplit_once(':')
-        .ok_or_else(|| BxlLabelError(bxl_label.to_owned()))?;
-
-    const OPTS: ParseImportOptions = ParseImportOptions {
-        allow_missing_at_symbol: true,
-        allow_relative_imports: true,
-    };
-    let import_path =
-        parse_import_with_config(cell_alias_resolver, &current_cell, bxl_path, &OPTS)?;
-
-    Ok(BxlFunctionLabel {
-        bxl_path: BxlFilePath::new(import_path)?,
-        name: bxl_fn.to_owned(),
-    })
 }
 
 pub trait ConvertMaterializationContext {

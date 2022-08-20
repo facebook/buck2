@@ -9,6 +9,7 @@ use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlCalculation;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
 use buck2_bxl::bxl::eval::get_bxl_callable;
@@ -18,10 +19,14 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::Package;
+use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::parse_import::parse_import_with_config;
+use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::parse_bxl_label_from_cli;
 use buck2_server::daemon::common::ConvertMaterializationContext;
 use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
@@ -183,4 +188,40 @@ async fn ensure_artifacts(
             if res.is_empty() { Ok(()) } else { Err(res) }
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`")]
+struct BxlLabelError(String);
+
+/// Parse the bxl function label out of cli pattern
+fn parse_bxl_label_from_cli(
+    cwd: &ProjectRelativePath,
+    bxl_label: &str,
+    cell_resolver: &CellResolver,
+) -> anyhow::Result<BxlFunctionLabel> {
+    let current_cell = cell_resolver.get_cell_path(cwd)?;
+
+    // Targets with cell aliases should be resolved against the cell mapping
+    // as defined the cell derived from the cwd.
+    let cell_alias_resolver = cell_resolver
+        .get(current_cell.cell())
+        .unwrap()
+        .cell_alias_resolver();
+
+    let (bxl_path, bxl_fn) = bxl_label
+        .rsplit_once(':')
+        .ok_or_else(|| BxlLabelError(bxl_label.to_owned()))?;
+
+    const OPTS: ParseImportOptions = ParseImportOptions {
+        allow_missing_at_symbol: true,
+        allow_relative_imports: true,
+    };
+    let import_path =
+        parse_import_with_config(cell_alias_resolver, &current_cell, bxl_path, &OPTS)?;
+
+    Ok(BxlFunctionLabel {
+        bxl_path: BxlFilePath::new(import_path)?,
+        name: bxl_fn.to_owned(),
+    })
 }
