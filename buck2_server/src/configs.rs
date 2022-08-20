@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;

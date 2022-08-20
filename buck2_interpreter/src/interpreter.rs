@@ -666,8 +666,8 @@ impl InterpreterForCell {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
     use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
-    use buck2_common::legacy_configs::BuckConfigBasedCells;
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;

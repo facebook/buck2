@@ -16,7 +16,7 @@ use std::str;
 
 use anyhow::anyhow;
 use anyhow::Context as _;
-use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;

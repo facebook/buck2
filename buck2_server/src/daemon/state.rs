@@ -25,7 +25,7 @@ use buck2_build_api::execute::materializer::MaterializationMethod;
 use buck2_build_api::execute::materializer::Materializer;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::io::IoProvider;
-use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;

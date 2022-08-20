@@ -29,7 +29,7 @@ use buck2_build_api::interpreter::module_internals::ModuleInternals;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
