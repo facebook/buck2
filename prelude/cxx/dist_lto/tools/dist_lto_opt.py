@@ -23,6 +23,14 @@ def main(argv: List[str]) -> int:
     parser.add_argument("opt_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
 
+    # change linker flag `-Wl,-plugin-opt,sample-profile=` to `"-fprofile-sample-use="`
+    # to make it affect in opt phase
+    for i, arg in enumerate(args.opt_args):
+        if arg.startswith("-Wl,-plugin-opt,sample-profile="):
+            args.opt_args[i] = arg.replace(
+                "-Wl,-plugin-opt,sample-profile=", "-fprofile-sample-use="
+            )
+
     subprocess.check_call(args.opt_args[1:])
     if os.stat(args.out).st_size == 0:
         print("error: opt produced empty file")

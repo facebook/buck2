@@ -290,6 +290,70 @@ def cxx_dist_link(
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out)
 
+    def prepare_opt_flags(link_infos: ["LinkInfo"]) -> "cmd_args":
+        # Linker flags/prefix we're going to detect and manipulate
+        LINKER_PLUGIN_OPT_PREFIX = "-Wl,-plugin-opt,"
+        LINKER_MLLVM_PREFIX = "-Wl,-mllvm,"
+        LINKER_PROFILE_FLAG_PREFIX = "sample-profile="
+
+        # Respectively flags valid for opt phase
+        OPT_PHASE_LLVM_PREFIX = "-mllvm"
+        OPT_PHASE_FUNCTION_SECTION_FLAG = "-ffunction-sections"
+        OPT_PHASE_DATA_SECTION_FLAG = "-fdata-sections"
+        OPT_PHASE_DEFAULT_PASS_MANAGER = "-fexperimental-new-pass-manager"
+
+        # -O2 is the default optimization flag for the link-time optimizer
+        # this setting matches current llvm implementation:
+        # https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/LTO/Config.h#L57
+        OPT_PHASE_DEFAULT_OPTIMIZATION_LEVEL = "-O2"
+
+        # Conservatively, we only translate llvms flags in our known list
+        KNOWN_LLVM_FLAGS = ["-generate-type-units"]
+        KNOWN_LLVM_FLAG_PREFIXS = ["-enable-lto-ir-verification=", "-profile-guided-section-prefix="]
+
+        def is_mllvm_flags(flag: str.type) -> bool.type:
+            if flag in KNOWN_LLVM_FLAGS:
+                return True
+            for prefix in KNOWN_LLVM_FLAG_PREFIXS:
+                if flag.startswith(prefix):
+                    return True
+            return False
+
+        opt_args = cmd_args()
+
+        opt_args.add(OPT_PHASE_DEFAULT_OPTIMIZATION_LEVEL)
+        opt_args.add(OPT_PHASE_DEFAULT_PASS_MANAGER)
+        opt_args.add(OPT_PHASE_FUNCTION_SECTION_FLAG)
+        opt_args.add(OPT_PHASE_DATA_SECTION_FLAG)
+
+        # buildifier: disable=uninitialized
+        for link in link_infos:
+            for raw_flag in link.pre_flags + link.post_flags:
+                # Translate clang driver flags to opt phase flags.
+                # Mostly care about -Wl,-plugin-opt and -Wl,-mllvm parameters.
+                flag_str = str(raw_flag).replace('\"', "")
+                if flag_str.startswith(LINKER_PLUGIN_OPT_PREFIX):
+                    f = flag_str.removeprefix(LINKER_PLUGIN_OPT_PREFIX)
+                    if f.startswith(LINKER_PROFILE_FLAG_PREFIX):
+                        # the 'raw_flag' is a buck2 type 'resolved_macro' which support
+                        # dynamic location reference like "$(location ...)" which We can't edit it in UDR.
+                        # Cast it to str would invalid the dynamic reference so here we pass the raw_flag
+                        # Please note "sample-profile=" needs to be transformed to
+                        # "-fprofile-sample-use=" but it will happen in dist_lto_opt.py
+                        opt_args.add(raw_flag)
+                    elif is_mllvm_flags(f):
+                        # for flags need adding -mllvm prefix
+                        opt_args.add(OPT_PHASE_LLVM_PREFIX, f)
+                elif flag_str.startswith(LINKER_MLLVM_PREFIX):
+                    # translate args like "-Wl,-mllvm,-profile-summary-cutoff-hot=999990"
+                    # to "-mllvm -profile-summary-cutoff-hot=999990"
+                    f = flag_str.removeprefix(LINKER_MLLVM_PREFIX)
+                    opt_args.add(OPT_PHASE_LLVM_PREFIX, f)
+
+        return opt_args
+
+    opt_common_flags = prepare_opt_flags(link_infos)
+
     # We declare a separate dynamic_output for every object file. It would
     # maybe be simpler to have a single dynamic_output that produced all the
     # opt actions, but an action needs to re-run whenever the analysis that
@@ -310,10 +374,8 @@ def cxx_dist_link(
             opt_cmd.add("--out", ctx.outputs[opt_object].as_output())
             opt_cmd.add("--")
             opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
+            opt_cmd.add(opt_common_flags)
 
-            # TODO(cjhopman): we need to move the thinlto opt flags into the
-            # toolchain somewhere. For now, it's just hardcoded '-O3'.
-            opt_cmd.add("-O3")
             opt_cmd.add("-o", ctx.outputs[opt_object].as_output())
             opt_cmd.add("-x", "ir", initial_object)
             opt_cmd.add("-c")
@@ -375,7 +437,8 @@ def cxx_dist_link(
                 opt_cmd.add("--out", opt_object.as_output())
                 opt_cmd.add("--")
                 opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
-                opt_cmd.add("-O3")
+                opt_cmd.add(opt_common_flags)
+
                 opt_cmd.add("-o", opt_object.as_output())
                 opt_cmd.add("-x", "ir", entry["path"])
                 opt_cmd.add("-c")
