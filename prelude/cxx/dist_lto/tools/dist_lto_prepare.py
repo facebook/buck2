@@ -20,6 +20,24 @@ class ArchiveKind(enum.IntEnum):
     THIN_ARCHIVE = 2
 
 
+def _gen_path(parent_path: str, filename: str) -> str:
+    # concat file path and check the file exist before return
+    obj_path = os.path.join(parent_path, filename)
+    assert os.path.exists(obj_path)
+    return obj_path
+
+
+def _gen_filename(filename: str, num_of_instance: int) -> str:
+    # generate the filename based on the instance,
+    # for 1st instance, it's file.o
+    # for 2nd instance, it's file_1.o
+    if num_of_instance > 1:
+        basename, extension = os.path.splitext(filename)
+        return f"{basename}_{num_of_instance-1}{extension}"
+    else:
+        return filename
+
+
 def identify_file(path: str) -> Tuple[ArchiveKind, str]:
     output = subprocess.check_output(["file", "-b", path]).decode()
     if "ar archive" in output:
@@ -56,19 +74,64 @@ def main(argv: List[str]) -> int:
         # looks like it has stalled for years (https://reviews.llvm.org/D69418)
         # So, we need to invoke ar in the directory that we want it to extract into, and so
         # need to adjust some paths.
-
         ar_path = os.path.relpath(args.ar, start=objects_path)
         archive_path = os.path.relpath(args.archive, start=objects_path)
         output = subprocess.check_output(
-            [ar_path, "xv", archive_path], cwd=objects_path
+            [ar_path, "t", archive_path], cwd=objects_path
         ).decode()
+        member_list = [member for member in output.split("\n") if member]
 
-        for line in output.splitlines():
-            assert line.startswith("x - ")
-            obj = line[4:]
-            obj_path = os.path.join(objects_path, obj)
-            assert os.path.exists(obj_path)
-            known_objects.append(obj_path)
+        if len(set(member_list)) != len(member_list):
+            # duplication detected
+            counter = {}
+
+            for member in member_list:
+                current = counter.get(member, 0) + 1
+                counter[member] = current
+                if current == 1:
+                    # just extract the file
+                    output = subprocess.check_output(
+                        [ar_path, "xN", str(current), archive_path, member],
+                        cwd=objects_path,
+                    ).decode()
+                    assert not output
+                    known_objects.append(_gen_path(objects_path, member))
+                else:
+                    # llvm doesn't allow --output so we need this clumsiness
+                    tmp_filename = "tmp"
+                    current_file = _gen_filename(member, current)
+                    # rename current 'member' file to tmp
+                    output = subprocess.check_output(
+                        ["mv", member, tmp_filename], cwd=objects_path
+                    ).decode()
+                    assert not output
+                    # extract the file from archive
+                    output = subprocess.check_output(
+                        [ar_path, "xN", str(current), archive_path, member],
+                        cwd=objects_path,
+                    ).decode()
+                    assert not output
+                    # rename the newly extracted file
+                    output = subprocess.check_output(
+                        ["mv", member, current_file], cwd=objects_path
+                    ).decode()
+                    assert not output
+                    # rename the tmp file back to 'member'
+                    output = subprocess.check_output(
+                        ["mv", tmp_filename, member], cwd=objects_path
+                    ).decode()
+                    assert not output
+                    known_objects.append(_gen_path(objects_path, current_file))
+        else:
+            # no duplicated filename
+            output = subprocess.check_output(
+                [ar_path, "xv", archive_path], cwd=objects_path
+            ).decode()
+            for line in output.splitlines():
+                assert line.startswith("x - ")
+                obj = line[4:]
+                known_objects.append(_gen_path(objects_path, obj))
+
     elif file_type == ArchiveKind.THIN_ARCHIVE:
         output = subprocess.check_output([args.ar, "t", args.archive]).decode()
         for line in output.splitlines():
