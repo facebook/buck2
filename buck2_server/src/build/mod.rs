@@ -20,6 +20,7 @@ use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildProviderType;
+use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
@@ -66,7 +67,6 @@ use crate::build::results::result_report::ResultReporterOptions;
 use crate::build::results::BuildOwner;
 use crate::build::results::BuildResultCollector;
 use crate::ctx::ServerCommandContext;
-use crate::daemon::common::ConvertMaterializationContext;
 
 pub mod results;
 

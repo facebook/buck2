@@ -16,6 +16,7 @@ buck2_node = { path = "../buck2_node" }
 buck2_query = { path = "../buck2_query" }
 buck2_query_parser = { path = "../buck2_query_parser" }
 buck2_build_api_derive = { path = "../buck2_build_api_derive" }
+cli_proto = { path = "../cli_proto" }
 bumpalo = "3.8"
 dice = { path = "../dice/dice" }
 derive_more = "0.99.3"

@@ -12,7 +12,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_build_api::actions::artifact::ArtifactFs;
-use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
 use buck2_build_api::execute::commands::hybrid::HybridExecutor;
@@ -33,10 +32,8 @@ use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::HybridExecutionLevel;
 use buck2_node::execute::config::LocalExecutorOptions;
 use buck2_node::execute::config::RemoteExecutorOptions;
-use cli_proto::build_request::Materializations;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
-use dashmap::DashMap;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
@@ -302,25 +299,5 @@ fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecution
             "windows" => windows,
             v => unimplemented!("no support yet for operating system `{}`", v),
         },
-    }
-}
-
-pub trait ConvertMaterializationContext {
-    fn from(self) -> MaterializationContext;
-}
-
-impl ConvertMaterializationContext for Materializations {
-    fn from(self) -> MaterializationContext {
-        match self {
-            Materializations::Skip => MaterializationContext::Skip,
-            Materializations::Default => MaterializationContext::Materialize {
-                map: Arc::new(DashMap::new()),
-                force: false,
-            },
-            Materializations::Materialize => MaterializationContext::Materialize {
-                map: Arc::new(DashMap::new()),
-                force: true,
-            },
-        }
     }
 }

@@ -8,6 +8,7 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::execute::config::PathSeparatorKind;
+use cli_proto::build_request::Materializations;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;
@@ -221,4 +222,24 @@ pub enum MaterializationContext {
         /// config.
         force: bool,
     },
+}
+
+pub trait ConvertMaterializationContext {
+    fn from(self) -> MaterializationContext;
+}
+
+impl ConvertMaterializationContext for Materializations {
+    fn from(self) -> MaterializationContext {
+        match self {
+            Materializations::Skip => MaterializationContext::Skip,
+            Materializations::Default => MaterializationContext::Materialize {
+                map: Arc::new(DashMap::new()),
+                force: false,
+            },
+            Materializations::Materialize => MaterializationContext::Materialize {
+                map: Arc::new(DashMap::new()),
+                force: true,
+            },
+        }
+    }
 }
