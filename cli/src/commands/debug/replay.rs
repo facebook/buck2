@@ -14,7 +14,7 @@ use tokio::runtime::Runtime;
 
 use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::NO_EVENT_LOG;
-use crate::daemon::client::Replayer;
+use crate::daemon::client::replayer::Replayer;
 use crate::exec;
 use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;

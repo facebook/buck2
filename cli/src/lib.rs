@@ -90,9 +90,9 @@ use crate::commands::status::StatusCommand;
 use crate::commands::targets::TargetsCommand;
 use crate::commands::test::TestCommand;
 use crate::commands::uquery::UqueryCommand;
+use crate::daemon::client::replayer::Replayer;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::daemon::client::Replayer;
 use crate::version::BuckVersion;
 
 #[macro_use]

@@ -36,10 +36,10 @@ use tonic::transport::Channel;
 
 use crate::commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::daemon::client::events_ctx::EventsCtx;
+use crate::daemon::client::replayer::Replayer;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::ClientKind;
-use crate::daemon::client::Replayer;
 use crate::daemon::client::VersionCheckResult;
 /// Responsible for starting the daemon when no daemon is running.
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
