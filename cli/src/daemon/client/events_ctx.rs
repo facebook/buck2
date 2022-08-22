@@ -28,9 +28,9 @@ use tokio::time::MissedTickBehavior;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::daemon::client::file_tailer::FileTailer;
+use crate::daemon::client::stream_value::StreamValue;
 use crate::daemon::client::BuckdCommunicationError;
 use crate::daemon::client::CommandOutcome;
-use crate::daemon::client::StreamValue;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
 /// superconsole uses it to re-render the frame and this is what allows it to have constantly updating timers.

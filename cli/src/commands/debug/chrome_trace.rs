@@ -41,7 +41,7 @@ pub(crate) enum ChromeTraceError {
 
 use crate::commands::common::subscribers::display;
 use crate::commands::common::subscribers::event_log::Invocation;
-use crate::daemon::client::StreamValue;
+use crate::daemon::client::stream_value::StreamValue;
 use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]

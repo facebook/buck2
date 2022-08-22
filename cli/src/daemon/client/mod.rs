@@ -15,7 +15,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
-use buck2_data::BuckEvent;
 use buck2_server::daemon::common::ToProtoDuration;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
@@ -25,8 +24,7 @@ use futures::pin_mut;
 use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
-use serde::Deserialize;
-use serde::Serialize;
+use stream_value::StreamValue;
 use thiserror::Error;
 use tonic::transport::Channel;
 use tonic::Request;
@@ -40,6 +38,7 @@ pub(crate) mod connect;
 mod events_ctx;
 mod file_tailer;
 pub(crate) mod replayer;
+pub(crate) mod stream_value;
 
 use crate::daemon::client::replayer::Replayer;
 use crate::exit_result::ExitResult;
@@ -187,13 +186,6 @@ impl<R> FromResidual<CommandFailure> for CommandOutcome<R> {
     fn from_residual(residual: CommandFailure) -> Self {
         Self::Failure(residual.0)
     }
-}
-
-#[derive(Serialize, Deserialize)]
-#[allow(clippy::large_enum_variant)]
-pub enum StreamValue {
-    Result(CommandResult),
-    Event(BuckEvent),
 }
 
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC

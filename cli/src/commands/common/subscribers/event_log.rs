@@ -54,7 +54,7 @@ use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
 
-use crate::daemon::client::StreamValue;
+use crate::daemon::client::stream_value::StreamValue;
 use crate::AsyncCleanupContext;
 
 #[derive(Error, Debug)]
@@ -818,7 +818,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::daemon::client::StreamValue;
+    use crate::daemon::client::stream_value::StreamValue;
 
     impl EventLog {
         async fn new_test_event_log(log: EventLogPathBuf) -> anyhow::Result<Self> {

@@ -21,7 +21,7 @@ use tokio::time::Sleep;
 
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::subscribers::event_log::Invocation;
-use crate::daemon::client::StreamValue;
+use crate::daemon::client::stream_value::StreamValue;
 
 #[pin_project]
 struct Pending {

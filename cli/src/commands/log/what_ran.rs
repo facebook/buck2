@@ -26,7 +26,7 @@ use crate::commands::common::what_ran::WhatRanOutputWriter;
 use crate::commands::common::what_ran::WhatRanRelevantAction;
 use crate::commands::common::what_ran::WhatRanState;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
-use crate::daemon::client::StreamValue;
+use crate::daemon::client::stream_value::StreamValue;
 use crate::exit_result::ExitResult;
 use crate::ClientCommandContext;
 
