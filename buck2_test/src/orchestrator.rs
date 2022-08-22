@@ -388,14 +388,25 @@ impl BuckTestOrchestrator {
         CommandExecutionTimingData,
         IndexMap<CommandExecutionOutput, ArtifactValue>,
     )> {
-        request = request.with_timeout(timeout).with_custom_tmpdir(false);
-        if let Some(requirements) = host_sharing_requirements {
-            request = request.with_host_sharing_requirements(requirements);
+        let mut executor_preference = ExecutorPreference::Default;
+
+        if !self.session.options().allow_re {
+            // We don't ban RE (we only prefer not to use it) if the session doesn't allow it, so
+            // that executor overrides or default executor can still route executions to RE.
+            executor_preference = executor_preference.and(&ExecutorPreference::LocalPreferred);
         }
 
-        if !(self.session.options().allow_re && supports_re) {
-            //  Needed so that we allow going to a simulator on RE even if `--allow-tests-on-re` was not passed
-            request = request.with_executor_preference(ExecutorPreference::LocalPreferred)
+        if !supports_re {
+            // But if the test doesn't support RE at all, then we ban it.
+            executor_preference = executor_preference.and(&ExecutorPreference::LocalRequired);
+        }
+
+        request = request
+            .with_timeout(timeout)
+            .with_custom_tmpdir(false)
+            .with_executor_preference(executor_preference);
+        if let Some(requirements) = host_sharing_requirements {
+            request = request.with_host_sharing_requirements(requirements);
         }
 
         let manager = CommandExecutionManager::new(
@@ -559,7 +570,6 @@ impl BuckTestOrchestrator {
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
-        // NOTE: This likely needs more logic, in time.
         let mut supports_re = true;
 
         let cwd;

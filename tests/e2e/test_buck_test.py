@@ -343,6 +343,20 @@ async def test_allow_tests_on_re(buck: Buck) -> None:
 if not is_deployed_buck2():
 
     @buck_test(inplace=True, data_dir="..")
+    async def test_incompatible_tests_do_not_run_on_re(buck: Buck) -> None:
+        await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/external_runner_test_info:invalid_test",
+                "-c",
+                "external_runner_test_info.declare_invalid_test=1",
+            ),
+            stderr_regex="Trying to execute a `local_only = True` action on remote executor",
+        )
+
+
+if not is_deployed_buck2():
+
+    @buck_test(inplace=True, data_dir="..")
     @env("TEST_MAKE_IT_FAIL", "1")
     async def test_env_var_filtering(buck: Buck) -> None:
         await buck.test(
