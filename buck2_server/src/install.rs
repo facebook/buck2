@@ -57,8 +57,8 @@ use chrono::Utc;
 use cli_proto::InstallRequest;
 use cli_proto::InstallResponse;
 use dice::DiceComputations;
-use futures::future;
 use futures::future::try_join;
+use futures::future::try_join_all;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::StrExt;
@@ -149,14 +149,7 @@ pub async fn install(
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-    let install_log_dir = get_installer_log_directory(&server_ctx, &ctx).await?;
-
-    // https://github.com/rust-lang/rust/issues/63033#issuecomment-521234696
-    let mut installer_run_args = Vec::new();
-    for arg in &request.installer_run_args {
-        installer_run_args.push(arg.clone());
-    }
-
+    let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
         let ctx = &ctx;
         let targets: anyhow::Result<Vec<ProvidersPattern>> = match spec {
@@ -189,17 +182,11 @@ pub async fn install(
             match providers.get_provider(InstallInfoCallable::provider_id_t()) {
                 Some(install_info) => {
                     let install_id = format!("{}", providers_label.target());
-                    let install_files = &install_info.get_files()?;
                     let installer_label = install_info.get_installer()?;
-                    handle_install_request(
-                        ctx,
-                        &install_log_dir,
-                        &install_id,
-                        install_files,
-                        installer_label,
-                        &installer_run_args,
-                    )
-                    .await?;
+                    installer_to_files_map
+                        .entry(installer_label)
+                        .or_insert_with(Vec::new)
+                        .push((install_id, install_info));
                 }
                 None => {
                     return Err(InstallError::NoInstallProvider(
@@ -211,6 +198,37 @@ pub async fn install(
             };
         }
     }
+
+    let install_log_dir = &get_installer_log_directory(&server_ctx, &ctx).await?;
+
+    let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
+    for (installer_label, install_info_vector) in &installer_to_files_map {
+        let ctx = &ctx;
+        let installer_run_args = &request.installer_run_args;
+
+        let mut install_files_vector = Vec::new();
+        for (install_id, install_info) in install_info_vector {
+            let install_files = install_info.get_files()?;
+            install_files_vector.push((install_id, install_files));
+        }
+
+        let handle_install_request_future = async move {
+            handle_install_request(
+                ctx,
+                install_log_dir,
+                &install_files_vector,
+                installer_label,
+                installer_run_args,
+            )
+            .await
+        };
+        install_requests.push(handle_install_request_future);
+    }
+
+    try_join_all(install_requests)
+        .await
+        .context("Interaction with installer failed.")?;
+
     Ok(InstallResponse {})
 }
 
@@ -236,14 +254,13 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 async fn handle_install_request<'a>(
     ctx: &'a DiceComputations,
     install_log_dir: &AbsPathBuf,
-    install_id: &str,
-    install_files: &IndexMap<&str, Artifact>,
-    installer_label: ConfiguredProvidersLabel,
+    install_files_slice: &[(&String, IndexMap<&str, Artifact>)],
+    installer_label: &ConfiguredProvidersLabel,
     initial_installer_run_args: &[String],
 ) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let build_files = async move {
-        build_files(ctx, install_files, files_tx).await?;
+        build_files(ctx, install_files_slice, files_tx).await?;
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
@@ -264,7 +281,7 @@ async fn handle_install_request<'a>(
             "{}/installer_{}_{}.log",
             install_log_dir,
             get_timestamp_as_string(),
-            calculate_hash(&install_id)
+            calculate_hash(&installer_label.target().name())
         );
 
         let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
@@ -278,19 +295,19 @@ async fn handle_install_request<'a>(
             installer_log_filename.to_owned(),
         ]);
 
-        build_launch_installer(ctx, installer_label, installer_run_args).await?;
+        build_launch_installer(ctx, installer_label, &installer_run_args).await?;
 
         let client: InstallerClient<Channel> =
             connect_to_installer(uds_socket_filename.to_owned(), tcp_port).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
 
-        send_install_info(client.clone(), install_id, install_files, &artifact_fs).await?;
+        for (install_id, install_files) in install_files_slice {
+            send_install_info(client.clone(), install_id, install_files, &artifact_fs).await?;
+        }
 
         let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
-            .try_for_each_concurrent(None, |file| {
-                send_file(install_id, file, &artifact_fs, client.clone())
-            })
+            .try_for_each_concurrent(None, |file| send_file(file, &artifact_fs, client.clone()))
             .await;
         send_shutdown_command(client.clone()).await?;
         send_files_result.context("Failed to send artifacts to installer")?;
@@ -359,11 +376,11 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
 
 async fn build_launch_installer<'a>(
     ctx: &'a DiceComputations,
-    providers_label: ConfiguredProvidersLabel,
-    installer_run_args: Vec<String>,
+    providers_label: &ConfiguredProvidersLabel,
+    installer_run_args: &[String],
 ) -> anyhow::Result<()> {
     let frozen_providers = ctx
-        .get_providers(&providers_label)
+        .get_providers(providers_label)
         .await?
         .require_compatible()?;
 
@@ -387,7 +404,7 @@ async fn build_launch_installer<'a>(
             (artifact_visitor.inputs, run_args)
         };
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
-        future::try_join_all(inputs.into_iter().map(|input| async move {
+        try_join_all(inputs.into_iter().map(|input| async move {
             materialize_artifact_group(ctx, &input)
                 .await
                 .map(|value| (input, value))
@@ -426,6 +443,7 @@ fn get_stdio() -> anyhow::Result<Stdio> {
 
 #[derive(Debug)]
 pub struct FileResult {
+    install_id: String,
     name: String,
     artifact: Artifact,
     artifact_value: ArtifactValue,
@@ -433,30 +451,36 @@ pub struct FileResult {
 
 async fn build_files(
     ctx: &DiceComputations,
-    files: &IndexMap<&str, Artifact>,
+    install_files_slice: &[(&String, IndexMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> anyhow::Result<()> {
-    let mut file_outputs = Vec::new();
-    for (name, artifact) in files {
-        file_outputs.push((
-            name,
-            ArtifactGroup::Artifact(artifact.to_owned()),
-            tx.clone(),
-        ));
-    }
-    future::try_join_all(file_outputs.into_iter().map(|input| async move {
-        let (name, artifact, tx_clone) = input;
-        let artifact_values = materialize_artifact_group(ctx, &artifact).await?;
-        for (artifact, artifact_value) in artifact_values.iter() {
-            let file_result = FileResult {
-                name: (*name).to_owned(),
-                artifact: artifact.to_owned(),
-                artifact_value: artifact_value.to_owned(),
-            };
-            tx_clone.send(file_result)?;
+    let mut file_outputs = Vec::with_capacity(install_files_slice.len());
+    for (install_id, file_info) in install_files_slice {
+        for (name, artifact) in file_info.into_iter() {
+            file_outputs.push((
+                install_id,
+                name,
+                ArtifactGroup::Artifact(artifact.to_owned()),
+                tx.clone(),
+            ));
         }
-        anyhow::Ok(())
-    }))
+    }
+
+    try_join_all(file_outputs.into_iter().map(
+        |(install_id, name, artifact, tx_clone)| async move {
+            let artifact_values = materialize_artifact_group(ctx, &artifact).await?;
+            for (artifact, artifact_value) in artifact_values.iter() {
+                let file_result = FileResult {
+                    install_id: (*install_id).to_owned(),
+                    name: (*name).to_owned(),
+                    artifact: artifact.to_owned(),
+                    artifact_value: artifact_value.to_owned(),
+                };
+                tx_clone.send(file_result)?;
+            }
+            anyhow::Ok(())
+        },
+    ))
     .await?;
     Ok(())
 }
@@ -471,7 +495,7 @@ async fn materialize_artifact_group(
         .await
         .context("Failed to produce artifacts")?;
 
-    future::try_join_all(values.iter().filter_map(|(artifact, _value)| {
+    try_join_all(values.iter().filter_map(|(artifact, _value)| {
         if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
             Some(ctx.try_materialize_requested_artifact(artifact, true))
         } else {
@@ -551,11 +575,11 @@ async fn connect_to_installer(
     Ok(client)
 }
 async fn send_file(
-    install_id: &str,
     file: FileResult,
     artifact_fs: &ArtifactFs,
     mut client: InstallerClient<Channel>,
 ) -> anyhow::Result<()> {
+    let install_id = file.install_id;
     let name = file.name;
     let artifact = file.artifact;
     let sha1: String = match &file.artifact_value.entry() {
