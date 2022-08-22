@@ -75,10 +75,10 @@ impl StreamingCommand for CleanCommand {
         if !self.dry_run {
             remove_dir_all(&daemon_dir)?;
         }
-        console.print_stdout(&daemon_dir.display().to_string())?;
+        console.print_stderr(&daemon_dir.display().to_string())?;
 
         for path in response.clean_paths {
-            console.print_stdout(&path)?;
+            console.print_stderr(&path)?;
         }
 
         if !success {

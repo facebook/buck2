@@ -15,7 +15,7 @@ async def test_clean(buck: Buck) -> None:
     ]
 
     clean_result = await buck.clean()
-    clean_paths = tuple(filter(None, clean_result.stdout.split("\n")))
+    clean_paths = tuple(filter(None, clean_result.stderr.split("\n")))
 
     for output in build_report_outputs:
         assert output.startswith(clean_paths)
@@ -33,10 +33,10 @@ async def test_clean_dry_run(buck: Buck) -> None:
     ]
 
     clean_result = await buck.clean("--dry-run")
-    clean_paths = tuple(filter(None, clean_result.stdout.split("\n")))
+    clean_paths = tuple(filter(None, clean_result.stderr.split("\n")))
 
     for output in build_report_outputs:
         assert output.startswith(clean_paths)
 
-    for clean_path in clean_paths:
-        assert os.path.exists(clean_path) is True
+    for output in build_report_outputs:
+        assert os.path.exists(output) is True
