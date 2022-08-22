@@ -435,14 +435,6 @@ impl ServerCommandContext {
     pub fn get_re_connection(&self) -> ReConnectionHandle {
         self.base_context.re_client_manager.get_re_connection()
     }
-
-    pub fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>> {
-        // Buffer until MESSAGE_BUFFER_SIZE bytes get written to save gRPC communication overheads
-        Ok(RawOuputGuard {
-            _phantom: PhantomData,
-            inner: BufWriter::with_capacity(4096, RawOutputWriter::new(self)?),
-        })
-    }
 }
 
 impl Drop for ServerCommandContext {
@@ -468,5 +460,13 @@ impl ServerCommandContextTrait for ServerCommandContext {
 
     fn events(&self) -> &EventDispatcher {
         &self.base_context.events
+    }
+
+    fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>> {
+        // Buffer until MESSAGE_BUFFER_SIZE bytes get written to save gRPC communication overheads
+        Ok(RawOuputGuard {
+            _phantom: PhantomData,
+            inner: BufWriter::with_capacity(4096, RawOutputWriter::new(self)?),
+        })
     }
 }

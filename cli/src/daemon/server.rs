@@ -710,7 +710,7 @@ impl DaemonApi for BuckdServer {
             };
             let result = span_async(start_event, async {
                 let bxl_label = req.bxl_label.clone();
-                let result = bxl(context, req).await;
+                let result = bxl(box context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(response) => (
                         response.error_messages.is_empty(),
