@@ -64,6 +64,10 @@ The GMB team [finalised their migration](https://fb.workplace.com/groups/1161130
 
 > ~30-40% improvement to build times across the board. Tangible operation cost savings can be noted here as well due to engineers having to wait less time for their tests to complete.
 
+Sriram of the IG Server team reported on [their move to Buck2](https://fb.workplace.com/groups/igsrv.devinfra.xfn.fyi/posts/1536781566778386/):
+
+> With buck2, the OPT built times went down from 1 hour to 20 minutes. With buck2, the LTO build times went down from 6 hours to 3 hours. The build memory footprint also came down by 16%.
+
 ## Good UX
 
 [Lucian prefers the experience](https://fb.workplace.com/groups/503973410692177/posts/595893258166858/) for a large variety of reasons:
