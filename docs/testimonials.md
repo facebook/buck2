@@ -68,6 +68,10 @@ Sriram of the IG Server team reported on [their move to Buck2](https://fb.workpl
 
 > With buck2, the OPT built times went down from 1 hour to 20 minutes. With buck2, the LTO build times went down from 6 hours to 3 hours. The build memory footprint also came down by 16%.
 
+Stella shared that the [Training_platform fbpkg is Buck2 ready](https://fb.workplace.com/groups/pyper/posts/1080885459459502):
+
+> With buck2 build time was reduced by 73% for TTK backend worker and 56% for TTK workflow. 12.98 eng halves can be saved every 2 years with the current 72% adoption rate.
+
 ## Good UX
 
 [Lucian prefers the experience](https://fb.workplace.com/groups/503973410692177/posts/595893258166858/) for a large variety of reasons:
