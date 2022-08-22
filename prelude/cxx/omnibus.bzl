@@ -449,6 +449,7 @@ def _create_omnibus(
             node,
             actual_link_style,
             prefer_stripped = prefer_stripped_objects,
+            force_no_link_groups = True,
         )
         inputs.append(body_input)
         global_symbols_link_args.append(link_info_to_args(body_input))
@@ -470,6 +471,7 @@ def _create_omnibus(
             node,
             actual_link_style,
             prefer_stripped = prefer_stripped_objects,
+            force_no_link_groups = True,
         ))
 
     # Add global symbols version script.

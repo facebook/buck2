@@ -606,6 +606,12 @@ if fbcode_linux_only():
             "-c",
             "fbcode.use_link_groups=True",
         )
+        await buck.build(
+            "unicorn/build/test:py_binary",
+            "@mode/opt",
+            "-c",
+            "fbcode.use_link_groups=True",
+        )
 
     async def dist_lto_build_and_verify(buck: Buck, target: str) -> None:
         result = await buck.build(
