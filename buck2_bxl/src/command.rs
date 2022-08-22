@@ -13,9 +13,6 @@ use buck2_build_api::bxl::calculation::BxlCalculation;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
-use buck2_bxl::bxl::eval::get_bxl_callable;
-use buck2_bxl::bxl::eval::resolve_cli_args;
-use buck2_bxl::bxl::eval::CliResolutionCtx;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -35,12 +32,16 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
+use crate::bxl::eval::get_bxl_callable;
+use crate::bxl::eval::resolve_cli_args;
+use crate::bxl::eval::CliResolutionCtx;
+
 #[derive(Debug)]
-pub(crate) struct BxlResult {
+pub struct BxlResult {
     pub error_messages: Vec<String>,
 }
 
-pub(crate) async fn bxl(
+pub async fn bxl(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     request: BxlRequest,
 ) -> anyhow::Result<BxlResult> {

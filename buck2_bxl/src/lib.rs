@@ -13,3 +13,4 @@
 #![feature(try_blocks)]
 
 pub mod bxl;
+pub mod command;

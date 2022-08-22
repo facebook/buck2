@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod bxl;
 pub mod client;
 #[cfg_attr(unix, path = "daemon_unix.rs")]
 #[cfg_attr(windows, path = "daemon_windows.rs")]

@@ -29,6 +29,7 @@ use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
+use buck2_bxl::command::bxl;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
@@ -83,8 +84,6 @@ use tonic::Request;
 use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
-
-use crate::daemon::bxl::bxl;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
