@@ -34,7 +34,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::dice::HasEvents;
 use buck2_node::compatibility::MaybeCompatible;
-use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -166,10 +166,10 @@ impl TestStatuses {
 }
 
 pub(crate) async fn test(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: TestRequest,
 ) -> anyhow::Result<TestResponse> {
-    let cwd = &server_ctx.working_dir;
+    let cwd = server_ctx.working_dir();
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
 

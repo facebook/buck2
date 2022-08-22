@@ -28,6 +28,7 @@ use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server::ctx::ServerCommandContext;
 use buck2_server::daemon::common::ConvertMaterializationContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
 use dice::DiceComputations;

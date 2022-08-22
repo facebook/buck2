@@ -35,6 +35,7 @@ use buck2_interpreter::interpreter::GlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use dice::DiceTransaction;

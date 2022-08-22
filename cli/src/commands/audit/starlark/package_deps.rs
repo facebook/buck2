@@ -22,6 +22,7 @@ use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]

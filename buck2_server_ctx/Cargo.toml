@@ -6,7 +6,9 @@ description = "Common parts of Buck commands"
 
 [dependencies]
 anyhow = "1.0.51"
+async-trait = "0.1.24"
 
+dice = { path = "../dice/dice" }
 gazebo = { path = "../gazebo/gazebo" }
 
 # Please do not add dependency on `buck2_build_api`.

@@ -34,6 +34,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use derive_more::Display;
 use dice::DiceComputations;

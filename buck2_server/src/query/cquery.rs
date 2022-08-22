@@ -18,6 +18,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::CqueryRequest;
 use cli_proto::CqueryResponse;

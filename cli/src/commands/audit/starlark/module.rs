@@ -17,6 +17,7 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]

@@ -6,10 +6,12 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
         "//buck2/buck2_common:buck2_common",
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",
         "//buck2/cli_proto:cli_proto",
+        "//buck2/dice/dice:dice",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )

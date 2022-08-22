@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellAlias;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use indexmap::IndexMap;
 

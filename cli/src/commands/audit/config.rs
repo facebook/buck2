@@ -18,6 +18,7 @@ use buck2_common::legacy_configs::LegacyBuckConfigLocation;
 use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::*;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 use serde_json::json;

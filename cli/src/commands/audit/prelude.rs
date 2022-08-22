@@ -19,6 +19,7 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::AuditSubcommand;

@@ -16,7 +16,6 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
@@ -94,7 +93,7 @@ pub async fn resolve_patterns<T: PatternType>(
 pub async fn target_platform_from_client_context(
     client_context: Option<&ClientContext>,
     cell_resolver: &CellResolver,
-    working_dir: &ProjectRelativePathBuf,
+    working_dir: &ProjectRelativePath,
 ) -> anyhow::Result<Option<TargetLabel>> {
     let cwd = cell_resolver.get_cell_path(working_dir)?;
     let cell_alias_resolver = cell_resolver.get(cwd.cell()).unwrap().cell_alias_resolver();

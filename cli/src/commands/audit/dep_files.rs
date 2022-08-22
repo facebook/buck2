@@ -25,6 +25,7 @@ use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::pattern::TargetPattern;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::ClientContext;

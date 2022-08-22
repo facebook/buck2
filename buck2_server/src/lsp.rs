@@ -38,6 +38,7 @@ use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::*;
 use dice::DiceTransaction;
 use futures::channel::mpsc::UnboundedSender;

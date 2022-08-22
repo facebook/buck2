@@ -17,6 +17,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
 use buck2_core::pattern::TargetPattern;
 use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::pattern::PatternParser;
 use cli_proto::ClientContext;

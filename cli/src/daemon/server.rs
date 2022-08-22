@@ -749,7 +749,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::TestCommandStart {}.into()),
             };
             let test_response = span_async(start_event, async {
-                let result = test(context, req).await;
+                let result = test(box context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
                     Err(e) => (false, vec![format!("{:#}", e)]),

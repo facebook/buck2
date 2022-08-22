@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_build_api::actions::build_listener::BuildSignalSender;
 use buck2_build_api::actions::build_listener::SetBuildSignals;
 use buck2_build_api::actions::run::knobs::HasRunActionKnobs;
@@ -39,6 +40,7 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ProvidersPattern;
@@ -50,6 +52,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::LocalExecutorOptions;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
@@ -293,14 +296,6 @@ impl ServerCommandContext {
         Ok(patterns)
     }
 
-    /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    pub async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
-        self.dice
-            .get_or_init(self.construct_dice_ctx())
-            .await
-            .dupe()
-    }
-
     pub fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.cells_and_configs
             .get_or_init(|| {
@@ -458,5 +453,20 @@ impl Drop for ServerCommandContext {
     fn drop(&mut self) {
         // Ensure we cancel the heartbeat guard first.
         std::mem::drop(self.heartbeat_guard_handle.take());
+    }
+}
+
+#[async_trait]
+impl ServerCommandContextTrait for ServerCommandContext {
+    fn working_dir(&self) -> &ProjectRelativePath {
+        &self.working_dir
+    }
+
+    /// Provides a DiceTransaction, initialized on first use and shared after initialization.
+    async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
+        self.dice
+            .get_or_init(self.construct_dice_ctx())
+            .await
+            .dupe()
     }
 }
