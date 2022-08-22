@@ -165,6 +165,7 @@ pub trait SyncableQueryProcessor: Send + Sync {
         &self,
         payload: Self::Payload,
         events: Vec<WatchmanEvent>,
+        mergebase: &Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)>;
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
@@ -275,7 +276,9 @@ where
                     || self.last_mergebase.is_some() && self.last_mergebase == merge_base
                 {
                     (
-                        self.processor.process_events(payload, events).await?,
+                        self.processor
+                            .process_events(payload, events, &merge_base)
+                            .await?,
                         merge_base,
                         clock,
                     )

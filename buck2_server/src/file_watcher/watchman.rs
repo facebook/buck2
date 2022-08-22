@@ -45,8 +45,12 @@ impl WatchmanQueryProcessor {
         &self,
         ctx: DiceTransaction,
         events: Vec<WatchmanEvent>,
+        mergebase: &Option<String>,
     ) -> anyhow::Result<(buck2_data::WatchmanStats, DiceTransaction)> {
-        let mut stats = buck2_data::WatchmanStats::default();
+        let mut stats = buck2_data::WatchmanStats {
+            branched_from_revision: mergebase.clone().unwrap_or_default(),
+            ..Default::default()
+        };
 
         let mut handler = FileChangeTracker::new();
         let mut iter = events.into_iter();
@@ -131,8 +135,9 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         &self,
         dice: DiceTransaction,
         events: Vec<WatchmanEvent>,
+        mergebase: &Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
-        self.process_events_impl(dice, events).await
+        self.process_events_impl(dice, events, mergebase).await
     }
 
     async fn on_fresh_instance(
