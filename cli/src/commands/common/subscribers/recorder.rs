@@ -33,9 +33,9 @@ mod imp {
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
 
+    use crate::cleanup_ctx::AsyncCleanupContext;
     use crate::commands::common::subscribers;
     use crate::commands::common::subscribers::LastCommandExecutionKind;
-    use crate::AsyncCleanupContext;
 
     pub struct InvocationRecorder {
         start_time: Instant,

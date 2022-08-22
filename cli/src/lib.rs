@@ -26,10 +26,6 @@ extern crate maplit;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::Duration;
-use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -42,13 +38,14 @@ use buck2_server::paths::Paths;
 use buck2_server::roots;
 use clap::AppSettings;
 use clap::Parser;
+use cleanup_ctx::AsyncCleanupContext;
+use cleanup_ctx::AsyncCleanupContextGuard;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
 use dice::cycles::DetectCycles;
 use exit_result::ExitResult;
 use exit_result::FailureExitCode;
 use futures::future;
-use futures::future::BoxFuture;
 use futures::future::Either;
 use futures::future::Future;
 use gazebo::prelude::*;
@@ -99,6 +96,7 @@ use crate::version::BuckVersion;
 pub mod panic;
 
 pub mod args;
+mod cleanup_ctx;
 pub mod commands;
 pub mod daemon;
 pub mod exit_result;
@@ -403,60 +401,6 @@ impl ClientCommandContext {
 
     pub(crate) fn async_cleanup_context(&self) -> &AsyncCleanupContext {
         &self.async_cleanup_context
-    }
-}
-
-/// For cleanup we want to perform, but cant do in `drop` because it's async.
-#[derive(Clone, Dupe)]
-pub(crate) struct AsyncCleanupContext {
-    jobs: Arc<Mutex<Vec<BoxFuture<'static, ()>>>>,
-}
-
-impl AsyncCleanupContext {
-    pub(crate) fn register(&self, name: &'static str, fut: BoxFuture<'static, ()>) {
-        const WARNING_TIMEOUT: Duration = Duration::from_millis(1000);
-        self.jobs
-            .lock()
-            .expect("Poisoned mutex")
-            .push(Box::pin(async move {
-                let start = Instant::now();
-                fut.await;
-                let elapsed = start.elapsed();
-                if elapsed > WARNING_TIMEOUT {
-                    tracing::warn!("Async cleanup step \'{}\' took {:?}", name, elapsed);
-                } else {
-                    tracing::info!("Async cleanup step \'{}\' took {:?}", name, elapsed);
-                };
-            }));
-    }
-
-    async fn join(&self) {
-        let futs = std::mem::take(&mut *self.jobs.lock().expect("Poisoned mutex"));
-        future::join_all(futs).await;
-    }
-}
-
-pub(crate) struct AsyncCleanupContextGuard(AsyncCleanupContext);
-
-impl AsyncCleanupContextGuard {
-    pub fn new() -> Self {
-        Self(AsyncCleanupContext {
-            jobs: Arc::new(Mutex::new(Vec::new())),
-        })
-    }
-
-    pub fn ctx(&self) -> &AsyncCleanupContext {
-        &self.0
-    }
-}
-
-impl Drop for AsyncCleanupContextGuard {
-    fn drop(&mut self) {
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Should be able to start a runtime");
-        runtime.block_on(self.0.join());
     }
 }
 
