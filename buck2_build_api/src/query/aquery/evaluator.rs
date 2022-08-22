@@ -50,9 +50,9 @@ impl AqueryEvaluator<'_> {
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
-pub async fn get_aquery_evaluator<'c>(
+pub async fn get_aquery_evaluator<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
-    working_dir: &ProjectRelativePath,
+    working_dir: &'a ProjectRelativePath,
     project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<AqueryEvaluator<'c>> {
