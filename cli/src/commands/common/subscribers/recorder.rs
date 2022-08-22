@@ -53,6 +53,7 @@ mod imp {
         run_action_cache_count: u64,
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
+        branched_from_revision: Option<String>,
     }
 
     impl InvocationRecorder {
@@ -76,6 +77,7 @@ mod imp {
                 run_action_cache_count: 0,
                 first_snapshot: None,
                 last_snapshot: None,
+                branched_from_revision: None,
             }
         }
 
@@ -96,6 +98,7 @@ mod imp {
                     run_action_cache_count: self.run_action_cache_count,
                     first_snapshot: self.first_snapshot.take(),
                     last_snapshot: self.last_snapshot.take(),
+                    branched_from_revision: self.branched_from_revision.take().unwrap_or_default(),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -228,6 +231,17 @@ mod imp {
                 self.first_snapshot = Some(update.clone());
             } else {
                 self.last_snapshot = Some(update.clone());
+            }
+            Ok(())
+        }
+
+        async fn handle_watchman_end(
+            &mut self,
+            watchman: &buck2_data::WatchmanEnd,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            if let Some(stats) = &watchman.stats {
+                self.branched_from_revision = Some(stats.branched_from_revision.clone());
             }
             Ok(())
         }

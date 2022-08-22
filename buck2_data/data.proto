@@ -1015,4 +1015,6 @@ message InvocationRecord {
   Snapshot first_snapshot = 20;
   // Optional - the last snapshot sent.
   Snapshot last_snapshot = 21;
+  // Optional - the merge base revision that the build ran on
+  string branched_from_revision = 22;
 }
