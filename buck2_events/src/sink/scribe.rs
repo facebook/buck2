@@ -179,20 +179,20 @@ mod fbcode {
                 use buck2_data::span_start_event::Data;
 
                 match s.data {
-                    Some(Data::Command(..)) => true,
-                    Some(Data::ActionExecution(..)) => true,
-                    Some(Data::Analysis(..)) => true,
+                    Some(Data::Command(..)) => true, // used in CommandReporterProcessor
+                    Some(Data::ActionExecution(..)) => true, // used in ActionCounterProcessor
+                    Some(Data::Analysis(..)) => false,
                     Some(Data::AnalysisStage(..)) => false,
-                    Some(Data::FinalMaterialization(..)) => true,
-                    Some(Data::Load(..)) => true,
-                    Some(Data::LoadPackage(..)) => true,
+                    Some(Data::FinalMaterialization(..)) => false,
+                    Some(Data::Load(..)) => false,
+                    Some(Data::LoadPackage(..)) => false,
                     Some(Data::ExecutorStage(..)) => false,
-                    Some(Data::TestDiscovery(..)) => true,
-                    Some(Data::TestStart(..)) => true,
-                    Some(Data::Watchman(..)) => true,
+                    Some(Data::TestDiscovery(..)) => false,
+                    Some(Data::TestStart(..)) => false,
+                    Some(Data::Watchman(..)) => false,
                     Some(Data::MatchDepFiles(..)) => false,
                     Some(Data::SharedTask(..)) => false,
-                    Some(Data::Fake(..)) => true,
+                    Some(Data::Fake(..)) => false,
                     None => false,
                 }
             }
@@ -223,6 +223,9 @@ mod fbcode {
 
                 match i.data {
                     Some(Data::RawOutput(..)) => false,
+                    Some(Data::Snapshot(..)) => false,
+                    Some(Data::DiceStateSnapshot(..)) => false,
+                    Some(Data::LspResult(..)) => false,
                     None => false,
                     _ => true,
                 }
