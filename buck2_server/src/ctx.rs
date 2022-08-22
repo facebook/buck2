@@ -54,6 +54,8 @@ use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::LocalExecutorOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::raw_output::RawOuputGuard;
+use buck2_server_ctx::raw_output::RawOutputWriter;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::ClientContext;
@@ -79,8 +81,6 @@ use crate::dice_tracker::BuckDiceTracker;
 use crate::file_watcher::FileWatcher;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
-use crate::raw_output::RawOuputGuard;
-use crate::raw_output::RawOutputWriter;
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonCommunicationError {
@@ -436,10 +436,6 @@ impl ServerCommandContext {
         self.base_context.re_client_manager.get_re_connection()
     }
 
-    pub fn events(&self) -> &EventDispatcher {
-        &self.base_context.events
-    }
-
     pub fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>> {
         // Buffer until MESSAGE_BUFFER_SIZE bytes get written to save gRPC communication overheads
         Ok(RawOuputGuard {
@@ -468,5 +464,9 @@ impl ServerCommandContextTrait for ServerCommandContext {
             .get_or_init(self.construct_dice_ctx())
             .await
             .dupe()
+    }
+
+    fn events(&self) -> &EventDispatcher {
+        &self.base_context.events
     }
 }

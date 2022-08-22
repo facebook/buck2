@@ -31,7 +31,6 @@ pub mod materialize;
 pub mod paths;
 pub mod profile;
 pub mod query;
-mod raw_output;
 pub mod roots;
 pub mod snapshot;
 pub mod streaming_request_handler;

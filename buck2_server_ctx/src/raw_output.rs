@@ -16,10 +16,10 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 
-use crate::ctx::ServerCommandContext;
+use crate::ctx::ServerCommandContextTrait;
 
 pub struct RawOuputGuard<'a> {
-    pub _phantom: PhantomData<&'a mut ServerCommandContext>,
+    pub _phantom: PhantomData<&'a mut dyn ServerCommandContextTrait>,
     pub inner: BufWriter<RawOutputWriter>,
 }
 
@@ -52,9 +52,9 @@ impl<'a> Drop for RawOuputGuard<'a> {
 }
 
 impl RawOutputWriter {
-    pub fn new(context: &ServerCommandContext) -> anyhow::Result<Self> {
+    pub fn new(context: &dyn ServerCommandContextTrait) -> anyhow::Result<Self> {
         Ok(Self {
-            dispatcher: context.base_context.events.dupe(),
+            dispatcher: context.events().dupe(),
             chunk_size: RawOutputWriter::get_chunk_size()?,
         })
     }
