@@ -38,15 +38,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
-use buck2_test::downward_api::BuckTestDownwardApi;
-use buck2_test::executor_launcher::ExecutorLaunch;
-use buck2_test::executor_launcher::ExecutorLauncher;
-use buck2_test::executor_launcher::OutOfProcessTestExecutor;
-use buck2_test::orchestrator::BuckTestOrchestrator;
-use buck2_test::orchestrator::TestResultOrExitCode;
-use buck2_test::session::TestSession;
-use buck2_test::session::TestSessionOptions;
-use buck2_test::translations::build_configured_target_handle;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
@@ -64,6 +55,16 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use serde::Serialize;
+
+use crate::downward_api::BuckTestDownwardApi;
+use crate::executor_launcher::ExecutorLaunch;
+use crate::executor_launcher::ExecutorLauncher;
+use crate::executor_launcher::OutOfProcessTestExecutor;
+use crate::orchestrator::BuckTestOrchestrator;
+use crate::orchestrator::TestResultOrExitCode;
+use crate::session::TestSession;
+use crate::session::TestSessionOptions;
+use crate::translations::build_configured_target_handle;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct TestReport {
@@ -165,7 +166,7 @@ impl TestStatuses {
     }
 }
 
-pub(crate) async fn test(
+pub async fn test(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: TestRequest,
 ) -> anyhow::Result<TestResponse> {
@@ -789,7 +790,7 @@ impl TestLabelFiltering {
 
 #[cfg(test)]
 mod tests {
-    use crate::daemon::test::TestLabelFiltering;
+    use crate::command::TestLabelFiltering;
 
     #[test]
     fn only_include_labels_in_includes() {

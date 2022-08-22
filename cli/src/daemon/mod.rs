@@ -13,4 +13,3 @@ pub mod client;
 #[cfg_attr(windows, path = "daemon_windows.rs")]
 pub mod daemon_utils;
 pub mod server;
-pub mod test;

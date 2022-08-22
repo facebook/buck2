@@ -59,6 +59,7 @@ use buck2_server::profile::generate_profile;
 use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
 use buck2_server::streaming_request_handler::StreamingRequestHandler;
+use buck2_test::command::test;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
@@ -84,7 +85,6 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::daemon::bxl::bxl;
-use crate::daemon::test::test;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);

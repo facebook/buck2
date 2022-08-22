@@ -11,6 +11,7 @@
 
 #![feature(box_syntax)]
 
+pub mod command;
 pub mod downward_api;
 pub mod executor_launcher;
 pub mod orchestrator;
