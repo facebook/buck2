@@ -6,7 +6,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 _UNSCRUBBED_JARS_DIR = "unscrubbed"
 
 ProguardOutput = record(
-    jars = ["artifact"],
+    jars_to_owners = {"artifact": "target_label"},
     proguard_configuration_output_file = ["artifact", None],
     proguard_mapping_output_file = "artifact",
     proguard_artifacts = ["artifact"],
@@ -77,7 +77,7 @@ def run_proguard(
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
         ctx: "context",
-        input_jars: ["artifact"],
+        input_jars: {"artifact": "target_label"},
         java_packaging_deps: ["JavaPackagingDep"],
         aapt_generated_proguard_config: ["artifact", None]) -> ProguardOutput.type:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
@@ -87,7 +87,7 @@ def get_proguard_output(
         proguard_configs.append(aapt_generated_proguard_config)
 
     if ctx.attrs.skip_proguard:
-        inputs_to_unscrubbed_outputs = {input_jar: input_jar for input_jar in input_jars}
+        inputs_to_unscrubbed_outputs = {input_jar: input_jar for input_jar in input_jars.keys()}
         mapping = ctx.actions.write("proguard/mapping.txt", [])
         configuration = None
         seeds = None
@@ -95,7 +95,7 @@ def get_proguard_output(
     else:
         inputs_to_unscrubbed_outputs = {input_jar: ctx.actions.declare_output(
             "proguard_output_jars/{}/{}_{}_obfuscated.jar".format(_UNSCRUBBED_JARS_DIR, input_jar.short_path, i),
-        ) for i, input_jar in enumerate(input_jars)}
+        ) for i, input_jar in enumerate(input_jars.keys())}
         mapping = ctx.actions.declare_output("proguard/mapping.txt")
         configuration = ctx.actions.declare_output("proguard/configuration.txt")
         seeds = ctx.actions.declare_output("proguard/seeds.txt")
@@ -116,13 +116,13 @@ def get_proguard_output(
 
     if ctx.attrs.skip_proguard:
         return ProguardOutput(
-            jars = input_jars,
+            jars_to_owners = input_jars,
             proguard_configuration_output_file = None,
             proguard_mapping_output_file = mapping,
             proguard_artifacts = [command_line_args_file, mapping],
         )
     else:
-        unscrubbed_output_jars = inputs_to_unscrubbed_outputs.values()
+        unscrubbed_output_jars = {unscrubbed_output: input_jars[input_jar] for input_jar, unscrubbed_output in inputs_to_unscrubbed_outputs.items()}
         run_proguard(
             ctx,
             ctx.attrs._android_toolchain[AndroidToolchainInfo],
@@ -130,18 +130,18 @@ def get_proguard_output(
             command_line_args_file,
             command_line_args,
         )
-        output_jars = []
-        for i, unscrubbed_jar in enumerate(unscrubbed_output_jars):
+        output_jars = {}
+        for i, (unscrubbed_jar, target_label) in enumerate(unscrubbed_output_jars.items()):
             output = ctx.actions.declare_output(unscrubbed_jar.short_path.replace("{}/".format(_UNSCRUBBED_JARS_DIR), ""))
             ctx.actions.run(
                 cmd_args([ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber, unscrubbed_jar, output.as_output()]),
                 category = "scrub_jar",
                 identifier = str(i),
             )
-            output_jars.append(output)
+            output_jars[output] = target_label
 
         return ProguardOutput(
-            jars = output_jars,
+            jars_to_owners = output_jars,
             proguard_configuration_output_file = configuration,
             proguard_mapping_output_file = mapping,
             proguard_artifacts = [command_line_args_file, mapping, configuration, seeds, usage],

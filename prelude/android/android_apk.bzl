@@ -51,12 +51,12 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         else:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
     else:
-        jars = [packaging_dep.jar for packaging_dep in java_packaging_deps]
+        jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in java_packaging_deps}
         if ctx.attrs.preprocess_java_classes_bash:
-            jars = get_preprocessed_java_classes(ctx, jars)
+            jars_to_owners = get_preprocessed_java_classes(ctx, jars_to_owners)
         if has_proguard_config:
-            proguard_output = get_proguard_output(ctx, jars, java_packaging_deps, resources_info.proguard_config_file)
-            jars = proguard_output.jars
+            proguard_output = get_proguard_output(ctx, jars_to_owners, java_packaging_deps, resources_info.proguard_config_file)
+            jars_to_owners = proguard_output.jars_to_owners
             sub_targets["proguard_text_output"] = [
                 DefaultInfo(
                     default_outputs = [ctx.actions.symlinked_dir(
@@ -72,7 +72,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             dex_files_info = get_multi_dex(
                 ctx,
                 ctx.attrs._android_toolchain[AndroidToolchainInfo],
-                jars,
+                jars_to_owners.keys(),
                 ctx.attrs.primary_dex_patterns,
                 proguard_output.proguard_configuration_output_file if proguard_output else None,
                 proguard_output.proguard_mapping_output_file if proguard_output else None,
@@ -82,7 +82,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             dex_files_info = get_single_primary_dex(
                 ctx,
                 ctx.attrs._android_toolchain[AndroidToolchainInfo],
-                jars,
+                jars_to_owners.keys(),
                 is_optimized = has_proguard_config,
             )
 

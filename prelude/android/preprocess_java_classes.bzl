@@ -2,7 +2,7 @@ load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainIn
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
-def get_preprocessed_java_classes(ctx: "context", input_jars = ["artifact"]) -> ["artifact"]:
+def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "target_label"}) -> {"artifact": "target_label"}:
     sh_script, macro_files = ctx.actions.write(
         "preprocessed_java_classes/script.sh",
         cmd_args(ctx.attrs.preprocess_java_classes_bash),
@@ -17,23 +17,23 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = ["artifact"]) -> 
         preprocess_cmd.hidden(dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs)
 
     input_srcs = {}
-    output_jars = []
+    output_jars = {}
 
-    for i, input_jar in enumerate(input_jars):
+    for i, (input_jar, target_label) in enumerate(input_jars.items()):
         expect(input_jar.extension == ".jar", "Expected {} to have extension .jar!".format(input_jar))
         jar_name = "{}_{}".format(i, input_jar.basename)
         input_srcs[jar_name] = input_jar
         output_jar = ctx.actions.declare_output(
             "preprocessed_java_classes/output_dir/{}".format(jar_name),
         )
-        output_jars.append(output_jar)
+        output_jars[output_jar] = target_label
         preprocess_cmd.hidden(output_jar.as_output())
 
     if not output_jars:
         return []
 
     input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
-    output_dir = cmd_args(output_jars[0].as_output()).parent()
+    output_dir = cmd_args(output_jars.keys()[0].as_output()).parent()
 
     env = {
         "ANDROID_BOOTCLASSPATH": cmd_args(
