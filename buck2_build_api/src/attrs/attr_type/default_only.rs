@@ -24,7 +24,7 @@ impl AttrTypeCoerce for DefaultOnlyAttrType {
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
-        Err(CoercionError::default_only(value).into())
+        Err(CoercionError::DefaultOnly(value.to_string()).into())
     }
 
     fn starlark_type(&self) -> String {

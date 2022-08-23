@@ -33,10 +33,8 @@ impl AttrTypeCoerce for EnumAttrType {
                 if self.variants.contains(&s) {
                     Ok(AttrLiteral::EnumVariant(s))
                 } else {
-                    Err(
-                        CoercionError::invalid_enum(&s, self.variants.iter().cloned().collect())
-                            .into(),
-                    )
+                    let wanted = self.variants.iter().cloned().collect();
+                    Err(CoercionError::InvalidEnumVariant(s, wanted).into())
                 }
             }
             None => Err(CoercionError::type_error(STRING_TYPE, value).into()),

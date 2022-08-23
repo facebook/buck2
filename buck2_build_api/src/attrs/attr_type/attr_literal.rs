@@ -264,25 +264,13 @@ impl CoercionError {
         )
     }
 
-    pub fn one_of_empty() -> CoercionError {
-        CoercionError::OneOfEmpty
-    }
-
     pub fn one_of_many(mut errs: Vec<anyhow::Error>) -> anyhow::Error {
         if errs.is_empty() {
-            Self::one_of_empty().into()
+            CoercionError::OneOfEmpty.into()
         } else if errs.len() == 1 {
             errs.pop().unwrap()
         } else {
             CoercionError::OneOfMany(errs).into()
         }
-    }
-
-    pub fn invalid_enum(got: &str, wanted: Vec<String>) -> CoercionError {
-        CoercionError::InvalidEnumVariant(got.to_owned(), wanted)
-    }
-
-    pub fn default_only(value: Value) -> CoercionError {
-        CoercionError::DefaultOnly(value.to_string())
     }
 }
