@@ -243,7 +243,7 @@ impl CommandKind {
             CommandKind::Audit(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx, exec),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),

@@ -16,7 +16,7 @@ use buck2_client::replayer::Replayer;
 use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
 use tokio::runtime::Runtime;
 
-use crate::exec;
+use crate::commands::debug::ExecFn;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -51,7 +51,12 @@ pub(crate) struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        ctx: ClientCommandContext,
+        exec: ExecFn,
+    ) -> ExitResult {
         let Self {
             path,
             recent,
