@@ -202,6 +202,19 @@ def convert_python_library_to_executable(
             for dest, (_, label) in extensions.items()
         }
         native_libs = omnibus_libs.libraries
+
+        if python_toolchain.emit_omnibus_metadata:
+            exclusion_roots = ctx.actions.write_json("omnibus/exclusion_roots.json", omnibus_libs.exclusion_roots)
+            extra["omnibus-exclusion-roots"] = [DefaultInfo(default_outputs = [exclusion_roots])]
+
+            roots = ctx.actions.write_json("omnibus/roots.json", omnibus_libs.roots)
+            extra["omnibus-roots"] = [DefaultInfo(default_outputs = [roots])]
+
+            omnibus_excluded = ctx.actions.write_json("omnibus/excluded.json", omnibus_libs.excluded)
+            extra["omnibus-excluded"] = [DefaultInfo(default_outputs = [omnibus_excluded])]
+
+            linkable_graph = ctx.actions.write_json("linkable_graph.json", linkable_graph)
+            extra["linkable-graph"] = [DefaultInfo(default_outputs = [linkable_graph])]
     else:
         native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
 

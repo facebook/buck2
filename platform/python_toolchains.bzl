@@ -43,6 +43,7 @@ def config_backed_python_toolchain(
 
     keys = {
         "cache_binaries": read_bool,
+        "emit_omnibus_metadata": read_bool,
         "interpreter": native.read_config,
         "native_link_strategy": native.read_config,
         "package_style": native.read_config,
@@ -111,6 +112,7 @@ def _config_backed_python_toolchain_rule_impl(ctx):
             native_link_strategy = ctx.attrs.native_link_strategy,
             pex_executor = ctx.attrs.path_to_pex_executer,
             pex_extension = ctx.attrs.pex_extension,
+            emit_omnibus_metadata = ctx.attrs.emit_omnibus_metadata,
             # In v1, fbcode python platforms set `python.cache_binaries = false`
             # for modes building standalone packages to avoid scaling issues
             # due to size and to stamp them with non-deterministic build info
@@ -129,6 +131,7 @@ _config_backed_python_toolchain_rule = rule(
     attrs = {
         "cache_binaries": attrs.bool(default = True),
         "compile": attrs.source(default = "fbcode//buck2/prelude/python/tools:compile.py"),
+        "emit_omnibus_metadata": attrs.bool(default = False),
         "interpreter": attrs.arg(),
         "make_source_db": attrs.dep(default = "fbcode//buck2/prelude/python/tools:make_source_db"),
         "native_link_strategy": attrs.enum(native.python.NativeLinkStrategy.values()),

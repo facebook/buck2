@@ -38,6 +38,7 @@ PythonToolchainInfo = provider(fields = [
     "make_pex_modules",
     "pex_executor",
     "pex_extension",
+    "emit_omnibus_metadata",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments

@@ -245,6 +245,23 @@ if fbcode_linux_only():
             f"python.package_style={package_style}",
         )
 
+    @buck_test(inplace=True)
+    @pytest.mark.parametrize(
+        "sub_target",
+        [
+            "omnibus-exclusion-roots",
+            "omnibus-roots",
+            "omnibus-excluded",
+            "linkable-graph",
+        ],
+    )
+    async def test_omnibus_metadata(buck: Buck, sub_target: str) -> None:
+        await buck.build(
+            f"fbcode//buck2/tests/targets/rules/python/omnibus/cxx_lib_root:bin[{sub_target}]",
+            "-c",
+            "python.emit_omnibus_metadata=true",
+        )
+
 
 @buck_test(inplace=True)
 async def test_remote_file(buck: Buck) -> None:
