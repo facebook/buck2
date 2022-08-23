@@ -627,7 +627,7 @@ mod tests {
     use crate::path::BuckPathResolver;
 
     #[test]
-    pub fn artifact_binding() -> anyhow::Result<()> {
+    fn artifact_binding() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
             Package::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),

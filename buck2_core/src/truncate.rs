@@ -40,7 +40,7 @@ mod tests {
     const MSG: &str = "rdeps(set(fbcode//buck2/... fbsource//xplat/buck2/..., fbsource//fbobjc/buck2/...), fbcode//buck2/cli:buck2)";
 
     #[test]
-    pub fn test_truncate() {
+    fn test_truncate() {
         assert_eq!(&truncate(MSG, 30), "rdeps(set<<omitted>>li:buck2)");
         assert_eq!(
             &truncate(MSG, 50),
@@ -52,7 +52,7 @@ mod tests {
     //   so if used incorrectly, it's better to produce some message than crash.
     #[test]
     #[should_panic]
-    pub fn test_truncate_panic() {
+    fn test_truncate_panic() {
         truncate(MSG, 5);
     }
 }

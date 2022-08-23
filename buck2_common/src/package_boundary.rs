@@ -225,7 +225,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_package_boundary_exceptions() {
+    fn test_package_boundary_exceptions() {
         let exceptions =
             CellPackageBoundaryExceptions::new("foo/bar/foo,foo/bar/bar,foo/bar/baz,foo/baz,baz")
                 .unwrap();
@@ -274,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_package_boundary_dot() {
+    fn test_package_boundary_dot() {
         let exceptions = CellPackageBoundaryExceptions::new("").unwrap();
         assert!(get_package_boundary_exception_path(&exceptions, "foo/bar/foo").is_none());
 

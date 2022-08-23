@@ -1315,7 +1315,7 @@ mod tests {
     use crate::actions::directory::ActionDirectoryBuilder;
 
     #[test]
-    pub fn test_find_artifacts() -> anyhow::Result<()> {
+    fn test_find_artifacts() -> anyhow::Result<()> {
         let artifact1 = ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned());
         let artifact2 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/qux".to_owned());
         let artifact3 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/quux".to_owned());
@@ -1356,7 +1356,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_remove_path() {
+    fn test_remove_path() {
         fn insert(tree: &mut FileTree<String>, path: &str) {
             tree.insert(
                 ProjectRelativePath::unchecked_new(path)

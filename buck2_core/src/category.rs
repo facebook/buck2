@@ -73,14 +73,14 @@ mod tests {
     use super::Category;
 
     #[test]
-    pub fn valid_categories() {
+    fn valid_categories() {
         Category::try_from("valid_category").unwrap();
         Category::try_from("valid_category_with_numbers10").unwrap();
         Category::try_from("singleword").unwrap();
     }
 
     #[test]
-    pub fn invalid_categories() {
+    fn invalid_categories() {
         Category::try_from("_leading_underscore").unwrap_err();
         Category::try_from("NotSnakeCase").unwrap_err();
         Category::try_from("Not_Snake_Case").unwrap_err();

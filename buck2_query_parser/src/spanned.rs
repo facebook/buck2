@@ -128,7 +128,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test_truncate_span_in_middle() {
+    fn test_truncate_span_in_middle() {
         let error = "rdeps(set(fbcode//buck2/... fbsource//xplat/buck2/..., fbsource//fbobjc/buck2/...), fbcode//buck2/cli:buck2)";
         let span = Spanned {
             position: 0..error.len(),
