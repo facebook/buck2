@@ -101,8 +101,8 @@ PrebuiltNativeLibraryDir = record(
     is_asset = bool.type,
 )
 
-def _artifacts(args: "cmd_args", value: "artifact"):
-    args.add(value)
+def _artifacts(value: "artifact"):
+    return value
 
 AndroidBuildConfigInfoTSet = transitive_set()
 AndroidDepsTSet = transitive_set()

@@ -1,14 +1,19 @@
-def project_as_hidden(args: "cmd_args", module_info: "SdkCompiledModuleInfo"):
+def project_as_hidden(module_info: "SdkCompiledModuleInfo"):
+    # NOTE(cjhopman): This would probably be better done by projecting as normal args and the caller putting it in hidden.
+    args = cmd_args()
     args.hidden(module_info.output_artifact)
+    return args
 
-def project_as_clang_deps(args: "cmd_args", module_info: "SdkCompiledModuleInfo"):
-    if not module_info.is_swiftmodule:
-        args.add([
+def project_as_clang_deps(module_info: "SdkCompiledModuleInfo"):
+    if module_info.is_swiftmodule:
+        return []
+    else:
+        return [
             "-Xcc",
             cmd_args(["-fmodule-file=", module_info.module_name, "=", module_info.output_artifact], delimiter = ""),
             "-Xcc",
             cmd_args(["-fmodule-map-file=", module_info.input_relative_path], delimiter = ""),
-        ])
+        ]
 
 SDKDepTSet = transitive_set(args_projections = {
     "clang_deps": project_as_clang_deps,

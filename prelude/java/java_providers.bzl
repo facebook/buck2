@@ -82,13 +82,15 @@ JavaClasspathEntry = record(
     required_for_source_only_abi = field(bool.type),
 )
 
-def _args_for_ast_dumper(args: "cmd_args", entry: JavaClasspathEntry.type):
-    args.add("--dependency")
-    args.add('"{}"'.format(entry.abi.owner))
-    args.add(entry.abi)
+def _args_for_ast_dumper(entry: JavaClasspathEntry.type):
+    return [
+        "--dependency",
+        '"{}"'.format(entry.abi.owner),
+        entry.abi,
+    ]
 
-def _args_for_compiling(args: "cmd_args", entry: JavaClasspathEntry.type):
-    args.add(entry.abi)
+def _args_for_compiling(entry: JavaClasspathEntry.type):
+    return entry.abi
 
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
@@ -109,12 +111,13 @@ JavaPackagingDep = record(
     output_for_classpath_macro = "artifact",
 )
 
-def _full_jar_args(args: "cmd_args", dep: JavaPackagingDep.type):
+def _full_jar_args(dep: JavaPackagingDep.type):
     if dep.jar:
-        args.add(dep.jar)
+        return [dep.jar]
+    return []
 
-def _args_for_classpath_macro(args: "cmd_args", dep: JavaPackagingDep.type):
-    args.add(dep.output_for_classpath_macro)
+def _args_for_classpath_macro(dep: JavaPackagingDep.type):
+    return dep.output_for_classpath_macro
 
 JavaPackagingDepTSet = transitive_set(
     args_projections = {

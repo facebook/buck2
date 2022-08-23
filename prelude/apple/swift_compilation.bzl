@@ -19,16 +19,16 @@ load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_swift_pcm", "get_pcm_deps_tset")
 
-def _add_swiftmodule_search_path(args: "cmd_args", swiftmodule_path: "artifact"):
+def _add_swiftmodule_search_path(swiftmodule_path: "artifact"):
     # Value will contain a path to the artifact,
     # while we need only the folder which contains the artifact.
-    args.add(["-I", cmd_args(swiftmodule_path).parent()])
+    return ["-I", cmd_args(swiftmodule_path).parent()]
 
-def _hidden_projection(args: "cmd_args", swiftmodule_path: "artifact"):
-    args.add(swiftmodule_path)
+def _hidden_projection(swiftmodule_path: "artifact"):
+    return swiftmodule_path
 
-def _linker_args_projection(args: "cmd_args", swiftmodule_path: "artifact"):
-    args.add(cmd_args(swiftmodule_path, format = "-Wl,-add_ast_path,{}"))
+def _linker_args_projection(swiftmodule_path: "artifact"):
+    return cmd_args(swiftmodule_path, format = "-Wl,-add_ast_path,{}")
 
 SwiftmodulePathsTSet = transitive_set(args_projections = {
     "hidden": _hidden_projection,

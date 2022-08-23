@@ -15,20 +15,20 @@ PythonLibraryManifests = record(
     extensions = field([{str.type: "_a"}, None]),
 )
 
-def _bytecode_artifacts(args: "cmd_args", value: PythonLibraryManifests.type):
+def _bytecode_artifacts(value: PythonLibraryManifests.type):
     if value.bytecode == None:
-        return
-    args.add(value.bytecode.artifacts)
+        return []
+    return value.bytecode.artifacts
 
-def _bytecode_manifests(args: "cmd_args", value: PythonLibraryManifests.type):
+def _bytecode_manifests(value: PythonLibraryManifests.type):
     if value.bytecode == None:
-        return
-    args.add(value.bytecode.manifest)
+        return []
+    return value.bytecode.manifest
 
-def _hidden_resources(args: "cmd_args", value: PythonLibraryManifests.type):
+def _hidden_resources(value: PythonLibraryManifests.type):
     if value.resources == None:
-        return
-    args.add(value.resources[1])
+        return []
+    return value.resources[1]
 
 def _has_hidden_resources(children: [bool.type], value: [PythonLibraryManifests.type, None]):
     if value:
@@ -36,35 +36,35 @@ def _has_hidden_resources(children: [bool.type], value: [PythonLibraryManifests.
             return True
     return any(children)
 
-def _resource_manifests(args: "cmd_args", value: PythonLibraryManifests.type):
+def _resource_manifests(value: PythonLibraryManifests.type):
     if value.resources == None:
-        return
-    args.add(value.resources[0].manifest)
+        return []
+    return value.resources[0].manifest
 
-def _resource_artifacts(args: "cmd_args", value: PythonLibraryManifests.type):
+def _resource_artifacts(value: PythonLibraryManifests.type):
     if value.resources == None:
-        return
-    args.add(value.resources[0].artifacts)
+        return []
+    return value.resources[0].artifacts
 
-def _source_manifests(args: "cmd_args", value: PythonLibraryManifests.type):
+def _source_manifests(value: PythonLibraryManifests.type):
     if value.srcs == None:
-        return
-    args.add(value.srcs.manifest)
+        return []
+    return value.srcs.manifest
 
-def _source_artifacts(args: "cmd_args", value: PythonLibraryManifests.type):
+def _source_artifacts(value: PythonLibraryManifests.type):
     if value.srcs == None:
-        return
-    args.add(value.srcs.artifacts)
+        return []
+    return value.srcs.artifacts
 
-def _source_type_manifests(args: "cmd_args", value: PythonLibraryManifests.type):
+def _source_type_manifests(value: PythonLibraryManifests.type):
     if value.src_types == None:
-        return
-    args.add(value.src_types.manifest)
+        return []
+    return value.src_types.manifest
 
-def _source_type_artifacts(args: "cmd_args", value: PythonLibraryManifests.type):
+def _source_type_artifacts(value: PythonLibraryManifests.type):
     if value.src_types == None:
-        return
-    args.add(value.src_types.artifacts)
+        return []
+    return value.src_types.artifacts
 
 PythonLibraryManifestsTSet = transitive_set(
     args_projections = {

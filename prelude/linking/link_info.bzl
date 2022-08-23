@@ -217,29 +217,29 @@ LinkedObject = record(
     index_argsfile = field(["artifact", None], None),
 )
 
-def _link_info_default_args(args: "cmd_args", infos: "LinkInfos"):
+def _link_info_default_args(infos: "LinkInfos"):
     info = infos.default
-    args.add(link_info_to_args(info, is_shared = False))
+    return link_info_to_args(info, is_shared = False)
 
-def _link_info_default_shared_link_args(args: "cmd_args", infos: "LinkInfos"):
+def _link_info_default_shared_link_args(infos: "LinkInfos"):
     info = infos.default
-    args.add(link_info_to_args(info, is_shared = True))
+    return link_info_to_args(info, is_shared = True)
 
-def _link_info_stripped_args(args: "cmd_args", infos: "LinkInfos"):
+def _link_info_stripped_args(infos: "LinkInfos"):
     info = infos.stripped or infos.default
-    args.add(link_info_to_args(info, is_shared = False))
+    return link_info_to_args(info, is_shared = False)
 
-def _link_info_stripped_shared_link_args(args: "cmd_args", infos: "LinkInfos"):
+def _link_info_stripped_shared_link_args(infos: "LinkInfos"):
     info = infos.stripped or infos.default
-    args.add(link_info_to_args(info, is_shared = True))
+    return link_info_to_args(info, is_shared = True)
 
-def _link_info_default_filelist(args: "cmd_args", infos: "LinkInfos"):
+def _link_info_default_filelist(infos: "LinkInfos"):
     info = infos.default
-    args.add(link_info_filelist(info))
+    return link_info_filelist(info)
 
-def _link_info_stripped_filelist(args: "cmd_args", infos: "LinkInfos"):
+def _link_info_stripped_filelist(infos: "LinkInfos"):
     info = infos.stripped or infos.default
-    args.add(link_info_filelist(info))
+    return link_info_filelist(info)
 
 def _link_info_has_default_filelist(children: [bool.type], infos: ["LinkInfos", None]) -> bool.type:
     if infos:

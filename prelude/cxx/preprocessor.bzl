@@ -42,15 +42,20 @@ CPreprocessor = record(
 
 # Methods for transitive_sets must be declared prior to their use.
 
-def _cpreprocessor_args(args: "cmd_args", pres: [CPreprocessor.type]):
+def _cpreprocessor_args(pres: [CPreprocessor.type]):
+    args = cmd_args()
     for pre in pres:
         args.add(pre.args)
+    return args
 
-def _cpreprocessor_modular_args(args: "cmd_args", pres: [CPreprocessor.type]):
+def _cpreprocessor_modular_args(pres: [CPreprocessor.type]):
+    args = cmd_args()
     for pre in pres:
         args.add(pre.modular_args)
+    return args
 
-def _cpreprocessor_include_dirs(args: "cmd_args", pres: [CPreprocessor.type]):
+def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
+    args = cmd_args()
     for pre in pres:
         for d in pre.include_dirs:
             args.add("-I")
@@ -58,6 +63,7 @@ def _cpreprocessor_include_dirs(args: "cmd_args", pres: [CPreprocessor.type]):
         for d in pre.system_include_dirs:
             args.add("-isystem")
             args.add(d)
+    return args
 
 def _cpreprocessor_uses_modules(children: [bool.type], pres: [[CPreprocessor.type], None]):
     if pres:

@@ -1,5 +1,5 @@
-def _args(cmd_args, v):
-    cmd_args.add(v)
+def _args(v):
+    return v
 
 CombinerTset = transitive_set(
     args_projections = {

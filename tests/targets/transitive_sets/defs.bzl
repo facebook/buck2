@@ -1,5 +1,5 @@
-def project(args: "cmd_args", f: "artifact"):
-    args.add(f)
+def project(f: "artifact"):
+    return f
 
 NameSet = transitive_set(args_projections = {
     "project": project,

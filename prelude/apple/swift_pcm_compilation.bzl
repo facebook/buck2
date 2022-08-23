@@ -10,15 +10,14 @@ SwiftPCMCompilationInfo = provider(fields = [
     "deps_set",
 ])
 
-def _project_as_clang_deps(args: "cmd_args", value: "SwiftPCMCompilationInfo"):
-    args.add([
+def _project_as_clang_deps(value: "SwiftPCMCompilationInfo"):
+    return [
         "-Xcc",
         cmd_args(["-fmodule-file=", value.name, "=", value.pcm_output], delimiter = ""),
         "-Xcc",
         cmd_args(["-fmodule-map-file=", value.exported_pre.modulemap_path], delimiter = ""),
         "-Xcc",
-        value.exported_pre.args,
-    ])
+    ] + value.exported_pre.args
 
 PcmDepTSet = transitive_set(args_projections = {
     "clang_deps": _project_as_clang_deps,
