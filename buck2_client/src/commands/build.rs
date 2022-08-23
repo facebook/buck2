@@ -16,17 +16,6 @@ use std::path::PathBuf;
 use anyhow::anyhow;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::command_outcome::CommandOutcome;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonBuildOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::exit_result::FailureExitCode;
-use buck2_client::final_console::FinalConsole;
 use cli_proto::build_request::build_providers;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::ResponseOptions;
@@ -39,9 +28,21 @@ use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::command_outcome::CommandOutcome;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonBuildOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+use crate::exit_result::FailureExitCode;
+use crate::final_console::FinalConsole;
+
 #[derive(Debug, clap::Parser)]
 #[clap(name = "build", about = "Build the specified targets")]
-pub(crate) struct BuildCommand {
+pub struct BuildCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
@@ -180,12 +181,12 @@ impl BuildCommand {
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]
-pub(crate) enum FinalArtifactMaterializations {
+pub enum FinalArtifactMaterializations {
     All,
     None,
 }
 
-pub(crate) trait MaterializationsToProto {
+pub trait MaterializationsToProto {
     fn to_proto(&self) -> cli_proto::build_request::Materializations;
 }
 impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
@@ -202,10 +203,7 @@ impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
     }
 }
 
-pub(crate) fn print_build_result(
-    console: &FinalConsole,
-    error_messages: &[String],
-) -> anyhow::Result<()> {
+pub fn print_build_result(console: &FinalConsole, error_messages: &[String]) -> anyhow::Result<()> {
     for error_message in error_messages {
         console.print_error(error_message)?;
     }

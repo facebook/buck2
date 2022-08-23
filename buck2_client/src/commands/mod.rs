@@ -7,11 +7,15 @@
  * of this source tree.
  */
 pub mod aquery;
+pub mod build;
 pub mod cquery;
+pub mod install;
 pub mod kill;
 pub mod lsp;
 pub mod root;
+pub mod run;
 pub mod status;
 pub mod streaming;
 pub mod targets;
+pub mod test;
 pub mod uquery;

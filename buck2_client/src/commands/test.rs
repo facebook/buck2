@@ -9,17 +9,6 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonBuildOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::final_console::FinalConsole;
-use buck2_client::subscribers::superconsole::test::StylizedCount;
-use buck2_client::subscribers::superconsole::test::TestHeader;
 use cli_proto::CounterWithExamples;
 use cli_proto::TestRequest;
 use cli_proto::TestSessionOptions;
@@ -27,7 +16,18 @@ use crossterm::style::Color;
 use futures::FutureExt;
 use gazebo::prelude::*;
 
+use crate::client_ctx::ClientCommandContext;
 use crate::commands::build::print_build_result;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonBuildOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+use crate::final_console::FinalConsole;
+use crate::subscribers::superconsole::test::StylizedCount;
+use crate::subscribers::superconsole::test::TestHeader;
 
 fn print_error_counter(
     console: &FinalConsole,
@@ -51,7 +51,7 @@ fn print_error_counter(
 }
 #[derive(Debug, clap::Parser)]
 #[clap(name = "test", about = "Build and test the specified targets")]
-pub(crate) struct TestCommand {
+pub struct TestCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
@@ -186,9 +186,9 @@ impl StreamingCommand for TestCommand {
         //            handle_stdout method, instead of raw buck2_client::println!s here.
         // TODO: also remove the duplicate information when the above is done.
 
-        buck2_client::print!("Tests finished: ")?;
+        crate::print!("Tests finished: ")?;
         if listing_failed.count > 0 {
-            buck2_client::print!(
+            crate::print!(
                 "{}. ",
                 StylizedCount {
                     label: "Listing Fail",
@@ -198,7 +198,7 @@ impl StreamingCommand for TestCommand {
                 .to_stdio(),
             )?;
         }
-        buck2_client::println!(
+        crate::println!(
             "{}. {}. {}. {}. {} builds failed",
             StylizedCount {
                 label: "Pass",

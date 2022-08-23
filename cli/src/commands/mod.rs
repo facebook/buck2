@@ -8,17 +8,13 @@
  */
 
 pub mod audit;
-pub mod build;
 pub mod bxl;
 pub mod clean;
 pub mod daemon;
 pub mod debug;
 pub mod docs;
 pub mod forkserver;
-pub mod install;
 pub mod log;
 pub mod profile;
 pub mod rage;
-pub mod run;
 pub mod server;
-pub mod test;

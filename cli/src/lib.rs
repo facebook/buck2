@@ -31,13 +31,17 @@ use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::commands::aquery::AqueryCommand;
+use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::cquery::CqueryCommand;
+use buck2_client::commands::install::InstallCommand;
 use buck2_client::commands::kill::KillCommand;
 use buck2_client::commands::lsp::LspCommand;
 use buck2_client::commands::root::RootCommand;
+use buck2_client::commands::run::RunCommand;
 use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::streaming::BuckSubcommand;
 use buck2_client::commands::targets::TargetsCommand;
+use buck2_client::commands::test::TestCommand;
 use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
@@ -54,20 +58,16 @@ use gazebo::dupe::Dupe;
 
 use crate::args::expand_argfiles;
 use crate::commands::audit::AuditCommand;
-use crate::commands::build::BuildCommand;
 use crate::commands::bxl::BxlCommand;
 use crate::commands::clean::CleanCommand;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::debug::DebugCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
-use crate::commands::install::InstallCommand;
 use crate::commands::log::LogCommand;
 use crate::commands::profile::ProfileCommand;
 use crate::commands::rage::RageCommand;
-use crate::commands::run::RunCommand;
 use crate::commands::server::ServerCommand;
-use crate::commands::test::TestCommand;
 
 #[macro_use]
 pub mod panic;

@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::commands::build::print_build_result;
+use buck2_client::commands::build::FinalArtifactMaterializations;
+use buck2_client::commands::build::MaterializationsToProto;
 use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonBuildOptions;
@@ -10,10 +13,6 @@ use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use cli_proto::BxlRequest;
 use futures::FutureExt;
-
-use crate::commands::build::print_build_result;
-use crate::commands::build::FinalArtifactMaterializations;
-use crate::commands::build::MaterializationsToProto;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "bxl", about = "Run BXL scripts")]

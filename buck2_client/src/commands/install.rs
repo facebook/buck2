@@ -8,22 +8,23 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::command_outcome::CommandOutcome;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonBuildOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
 use cli_proto::InstallRequest;
 use futures::FutureExt;
 use gazebo::prelude::*;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::command_outcome::CommandOutcome;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonBuildOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Build and install an application")]
-pub(crate) struct InstallCommand {
+pub struct InstallCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 

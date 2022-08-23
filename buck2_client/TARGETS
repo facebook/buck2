@@ -14,12 +14,14 @@ rust_library(
         ),
     ],
     test_deps = [
+        "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:pretty_assertions",
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-compression",
+        "fbsource//third-party/rust:async-recursion",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:bytes",
@@ -36,6 +38,7 @@ rust_library(
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:memmap",
+        "fbsource//third-party/rust:multimap",
         "fbsource//third-party/rust:nix",
         "fbsource//third-party/rust:object",
         "fbsource//third-party/rust:once_cell",

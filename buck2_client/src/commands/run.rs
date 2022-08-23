@@ -13,16 +13,6 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::command_outcome::CommandOutcome;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonBuildOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use cli_proto::build_request::build_providers;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;
@@ -31,7 +21,17 @@ use futures::FutureExt;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::command_outcome::CommandOutcome;
 use crate::commands::build::print_build_result;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonBuildOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+use crate::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -39,7 +39,7 @@ use crate::commands::build::print_build_result;
     about = "Build and run the specified target",
     setting = clap::AppSettings::TrailingVarArg
 )]
-pub(crate) struct RunCommand {
+pub struct RunCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
@@ -136,7 +136,7 @@ impl StreamingCommand for RunCommand {
         run_args.extend(self.extra_run_args);
 
         if self.show_delimiter {
-            buck2_client::eprintln!(
+            crate::eprintln!(
                 "Running `{}`\n{}",
                 self.target,
                 "=".repeat(SUPERCONSOLE_WIDTH)
@@ -197,7 +197,7 @@ struct CommandArgsFile {
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum RunCommandError {
+pub enum RunCommandError {
     #[error("Target `{0}` is not a binary rule (only binary rules can be `run`)")]
     NonBinaryRule(String),
 }
