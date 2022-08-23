@@ -162,10 +162,10 @@ def js_library_impl(ctx: "context") -> ["provider"]:
         ]
         library_files = _build_library_files(ctx, transform_profile, built_js_files)
 
-        js_library_deps = map_idx(
+        js_library_deps = dedupe(map_idx(
             JsLibraryInfo,
             [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps],
-        )
+        ))
         js_library = _build_js_library(
             ctx,
             transform_profile,
