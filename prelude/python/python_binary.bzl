@@ -198,7 +198,7 @@ def convert_python_library_to_executable(
 
         # Extract re-linked extensions.
         extensions = {
-            dest: (omnibus_libs.roots[label], label)
+            dest: (omnibus_libs.roots[label].shared_library, label)
             for dest, (_, label) in extensions.items()
         }
         native_libs = omnibus_libs.libraries

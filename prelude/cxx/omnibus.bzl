@@ -49,30 +49,39 @@ NativeLinkTargetInfo = provider(fields = [
     "deps",  # ["label"]
 ])
 
-# The result of the omnibus link.
-OmnibusSharedLibraries = record(
-    libraries = field({str.type: LinkedObject.type}, {}),
-    roots = field({"label": LinkedObject.type}, {}),
-)
-
 # Bookkeeping information used to setup omnibus link rules.
 OmnibusSpec = record(
     body = field({"label": None}, {}),
     excluded = field({"label": None}, {}),
-    roots = field({"label": (NativeLinkTargetInfo.type, "artifact")}, {}),
+    roots = field({"label": NativeLinkTargetInfo.type}, {}),
+    exclusion_roots = field(["label"]),
     # All link infos.
     link_infos = field({"label": LinkableNode.type}, {}),
 )
 
+OmnibusRootProduct = record(
+    shared_library = field(LinkedObject.type),
+)
+
+# The result of the omnibus link.
+OmnibusSharedLibraries = record(
+    libraries = field({str.type: LinkedObject.type}, {}),
+    roots = field({"label": OmnibusRootProduct.type}, {}),
+    exclusion_roots = field(["label"]),
+    excluded = field(["label"]),
+)
+
 def create_native_link_target(
         link_info: LinkInfo.type,
-        name: [str.type, None] = None,
-        deps: ["dependency"] = []) -> NativeLinkTargetInfo.type:
+        name: [str.type, None],
+        deps: ["dependency"]) -> NativeLinkTargetInfo.type:
+    # Only include dependencies that are linkable.
+    deps = linkable_deps(deps)
+
     return NativeLinkTargetInfo(
         name = name,
         link_info = link_info,
-        # Only include dependencies that are linkable.
-        deps = linkable_deps(deps),
+        deps = deps,
     )
 
 def add_omnibus_exclusions(
@@ -108,7 +117,7 @@ def _omnibus_soname(ctx):
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     return get_shared_library_name(linker_type, "omnibus")
 
-def _create_dummy_omnibus(ctx: "context", extra_ldflags: [""] = []) -> "artifact":
+def create_dummy_omnibus(ctx: "context", extra_ldflags: [""] = []) -> "artifact":
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     output = ctx.actions.declare_output(get_shared_library_name(linker_type, "omnibus-dummy"))
     cxx_link_shared_library(
@@ -151,22 +160,24 @@ def _all_deps(
 def _create_root(
         ctx: "context",
         spec: OmnibusSpec.type,
+        root_products,
         root: NativeLinkTargetInfo.type,
-        output: "artifact",
+        label: "label",
         link_deps: ["label"],
         omnibus: "artifact",
         extra_ldflags: [""] = [],
-        prefer_stripped_objects: bool.type = False) -> LinkedObject.type:
+        prefer_stripped_objects: bool.type = False) -> OmnibusRootProduct.type:
     """
     Link a root omnibus node.
     """
+
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
 
     inputs = []
 
     # Since we're linking against a dummy omnibus which has no symbols, we need
     # to make sure the linker won't drop it from the link or complain about
     # missing symbols.
-    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     inputs.append(LinkInfo(
         pre_flags =
             get_no_as_needed_shared_libs_flags(linker_type) +
@@ -199,10 +210,10 @@ def _create_root(
 
         # If this is another root.
         if dep in spec.roots:
-            _, other_root = spec.roots[dep]
+            other_root = root_products[dep]
 
             # TODO(cjhopman): This should be passing structured linkables
-            inputs.append(LinkInfo(pre_flags = [cmd_args(other_root)]))
+            inputs.append(LinkInfo(pre_flags = [cmd_args(other_root.shared_library.output)]))
             continue
 
         # If this node is in omnibus, just add that to the link line.
@@ -216,8 +227,10 @@ def _create_root(
         expect(actual_link_style == LinkStyle("shared"))
         inputs.append(get_link_info(node, actual_link_style))
 
+    output = ctx.actions.declare_output(value_or(root.name, get_default_shared_library_name(linker_type, label)))
+
     # link the rule
-    return cxx_link_shared_library(
+    shared_library = cxx_link_shared_library(
         ctx,
         output,
         name = root.name,
@@ -228,6 +241,10 @@ def _create_root(
         # running simultaneously, so while their overall load is reasonable,
         # their peak execution load is very high.
         prefer_local = True,
+    )
+
+    return OmnibusRootProduct(
+        shared_library = shared_library,
     )
 
 def _create_undefined_symbols_argsfile(
@@ -315,7 +332,7 @@ echo "};" >> "$2"
 
 def _create_global_symbols_version_script(
         ctx: "context",
-        roots: ["artifact"],
+        roots: [OmnibusRootProduct.type],
         excluded: ["artifact"],
         link_args: [["artifact", "resolved_macro", "cmd_args", str.type]]) -> "artifact":
     """
@@ -329,12 +346,12 @@ def _create_global_symbols_version_script(
     global_symbols_files = [
         extract_symbol_names(
             ctx,
-            root.basename + ".global_syms.txt",
-            [root],
+            root.shared_library.output.basename + ".global_syms.txt",
+            [root.shared_library.output],
             dynamic = True,
             global_only = True,
             category = "omnibus_global_syms",
-            identifier = root.basename,
+            identifier = root.shared_library.output.basename,
         )
         for root in roots
     ]
@@ -386,13 +403,14 @@ def _is_static_only(info: LinkableNode.type) -> bool.type:
 
 def _is_shared_only(info: LinkableNode.type) -> bool.type:
     """
-    Return whether this can only be linked statically.
+    Return whether this can only use shared linking
     """
     return info.preferred_linkage == Linkage("shared")
 
 def _create_omnibus(
         ctx: "context",
         spec: OmnibusSpec.type,
+        root_products,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool.type = False) -> LinkedObject.type:
     inputs = []
@@ -401,19 +419,19 @@ def _create_omnibus(
     non_body_root_undefined_syms = [
         extract_symbol_names(
             ctx,
-            out.basename + ".undefined_syms.txt",
-            [out],
+            root.shared_library.output.basename + ".undefined_syms.txt",
+            [root.shared_library.output],
             dynamic = True,
             global_only = True,
             undefined_only = True,
             category = "omnibus_undefined_syms",
-            identifier = out.basename,
+            identifier = root.shared_library.output.basename,
             # We prefer local execution because there are lot of omnibus_undefined_syms
             # running simultaneously, so while their overall load is reasonable,
             # their peak execution load is very high.
             prefer_local = True,
         )
-        for label, (_, out) in spec.roots.items()
+        for label, root in root_products.items()
         if label not in spec.body
     ]
     if non_body_root_undefined_syms:
@@ -431,10 +449,10 @@ def _create_omnibus(
     for label in spec.body:
         # If this body node is a root, add the it's output to the link.
         if label in spec.roots:
-            _, root = spec.roots[label]
+            root = root_products[label]
 
             # TODO(cjhopman): This should be passing structured linkables
-            inputs.append(LinkInfo(pre_flags = [cmd_args(root)]))
+            inputs.append(LinkInfo(pre_flags = [cmd_args(root.shared_library.output)]))
             continue
 
         node = spec.link_infos[label]
@@ -478,7 +496,7 @@ def _create_omnibus(
     global_sym_vers = _create_global_symbols_version_script(
         ctx,
         # Extract symols from roots...
-        [out for _, out in spec.roots.values()],
+        root_products.values(),
         # ... and the shared libs from excluded nodes.
         [
             shared_lib.output
@@ -514,12 +532,14 @@ def _create_omnibus(
     )
 
 def _build_omnibus_spec(
-        ctx: "context",
+        _ctx: "context",
         graph: LinkableGraph.type) -> OmnibusSpec.type:
     """
     Divide transitive deps into excluded, root, and body nodes, which we'll
     use to link the various parts of omnibus.
     """
+
+    exclusion_roots = graph.excluded.keys() + _implicit_exclusion_roots(graph)
 
     # Build up the set of all nodes that we have to exclude from omnibus linking
     # (any node that is excluded will exclude all it's transitive deps).
@@ -527,20 +547,13 @@ def _build_omnibus_spec(
         label: None
         for label in _all_deps(
             graph.nodes,
-            graph.excluded.keys() +
-            # Exclude any body nodes which can't be linked statically.
-            [
-                label
-                for label, info in graph.nodes.items()
-                if (label not in graph.roots) and _is_shared_only(info)
-            ],
+            exclusion_roots,
         )
     }
 
     # Finalized root nodes, after removing any excluded roots.
-    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     roots = {
-        label: (root, ctx.actions.declare_output(value_or(root.name, get_default_shared_library_name(linker_type, label))))
+        label: root
         for label, root in graph.roots.items()
         if label not in excluded
     }
@@ -548,7 +561,7 @@ def _build_omnibus_spec(
     # Find the deps of the root nodes.  These form the roots of the nodes
     # included in the omnibus link.
     first_order_root_deps = []
-    for label in _link_deps(graph.nodes, flatten([r.deps for r, _ in roots.values()])):
+    for label in _link_deps(graph.nodes, flatten([r.deps for r in roots.values()])):
         # We only consider deps which aren't *only* statically linked.
         if _is_static_only(graph.nodes[label]):
             continue
@@ -572,17 +585,25 @@ def _build_omnibus_spec(
         roots = roots,
         body = body,
         link_infos = graph.nodes,
+        exclusion_roots = exclusion_roots,
     )
 
+def _implicit_exclusion_roots(graph: LinkableGraph.type):
+    return [
+        label
+        for label, info in graph.nodes.items()
+        if (label not in graph.roots) and _is_shared_only(info)
+    ]
+
 def _ordered_roots(
-        spec: OmnibusSpec.type) -> [("label", NativeLinkTargetInfo.type, "artifact", ["label"])]:
+        spec: OmnibusSpec.type) -> [("label", NativeLinkTargetInfo.type, ["label"])]:
     """
     Return information needed to link the roots nodes in topo-sorted order.
     """
 
     # Calculate all deps each root node needs to link against.
     link_deps = {}
-    for label, (root, _) in spec.roots.items():
+    for label, root in spec.roots.items():
         link_deps[label] = _link_deps(spec.link_infos, root.deps)
 
     # Used the link deps to create the graph of root nodes.
@@ -596,9 +617,9 @@ def _ordered_roots(
     # Emit the root link info as a topo-sorted list, so that we generate root link
     # rules for dependencies before their dependents.
     for label in topo_sort(root_graph):
-        root, output = spec.roots[label]
+        root = spec.roots[label]
         deps = link_deps[label]
-        ordered_roots.append((label, root, output, deps))
+        ordered_roots.append((label, root, deps))
 
     return ordered_roots
 
@@ -610,32 +631,34 @@ def create_omnibus_libraries(
     spec = _build_omnibus_spec(ctx, graph)
 
     # Create dummy omnibus
-    dummy_omnibus = _create_dummy_omnibus(ctx, extra_ldflags)
+    dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags)
 
     libraries = {}
-    roots = {}
+    root_products = {}
 
     # Link all root nodes against the dummy libomnibus lib.
-    for label, root, output, link_deps in _ordered_roots(spec):
-        shlib = _create_root(
+    for label, root, link_deps in _ordered_roots(spec):
+        product = _create_root(
             ctx,
             spec,
+            root_products,
             root,
-            output,
+            label,
             link_deps,
             dummy_omnibus,
             extra_ldflags,
             prefer_stripped_objects,
         )
         if root.name != None:
-            libraries[root.name] = shlib
-        roots[label] = shlib
+            libraries[root.name] = product.shared_library
+        root_products[label] = product
 
     # If we have body nodes, then link them into the monolithic libomnibus.so.
     if spec.body:
         omnibus = _create_omnibus(
             ctx,
             spec,
+            root_products,
             extra_ldflags,
             prefer_stripped_objects,
         )
@@ -646,4 +669,9 @@ def create_omnibus_libraries(
         for name, lib in spec.link_infos[label].shared_libs.items():
             libraries[name] = lib
 
-    return OmnibusSharedLibraries(libraries = libraries, roots = roots)
+    return OmnibusSharedLibraries(
+        libraries = libraries,
+        roots = root_products,
+        exclusion_roots = spec.exclusion_roots,
+        excluded = spec.excluded.keys(),
+    )
