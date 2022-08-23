@@ -5,7 +5,6 @@ edition = "2021"
 description = "Buck2 query language parser"
 
 [dependencies]
-buck2_common = { path = "../buck2_common" }
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
