@@ -23,6 +23,7 @@ pub fn truncate(msg: &str, max_length: usize) -> String {
         }
         format!(
             "{}{}{}",
+            // TODO(nga): crashes on non-ASCII input.
             &msg[0..max_length_without_truncation_msg / 2],
             &TRUNCATION_MSG,
             &msg[msg.len() - (max_length_without_truncation_msg / 2)..msg.len()]
@@ -47,6 +48,8 @@ mod tests {
         );
     }
 
+    // TODO(nga): `truncate` function is used in error messages,
+    //   so if used incorrectly, it's better to produce some message than crash.
     #[test]
     #[should_panic]
     pub fn test_truncate_panic() {
