@@ -13,15 +13,15 @@ mod module;
 mod package_deps;
 
 use async_trait::async_trait;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::CommonConsoleOptions;
+use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::starlark::module::StarlarkModuleCommand;
 use crate::commands::audit::starlark::package_deps::StarlarkPackageDepsCommand;
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonDaemonCommandOptions;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark", about = "Debug Starlark interpreter")]

@@ -12,6 +12,9 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::CommonConsoleOptions;
+use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
@@ -23,9 +26,6 @@ use cli_proto::ClientContext;
 use indent_write::io::IndentWriter;
 
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonDaemonCommandOptions;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

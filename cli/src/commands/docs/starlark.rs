@@ -1,6 +1,9 @@
 mod markdown;
 
 use async_trait::async_trait;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::CommonConsoleOptions;
+use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use cli_proto::UnstableDocsRequest;
@@ -9,9 +12,6 @@ use gazebo::dupe::Dupe;
 use starlark::values::docs::Doc;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::StreamingCommand;

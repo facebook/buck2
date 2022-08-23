@@ -13,6 +13,9 @@ use std::path::Path;
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::module_internals::EvaluationResult;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::CommonConsoleOptions;
+use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -49,9 +52,6 @@ use serde::Serializer;
 use thiserror::Error;
 
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonDaemonCommandOptions;
 
 #[derive(Debug, Error)]
 enum AuditIncludesError {

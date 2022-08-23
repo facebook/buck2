@@ -8,6 +8,9 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::CommonConsoleOptions;
+use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use buck2_core::fs::paths::AbsPath;
@@ -18,9 +21,6 @@ use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonDaemonCommandOptions;
 use crate::StreamingCommand;
 
 // Use non-camel case so the possible values match buck1's

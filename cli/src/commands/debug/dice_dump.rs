@@ -8,6 +8,10 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::CommonConsoleOptions;
+use buck2_client::common::CommonDaemonCommandOptions;
+use buck2_client::common::ConsoleType;
 use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::daemon::client::BuckdConnectOptions;
 use buck2_client::exit_result::ExitResult;
@@ -16,10 +20,6 @@ use cli_proto::UnstableDiceDumpRequest;
 use futures::FutureExt;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonDaemonCommandOptions;
-use crate::commands::common::ConsoleType;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

@@ -11,6 +11,8 @@ use std::future::Future;
 use std::str::FromStr;
 
 use anyhow::Context;
+use buck2_client::common::CommonBuildConfigurationOptions;
+use buck2_client::common::HostPlatformOverride;
 use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::daemon::client::BuckdConnectOptions;
 use buck2_client::replayer::Replayer;
@@ -24,8 +26,6 @@ use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 use tokio::runtime::Builder;
 
-use crate::commands::common::CommonBuildConfigurationOptions;
-use crate::commands::common::HostPlatformOverride;
 use crate::AsyncCleanupContext;
 
 pub(crate) struct ClientCommandContext {
