@@ -15,6 +15,8 @@ use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::subscribers::display;
+use buck2_client::subscribers::display::TargetDisplayOptions;
 use buck2_client::verbosity::Verbosity;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
@@ -27,8 +29,6 @@ use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
 use crate::commands::common::subscribers;
-use crate::commands::common::subscribers::display;
-use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::re::ReState;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::subscribers::LastCommandExecutionKind;

@@ -13,7 +13,6 @@ use std::borrow::Cow;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_client::verbosity::Verbosity;
 use buck2_common::convert::ProstDurationExt;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
@@ -33,8 +32,10 @@ use superconsole::Lines;
 use superconsole::Span;
 use thiserror::Error;
 
+use crate::verbosity::Verbosity;
+
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct TargetDisplayOptions {
+pub struct TargetDisplayOptions {
     with_configuration: bool,
 }
 
@@ -52,7 +53,7 @@ impl TargetDisplayOptions {
     }
 }
 
-pub(crate) fn display_configured_target_label(
+pub fn display_configured_target_label(
     ctl: &ConfiguredTargetLabel,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
@@ -71,7 +72,7 @@ pub(crate) fn display_configured_target_label(
     }
 }
 
-pub(crate) fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
+pub fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     if let BxlFunctionKey {
         label: Some(BxlFunctionLabel { bxl_path, name }),
         args,
@@ -83,7 +84,7 @@ pub(crate) fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     }
 }
 
-pub(crate) fn display_action_owner(
+pub fn display_action_owner(
     owner: &action_key::Owner,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
@@ -95,7 +96,7 @@ pub(crate) fn display_action_owner(
     }
 }
 
-pub(crate) fn display_action_key(
+pub fn display_action_key(
     action_key: &ActionKey,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
@@ -109,7 +110,7 @@ pub(crate) fn display_action_key(
     }
 }
 
-pub(crate) fn display_action_identity(
+pub fn display_action_identity(
     action_key: Option<&ActionKey>,
     name: Option<&ActionName>,
     opts: TargetDisplayOptions,
@@ -131,10 +132,7 @@ pub(crate) fn display_action_identity(
 }
 
 /// Formats event payloads for display.
-pub(crate) fn display_event(
-    event: &BuckEvent,
-    opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::Result<String> {
     let res: anyhow::Result<_> = try {
         let data = match event.data {
             buck2_data::buck_event::Data::SpanStart(ref start) => start.data.as_ref().unwrap(),
@@ -223,9 +221,7 @@ pub(crate) fn display_event(
     res.with_context(|| InvalidBuckEvent(event.clone()))
 }
 
-pub(crate) fn display_analysis_stage(
-    stage: &buck2_data::analysis_stage_start::Stage,
-) -> &'static str {
+pub fn display_analysis_stage(stage: &buck2_data::analysis_stage_start::Stage) -> &'static str {
     use buck2_data::analysis_stage_start::Stage;
 
     match stage {
@@ -234,7 +230,7 @@ pub(crate) fn display_analysis_stage(
     }
 }
 
-pub(crate) fn display_executor_stage(
+pub fn display_executor_stage(
     stage: &buck2_data::executor_stage_start::Stage,
 ) -> anyhow::Result<&'static str> {
     use buck2_data::executor_stage_start::Stage;
@@ -272,7 +268,7 @@ pub(crate) fn display_executor_stage(
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum ParseEventError {
+pub enum ParseEventError {
     #[error("Missing configured target label")]
     MissingConfiguredTargetLabel,
     #[error("Invalid configured target label")]
@@ -295,15 +291,13 @@ pub(crate) enum ParseEventError {
 
 #[derive(Error, Debug)]
 #[error("Invalid buck event: `{0:?}`")]
-pub(crate) struct InvalidBuckEvent(pub BuckEvent);
+pub struct InvalidBuckEvent(pub BuckEvent);
 
-pub(crate) fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {
+pub fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {
     format!("{:.1}s", elapsed.mul_f64(time_speed).as_secs_f64())
 }
 
-pub(crate) fn format_test_result(
-    test_result: &buck2_data::TestResult,
-) -> anyhow::Result<Option<Lines>> {
+pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Result<Option<Lines>> {
     let buck2_data::TestResult {
         name,
         status,
@@ -374,7 +368,7 @@ impl<'a> ActionErrorDisplay<'a> {
     }
 }
 
-pub(crate) fn display_action_error<'a>(
+pub fn display_action_error<'a>(
     action: &'a buck2_data::ActionExecutionEnd,
     error: &'a buck2_data::action_execution_end::Error,
     opts: TargetDisplayOptions,
@@ -456,7 +450,7 @@ fn failure_reason_for_command_execution(
     })
 }
 
-pub(crate) fn success_stderr<'a>(
+pub fn success_stderr<'a>(
     action: &'a buck2_data::ActionExecutionEnd,
     verbosity: Verbosity,
 ) -> anyhow::Result<Option<&'a str>> {

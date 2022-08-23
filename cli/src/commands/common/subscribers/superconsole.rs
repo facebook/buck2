@@ -12,6 +12,8 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_client::subscribers::display;
+use buck2_client::subscribers::display::TargetDisplayOptions;
 use buck2_client::verbosity::Verbosity;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
@@ -40,8 +42,6 @@ use superconsole::Span;
 use superconsole::State;
 pub(crate) use superconsole::SuperConsole;
 
-use crate::commands::common::subscribers::display;
-use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::simpleconsole::WhatRanCommandConsoleFormat;
 use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsState;

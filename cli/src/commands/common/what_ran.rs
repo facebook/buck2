@@ -10,10 +10,9 @@
 use std::borrow::Cow;
 use std::fmt;
 
+use buck2_client::subscribers::display;
+use buck2_client::subscribers::display::TargetDisplayOptions;
 use gazebo::dupe::Dupe;
-
-use crate::commands::common::subscribers::display;
-use crate::commands::common::subscribers::display::TargetDisplayOptions;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]

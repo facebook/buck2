@@ -7,13 +7,18 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
+        "//buck2/buck2_common:buck2_common",
         "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_events:buck2_events",
+        "//buck2/buck2_test_api:buck2_test_api",
         "//buck2/cli_proto:cli_proto",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/superconsole:superconsole",
     ],
 )

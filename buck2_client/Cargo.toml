@@ -7,8 +7,10 @@ version = "0.1.0"
 [dependencies]
 anyhow = "1.0.51"
 futures = "0.3"
+itertools = "0.10.0"
 libc = "0.2.103"
 serde = { version = "1.0", features = ["derive"] }
+superconsole = { version = "0.1.0", path = "../superconsole" }
 thiserror = "1.0.24"
 tokio = {version = "1.5", features = ["full"]}
 tracing = "0.1.22"
@@ -16,5 +18,8 @@ tracing = "0.1.22"
 gazebo = { path = "../gazebo/gazebo" }
 
 # Please do not add dependency on `buck2_build_api`.
+buck2_common = { path = "../buck2_common" }
 buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
+buck2_test_api = { path = "../buck2_test_api" }
 cli_proto = { path = "../cli_proto" }
