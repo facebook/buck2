@@ -18,7 +18,7 @@ use tokio::sync::oneshot::error::TryRecvError;
 /// It also runs a background thread to read asynchronously.
 ///
 /// Dropping this struct tells the stdin reading thread to stop reading, and cleans the thread up.
-pub(crate) struct StdinStream<T: Send + Sync> {
+pub struct StdinStream<T: Send + Sync> {
     messages: tokio_stream::wrappers::UnboundedReceiverStream<T>,
     stdio_thread: Option<std::thread::JoinHandle<()>>,
     stop_signal: Option<Mutex<tokio::sync::oneshot::Sender<()>>>,
@@ -46,7 +46,7 @@ fn is_ready(_stdin: &Stdin) -> bool {
 }
 
 impl<T: Send + Sync + 'static> StdinStream<T> {
-    pub(crate) fn new<F>(deserializer: F) -> Self
+    pub fn new<F>(deserializer: F) -> Self
     where
         F: Fn(&mut StdinLock) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
     {
@@ -73,10 +73,8 @@ impl<T: Send + Sync + 'static> StdinStream<T> {
                             std::thread::sleep(Duration::from_millis(100));
                         }
                         Err(e) => {
-                            let _ignore = buck2_client::eprintln!(
-                                "Could not read message from stdin: `{}`",
-                                e
-                            );
+                            let _ignore =
+                                crate::eprintln!("Could not read message from stdin: `{}`", e);
                             break;
                         }
                     }

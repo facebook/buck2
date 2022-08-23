@@ -20,6 +20,7 @@ pub mod file_tailer;
 pub mod final_console;
 pub mod find_certs;
 pub mod replayer;
+pub mod stdin_stream;
 pub mod stdio;
 pub mod stream_value;
 pub mod subscribers;

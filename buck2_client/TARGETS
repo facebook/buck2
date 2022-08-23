@@ -26,6 +26,7 @@ rust_library(
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:memmap",
+        "fbsource//third-party/rust:nix",
         "fbsource//third-party/rust:object",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:pin-project",

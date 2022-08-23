@@ -92,7 +92,6 @@ pub mod args;
 mod client_command_context;
 pub mod commands;
 pub mod daemon;
-mod stdin_stream;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
