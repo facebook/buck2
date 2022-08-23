@@ -135,7 +135,10 @@ go_fbcode_toolchain(
 # The Python toolchains to setup, using 2-tuples of platform flavor and constraints
 # to use for `target_compatible_with`.
 _fbcode_python_platforms = [
-    (platform, ["ovr_config//runtime:fbcode"])
+    (platform, select({
+        "DEFAULT": ["ovr_config//runtime:fbcode"],
+        "ovr_config//runtime/constraints:android-host-test": ["ovr_config//runtime/constraints:android-host-test"],
+    }))
     for platform in fbcode_toolchains.PLATFORMS
 ]
 _non_fbcode_python_platforms = [
