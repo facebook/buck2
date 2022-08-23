@@ -161,5 +161,7 @@ async fn try_clean_eden_buck_out(
     _buck_out: &AbsPathBuf,
     _dryrun: bool,
 ) -> anyhow::Result<Option<Vec<String>>> {
+    #[cfg(all(fbcode_build, unix))]
+    compile_error!("eden_materializer must be enabled when compiling in fbcode");
     Ok(None)
 }

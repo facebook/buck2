@@ -17,6 +17,9 @@ pub mod http;
 pub mod immediate;
 pub mod io;
 
+#[cfg(all(not(feature = "eden_materializer"), fbcode_build, unix))]
+compile_error!("eden_materializer must be enabled when compiling in fbcode");
+
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;

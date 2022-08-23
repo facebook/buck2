@@ -308,6 +308,9 @@ impl DaemonState {
                 }
                 #[cfg(any(not(feature = "eden_materializer"), not(unix)))]
                 {
+                    #[cfg(all(fbcode_build, unix))]
+                    compile_error!("eden_materializer must be enabled when compiling in fbcode");
+
                     let _unused = buck_out_path;
                     let _unused = fs;
                     let _unused = fb;
