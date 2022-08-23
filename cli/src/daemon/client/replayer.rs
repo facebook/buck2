@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::time::SystemTime;
 
+use buck2_client::stream_value::StreamValue;
 use futures::stream::BoxStream;
 use futures::task::Poll;
 use futures::Future;
@@ -21,7 +22,6 @@ use tokio::time::Sleep;
 
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::subscribers::event_log::Invocation;
-use crate::daemon::client::stream_value::StreamValue;
 
 #[pin_project]
 struct Pending {

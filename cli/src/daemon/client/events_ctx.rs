@@ -11,6 +11,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::stream_value::StreamValue;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -28,7 +29,6 @@ use tokio::time::MissedTickBehavior;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::daemon::client::file_tailer::FileTailer;
-use crate::daemon::client::stream_value::StreamValue;
 use crate::daemon::client::BuckdCommunicationError;
 use crate::daemon::client::CommandOutcome;
 

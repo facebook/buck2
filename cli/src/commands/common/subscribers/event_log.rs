@@ -19,6 +19,7 @@ use anyhow::Context as _;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_trait::async_trait;
+use buck2_client::stream_value::StreamValue;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
@@ -55,7 +56,6 @@ use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
-use crate::daemon::client::stream_value::StreamValue;
 
 #[derive(Error, Debug)]
 pub(crate) enum EventLogErrors {
@@ -810,6 +810,7 @@ impl Decoder for EventLogDecoder {
 #[cfg(test)]
 mod tests {
 
+    use buck2_client::stream_value::StreamValue;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::BuckEventError;
@@ -818,7 +819,6 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::daemon::client::stream_value::StreamValue;
 
     impl EventLog {
         async fn new_test_event_log(log: EventLogPathBuf) -> anyhow::Result<Self> {

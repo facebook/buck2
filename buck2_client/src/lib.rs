@@ -10,3 +10,4 @@
 #![feature(try_trait_v2)]
 
 pub mod exit_result;
+pub mod stream_value;

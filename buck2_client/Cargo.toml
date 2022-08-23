@@ -7,10 +7,12 @@ version = "0.1.0"
 [dependencies]
 anyhow = "1.0.51"
 libc = "0.2.103"
+serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.24"
 tracing = "0.1.22"
 
 gazebo = { path = "../gazebo/gazebo" }
 
 # Please do not add dependency on `buck2_build_api`.
+buck2_data = { path = "../buck2_data" }
 cli_proto = { path = "../cli_proto" }

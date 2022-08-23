@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use buck2_client::exit_result::ExitResult;
+use buck2_client::stream_value::StreamValue;
 use futures::TryStreamExt;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
@@ -28,7 +29,6 @@ use crate::commands::common::what_ran::WhatRanOutputWriter;
 use crate::commands::common::what_ran::WhatRanRelevantAction;
 use crate::commands::common::what_ran::WhatRanState;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
-use crate::daemon::client::stream_value::StreamValue;
 
 #[derive(
     Debug,

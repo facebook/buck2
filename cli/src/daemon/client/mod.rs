@@ -15,6 +15,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_client::stream_value::StreamValue;
 use buck2_server::daemon::common::ToProtoDuration;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
@@ -24,7 +25,6 @@ use futures::pin_mut;
 use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
-use stream_value::StreamValue;
 use thiserror::Error;
 use tonic::transport::Channel;
 use tonic::Request;
@@ -38,7 +38,6 @@ pub(crate) mod connect;
 mod events_ctx;
 mod file_tailer;
 pub(crate) mod replayer;
-pub(crate) mod stream_value;
 
 use buck2_client::exit_result::ExitResult;
 
