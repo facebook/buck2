@@ -17,10 +17,6 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::subscribers::display::TargetDisplayOptions;
-use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
-use buck2_client::subscribers::event_log::EventLogPathBuf;
 use buck2_common::convert::ProstDurationExt;
 use buck2_events::subscriber::VisitorError;
 use buck2_events::BuckEvent;
@@ -32,19 +28,24 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::runtime;
 
+use crate::exit_result::ExitResult;
+use crate::subscribers::display::TargetDisplayOptions;
+use crate::subscribers::event_log::retrieve_nth_recent_log;
+use crate::subscribers::event_log::EventLogPathBuf;
+
 #[derive(Error, Debug)]
-pub(crate) enum ChromeTraceError {
+pub enum ChromeTraceError {
     #[error("Couldn't assign track to {0:?}: no track assigned to parent {1:?}")]
     ParentSpanNotFound(SpanId, SpanId),
 }
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::stream_value::StreamValue;
-use buck2_client::subscribers::display;
-use buck2_client::subscribers::event_log::Invocation;
+use crate::client_ctx::ClientCommandContext;
+use crate::stream_value::StreamValue;
+use crate::subscribers::display;
+use crate::subscribers::event_log::Invocation;
 
 #[derive(Debug, clap::Parser)]
-pub(crate) struct ChromeTraceCommand {
+pub struct ChromeTraceCommand {
     #[clap(
         long,
         help = "Where to write the chrome trace JSON. If a directory is passed, the filename of the event log will be used as a base filename."
@@ -221,7 +222,7 @@ struct TrackIdAllocator {
 }
 
 impl TrackIdAllocator {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             unused_track_ids: BTreeSet::new(),
             lowest_never_used: 0,
@@ -240,7 +241,7 @@ impl TrackIdAllocator {
         }
     }
 
-    pub(crate) fn mark_unused(&mut self, tid: u64) {
+    pub fn mark_unused(&mut self, tid: u64) {
         self.unused_track_ids.insert(tid);
     }
 }
@@ -266,7 +267,7 @@ where
         + Serialize,
 {
     const BUCKET_DURATION: Duration = Duration::from_millis(10);
-    pub(crate) fn new(name: &'static str, start_value: T) -> Self {
+    pub fn new(name: &'static str, start_value: T) -> Self {
         Self {
             name,
             next_flush: SystemTime::UNIX_EPOCH,
@@ -364,10 +365,7 @@ where
         Ok(())
     }
 
-    pub(crate) fn flush_all_to(
-        &mut self,
-        output: &mut Vec<serde_json::Value>,
-    ) -> anyhow::Result<()> {
+    pub fn flush_all_to(&mut self, output: &mut Vec<serde_json::Value>) -> anyhow::Result<()> {
         self.flush()?;
         output.append(&mut self.trace_events);
         Ok(())
@@ -386,7 +384,7 @@ struct AverageRateOfChangeCounters {
 
 impl AverageRateOfChangeCounters {
     const MSECS_PER_SEC: f32 = 1000.0;
-    pub(crate) fn new(name: &'static str) -> Self {
+    pub fn new(name: &'static str) -> Self {
         Self {
             previous_timestamp_and_amount_by_key: HashMap::new(),
             counters: SimpleCounters::<f32>::new(name, 0.0),
@@ -425,7 +423,7 @@ struct SpanCounters {
 }
 
 impl SpanCounters {
-    pub(crate) fn new(name: &'static str) -> Self {
+    pub fn new(name: &'static str) -> Self {
         Self {
             counter: SimpleCounters::new(name, 0),
             open_spans: HashMap::new(),
@@ -473,7 +471,7 @@ impl ChromeTraceWriter {
     const CRITICAL_PATH: &'static str = "critical-path";
     const BYTES_PER_GIGABYTE: f64 = 1000000000.0;
 
-    pub(crate) fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass) -> Self {
+    pub fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass) -> Self {
         Self {
             trace_events: vec![],
             open_spans: HashMap::new(),
@@ -513,7 +511,7 @@ impl ChromeTraceWriter {
         }
     }
 
-    pub(crate) fn to_writer<W>(mut self, file: W) -> anyhow::Result<()>
+    pub fn to_writer<W>(mut self, file: W) -> anyhow::Result<()>
     where
         W: Write,
     {
@@ -724,7 +722,7 @@ impl ChromeTraceCommand {
                     let buck_event_result = buck2_events::BuckEvent::try_from(e);
                     match buck_event_result {
                         Ok(buck_event) => buck_events.push(buck_event),
-                        Err(e) => buck2_client::eprintln!("Error converting event-log: {:#}", e)?,
+                        Err(e) => crate::eprintln!("Error converting event-log: {:#}", e)?,
                     }
                 }
                 _ => (),
@@ -749,11 +747,7 @@ impl ChromeTraceCommand {
         }
     }
 
-    pub(crate) fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
-    ) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext) -> ExitResult {
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
@@ -772,7 +766,7 @@ impl ChromeTraceCommand {
         let dest_path = match dest_path_result {
             Ok(dest_path) => dest_path,
             Err(e) => {
-                buck2_client::eprintln!("Could not determine trace path, {:#}", e)?;
+                crate::eprintln!("Could not determine trace path, {:#}", e)?;
                 return ExitResult::failure();
             }
         };

@@ -11,6 +11,7 @@ pub mod build;
 pub mod bxl;
 pub mod clean;
 pub mod cquery;
+pub mod debug;
 pub mod install;
 pub mod kill;
 pub mod log;

@@ -8,24 +8,25 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::daemon::client::BuckdConnectOptions;
-use buck2_client::exit_result::ExitResult;
-use cli_proto::UnstableCrashRequest;
+use cli_proto::FlushDepFilesRequest;
 use futures::FutureExt;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdConnectOptions;
+use crate::exit_result::ExitResult;
+
 #[derive(Debug, clap::Parser)]
-pub(crate) struct CrashCommand {}
+pub struct FlushDepFilesCommand {}
 
 #[async_trait]
-impl StreamingCommand for CrashCommand {
-    const COMMAND_NAME: &'static str = "crash";
+impl StreamingCommand for FlushDepFilesCommand {
+    const COMMAND_NAME: &'static str = "FlushDepFiles";
 
     async fn server_connect_options<'a, 'b>(
         &self,
@@ -38,11 +39,11 @@ impl StreamingCommand for CrashCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
-    ) -> ExitResult {
-        let _err = buckd
-            .with_flushing(|client| client.unstable_crash(UnstableCrashRequest {}).boxed())
-            .await?;
+        _ctx: crate::client_ctx::ClientCommandContext,
+    ) -> crate::exit_result::ExitResult {
+        buckd
+            .with_flushing(|client| client.flush_dep_files(FlushDepFilesRequest {}).boxed())
+            .await???;
         ExitResult::success()
     }
 

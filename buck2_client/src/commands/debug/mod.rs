@@ -10,12 +10,6 @@
 use std::path::PathBuf;
 
 use allocator_stats::AllocatorStatsCommand;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::log::last_log::LastLogCommand;
-use buck2_client::commands::log::what_ran::WhatRanCommand;
-use buck2_client::commands::streaming::BuckSubcommand;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::replayer::Replayer;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;
@@ -25,7 +19,13 @@ use internal_version::InternalVersionCommand;
 use materialize::MaterializeCommand;
 use replay::ReplayCommand;
 
+use crate::client_ctx::ClientCommandContext;
 use crate::commands::debug::segfault::SegfaultCommand;
+use crate::commands::log::last_log::LastLogCommand;
+use crate::commands::log::what_ran::WhatRanCommand;
+use crate::commands::streaming::BuckSubcommand;
+use crate::exit_result::ExitResult;
+use crate::replayer::Replayer;
 
 mod allocator_stats;
 mod chrome_trace;
@@ -40,7 +40,7 @@ mod segfault;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Hidden debug commands useful for testing buck2")]
-pub(crate) enum DebugCommand {
+pub enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
     /// Causes a segfault in the daemon.  Useful to make sure that we're reporting it correctly.
@@ -77,7 +77,7 @@ pub(crate) enum DebugCommand {
 pub type ExecFn = fn(Vec<String>, PathBuf, fbinit::FacebookInit, Option<Replayer>) -> ExitResult;
 
 impl DebugCommand {
-    pub(crate) fn exec(
+    pub fn exec(
         self,
         matches: &clap::ArgMatches,
         ctx: ClientCommandContext,

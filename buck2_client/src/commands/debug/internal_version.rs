@@ -7,20 +7,16 @@
  * of this source tree.
  */
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::version::BuckVersion;
+use crate::client_ctx::ClientCommandContext;
+use crate::exit_result::ExitResult;
+use crate::version::BuckVersion;
 
 #[derive(Debug, clap::Parser)]
-pub(crate) struct InternalVersionCommand {}
+pub struct InternalVersionCommand {}
 
 impl InternalVersionCommand {
-    pub(crate) fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
-    ) -> ExitResult {
-        buck2_client::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
+    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext) -> ExitResult {
+        crate::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
         ExitResult::success()
     }
 }

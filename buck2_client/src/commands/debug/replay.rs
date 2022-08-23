@@ -9,21 +9,21 @@
 
 use std::path::PathBuf;
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::common::NO_EVENT_LOG;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::replayer::Replayer;
-use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
 use tokio::runtime::Runtime;
 
+use crate::client_ctx::ClientCommandContext;
 use crate::commands::debug::ExecFn;
+use crate::common::NO_EVENT_LOG;
+use crate::exit_result::ExitResult;
+use crate::replayer::Replayer;
+use crate::subscribers::event_log::retrieve_nth_recent_log;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
     group = clap::ArgGroup::with_name("event_log"),
     setting = clap::AppSettings::TrailingVarArg
 )]
-pub(crate) struct ReplayCommand {
+pub struct ReplayCommand {
     /// The path to read the event log from.
     #[clap(
         long,
@@ -51,7 +51,7 @@ pub(crate) struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub(crate) fn exec(
+    pub fn exec(
         self,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext,

@@ -9,6 +9,5 @@
 
 pub mod audit;
 pub mod daemon;
-pub mod debug;
 pub mod docs;
 pub mod forkserver;

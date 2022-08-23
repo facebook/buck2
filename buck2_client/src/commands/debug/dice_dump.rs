@@ -8,30 +8,32 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::daemon::client::BuckdConnectOptions;
-use buck2_client::exit_result::ExitResult;
-use cli_proto::UnstableAllocatorStatsRequest;
+use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use cli_proto::UnstableDiceDumpRequest;
 use futures::FutureExt;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdConnectOptions;
+use crate::exit_result::ExitResult;
+
 #[derive(Debug, clap::Parser)]
-pub(crate) struct AllocatorStatsCommand {
-    /// Options to pass to allocator stats. We use JEMalloc, so the docs for `malloc_stats_print`
-    /// indicate what is available (<https://jemalloc.net/jemalloc.3.html>). The default
-    /// configuration prints minimal output, formatted as JSON.
-    #[clap(short, long, default_value = "Jmdablxg", value_name = "OPTION")]
-    options: String,
+pub struct DiceDumpCommand {
+    /// The path to write the heap dump to.
+    #[clap(short, long, value_name = "PATH")]
+    path: String,
+    #[clap(long, group = "dice_dump_format")]
+    serde: bool,
 }
 
 #[async_trait]
-impl StreamingCommand for AllocatorStatsCommand {
-    const COMMAND_NAME: &'static str = "allocator_stats";
+impl StreamingCommand for DiceDumpCommand {
+    const COMMAND_NAME: &'static str = "connected";
 
     async fn server_connect_options<'a, 'b>(
         &self,
@@ -46,18 +48,21 @@ impl StreamingCommand for AllocatorStatsCommand {
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
     ) -> ExitResult {
-        let res = buckd
+        let format = if self.serde {
+            DiceDumpFormat::Serde
+        } else {
+            DiceDumpFormat::Tsv
+        };
+        buckd
             .with_flushing(|client| {
                 client
-                    .unstable_allocator_stats(UnstableAllocatorStatsRequest {
-                        options: self.options,
+                    .unstable_dice_dump(UnstableDiceDumpRequest {
+                        destination_path: self.path,
+                        format: format.into(),
                     })
                     .boxed()
             })
             .await??;
-
-        buck2_client::print!("{}", res.response)?;
-
         ExitResult::success()
     }
 

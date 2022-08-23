@@ -34,6 +34,7 @@ use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::cquery::CqueryCommand;
+use buck2_client::commands::debug::DebugCommand;
 use buck2_client::commands::install::InstallCommand;
 use buck2_client::commands::kill::KillCommand;
 use buck2_client::commands::log::LogCommand;
@@ -64,7 +65,6 @@ use gazebo::dupe::Dupe;
 use crate::args::expand_argfiles;
 use crate::commands::audit::AuditCommand;
 use crate::commands::daemon::DaemonCommand;
-use crate::commands::debug::DebugCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
 

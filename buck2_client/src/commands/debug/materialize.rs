@@ -8,19 +8,20 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::daemon::client::BuckdConnectOptions;
-use buck2_client::exit_result::ExitResult;
 use cli_proto::MaterializeRequest;
 use futures::FutureExt;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdConnectOptions;
+use crate::exit_result::ExitResult;
+
 #[derive(Debug, clap::Parser)]
-pub(crate) struct MaterializeCommand {
+pub struct MaterializeCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
