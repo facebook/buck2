@@ -24,11 +24,9 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
+use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
-use buck2_bxl::bxl::calculation::BxlCalculationImpl;
-use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
-use buck2_bxl::command::bxl_command;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -56,7 +54,6 @@ use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
 use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_test::command::test_command;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
@@ -70,6 +67,7 @@ use futures::StreamExt;
 use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
+use starlark::environment::GlobalsBuilder;
 use starlark::eval::ProfileMode;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
@@ -80,8 +78,6 @@ use tonic::Request;
 use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
-
-use crate::commands::audit::server::server_audit_command;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -119,6 +115,7 @@ impl DaemonShutdown {
 struct DaemonStateDiceConstructorImpl {
     /// Whether to detect cycles in Dice
     detect_cycles: Option<DetectCycles>,
+    bxl_calculations: &'static dyn BxlCalculationDyn,
 }
 
 impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
@@ -129,11 +126,33 @@ impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
     ) -> anyhow::Result<Arc<Dice>> {
         configure_dice_for_buck(
             io,
-            &BxlCalculationImpl,
+            self.bxl_calculations,
             Some(root_config),
             self.detect_cycles,
         )
     }
+}
+
+/// Access to functions which live outside of `buck2_server` crate.
+#[async_trait]
+pub(crate) trait BuckdServerDependencies: Send + Sync + 'static {
+    async fn test(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: TestRequest,
+    ) -> anyhow::Result<TestResponse>;
+    async fn bxl(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::BxlRequest,
+    ) -> anyhow::Result<BxlResponse>;
+    async fn audit(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: GenericRequest,
+    ) -> anyhow::Result<GenericResponse>;
+    fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn;
+    fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder);
 }
 
 /// The BuckdServer implements the DaemonApi.
@@ -148,6 +167,8 @@ pub(crate) struct BuckdServer {
     start_instant: Instant,
     daemon_shutdown: Arc<DaemonShutdown>,
     daemon_state: Arc<DaemonState>,
+
+    callbacks: &'static dyn BuckdServerDependencies,
 }
 
 impl BuckdServer {
@@ -158,6 +179,7 @@ impl BuckdServer {
         detect_cycles: Option<DetectCycles>,
         process_info: DaemonProcessInfo,
         listener: I,
+        callbacks: &'static dyn BuckdServerDependencies,
     ) -> anyhow::Result<()>
     where
         I: Stream<Item = Result<IO, IE>>,
@@ -184,8 +206,12 @@ impl BuckdServer {
             daemon_state: Arc::new(DaemonState::new(
                 fb,
                 paths,
-                box DaemonStateDiceConstructorImpl { detect_cycles },
+                box DaemonStateDiceConstructorImpl {
+                    detect_cycles,
+                    bxl_calculations: callbacks.bxl_calculation(),
+                },
             )?),
+            callbacks,
         };
 
         let server = Server::builder()
@@ -275,6 +301,8 @@ impl BuckdServer {
             .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
 
         dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot());
+
+        let configure_bxl_file_globals = self.callbacks.configure_bxl_file_globals();
 
         streaming(req, events, dispatch.dupe(), move |req| async move {
             let result: CommandResult = {
@@ -693,16 +721,18 @@ impl DaemonApi for BuckdServer {
 
     type BxlStream = ResponseStream;
     async fn bxl(&self, req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            bxl_command(box ctx, req)
+            callbacks.bxl(box ctx, req)
         })
         .await
     }
 
     type TestStream = ResponseStream;
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            test_command(box ctx, req)
+            callbacks.test(box ctx, req)
         })
         .await
     }
@@ -886,8 +916,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<GenericRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            server_audit_command(box ctx, req)
+            callbacks.audit(box ctx, req)
         })
         .await
     }

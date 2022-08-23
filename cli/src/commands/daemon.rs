@@ -21,12 +21,19 @@ use std::process;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use async_trait::async_trait;
+use buck2_build_api::bxl::calculation::BxlCalculationDyn;
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
+use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
+use buck2_bxl::command::bxl_command;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_test::command::test_command;
 use cli_proto::DaemonProcessInfo;
 use dice::cycles::DetectCycles;
 use futures::channel::mpsc;
@@ -35,13 +42,16 @@ use futures::pin_mut;
 use futures::select;
 use futures::FutureExt;
 use futures::StreamExt;
+use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
 
 use crate::client_command_context::ClientCommandContext;
+use crate::commands::audit::server::server_audit_command;
 use crate::daemon::daemon_utils::create_listener;
 use crate::daemon::server::BuckdServer;
 use crate::daemon::server::BuckdServerDelegate;
+use crate::daemon::server::BuckdServerDependencies;
 use crate::version::BuckVersion;
 
 #[derive(Debug, Error)]
@@ -65,6 +75,39 @@ pub(crate) struct DaemonCommand {
     dont_daemonize: bool,
 }
 
+struct BuckdServerDependenciesImpl;
+
+#[async_trait]
+impl BuckdServerDependencies for BuckdServerDependenciesImpl {
+    async fn test(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::TestRequest,
+    ) -> anyhow::Result<cli_proto::TestResponse> {
+        test_command(ctx, req).await
+    }
+    async fn bxl(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::BxlRequest,
+    ) -> anyhow::Result<cli_proto::BxlResponse> {
+        bxl_command(ctx, req).await
+    }
+    async fn audit(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::GenericRequest,
+    ) -> anyhow::Result<cli_proto::GenericResponse> {
+        server_audit_command(ctx, req).await
+    }
+    fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn {
+        &BxlCalculationImpl
+    }
+    fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder) {
+        configure_bxl_file_globals
+    }
+}
+
 pub(crate) async fn run_buckd(
     fb: fbinit::FacebookInit,
     paths: InvocationPaths,
@@ -84,7 +127,16 @@ pub(crate) async fn run_buckd(
 
     // TODO(cjhopman): We shouldn't write this until the server is ready to accept clients, but tonic doesn't provide those hooks.
     write_process_info(&daemon_dir, &process_info)?;
-    BuckdServer::run(fb, paths, delegate, detect_cycles, process_info, listener).await
+    BuckdServer::run(
+        fb,
+        paths,
+        delegate,
+        detect_cycles,
+        process_info,
+        listener,
+        &BuckdServerDependenciesImpl,
+    )
+    .await
 }
 
 pub(crate) fn write_process_info(
