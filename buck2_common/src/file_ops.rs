@@ -99,6 +99,12 @@ pub struct SimpleDirEntry {
     pub file_name: FileNameBuf,
 }
 
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe)]
+pub struct ReadDirOutput {
+    pub included: Arc<Vec<SimpleDirEntry>>,
+    pub ignored: Arc<Vec<SimpleDirEntry>>,
+}
+
 // The number of bytes required by a SHA1 hash
 const SHA1_SIZE: usize = 20;
 
@@ -416,6 +422,8 @@ pub trait FileOps: Send + Sync {
 
     async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>>;
 
+    async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput>;
+
     async fn is_ignored(&self, path: &CellPath) -> anyhow::Result<bool>;
 
     async fn try_exists(&self, path: &CellPath) -> anyhow::Result<bool> {
@@ -462,6 +470,10 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
     }
 
     async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
+        Ok(self.read_dir_with_ignores(path).await?.included)
+    }
+
+    async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput> {
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
         self.check_ignored(path)?
             .into_result()
@@ -474,29 +486,38 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
             .await
             .with_context(|| format!("Error listing dir `{}`", path))?;
 
+        // Make sure entries are deterministic, since read_dir isn't.
+        entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+
         let is_ignored = |entry: &SimpleDirEntry| {
             let entry_path = path.join(&entry.file_name);
             let is_ignored = DefaultFileOpsDelegate::check_ignored(self, &entry_path)?.is_ignored();
             anyhow::Ok(is_ignored)
         };
 
+        let mut ignored_entries = Vec::new();
+
         // Filter out any entries that are ignored.
         let mut filtering_error = None;
-        entries.retain(|e| match is_ignored(e) {
-            Ok(ignored) => !ignored,
-            Err(e) => {
-                filtering_error = Some(e);
-                true
-            }
-        });
+        let (included_entries, ignored_entries): (Vec<_>, Vec<_>) =
+            entries.into_iter().partition(|e| match is_ignored(e) {
+                Ok(ignored) => {
+                    ignored_entries.push(e.clone());
+                    !ignored
+                }
+                Err(e) => {
+                    filtering_error = Some(e);
+                    true
+                }
+            });
+
         if let Some(err) = filtering_error {
             return Err(err.into());
         }
-
-        // Make sure entries are deterministic, since read_dir isn't.
-        entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-
-        Ok(Arc::new(entries))
+        Ok(ReadDirOutput {
+            included: Arc::new(included_entries),
+            ignored: Arc::new(ignored_entries),
+        })
     }
 
     async fn read_path_metadata_if_exists(
@@ -733,6 +754,7 @@ pub mod testing {
     use crate::file_ops::FileType;
     use crate::file_ops::PathMetadata;
     use crate::file_ops::PathMetadataOrRedirection;
+    use crate::file_ops::ReadDirOutput;
     use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
     use crate::result::SharedResult;
@@ -856,6 +878,13 @@ pub mod testing {
                 })
                 .ok_or_else(|| anyhow!("couldn't find dir {:?}", path))
                 .shared_error()
+        }
+
+        async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput> {
+            Ok(ReadDirOutput {
+                included: self.read_dir(path).await?,
+                ignored: Arc::new(Vec::new()),
+            })
         }
 
         async fn read_path_metadata_if_exists(

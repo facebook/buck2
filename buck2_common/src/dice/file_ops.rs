@@ -9,6 +9,8 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -33,6 +35,7 @@ use crate::file_ops::FileIgnoreResult;
 use crate::file_ops::FileIgnores;
 use crate::file_ops::FileOps;
 use crate::file_ops::PathMetadataOrRedirection;
+use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
 use crate::io::IoProvider;
 use crate::legacy_configs::dice::HasLegacyConfigs;
@@ -276,9 +279,12 @@ struct ReadDirKey(CellPath);
 
 #[async_trait]
 impl Key for ReadDirKey {
-    type Value = SharedResult<Arc<Vec<SimpleDirEntry>>>;
+    type Value = SharedResult<ReadDirOutput>;
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        get_default_file_ops(ctx).await?.read_dir(&self.0).await
+        get_default_file_ops(ctx)
+            .await?
+            .read_dir_with_ignores(&self.0)
+            .await
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -332,6 +338,10 @@ impl<'c> FileOps for DiceFileOps<'c> {
     }
 
     async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
+        Ok(self.read_dir_with_ignores(path).await?.included)
+    }
+
+    async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput> {
         self.0.compute(&ReadDirKey(path.clone())).await?
     }
 
