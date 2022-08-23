@@ -28,6 +28,7 @@ use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::final_console::FinalConsole;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
@@ -37,7 +38,6 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

@@ -12,12 +12,12 @@ use std::path::PathBuf;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::subscribers::event_log::SerializeForLog;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::exit_result::ExitResult;
 use crate::stdio;
-use crate::ClientCommandContext;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]

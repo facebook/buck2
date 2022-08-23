@@ -14,12 +14,12 @@ use cli_proto::TargetsRequest;
 use futures::FutureExt;
 use gazebo::prelude::*;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 // Use non-camel case so the possible values match buck1's

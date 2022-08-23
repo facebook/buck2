@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use cli_proto::BxlRequest;
 use futures::FutureExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::build::print_build_result;
 use crate::commands::build::FinalArtifactMaterializations;
 use crate::commands::build::MaterializationsToProto;
@@ -9,7 +10,6 @@ use crate::commands::common::CommonBuildOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonDaemonCommandOptions;

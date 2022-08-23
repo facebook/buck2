@@ -6,6 +6,7 @@ use futures::FutureExt;
 use gazebo::dupe::Dupe;
 use starlark::values::docs::Doc;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
@@ -13,7 +14,6 @@ use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]

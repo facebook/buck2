@@ -13,7 +13,7 @@ use std::str::FromStr;
 use buck2_server::roots::find_roots;
 use thiserror::Error;
 
-use crate::ClientCommandContext;
+use crate::client_command_context::ClientCommandContext;
 
 #[derive(Debug)]
 enum RootKind {

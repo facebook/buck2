@@ -12,13 +12,13 @@ use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
 use futures::FutureExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 

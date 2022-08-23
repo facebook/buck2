@@ -13,11 +13,11 @@ use futures::FutureExt;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
 use crate::stdin_stream::StdinStream;
-use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonDaemonCommandOptions;

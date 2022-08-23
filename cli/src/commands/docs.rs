@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::docs::query::DocsCqueryCommand;
 use crate::commands::docs::query::DocsUqueryCommand;
 use crate::commands::docs::starlark::DocsStarlarkCommand;
 use crate::exit_result::ExitResult;
 use crate::BuckSubcommand;
-use crate::ClientCommandContext;
 
 mod query;
 mod starlark;

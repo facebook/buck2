@@ -14,8 +14,8 @@ use clap::ArgMatches;
 use futures::FutureExt;
 use humantime::format_duration;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Buckd status")]

@@ -4,8 +4,8 @@ use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 use gazebo::dupe::Dupe;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]

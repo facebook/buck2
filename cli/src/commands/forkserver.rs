@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::ClientCommandContext;
+use crate::client_command_context::ClientCommandContext;
 
 #[cfg(unix)]
 type RawFd = std::os::unix::io::RawFd;

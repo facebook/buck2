@@ -11,8 +11,8 @@ pub mod last_log;
 pub mod show_log;
 pub mod what_ran;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Commands for interacting with buck2 logs")]

@@ -11,13 +11,13 @@ use async_trait::async_trait;
 use cli_proto::CqueryRequest;
 use futures::FutureExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::uquery::CommonQueryArgs;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 /// Perform queries on the configured target graph.

@@ -21,6 +21,7 @@ use futures::FutureExt;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::build::print_build_result;
 use crate::commands::common::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use crate::commands::common::CommonBuildConfigurationOptions;
@@ -30,7 +31,6 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

@@ -13,6 +13,7 @@ use cli_proto::ClientContext;
 use cli_proto::GenericRequest;
 use futures::FutureExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::audit::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::commands::audit::cell::AuditCellCommand;
 use crate::commands::audit::config::AuditConfigCommand;
@@ -30,7 +31,6 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 pub mod analysis_queries;

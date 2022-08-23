@@ -11,12 +11,12 @@ use async_trait::async_trait;
 use clap::ArgMatches;
 use futures::FutureExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 

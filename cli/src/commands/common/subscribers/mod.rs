@@ -23,12 +23,12 @@ pub(crate) use event_log::EventLog;
 use gazebo::prelude::*;
 pub(crate) use simpleconsole::SimpleConsole;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::subscribers::build_id_writer::BuildIdWriter;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
-use crate::ClientCommandContext;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(

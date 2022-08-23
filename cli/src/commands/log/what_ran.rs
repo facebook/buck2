@@ -16,6 +16,7 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use tokio::runtime;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::CommandReproducer;
@@ -28,7 +29,6 @@ use crate::commands::common::what_ran::WhatRanState;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::daemon::client::stream_value::StreamValue;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 
 #[derive(
     Debug,

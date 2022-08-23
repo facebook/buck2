@@ -28,6 +28,7 @@ use futures::FutureExt;
 use futures::TryStreamExt;
 use thiserror::Error;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::find_certs::find_tls_cert;
 use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::subscribers::event_log::log_upload_url;
@@ -39,7 +40,6 @@ use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
 use crate::BuckdConnectOptions;
-use crate::ClientCommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::Path;
 use crate::StreamingCommand;

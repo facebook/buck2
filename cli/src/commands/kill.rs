@@ -9,8 +9,8 @@
 
 use futures::FutureExt;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::daemon::client::BuckdConnectOptions;
-use crate::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill the buck daemon")]

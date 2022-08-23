@@ -13,12 +13,12 @@ use cli_proto::UqueryRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
+use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
