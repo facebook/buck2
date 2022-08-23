@@ -15,12 +15,11 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::UqueryRequest;
 use cli_proto::UqueryResponse;
 
-use crate::ctx::ServerCommandContext;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
 pub async fn uquery(
-    mut server_ctx: ServerCommandContext,
+    mut server_ctx: Box<dyn ServerCommandContextTrait>,
     request: UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {
     let ctx = server_ctx.dice_ctx().await?;
@@ -42,13 +41,13 @@ pub async fn uquery(
     let global_target_platform = target_platform_from_client_context(
         context.as_ref(),
         &cell_resolver,
-        &server_ctx.working_dir,
+        server_ctx.working_dir(),
     )
     .await?;
 
     let evaluator = get_uquery_evaluator(
         &ctx,
-        &server_ctx.working_dir,
+        server_ctx.working_dir(),
         server_ctx.project_root().clone(),
         global_target_platform,
     )

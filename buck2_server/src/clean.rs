@@ -21,10 +21,8 @@ use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-use crate::ctx::ServerCommandContext;
-
 pub async fn clean(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: CleanRequest,
 ) -> anyhow::Result<CleanResponse> {
     let dice_ctx = server_ctx.dice_ctx().await?;

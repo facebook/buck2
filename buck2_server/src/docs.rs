@@ -49,8 +49,6 @@ use starlark::values::docs::Identifier;
 use starlark::values::docs::Member;
 use starlark::values::StarlarkValue;
 
-use crate::ctx::ServerCommandContext;
-
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
     current_dir: &CellPath,
@@ -285,12 +283,12 @@ async fn get_docs_from_module(
 }
 
 pub async fn docs(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
     let dice_ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
-    let current_cell_path = cell_resolver.get_cell_path(&server_ctx.working_dir)?;
+    let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
     let current_cell = BuildFileCell::new(current_cell_path.cell().clone());
 
     let cell_alias_resolver = cell_resolver

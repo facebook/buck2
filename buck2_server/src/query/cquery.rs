@@ -25,13 +25,12 @@ use cli_proto::CqueryResponse;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
-use crate::ctx::ServerCommandContext;
 use crate::query::printer::ProviderLookUp;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
 pub async fn cquery(
-    mut server_ctx: ServerCommandContext,
+    mut server_ctx: Box<dyn ServerCommandContextTrait>,
     request: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
     let ctx = server_ctx.dice_ctx().await?;
@@ -60,13 +59,13 @@ pub async fn cquery(
     let global_target_platform = target_platform_from_client_context(
         context.as_ref(),
         &cell_resolver,
-        &server_ctx.working_dir,
+        server_ctx.working_dir(),
     )
     .await?;
 
     let evaluator = get_cquery_evaluator(
         &ctx,
-        &server_ctx.working_dir,
+        server_ctx.working_dir(),
         server_ctx.project_root().clone(),
         global_target_platform,
     )

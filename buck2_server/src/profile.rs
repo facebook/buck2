@@ -36,8 +36,6 @@ use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 
-use crate::ctx::ServerCommandContext;
-
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
     package: Package,
@@ -106,7 +104,7 @@ async fn generate_profile_loading(
 }
 
 pub async fn generate_profile(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     client_ctx: ClientContext,
     pattern: buck2_data::TargetPattern,
     action: Action,
@@ -116,14 +114,14 @@ pub async fn generate_profile(
     let cells = ctx.get_cell_resolver().await?;
 
     let global_target_platform =
-        target_platform_from_client_context(Some(&client_ctx), &cells, &server_ctx.working_dir)
+        target_platform_from_client_context(Some(&client_ctx), &cells, server_ctx.working_dir())
             .await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
         &[pattern],
         &cells,
         &ctx.get_legacy_configs().await?,
-        &server_ctx.working_dir,
+        server_ctx.working_dir(),
     )?;
 
     let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;

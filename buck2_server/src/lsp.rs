@@ -65,7 +65,6 @@ use starlark::values::docs::Doc;
 use starlark::values::docs::Location;
 use tonic::Status;
 
-use crate::ctx::ServerCommandContext;
 use crate::docs::get_builtin_docs;
 use crate::docs::get_prelude_docs;
 use crate::streaming_request_handler::StreamingRequestHandler;
@@ -539,7 +538,7 @@ impl LspContext for BuckLspContext {
 
 /// Run an LSP server for a given client.
 pub async fn run_lsp_server(
-    ctx: ServerCommandContext,
+    ctx: Box<dyn ServerCommandContextTrait>,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {
     let dice_ctx: DiceTransaction = ctx.dice_ctx().await?;

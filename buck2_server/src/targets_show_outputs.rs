@@ -40,18 +40,16 @@ use gazebo::prelude::IterDuped;
 use gazebo::prelude::VecExt;
 use tokio_stream::StreamExt;
 
-use crate::ctx::ServerCommandContext;
-
 pub struct TargetsArtifacts {
     providers_label: ConfiguredProvidersLabel,
     artifacts: Vec<Artifact>,
 }
 
 pub async fn targets_show_outputs(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
-    let cwd = &server_ctx.working_dir;
+    let cwd = server_ctx.working_dir();
 
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;

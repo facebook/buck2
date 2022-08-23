@@ -648,7 +648,7 @@ impl DaemonApi for BuckdServer {
                     data: Some(buck2_data::CleanCommandStart {}.into()),
                 };
                 let res = span_async(start_event, async {
-                    let result = clean(context, req).await;
+                    let result = clean(box context, req).await;
                     let end_event = command_end(metadata, &result, buck2_data::CleanCommandEnd {});
                     (result, end_event)
                 })
@@ -676,7 +676,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::BuildCommandStart {}.into()),
             };
             let result = span_async(start_event, async {
-                let result = build(context, req).await;
+                let result = build(box context, req).await;
                 let end_event = command_end(
                     metadata,
                     &result,
@@ -729,7 +729,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::AqueryCommandStart {}.into()),
             };
             span_async(start_event, async {
-                let result = crate::query::aquery::aquery(context, req).await;
+                let result = crate::query::aquery::aquery(box context, req).await;
                 let end_event = command_end(metadata, &result, buck2_data::AqueryCommandEnd {});
                 (result, end_event)
             })
@@ -750,7 +750,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::QueryCommandStart {}.into()),
             };
             span_async(start_event, async {
-                let result = uquery(context, req).await;
+                let result = uquery(box context, req).await;
                 let end_event = command_end(metadata, &result, buck2_data::QueryCommandEnd {});
                 (result, end_event)
             })
@@ -778,7 +778,7 @@ impl DaemonApi for BuckdServer {
                 ),
             };
             span_async(start_event, async {
-                let result = crate::query::cquery::cquery(context, req).await;
+                let result = crate::query::cquery::cquery(box context, req).await;
                 let end_event = command_end(metadata, &result, buck2_data::CQueryCommandEnd {});
                 (result, end_event)
             })
@@ -799,7 +799,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
             };
             let response = span_async(start_event, async {
-                let result = crate::targets::targets(context, req).await;
+                let result = crate::targets::targets(box context, req).await;
                 let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
                 (result, end_event)
             })
@@ -821,7 +821,8 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
             };
             let response = span_async(start_event, async {
-                let result = crate::targets_show_outputs::targets_show_outputs(context, req).await;
+                let result =
+                    crate::targets_show_outputs::targets_show_outputs(box context, req).await;
                 let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
                 (result, end_event)
             })
@@ -858,7 +859,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::InstallCommandStart {}.into()),
             };
             span_async(start_event, async {
-                let result = install(context, req).await;
+                let result = install(box context, req).await;
                 let end_event = command_end(
                     metadata,
                     &result,
@@ -962,7 +963,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::DocsCommandStart {}.into()),
             };
             let result = span_async(start_event, async {
-                let result = crate::docs::docs(context, req).await;
+                let result = crate::docs::docs(box context, req).await;
                 let end_event = command_end(metadata, &result, buck2_data::DocsCommandEnd {});
                 (result, end_event)
             })
@@ -1039,7 +1040,7 @@ impl DaemonApi for BuckdServer {
                         .context("Invalid action")?;
 
                     let profile_data = generate_profile(
-                        context,
+                        box context,
                         req.context.context("Missing client context")?,
                         req.target_pattern.context("Missing target pattern")?,
                         action,
@@ -1105,7 +1106,7 @@ impl DaemonApi for BuckdServer {
                     data: Some(buck2_data::LspCommandStart {}.into()),
                 };
                 span_async(start_event, async move {
-                    let result = run_lsp_server(ctx, req).await;
+                    let result = run_lsp_server(box ctx, req).await;
                     let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
                     (result, end_event)
                 })

@@ -66,7 +66,6 @@ use crate::build::results::result_report::ResultReporter;
 use crate::build::results::result_report::ResultReporterOptions;
 use crate::build::results::BuildOwner;
 use crate::build::results::BuildResultCollector;
-use crate::ctx::ServerCommandContext;
 
 pub mod results;
 
@@ -78,12 +77,12 @@ pub struct BuildResult {
 }
 
 pub async fn build(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: BuildRequest,
 ) -> anyhow::Result<BuildResult> {
     // TODO(nmj): Move build report printing logic out of here.
     let fs = server_ctx.project_root();
-    let cwd = &server_ctx.working_dir;
+    let cwd = server_ctx.working_dir();
 
     let build_opts = request.build_opts.expect("should have build options");
 

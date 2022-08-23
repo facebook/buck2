@@ -76,8 +76,6 @@ use tonic::transport::Channel;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
-use crate::ctx::ServerCommandContext;
-
 pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, Error)]
@@ -109,7 +107,7 @@ pub enum InstallError {
 }
 
 async fn get_installer_log_directory(
-    server_ctx: &ServerCommandContext,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: &DiceComputations,
 ) -> anyhow::Result<AbsPathBuf> {
     let out_path = ctx.get_buck_out_path().await?;
@@ -125,10 +123,10 @@ async fn get_installer_log_directory(
 }
 
 pub async fn install(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
-    let cwd = &server_ctx.working_dir;
+    let cwd = server_ctx.working_dir();
 
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -136,7 +134,7 @@ pub async fn install(
     let global_target_platform = target_platform_from_client_context(
         request.context.as_ref(),
         &cell_resolver,
-        &server_ctx.working_dir,
+        server_ctx.working_dir(),
     )
     .await?;
 
@@ -200,7 +198,7 @@ pub async fn install(
         }
     }
 
-    let install_log_dir = &get_installer_log_directory(&server_ctx, &ctx).await?;
+    let install_log_dir = &get_installer_log_directory(&*server_ctx, &ctx).await?;
 
     let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
     for (installer_label, install_info_vector) in &installer_to_files_map {

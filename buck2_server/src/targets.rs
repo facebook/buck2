@@ -37,7 +37,6 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
 
-use crate::ctx::ServerCommandContext;
 use crate::json::quote_json_string;
 use crate::target_hash::BuckTargetHash;
 use crate::target_hash::TargetHashes;
@@ -242,7 +241,7 @@ struct TargetsOptions {
 }
 
 pub async fn targets(
-    server_ctx: ServerCommandContext,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
@@ -283,7 +282,7 @@ pub async fn targets(
     };
 
     let fs = server_ctx.project_root();
-    let cwd = &server_ctx.working_dir;
+    let cwd = server_ctx.working_dir();
 
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
