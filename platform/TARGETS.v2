@@ -3,7 +3,7 @@ load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_list")
 load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
-load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override")
+load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override", "cxx_toolchain_prefix")
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
 load(":java_toolchains.bzl", "config_backed_java_toolchain", "prebuilt_jar_toolchain")
@@ -104,6 +104,19 @@ cxx_toolchain_override(
     linker = "fbsource//xplat/tools/infer:infer-fbcode-linux-linker",
     archiver = "fbsource//xplat/tools/infer:infer-fbcode-linux-archiver",
     mk_shlib_intf = "fbsource//xplat/tools/infer:fake-mkshlibintf",
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+cxx_toolchain_prefix(
+    name = "buck2-sledge",
+    base = ":buck2-platform010-clang",
+    cxx_compiler = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-compiler",
+    c_compiler = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-compiler",
+    linker = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-linker",
+    mk_shlib_intf = "fbsource//xplat/tools/infer:fake-mkshlibintf",  # Reuse Infer's script.
     target_compatible_with = [
         "ovr_config//runtime/constraints:fbcode",
     ],
