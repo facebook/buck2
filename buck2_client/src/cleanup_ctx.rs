@@ -19,12 +19,12 @@ use tokio::runtime::Builder;
 
 /// For cleanup we want to perform, but cant do in `drop` because it's async.
 #[derive(Clone, Dupe)]
-pub(crate) struct AsyncCleanupContext {
+pub struct AsyncCleanupContext {
     jobs: Arc<Mutex<Vec<BoxFuture<'static, ()>>>>,
 }
 
 impl AsyncCleanupContext {
-    pub(crate) fn register(&self, name: &'static str, fut: BoxFuture<'static, ()>) {
+    pub fn register(&self, name: &'static str, fut: BoxFuture<'static, ()>) {
         const WARNING_TIMEOUT: Duration = Duration::from_millis(1000);
         self.jobs
             .lock()
@@ -47,7 +47,7 @@ impl AsyncCleanupContext {
     }
 }
 
-pub(crate) struct AsyncCleanupContextGuard(AsyncCleanupContext);
+pub struct AsyncCleanupContextGuard(AsyncCleanupContext);
 
 impl AsyncCleanupContextGuard {
     pub fn new() -> Self {

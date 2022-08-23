@@ -9,5 +9,6 @@
 
 #![feature(try_trait_v2)]
 
+pub mod cleanup_ctx;
 pub mod exit_result;
 pub mod stream_value;

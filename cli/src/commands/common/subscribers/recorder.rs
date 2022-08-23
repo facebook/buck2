@@ -23,6 +23,7 @@ mod imp {
     use std::time::SystemTime;
 
     use async_trait::async_trait;
+    use buck2_client::cleanup_ctx::AsyncCleanupContext;
     use buck2_common::convert::ProstDurationExt;
     use buck2_events::sink::scribe::ThriftScribeSink;
     use buck2_events::subscriber::EventSubscriber;
@@ -33,7 +34,6 @@ mod imp {
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
 
-    use crate::cleanup_ctx::AsyncCleanupContext;
     use crate::commands::common::subscribers;
     use crate::commands::common::subscribers::LastCommandExecutionKind;
 

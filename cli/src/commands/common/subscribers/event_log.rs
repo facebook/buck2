@@ -19,6 +19,7 @@ use anyhow::Context as _;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_trait::async_trait;
+use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::stream_value::StreamValue;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
@@ -54,8 +55,6 @@ use tokio::io::BufReader;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
-
-use crate::cleanup_ctx::AsyncCleanupContext;
 
 #[derive(Error, Debug)]
 pub(crate) enum EventLogErrors {

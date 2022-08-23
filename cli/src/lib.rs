@@ -28,6 +28,8 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_client::cleanup_ctx::AsyncCleanupContext;
+use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::exit_result::FailureExitCode;
 use buck2_common::result::ToSharedResultExt;
@@ -37,8 +39,6 @@ use buck2_server::paths::Paths;
 use buck2_server::roots;
 use clap::AppSettings;
 use clap::Parser;
-use cleanup_ctx::AsyncCleanupContext;
-use cleanup_ctx::AsyncCleanupContextGuard;
 use client_command_context::ClientCommandContext;
 use dice::cycles::DetectCycles;
 use futures::future;
@@ -89,7 +89,6 @@ use crate::version::BuckVersion;
 pub mod panic;
 
 pub mod args;
-mod cleanup_ctx;
 mod client_command_context;
 pub mod commands;
 pub mod daemon;
