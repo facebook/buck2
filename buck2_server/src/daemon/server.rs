@@ -39,19 +39,6 @@ use buck2_events::Event;
 use buck2_events::EventSource;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
-use buck2_server::build::build;
-use buck2_server::clean::clean;
-use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::state::DaemonState;
-use buck2_server::daemon::state::DaemonStateDiceConstructor;
-use buck2_server::install::install;
-use buck2_server::jemalloc_stats::jemalloc_stats;
-use buck2_server::lsp::run_lsp_server;
-use buck2_server::materialize::materialize;
-use buck2_server::profile::generate_profile;
-use buck2_server::query::uquery::uquery;
-use buck2_server::snapshot;
-use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
@@ -78,10 +65,24 @@ use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
 
+use crate::build::build;
+use crate::clean::clean;
+use crate::ctx::ServerCommandContext;
+use crate::daemon::state::DaemonState;
+use crate::daemon::state::DaemonStateDiceConstructor;
+use crate::install::install;
+use crate::jemalloc_stats::jemalloc_stats;
+use crate::lsp::run_lsp_server;
+use crate::materialize::materialize;
+use crate::profile::generate_profile;
+use crate::query::uquery::uquery;
+use crate::snapshot;
+use crate::streaming_request_handler::StreamingRequestHandler;
+
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
 
-pub(crate) trait BuckdServerDelegate: Send + Sync {
+pub trait BuckdServerDelegate: Send + Sync {
     fn force_shutdown(&self) -> anyhow::Result<()>;
 
     fn force_shutdown_with_timeout(&self, timeout: Duration);
@@ -134,7 +135,7 @@ impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
 
 /// Access to functions which live outside of `buck2_server` crate.
 #[async_trait]
-pub(crate) trait BuckdServerDependencies: Send + Sync + 'static {
+pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn test(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -158,7 +159,7 @@ pub(crate) trait BuckdServerDependencies: Send + Sync + 'static {
 ///
 /// Simple endpoints are implemented here and complex things will be implemented in a sibling
 /// module taking just a ServerCommandContext.
-pub(crate) struct BuckdServer {
+pub struct BuckdServer {
     /// The flag that is set to true when server is shutting down.
     stop_accepting_requests: AtomicBool,
     process_info: DaemonProcessInfo,
@@ -171,7 +172,7 @@ pub(crate) struct BuckdServer {
 }
 
 impl BuckdServer {
-    pub(crate) async fn run<I, IO, IE>(
+    pub async fn run<I, IO, IE>(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
@@ -748,7 +749,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::AqueryCommandStart {}.into()),
             };
             span_async(start_event, async {
-                let result = buck2_server::query::aquery::aquery(context, req).await;
+                let result = crate::query::aquery::aquery(context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(response) => (
                         response.error_messages.is_empty(),
@@ -823,7 +824,7 @@ impl DaemonApi for BuckdServer {
                 ),
             };
             span_async(start_event, async {
-                let result = buck2_server::query::cquery::cquery(context, req).await;
+                let result = crate::query::cquery::cquery(context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(response) => (
                         response.error_messages.is_empty(),
@@ -857,7 +858,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
             };
             let response = span_async(start_event, async {
-                let result = buck2_server::targets::targets(context, req).await;
+                let result = crate::targets::targets(context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(_e) => (true, vec![]),
                     Err(e) => (false, vec![format!("{:#}", e)]),
@@ -889,8 +890,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::TargetsCommandStart {}.into()),
             };
             let response = span_async(start_event, async {
-                let result =
-                    buck2_server::targets_show_outputs::targets_show_outputs(context, req).await;
+                let result = crate::targets_show_outputs::targets_show_outputs(context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(_e) => (true, vec![]),
                     Err(e) => (false, vec![format!("{:#}", e)]),
@@ -1050,7 +1050,7 @@ impl DaemonApi for BuckdServer {
                 data: Some(buck2_data::DocsCommandStart {}.into()),
             };
             let result = span_async(start_event, async {
-                let result = buck2_server::docs::docs(context, req).await;
+                let result = crate::docs::docs(context, req).await;
                 let (is_success, error_messages) = match &result {
                     Ok(_e) => (true, vec![]),
                     Err(e) => (false, vec![format!("{:#}", e)]),

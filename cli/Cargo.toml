@@ -39,10 +39,8 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 maplit = "1.0.2"
-more_futures = { path = "../shed/more_futures" }
 nix = "0.22"
 once_cell = "1.3"
-prost-types = "0.10"
 rand = "0.8"
 ref-cast = "1.0.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -52,10 +50,8 @@ sync_wrapper = "0.1.0"
 termimad = "0.20.1"
 termwiz = "0.15"
 thiserror = "1.0.9"
-tracing = "0.1.22"
 tokio = {version = "1.5", features = ["full"]}
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
-tonic = "0.7.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # @oss-disable: user = { path = "../../common/rust/user", optional = true }
 fbinit.version = "0.1"
