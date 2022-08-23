@@ -11,6 +11,7 @@ use buck2_client::exit_result::ExitResult;
 use cli_proto::UnstableDocsRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
 use starlark::values::docs::Doc;
 
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
@@ -93,7 +94,9 @@ impl StreamingCommand for DocsStarlarkCommand {
             })
             .await???;
 
-        let docs: Vec<Doc> = serde_json::from_str(&response.docs_json)?;
+        let docs: Vec<Doc> = response
+            .docs
+            .try_map(|doc_item| serde_json::from_str(&doc_item.json))?;
         match self.format {
             DocsOutputFormatArg::Json => {
                 serde_json::to_writer_pretty(std::io::stdout(), &docs)?;

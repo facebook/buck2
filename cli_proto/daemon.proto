@@ -416,8 +416,13 @@ message UnstableDocsRequest {
 }
 
 message UnstableDocsResponse {
-  // This is just a json repr of list of Doc objects
-  string docs_json = 1;
+  reserved 1;
+
+  message DocItem {
+    // This is just a json repr of Doc object.
+    string json = 1;
+  }
+  repeated DocItem docs = 2;
 }
 
 message CommandError {

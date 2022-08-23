@@ -36,6 +36,7 @@ use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use cli_proto::unstable_docs_response;
 use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use dice::DiceTransaction;
@@ -331,6 +332,11 @@ pub async fn docs(
     let modules_docs = futures::future::try_join_all(module_calcs).await?;
     docs.extend(modules_docs.into_iter().flatten());
 
-    let json = serde_json::to_string(&docs)?;
-    Ok(UnstableDocsResponse { docs_json: json })
+    let docs = docs.into_try_map(|doc| {
+        anyhow::Ok(unstable_docs_response::DocItem {
+            json: serde_json::to_string(&doc)?,
+        })
+    })?;
+
+    Ok(UnstableDocsResponse { docs })
 }
