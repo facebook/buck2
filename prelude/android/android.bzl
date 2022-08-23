@@ -12,6 +12,7 @@ load(":android_manifest.bzl", "android_manifest_impl")
 load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
 load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
+load(":apk_genrule.bzl", "apk_genrule_impl")
 load(":configuration.bzl", "cpu_split_transition", "cpu_transition")
 load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
@@ -62,6 +63,7 @@ implemented_rules = {
     "android_manifest": android_manifest_impl,
     "android_prebuilt_aar": android_prebuilt_aar_impl,
     "android_resource": android_resource_impl,
+    "apk_genrule": apk_genrule_impl,
     "gen_aidl": gen_aidl_impl,
     "prebuilt_native_library": prebuilt_native_library_impl,
     "robolectric_test": robolectric_test_impl,
@@ -129,6 +131,9 @@ extra_attributes = {
         "project_res": attrs.option(attrs.source(allow_directory = True), default = None),
         "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "_android_toolchain": android_toolchain(),
+    },
+    "apk_genrule": {
+        "type": attrs.string(default = "apk"),
     },
     "gen_aidl": {
         "_android_toolchain": android_toolchain(),
