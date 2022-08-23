@@ -62,6 +62,7 @@ OmnibusSpec = record(
 OmnibusRootProduct = record(
     shared_library = field(LinkedObject.type),
     undefined_syms = field("artifact"),
+    global_syms = field("artifact"),
 )
 
 # The result of the omnibus link.
@@ -246,6 +247,12 @@ def _create_root(
 
     return OmnibusRootProduct(
         shared_library = shared_library,
+        global_syms = _extract_global_syms(
+            ctx,
+            shared_library.output,
+            # Same as above.
+            prefer_local = True,
+        ),
         undefined_syms = _extract_undefined_syms(
             ctx,
             shared_library.output,
@@ -263,6 +270,18 @@ def _extract_undefined_syms(ctx: "context", output: "artifact", prefer_local: bo
         global_only = True,
         undefined_only = True,
         category = "omnibus_undefined_syms",
+        identifier = output.basename,
+        prefer_local = prefer_local,
+    )
+
+def _extract_global_syms(ctx: "context", output: "artifact", prefer_local: bool.type) -> "artifact":
+    return extract_symbol_names(
+        ctx,
+        output.short_path + ".global_syms.txt",
+        [output],
+        dynamic = True,
+        global_only = True,
+        category = "omnibus_global_syms",
         identifier = output.basename,
         prefer_local = prefer_local,
     )
@@ -364,15 +383,7 @@ def _create_global_symbols_version_script(
     # using a single rule to process all roots adds overhead to the critical
     # path of incremental flows (e.g. that only update a single root).
     global_symbols_files = [
-        extract_symbol_names(
-            ctx,
-            root.shared_library.output.basename + ".global_syms.txt",
-            [root.shared_library.output],
-            dynamic = True,
-            global_only = True,
-            category = "omnibus_global_syms",
-            identifier = root.shared_library.output.basename,
-        )
+        root.global_syms
         for root in roots
     ]
 
