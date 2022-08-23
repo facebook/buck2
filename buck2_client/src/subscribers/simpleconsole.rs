@@ -14,17 +14,6 @@ use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_client::subscribers::display;
-use buck2_client::subscribers::display::TargetDisplayOptions;
-use buck2_client::subscribers::re::ReState;
-use buck2_client::subscribers::span_tracker::SpanTracker;
-use buck2_client::verbosity::Verbosity;
-use buck2_client::what_ran;
-use buck2_client::what_ran::local_command_to_string;
-use buck2_client::what_ran::WhatRanCommandConsoleFormat;
-use buck2_client::what_ran::WhatRanOptions;
-use buck2_client::what_ran::WhatRanOutputCommand;
-use buck2_client::what_ran::WhatRanOutputWriter;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -35,8 +24,19 @@ use superconsole::SuperConsole;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
-use crate::commands::common::subscribers;
-use crate::commands::common::subscribers::LastCommandExecutionKind;
+use crate::subscribers::display;
+use crate::subscribers::display::TargetDisplayOptions;
+use crate::subscribers::last_command_execution_kind::get_last_command_execution_kind;
+use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
+use crate::subscribers::re::ReState;
+use crate::subscribers::span_tracker::SpanTracker;
+use crate::verbosity::Verbosity;
+use crate::what_ran;
+use crate::what_ran::local_command_to_string;
+use crate::what_ran::WhatRanCommandConsoleFormat;
+use crate::what_ran::WhatRanOptions;
+use crate::what_ran::WhatRanOutputCommand;
+use crate::what_ran::WhatRanOutputWriter;
 
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
@@ -45,9 +45,9 @@ macro_rules! echo {
     ($($tts:tt)*) => {
         {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            buck2_client::eprint!("[{}] ", ::chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false))?;
+            crate::eprint!("[{}] ", ::chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false))?;
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            buck2_client::eprintln!($($tts)*)
+            crate::eprintln!($($tts)*)
         }
     };
 }
@@ -115,27 +115,14 @@ fn eprint_command_details(
 ///
 /// These stats only track executions/commands.
 #[derive(Default)]
-pub(crate) struct ActionStats {
+pub struct ActionStats {
     pub local_actions: u64,
     pub remote_actions: u64,
     pub cached_actions: u64,
 }
 
 impl ActionStats {
-    #[cfg(test)]
-    pub(crate) fn new_with_local_remote_cached(
-        local_actions: u64,
-        remote_actions: u64,
-        cached_actions: u64,
-    ) -> Self {
-        Self {
-            local_actions,
-            remote_actions,
-            cached_actions,
-        }
-    }
-
-    pub(crate) fn action_cache_hit_percentage(&self) -> u8 {
+    pub fn action_cache_hit_percentage(&self) -> u8 {
         // We want special semantics for the return value: the terminal values (0% and 100%)
         // should _only_ be used when there are exactly no cache hits and full cache hits.
         // So, even if we have 99.6% cache hits, we want to display 99% and conversely,
@@ -155,12 +142,12 @@ impl ActionStats {
         }
     }
 
-    pub(crate) fn total_executed_and_cached_actions(&self) -> u64 {
+    pub fn total_executed_and_cached_actions(&self) -> u64 {
         self.local_actions + self.remote_actions + self.cached_actions
     }
 
-    pub(crate) fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
-        match subscribers::get_last_command_execution_kind(action) {
+    pub fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
+        match get_last_command_execution_kind(action) {
             LastCommandExecutionKind::Local => {
                 self.local_actions += 1;
             }
@@ -174,13 +161,13 @@ impl ActionStats {
         }
     }
 
-    pub(crate) fn log_stats(&self) -> bool {
+    pub fn log_stats(&self) -> bool {
         self.total_executed_and_cached_actions() > 0
     }
 }
 
 /// Just repeats stdout and stderr to client process.
-pub(crate) struct SimpleConsole {
+pub struct SimpleConsole {
     tty_mode: TtyMode,
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received
@@ -194,7 +181,7 @@ pub(crate) struct SimpleConsole {
 }
 
 impl SimpleConsole {
-    pub(crate) fn with_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub fn with_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -208,7 +195,7 @@ impl SimpleConsole {
         }
     }
 
-    pub(crate) fn without_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub fn without_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -223,34 +210,34 @@ impl SimpleConsole {
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub fn autodetect(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         match SuperConsole::compatible() {
             true => Self::with_tty(verbosity, show_waiting_message),
             false => Self::without_tty(verbosity, show_waiting_message),
         }
     }
 
-    pub(crate) fn spans(&self) -> &SpanTracker {
+    pub fn spans(&self) -> &SpanTracker {
         &self.span_tracker
     }
 
-    pub(crate) fn action_stats(&self) -> &ActionStats {
+    pub fn action_stats(&self) -> &ActionStats {
         &self.action_stats
     }
 
-    pub(crate) fn action_stats_mut(&mut self) -> &mut ActionStats {
+    pub fn action_stats_mut(&mut self) -> &mut ActionStats {
         &mut self.action_stats
     }
 
-    pub(crate) fn re_state(&self) -> &ReState {
+    pub fn re_state(&self) -> &ReState {
         &self.re_state
     }
 
-    pub(crate) fn re_state_mut(&mut self) -> &mut ReState {
+    pub fn re_state_mut(&mut self) -> &mut ReState {
         &mut self.re_state
     }
 
-    pub(crate) async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    pub async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         self.span_tracker
             .handle_event(event)
             .await
@@ -281,7 +268,7 @@ impl SimpleConsole {
 #[async_trait]
 impl EventSubscriber for SimpleConsole {
     async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        buck2_client::print!("{}", raw_output)?;
+        crate::print!("{}", raw_output)?;
         self.notify_printed();
         Ok(())
     }

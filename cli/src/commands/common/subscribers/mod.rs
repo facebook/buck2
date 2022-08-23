@@ -8,16 +8,15 @@
  */
 
 pub(crate) mod recorder;
-mod simpleconsole;
 pub mod superconsole;
 
 use ::superconsole::Component;
 use buck2_client::subscribers::build_id_writer::BuildIdWriter;
 pub(crate) use buck2_client::subscribers::event_log::EventLog;
+pub(crate) use buck2_client::subscribers::simpleconsole::SimpleConsole;
 use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
-pub(crate) use simpleconsole::SimpleConsole;
 
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
@@ -93,40 +92,5 @@ pub(crate) fn try_get_build_id_writer(
         Ok(Some(box BuildIdWriter::new(file_loc.clone())))
     } else {
         Ok(None)
-    }
-}
-
-enum LastCommandExecutionKind {
-    Local,
-    Remote,
-    Cached,
-    NoCommand,
-}
-
-/// Returns what the execution kind of the last command was in the given action.
-/// It tells the execution kind of the commands that actually produced a result
-/// or an error, but not the commands that fell back and were retried.
-fn get_last_command_execution_kind(
-    action: &buck2_data::ActionExecutionEnd,
-) -> LastCommandExecutionKind {
-    use buck2_data::command_execution_details::Command;
-
-    let last_command = action
-        .commands
-        .last()
-        .and_then(|c| c.details.as_ref())
-        .and_then(|c| c.command.as_ref());
-
-    match last_command {
-        Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
-            LastCommandExecutionKind::Local
-        }
-        Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-            cache_hit: true, ..
-        })) => LastCommandExecutionKind::Cached,
-        Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-            cache_hit: false, ..
-        })) => LastCommandExecutionKind::Remote,
-        None => LastCommandExecutionKind::NoCommand,
     }
 }

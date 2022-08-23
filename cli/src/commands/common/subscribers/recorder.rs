@@ -24,6 +24,8 @@ mod imp {
 
     use async_trait::async_trait;
     use buck2_client::cleanup_ctx::AsyncCleanupContext;
+    use buck2_client::subscribers::last_command_execution_kind;
+    use buck2_client::subscribers::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_common::convert::ProstDurationExt;
     use buck2_events::sink::scribe::ThriftScribeSink;
     use buck2_events::subscriber::EventSubscriber;
@@ -35,7 +37,6 @@ mod imp {
     use termwiz::istty::IsTty;
 
     use crate::commands::common::subscribers;
-    use crate::commands::common::subscribers::LastCommandExecutionKind;
 
     pub struct InvocationRecorder {
         start_time: Instant,
@@ -177,7 +178,7 @@ mod imp {
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             if action.kind == buck2_data::ActionKind::Run as i32 {
-                match subscribers::get_last_command_execution_kind(action) {
+                match last_command_execution_kind::get_last_command_execution_kind(action) {
                     LastCommandExecutionKind::Local => {
                         self.run_local_count += 1;
                     }

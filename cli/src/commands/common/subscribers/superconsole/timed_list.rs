@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::display::TargetDisplayOptions;
+use buck2_client::subscribers::simpleconsole::ActionStats;
 use buck2_client::subscribers::span_tracker::SpanTracker;
 use buck2_events::subscriber::Tick;
 use superconsole::components::bordering::BorderedSpec;
@@ -29,7 +30,6 @@ use superconsole::Span;
 use superconsole::State;
 
 use self::table_builder::Table;
-use crate::commands::common::subscribers::simpleconsole::ActionStats;
 use crate::commands::common::subscribers::superconsole::common::HeaderLineComponent;
 use crate::commands::common::subscribers::superconsole::common::StaticStringComponent;
 use crate::commands::common::subscribers::superconsole::TimeSpeed;
@@ -404,7 +404,11 @@ mod tests {
             .unwrap();
 
         let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
-        let action_stats = ActionStats::new_with_local_remote_cached(0, 0, 1);
+        let action_stats = ActionStats {
+            local_actions: 0,
+            remote_actions: 0,
+            cached_actions: 1,
+        };
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats),
@@ -489,7 +493,11 @@ mod tests {
 
         let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
         let timed_list = TimedList::new(2, CUTOFFS, "test".to_owned());
-        let action_stats = ActionStats::new_with_local_remote_cached(0, 0, 1);
+        let action_stats = ActionStats {
+            local_actions: 0,
+            remote_actions: 0,
+            cached_actions: 1,
+        };
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats),
@@ -596,7 +604,11 @@ mod tests {
 
         let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
 
-        let action_stats = ActionStats::new_with_local_remote_cached(0, 0, 1);
+        let action_stats = ActionStats {
+            local_actions: 0,
+            remote_actions: 0,
+            cached_actions: 1,
+        };
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats),

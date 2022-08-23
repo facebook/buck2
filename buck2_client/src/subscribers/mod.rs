@@ -9,6 +9,8 @@
 pub mod build_id_writer;
 pub mod display;
 pub mod event_log;
+pub mod last_command_execution_kind;
 pub mod re;
+pub mod simpleconsole;
 pub mod span_tracker;
 pub mod stdout_stderr_forwarder;
