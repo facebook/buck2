@@ -70,8 +70,7 @@ def main(argv):
     #  3. The path to an output plan. This script is expected to place a link
     #     plan here (a JSON document indicating which other object files this)
     #     object file depends on, among other things.
-    #  4. If this object file came from an archive, the index of the archive in
-    #     the Starlark archives array. Otherwise, this line is empty.
+    #  4. The link data's index in the Starlark array.
     #  5. If this object file came from an archive, the name of the archive. Otherwise,
     #     this line is empty.
     #  6. If this object file came from an archive, the path to an output plan.
@@ -92,20 +91,23 @@ def main(argv):
     archives = {}
     for i in range(0, len(meta_lines), 7):
         path = meta_lines[i]
-        archive_idx = meta_lines[i + 3]
+        output = meta_lines[i + 1]
+        plan_output = meta_lines[i + 2]
+        idx = int(meta_lines[i + 3])
         archive_name = meta_lines[i + 4]
         archive_plan = meta_lines[i + 5]
         archive_index_dir = meta_lines[i + 6]
+
+        archive_idx = idx if output == "" else None  # archives do not have outputs
         mapping[path] = {
-            "output": meta_lines[i + 1],
-            "plan_output": meta_lines[i + 2],
-            "index": i // 7,
+            "output": output,
+            "plan_output": plan_output,
+            "index": idx,
             "archive_index": archive_idx,
             "archive_name": archive_name,
         }
-
-        if archive_idx != "":
-            archives[archive_idx] = {
+        if archive_idx is not None:
+            archives[idx] = {
                 "name": archive_name,
                 "objects": [],
                 "plan": archive_plan,
@@ -118,7 +120,7 @@ def main(argv):
         if os.path.exists(output_loc):
             continue
 
-        if data["archive_index"] != "":
+        if data["archive_index"] is not None:
             # Coming from an archive - we'll handle this separately. Record it and move on.
             archives[data["archive_index"]]["objects"].append(path)
             continue
@@ -135,7 +137,7 @@ def main(argv):
             archives_list = []
             for path in imports:
                 entry = mapping[path]
-                if entry["archive_index"] != "":
+                if entry["archive_index"] is not None:
                     archives_list.append(int(entry["archive_index"]))
                 else:
                     imports_list.append(entry["index"])
@@ -181,7 +183,7 @@ def main(argv):
                 archives_list = []
                 for path in imports:
                     entry = mapping[path]
-                    if entry["archive_index"] != "":
+                    if entry["archive_index"] is not None:
                         archives_list.append(int(entry["archive_index"]))
                     else:
                         imports_list.append(entry["index"])
