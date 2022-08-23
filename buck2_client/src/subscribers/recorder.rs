@@ -7,10 +7,11 @@
  * of this source tree.
  */
 
-use buck2_client::client_ctx::ClientCommandContext;
 use buck2_events::subscriber::EventSubscriber;
 #[cfg(fbcode_build)]
 use gazebo::dupe::Dupe;
+
+use crate::client_ctx::ClientCommandContext;
 
 #[cfg(fbcode_build)]
 mod imp {
@@ -22,9 +23,6 @@ mod imp {
     use std::time::SystemTime;
 
     use async_trait::async_trait;
-    use buck2_client::cleanup_ctx::AsyncCleanupContext;
-    use buck2_client::subscribers::last_command_execution_kind;
-    use buck2_client::subscribers::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_common::convert::ProstDurationExt;
     use buck2_events::sink::scribe::ThriftScribeSink;
     use buck2_events::subscriber::EventSubscriber;
@@ -34,6 +32,10 @@ mod imp {
     use futures::FutureExt;
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
+
+    use crate::cleanup_ctx::AsyncCleanupContext;
+    use crate::subscribers::last_command_execution_kind;
+    use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
 
     pub struct InvocationRecorder {
         start_time: Instant,
@@ -55,10 +57,7 @@ mod imp {
     }
 
     impl InvocationRecorder {
-        pub(crate) fn new(
-            async_cleanup_context: AsyncCleanupContext,
-            scribe: ThriftScribeSink,
-        ) -> Self {
+        pub fn new(async_cleanup_context: AsyncCleanupContext, scribe: ThriftScribeSink) -> Self {
             Self {
                 start_time: Instant::now(),
                 async_cleanup_context,
@@ -247,7 +246,7 @@ mod imp {
 }
 
 #[cfg(fbcode_build)]
-pub(crate) fn try_get_invocation_recorder(
+pub fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
@@ -265,7 +264,7 @@ pub(crate) fn try_get_invocation_recorder(
 }
 
 #[cfg(not(fbcode_build))]
-pub(crate) fn try_get_invocation_recorder(
+pub fn try_get_invocation_recorder(
     _ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     Ok(None)

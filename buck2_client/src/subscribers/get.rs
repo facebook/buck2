@@ -7,22 +7,21 @@
  * of this source tree.
  */
 
-pub(crate) mod recorder;
-
 use ::superconsole::Component;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
-use buck2_client::subscribers::build_id_writer::BuildIdWriter;
-pub(crate) use buck2_client::subscribers::event_log::EventLog;
-pub(crate) use buck2_client::subscribers::simpleconsole::SimpleConsole;
-use buck2_client::subscribers::superconsole::StatefulSuperConsole;
-use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::common::CommonDaemonCommandOptions;
+use crate::common::ConsoleType;
+use crate::subscribers::build_id_writer::BuildIdWriter;
+pub use crate::subscribers::event_log::EventLog;
+pub use crate::subscribers::simpleconsole::SimpleConsole;
+use crate::subscribers::superconsole::StatefulSuperConsole;
+use crate::verbosity::Verbosity;
+
 /// Given a command name and the command arguments, create a default console / superconsole.
-pub(crate) fn get_console_with_root(
+pub fn get_console_with_root(
     console_type: ConsoleType,
     verbosity: Verbosity,
     show_waiting_message: bool,
@@ -67,7 +66,7 @@ pub(crate) fn get_console_with_root(
 }
 
 /// Given the command arguments, conditionally create an event log.
-pub(crate) fn try_get_event_log_subscriber(
+pub fn try_get_event_log_subscriber(
     event_log_opts: &CommonDaemonCommandOptions,
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
@@ -83,7 +82,7 @@ pub(crate) fn try_get_event_log_subscriber(
     Ok(Some(box log))
 }
 
-pub(crate) fn try_get_build_id_writer(
+pub fn try_get_build_id_writer(
     opts: &CommonDaemonCommandOptions,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if let Some(file_loc) = opts.build_id_file.as_ref() {
