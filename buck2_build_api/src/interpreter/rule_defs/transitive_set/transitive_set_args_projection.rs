@@ -13,7 +13,6 @@ use std::iter;
 
 use anyhow::Context as _;
 use gazebo::any::ProvidesStaticType;
-use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_chain;
 use gazebo::display::display_container;
@@ -209,32 +208,7 @@ where
     }
 }
 
-impl CommandLineArgLike for FrozenTransitiveSetArgsProjection {
-    fn add_to_command_line(&self, builder: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        let this: &TransitiveSetArgsProjection = coerce(self);
-        this.add_to_command_line(builder)
-    }
-
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        let this: &TransitiveSetArgsProjection = coerce(self);
-        this.visit_artifacts(visitor)
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        let this: &TransitiveSetArgsProjection = coerce(self);
-        this.contains_arg_attr()
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        let this: &TransitiveSetArgsProjection = coerce(self);
-        this.visit_write_to_file_macros(visitor)
-    }
-}
-
-impl<'v> CommandLineArgLike for TransitiveSetArgsProjection<'v> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen<V> {
     fn add_to_command_line(&self, builder: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;
