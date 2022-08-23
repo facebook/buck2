@@ -168,7 +168,7 @@ impl CommandLineLocation<'_> {
         let mut root_buf;
         let res = match root {
             Some(root) => {
-                root_buf = root.root.to_path_buf();
+                root_buf = root.root().to_path_buf();
                 root_buf.extend(path.iter());
                 root_buf.to_string_lossy()
             }

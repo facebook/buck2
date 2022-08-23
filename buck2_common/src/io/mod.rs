@@ -32,7 +32,7 @@ pub trait IoProvider: Send + Sync {
 
     fn eq_token(&self) -> PartialEqAny<'_>;
 
-    fn fs(&self) -> &Arc<ProjectRoot>;
+    fn fs(&self) -> &ProjectRoot;
 }
 
 impl PartialEq for dyn IoProvider {
@@ -43,7 +43,7 @@ impl PartialEq for dyn IoProvider {
 
 pub async fn create_io_provider(
     fb: fbinit::FacebookInit,
-    project_fs: Arc<ProjectRoot>,
+    project_fs: ProjectRoot,
     root_config: Option<&LegacyBuckConfig>,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(all(unix, feature = "eden_io"))]

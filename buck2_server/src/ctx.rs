@@ -214,7 +214,7 @@ impl ServerCommandContext {
         let abs_path = AbsPath::new(&client_context.working_dir)?;
 
         let project_path = abs_path
-            .strip_prefix(&base_context.project_root.root)
+            .strip_prefix(base_context.project_root.root())
             .map_err(|_| {
                 Into::<anyhow::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
                     client_context.working_dir.clone(),

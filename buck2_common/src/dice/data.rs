@@ -52,7 +52,7 @@ pub mod testing {
 
     impl SetTestingIoProvider for DiceDataBuilder {
         fn set_testing_io_provider(&mut self, fs: &ProjectRootTemp) {
-            self.set_io_provider(Arc::new(FsIoProvider::new(Arc::new(fs.path().clone()))))
+            self.set_io_provider(Arc::new(FsIoProvider::new(fs.path().dupe())))
         }
     }
 }

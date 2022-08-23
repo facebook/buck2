@@ -231,8 +231,7 @@ fn main(fb: FacebookInit) -> anyhow::Result<()> {
             };
 
             let root_config = legacy_configs.get(cells.root_cell()).ok();
-            let io =
-                buck2_common::io::create_io_provider(fb, Arc::new(fs.clone()), root_config).await?;
+            let io = buck2_common::io::create_io_provider(fb, fs.dupe(), root_config).await?;
 
             let dice =
                 configure_dice_for_buck(io, &BxlCalculationNoBxl, root_config, opt.detect_cycles)?;

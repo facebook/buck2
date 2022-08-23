@@ -234,7 +234,7 @@ impl EdenMaterializer {
         Ok(Self {
             re_client_manager: re_client_manager.dupe(),
             delegator: Arc::new(ImmediateMaterializer::new(
-                fs.clone(),
+                fs.dupe(),
                 re_client_manager,
                 blocking_executor,
             )),

@@ -113,7 +113,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.materializer.dupe(),
                 self.blocking_executor.dupe(),
                 self.host_sharing_broker.dupe(),
-                project_fs.root.clone(),
+                project_fs.root().to_owned(),
                 self.forkserver.dupe(),
             )
         };

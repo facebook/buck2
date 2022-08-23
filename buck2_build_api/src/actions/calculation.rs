@@ -524,7 +524,7 @@ mod tests {
         temp_fs: &ProjectRootTemp,
         mocks: Vec<Box<dyn FnOnce(DiceBuilder) -> DiceBuilder>>,
     ) -> anyhow::Result<DiceTransaction> {
-        let fs = temp_fs.path().clone();
+        let fs = temp_fs.path().dupe();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("cell".into()),

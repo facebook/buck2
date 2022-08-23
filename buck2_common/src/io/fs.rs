@@ -40,11 +40,11 @@ use crate::io::IoProvider;
 
 #[derive(PartialEq, Clone, Dupe)]
 pub struct FsIoProvider {
-    fs: Arc<ProjectRoot>,
+    fs: ProjectRoot,
 }
 
 impl FsIoProvider {
-    pub fn new(fs: Arc<ProjectRoot>) -> Self {
+    pub fn new(fs: ProjectRoot) -> Self {
         Self { fs }
     }
 }
@@ -113,7 +113,7 @@ impl IoProvider for FsIoProvider {
         let path = path.into_forward_relative_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            let meta = read_path_metadata(&fs.root, &path)?
+            let meta = read_path_metadata(fs.root(), &path)?
                 .map(|meta_or_redirection| meta_or_redirection.map(ProjectRelativePathBuf::from));
 
             Ok(meta)
@@ -133,7 +133,7 @@ impl IoProvider for FsIoProvider {
         PartialEqAny::new(self)
     }
 
-    fn fs(&self) -> &Arc<ProjectRoot> {
+    fn fs(&self) -> &ProjectRoot {
         &self.fs
     }
 }

@@ -19,7 +19,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use buck2_core;
 use buck2_core::fs::anyhow as fs;
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::AbsPath;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
 use edenfs::types::EdenErrorType;
@@ -57,7 +57,7 @@ pub struct EdenConnectionManager {
 impl EdenConnectionManager {
     pub fn new(
         fb: FacebookInit,
-        root: &AbsPathBuf,
+        root: &AbsPath,
         semaphore: Semaphore,
     ) -> anyhow::Result<Option<Self>> {
         let eden_root = root.as_path().join(".eden");

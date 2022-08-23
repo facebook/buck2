@@ -58,9 +58,9 @@ impl Paths {
 
             // Get drive letter, network share name, etc.
             // Network share contains '\' therefore it needs to be normalized.
-            let prefix = self.roots.project_root.root.windows_prefix()?;
+            let prefix = self.roots.project_root.root().windows_prefix()?;
             let stripped_path = ForwardRelativePathNormalizer::normalize_path(
-                self.roots.project_root.root.strip_windows_prefix()?,
+                self.roots.project_root.root().strip_windows_prefix()?,
             )?;
             Cow::Owned(ForwardRelativePathNormalizer::normalize_path(&prefix)?.join(stripped_path))
         };
@@ -68,7 +68,7 @@ impl Paths {
         let root_relative: Cow<ForwardRelativePath> = self
             .roots
             .project_root
-            .root
+            .root()
             .strip_prefix(&AbsPath::unchecked_new("/"))?;
         // TODO(cjhopman): We currently place all buckd info into a directory owned by the user.
         // This is broken when multiple users try to share the same checkout.
@@ -133,7 +133,7 @@ impl Paths {
     }
 
     pub fn buck_out_path(&self) -> AbsPathBuf {
-        self.roots.project_root.root.join(&self.buck_out_dir())
+        self.roots.project_root.root().join(&self.buck_out_dir())
     }
 }
 
@@ -199,7 +199,7 @@ mod tests {
             "/my/project"
         };
         assert_eq!(
-            paths.project_root().root.as_os_str(),
+            paths.project_root().root().as_os_str(),
             AbsPath::unchecked_new(expected_path).as_os_str()
         );
 

@@ -107,10 +107,10 @@ impl LiteralParser {
                 let abs_path = AbsPath::new(&path)?;
                 let relative_path =
                     abs_path
-                        .strip_prefix(&self.project_root.root)
+                        .strip_prefix(&self.project_root.root())
                         .map_err(|_| {
                             QueryError::FileLiteralNotInProject(
-                                self.project_root.clone(),
+                                self.project_root.dupe(),
                                 literal.to_owned(),
                             )
                         })?;

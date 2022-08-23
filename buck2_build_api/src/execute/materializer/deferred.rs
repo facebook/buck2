@@ -508,7 +508,7 @@ impl DeferredMaterializer {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
         let command_processor = Arc::new(DeferredMaterializerCommandProcessor {
-            fs: fs.clone(),
+            fs: fs.dupe(),
             re_client_manager,
             io_executor: io_executor.dupe(),
             command_sender: command_sender.clone(),
@@ -929,8 +929,8 @@ impl DeferredMaterializerCommandProcessor {
                         for a in copied_artifacts {
                             materialize_files(
                                 a.dest_entry.as_ref(),
-                                &self.fs.root.join(&a.src),
-                                &self.fs.root.join(&a.dest),
+                                &self.fs.root().join(&a.src),
+                                &self.fs.root().join(&a.dest),
                             )?;
                         }
                         Ok(())

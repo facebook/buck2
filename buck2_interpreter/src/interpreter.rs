@@ -738,7 +738,7 @@ mod tests {
                 // Just rely on the root's aliases being available everywhere for all the others.
             ])?,
             &[],
-            &project_fs.root,
+            project_fs.root(),
         )?;
         Ok((
             cell_resolver

@@ -60,10 +60,12 @@ use std::ops::Deref;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Context;
 use derivative::Derivative;
 use derive_more::Display;
+use gazebo::dupe::Dupe;
 use ref_cast::RefCast;
 use serde::Serialize;
 
@@ -98,10 +100,10 @@ pub struct ProjectRelativePathBuf(
 /// directory (cwd). The root path is the project root as defined in this
 /// library. The cwd will be the directory from which the command was invoked,
 /// which is within the project root and hence relativized against it.
-#[derive(Clone, Debug, PartialEq, derive_more::Display)]
+#[derive(Clone, Debug, Dupe, PartialEq, derive_more::Display)]
 #[display(fmt = "{root}")]
 pub struct ProjectRoot {
-    pub root: AbsPathBuf,
+    root: Arc<AbsPathBuf>,
 }
 
 pub struct ProjectRootTemp {
@@ -126,7 +128,13 @@ impl ProjectRootTemp {
 
 impl ProjectRoot {
     pub fn new(root: AbsPathBuf) -> Self {
-        ProjectRoot { root }
+        ProjectRoot {
+            root: Arc::new(root),
+        }
+    }
+
+    pub fn root(&self) -> &AbsPath {
+        &*self.root
     }
 
     ///
@@ -235,11 +243,11 @@ impl ProjectRoot {
         &'a self,
         p: &'a P,
     ) -> anyhow::Result<Cow<ProjectRelativePath>> {
-        let relative_path = p.as_ref().strip_prefix(&self.root).map_err(|_| {
+        let relative_path = p.as_ref().strip_prefix(self.root()).map_err(|_| {
             anyhow::anyhow!(
                 "Error relativizing: `{}` is not relative to project root `{}`",
                 p.as_ref(),
-                self.root
+                self.root()
             )
         })?;
         match relative_path {
@@ -1081,13 +1089,13 @@ mod internals {
 
     impl PathLikeResolvable for &ProjectRelativePath {
         fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsPath> {
-            Cow::Owned(self.0.resolve(&fs.root))
+            Cow::Owned(self.0.resolve(fs.root()))
         }
     }
 
     impl PathLikeResolvable for &ProjectRelativePathBuf {
         fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsPath> {
-            Cow::Owned(self.0.resolve(&fs.root))
+            Cow::Owned(self.0.resolve(fs.root()))
         }
     }
 }

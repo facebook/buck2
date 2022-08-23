@@ -10,8 +10,6 @@
 // Eden's Thrift API does sometime want &Vec<...>.
 #![allow(clippy::useless_vec)]
 
-use std::sync::Arc;
-
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
@@ -52,7 +50,7 @@ pub struct EdenIoProvider {
 }
 
 impl EdenIoProvider {
-    pub async fn new(fb: FacebookInit, fs: &Arc<ProjectRoot>) -> anyhow::Result<Option<Self>> {
+    pub async fn new(fb: FacebookInit, fs: &ProjectRoot) -> anyhow::Result<Option<Self>> {
         if cfg!(not(fbcode_build)) {
             tracing::warn!("Disabling Eden I/O: Cargo build detected");
             return Ok(None);
@@ -64,7 +62,7 @@ impl EdenIoProvider {
         let eden_semaphore = EDEN_SEMAPHORE.get()?.unwrap_or(2048);
 
         let manager =
-            match EdenConnectionManager::new(fb, &fs.root, Semaphore::new(eden_semaphore))? {
+            match EdenConnectionManager::new(fb, fs.root(), Semaphore::new(eden_semaphore))? {
                 Some(manager) => manager,
                 None => return Ok(None),
             };
@@ -276,7 +274,7 @@ impl IoProvider for EdenIoProvider {
         PartialEqAny::new(self)
     }
 
-    fn fs(&self) -> &Arc<ProjectRoot> {
+    fn fs(&self) -> &ProjectRoot {
         self.fs.fs()
     }
 }

@@ -74,7 +74,7 @@ impl BuckConfigBasedCells {
             project_fs,
             file_ops,
             &[],
-            &project_fs.root,
+            project_fs.root(),
             opts,
         )?;
         Ok(cells.cell_resolver)
@@ -85,7 +85,7 @@ impl BuckConfigBasedCells {
             project_fs,
             &DefaultConfigParserFileOps {},
             &[],
-            &project_fs.root,
+            project_fs.root(),
         )
     }
 
@@ -395,7 +395,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            &project_fs.root,
+            project_fs.root(),
         )?;
 
         let resolver = &cells.cell_resolver;
@@ -497,7 +497,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[LegacyConfigCmdArg::UnresolvedFile(file_arg)],
-            &project_fs.root,
+            project_fs.root(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -547,7 +547,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            &project_fs.root,
+            project_fs.root(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -614,7 +614,7 @@ mod tests {
                 LegacyConfigCmdArg::UnresolvedFile("other//app-conf".to_owned()),
                 LegacyConfigCmdArg::UnresolvedFile("//global-conf".to_owned()),
             ],
-            &project_fs.root,
+            project_fs.root(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -662,7 +662,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            &project_fs.root,
+            project_fs.root(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -741,7 +741,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            &project_fs.root,
+            project_fs.root(),
         )?;
 
         let configs = &cells.configs_by_name;

@@ -4,7 +4,6 @@
 use std::cell::RefCell;
 use std::io::Write;
 use std::ops::DerefMut;
-use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_build_api::actions::artifact::ArtifactFs;
@@ -65,7 +64,7 @@ pub struct OutputStream<'v> {
     artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    project_fs: Arc<ProjectRoot>,
+    project_fs: ProjectRoot,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     artifact_fs: ArtifactFs,
@@ -73,7 +72,7 @@ pub struct OutputStream<'v> {
 
 impl<'v> OutputStream<'v> {
     pub fn new(
-        project_fs: Arc<ProjectRoot>,
+        project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
     ) -> Self {

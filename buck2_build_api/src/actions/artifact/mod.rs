@@ -728,7 +728,7 @@ mod tests {
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
-            project_fs.clone(),
+            project_fs.dupe(),
         );
         let expected_path1 = project_fs.resolve(&fs.resolve_build(&artifact1));
         let expected_path2 = project_fs.resolve(&fs.resolve_build(&artifact2));

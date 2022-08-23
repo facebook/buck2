@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::AbsPath;
 use cli_proto::targets_request;
 use cli_proto::TargetsRequest;
 use futures::FutureExt;
@@ -227,7 +227,7 @@ impl StreamingCommand for TargetsCommand {
             targets_show_outputs(buckd, target_request, None).await
         } else if self.show_full_output {
             let project_root = ctx.paths?.roots.project_root;
-            targets_show_outputs(buckd, target_request, Some(&project_root.root)).await
+            targets_show_outputs(buckd, target_request, Some(project_root.root())).await
         } else {
             targets(buckd, target_request).await
         }
@@ -249,7 +249,7 @@ impl StreamingCommand for TargetsCommand {
 async fn targets_show_outputs(
     mut buckd: BuckdClientConnector,
     target_request: TargetsRequest,
-    root_path: Option<&AbsPathBuf>,
+    root_path: Option<&AbsPath>,
 ) -> ExitResult {
     let response = buckd
         .with_flushing(|client| client.targets_show_outputs(target_request).boxed())

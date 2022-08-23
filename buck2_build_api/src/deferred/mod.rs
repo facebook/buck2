@@ -88,7 +88,7 @@ pub trait DeferredCtx {
 
     fn registry(&mut self) -> &mut DeferredRegistry;
 
-    fn project_filesystem(&self) -> &Arc<ProjectRoot>;
+    fn project_filesystem(&self) -> &ProjectRoot;
 }
 
 /// DeferredCtx with already resolved values
@@ -100,7 +100,7 @@ pub struct ResolveDeferredCtx<'a> {
     artifacts: HashMap<Artifact, ArtifactValue>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     registry: &'a mut DeferredRegistry,
-    project_filesystem: Arc<ProjectRoot>,
+    project_filesystem: ProjectRoot,
 }
 
 impl<'a> ResolveDeferredCtx<'a> {
@@ -112,7 +112,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         artifacts: HashMap<Artifact, ArtifactValue>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         registry: &'a mut DeferredRegistry,
-        project_filesystem: Arc<ProjectRoot>,
+        project_filesystem: ProjectRoot,
     ) -> Self {
         Self {
             key,
@@ -164,7 +164,7 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
         self.registry
     }
 
-    fn project_filesystem(&self) -> &Arc<ProjectRoot> {
+    fn project_filesystem(&self) -> &ProjectRoot {
         &self.project_filesystem
     }
 }
@@ -843,13 +843,13 @@ mod tests {
         ))
     }
 
-    fn dummy_project_filesystem() -> Arc<ProjectRoot> {
+    fn dummy_project_filesystem() -> ProjectRoot {
         let cwd = if cfg!(windows) {
             AbsPath::new("c:/tmp").unwrap().to_owned()
         } else {
             AbsPath::new("/dev/null").unwrap().to_owned()
         };
-        Arc::new(ProjectRoot::new(cwd))
+        ProjectRoot::new(cwd)
     }
 
     #[test]

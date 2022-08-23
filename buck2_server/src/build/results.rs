@@ -294,7 +294,7 @@ pub mod build_report {
                 success: self.overall_success,
                 results: self.build_report_results,
                 failures: HashMap::new(),
-                project_root: self.project_root.root.clone(),
+                project_root: self.project_root.root().to_owned(),
                 // In buck1 we may truncate build report for a large number of targets.
                 // Setting this to false since we don't currently truncate buck2's build report.
                 truncated: false,

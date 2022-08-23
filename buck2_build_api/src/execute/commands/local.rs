@@ -801,7 +801,7 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let root = AbsPathBuf::try_from(dir.path().canonicalize()?)?;
         let project_fs = ProjectRoot::new(root.clone());
-        let artifact_fs = artifact_fs(project_fs.clone());
+        let artifact_fs = artifact_fs(project_fs.dupe());
 
         let executor = LocalExecutor::new(
             artifact_fs,

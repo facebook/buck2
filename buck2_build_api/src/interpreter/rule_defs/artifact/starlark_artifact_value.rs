@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::fs::anyhow as fs;
@@ -38,7 +37,7 @@ pub struct StarlarkArtifactValue {
     // We only keep the artifact for Display, since we don't want to leak the underlying path by default
     artifact: Artifact,
     path: ProjectRelativePathBuf,
-    fs: Arc<ProjectRoot>,
+    fs: ProjectRoot,
 }
 
 impl Display for StarlarkArtifactValue {
@@ -51,7 +50,7 @@ starlark_simple_value!(StarlarkArtifactValue);
 
 impl StarlarkArtifactValue {
     /// Create a new artifact value. Must be materialised to disk before calling this function.
-    pub fn new(artifact: Artifact, path: ProjectRelativePathBuf, fs: Arc<ProjectRoot>) -> Self {
+    pub fn new(artifact: Artifact, path: ProjectRelativePathBuf, fs: ProjectRoot) -> Self {
         Self { artifact, path, fs }
     }
 }

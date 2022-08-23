@@ -95,7 +95,7 @@ impl BuckBlockingExecutor {
 
         for i in 0..io_threads {
             let command_receiver = command_receiver.clone();
-            let fs = fs.clone();
+            let fs = fs.dupe();
             std::thread::Builder::new()
                 .name(format!("buck-io-{}", i))
                 .spawn(move || {

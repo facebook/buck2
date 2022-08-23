@@ -22,7 +22,7 @@ pub struct MaterializeTreeStructure {
 
 impl IoRequest for MaterializeTreeStructure {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
-        materialize_dirs_and_syms(self.entry.as_ref(), &project_fs.root.join(&self.path))?;
+        materialize_dirs_and_syms(self.entry.as_ref(), &project_fs.root().join(&self.path))?;
 
         Ok(())
     }

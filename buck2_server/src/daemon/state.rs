@@ -178,14 +178,13 @@ impl DaemonState {
 
         let io = buck2_common::io::create_io_provider(
             fb,
-            Arc::new(fs),
+            fs,
             legacy_configs.get(cells.root_cell()).ok(),
         )
         .await?;
 
-        let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(
-            (**io.fs()).clone(),
-        )?);
+        let blocking_executor =
+            Arc::new(BuckBlockingExecutor::default_concurrency(io.fs().dupe())?);
         let re_client_manager = Arc::new(ReConnectionManager::new(
             fb,
             false,
@@ -194,7 +193,7 @@ impl DaemonState {
             Some(
                 paths
                     .project_root()
-                    .root
+                    .root()
                     .join(paths.buck_out_dir())
                     .join(ForwardRelativePathBuf::unchecked_new("re_logs".to_owned()))
                     .to_string(),
@@ -205,7 +204,7 @@ impl DaemonState {
             MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
         let materializer = Self::create_materializer(
             fb,
-            (**io.fs()).clone(),
+            io.fs().dupe(),
             paths.buck_out_dir(),
             re_client_manager.dupe(),
             blocking_executor.dupe(),
@@ -227,7 +226,7 @@ impl DaemonState {
         // this list should be safe until we can revert it to Expr::True.
 
         let file_watcher = <dyn FileWatcher>::new(
-            &paths.project_root().root,
+            paths.project_root().root(),
             root_config,
             cells.dupe(),
             ignore_specs,
@@ -293,7 +292,7 @@ impl DaemonState {
                     use buck2_build_api::execute::materializer::eden::EdenMaterializer;
                     use buck2_build_api::execute::materializer::eden_api::EdenBuckOut;
 
-                    let buck_out_mount = fs.root.join(&buck_out_path);
+                    let buck_out_mount = fs.root().join(&buck_out_path);
 
                     Ok(Arc::new(
                         EdenMaterializer::new(

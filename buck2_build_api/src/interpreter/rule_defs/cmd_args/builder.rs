@@ -146,7 +146,7 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
 
     fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
         let executor_fs = self.0.fs();
-        let mut path = executor_fs.fs().fs().root.to_path_buf();
+        let mut path = executor_fs.fs().fs().root().to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
         RelativePathBuf::from_path(path).map_err(|e| anyhow!(e))
     }

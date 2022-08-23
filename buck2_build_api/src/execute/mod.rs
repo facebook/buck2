@@ -623,13 +623,13 @@ mod tests {
 
         let temp_fs = ProjectRootTemp::new().unwrap();
 
-        let project_fs = temp_fs.path().clone();
+        let project_fs = temp_fs.path().dupe();
         let artifact_fs = ArtifactFs::new(
             BuckPathResolver::new(cells),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                 "cell/buck-out/v2".into(),
             )),
-            project_fs.clone(),
+            project_fs.dupe(),
         );
 
         let tracker = Arc::new(Mutex::new(Vec::new()));

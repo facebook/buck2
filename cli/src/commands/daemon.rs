@@ -265,10 +265,10 @@ impl DaemonCommand {
         if self.dont_daemonize {
             let mut pid_file = File::create(pid_path)?;
             write!(pid_file, "{}", std::process::id())?;
-            std::env::set_current_dir(&project_root.root)?;
+            std::env::set_current_dir(project_root.root())?;
             self.redirect_output(stdout, stderr)?;
         } else {
-            self.daemonize(&project_root.root, &pid_path, stdout, stderr)?;
+            self.daemonize(project_root.root(), &pid_path, stdout, stderr)?;
             // On Windows process will be restarted.
             if cfg!(windows) {
                 return Ok(());

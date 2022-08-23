@@ -32,7 +32,7 @@ pub async fn clean(
     let filesystem = server_ctx.project_root();
     let buck_out_path = out_path
         .as_forward_relative_path()
-        .resolve(&filesystem.root);
+        .resolve(filesystem.root());
 
     // Try to clean EdenFS based buck-out first. For EdenFS based buck-out, "eden rm"
     // is effecient. Notice eden rm will remove the buck-out root direcotry,

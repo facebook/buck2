@@ -120,7 +120,7 @@ impl<'v> BxlContext<'v> {
         current_bxl: BxlKey,
         cli_args: Value<'v>,
         target_alias_resolver: BuckConfigTargetAliasResolver,
-        project_fs: Arc<ProjectRoot>,
+        project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         cell: CellInstance,
         async_ctx: BxlSafeDiceComputations<'v>,
@@ -261,7 +261,7 @@ fn register_context(builder: &mut MethodsBuilder) {
             .global_data()
             .get_io_provider()
             .fs()
-            .root
+            .root()
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Non utf-8 path"))?
             .to_owned())
