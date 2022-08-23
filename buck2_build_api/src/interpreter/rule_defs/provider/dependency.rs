@@ -95,8 +95,6 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use buck2_core::configuration::Configuration;
     use buck2_core::pattern::ParsedPattern;
@@ -145,10 +143,10 @@ mod tests {
     #[test]
     fn dependency_works() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|x| {
+        tester.set_additional_globals(|x| {
             crate::interpreter::rule_defs::register_rule_defs(x);
             dependency_creator(x)
-        }));
+        });
         tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen = create_collection("root//foo:bar[baz]", [DefaultInfo()])

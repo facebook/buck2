@@ -134,7 +134,7 @@ mod test {
     #[test]
     fn test_artifact_tag_starlark_eq() -> anyhow::Result<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifact_tag_factory));
+        tester.set_additional_globals(artifact_tag_factory);
 
         tester.run_starlark_bzl_test(indoc!(
             r#"

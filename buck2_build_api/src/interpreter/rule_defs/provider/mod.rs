@@ -198,8 +198,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_build_api_derive::internal_provider;
     use buck2_common::result::SharedResult;
     use gazebo::any::ProvidesStaticType;
@@ -238,9 +236,9 @@ mod tests {
         //                 Once that's fixed, make sure we can call 'FooInfo' before the module is
         //                 frozen.
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|builder| {
+        tester.set_additional_globals(|builder| {
             simple_info_creator(builder);
-        }));
+        });
 
         tester.run_starlark_test(indoc!(
             r#"

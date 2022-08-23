@@ -331,8 +331,11 @@ pub mod testing {
             })
         }
 
-        pub fn set_additional_globals(&mut self, additional_globals: GlobalsConfigurationFn) {
-            self.additional_globals = Some(additional_globals);
+        pub fn set_additional_globals(
+            &mut self,
+            additional_globals: impl Fn(&mut GlobalsBuilder) + Sync + Send + 'static,
+        ) {
+            self.additional_globals = Some(Arc::new(additional_globals));
         }
 
         pub fn set_prelude(&mut self, prelude_import: ImportPath) {
@@ -552,8 +555,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
@@ -594,7 +595,7 @@ mod tests {
     #[test]
     fn tester_can_load_extra_modules() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(extra_provider_module));
+        tester.set_additional_globals(extra_provider_module);
 
         tester.run_starlark_test(indoc!(
             r#"

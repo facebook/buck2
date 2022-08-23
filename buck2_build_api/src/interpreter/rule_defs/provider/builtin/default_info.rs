@@ -397,8 +397,6 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
@@ -411,7 +409,7 @@ mod tests {
     #[test]
     fn default_info_is_available() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         tester.add_import(
             &import("root", "foo", "defs.bzl"),
             r#"BarInfo = provider(fields=["bar"])"#,

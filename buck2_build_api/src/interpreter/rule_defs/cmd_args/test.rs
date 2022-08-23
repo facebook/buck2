@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use buck2_common::result::SharedResult;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
@@ -32,12 +30,12 @@ pub fn inputs_helper(builder: &mut GlobalsBuilder) {
 
 fn tester() -> anyhow::Result<Tester> {
     let mut tester = Tester::new()?;
-    tester.set_additional_globals(Arc::new(|builder| {
+    tester.set_additional_globals(|builder| {
         tester::command_line_stringifier(builder);
         inputs_helper(builder);
         artifactory(builder);
         label_creator(builder);
-    }));
+    });
     Ok(tester)
 }
 

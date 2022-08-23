@@ -89,8 +89,6 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
@@ -103,10 +101,10 @@ mod tests {
     #[test]
     fn run_info_stringifies() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|globals| {
+        tester.set_additional_globals(|globals| {
             command_line_stringifier(globals);
             artifactory(globals);
-        }));
+        });
         let content = indoc!(
             r#"
             a = source_artifact("foo/bar", "baz.h")
@@ -193,7 +191,7 @@ mod tests {
     #[test]
     fn run_info_works_as_provider_key() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(collection_creator));
+        tester.set_additional_globals(collection_creator);
 
         let content = indoc!(
             r#"

@@ -413,8 +413,6 @@ pub(crate) mod tester {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
@@ -426,10 +424,10 @@ mod tests {
 
     fn provider_collection_tester() -> SharedResult<Tester> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|builder| {
+        tester.set_additional_globals(|builder| {
             collection_creator(builder);
             artifactory(builder);
-        }));
+        });
         tester.add_import(
             &import("root", "provider", "defs1.bzl"),
             indoc!(
@@ -558,7 +556,7 @@ mod tests {
     #[test]
     fn provider_collection_contains_methods_work() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(collection_creator));
+        tester.set_additional_globals(collection_creator);
         tester.add_import(
             &import("root", "providers", "defs.bzl"),
             indoc!(

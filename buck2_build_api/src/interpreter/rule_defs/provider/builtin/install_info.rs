@@ -123,8 +123,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
@@ -136,10 +134,10 @@ mod tests {
     #[test]
     fn install_info_works_as_provider_key() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|builder| {
+        tester.set_additional_globals(|builder| {
             collection_creator(builder);
             label_creator(builder);
-        }));
+        });
 
         let content = indoc!(
             r#"
@@ -156,11 +154,11 @@ mod tests {
     #[test]
     fn info_validator_succeeds_for_artifacts_without_additional_artifacts() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|builder| {
+        tester.set_additional_globals(|builder| {
             collection_creator(builder);
             artifactory(builder);
             label_creator(builder);
-        }));
+        });
 
         let content = indoc!(
             r#"

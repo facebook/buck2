@@ -45,8 +45,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use indoc::indoc;
 
     use super::testing::label_creator;
@@ -57,7 +55,7 @@ mod tests {
     fn labels_are_usable() -> anyhow::Result<()> {
         fn new_tester() -> anyhow::Result<Tester> {
             let mut tester = Tester::new()?;
-            tester.set_additional_globals(Arc::new(label_creator));
+            tester.set_additional_globals(label_creator);
             Ok(tester)
         }
 

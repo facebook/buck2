@@ -213,8 +213,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
@@ -225,7 +223,7 @@ mod tests {
     #[test]
     fn source_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         tester.run_starlark_bzl_test(indoc!(
             r#"
             a1 = source_artifact("foo/bar", "baz/quz.h")
@@ -289,10 +287,10 @@ mod tests {
     #[test]
     fn bound_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|x| {
+        tester.set_additional_globals(|x| {
             crate::interpreter::rule_defs::register_rule_defs(x);
             artifactory(x)
-        }));
+        });
         tester.run_starlark_bzl_test(indoc!(
             r#"
             a1 = bound_artifact("//foo:bar", "baz/quz.h")
@@ -356,7 +354,7 @@ mod tests {
     #[test]
     fn declared_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         tester.run_starlark_bzl_test(indoc!(
             r#"
             def test():
@@ -391,10 +389,10 @@ mod tests {
     #[test]
     fn declared_bound() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(|x| {
+        tester.set_additional_globals(|x| {
             crate::interpreter::rule_defs::register_rule_defs(x);
             artifactory(x)
-        }));
+        });
         tester.run_starlark_bzl_test(indoc!(
             r#"
             a1 = declared_bound_artifact("//foo:bar", "baz/quz.h")
@@ -447,7 +445,7 @@ mod tests {
     #[test]
     fn project_declared_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         tester.run_starlark_bzl_test(indoc!(
             r#"
             def test():
@@ -469,7 +467,7 @@ mod tests {
     #[test]
     fn project_source_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         let test = indoc!(
             r#"
             def test():
@@ -487,7 +485,7 @@ mod tests {
     #[test]
     fn project_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         let test = indoc!(
             r#"
             def test():
@@ -505,7 +503,7 @@ mod tests {
     #[test]
     fn stringifies_for_command_line() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(Arc::new(artifactory));
+        tester.set_additional_globals(artifactory);
         tester.run_starlark_bzl_test(indoc!(
             r#"
             a1 = bound_artifact("//foo:bar", "baz/quz.h")
