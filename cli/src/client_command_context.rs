@@ -12,9 +12,9 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use buck2_client::verbosity::Verbosity;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_events::TraceId;
-use buck2_server::paths::InvocationPaths;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
 use dice::cycles::DetectCycles;

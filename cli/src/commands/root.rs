@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use buck2_server::roots::find_invocation_roots;
+use buck2_common::invocation_roots::find_invocation_roots;
 use thiserror::Error;
 
 use crate::client_command_context::ClientCommandContext;

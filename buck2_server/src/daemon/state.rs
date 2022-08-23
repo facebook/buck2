@@ -24,6 +24,7 @@ use buck2_build_api::execute::materializer::immediate::ImmediateMaterializer;
 use buck2_build_api::execute::materializer::MaterializationMethod;
 use buck2_build_api::execute::materializer::Materializer;
 use buck2_common::file_ops::IgnoreSet;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -50,7 +51,6 @@ use crate::daemon::check_working_dir;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::file_watcher::FileWatcher;
-use crate::paths::InvocationPaths;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 pub struct DaemonState {

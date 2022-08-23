@@ -22,7 +22,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 
-use crate::roots::InvocationRoots;
+use crate::invocation_roots::InvocationRoots;
 
 #[derive(Clone)]
 pub struct InvocationPaths {
@@ -148,8 +148,8 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
 
-    use crate::paths::InvocationPaths;
-    use crate::roots::InvocationRoots;
+    use crate::invocation_paths::InvocationPaths;
+    use crate::invocation_roots::InvocationRoots;
 
     #[test]
     fn test_paths() {

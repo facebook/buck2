@@ -33,11 +33,11 @@ use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::exit_result::FailureExitCode;
 use buck2_client::verbosity::Verbosity;
+use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::invocation_roots;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_events::subscriber::EventSubscriber;
-use buck2_server::paths::InvocationPaths;
-use buck2_server::roots;
 use clap::AppSettings;
 use clap::Parser;
 use client_command_context::ClientCommandContext;
@@ -346,7 +346,7 @@ impl CommandKind {
         replayer: Option<Replayer>,
         async_cleanup_context: AsyncCleanupContext,
     ) -> ExitResult {
-        let roots = roots::find_current_invocation_roots();
+        let roots = invocation_roots::find_current_invocation_roots();
         let replay_speed = replayer.as_ref().map(|r| r.speed());
         let command_ctx = ClientCommandContext {
             init,

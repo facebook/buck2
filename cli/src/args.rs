@@ -16,6 +16,7 @@ use std::str;
 
 use anyhow::anyhow;
 use anyhow::Context as _;
+use buck2_common::invocation_roots::find_current_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::anyhow as fs;
@@ -23,7 +24,6 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::process::background_command;
-use buck2_server::roots::find_current_invocation_roots;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;

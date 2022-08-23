@@ -19,7 +19,6 @@ rust_library(
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:derivative",
-        "fbsource//third-party/rust:dirs",
         "fbsource//third-party/rust:flate2",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:indent_write",

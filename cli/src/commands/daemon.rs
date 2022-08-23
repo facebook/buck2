@@ -21,12 +21,12 @@ use std::process;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_server::paths::InvocationPaths;
 use cli_proto::DaemonProcessInfo;
 use dice::cycles::DetectCycles;
 use futures::channel::mpsc;

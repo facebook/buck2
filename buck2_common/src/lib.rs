@@ -32,6 +32,8 @@ pub mod eden;
 pub mod external_symlink;
 pub mod file_ops;
 pub mod find_buildfile;
+pub mod invocation_paths;
+pub mod invocation_roots;
 pub mod io;
 pub mod legacy_configs;
 pub mod memory;
