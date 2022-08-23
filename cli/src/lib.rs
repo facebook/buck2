@@ -27,40 +27,26 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
-use async_trait::async_trait;
 use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::commands::kill::KillCommand;
+use buck2_client::commands::lsp::LspCommand;
 use buck2_client::commands::root::RootCommand;
 use buck2_client::commands::status::StatusCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::daemon::client::BuckdConnectOptions;
+use buck2_client::commands::streaming::BuckSubcommand;
 use buck2_client::exit_result::ExitResult;
-use buck2_client::exit_result::FailureExitCode;
 use buck2_client::replayer::Replayer;
-use buck2_client::subscribers::get::get_console_with_root;
-use buck2_client::subscribers::get::try_get_build_id_writer;
-use buck2_client::subscribers::get::try_get_event_log_subscriber;
-use buck2_client::subscribers::recorder::try_get_invocation_recorder;
-use buck2_client::subscribers::superconsole::StatefulSuperConsole;
-use buck2_client::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client::verbosity::Verbosity;
 use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::FileNameBuf;
-use buck2_events::subscriber::EventSubscriber;
 use clap::AppSettings;
 use clap::Parser;
 use dice::cycles::DetectCycles;
-use futures::future;
 use gazebo::dupe::Dupe;
-use superconsole::Component;
 
 use crate::args::expand_argfiles;
 use crate::commands::aquery::AqueryCommand;
@@ -75,7 +61,6 @@ use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
 use crate::commands::install::InstallCommand;
 use crate::commands::log::LogCommand;
-use crate::commands::lsp::LspCommand;
 use crate::commands::profile::ProfileCommand;
 use crate::commands::rage::RageCommand;
 use crate::commands::run::RunCommand;
@@ -83,7 +68,6 @@ use crate::commands::server::ServerCommand;
 use crate::commands::targets::TargetsCommand;
 use crate::commands::test::TestCommand;
 use crate::commands::uquery::UqueryCommand;
-use crate::future::Either;
 
 #[macro_use]
 pub mod panic;
@@ -180,86 +164,6 @@ pub fn exec(
     opt.exec(&matches, init, replayer, async_cleanup_context)
 }
 
-fn default_subscribers<T: StreamingCommand>(
-    cmd: &T,
-    ctx: &ClientCommandContext,
-) -> anyhow::Result<Vec<Box<dyn EventSubscriber>>> {
-    let console_opts = cmd.console_opts();
-    let mut subscribers = vec![];
-    let root = StatefulSuperConsole::default_layout(
-        T::COMMAND_NAME,
-        SuperConsoleConfig {
-            sandwiched: cmd.extra_superconsole_component(),
-            ..console_opts.superconsole_config()
-        },
-    );
-
-    // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
-    let show_waiting_message = T::COMMAND_NAME != LspCommand::COMMAND_NAME;
-
-    if let Some(v) = get_console_with_root(
-        console_opts.console_type,
-        ctx.verbosity,
-        show_waiting_message,
-        ctx.replay_speed,
-        root,
-    )? {
-        subscribers.push(v)
-    }
-    if let Some(event_log) = try_get_event_log_subscriber(cmd.event_log_opts(), ctx)? {
-        subscribers.push(event_log)
-    }
-    if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts())? {
-        subscribers.push(build_id_writer)
-    }
-    if let Some(recorder) = try_get_invocation_recorder(ctx)? {
-        subscribers.push(recorder);
-    }
-    Ok(subscribers)
-}
-
-/// Trait to generalize the behavior of executable buck2 commands that rely on a server.
-/// This trait is most helpful when the command wants a superconsole, to stream events, etc.
-/// However, this is the most robustly tested of our code paths, and there is little cost to defaulting to it.
-/// As a result, prefer to default to streaming mode unless there is a compelling reason not to
-/// (e.g `status`)
-#[async_trait]
-pub(crate) trait StreamingCommand: Sized + Send + Sync {
-    /// Give the command a name for printing, debugging, etc.
-    const COMMAND_NAME: &'static str;
-
-    /// Run the command.
-    async fn exec_impl(
-        self,
-        buckd: BuckdClientConnector,
-        matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
-    ) -> ExitResult;
-
-    /// Provide a list of all options to connect to the server.
-    /// By default, just checks to make sure the server is started.
-    async fn server_connect_options<'a, 'b>(
-        &self,
-        ctx: &'b ClientCommandContext,
-    ) -> anyhow::Result<BuckdConnectOptions> {
-        Ok(BuckdConnectOptions {
-            subscribers: default_subscribers(self, ctx)?,
-            ..Default::default()
-        })
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions;
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
-
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions;
-
-    /// Allows a command to add additional superconsole components when superconsole is used.
-    fn extra_superconsole_component(&self) -> Option<Box<dyn Component>> {
-        None
-    }
-}
-
 #[derive(Debug, clap::Subcommand)]
 pub(crate) enum CommandKind {
     #[clap(setting(AppSettings::Hidden))]
@@ -292,45 +196,6 @@ pub(crate) enum CommandKind {
     #[clap(subcommand)]
     Log(LogCommand),
     Lsp(LspCommand),
-}
-
-/// Just provides a common interface for buck subcommands for us to interact with here.
-pub(crate) trait BuckSubcommand {
-    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult;
-}
-
-impl<T: StreamingCommand> BuckSubcommand for T {
-    /// Actual call that runs a `StreamingCommand`.
-    /// Handles all of the business of setting up a runtime, server, and subscribers.
-    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        ctx.with_runtime(async move |mut ctx| {
-            let work = async {
-                let connect_options = self.server_connect_options(&ctx).await?;
-
-                let buckd = match ctx.replayer.take() {
-                    Some(replayer) => {
-                        connect_options.replay(replayer.into_inner(), ctx.paths()?)?
-                    }
-                    None => ctx.connect_buckd(connect_options).await?,
-                };
-
-                self.exec_impl(buckd, matches, ctx).await
-            };
-
-            // Race our work with a ctrl+c future. If we hit ctrl+c, then we'll drop the work
-            // future. with_runtime sets up an AsyncCleanupContext that will allow drop
-            // implementations within this future to clean up before we return from with_runtime.
-            let exit = tokio::signal::ctrl_c();
-
-            futures::pin_mut!(work);
-            futures::pin_mut!(exit);
-
-            match future::select(work, exit).await {
-                Either::Left((res, _)) => res,
-                Either::Right((_signal, _)) => ExitResult::from(FailureExitCode::SignalInterrupt),
-            }
-        })
-    }
 }
 
 impl CommandKind {

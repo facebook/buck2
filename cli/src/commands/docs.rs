@@ -8,12 +8,12 @@
  */
 
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::commands::streaming::BuckSubcommand;
 use buck2_client::exit_result::ExitResult;
 
 use crate::commands::docs::query::DocsCqueryCommand;
 use crate::commands::docs::query::DocsUqueryCommand;
 use crate::commands::docs::starlark::DocsStarlarkCommand;
-use crate::BuckSubcommand;
 
 mod query;
 mod starlark;

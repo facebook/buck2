@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonBuildOptions;
 use buck2_client::common::CommonConsoleOptions;
@@ -19,8 +20,6 @@ use buck2_client::exit_result::ExitResult;
 use cli_proto::InstallRequest;
 use futures::FutureExt;
 use gazebo::prelude::*;
-
-use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Build and install an application")]

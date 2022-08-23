@@ -15,6 +15,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonBuildOptions;
 use buck2_client::common::CommonConsoleOptions;
@@ -31,7 +32,6 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::commands::build::print_build_result;
-use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(

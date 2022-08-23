@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -31,7 +32,6 @@ use crate::commands::audit::prelude::AuditPreludeCommand;
 use crate::commands::audit::providers::AuditProvidersCommand;
 use crate::commands::audit::starlark::StarlarkCommand;
 use crate::commands::audit::visibility::AuditVisibilityCommand;
-use crate::StreamingCommand;
 
 pub mod analysis_queries;
 pub mod cell;

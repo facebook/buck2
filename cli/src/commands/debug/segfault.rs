@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -15,8 +16,6 @@ use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use cli_proto::SegfaultRequest;
 use futures::FutureExt;
-
-use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct SegfaultCommand {}

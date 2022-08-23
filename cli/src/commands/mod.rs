@@ -19,7 +19,6 @@ pub mod docs;
 pub mod forkserver;
 pub mod install;
 pub mod log;
-pub mod lsp;
 pub mod profile;
 pub mod rage;
 pub mod run;

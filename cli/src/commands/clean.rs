@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -18,8 +19,6 @@ use buck2_client::exit_result::ExitResult;
 use buck2_core::fs::anyhow::remove_dir_all;
 use cli_proto::CleanRequest;
 use futures::FutureExt;
-
-use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Delete generated files and caches")]

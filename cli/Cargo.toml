@@ -40,7 +40,6 @@ itertools = "0.10.0"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-lsp-server = "0.5"
 maplit = "1.0.2"
 more_futures = { path = "../shed/more_futures" }
 multimap = "0.8.3"

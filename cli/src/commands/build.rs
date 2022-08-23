@@ -18,6 +18,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonBuildOptions;
 use buck2_client::common::CommonConsoleOptions;
@@ -37,8 +38,6 @@ use futures::TryStreamExt;
 use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
-
-use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "build", about = "Build the specified targets")]

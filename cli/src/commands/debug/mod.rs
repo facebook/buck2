@@ -9,6 +9,7 @@
 
 use allocator_stats::AllocatorStatsCommand;
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::commands::streaming::BuckSubcommand;
 use buck2_client::exit_result::ExitResult;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
@@ -22,7 +23,6 @@ use replay::ReplayCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
-use crate::BuckSubcommand;
 
 mod allocator_stats;
 mod chrome_trace;

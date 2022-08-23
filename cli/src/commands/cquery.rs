@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -18,7 +19,6 @@ use cli_proto::CqueryRequest;
 use futures::FutureExt;
 
 use crate::commands::uquery::CommonQueryArgs;
-use crate::StreamingCommand;
 
 /// Perform queries on the configured target graph.
 ///

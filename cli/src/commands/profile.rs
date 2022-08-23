@@ -13,6 +13,8 @@ use std::time::Duration;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::commands::streaming::BuckSubcommand;
+use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -25,9 +27,6 @@ use cli_proto::ProfileRequest;
 use cli_proto::ProfileResponse;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
-
-use crate::BuckSubcommand;
-use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Profiling mechanisms")]

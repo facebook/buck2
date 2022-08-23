@@ -8,24 +8,24 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::stdin_stream::StdinStream;
 use cli_proto::LspRequest;
 use futures::FutureExt;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
 
-use crate::StreamingCommand;
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+use crate::stdin_stream::StdinStream;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start an LSP server for starlark files")]
-pub(crate) struct LspCommand {
+pub struct LspCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 

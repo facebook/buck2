@@ -7,5 +7,7 @@
  * of this source tree.
  */
 pub mod kill;
+pub mod lsp;
 pub mod root;
 pub mod status;
+pub mod streaming;
