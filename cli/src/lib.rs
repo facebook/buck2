@@ -36,6 +36,7 @@ use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::cquery::CqueryCommand;
 use buck2_client::commands::install::InstallCommand;
 use buck2_client::commands::kill::KillCommand;
+use buck2_client::commands::log::LogCommand;
 use buck2_client::commands::lsp::LspCommand;
 use buck2_client::commands::profile::ProfileCommand;
 use buck2_client::commands::rage::RageCommand;
@@ -66,7 +67,6 @@ use crate::commands::daemon::DaemonCommand;
 use crate::commands::debug::DebugCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
-use crate::commands::log::LogCommand;
 
 #[macro_use]
 pub mod panic;

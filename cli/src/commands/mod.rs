@@ -12,4 +12,3 @@ pub mod daemon;
 pub mod debug;
 pub mod docs;
 pub mod forkserver;
-pub mod log;

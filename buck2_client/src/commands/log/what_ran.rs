@@ -11,23 +11,24 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::stream_value::StreamValue;
-use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
-use buck2_client::subscribers::event_log::EventLogPathBuf;
-use buck2_client::what_ran;
-use buck2_client::what_ran::CommandReproducer;
-use buck2_client::what_ran::WhatRanOptions;
-use buck2_client::what_ran::WhatRanOutputCommand;
-use buck2_client::what_ran::WhatRanOutputCommandExtra;
-use buck2_client::what_ran::WhatRanOutputWriter;
-use buck2_client::what_ran::WhatRanRelevantAction;
-use buck2_client::what_ran::WhatRanState;
 use futures::TryStreamExt;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use tokio::runtime;
+
+use crate::client_ctx::ClientCommandContext;
+use crate::exit_result::ExitResult;
+use crate::stream_value::StreamValue;
+use crate::subscribers::event_log::retrieve_nth_recent_log;
+use crate::subscribers::event_log::EventLogPathBuf;
+use crate::what_ran;
+use crate::what_ran::CommandReproducer;
+use crate::what_ran::WhatRanOptions;
+use crate::what_ran::WhatRanOutputCommand;
+use crate::what_ran::WhatRanOutputCommandExtra;
+use crate::what_ran::WhatRanOutputWriter;
+use crate::what_ran::WhatRanRelevantAction;
+use crate::what_ran::WhatRanState;
 
 #[derive(
     Debug,
@@ -38,7 +39,7 @@ use tokio::runtime;
     clap::ArgEnum
 )]
 #[clap(rename_all = "snake_case")]
-pub(crate) enum WhatRanSubcommandOutput {
+pub enum WhatRanSubcommandOutput {
     Tabulated,
     Json,
 }
@@ -69,7 +70,7 @@ pub(crate) enum WhatRanSubcommandOutput {
 /// already shell-quoted.
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
-pub(crate) struct WhatRanCommand {
+pub struct WhatRanCommand {
     /// The path to read the event log from.
     #[clap(
         long,
@@ -102,7 +103,7 @@ pub(crate) struct WhatRanCommand {
 }
 
 impl WhatRanCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self {
             path,
             recent,
@@ -123,7 +124,7 @@ impl WhatRanCommand {
             let log_path = EventLogPathBuf::infer(log)?;
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            buck2_client::eprintln!(
+            crate::eprintln!(
                 "Showing commands from: {}",
                 shlex::join(invocation.command_line_args.iter().map(|e| e.as_str()))
             )?;
@@ -147,7 +148,7 @@ impl WhatRanCommand {
 /// The state for a WhatRan command. This is all the events we have seen that are
 /// WhatRanRelevantActions.
 #[derive(Default)]
-pub(crate) struct WhatRanCommandState {
+pub struct WhatRanCommandState {
     /// Maps action spans to their details.
     known_actions: HashMap<u64, buck2_data::BuckEvent>,
 }
@@ -189,7 +190,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
         match self {
             Self::Tabulated => {
-                buck2_client::println!(
+                crate::println!(
                     "{}\t{}\t{}\t{}",
                     command.reason(),
                     command.identity(),
@@ -231,7 +232,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
                 };
 
                 let serialized_command = serde_json::to_string(&command)?;
-                buck2_client::println!("{}", serialized_command)?;
+                crate::println!("{}", serialized_command)?;
             }
         };
 

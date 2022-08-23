@@ -11,12 +11,12 @@ pub mod last_log;
 pub mod show_log;
 pub mod what_ran;
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::exit_result::ExitResult;
+use crate::client_ctx::ClientCommandContext;
+use crate::exit_result::ExitResult;
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Commands for interacting with buck2 logs")]
-pub(crate) enum LogCommand {
+pub enum LogCommand {
     /// Shows the commands that buck ran
     #[clap(alias = "whatran")]
     WhatRan(what_ran::WhatRanCommand),
@@ -29,7 +29,7 @@ pub(crate) enum LogCommand {
 }
 
 impl LogCommand {
-    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::Last(cmd) => cmd.exec(matches, ctx),

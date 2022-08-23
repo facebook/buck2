@@ -13,6 +13,7 @@ pub mod clean;
 pub mod cquery;
 pub mod install;
 pub mod kill;
+pub mod log;
 pub mod lsp;
 pub mod profile;
 pub mod rage;

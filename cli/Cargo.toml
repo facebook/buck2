@@ -51,12 +51,10 @@ termimad = "0.20.1"
 termwiz = "0.15"
 thiserror = "1.0.9"
 tokio = {version = "1.5", features = ["full"]}
-tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # @oss-disable: user = { path = "../../common/rust/user", optional = true }
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
-shlex = "1.1"
 buck2_forkserver = { path = "../buck2_forkserver" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

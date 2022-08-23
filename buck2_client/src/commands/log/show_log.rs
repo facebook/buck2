@@ -9,14 +9,15 @@
 
 use std::path::PathBuf;
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::stdio;
-use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
-use buck2_client::subscribers::event_log::EventLogPathBuf;
-use buck2_client::subscribers::event_log::SerializeForLog;
 use tokio::runtime;
 use tokio_stream::StreamExt;
+
+use crate::client_ctx::ClientCommandContext;
+use crate::exit_result::ExitResult;
+use crate::stdio;
+use crate::subscribers::event_log::retrieve_nth_recent_log;
+use crate::subscribers::event_log::EventLogPathBuf;
+use crate::subscribers::event_log::SerializeForLog;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
@@ -42,7 +43,7 @@ pub struct ShowLogCommand {
 }
 
 impl ShowLogCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self { path, recent } = self;
 
         let path = match path {

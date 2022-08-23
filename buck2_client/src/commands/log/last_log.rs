@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::exit_result::ExitResult;
-use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
+use crate::client_ctx::ClientCommandContext;
+use crate::exit_result::ExitResult;
+use crate::subscribers::event_log::retrieve_nth_recent_log;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
-pub(crate) struct LastLogCommand {
+pub struct LastLogCommand {
     /// Which recent command to read the event log from.
     #[clap(
         long,
@@ -26,10 +26,10 @@ pub(crate) struct LastLogCommand {
 }
 
 impl LastLogCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self { recent } = self;
         let path = retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?;
-        buck2_client::println!("{}", path.display())?;
+        crate::println!("{}", path.display())?;
         ExitResult::success()
     }
 }
