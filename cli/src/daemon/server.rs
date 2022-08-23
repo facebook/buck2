@@ -58,7 +58,7 @@ use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
 use buck2_server::streaming_request_handler::StreamingRequestHandler;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_test::command::test;
+use buck2_test::command::test_command;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
 use cli_proto::*;
@@ -701,37 +701,8 @@ impl DaemonApi for BuckdServer {
 
     type TestStream = ResponseStream;
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let patterns_for_logging = context
-                .canonicalize_patterns_for_logging(&req.target_patterns)
-                .await?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::TestCommandStart {}.into()),
-            };
-            let test_response = span_async(start_event, async {
-                let result = test(box context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(
-                        buck2_data::TestCommandEnd {
-                            target_patterns: patterns_for_logging,
-                        }
-                        .into(),
-                    ),
-                    is_success,
-                    error_messages,
-                };
-
-                (result, end_event)
-            })
-            .await?;
-            Ok(test_response)
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            test_command(box ctx, req)
         })
         .await
     }

@@ -32,6 +32,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::HasEvents;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -166,7 +167,53 @@ impl TestStatuses {
     }
 }
 
-pub async fn test(
+pub async fn test_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: TestRequest,
+) -> anyhow::Result<TestResponse> {
+    let metadata = ctx.request_metadata()?;
+    let patterns_for_logging = ctx
+        .canonicalize_patterns_for_logging(&req.target_patterns)
+        .await?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::TestCommandStart {}.into()),
+    };
+
+    span_async(
+        start_event,
+        test_command_inner(metadata, patterns_for_logging, ctx, req),
+    )
+    .await
+}
+
+async fn test_command_inner(
+    metadata: HashMap<String, String>,
+    patterns_for_logging: Vec<buck2_data::TargetPattern>,
+    context: Box<dyn ServerCommandContextTrait>,
+    req: TestRequest,
+) -> (anyhow::Result<TestResponse>, buck2_data::CommandEnd) {
+    let result = test(context, req).await;
+    let (is_success, error_messages) = match &result {
+        Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
+        Err(e) => (false, vec![format!("{:#}", e)]),
+    };
+    let end_event = buck2_data::CommandEnd {
+        metadata: metadata.clone(),
+        data: Some(
+            buck2_data::TestCommandEnd {
+                target_patterns: patterns_for_logging,
+            }
+            .into(),
+        ),
+        is_success,
+        error_messages,
+    };
+
+    (result, end_event)
+}
+
+async fn test(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: TestRequest,
 ) -> anyhow::Result<TestResponse> {
