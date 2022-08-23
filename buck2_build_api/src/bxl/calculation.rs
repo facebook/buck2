@@ -18,7 +18,7 @@ enum BxlCalculationError {
 
 #[async_trait]
 pub trait BxlCalculationDyn: Send + Sync + 'static {
-    async fn eval_ctx(&self, ctx: &DiceComputations, bxl: BxlKey) -> SharedResult<Arc<BxlResult>>;
+    async fn eval_bxl(&self, ctx: &DiceComputations, bxl: BxlKey) -> SharedResult<Arc<BxlResult>>;
 }
 
 /// Implementation which can be used when bxl crate is not available.
@@ -26,7 +26,7 @@ pub struct BxlCalculationNoBxl;
 
 #[async_trait]
 impl BxlCalculationDyn for BxlCalculationNoBxl {
-    async fn eval_ctx(
+    async fn eval_bxl(
         &self,
         _ctx: &DiceComputations,
         _bxl: BxlKey,
@@ -46,7 +46,7 @@ impl BxlCalculation for DiceComputations {
         self.global_data()
             .get::<&'static dyn BxlCalculationDyn>()
             .map_err(SharedError::new)?
-            .eval_ctx(self, bxl)
+            .eval_bxl(self, bxl)
             .await
     }
 }
