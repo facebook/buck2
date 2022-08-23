@@ -11,6 +11,7 @@ use std::future::Future;
 use std::str::FromStr;
 
 use anyhow::Context;
+use buck2_client::verbosity::Verbosity;
 use buck2_common::result::SharedResult;
 use buck2_events::TraceId;
 use buck2_server::paths::Paths;
@@ -20,7 +21,6 @@ use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 use tokio::runtime::Builder;
 
-use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::HostPlatformOverride;
 use crate::daemon::client::replayer::Replayer;

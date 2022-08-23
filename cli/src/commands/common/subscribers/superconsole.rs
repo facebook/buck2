@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_client::verbosity::Verbosity;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -51,7 +52,6 @@ use crate::commands::common::subscribers::superconsole::test::TestState;
 use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 use crate::commands::common::subscribers::superconsole::timed_list::TimedList;
 use crate::commands::common::subscribers::SimpleConsole;
-use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::local_command_to_string;
 use crate::commands::common::what_ran::WhatRanOptions;

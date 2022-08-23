@@ -13,6 +13,7 @@ use std::borrow::Cow;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_client::verbosity::Verbosity;
 use buck2_common::convert::ProstDurationExt;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
@@ -31,8 +32,6 @@ use superconsole::style::Stylize;
 use superconsole::Lines;
 use superconsole::Span;
 use thiserror::Error;
-
-use crate::commands::common::verbosity::Verbosity;
 
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct TargetDisplayOptions {

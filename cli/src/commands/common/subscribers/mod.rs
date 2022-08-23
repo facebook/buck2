@@ -18,6 +18,7 @@ pub(crate) mod stdout_stderr_forwarder;
 pub mod superconsole;
 
 use ::superconsole::Component;
+use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
 pub(crate) use event_log::EventLog;
 use gazebo::prelude::*;
@@ -26,7 +27,6 @@ pub(crate) use simpleconsole::SimpleConsole;
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::subscribers::build_id_writer::BuildIdWriter;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
-use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 

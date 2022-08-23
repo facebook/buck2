@@ -37,7 +37,6 @@ use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
 pub(crate) mod final_console;
 pub(crate) mod find_certs;
 pub mod subscribers;
-pub(crate) mod verbosity;
 pub mod what_ran;
 
 pub const EVENT_LOG: &str = "--event-log";

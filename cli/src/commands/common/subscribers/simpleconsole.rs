@@ -15,6 +15,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::verbosity::Verbosity;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -31,7 +32,6 @@ use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::re::ReState;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::subscribers::LastCommandExecutionKind;
-use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::local_command_to_string;
 use crate::commands::common::what_ran::CommandReproducer;
