@@ -41,6 +41,11 @@ use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_fro
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetArgsProjectionTraversal;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
+/// TransitiveSetArgsProjection is the starlark value returned from the starlark method `transitive_set.project_as_args()`
+///
+/// The projected values are all stored on the TransitiveSet itself and this value will reference back to that. The main
+/// point of this object is to provide the implementation of CommandLineArgLike so that the args projection
+/// can be used in places that accept command lines.
 #[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
@@ -242,6 +247,9 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
     }
 
     fn contains_arg_attr(&self) -> bool {
+        // TODO(cjhopman): This seems wrong, there's no enforcement that the projected values don't have arg attrs (and
+        // in fact several of our common uses of in fact do have arg attrs). There doesn't seem to be any reason to
+        // not allow them, either.
         false
     }
 
@@ -249,6 +257,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
+        // TODO(cjhopman): This seems wrong, there's no verification that the projected
+        // values don't have write_to_file_macros in them.
         Ok(())
     }
 }
