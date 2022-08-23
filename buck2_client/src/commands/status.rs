@@ -9,33 +9,30 @@
 
 use std::time::Duration;
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::daemon::client::BuckdConnectOptions;
 use chrono::NaiveDateTime;
 use clap::ArgMatches;
 use futures::FutureExt;
 use humantime::format_duration;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::daemon::client::BuckdConnectOptions;
+
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Buckd status")]
-pub(crate) struct StatusCommand {
+pub struct StatusCommand {
     #[clap(long, help = "Whether to include a state snapshot in the output.")]
     snapshot: bool,
 }
 
 impl StatusCommand {
-    pub(crate) fn exec(
-        self,
-        _matches: &ArgMatches,
-        ctx: ClientCommandContext,
-    ) -> anyhow::Result<()> {
+    pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only())
                 .await
             {
                 Err(_) => {
-                    buck2_client::eprintln!("no buckd running")?;
+                    crate::eprintln!("no buckd running")?;
                     // Should this be an error?
                     Ok(())
                 }
@@ -67,7 +64,7 @@ impl StatusCommand {
                         "bytes_retained" : status.bytes_retained,
                         "snapshot": serde_json::to_value(status.snapshot)?,
                     });
-                    buck2_client::println!("{}", serde_json::to_string_pretty(&json_status)?)?;
+                    crate::println!("{}", serde_json::to_string_pretty(&json_status)?)?;
                     Ok(())
                 }
             }

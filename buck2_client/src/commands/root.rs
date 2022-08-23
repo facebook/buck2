@@ -10,9 +10,10 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use buck2_client::client_ctx::ClientCommandContext;
 use buck2_common::invocation_roots::find_invocation_roots;
 use thiserror::Error;
+
+use crate::client_ctx::ClientCommandContext;
 
 #[derive(Debug)]
 enum RootKind {
@@ -37,7 +38,7 @@ impl FromStr for RootKind {
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Find buck cell, project or package root")]
-pub(crate) struct RootCommand {
+pub struct RootCommand {
     #[clap(short, long, help("which root to print"), default_value("cell"), possible_values(&["package", "cell", "project", "daemon"]))]
     kind: RootKind,
     #[clap(
@@ -58,7 +59,7 @@ enum RootError {
 }
 
 impl RootCommand {
-    pub(crate) fn exec(
+    pub fn exec(
         self,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext,
@@ -76,7 +77,7 @@ impl RootCommand {
             RootKind::Daemon => ctx.paths()?.daemon_dir()?,
         };
 
-        buck2_client::println!("{}", root.to_string_lossy())?;
+        crate::println!("{}", root.to_string_lossy())?;
         Ok(())
     }
 }
