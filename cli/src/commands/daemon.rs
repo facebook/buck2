@@ -22,6 +22,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_audit::server::server_audit_command;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
@@ -51,8 +52,6 @@ use futures::StreamExt;
 use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
-
-use crate::commands::audit::server::server_audit_command;
 
 #[derive(Debug, Error)]
 enum DaemonError {

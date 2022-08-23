@@ -32,14 +32,14 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::ClientContext;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-dep-files",
     about = "prints out the select files for a command"
 )]
-pub(crate) struct AuditDepFilesCommand {
+pub struct AuditDepFilesCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
 

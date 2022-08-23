@@ -9,19 +9,18 @@ anyhow = "1.0.51"
 async-trait = "0.1.24"
 backtrace = "0.3.51"
 blake3 = "0.3.7"
+buck2_audit = { path = "../buck2_audit" }
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
 buck2_client = { path = "../buck2_client" }
-buck2_node = { path = "../buck2_node" }
 buck2_server = { path = "../buck2_server" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
 buck2_test = { path = "../buck2_test" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 cli_proto = { path = "../cli_proto" }
 buck2_common = { path = "../buck2_common" }
-derive_more = "0.99"
 dice = { path = "../dice/dice" }
 buck2_events = { path = "../buck2_events" }
 buck2_data = { path = "../buck2_data" }
@@ -31,17 +30,12 @@ gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 hex = "0.4.3"
 host_sharing = { path = "../host_sharing" }
-indent_write = "2.2.0"
-indexmap = { version = "1.6", features = ["serde-1"] }
-buck2_interpreter = {path = "../buck2_interpreter"}
 itertools = "0.10.0"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-maplit = "1.0.2"
 nix = "0.22"
 rand = "0.8"
-ref-cast = "1.0.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
@@ -67,6 +61,7 @@ libc = "0.2.103"
 winapi = { version = "0.3", features = ["everything"] }
 
 [dev-dependencies]
+maplit = "1.0.2"
 tempfile = "3.1"
 
 [[bin]]

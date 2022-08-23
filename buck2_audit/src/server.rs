@@ -17,7 +17,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
 use crate::AuditCommand;
 
-pub(crate) async fn server_audit_command(
+pub async fn server_audit_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::GenericRequest,
 ) -> anyhow::Result<cli_proto::GenericResponse> {

@@ -31,14 +31,14 @@ use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-providers",
     about = "prints out the providers for a target pattern"
 )]
-pub(crate) struct AuditProvidersCommand {
+pub struct AuditProvidersCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
 
@@ -110,6 +110,9 @@ impl AuditSubcommand for AuditProvidersCommand {
                     .get_configured_target(&label, target_platform.as_ref())
                     .await?;
 
+                // `.push` is deprecated in newer `futures`,
+                // but we did not updated vendored `futures` yet.
+                #[allow(deprecated)]
                 futs.push(async move {
                     let result = ctx.get_providers(&providers_label).await;
                     (providers_label, result)

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod audit;
 pub mod daemon;
 pub mod docs;
 pub mod forkserver;

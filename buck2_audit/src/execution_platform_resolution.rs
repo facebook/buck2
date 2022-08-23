@@ -25,14 +25,14 @@ use buck2_server_ctx::pattern::PatternParser;
 use cli_proto::ClientContext;
 use indent_write::io::IndentWriter;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-execution-platform-resolution",
     about = "prints out information about execution platform resolution"
 )]
-pub(crate) struct AuditExecutionPlatformResolutionCommand {
+pub struct AuditExecutionPlatformResolutionCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
 

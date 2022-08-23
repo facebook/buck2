@@ -120,6 +120,7 @@ pub(crate) fn generate_markdown_files(
 
 #[cfg(test)]
 mod tests {
+    use maplit::hashmap;
     use starlark::values::docs::*;
 
     use super::*;

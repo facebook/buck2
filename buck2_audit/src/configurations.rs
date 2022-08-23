@@ -18,14 +18,14 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use itertools::Itertools;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-configuration",
     about = "prints the constraints for configuration IDs"
 )]
-pub(crate) struct AuditConfigurationsCommand {
+pub struct AuditConfigurationsCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
 

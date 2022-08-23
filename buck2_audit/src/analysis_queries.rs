@@ -27,14 +27,14 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-analysis-queries",
     about = "buck audit analysis resolving query attrs"
 )]
-pub(crate) struct AuditAnalysisQueriesCommand {
+pub struct AuditAnalysisQueriesCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 

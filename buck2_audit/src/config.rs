@@ -25,7 +25,7 @@ use cli_proto::ClientContext;
 use gazebo::prelude::*;
 use serde_json::json;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(
     Debug,
@@ -82,7 +82,7 @@ impl FromStr for ValueStyle {
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit-config", about = "buck audit config")]
-pub(crate) struct AuditConfigCommand {
+pub struct AuditConfigCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
 

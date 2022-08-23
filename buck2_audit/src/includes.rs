@@ -51,7 +51,7 @@ use serde::Serialize;
 use serde::Serializer;
 use thiserror::Error;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, Error)]
 enum AuditIncludesError {
@@ -66,7 +66,7 @@ enum AuditIncludesError {
     name = "audit-includes",
     about = "list build file extensions imported at parse time."
 )]
-pub(crate) struct AuditIncludesCommand {
+pub struct AuditIncludesCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
 

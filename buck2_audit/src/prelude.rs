@@ -23,15 +23,16 @@ use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
+use maplit::hashmap;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-prelude",
     about = "print the interpreter prelude to stdout"
 )]
-pub(crate) struct AuditPreludeCommand {}
+pub struct AuditPreludeCommand {}
 
 #[async_trait]
 impl AuditSubcommand for AuditPreludeCommand {

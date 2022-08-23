@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(try_blocks)]
+
 use async_trait::async_trait;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::commands::streaming::StreamingCommand;
@@ -21,17 +23,17 @@ use cli_proto::ClientContext;
 use cli_proto::GenericRequest;
 use futures::FutureExt;
 
-use crate::commands::audit::analysis_queries::AuditAnalysisQueriesCommand;
-use crate::commands::audit::cell::AuditCellCommand;
-use crate::commands::audit::config::AuditConfigCommand;
-use crate::commands::audit::configurations::AuditConfigurationsCommand;
-use crate::commands::audit::dep_files::AuditDepFilesCommand;
-use crate::commands::audit::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
-use crate::commands::audit::includes::AuditIncludesCommand;
-use crate::commands::audit::prelude::AuditPreludeCommand;
-use crate::commands::audit::providers::AuditProvidersCommand;
-use crate::commands::audit::starlark::StarlarkCommand;
-use crate::commands::audit::visibility::AuditVisibilityCommand;
+use crate::analysis_queries::AuditAnalysisQueriesCommand;
+use crate::cell::AuditCellCommand;
+use crate::config::AuditConfigCommand;
+use crate::configurations::AuditConfigurationsCommand;
+use crate::dep_files::AuditDepFilesCommand;
+use crate::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
+use crate::includes::AuditIncludesCommand;
+use crate::prelude::AuditPreludeCommand;
+use crate::providers::AuditProvidersCommand;
+use crate::starlark::StarlarkCommand;
+use crate::visibility::AuditVisibilityCommand;
 
 pub mod analysis_queries;
 pub mod cell;
@@ -42,13 +44,13 @@ pub mod execution_platform_resolution;
 pub mod includes;
 pub mod prelude;
 pub mod providers;
-pub(crate) mod server;
+pub mod server;
 pub mod starlark;
 pub mod visibility;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit", about = "Perform lower level queries")]
-pub(crate) enum AuditCommand {
+pub enum AuditCommand {
     Cell(AuditCellCommand),
     Config(AuditConfigCommand),
     Configurations(AuditConfigurationsCommand),
@@ -72,7 +74,7 @@ pub(crate) enum AuditCommand {
 /// Audit subcommands implement this trait so that we can handle the entire client side
 /// logic here and to support that serialization to the daemon.
 #[async_trait]
-pub(crate) trait AuditSubcommand: Send + Sync + 'static {
+pub trait AuditSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
@@ -87,7 +89,7 @@ pub(crate) trait AuditSubcommand: Send + Sync + 'static {
 }
 
 impl AuditCommand {
-    pub(crate) async fn server_execute(
+    pub async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
         client_server_ctx: ClientContext,

@@ -30,7 +30,7 @@ use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 
-use crate::commands::audit::AuditSubcommand;
+use crate::AuditSubcommand;
 
 #[derive(thiserror::Error, Debug)]
 enum VisibilityCommandError {
@@ -45,7 +45,7 @@ enum VisibilityCommandError {
     name = "audit-visibility",
     about = "Verify the visibility for transitive deps of the specified target(s) on the unconfigured target graph"
 )]
-pub(crate) struct AuditVisibilityCommand {
+pub struct AuditVisibilityCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 

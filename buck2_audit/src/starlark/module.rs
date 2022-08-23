@@ -24,13 +24,13 @@ use cli_proto::ClientContext;
     name = "module",
     about = "Inspect Starlark module by fully qualified import string like foo//bar:baz.bzl"
 )]
-pub(crate) struct StarlarkModuleCommand {
+pub struct StarlarkModuleCommand {
     #[clap(name = "IMPORT_PATH", help = "Module import path")]
     import_path: String,
 }
 
 impl StarlarkModuleCommand {
-    pub(crate) async fn server_execute(
+    pub async fn server_execute(
         &self,
         mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+//! `buck2 audit` command implementation, both client and server.
+
 #![allow(stable_features)]
 #![feature(box_syntax)]
 #![feature(async_closure)]
@@ -20,12 +22,10 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-#[macro_use]
-extern crate maplit;
-
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use buck2_audit::AuditCommand;
 use buck2_client::args::expand_argfiles;
 use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
@@ -63,7 +63,6 @@ use clap::Parser;
 use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 
-use crate::commands::audit::AuditCommand;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;

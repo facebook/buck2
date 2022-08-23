@@ -19,13 +19,13 @@ use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
-use crate::commands::audit::starlark::module::StarlarkModuleCommand;
-use crate::commands::audit::starlark::package_deps::StarlarkPackageDepsCommand;
-use crate::commands::audit::AuditSubcommand;
+use crate::starlark::module::StarlarkModuleCommand;
+use crate::starlark::package_deps::StarlarkPackageDepsCommand;
+use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark", about = "Debug Starlark interpreter")]
-pub(crate) enum StarlarkCommand {
+pub enum StarlarkCommand {
     Module(StarlarkModuleCommand),
     PackageDeps(StarlarkPackageDepsCommand),
 }
