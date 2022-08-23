@@ -24,6 +24,7 @@ use thiserror::Error;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
 
 #[derive(Debug, Error)]
@@ -99,6 +100,23 @@ fn natives(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
         let build_context = BuildContext::from_context(eval)?;
+        if let Some(v) = &args_projections {
+            for (name, proj) in v.iter() {
+                // We should probably be able to require that the projection returns a parameters_spec, but
+                // we don't depend on this type-checking and we'd just error out later when calling it if it
+                // were wrong.
+                if let Some(v) = proj.parameters_spec() {
+                    if v.len() != 1 {
+                        return Err(TransitiveSetError::ProjectionSignatureError {
+                            name: name.clone(),
+                        }
+                        .into());
+                    }
+                };
+            }
+        }
+        // TODO(cjhopman): Reductions could do similar signature checking.
+
         Ok(TransitiveSetDefinition::new(
             build_context.starlark_path.id().clone(),
             TransitiveSetOperations {

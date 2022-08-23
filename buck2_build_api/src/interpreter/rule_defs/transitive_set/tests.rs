@@ -300,29 +300,6 @@ fn test_projection_args() -> anyhow::Result<()> {
         ),
     )?;
 
-    // old style
-    tester.run_starlark_bzl_test(indoc!(
-        r#"
-        def project(args, val):
-            if val == 1:
-                args.add("foo")
-            if val == 2:
-                args.add("bar")
-
-        FooSet = transitive_set(args_projections = {
-            "project": project
-        })
-
-        def test():
-            f2 = make_tset(FooSet, value = 2)
-            f1 = make_tset(FooSet, value = 1, children = [f2])
-            proj = f1.project_as_args("project")
-
-            assert_eq(["foo", "bar"], get_args(proj))
-        "#
-    ))?;
-
-    // new style
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def project(val):
@@ -361,9 +338,8 @@ fn test_projection_inputs() -> anyhow::Result<()> {
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
-        def project(args, value):
-            for artifact in value:
-                args.add(artifact)
+        def project(value):
+            return value
 
         FooSet = transitive_set(args_projections = {
             "project": project
@@ -399,8 +375,8 @@ fn test_projection_iteration() -> anyhow::Result<()> {
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
-        def project(args, value):
-            args.add(value)
+        def project(value):
+            return value
 
         FooSet = transitive_set(args_projections = {
             "project": project

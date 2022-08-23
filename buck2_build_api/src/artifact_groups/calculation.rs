@@ -329,8 +329,8 @@ mod tests {
     async fn test_ensure_artifact_group() -> anyhow::Result<()> {
         let set = testing::new_transitive_set(indoc!(
             r#"
-            def project(args, value):
-                args.add(value)
+            def project(value):
+                return value
 
             TestSet = transitive_set(args_projections = {
                 "project": project
