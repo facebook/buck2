@@ -14,6 +14,7 @@ use std::io::Write;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::exit_result::ExitResult;
+use buck2_client::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use cli_proto::build_request::build_providers;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;
@@ -24,7 +25,6 @@ use thiserror::Error;
 
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::build::print_build_result;
-use crate::commands::common::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;

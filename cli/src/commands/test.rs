@@ -10,6 +10,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::final_console::FinalConsole;
+use buck2_client::subscribers::superconsole::test::StylizedCount;
+use buck2_client::subscribers::superconsole::test::TestHeader;
 use cli_proto::CounterWithExamples;
 use cli_proto::TestRequest;
 use cli_proto::TestSessionOptions;
@@ -19,8 +21,6 @@ use gazebo::prelude::*;
 
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::build::print_build_result;
-use crate::commands::common::subscribers::superconsole::test::StylizedCount;
-use crate::commands::common::subscribers::superconsole::test::TestHeader;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;

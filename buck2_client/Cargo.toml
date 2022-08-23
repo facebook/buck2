@@ -11,6 +11,7 @@ async-trait = "0.1.24"
 bytes = { version = "1.1.0" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
 chrono = "0.4.19"
+crossterm = "0.23"
 derive_more = "0.99.3"
 futures = "0.3"
 # @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps", optional = true }
@@ -41,6 +42,7 @@ buck2_test_api = { path = "../buck2_test_api" }
 cli_proto = { path = "../cli_proto" }
 
 [dev-dependencies]
+pretty_assertions = "0.6"
 tempfile = "3.1.0"
 
 [features]

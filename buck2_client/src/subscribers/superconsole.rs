@@ -12,12 +12,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_client::subscribers::display;
-use buck2_client::subscribers::display::TargetDisplayOptions;
-use buck2_client::verbosity::Verbosity;
-use buck2_client::what_ran;
-use buck2_client::what_ran::local_command_to_string;
-use buck2_client::what_ran::WhatRanOptions;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -43,17 +37,23 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 use superconsole::State;
-pub(crate) use superconsole::SuperConsole;
+pub use superconsole::SuperConsole;
 
-use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsComponent;
-use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsState;
-use crate::commands::common::subscribers::superconsole::dice::DiceComponent;
-use crate::commands::common::subscribers::superconsole::dice::DiceState;
-use crate::commands::common::subscribers::superconsole::re::ReHeader;
-use crate::commands::common::subscribers::superconsole::test::TestState;
-use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
-use crate::commands::common::subscribers::superconsole::timed_list::TimedList;
-use crate::commands::common::subscribers::SimpleConsole;
+use crate::subscribers::display;
+use crate::subscribers::display::TargetDisplayOptions;
+use crate::subscribers::simpleconsole::SimpleConsole;
+use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
+use crate::subscribers::superconsole::debug_events::DebugEventsState;
+use crate::subscribers::superconsole::dice::DiceComponent;
+use crate::subscribers::superconsole::dice::DiceState;
+use crate::subscribers::superconsole::re::ReHeader;
+use crate::subscribers::superconsole::test::TestState;
+use crate::subscribers::superconsole::timed_list::Cutoffs;
+use crate::subscribers::superconsole::timed_list::TimedList;
+use crate::verbosity::Verbosity;
+use crate::what_ran;
+use crate::what_ran::local_command_to_string;
+use crate::what_ran::WhatRanOptions;
 
 mod common;
 pub mod debug_events;
@@ -78,7 +78,7 @@ const CUTOFFS: Cutoffs = Cutoffs {
 };
 const MAX_EVENTS: usize = 10;
 
-pub(crate) struct StatefulSuperConsole {
+pub struct StatefulSuperConsole {
     state: SuperConsoleState,
     super_console: Option<SuperConsole>,
     verbosity: Verbosity,
@@ -92,7 +92,7 @@ struct TimeSpeed {
 const TIMESPEED_DEFAULT: f64 = 1.0;
 
 impl TimeSpeed {
-    pub(crate) fn new(speed_value: Option<f64>) -> anyhow::Result<Self> {
+    pub fn new(speed_value: Option<f64>) -> anyhow::Result<Self> {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
@@ -101,7 +101,7 @@ impl TimeSpeed {
         Ok(TimeSpeed { speed })
     }
 
-    pub(crate) fn speed(self) -> f64 {
+    pub fn speed(self) -> f64 {
         self.speed
     }
 }
@@ -118,7 +118,7 @@ struct SuperConsoleState {
 }
 
 #[derive(Default)]
-pub(crate) struct SuperConsoleConfig {
+pub struct SuperConsoleConfig {
     // Offer a spot to put components between the banner and the timed list using `sandwiched`.
     pub sandwiched: Option<Box<dyn Component>>,
     pub enable_dice: bool,
@@ -126,10 +126,7 @@ pub(crate) struct SuperConsoleConfig {
 }
 
 impl StatefulSuperConsole {
-    pub(crate) fn default_layout(
-        command_name: &str,
-        config: SuperConsoleConfig,
-    ) -> Box<dyn Component> {
+    pub fn default_layout(command_name: &str, config: SuperConsoleConfig) -> Box<dyn Component> {
         let header = format!("Working on tasks for command: `{}`.", command_name);
         let mut components: Vec<Box<dyn Component>> =
             vec![box SessionInfoComponent, ReHeader::boxed()];
@@ -148,7 +145,7 @@ impl StatefulSuperConsole {
         box Bounded::new(root, Some(SUPERCONSOLE_WIDTH), None)
     }
 
-    pub(crate) fn new_with_root_forced(
+    pub fn new_with_root_forced(
         root: Box<dyn Component>,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -163,7 +160,7 @@ impl StatefulSuperConsole {
         )
     }
 
-    pub(crate) fn new_with_root(
+    pub fn new_with_root(
         root: Box<dyn Component>,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -180,7 +177,7 @@ impl StatefulSuperConsole {
         }
     }
 
-    pub(crate) fn new(
+    pub fn new(
         super_console: SuperConsole,
         verbosity: Verbosity,
         show_waiting_message: bool,

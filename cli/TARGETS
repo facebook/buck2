@@ -33,7 +33,6 @@ rust_library(
     ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
-        "fbsource//third-party/rust:pretty_assertions",
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
@@ -88,7 +87,6 @@ rust_library(
         "//buck2/buck2_server:buck2_server",
         "//buck2/buck2_server_ctx:buck2_server_ctx",
         "//buck2/buck2_test:buck2_test",
-        "//buck2/buck2_test_api:buck2_test_api",
         "//buck2/cli_proto:cli_proto",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/gazebo:gazebo",

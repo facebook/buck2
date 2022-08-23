@@ -36,8 +36,6 @@ mod imp {
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
 
-    use crate::commands::common::subscribers;
-
     pub struct InvocationRecorder {
         start_time: Instant,
         async_cleanup_context: AsyncCleanupContext,

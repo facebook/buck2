@@ -21,7 +21,7 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
 
-use crate::commands::common::subscribers::superconsole::SessionInfo;
+use crate::subscribers::superconsole::SessionInfo;
 
 #[derive(Default)]
 pub(crate) struct TestState {
@@ -152,10 +152,10 @@ impl Component for TestCounterComponent {
 
 /// Draw the test summary line above the `timed_list`
 #[derive(Debug)]
-pub(crate) struct TestHeader(Box<dyn Component>);
+pub struct TestHeader(Box<dyn Component>);
 
 impl TestHeader {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self(box TestCounterComponent)
     }
 }
@@ -177,7 +177,7 @@ impl Component for TestHeader {
 }
 
 /// A count that receives color if and only if it's > 0
-pub(crate) struct StylizedCount {
+pub struct StylizedCount {
     pub label: &'static str,
     pub count: u64,
     pub color: Color,
@@ -185,7 +185,7 @@ pub(crate) struct StylizedCount {
 
 impl StylizedCount {
     /// Turn this StylizedCount into a Superconsole Span.
-    pub(crate) fn to_span(&self) -> anyhow::Result<superconsole::Span> {
+    pub fn to_span(&self) -> anyhow::Result<superconsole::Span> {
         let mut style = ContentStyle::default();
         if self.count > 0 {
             style.foreground_color = Some(self.color);
@@ -196,12 +196,12 @@ impl StylizedCount {
     }
 
     /// Turn this StylizedCount into output suitable for stdio.
-    pub(crate) fn to_stdio(&self) -> StylizedCountForStdio<'_> {
+    pub fn to_stdio(&self) -> StylizedCountForStdio<'_> {
         StylizedCountForStdio { inner: self }
     }
 }
 
-pub(crate) struct StylizedCountForStdio<'a> {
+pub struct StylizedCountForStdio<'a> {
     inner: &'a StylizedCount,
 }
 

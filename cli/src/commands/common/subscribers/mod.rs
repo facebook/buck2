@@ -8,18 +8,17 @@
  */
 
 pub(crate) mod recorder;
-pub mod superconsole;
 
 use ::superconsole::Component;
 use buck2_client::subscribers::build_id_writer::BuildIdWriter;
 pub(crate) use buck2_client::subscribers::event_log::EventLog;
 pub(crate) use buck2_client::subscribers::simpleconsole::SimpleConsole;
+use buck2_client::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 

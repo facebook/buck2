@@ -61,7 +61,6 @@ superconsole = { version = "0.1.0", path = "../superconsole" }
 sync_wrapper = "0.1.0"
 termimad = "0.20.1"
 termwiz = "0.15"
-buck2_test_api = { path = "../buck2_test_api" }
 thiserror = "1.0.9"
 tracing = "0.1.22"
 tokio = {version = "1.5", features = ["full"]}
@@ -88,7 +87,6 @@ winapi = { version = "0.3", features = ["everything"] }
 
 [dev-dependencies]
 assert_matches = "1.5"
-pretty_assertions = "0.6"
 tempfile = "3.1"
 
 [[bin]]
