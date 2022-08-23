@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -34,11 +35,13 @@ use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
+use buck2_core::facebook_only;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -46,6 +49,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::metadata;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
@@ -468,5 +472,95 @@ impl ServerCommandContextTrait for ServerCommandContext {
             _phantom: PhantomData,
             inner: BufWriter::with_capacity(4096, RawOutputWriter::new(self)?),
         })
+    }
+
+    /// Gathers metadata to attach to events for when a command starts and stops.
+    fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>> {
+        // Facebook only: metadata collection for Scribe writes
+        facebook_only();
+
+        fn add_config(
+            map: &mut HashMap<String, String>,
+            cfg: &LegacyBuckConfig,
+            section: &'static str,
+            key: &'static str,
+            field_name: &'static str,
+        ) {
+            if let Some(value) = cfg.get(section, key) {
+                map.insert(field_name.to_owned(), value.to_owned());
+            }
+        }
+
+        fn extract_scuba_defaults(
+            config: Option<&LegacyBuckConfig>,
+        ) -> Option<serde_json::Map<String, serde_json::Value>> {
+            let config = config?.get("scuba", "defaults")?;
+            let unescaped_config = shlex::split(config)?.join("");
+            let sample_json: serde_json::Value = serde_json::from_str(&unescaped_config).ok()?;
+            sample_json.get("normals")?.as_object().cloned()
+        }
+
+        let mut metadata = metadata::collect();
+        // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
+        // error. We won't be able to get configs to log in that case, but we shouldn't crash.
+        if let Ok((cells, configs)) = self.cells_and_configs() {
+            let root_cell_config = configs.get(cells.root_cell());
+            if let Ok(config) = root_cell_config {
+                add_config(&mut metadata, config, "log", "repository", "repository");
+
+                // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
+                // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
+                // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
+                // least some of the data within it.
+                //
+                // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
+                // to say something like this:
+                // ```
+                // {
+                //   "normals": { "key": "value" },
+                //   "ints": { "key": 0 },
+                // }
+                // ```
+                //
+                // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
+                // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
+                // to consider adding support to the protocol for integer metadata.
+
+                if let Ok(cwd_cell_name) = cells.find(&self.working_dir) {
+                    let cwd_cell_config = configs.get(cwd_cell_name).ok();
+                    if let Some(normals_obj) = extract_scuba_defaults(cwd_cell_config) {
+                        for (key, value) in normals_obj.iter() {
+                            if let Some(value) = value.as_str() {
+                                metadata.insert(key.clone(), value.to_owned());
+                            }
+                        }
+                    }
+
+                    // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
+                    // the root cell.
+                    if let Some(config) = cwd_cell_config {
+                        add_config(&mut metadata, config, "client", "id", "client");
+                        add_config(
+                            &mut metadata,
+                            config,
+                            "cache",
+                            "schedule_type",
+                            "schedule_type",
+                        );
+                    }
+                }
+            }
+        }
+
+        metadata.insert(
+            "io_provider".to_owned(),
+            self.base_context.io.name().to_owned(),
+        );
+
+        if let Some(oncall) = &self.oncall {
+            metadata.insert("oncall".to_owned(), oncall.clone());
+        }
+
+        Ok(metadata)
     }
 }
