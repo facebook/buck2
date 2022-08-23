@@ -11,6 +11,8 @@ use std::fmt;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use buck2_client::what_ran::WhatRanRelevantAction;
+use buck2_client::what_ran::WhatRanState;
 use buck2_data::SpanStartEvent;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::BuckEvent;
@@ -18,9 +20,6 @@ use buck2_events::SpanId;
 use derive_more::From;
 use gazebo::prelude::*;
 use linked_hash_map::LinkedHashMap;
-
-use crate::commands::common::what_ran::WhatRanRelevantAction;
-use crate::commands::common::what_ran::WhatRanState;
 
 #[derive(Debug, thiserror::Error)]
 enum SpanTrackerError {

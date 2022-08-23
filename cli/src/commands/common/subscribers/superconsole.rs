@@ -15,6 +15,9 @@ use async_trait::async_trait;
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::display::TargetDisplayOptions;
 use buck2_client::verbosity::Verbosity;
+use buck2_client::what_ran;
+use buck2_client::what_ran::local_command_to_string;
+use buck2_client::what_ran::WhatRanOptions;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -42,7 +45,6 @@ use superconsole::Span;
 use superconsole::State;
 pub(crate) use superconsole::SuperConsole;
 
-use crate::commands::common::subscribers::simpleconsole::WhatRanCommandConsoleFormat;
 use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsState;
 use crate::commands::common::subscribers::superconsole::dice::DiceComponent;
@@ -52,11 +54,6 @@ use crate::commands::common::subscribers::superconsole::test::TestState;
 use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 use crate::commands::common::subscribers::superconsole::timed_list::TimedList;
 use crate::commands::common::subscribers::SimpleConsole;
-use crate::commands::common::what_ran;
-use crate::commands::common::what_ran::local_command_to_string;
-use crate::commands::common::what_ran::WhatRanOptions;
-use crate::commands::common::what_ran::WhatRanOutputCommand;
-use crate::commands::common::what_ran::WhatRanOutputWriter;
 
 mod common;
 pub mod debug_events;
@@ -820,19 +817,6 @@ mod tests {
             .handle_command_result(&cli_proto::CommandResult { result: None })
             .await?;
 
-        Ok(())
-    }
-}
-
-impl WhatRanOutputWriter for SuperConsole {
-    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
-        let msg = WhatRanCommandConsoleFormat {
-            reason: command.reason(),
-            identity: command.identity(),
-            repro: command.repro(),
-        }
-        .to_string();
-        self.emit(vec![superconsole::line![Span::sanitized(msg)]]);
         Ok(())
     }
 }

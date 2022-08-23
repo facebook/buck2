@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::fmt;
 use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
@@ -18,6 +17,12 @@ use async_trait::async_trait;
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::display::TargetDisplayOptions;
 use buck2_client::verbosity::Verbosity;
+use buck2_client::what_ran;
+use buck2_client::what_ran::local_command_to_string;
+use buck2_client::what_ran::WhatRanCommandConsoleFormat;
+use buck2_client::what_ran::WhatRanOptions;
+use buck2_client::what_ran::WhatRanOutputCommand;
+use buck2_client::what_ran::WhatRanOutputWriter;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -32,12 +37,6 @@ use crate::commands::common::subscribers;
 use crate::commands::common::subscribers::re::ReState;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::subscribers::LastCommandExecutionKind;
-use crate::commands::common::what_ran;
-use crate::commands::common::what_ran::local_command_to_string;
-use crate::commands::common::what_ran::CommandReproducer;
-use crate::commands::common::what_ran::WhatRanOptions;
-use crate::commands::common::what_ran::WhatRanOutputCommand;
-use crate::commands::common::what_ran::WhatRanOutputWriter;
 
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
@@ -559,26 +558,6 @@ impl EventSubscriber for SimpleConsole {
     ) -> anyhow::Result<()> {
         self.re_state_mut().update(update);
         Ok(())
-    }
-}
-
-/// A consistent format for printing that we are about to run an action.
-pub(crate) struct WhatRanCommandConsoleFormat<'a, 'b> {
-    pub reason: &'a str,
-    pub identity: &'a str,
-    pub repro: CommandReproducer<'b>,
-}
-
-impl<'a, 'b> fmt::Display for WhatRanCommandConsoleFormat<'a, 'b> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Running action: {} ({}), {} executor: {}",
-            self.identity,
-            self.reason,
-            self.repro.executor(),
-            self.repro.as_human_readable()
-        )
     }
 }
 

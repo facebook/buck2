@@ -10,13 +10,16 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use buck2_client::subscribers::display;
-use buck2_client::subscribers::display::TargetDisplayOptions;
 use gazebo::dupe::Dupe;
+use superconsole::Span;
+use superconsole::SuperConsole;
+
+use crate::subscribers::display;
+use crate::subscribers::display::TargetDisplayOptions;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]
-pub(crate) struct WhatRanOptions {
+pub struct WhatRanOptions {
     #[clap(long)]
     pub emit_cache_queries: bool,
     #[clap(long)]
@@ -28,7 +31,7 @@ pub(crate) struct WhatRanOptions {
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
-pub(crate) enum WhatRanRelevantAction<'a> {
+pub enum WhatRanRelevantAction<'a> {
     ActionExecution(&'a buck2_data::ActionExecutionStart),
     TestDiscovery(&'a buck2_data::TestDiscoveryStart),
     TestRun(&'a buck2_data::TestRunStart),
@@ -36,7 +39,7 @@ pub(crate) enum WhatRanRelevantAction<'a> {
 
 impl<'a> WhatRanRelevantAction<'a> {
     /// Extract a relevant action from an event's data, if we can find one.
-    pub(crate) fn from_buck_data(data: &'a buck2_data::buck_event::Data) -> Option<Self> {
+    pub fn from_buck_data(data: &'a buck2_data::buck_event::Data) -> Option<Self> {
         match data {
             buck2_data::buck_event::Data::SpanStart(span) => match &span.data {
                 Some(buck2_data::span_start_event::Data::ActionExecution(action)) => {
@@ -55,7 +58,7 @@ impl<'a> WhatRanRelevantAction<'a> {
     }
 }
 
-pub(crate) struct WhatRanOutputCommand<'a> {
+pub struct WhatRanOutputCommand<'a> {
     reason: &'a str,
     identity: &'a str,
     repro: CommandReproducer<'a>,
@@ -63,40 +66,40 @@ pub(crate) struct WhatRanOutputCommand<'a> {
 }
 
 impl WhatRanOutputCommand<'_> {
-    pub(crate) fn reason(&self) -> &str {
+    pub fn reason(&self) -> &str {
         self.reason
     }
-    pub(crate) fn identity(&self) -> &str {
+    pub fn identity(&self) -> &str {
         self.identity
     }
-    pub(crate) fn repro(&self) -> CommandReproducer<'_> {
+    pub fn repro(&self) -> CommandReproducer<'_> {
         self.repro
     }
-    pub(crate) fn extra(&self) -> Option<WhatRanOutputCommandExtra<'_>> {
+    pub fn extra(&self) -> Option<WhatRanOutputCommandExtra<'_>> {
         self.extra
     }
 }
 
 #[derive(Clone, Copy, Dupe)]
-pub(crate) enum WhatRanOutputCommandExtra<'a> {
+pub enum WhatRanOutputCommandExtra<'a> {
     TestCases(&'a [String]),
 }
 
 /// Output to log commands that ran. The expectation is that we can use this to print out events.
-pub(crate) trait WhatRanOutputWriter {
+pub trait WhatRanOutputWriter {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()>;
 }
 
 /// Storage provided for events. The expectations is that any previously event that would qualify
 /// as a WhatRanRelevantAction was captured in this and will be returned.
-pub(crate) trait WhatRanState<T> {
+pub trait WhatRanState<T> {
     fn get(&self, span_id: T) -> Option<WhatRanRelevantAction<'_>>;
 }
 
 /// Presented with an event and its containing span, emit it to the output if it's relevant. The
 /// state is used to associate the parent with something meaningful. This does not take the parent
 /// directly because *most* events are *not* relevant so we save the lookup in that case.
-pub(crate) fn emit_event_if_relevant<T: fmt::Display + Copy>(
+pub fn emit_event_if_relevant<T: fmt::Display + Copy>(
     parent_span_id: T,
     data: &buck2_data::buck_event::Data,
     state: &impl WhatRanState<T>,
@@ -221,7 +224,7 @@ fn emit<T: fmt::Display + Copy>(
 
 /// The reproduction details for this command.
 #[derive(Clone, Copy, Dupe)]
-pub(crate) enum CommandReproducer<'a> {
+pub enum CommandReproducer<'a> {
     CacheQuery(&'a buck2_data::CacheQuery),
     CacheHit(&'a buck2_data::CacheHit),
     ReExecute(&'a buck2_data::ReExecute),
@@ -229,7 +232,7 @@ pub(crate) enum CommandReproducer<'a> {
 }
 
 impl<'a> CommandReproducer<'a> {
-    pub(crate) fn executor(&self) -> &'static str {
+    pub fn executor(&self) -> &'static str {
         match self {
             Self::CacheQuery(..) => "cache_query",
             Self::CacheHit(..) => "cache",
@@ -239,13 +242,13 @@ impl<'a> CommandReproducer<'a> {
     }
 
     /// Human-readable representation of this repro instruction
-    pub(crate) fn as_human_readable(&self) -> HumanReadableCommandReproducer<'a> {
+    pub fn as_human_readable(&self) -> HumanReadableCommandReproducer<'a> {
         HumanReadableCommandReproducer { command: *self }
     }
 }
 
 /// A wrapper type to output CommandReproducer as a human readable string.
-pub(crate) struct HumanReadableCommandReproducer<'a> {
+pub struct HumanReadableCommandReproducer<'a> {
     command: CommandReproducer<'a>,
 }
 
@@ -272,7 +275,7 @@ impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
     }
 }
 
-pub(crate) fn local_command_to_string(command: &buck2_data::LocalCommand) -> String {
+pub fn local_command_to_string(command: &buck2_data::LocalCommand) -> String {
     let mut cmd = vec![];
 
     if !command.env.is_empty() {
@@ -288,4 +291,37 @@ pub(crate) fn local_command_to_string(command: &buck2_data::LocalCommand) -> Str
     }
 
     shlex::join(cmd.iter().map(|e| e.as_ref()))
+}
+
+impl WhatRanOutputWriter for SuperConsole {
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+        let msg = WhatRanCommandConsoleFormat {
+            reason: command.reason(),
+            identity: command.identity(),
+            repro: command.repro(),
+        }
+        .to_string();
+        self.emit(vec![superconsole::line![Span::sanitized(msg)]]);
+        Ok(())
+    }
+}
+
+/// A consistent format for printing that we are about to run an action.
+pub struct WhatRanCommandConsoleFormat<'a, 'b> {
+    pub reason: &'a str,
+    pub identity: &'a str,
+    pub repro: CommandReproducer<'b>,
+}
+
+impl<'a, 'b> fmt::Display for WhatRanCommandConsoleFormat<'a, 'b> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Running action: {} ({}), {} executor: {}",
+            self.identity,
+            self.reason,
+            self.repro.executor(),
+            self.repro.as_human_readable()
+        )
+    }
 }
