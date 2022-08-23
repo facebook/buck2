@@ -17,11 +17,11 @@ pub(crate) struct StdoutStderrForwarder;
 #[async_trait]
 impl EventSubscriber for StdoutStderrForwarder {
     async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
-        crate::eprintln!("{}", stderr)?;
+        buck2_client::eprintln!("{}", stderr)?;
         Ok(())
     }
     async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        crate::eprint!("{}", raw_output)?;
+        buck2_client::eprint!("{}", raw_output)?;
         Ok(())
     }
 }

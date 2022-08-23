@@ -77,7 +77,7 @@ impl RootCommand {
             RootKind::Daemon => ctx.paths()?.daemon_dir()?,
         };
 
-        crate::println!("{}", root.to_string_lossy())?;
+        buck2_client::println!("{}", root.to_string_lossy())?;
         Ok(())
     }
 }

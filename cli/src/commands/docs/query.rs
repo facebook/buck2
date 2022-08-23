@@ -46,7 +46,7 @@ fn output(options: QueryDocsOptions, description: QueryEnvironmentDescription) -
             let markdown = description.render_markdown(&MarkdownOptions {
                 include_alt_text: true,
             });
-            crate::println!("{}", markdown)?;
+            buck2_client::println!("{}", markdown)?;
         }
         DocsOutputFormatArg::Rendered => {
             let markdown = description.render_markdown(&MarkdownOptions {
@@ -56,7 +56,7 @@ fn output(options: QueryDocsOptions, description: QueryEnvironmentDescription) -
             let area = termimad::Area::full_screen();
             let width = std::cmp::min(100, area.width) as usize;
             let rendered = skin.text(&markdown, Some(width));
-            crate::println!("{}", rendered)?;
+            buck2_client::println!("{}", rendered)?;
         }
     }
     ExitResult::success()

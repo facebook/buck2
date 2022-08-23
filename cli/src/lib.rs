@@ -93,7 +93,6 @@ mod client_command_context;
 pub mod commands;
 pub mod daemon;
 mod stdin_stream;
-mod stdio;
 pub mod version;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
@@ -373,7 +372,7 @@ impl CommandKind {
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
-                crate::eprintln!(
+                buck2_client::eprintln!(
                     "WARNING: \"buck2 query\" is an alias for \"buck2 uquery\". Consider using \"buck2 cquery\" or \"buck2 uquery\" explicitly."
                 )?;
                 cmd.exec(matches, command_ctx)

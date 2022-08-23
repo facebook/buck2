@@ -304,7 +304,7 @@ impl BuckdClient {
             WaitFor::WaitTimedOut => {
                 match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
                     Ok(()) => {
-                        crate::eprintln!("Graceful shutdown timed out. Sending SIGKILL.")?;
+                        buck2_client::eprintln!("Graceful shutdown timed out. Sending SIGKILL.")?;
                     }
                     Err(nix::errno::Errno::ESRCH) => return Ok(()),
                     Err(e) => return Err(e).context("Failed to kill daemon"),

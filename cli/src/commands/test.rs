@@ -182,12 +182,12 @@ impl StreamingCommand for TestCommand {
         print_build_result(&console, &response.error_messages)?;
 
         // TODO(nmj): Might make sense for us to expose the event ctx, and use its
-        //            handle_stdout method, instead of raw crate::println!s here.
+        //            handle_stdout method, instead of raw buck2_client::println!s here.
         // TODO: also remove the duplicate information when the above is done.
 
-        crate::print!("Tests finished: ")?;
+        buck2_client::print!("Tests finished: ")?;
         if listing_failed.count > 0 {
-            crate::print!(
+            buck2_client::print!(
                 "{}. ",
                 StylizedCount {
                     label: "Listing Fail",
@@ -197,7 +197,7 @@ impl StreamingCommand for TestCommand {
                 .to_stdio(),
             )?;
         }
-        crate::println!(
+        buck2_client::println!(
             "{}. {}. {}. {}. {} builds failed",
             StylizedCount {
                 label: "Pass",

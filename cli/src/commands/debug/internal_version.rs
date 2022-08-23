@@ -21,7 +21,7 @@ impl InternalVersionCommand {
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
     ) -> ExitResult {
-        crate::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
+        buck2_client::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
         ExitResult::success()
     }
 }

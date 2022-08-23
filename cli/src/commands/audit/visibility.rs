@@ -118,14 +118,14 @@ impl AuditVisibilityCommand {
         }
 
         for err in &visibility_errors {
-            crate::eprintln!("{}", err)?;
+            buck2_client::eprintln!("{}", err)?;
         }
 
         if !visibility_errors.is_empty() {
             return Err(anyhow::anyhow!("{}", 1));
         }
 
-        crate::eprintln!("audit visibility succeeded")?;
+        buck2_client::eprintln!("audit visibility succeeded")?;
         Ok(())
     }
 }

@@ -57,7 +57,7 @@ impl StreamingCommand for AllocatorStatsCommand {
             })
             .await??;
 
-        crate::print!("{}", res.response)?;
+        buck2_client::print!("{}", res.response)?;
 
         ExitResult::success()
     }

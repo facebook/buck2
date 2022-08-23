@@ -15,7 +15,7 @@ use std::fmt::Arguments;
 use std::io;
 use std::io::Write;
 
-use buck2_client::exit_result::FailureExitCode;
+use crate::exit_result::FailureExitCode;
 
 #[macro_export]
 macro_rules! print {
@@ -63,11 +63,11 @@ macro_rules! eprintln {
     };
 }
 
-pub(crate) fn _print(fmt: Arguments) -> anyhow::Result<()> {
+pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
     print(io::stdout().lock(), fmt, FailureExitCode::StdoutBrokenPipe)
 }
 
-pub(crate) fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
+pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
     print(io::stderr().lock(), fmt, FailureExitCode::StderrBrokenPipe)
 }
 
@@ -81,7 +81,7 @@ fn print(mut writer: impl Write, fmt: Arguments, err: FailureExitCode) -> anyhow
     })
 }
 
-pub(crate) fn print_bytes(vec: &[u8]) -> anyhow::Result<()> {
+pub fn print_bytes(vec: &[u8]) -> anyhow::Result<()> {
     io::stdout().lock().write_all(vec).map_err(|e| {
         if e.kind() == io::ErrorKind::BrokenPipe {
             anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)

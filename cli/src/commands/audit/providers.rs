@@ -134,9 +134,9 @@ impl AuditSubcommand for AuditProvidersCommand {
                 }
                 Err(e) => {
                     if self.quiet {
-                        crate::eprintln!("{}: failed: {:#}", target, e)?;
+                        buck2_client::eprintln!("{}: failed: {:#}", target, e)?;
                     } else {
-                        crate::eprintln!("{}: \n{:#}", target, e)?;
+                        buck2_client::eprintln!("{}: \n{:#}", target, e)?;
                     }
                 }
             }

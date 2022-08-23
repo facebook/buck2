@@ -73,8 +73,10 @@ impl<T: Send + Sync + 'static> StdinStream<T> {
                             std::thread::sleep(Duration::from_millis(100));
                         }
                         Err(e) => {
-                            let _ignore =
-                                crate::eprintln!("Could not read message from stdin: `{}`", e);
+                            let _ignore = buck2_client::eprintln!(
+                                "Could not read message from stdin: `{}`",
+                                e
+                            );
                             break;
                         }
                     }

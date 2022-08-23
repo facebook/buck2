@@ -90,7 +90,7 @@ impl StreamingCommand for RageCommand {
             .await?;
 
         if logs_summary.is_empty() {
-            crate::eprintln!("No recent buck invocation to report")?;
+            buck2_client::eprintln!("No recent buck invocation to report")?;
             return ExitResult::failure();
         }
         let chosen_log = user_prompt_select_log(&logs_summary).await?;
@@ -125,7 +125,7 @@ impl StreamingCommand for RageCommand {
             .as_path()
             .join(Path::new(&dice_dump_folder_name));
 
-        crate::eprintln!("Dumping Buck2 internal state...")?;
+        buck2_client::eprintln!("Dumping Buck2 internal state...")?;
 
         buckd
             .with_flushing(|client| {
@@ -146,7 +146,7 @@ impl StreamingCommand for RageCommand {
 
         // create dice dump name using the old command being rage on and the trace id of this rage command.
         let filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id,);
-        crate::eprintln!(
+        buck2_client::eprintln!(
             "Compressed internal state file being uploaded to manifold as {}...",
             &filename
         )?;
@@ -269,11 +269,11 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
 async fn user_prompt_select_log(
     logs_summary: &[EventLogSummary],
 ) -> anyhow::Result<&EventLogSummary> {
-    crate::eprintln!("Which buck invocation would you like to report?\n")?;
+    buck2_client::eprintln!("Which buck invocation would you like to report?\n")?;
     for (index, log_summary) in logs_summary.iter().enumerate() {
         print_log_summary(index, log_summary)?;
     }
-    crate::eprintln!()?;
+    buck2_client::eprintln!()?;
     let prompt = format!(
         "Invocation: (type a number between 0 and {}) ",
         logs_summary.len() - 1
@@ -283,7 +283,7 @@ async fn user_prompt_select_log(
     let chosen_log = logs_summary.get(selection).expect("Selection out of range");
 
     let timestamp: DateTime<Local> = chosen_log.timestamp.into();
-    crate::eprintln!("Selected invocation at {}\n", timestamp.format("%c %Z"))?;
+    buck2_client::eprintln!("Selected invocation at {}\n", timestamp.format("%c %Z"))?;
 
     Ok(chosen_log)
 }
@@ -292,7 +292,7 @@ async fn get_user_selection<P>(prompt: &str, predicate: P) -> anyhow::Result<usi
 where
     P: Fn(usize) -> bool,
 {
-    crate::eprint!("{}", prompt)?;
+    buck2_client::eprint!("{}", prompt)?;
     // For interactive uses, it is recommended to spawn a thread dedicated to user input and
     // use blocking IO directly in that thread, instead of using tokio::io::Stdin directly
     // https://docs.rs/tokio/latest/tokio/io/struct.Stdin.html
@@ -324,7 +324,7 @@ fn print_log_summary(index: usize, log_summary: &EventLogSummary) -> anyhow::Res
     }
 
     let timestamp: DateTime<Local> = log_summary.timestamp.into();
-    crate::eprintln!(
+    buck2_client::eprintln!(
         "{:<7} {}    {}",
         format!("[{}].", index),
         timestamp.format("%c %Z"),

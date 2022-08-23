@@ -37,7 +37,7 @@ impl StreamingCommand for ServerCommand {
         let status = buckd
             .with_flushing(|client| client.status(false).boxed())
             .await??;
-        crate::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
+        buck2_client::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
         ExitResult::success()
     }
 

@@ -726,7 +726,7 @@ impl ChromeTraceCommand {
                     let buck_event_result = buck2_events::BuckEvent::try_from(e);
                     match buck_event_result {
                         Ok(buck_event) => buck_events.push(buck_event),
-                        Err(e) => crate::eprintln!("Error converting event-log: {:#}", e)?,
+                        Err(e) => buck2_client::eprintln!("Error converting event-log: {:#}", e)?,
                     }
                 }
                 _ => (),
@@ -774,7 +774,7 @@ impl ChromeTraceCommand {
         let dest_path = match dest_path_result {
             Ok(dest_path) => dest_path,
             Err(e) => {
-                crate::eprintln!("Could not determine trace path, {:#}", e)?;
+                buck2_client::eprintln!("Could not determine trace path, {:#}", e)?;
                 return ExitResult::failure();
             }
         };

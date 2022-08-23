@@ -30,7 +30,7 @@ impl LastLogCommand {
     pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self { recent } = self;
         let path = retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?;
-        crate::println!("{}", path.display())?;
+        buck2_client::println!("{}", path.display())?;
         ExitResult::success()
     }
 }

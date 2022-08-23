@@ -144,13 +144,13 @@ impl<'a> ArgExpansionContext<'a> {
         } else {
             ("WARNING: ", "")
         };
-        crate::eprintln!(
+        buck2_client::eprintln!(
             "{}`@{}` was specified, but not found. Using file at `//{}`.",
             prefix,
             requested_path,
             requested_path
         )?;
-        crate::eprintln!(
+        buck2_client::eprintln!(
             "This behavior is being deprecated. Please use `@//{}` instead{}",
             requested_path,
             reset

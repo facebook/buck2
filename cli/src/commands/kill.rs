@@ -28,10 +28,10 @@ impl KillCommand {
                 .await
             {
                 Err(_) => {
-                    crate::eprintln!("no buckd server running")?;
+                    buck2_client::eprintln!("no buckd server running")?;
                 }
                 Ok(mut client) => {
-                    crate::eprintln!("killing buckd server")?;
+                    buck2_client::eprintln!("killing buckd server")?;
                     client
                         .with_flushing(|client| client.kill("`buck kill` invoked").boxed())
                         .await??;

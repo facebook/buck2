@@ -124,7 +124,7 @@ impl WhatRanCommand {
             let log_path = EventLogPathBuf::infer(log)?;
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            crate::eprintln!(
+            buck2_client::eprintln!(
                 "Showing commands from: {}",
                 shlex::join(invocation.command_line_args.iter().map(|e| e.as_str()))
             )?;
@@ -190,7 +190,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
         match self {
             Self::Tabulated => {
-                crate::println!(
+                buck2_client::println!(
                     "{}\t{}\t{}\t{}",
                     command.reason(),
                     command.identity(),
@@ -232,7 +232,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
                 };
 
                 let serialized_command = serde_json::to_string(&command)?;
-                crate::println!("{}", serialized_command)?;
+                buck2_client::println!("{}", serialized_command)?;
             }
         };
 

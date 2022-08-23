@@ -136,7 +136,7 @@ impl StreamingCommand for RunCommand {
         run_args.extend(self.extra_run_args);
 
         if self.show_delimiter {
-            crate::eprintln!(
+            buck2_client::eprintln!(
                 "Running `{}`\n{}",
                 self.target,
                 "=".repeat(SUPERCONSOLE_WIDTH)

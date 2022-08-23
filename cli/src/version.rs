@@ -101,7 +101,7 @@ impl BuckVersion {
         {
             internal_exe_hash
         } else {
-            let _ignored = crate::eprintln!(
+            let _ignored = buck2_client::eprintln!(
                 "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash"
             );
             Self::hash_binary(&mut file)

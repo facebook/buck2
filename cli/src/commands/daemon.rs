@@ -117,7 +117,7 @@ pub(crate) async fn run_buckd(
     let daemon_dir = paths.daemon_dir()?;
     let (endpoint, listener) = create_listener(&daemon_dir).await?;
 
-    crate::eprintln!("starting daemon on {}", &endpoint)?;
+    buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
     let pid = process::id();
     let process_info = DaemonProcessInfo {
         pid: pid as i64,
@@ -268,7 +268,7 @@ impl DaemonCommand {
                             Err(e) => {
                                 // This bit of code cannot relay errors, ignoring that we can't log
                                 // a warning is reasonable.
-                                let _ignored = crate::eprintln!(
+                                let _ignored = buck2_client::eprintln!(
                                     "daemon verification failed, forcing shutdown: {:#}",
                                     e
                                 );
@@ -284,10 +284,10 @@ impl DaemonCommand {
             {
                 select! {
                     _ = buckd_server => {
-                        crate::eprintln!("server shutdown gracefully")?;
+                        buck2_client::eprintln!("server shutdown gracefully")?;
                     }
                     _ = shutdown_future => {
-                        crate::eprintln!("server forced shutdown")?;
+                        buck2_client::eprintln!("server forced shutdown")?;
                     },
                 };
             }

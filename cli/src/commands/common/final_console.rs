@@ -37,9 +37,9 @@ impl FinalConsole {
                 },
                 message,
             );
-            crate::eprintln!("{}", sc)?;
+            buck2_client::eprintln!("{}", sc)?;
         } else {
-            crate::eprintln!("{}", message)?;
+            buck2_client::eprintln!("{}", message)?;
         }
         Ok(())
     }
@@ -57,12 +57,12 @@ impl FinalConsole {
     /// Print a string directly to stderr with no extra formatting
     #[allow(unused)]
     pub(crate) fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
-        crate::eprintln!("{}", message)
+        buck2_client::eprintln!("{}", message)
     }
 
     /// Print a string directly to stdout with no extra formatting
     #[allow(unused)]
     pub(crate) fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
-        crate::println!("{}", message)
+        buck2_client::println!("{}", message)
     }
 }

@@ -166,13 +166,13 @@ impl StreamingCommand for TargetsCommand {
     ) -> ExitResult {
         let target_hash_use_fast_hash = match self.target_hash_function {
             TargetHashFunction::Sha1 | TargetHashFunction::Sha256 => {
-                crate::eprintln!(
+                buck2_client::eprintln!(
                     "buck2 only supports \"fast\" and \"strong\" target hash functions. Using the \"strong\" hash."
                 )?;
                 false
             }
             TargetHashFunction::Murmur_Hash3 => {
-                crate::eprintln!(
+                buck2_client::eprintln!(
                     "buck2 only supports \"fast\" and \"strong\" target hash functions. Using the \"fast\" hash."
                 )?;
                 true
@@ -264,13 +264,13 @@ async fn targets_show_outputs(
             };
             match root_path {
                 Some(root) => {
-                    crate::println!(
+                    buck2_client::println!(
                         "{} {}",
                         target_paths.target,
                         root.as_path().join(path).display()
                     )
                 }
-                None => crate::println!("{} {}", target_paths.target, path),
+                None => buck2_client::println!("{} {}", target_paths.target, path),
             }?;
         }
     }
@@ -282,7 +282,7 @@ async fn targets(mut buckd: BuckdClientConnector, target_request: TargetsRequest
         .with_flushing(|client| client.targets(target_request).boxed())
         .await???;
     if !response.serialized_targets_output.is_empty() {
-        crate::print!("{}", response.serialized_targets_output)?;
+        buck2_client::print!("{}", response.serialized_targets_output)?;
     }
     ExitResult::success()
 }

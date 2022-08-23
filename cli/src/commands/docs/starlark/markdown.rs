@@ -110,7 +110,7 @@ pub(crate) fn generate_markdown_files(
 
     for (relative_path, markdown_file) in outputs.iter() {
         let path = abs_destination.join(relative_path);
-        crate::eprintln!("Writing to {}", path.to_str().unwrap())?;
+        buck2_client::eprintln!("Writing to {}", path.to_str().unwrap())?;
 
         markdown_file.write_to_file(&path)?;
     }

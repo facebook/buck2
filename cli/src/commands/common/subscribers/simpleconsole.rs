@@ -45,9 +45,9 @@ macro_rules! echo {
     ($($tts:tt)*) => {
         {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprint!("[{}] ", ::chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false))?;
+            buck2_client::eprint!("[{}] ", ::chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false))?;
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!($($tts)*)
+            buck2_client::eprintln!($($tts)*)
         }
     };
 }
@@ -281,7 +281,7 @@ impl SimpleConsole {
 #[async_trait]
 impl EventSubscriber for SimpleConsole {
     async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        crate::print!("{}", raw_output)?;
+        buck2_client::print!("{}", raw_output)?;
         self.notify_printed();
         Ok(())
     }

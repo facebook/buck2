@@ -170,13 +170,13 @@ impl StreamingCommand for ProfileSubcommand {
             })
             .context("Elapsed is invalid")?;
 
-        crate::println!(
+        buck2_client::println!(
             "Starlark {:?} profile has been written to {}",
             profile_mode,
             self.opts.output.display(),
         )?;
-        crate::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
-        crate::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;
+        buck2_client::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
+        buck2_client::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;
 
         ExitResult::success()
     }

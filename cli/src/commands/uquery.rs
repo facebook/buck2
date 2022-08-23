@@ -233,7 +233,7 @@ impl StreamingCommand for UqueryCommand {
             .await???;
 
         for message in &response.error_messages {
-            crate::eprintln!("{}", message)?;
+            buck2_client::eprintln!("{}", message)?;
         }
 
         if !response.error_messages.is_empty() {

@@ -36,7 +36,7 @@ impl StatusCommand {
                 .await
             {
                 Err(_) => {
-                    crate::eprintln!("no buckd running")?;
+                    buck2_client::eprintln!("no buckd running")?;
                     // Should this be an error?
                     Ok(())
                 }
@@ -68,7 +68,7 @@ impl StatusCommand {
                         "bytes_retained" : status.bytes_retained,
                         "snapshot": serde_json::to_value(status.snapshot)?,
                     });
-                    crate::println!("{}", serde_json::to_string_pretty(&json_status)?)?;
+                    buck2_client::println!("{}", serde_json::to_string_pretty(&json_status)?)?;
                     Ok(())
                 }
             }
