@@ -65,7 +65,6 @@ use crate::lsp::server::LspContext;
 use crate::lsp::server::LspEvalResult;
 use crate::lsp::server::LspServerSettings;
 use crate::lsp::server::LspUrl;
-use crate::lsp::server::ResolveLoadError;
 use crate::lsp::server::StringLiteralResult;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -86,6 +85,14 @@ fn get_path_from_uri(uri: &str) -> PathBuf {
 #[cfg(not(windows))]
 fn get_path_from_uri(uri: &str) -> PathBuf {
     PathBuf::from(uri)
+}
+
+#[derive(thiserror::Error, Debug)]
+enum ResolveLoadError {
+    #[error("Relative path `{}` provided, but current_file_path could not be determined", .0.display())]
+    MissingCurrentFilePath(PathBuf),
+    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUrl),
 }
 
 #[derive(thiserror::Error, Debug)]

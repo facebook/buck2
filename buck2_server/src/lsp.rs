@@ -60,7 +60,6 @@ use starlark::lsp::server::LoadContentsError;
 use starlark::lsp::server::LspContext;
 use starlark::lsp::server::LspEvalResult;
 use starlark::lsp::server::LspUrl;
-use starlark::lsp::server::ResolveLoadError;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use starlark::values::docs::Doc;
@@ -73,6 +72,14 @@ use crate::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
+
+/// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
+#[derive(thiserror::Error, Debug)]
+enum ResolveLoadError {
+    /// The scheme provided was not correct or supported.
+    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUrl),
+}
 
 /// Store rendered starlark representations of Doc objects for builtin symbols,
 /// their names, and their real or virtual paths

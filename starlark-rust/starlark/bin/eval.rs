@@ -35,7 +35,6 @@ use starlark::lsp::server::LoadContentsError;
 use starlark::lsp::server::LspContext;
 use starlark::lsp::server::LspEvalResult;
 use starlark::lsp::server::LspUrl;
-use starlark::lsp::server::ResolveLoadError;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
@@ -67,6 +66,18 @@ pub(crate) struct EvalResult<T: Iterator<Item = EvalMessage>> {
     /// If the code is only parsed, not run, and there were no errors, this will contain
     /// the parsed module. Otherwise, it will be `None`
     pub ast: Option<AstModule>,
+}
+
+/// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
+#[derive(thiserror::Error, Debug)]
+enum ResolveLoadError {
+    /// Attempted to resolve a relative path, but no current_file_path was provided,
+    /// so it is not known what to resolve the path against.
+    #[error("Relative path `{}` provided, but current_file_path could not be determined", .0.display())]
+    MissingCurrentFilePath(PathBuf),
+    /// The scheme provided was not correct or supported.
+    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUrl),
 }
 
 impl Context {

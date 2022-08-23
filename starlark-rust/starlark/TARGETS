@@ -18,6 +18,7 @@ buck_rust_binary(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:structopt",
+        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:walkdir",
         ":starlark",
         "//buck2/gazebo/gazebo:gazebo",

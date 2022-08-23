@@ -293,11 +293,7 @@ pub trait LspContext {
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
 #[derive(thiserror::Error, Debug)]
-pub enum ResolveLoadError {
-    /// Attempted to resolve a relative path, but no current_file_path was provided,
-    /// so it is not known what to resolve the path against.
-    #[error("Relative path `{}` provided, but current_file_path could not be determined", .0.display())]
-    MissingCurrentFilePath(PathBuf),
+enum ResolveLoadError {
     /// The scheme provided was not correct or supported.
     #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
     WrongScheme(String, LspUrl),
