@@ -23,7 +23,7 @@ def config_backed_android_toolchain(
         package_strings_as_assets,
         unpack_aar,
         **kwargs):
-    kwargs["aidl"] = "fbsource//third-party/toolchains/android-sdk:aidl_and_deps"
+    kwargs["aidl"] = "fbsource//third-party/toolchains/android-sdk:aidl"
     kwargs["framework_aidl_file"] = "fbsource//third-party/toolchains/android-sdk:framework_aidl_file"
 
     aapt2_config = read("tools", "aapt2")
