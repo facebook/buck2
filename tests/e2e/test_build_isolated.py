@@ -317,6 +317,11 @@ async def test_simple_run(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="actions")
+async def test_dynamic_outputs_old(buck: Buck) -> None:
+    await buck.build("//dynamic_old:")
+
+
+@buck_test(inplace=False, data_dir="actions")
 async def test_dynamic_outputs(buck: Buck) -> None:
     await buck.build("//dynamic:")
 

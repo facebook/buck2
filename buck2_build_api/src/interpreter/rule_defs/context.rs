@@ -775,14 +775,14 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
-        #[starlark(require = pos)] dynamic: Vec<StarlarkArtifact>,
-        #[starlark(require = pos)] inputs: Vec<StarlarkArtifact>,
-        #[starlark(require = pos)] outputs: Vec<StarlarkOutputArtifact>,
-        #[starlark(require = pos)] lambda: Value<'v>,
+        dynamic: Vec<StarlarkArtifact>,
+        inputs: Vec<StarlarkArtifact>,
+        outputs: Vec<StarlarkOutputArtifact>,
+        f: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
-        let lambda_type = lambda.get_type();
+        let lambda_type = f.get_type();
         if lambda_type != FUNCTION_TYPE {
             return Err(DynamicOutputError::NotAFunction(lambda_type.to_owned()).into());
         }
@@ -799,7 +799,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let outputs = outputs.iter().map(|x| x.artifact()).collect();
 
         // Registration
-        let attributes_lambda = heap.alloc((this.attributes, lambda));
+        let attributes_lambda = heap.alloc((this.attributes, f));
         let mut this = this.state();
         this.register_dynamic_output(dynamic, inputs, outputs, attributes_lambda)?;
         Ok(NoneType)

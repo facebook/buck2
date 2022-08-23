@@ -10,7 +10,7 @@ def _dynamic(ctx):
 
         # todo support access bxl context here
 
-    action_factory.dynamic_output(dynamic = [foo], inputs = [], outputs = [dynamic], f = my_deferred)
+    action_factory.dynamic_output([foo], [], [dynamic], my_deferred)
 
     ctx.output.print(ctx.output.ensure(dynamic).abs_path())
 

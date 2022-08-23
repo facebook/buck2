@@ -9,7 +9,7 @@ def _basic(ctx: "context") -> ["provider"]:
         assert_eq(src, "42")
         ctx.actions.write(ctx.outputs[output], src)
 
-    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
+    ctx.actions.dynamic_output([input], [], [output.as_output()], f)
     return [DefaultInfo(default_outputs = [output])]
 
 # Produce two output files
@@ -24,7 +24,7 @@ def _two(ctx: "context") -> ["provider"]:
         ctx.actions.write(ctx.outputs[output1], "output1_" + src)
         ctx.actions.write(ctx.outputs[output2], "output2_" + src)
 
-    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output1, output2], f = f)
+    ctx.actions.dynamic_output([input], [], [output1, output2], f)
     sub_targets = {
         "output1": [DefaultInfo(default_outputs = [output1])],
         "output2": [DefaultInfo(default_outputs = [output2])],
@@ -57,12 +57,12 @@ def _nested(ctx: "context") -> ["provider"]:
             nested_src2 = ctx.artifacts[output2].read_string()
             ctx.actions.write(ctx.outputs[nested_output], [nested_src1, nested_src2])
 
-        ctx.actions.dynamic_output(dynamic = [output1, output2], inputs = [], outputs = [nested_output], f = f2)
+        ctx.actions.dynamic_output([output1, output2], [], [nested_output], f2)
 
         symlink_tree["nested_output"] = nested_output
         ctx.actions.symlinked_dir(ctx.outputs[symlinked_dir], symlink_tree)
 
-    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [symlinked_dir], f = f)
+    ctx.actions.dynamic_output([input], [], [symlinked_dir], f)
     return [DefaultInfo(default_outputs = [symlinked_dir])]
 
 # Produce two output files, using a command
@@ -100,7 +100,7 @@ def _command(ctx: "context") -> ["provider"]:
             category = "dynamic_test",
         )
 
-    ctx.actions.dynamic_output(dynamic = [hello], inputs = [script], outputs = [world, universe], f = f)
+    ctx.actions.dynamic_output([hello], [script], [world, universe], f)
     return [DefaultInfo(default_outputs = [world], other_outputs = [universe])]
 
 # Create a fresh output inside the dynamic
@@ -114,7 +114,7 @@ def _create(ctx: "context") -> ["provider"]:
         new_file = ctx.actions.write("new_file", src)
         ctx.actions.copy_file(ctx.outputs[output], new_file)
 
-    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
+    ctx.actions.dynamic_output([input], [], [output.as_output()], f)
     return [DefaultInfo(default_outputs = [output])]
 
 # Create a fresh output inside the dynamic, which clashes
@@ -137,7 +137,7 @@ def _create_duplicate(ctx: "context") -> ["provider"]:
         new_input = ctx.actions.copy_file("input", new_output)
         ctx.actions.copy_file(ctx.outputs[output], new_input)
 
-    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
+    ctx.actions.dynamic_output([input], [], [output.as_output()], f)
     return [DefaultInfo(default_outputs = [output])]
 
 def _impl(ctx: "context") -> ["provider"]:
