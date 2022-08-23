@@ -11,6 +11,7 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -40,7 +41,6 @@ use futures::FutureExt;
 use futures::TryStreamExt;
 use thiserror::Error;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::Path;
 use crate::StreamingCommand;
 

@@ -8,6 +8,7 @@
  */
 
 use allocator_stats::AllocatorStatsCommand;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::exit_result::ExitResult;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
@@ -18,7 +19,6 @@ use internal_version::InternalVersionCommand;
 use materialize::MaterializeCommand;
 use replay::ReplayCommand;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;

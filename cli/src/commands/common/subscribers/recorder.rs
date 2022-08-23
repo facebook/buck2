@@ -7,11 +7,10 @@
  * of this source tree.
  */
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_events::subscriber::EventSubscriber;
 #[cfg(fbcode_build)]
 use gazebo::dupe::Dupe;
-
-use crate::client_command_context::ClientCommandContext;
 
 #[cfg(fbcode_build)]
 mod imp {

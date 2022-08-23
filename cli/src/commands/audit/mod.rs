@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -19,7 +20,6 @@ use cli_proto::ClientContext;
 use cli_proto::GenericRequest;
 use futures::FutureExt;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::commands::audit::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::commands::audit::cell::AuditCellCommand;
 use crate::commands::audit::config::AuditConfigCommand;

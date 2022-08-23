@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::stream_value::StreamValue;
 use buck2_client::subscribers::event_log::EventLogPathBuf;
@@ -27,7 +28,6 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use tokio::runtime;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 
 #[derive(

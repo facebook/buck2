@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -20,7 +21,6 @@ use futures::FutureExt;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

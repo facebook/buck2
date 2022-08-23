@@ -9,6 +9,7 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonBuildOptions;
 use buck2_client::common::CommonConsoleOptions;
@@ -25,7 +26,6 @@ use crossterm::style::Color;
 use futures::FutureExt;
 use gazebo::prelude::*;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::commands::build::print_build_result;
 use crate::StreamingCommand;
 

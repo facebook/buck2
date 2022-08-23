@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -20,7 +21,6 @@ use futures::future::FutureExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::StreamingCommand;
 
 // Use non-camel case so the possible values match buck1's

@@ -9,13 +9,12 @@
 
 use std::time::Duration;
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::daemon::client::BuckdConnectOptions;
 use chrono::NaiveDateTime;
 use clap::ArgMatches;
 use futures::FutureExt;
 use humantime::format_duration;
-
-use crate::client_command_context::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Buckd status")]

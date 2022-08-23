@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::version::BuckVersion;
-
-use crate::client_command_context::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct InternalVersionCommand {}

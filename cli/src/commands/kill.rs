@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::daemon::client::BuckdConnectOptions;
 use futures::FutureExt;
-
-use crate::client_command_context::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill the buck daemon")]

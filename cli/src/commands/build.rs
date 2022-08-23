@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use anyhow::anyhow;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::command_outcome::CommandOutcome;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonBuildOptions;
@@ -37,7 +38,6 @@ use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

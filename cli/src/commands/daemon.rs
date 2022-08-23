@@ -26,6 +26,7 @@ use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
@@ -48,7 +49,6 @@ use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::commands::audit::server::server_audit_command;
 use crate::daemon::server::BuckdServer;
 use crate::daemon::server::BuckdServerDelegate;

@@ -13,6 +13,7 @@
 #![feature(try_trait_v2)]
 
 pub mod cleanup_ctx;
+pub mod client_ctx;
 pub mod command_outcome;
 pub mod common;
 pub mod daemon;

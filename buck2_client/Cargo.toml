@@ -32,6 +32,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"
 shlex = "1.1"
 superconsole = { version = "0.1.0", path = "../superconsole" }
+sync_wrapper = "0.1.0"
 termwiz = "0.15"
 thiserror = "1.0.24"
 tokio = {version = "1.5", features = ["full"]}
@@ -40,7 +41,9 @@ tokio-util = {version = "0.7.1", features = ["full"]}
 tonic = "0.7.2"
 tracing = "0.1.22"
 
+dice = { path = "../dice/dice" }
 gazebo = { path = "../gazebo/gazebo" }
+fbinit = { path = "../../common/rust/shed/fbinit" }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_common = { path = "../buck2_common" }

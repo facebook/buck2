@@ -9,6 +9,7 @@
 
 use std::path::PathBuf;
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::NO_EVENT_LOG;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
@@ -16,7 +17,6 @@ use buck2_client::subscribers::event_log::get_local_logs;
 use thiserror::Error;
 use tokio::runtime::Runtime;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::exec;
 
 #[derive(Error, Debug)]

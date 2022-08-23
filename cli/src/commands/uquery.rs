@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -18,7 +19,6 @@ use cli_proto::UqueryRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]

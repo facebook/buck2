@@ -1,6 +1,7 @@
 mod markdown;
 
 use async_trait::async_trait;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -11,7 +12,6 @@ use futures::FutureExt;
 use gazebo::dupe::Dupe;
 use starlark::values::docs::Doc;
 
-use crate::client_command_context::ClientCommandContext;
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::StreamingCommand;

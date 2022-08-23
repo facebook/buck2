@@ -10,6 +10,7 @@
 pub(crate) mod recorder;
 
 use ::superconsole::Component;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_client::common::ConsoleType;
 use buck2_client::subscribers::build_id_writer::BuildIdWriter;
@@ -19,8 +20,6 @@ use buck2_client::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
-
-use crate::client_command_context::ClientCommandContext;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(

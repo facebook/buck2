@@ -30,6 +30,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -49,7 +50,6 @@ use buck2_core::fs::paths::FileNameBuf;
 use buck2_events::subscriber::EventSubscriber;
 use clap::AppSettings;
 use clap::Parser;
-use client_command_context::ClientCommandContext;
 use dice::cycles::DetectCycles;
 use futures::future;
 use gazebo::dupe::Dupe;
@@ -89,7 +89,6 @@ use crate::future::Either;
 pub mod panic;
 
 pub mod args;
-mod client_command_context;
 pub mod commands;
 pub mod daemon;
 

@@ -10,10 +10,9 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_common::invocation_roots::find_invocation_roots;
 use thiserror::Error;
-
-use crate::client_command_context::ClientCommandContext;
 
 #[derive(Debug)]
 enum RootKind {

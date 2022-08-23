@@ -11,12 +11,6 @@ use std::future::Future;
 use std::str::FromStr;
 
 use anyhow::Context;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::HostPlatformOverride;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::daemon::client::BuckdConnectOptions;
-use buck2_client::replayer::Replayer;
-use buck2_client::verbosity::Verbosity;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_events::TraceId;
@@ -26,31 +20,37 @@ use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 use tokio::runtime::Builder;
 
-use crate::AsyncCleanupContext;
+use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::HostPlatformOverride;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdConnectOptions;
+use crate::replayer::Replayer;
+use crate::verbosity::Verbosity;
 
-pub(crate) struct ClientCommandContext {
-    pub(crate) init: fbinit::FacebookInit,
-    pub(crate) paths: SharedResult<InvocationPaths>,
-    pub(crate) detect_cycles: Option<DetectCycles>,
-    pub(crate) replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
-    pub(crate) verbosity: Verbosity,
-    pub(crate) replay_speed: Option<f64>,
-    pub(crate) async_cleanup_context: AsyncCleanupContext,
+pub struct ClientCommandContext {
+    pub init: fbinit::FacebookInit,
+    pub paths: SharedResult<InvocationPaths>,
+    pub detect_cycles: Option<DetectCycles>,
+    pub replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
+    pub verbosity: Verbosity,
+    pub replay_speed: Option<f64>,
+    pub async_cleanup_context: AsyncCleanupContext,
 }
 
 impl ClientCommandContext {
-    pub(crate) fn fbinit(&self) -> fbinit::FacebookInit {
+    pub fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
     }
 
-    pub(crate) fn paths(&self) -> SharedResult<&InvocationPaths> {
+    pub fn paths(&self) -> SharedResult<&InvocationPaths> {
         match &self.paths {
             Ok(p) => Ok(p),
             Err(e) => Err(e.dupe()),
         }
     }
 
-    pub(crate) fn with_runtime<Fut: Future, F: FnOnce(ClientCommandContext) -> Fut>(
+    pub fn with_runtime<Fut: Future, F: FnOnce(ClientCommandContext) -> Fut>(
         self,
         func: F,
     ) -> <Fut as Future>::Output {
@@ -61,7 +61,7 @@ impl ClientCommandContext {
         runtime.block_on(func(self))
     }
 
-    pub(crate) async fn connect_buckd(
+    pub async fn connect_buckd(
         &self,
         options: BuckdConnectOptions,
     ) -> anyhow::Result<BuckdClientConnector> {
@@ -71,7 +71,7 @@ impl ClientCommandContext {
         .context("Failed to connect to buck daemon. Try running `buck2 clean` and your command afterwards. Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards")
     }
 
-    pub(crate) fn client_context(
+    pub fn client_context(
         &self,
         config_opts: &CommonBuildConfigurationOptions,
         arg_matches: &clap::ArgMatches,
@@ -95,7 +95,7 @@ impl ClientCommandContext {
     }
 
     /// A client context for commands where CommonConfigOptions are not provided.
-    pub(crate) fn empty_client_context(&self) -> anyhow::Result<ClientContext> {
+    pub fn empty_client_context(&self) -> anyhow::Result<ClientContext> {
         #[derive(Debug, thiserror::Error)]
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
@@ -121,7 +121,7 @@ impl ClientCommandContext {
         })
     }
 
-    pub(crate) fn async_cleanup_context(&self) -> &AsyncCleanupContext {
+    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
         &self.async_cleanup_context
     }
 }

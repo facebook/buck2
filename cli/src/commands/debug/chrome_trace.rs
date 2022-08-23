@@ -39,11 +39,10 @@ pub(crate) enum ChromeTraceError {
     ParentSpanNotFound(SpanId, SpanId),
 }
 
+use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::stream_value::StreamValue;
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::event_log::Invocation;
-
-use crate::client_command_context::ClientCommandContext;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct ChromeTraceCommand {
