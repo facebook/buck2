@@ -26,6 +26,7 @@ extern crate maplit;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use buck2_client::args::expand_argfiles;
 use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::client_ctx::ClientCommandContext;
@@ -62,7 +63,6 @@ use clap::Parser;
 use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 
-use crate::args::expand_argfiles;
 use crate::commands::audit::AuditCommand;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
@@ -71,7 +71,6 @@ use crate::commands::forkserver::ForkserverCommand;
 #[macro_use]
 pub mod panic;
 
-pub mod args;
 pub mod commands;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {

@@ -12,6 +12,7 @@
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 
+pub mod args;
 pub mod cleanup_ctx;
 pub mod client_ctx;
 pub mod command_outcome;

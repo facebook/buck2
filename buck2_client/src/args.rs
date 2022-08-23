@@ -67,7 +67,7 @@ struct ArgCellPathResolverData {
 }
 
 impl<'a> ArgCellPathResolver<'a> {
-    pub(crate) fn new(cwd: &'a AbsPath) -> Self {
+    pub fn new(cwd: &'a AbsPath) -> Self {
         Self {
             data: OnceCell::new(),
             cwd,
@@ -77,7 +77,7 @@ impl<'a> ArgCellPathResolver<'a> {
     /// Resolves an argument which can possibly be a cell-relative path.
     /// If the argument is not a cell-relative path, it returns `None`.
     /// Otherwise, it tries to resolve the cell and returns a `Result`.
-    pub(crate) fn resolve_cell_path_arg(&self, path: &str) -> Option<anyhow::Result<AbsPathBuf>> {
+    pub fn resolve_cell_path_arg(&self, path: &str) -> Option<anyhow::Result<AbsPathBuf>> {
         path.split_once("//")
             .map(|(cell_alias, cell_relative_path)| {
                 self.resolve_cell_path(cell_alias, cell_relative_path)
@@ -120,12 +120,12 @@ impl<'a> ArgCellPathResolver<'a> {
     }
 }
 
-pub(crate) struct ArgExpansionContext<'a> {
+pub struct ArgExpansionContext<'a> {
     arg_resolver: ArgCellPathResolver<'a>,
 }
 
 impl<'a> ArgExpansionContext<'a> {
-    pub(crate) fn new(cwd: &'a AbsPath) -> Self {
+    pub fn new(cwd: &'a AbsPath) -> Self {
         Self {
             arg_resolver: ArgCellPathResolver::new(cwd),
         }
@@ -135,22 +135,19 @@ impl<'a> ArgExpansionContext<'a> {
     ///
     /// This prints directly to stderr (sometimes in color). This should be safe, because flagfile
     /// expansion runs *very* early in the CLI process lifetime.
-    pub(crate) fn log_relative_path_from_cell_root(
-        &self,
-        requested_path: &str,
-    ) -> anyhow::Result<()> {
+    pub fn log_relative_path_from_cell_root(&self, requested_path: &str) -> anyhow::Result<()> {
         let (prefix, reset) = if io::stderr().is_tty() {
             ("\x1b[33m", "\x1b[0m")
         } else {
             ("WARNING: ", "")
         };
-        buck2_client::eprintln!(
+        crate::eprintln!(
             "{}`@{}` was specified, but not found. Using file at `//{}`.",
             prefix,
             requested_path,
             requested_path
         )?;
-        buck2_client::eprintln!(
+        crate::eprintln!(
             "This behavior is being deprecated. Please use `@//{}` instead{}",
             requested_path,
             reset
@@ -182,7 +179,7 @@ enum ArgFile {
 // TODO: It does _not_ support executable argfiles (e.g., Python)
 //       which are supported by Buck v1. See `BuckArgsMethods` in
 //       Buck v1 for reference.
-pub(crate) fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<String>> {
+pub fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<String>> {
     let abs_cwd = AbsPath::new(cwd)?;
     expand_argfiles_with_context(args, &ArgExpansionContext::new(abs_cwd))
 }
