@@ -14,7 +14,7 @@ use std::pin::Pin;
 use buck2_common::client_utils::SOCKET_ADDR;
 use futures::Stream;
 
-pub(crate) async fn create_listener(
+pub async fn create_listener(
     _daemon_dir: &Path,
 ) -> anyhow::Result<(
     String,

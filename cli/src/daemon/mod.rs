@@ -8,7 +8,4 @@
  */
 
 pub mod client;
-#[cfg_attr(unix, path = "daemon_unix.rs")]
-#[cfg_attr(windows, path = "daemon_windows.rs")]
-pub mod daemon_utils;
 pub mod server;

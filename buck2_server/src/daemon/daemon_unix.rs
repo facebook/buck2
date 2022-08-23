@@ -24,7 +24,7 @@ use tonic::transport::server::Connected;
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
-pub(crate) async fn create_listener(
+pub async fn create_listener(
     daemon_dir: &Path,
 ) -> anyhow::Result<(
     String,
@@ -61,7 +61,7 @@ pub(crate) async fn create_listener(
 }
 
 #[derive(Debug)]
-pub(crate) struct UnixStream(pub tokio::net::UnixStream);
+pub struct UnixStream(pub tokio::net::UnixStream);
 
 impl Connected for UnixStream {
     type ConnectInfo = ();

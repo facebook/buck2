@@ -14,3 +14,7 @@ pub mod dice_dump;
 pub mod forkserver;
 pub mod panic;
 pub mod state;
+
+#[cfg_attr(unix, path = "daemon_unix.rs")]
+#[cfg_attr(windows, path = "daemon_windows.rs")]
+pub mod daemon_utils;

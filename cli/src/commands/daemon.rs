@@ -32,6 +32,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_test::command::test_command;
 use cli_proto::DaemonProcessInfo;
@@ -48,7 +49,6 @@ use tokio::runtime::Builder;
 
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::audit::server::server_audit_command;
-use crate::daemon::daemon_utils::create_listener;
 use crate::daemon::server::BuckdServer;
 use crate::daemon::server::BuckdServerDelegate;
 use crate::daemon::server::BuckdServerDependencies;
