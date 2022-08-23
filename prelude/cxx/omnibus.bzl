@@ -61,6 +61,7 @@ OmnibusSpec = record(
 
 OmnibusRootProduct = record(
     shared_library = field(LinkedObject.type),
+    undefined_syms = field("artifact"),
 )
 
 # The result of the omnibus link.
@@ -245,6 +246,25 @@ def _create_root(
 
     return OmnibusRootProduct(
         shared_library = shared_library,
+        undefined_syms = _extract_undefined_syms(
+            ctx,
+            shared_library.output,
+            # Same as above.
+            prefer_local = True,
+        ),
+    )
+
+def _extract_undefined_syms(ctx: "context", output: "artifact", prefer_local: bool.type) -> "artifact":
+    return extract_symbol_names(
+        ctx,
+        output.short_path + ".undefined_syms.txt",
+        [output],
+        dynamic = True,
+        global_only = True,
+        undefined_only = True,
+        category = "omnibus_undefined_syms",
+        identifier = output.basename,
+        prefer_local = prefer_local,
     )
 
 def _create_undefined_symbols_argsfile(
@@ -417,20 +437,7 @@ def _create_omnibus(
 
     # Undefined symbols roots...
     non_body_root_undefined_syms = [
-        extract_symbol_names(
-            ctx,
-            root.shared_library.output.basename + ".undefined_syms.txt",
-            [root.shared_library.output],
-            dynamic = True,
-            global_only = True,
-            undefined_only = True,
-            category = "omnibus_undefined_syms",
-            identifier = root.shared_library.output.basename,
-            # We prefer local execution because there are lot of omnibus_undefined_syms
-            # running simultaneously, so while their overall load is reasonable,
-            # their peak execution load is very high.
-            prefer_local = True,
-        )
+        root.undefined_syms
         for label, root in root_products.items()
         if label not in spec.body
     ]
