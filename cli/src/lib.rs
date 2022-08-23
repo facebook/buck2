@@ -30,11 +30,15 @@ use anyhow::Context as _;
 use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::commands::aquery::AqueryCommand;
+use buck2_client::commands::cquery::CqueryCommand;
 use buck2_client::commands::kill::KillCommand;
 use buck2_client::commands::lsp::LspCommand;
 use buck2_client::commands::root::RootCommand;
 use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::streaming::BuckSubcommand;
+use buck2_client::commands::targets::TargetsCommand;
+use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
 use buck2_client::verbosity::Verbosity;
@@ -49,12 +53,10 @@ use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 
 use crate::args::expand_argfiles;
-use crate::commands::aquery::AqueryCommand;
 use crate::commands::audit::AuditCommand;
 use crate::commands::build::BuildCommand;
 use crate::commands::bxl::BxlCommand;
 use crate::commands::clean::CleanCommand;
-use crate::commands::cquery::CqueryCommand;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::debug::DebugCommand;
 use crate::commands::docs::DocsCommand;
@@ -65,9 +67,7 @@ use crate::commands::profile::ProfileCommand;
 use crate::commands::rage::RageCommand;
 use crate::commands::run::RunCommand;
 use crate::commands::server::ServerCommand;
-use crate::commands::targets::TargetsCommand;
 use crate::commands::test::TestCommand;
-use crate::commands::uquery::UqueryCommand;
 
 #[macro_use]
 pub mod panic;

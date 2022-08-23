@@ -8,19 +8,20 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
 use buck2_core::fs::paths::AbsPath;
 use cli_proto::targets_request;
 use cli_proto::TargetsRequest;
 use futures::future::FutureExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
+
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
 
 // Use non-camel case so the possible values match buck1's
 #[allow(non_camel_case_types)]
@@ -53,7 +54,7 @@ enum TargetHashFunction {
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "targets", about = "Show details about the specified targets")]
-pub(crate) struct TargetsCommand {
+pub struct TargetsCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
@@ -165,13 +166,13 @@ impl StreamingCommand for TargetsCommand {
     ) -> ExitResult {
         let target_hash_use_fast_hash = match self.target_hash_function {
             TargetHashFunction::Sha1 | TargetHashFunction::Sha256 => {
-                buck2_client::eprintln!(
+                crate::eprintln!(
                     "buck2 only supports \"fast\" and \"strong\" target hash functions. Using the \"strong\" hash."
                 )?;
                 false
             }
             TargetHashFunction::Murmur_Hash3 => {
-                buck2_client::eprintln!(
+                crate::eprintln!(
                     "buck2 only supports \"fast\" and \"strong\" target hash functions. Using the \"fast\" hash."
                 )?;
                 true
@@ -263,13 +264,13 @@ async fn targets_show_outputs(
             };
             match root_path {
                 Some(root) => {
-                    buck2_client::println!(
+                    crate::println!(
                         "{} {}",
                         target_paths.target,
                         root.as_path().join(path).display()
                     )
                 }
-                None => buck2_client::println!("{} {}", target_paths.target, path),
+                None => crate::println!("{} {}", target_paths.target, path),
             }?;
         }
     }
@@ -281,7 +282,7 @@ async fn targets(mut buckd: BuckdClientConnector, target_request: TargetsRequest
         .with_flushing(|client| client.targets(target_request).boxed())
         .await???;
     if !response.serialized_targets_output.is_empty() {
-        buck2_client::print!("{}", response.serialized_targets_output)?;
+        crate::print!("{}", response.serialized_targets_output)?;
     }
     ExitResult::success()
 }

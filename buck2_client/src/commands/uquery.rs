@@ -8,17 +8,18 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
 use cli_proto::QueryOutputFormat;
 use cli_proto::UqueryRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
+
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]
@@ -31,7 +32,7 @@ enum QueryOutputFormatArg {
 /// Args common to all the query commands
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::new("output_attribute_flags").multiple(false))]
-pub(crate) struct CommonQueryArgs {
+pub struct CommonQueryArgs {
     #[clap(name = "QUERY", help = "the query to evaluate")]
     query: String,
 
@@ -81,7 +82,7 @@ pub(crate) struct CommonQueryArgs {
     dot_compact: bool,
 
     #[clap(long, help = "Show target call stacks")]
-    pub(crate) target_call_stacks: bool,
+    pub target_call_stacks: bool,
 
     #[clap(
         long,
@@ -119,7 +120,7 @@ impl CommonQueryArgs {
         s
     }
 
-    pub(crate) fn output_attributes(&self) -> &[String] {
+    pub fn output_attributes(&self) -> &[String] {
         if !self.output_attribute.is_empty() {
             &self.output_attribute
         } else {
@@ -127,7 +128,7 @@ impl CommonQueryArgs {
         }
     }
 
-    pub(crate) fn output_format(&self) -> QueryOutputFormat {
+    pub fn output_format(&self) -> QueryOutputFormat {
         match self.output_format {
             Some(QueryOutputFormatArg::Json) => QueryOutputFormat::Json,
             Some(QueryOutputFormatArg::Dot) => QueryOutputFormat::Dot,
@@ -146,7 +147,7 @@ impl CommonQueryArgs {
         }
     }
 
-    pub(crate) fn get_query(&self) -> (String, Vec<String>) {
+    pub fn get_query(&self) -> (String, Vec<String>) {
         if self.query.contains("%Ss") {
             let replacement = Self::args_as_set(&self.query_args);
             (self.query.replace("%Ss", &replacement), vec![])
@@ -187,7 +188,7 @@ impl CommonQueryArgs {
 /// `{"__type": "concat", "items": [1, {"__type": "selector", "entries": {"//:a": 1, "DEFAULT": 2}}]}`
 #[derive(Debug, clap::Parser)]
 #[clap(name = "uquery")]
-pub(crate) struct UqueryCommand {
+pub struct UqueryCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
@@ -232,7 +233,7 @@ impl StreamingCommand for UqueryCommand {
             .await???;
 
         for message in &response.error_messages {
-            buck2_client::eprintln!("{}", message)?;
+            crate::eprintln!("{}", message)?;
         }
 
         if !response.error_messages.is_empty() {

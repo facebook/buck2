@@ -7,12 +7,10 @@
  * of this source tree.
  */
 
-pub mod aquery;
 pub mod audit;
 pub mod build;
 pub mod bxl;
 pub mod clean;
-pub mod cquery;
 pub mod daemon;
 pub mod debug;
 pub mod docs;
@@ -23,6 +21,4 @@ pub mod profile;
 pub mod rage;
 pub mod run;
 pub mod server;
-pub mod targets;
 pub mod test;
-pub mod uquery;
