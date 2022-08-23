@@ -7,46 +7,39 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use cli_proto::config_override::ConfigType;
 use cli_proto::ConfigOverride;
 
-pub enum ConfigType {
-    Value = 0,
-    File = 1,
-}
-
-impl TryFrom<i32> for ConfigType {
-    type Error = anyhow::Error;
-
-    fn try_from(v: i32) -> anyhow::Result<Self> {
-        match v {
-            x if x == ConfigType::Value as i32 => Ok(ConfigType::Value),
-            x if x == ConfigType::File as i32 => Ok(ConfigType::File),
-            _ => Err(anyhow::anyhow!(
-                "Unknown ConfigType enum value `{}` when trying to deserialize",
-                v,
-            )),
-        }
-    }
+fn config_type_from_i32(value: i32) -> anyhow::Result<ConfigType> {
+    ConfigType::from_i32(value).with_context(|| {
+        format!(
+            "Unknown ConfigType enum value `{}` when trying to deserialize",
+            value
+        )
+    })
 }
 
 fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
 ) -> anyhow::Result<Vec<LegacyConfigCmdArg>> {
     config_overrides
-        .map(|config_arg| match config_arg.config_type.try_into()? {
-            ConfigType::Value => Ok(LegacyConfigCmdArg::Flag(
-                config_arg.config_override.to_owned(),
-            )),
-            ConfigType::File => Ok(LegacyConfigCmdArg::UnresolvedFile(
-                config_arg.config_override.to_owned(),
-            )),
-        })
+        .map(
+            |config_arg| match config_type_from_i32(config_arg.config_type)? {
+                ConfigType::Value => Ok(LegacyConfigCmdArg::Flag(
+                    config_arg.config_override.to_owned(),
+                )),
+                ConfigType::File => Ok(LegacyConfigCmdArg::UnresolvedFile(
+                    config_arg.config_override.to_owned(),
+                )),
+            },
+        )
         .collect::<anyhow::Result<Vec<LegacyConfigCmdArg>>>()
 }
 
