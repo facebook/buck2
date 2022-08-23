@@ -55,6 +55,7 @@ use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::client_ctx::ClientCommandContext;
 use crate::stream_value::StreamValue;
 
 #[derive(Error, Debug)]
@@ -66,6 +67,8 @@ pub enum EventLogErrors {
 
     #[error("Reached End of File before reading BuckEvent in log `{0}`")]
     EndOfFile(String),
+    #[error("No event log available for {idx}th last command (have latest {num_logfiles})")]
+    RecentIndexOutOfBounds { idx: usize, num_logfiles: usize },
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -548,6 +551,20 @@ pub fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
         std::time::UNIX_EPOCH
     });
     Ok(logfiles)
+}
+
+pub fn retrieve_nth_recent_log(ctx: &ClientCommandContext, n: usize) -> anyhow::Result<PathBuf> {
+    let log_dir = ctx.paths()?.log_dir();
+    let mut logfiles = get_local_logs(&log_dir)?;
+    logfiles.reverse(); // newest first
+    let chosen = logfiles
+        .get(n)
+        .ok_or(EventLogErrors::RecentIndexOutOfBounds {
+            idx: n,
+            num_logfiles: logfiles.len(),
+        })?;
+
+    Ok(log_dir.as_path().join(chosen.path()))
 }
 
 #[async_trait]

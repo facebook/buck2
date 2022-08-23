@@ -9,8 +9,7 @@
 
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::exit_result::ExitResult;
-
-use crate::commands::debug::replay::retrieve_nth_recent_log;
+use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]

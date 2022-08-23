@@ -13,17 +13,10 @@ use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::common::NO_EVENT_LOG;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
-use buck2_client::subscribers::event_log::get_local_logs;
-use thiserror::Error;
+use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
 use tokio::runtime::Runtime;
 
 use crate::exec;
-
-#[derive(Error, Debug)]
-pub(crate) enum ReplayErrors {
-    #[error("No event log available for {idx}th last command (have latest {num_logfiles})")]
-    RecentIndexOutOfBounds { idx: usize, num_logfiles: usize },
-}
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -86,21 +79,4 @@ impl ReplayCommand {
 
         exec(args, working_dir, ctx.init, Some(replayer))
     }
-}
-
-pub(crate) fn retrieve_nth_recent_log(
-    ctx: &ClientCommandContext,
-    n: usize,
-) -> anyhow::Result<PathBuf> {
-    let log_dir = ctx.paths()?.log_dir();
-    let mut logfiles = get_local_logs(&log_dir)?;
-    logfiles.reverse(); // newest first
-    let chosen = logfiles
-        .get(n)
-        .ok_or(ReplayErrors::RecentIndexOutOfBounds {
-            idx: n,
-            num_logfiles: logfiles.len(),
-        })?;
-
-    Ok(log_dir.as_path().join(chosen.path()))
 }

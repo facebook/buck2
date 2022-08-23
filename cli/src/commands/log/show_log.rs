@@ -12,12 +12,11 @@ use std::path::PathBuf;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::stdio;
+use buck2_client::subscribers::event_log::retrieve_nth_recent_log;
 use buck2_client::subscribers::event_log::EventLogPathBuf;
 use buck2_client::subscribers::event_log::SerializeForLog;
 use tokio::runtime;
 use tokio_stream::StreamExt;
-
-use crate::commands::debug::replay::retrieve_nth_recent_log;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
