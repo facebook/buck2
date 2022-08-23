@@ -15,6 +15,7 @@
 pub mod cleanup_ctx;
 pub mod client_ctx;
 pub mod command_outcome;
+pub mod commands;
 pub mod common;
 pub mod daemon;
 pub mod events_ctx;

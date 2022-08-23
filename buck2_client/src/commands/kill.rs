@@ -7,16 +7,17 @@
  * of this source tree.
  */
 
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::daemon::client::BuckdConnectOptions;
 use futures::FutureExt;
+
+use crate::client_ctx::ClientCommandContext;
+use crate::daemon::client::BuckdConnectOptions;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill the buck daemon")]
-pub(crate) struct KillCommand {}
+pub struct KillCommand {}
 
 impl KillCommand {
-    pub(crate) fn exec(
+    pub fn exec(
         self,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext,
@@ -27,10 +28,10 @@ impl KillCommand {
                 .await
             {
                 Err(_) => {
-                    buck2_client::eprintln!("no buckd server running")?;
+                    crate::eprintln!("no buckd server running")?;
                 }
                 Ok(mut client) => {
-                    buck2_client::eprintln!("killing buckd server")?;
+                    crate::eprintln!("killing buckd server")?;
                     client
                         .with_flushing(|client| client.kill("`buck kill` invoked").boxed())
                         .await??;
