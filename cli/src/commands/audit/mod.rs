@@ -42,6 +42,7 @@ pub mod execution_platform_resolution;
 pub mod includes;
 pub mod prelude;
 pub mod providers;
+pub(crate) mod server;
 pub mod starlark;
 pub mod visibility;
 

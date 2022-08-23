@@ -33,9 +33,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
-use buck2_core::env_helper::EnvHelper;
 use buck2_core::truncate::truncate;
-use buck2_events::dispatch::instant_hg;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::ControlEvent;
@@ -82,6 +80,8 @@ use tonic::Request;
 use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
+
+use crate::commands::audit::server::server_audit_command;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -886,53 +886,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<GenericRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let req = req; // capture req into async block
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::AuditCommandStart {}.into()),
-            };
-            let command: crate::commands::audit::AuditCommand =
-                serde_json::from_str(&req.serialized_opts)?;
-            let dir = context.working_dir.as_str().to_owned();
-            // TODO pass in log setting thru ClientContext instead of env var (see D29824148)
-
-            static LOG_REPRODUCE: EnvHelper<bool> = EnvHelper::new("LOG_REPRODUCE");
-            if LOG_REPRODUCE.get()?.unwrap_or(false) {
-                instant_hg().await;
-            }
-
-            span_async(start_event, async {
-                let result = command
-                    .server_execute(
-                        box context,
-                        req.context.expect("buck cli always sets a client context"),
-                    )
-                    .await;
-                let (status, error_messages) = match &result {
-                    Ok(_e) => (0, vec![]),
-                    Err(e) => (1, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(
-                        buck2_data::AuditCommandEnd {
-                            status,
-                            args: req.serialized_opts.to_owned(),
-                            dir,
-                        }
-                        .into(),
-                    ),
-                    is_success: status == 0,
-                    error_messages,
-                };
-
-                (result, end_event)
-            })
-            .await?;
-
-            Ok(GenericResponse {})
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            server_audit_command(box ctx, req)
         })
         .await
     }
