@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(async_closure)]
+#![feature(box_syntax)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 

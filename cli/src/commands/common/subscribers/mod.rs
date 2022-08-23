@@ -8,7 +8,6 @@
  */
 
 mod build_id_writer;
-pub mod event_log;
 mod re;
 pub(crate) mod recorder;
 mod simpleconsole;
@@ -17,9 +16,9 @@ pub(crate) mod stdout_stderr_forwarder;
 pub mod superconsole;
 
 use ::superconsole::Component;
+pub(crate) use buck2_client::subscribers::event_log::EventLog;
 use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
-pub(crate) use event_log::EventLog;
 use gazebo::prelude::*;
 pub(crate) use simpleconsole::SimpleConsole;
 

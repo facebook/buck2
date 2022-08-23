@@ -7,3 +7,4 @@
  * of this source tree.
  */
 pub mod display;
+pub mod event_log;

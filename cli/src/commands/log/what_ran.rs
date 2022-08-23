@@ -13,13 +13,13 @@ use std::path::PathBuf;
 
 use buck2_client::exit_result::ExitResult;
 use buck2_client::stream_value::StreamValue;
+use buck2_client::subscribers::event_log::EventLogPathBuf;
 use futures::TryStreamExt;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use tokio::runtime;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::CommandReproducer;
 use crate::commands::common::what_ran::WhatRanOptions;

@@ -19,8 +19,6 @@ use anyhow::Context as _;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_trait::async_trait;
-use buck2_client::cleanup_ctx::AsyncCleanupContext;
-use buck2_client::stream_value::StreamValue;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
@@ -56,8 +54,11 @@ use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
 
+use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::stream_value::StreamValue;
+
 #[derive(Error, Debug)]
-pub(crate) enum EventLogErrors {
+pub enum EventLogErrors {
     #[error(
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
     )]
@@ -111,7 +112,7 @@ type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 type EventLogReader = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
 
 #[derive(Error, Debug)]
-pub(crate) enum EventLogInferenceError {
+pub enum EventLogInferenceError {
     #[error("Event log at path {} has no filename", .0.display())]
     NoFilename(PathBuf),
 
@@ -131,19 +132,19 @@ fn display_valid_extensions() -> String {
 }
 
 #[derive(Clone)]
-pub(crate) struct EventLogPathBuf {
+pub struct EventLogPathBuf {
     path: PathBuf,
     encoding: Encoding,
 }
 
-pub(crate) struct EventLogSummary {
-    pub(crate) trace_id: TraceId,
-    pub(crate) timestamp: SystemTime,
-    pub(crate) invocation: Invocation,
+pub struct EventLogSummary {
+    pub trace_id: TraceId,
+    pub timestamp: SystemTime,
+    pub invocation: Invocation,
 }
 
 impl EventLogPathBuf {
-    pub(crate) fn infer(path: PathBuf) -> anyhow::Result<Self> {
+    pub fn infer(path: PathBuf) -> anyhow::Result<Self> {
         Self::infer_opt(path)?
             .map_err(|NoInference(path)| EventLogInferenceError::InvalidExtension(path).into())
     }
@@ -168,7 +169,7 @@ impl EventLogPathBuf {
     }
 
     /// Read the invocation line then the event stream.
-    pub(crate) async fn unpack_stream(
+    pub async fn unpack_stream(
         &self,
     ) -> anyhow::Result<(Invocation, impl Stream<Item = anyhow::Result<StreamValue>>)> {
         let log_file = self.open().await?;
@@ -250,7 +251,7 @@ impl EventLogPathBuf {
         Ok(file)
     }
 
-    pub(crate) async fn get_summary(&self) -> anyhow::Result<EventLogSummary> {
+    pub async fn get_summary(&self) -> anyhow::Result<EventLogSummary> {
         let (invocation, events) = self.unpack_stream().await?;
         let buck_event: BuckEvent = events
             .try_filter_map(|log| {
@@ -304,19 +305,19 @@ enum Compression {
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
-pub(crate) struct EventLog {
+pub struct EventLog {
     state: LogFileState,
     async_cleanup_context: Option<AsyncCleanupContext>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct Invocation {
+pub struct Invocation {
     pub command_line_args: Vec<String>,
     pub working_dir: PathBuf,
 }
 
 impl EventLog {
-    pub(crate) fn new(
+    pub fn new(
         logdir: AbsPathBuf,
         extra_path: Option<PathBuf>,
         async_cleanup_context: AsyncCleanupContext,
@@ -534,7 +535,7 @@ async fn remove_old_logs(logdir: &Path) {
 }
 
 /// List logs in logdir, ordered from oldest to newest.
-pub(crate) fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
+pub fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
     let dir = std::fs::read_dir(logdir)?;
     let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
     logfiles.sort_by_cached_key(|file| {
@@ -606,7 +607,7 @@ impl EventSubscriber for EventLog {
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
-pub(crate) fn log_upload_url() -> Option<&'static str> {
+pub fn log_upload_url() -> Option<&'static str> {
     #[cfg(feature = "extra_logging")]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
@@ -614,7 +615,12 @@ pub(crate) fn log_upload_url() -> Option<&'static str> {
         Some("https://manifold.c2p.facebook.net")
     }
     #[cfg(not(feature = "extra_logging"))]
-    None
+    {
+        #[cfg(fbcode_build)]
+        compile_error!("extra_logging must be enabled when compiling in fbcode");
+
+        None
+    }
 }
 
 #[derive(Error, Debug)]
@@ -626,7 +632,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     use std::io::ErrorKind;
     use std::process::Stdio;
 
-    use buck2_client::find_certs::find_tls_cert;
+    use crate::find_certs::find_tls_cert;
 
     buck2_core::facebook_only();
     let manifold_url = match log_upload_url() {
@@ -707,7 +713,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) trait SerializeForLog {
+pub trait SerializeForLog {
     fn serialize_to_json(&self) -> anyhow::Result<Vec<u8>>;
     fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>>;
 }
@@ -762,7 +768,7 @@ struct EventLogDecoder {
 }
 
 impl EventLogDecoder {
-    pub(crate) fn new() -> EventLogDecoder {
+    pub fn new() -> EventLogDecoder {
         Self {
             saw_invocation: false,
         }
@@ -809,7 +815,6 @@ impl Decoder for EventLogDecoder {
 #[cfg(test)]
 mod tests {
 
-    use buck2_client::stream_value::StreamValue;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::BuckEventError;
@@ -818,6 +823,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    use crate::stream_value::StreamValue;
 
     impl EventLog {
         async fn new_test_event_log(log: EventLogPathBuf) -> anyhow::Result<Self> {
