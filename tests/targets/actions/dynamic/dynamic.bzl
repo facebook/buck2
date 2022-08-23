@@ -4,10 +4,10 @@ def _basic(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output("output")
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    def f(ctx: "context"):
-        src = ctx.artifacts[input].read_string()
+    def f(ctx: "context", artifacts, outputs):
+        src = artifacts[input].read_string()
         assert_eq(src, "42")
-        ctx.actions.write(ctx.outputs[output], src)
+        ctx.actions.write(outputs[output], src)
 
     ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
     return [DefaultInfo(default_outputs = [output])]
@@ -19,10 +19,10 @@ def _two(ctx: "context") -> ["provider"]:
     output2 = ctx.actions.declare_output("output2")
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    def f(ctx: "context"):
-        src = ctx.artifacts[input].read_string()
-        ctx.actions.write(ctx.outputs[output1], "output1_" + src)
-        ctx.actions.write(ctx.outputs[output2], "output2_" + src)
+    def f(ctx: "context", artifacts, outputs):
+        src = artifacts[input].read_string()
+        ctx.actions.write(outputs[output1], "output1_" + src)
+        ctx.actions.write(outputs[output2], "output2_" + src)
 
     ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output1, output2], f = f)
     sub_targets = {
@@ -39,8 +39,8 @@ def _nested(ctx: "context") -> ["provider"]:
     symlinked_dir = ctx.actions.declare_output("output1_symlinked_dir")
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    def f(ctx: "context"):
-        src = ctx.artifacts[input].read_string()
+    def f(ctx: "context", artifacts, outputs):
+        src = artifacts[input].read_string()
         output1 = ctx.actions.declare_output("output1")
         output2 = ctx.actions.declare_output("output2")
         ctx.actions.write(output1, "output1_" + src)
@@ -52,15 +52,15 @@ def _nested(ctx: "context") -> ["provider"]:
         nested_output = ctx.actions.declare_output("nested_output")
 
         # @lint-ignore BUCKRESTRICTEDSYNTAX
-        def f2(ctx: "context"):
-            nested_src1 = ctx.artifacts[output1].read_string()
-            nested_src2 = ctx.artifacts[output2].read_string()
-            ctx.actions.write(ctx.outputs[nested_output], [nested_src1, nested_src2])
+        def f2(ctx: "context", artifacts, outputs):
+            nested_src1 = artifacts[output1].read_string()
+            nested_src2 = artifacts[output2].read_string()
+            ctx.actions.write(outputs[nested_output], [nested_src1, nested_src2])
 
         ctx.actions.dynamic_output(dynamic = [output1, output2], inputs = [], outputs = [nested_output], f = f2)
 
         symlink_tree["nested_output"] = nested_output
-        ctx.actions.symlinked_dir(ctx.outputs[symlinked_dir], symlink_tree)
+        ctx.actions.symlinked_dir(outputs[symlinked_dir], symlink_tree)
 
     ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [symlinked_dir], f = f)
     return [DefaultInfo(default_outputs = [symlinked_dir])]
@@ -92,11 +92,11 @@ def _command(ctx: "context") -> ["provider"]:
     )
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    def f(ctx: "context"):
-        src = ctx.artifacts[hello].read_string().strip()
+    def f(ctx: "context", artifacts, outputs):
+        src = artifacts[hello].read_string().strip()
         assert_eq(src, "Hello")
         ctx.actions.run(
-            cmd_args(["python3", script, src, ctx.outputs[world].as_output(), ctx.outputs[universe].as_output()]),
+            cmd_args(["python3", script, src, outputs[world].as_output(), outputs[universe].as_output()]),
             category = "dynamic_test",
         )
 
@@ -109,10 +109,10 @@ def _create(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output("output")
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    def f(ctx: "context"):
-        src = ctx.artifacts[input].read_string()
+    def f(ctx: "context", artifacts, outputs):
+        src = artifacts[input].read_string()
         new_file = ctx.actions.write("new_file", src)
-        ctx.actions.copy_file(ctx.outputs[output], new_file)
+        ctx.actions.copy_file(outputs[output], new_file)
 
     ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
     return [DefaultInfo(default_outputs = [output])]
@@ -123,19 +123,19 @@ def _create_duplicate(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output("output")
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    def f(ctx: "context"):
-        src = ctx.artifacts[input].read_string()
+    def f(ctx: "context", artifacts, outputs):
+        src = artifacts[input].read_string()
 
         # Deliberately reuse the names input/output
         new_output = ctx.actions.write("output", src)
 
         # We can't have two actions that do copy with "output" as the name
         # since then we get conflicting identifiers for category `copy`.
-        # I.e. the two copy() actions below can't end "output" and ctx.outputs[output].
+        # I.e. the two copy() actions below can't end "output" and outputs[output].
         # We could allow copy to take an explicit identifier, but this is a corner
         # case and I don't think its a good idea to reuse names heavily anyway.
         new_input = ctx.actions.copy_file("input", new_output)
-        ctx.actions.copy_file(ctx.outputs[output], new_input)
+        ctx.actions.copy_file(outputs[output], new_input)
 
     ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
     return [DefaultInfo(default_outputs = [output])]
