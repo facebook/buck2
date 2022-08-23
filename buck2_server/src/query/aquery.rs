@@ -20,7 +20,7 @@ use cli_proto::AqueryResponse;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
-pub(crate) async fn aquery_command(
+pub async fn aquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::AqueryRequest,
 ) -> anyhow::Result<cli_proto::AqueryResponse> {

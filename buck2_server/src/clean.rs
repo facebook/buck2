@@ -23,7 +23,7 @@ use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-pub(crate) async fn clean_command(
+pub async fn clean_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::CleanRequest,
 ) -> anyhow::Result<cli_proto::CleanResponse> {

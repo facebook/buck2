@@ -32,7 +32,7 @@ use crate::query::printer::ProviderLookUp;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
-pub(crate) async fn cquery_command(
+pub async fn cquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {

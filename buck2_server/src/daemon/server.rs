@@ -62,24 +62,15 @@ use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
 
-use crate::build::build_command;
-use crate::clean::clean_command;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
-use crate::docs::docs_command;
-use crate::install::install_command;
 use crate::jemalloc_stats::jemalloc_stats;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::profile::profile_command;
-use crate::query::aquery::aquery_command;
-use crate::query::cquery::cquery_command;
-use crate::query::uquery::uquery_command;
 use crate::snapshot;
 use crate::streaming_request_handler::StreamingRequestHandler;
-use crate::targets::targets_command;
-use crate::targets_show_outputs::targets_show_outputs_command;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -143,6 +134,21 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         ctx: Box<dyn ServerCommandContextTrait>,
         req: TestRequest,
     ) -> anyhow::Result<TestResponse>;
+    async fn build(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: BuildRequest,
+    ) -> anyhow::Result<BuildResponse>;
+    async fn clean(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: CleanRequest,
+    ) -> anyhow::Result<CleanResponse>;
+    async fn install(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: InstallRequest,
+    ) -> anyhow::Result<InstallResponse>;
     async fn bxl(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -151,8 +157,38 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn audit(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: GenericRequest,
-    ) -> anyhow::Result<GenericResponse>;
+        req: cli_proto::GenericRequest,
+    ) -> anyhow::Result<cli_proto::GenericResponse>;
+    async fn uquery(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::UqueryRequest,
+    ) -> anyhow::Result<cli_proto::UqueryResponse>;
+    async fn cquery(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::CqueryRequest,
+    ) -> anyhow::Result<CqueryResponse>;
+    async fn aquery(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::AqueryRequest,
+    ) -> anyhow::Result<cli_proto::AqueryResponse>;
+    async fn targets(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: TargetsRequest,
+    ) -> anyhow::Result<TargetsResponse>;
+    async fn targets_show_outputs(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: TargetsRequest,
+    ) -> anyhow::Result<TargetsShowOutputsResponse>;
+    async fn docs(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::UnstableDocsRequest,
+    ) -> anyhow::Result<cli_proto::UnstableDocsResponse>;
     fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn;
     fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder);
 }
@@ -639,11 +675,12 @@ impl DaemonApi for BuckdServer {
             None
         };
 
+        let callbacks = self.callbacks;
         self.run_streaming(
             req,
             CleanRunCommandOptions { shut_down_after },
             move |ctx, req| async move {
-                let res = clean_command(box ctx, req).await;
+                let res = callbacks.clean(box ctx, req).await;
 
                 // Ensure that if all goes well, the drop guard lives until this point.
                 drop(drop_guard);
@@ -656,8 +693,9 @@ impl DaemonApi for BuckdServer {
 
     type BuildStream = ResponseStream;
     async fn build(&self, req: Request<BuildRequest>) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            build_command(box ctx, req)
+            callbacks.build(box ctx, req)
         })
         .await
     }
@@ -685,8 +723,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<AqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            aquery_command(box ctx, req)
+            callbacks.aquery(box ctx, req)
         })
         .await
     }
@@ -696,8 +735,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            uquery_command(box ctx, req)
+            callbacks.uquery(box ctx, req)
         })
         .await
     }
@@ -707,8 +747,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<CqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            cquery_command(box ctx, req)
+            callbacks.cquery(box ctx, req)
         })
         .await
     }
@@ -718,8 +759,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            targets_command(box ctx, req)
+            callbacks.targets(box ctx, req)
         })
         .await
     }
@@ -729,8 +771,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            targets_show_outputs_command(box ctx, req)
+            callbacks.targets_show_outputs(box ctx, req)
         })
         .await
     }
@@ -752,8 +795,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<InstallRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            install_command(box ctx, req)
+            callbacks.install(box ctx, req)
         })
         .await
     }
@@ -840,8 +884,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UnstableDocsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            docs_command(box ctx, req)
+            callbacks.docs(box ctx, req)
         })
         .await
     }

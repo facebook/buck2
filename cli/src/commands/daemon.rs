@@ -35,10 +35,19 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_server::build::build_command;
+use buck2_server::clean::clean_command;
 use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerDependencies;
+use buck2_server::docs::docs_command;
+use buck2_server::install::install_command;
+use buck2_server::query::aquery::aquery_command;
+use buck2_server::query::cquery::cquery_command;
+use buck2_server::query::uquery::uquery_command;
+use buck2_server::targets::targets_command;
+use buck2_server::targets_show_outputs::targets_show_outputs_command;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_test::command::test_command;
 use cli_proto::DaemonProcessInfo;
@@ -85,6 +94,27 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     ) -> anyhow::Result<cli_proto::TestResponse> {
         test_command(ctx, req).await
     }
+    async fn build(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::BuildRequest,
+    ) -> anyhow::Result<cli_proto::BuildResponse> {
+        build_command(ctx, req).await
+    }
+    async fn clean(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::CleanRequest,
+    ) -> anyhow::Result<cli_proto::CleanResponse> {
+        clean_command(ctx, req).await
+    }
+    async fn install(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::InstallRequest,
+    ) -> anyhow::Result<cli_proto::InstallResponse> {
+        install_command(ctx, req).await
+    }
     async fn bxl(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -98,6 +128,48 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         req: cli_proto::GenericRequest,
     ) -> anyhow::Result<cli_proto::GenericResponse> {
         server_audit_command(ctx, req).await
+    }
+    async fn uquery(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::UqueryRequest,
+    ) -> anyhow::Result<cli_proto::UqueryResponse> {
+        uquery_command(ctx, req).await
+    }
+    async fn cquery(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::CqueryRequest,
+    ) -> anyhow::Result<cli_proto::CqueryResponse> {
+        cquery_command(ctx, req).await
+    }
+    async fn aquery(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::AqueryRequest,
+    ) -> anyhow::Result<cli_proto::AqueryResponse> {
+        aquery_command(ctx, req).await
+    }
+    async fn targets(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::TargetsRequest,
+    ) -> anyhow::Result<cli_proto::TargetsResponse> {
+        targets_command(ctx, req).await
+    }
+    async fn targets_show_outputs(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::TargetsRequest,
+    ) -> anyhow::Result<cli_proto::TargetsShowOutputsResponse> {
+        targets_show_outputs_command(ctx, req).await
+    }
+    async fn docs(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: cli_proto::UnstableDocsRequest,
+    ) -> anyhow::Result<cli_proto::UnstableDocsResponse> {
+        docs_command(ctx, req).await
     }
     fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn {
         &BxlCalculationImpl

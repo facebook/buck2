@@ -47,7 +47,7 @@ struct TargetsArtifacts {
     artifacts: Vec<Artifact>,
 }
 
-pub(crate) async fn targets_show_outputs_command(
+pub async fn targets_show_outputs_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {

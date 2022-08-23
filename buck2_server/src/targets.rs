@@ -242,7 +242,7 @@ struct TargetsOptions {
     target_hash_graph_type: TargetHashGraphType,
 }
 
-pub(crate) async fn targets_command(
+pub async fn targets_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {

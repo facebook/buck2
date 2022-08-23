@@ -284,7 +284,7 @@ async fn get_docs_from_module(
     Ok(docs)
 }
 
-pub(crate) async fn docs_command(
+pub async fn docs_command(
     context: Box<dyn ServerCommandContextTrait>,
     req: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {

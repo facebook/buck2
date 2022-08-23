@@ -124,7 +124,7 @@ async fn get_installer_log_directory(
     Ok(install_log_dir)
 }
 
-pub(crate) async fn install_command(
+pub async fn install_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {

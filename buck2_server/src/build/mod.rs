@@ -78,7 +78,7 @@ struct BuildResult {
     pub error_messages: Vec<String>,
 }
 
-pub(crate) async fn build_command(
+pub async fn build_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::BuildRequest,
 ) -> anyhow::Result<cli_proto::BuildResponse> {
