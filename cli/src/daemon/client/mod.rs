@@ -36,11 +36,9 @@ use crate::version::BuckVersion;
 pub(crate) mod connect;
 mod events_ctx;
 mod file_tailer;
-pub(crate) mod replayer;
 
 use buck2_client::exit_result::ExitResult;
-
-use crate::daemon::client::replayer::Replayer;
+use buck2_client::replayer::Replayer;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);

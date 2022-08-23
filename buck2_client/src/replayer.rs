@@ -11,9 +11,6 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::time::SystemTime;
 
-use buck2_client::stream_value::StreamValue;
-use buck2_client::subscribers::event_log::EventLogPathBuf;
-use buck2_client::subscribers::event_log::Invocation;
 use futures::stream::BoxStream;
 use futures::task::Poll;
 use futures::Future;
@@ -21,6 +18,10 @@ use futures::Stream;
 use pin_project::pin_project;
 use tokio::time::Instant;
 use tokio::time::Sleep;
+
+use crate::stream_value::StreamValue;
+use crate::subscribers::event_log::EventLogPathBuf;
+use crate::subscribers::event_log::Invocation;
 
 #[pin_project]
 struct Pending {
@@ -40,10 +41,7 @@ pub struct Replayer<T = BoxStream<'static, anyhow::Result<StreamValue>>> {
 }
 
 impl Replayer {
-    pub(crate) async fn new(
-        log_path: PathBuf,
-        speed: Option<f64>,
-    ) -> anyhow::Result<(Self, Invocation)> {
+    pub async fn new(log_path: PathBuf, speed: Option<f64>) -> anyhow::Result<(Self, Invocation)> {
         let log_path = EventLogPathBuf::infer(log_path)?;
         let (invocation, events) = log_path.unpack_stream().await?;
 
@@ -59,7 +57,7 @@ impl Replayer {
         Ok((myself, invocation))
     }
 
-    pub(crate) fn speed(&self) -> f64 {
+    pub fn speed(&self) -> f64 {
         self.syncher.speed
     }
 }

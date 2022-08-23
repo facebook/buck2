@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use anyhow::Context;
+use buck2_client::replayer::Replayer;
 use buck2_client::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use buck2_common::client_utils::get_channel;
 use buck2_common::client_utils::retrying;
@@ -35,7 +36,6 @@ use tokio::time::timeout;
 use tonic::transport::Channel;
 
 use crate::daemon::client::events_ctx::EventsCtx;
-use crate::daemon::client::replayer::Replayer;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::ClientKind;
