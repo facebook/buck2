@@ -14,6 +14,7 @@
 
 pub mod cleanup_ctx;
 pub mod command_outcome;
+pub mod events_ctx;
 pub mod exit_result;
 pub mod file_tailer;
 pub mod final_console;

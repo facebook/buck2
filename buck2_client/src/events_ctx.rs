@@ -11,9 +11,6 @@ use std::path::Path;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_client::command_outcome::CommandOutcome;
-use buck2_client::file_tailer::FileTailer;
-use buck2_client::stream_value::StreamValue;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::subscriber::Tick;
@@ -29,6 +26,10 @@ use tokio::time::Instant;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+
+use crate::command_outcome::CommandOutcome;
+use crate::file_tailer::FileTailer;
+use crate::stream_value::StreamValue;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
 /// superconsole uses it to re-render the frame and this is what allows it to have constantly updating timers.
@@ -61,18 +62,18 @@ impl From<tonic::Status> for BuckdCommunicationError {
 
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// fowards them to the appropriate subscribers registered on this struct
-pub(crate) struct EventsCtx {
-    pub(crate) daemon_dir: AbsPathBuf,
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
+pub struct EventsCtx {
+    pub daemon_dir: AbsPathBuf,
+    pub subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,
 }
 
-pub(crate) struct FileStreams {
+pub struct FileStreams {
     stdout: UnboundedReceiverStream<String>,
     stderr: UnboundedReceiverStream<String>,
 }
 
-pub(crate) struct FileTailers {
+pub struct FileTailers {
     _stdout_tailer: FileTailer,
     _stderr_tailer: FileTailer,
     streams: FileStreams,
@@ -138,7 +139,7 @@ impl Ticker {
 }
 
 impl EventsCtx {
-    pub(crate) fn new(daemon_dir: AbsPathBuf, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+    pub fn new(daemon_dir: AbsPathBuf, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
         Self {
             daemon_dir,
             subscribers,
@@ -149,7 +150,7 @@ impl EventsCtx {
     /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
     /// event stream and returning it.
     /// Also merges all other streams into a single, larger stream
-    pub(crate) async fn unpack_stream<
+    pub async fn unpack_stream<
         R: TryFrom<command_result::Result, Error = command_result::Result>,
         S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
     >(
@@ -243,7 +244,7 @@ impl EventsCtx {
         }
     }
 
-    pub(crate) async fn flushing_tailers<R, Fut: Future<Output = R>>(
+    pub async fn flushing_tailers<R, Fut: Future<Output = R>>(
         &mut self,
         tailers: &mut Option<FileTailers>,
         f: impl FnOnce() -> Fut,
@@ -255,7 +256,7 @@ impl EventsCtx {
 
     /// Unpack a single `CommandResult`, log any failures if necessary, and convert it to a
     /// `CommandOutcome`
-    pub(crate) async fn unpack_oneshot<
+    pub async fn unpack_oneshot<
         R: TryFrom<command_result::Result, Error = command_result::Result>,
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
@@ -301,7 +302,7 @@ impl EventsCtx {
         }
     }
 
-    pub(crate) async fn flush(&mut self, tailers: &mut Option<FileTailers>) -> anyhow::Result<()> {
+    pub async fn flush(&mut self, tailers: &mut Option<FileTailers>) -> anyhow::Result<()> {
         let tailers = match tailers.take() {
             Some(tailers) => tailers,
             None => return Ok(()),
@@ -387,7 +388,7 @@ impl EventSubscriber for EventsCtx {
 }
 
 impl FileTailers {
-    pub(crate) fn new(daemon_dir: &Path) -> anyhow::Result<Self> {
+    pub fn new(daemon_dir: &Path) -> anyhow::Result<Self> {
         let (stdout, stdout_tailer) = FileTailer::tail_file(daemon_dir.join("buckd.stdout"))?;
         let (stderr, stderr_tailer) = FileTailer::tail_file(daemon_dir.join("buckd.stderr"))?;
         let this = Self {
@@ -398,14 +399,14 @@ impl FileTailers {
         Ok(this)
     }
 
-    pub(crate) fn stop_reading(self) -> FileStreams {
+    pub fn stop_reading(self) -> FileStreams {
         // by dropping the tailers, they shut themselves down.
         self.streams
     }
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum EventsCtxError {
+pub enum EventsCtxError {
     #[error("While propagating error:\n{source:#?}, another error was detected:\n{other:#?}")]
     WrappedStreamError {
         #[source]

@@ -13,6 +13,8 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::events_ctx::EventsCtx;
+use buck2_client::events_ctx::FileTailers;
 use buck2_client::stream_value::StreamValue;
 use buck2_server::daemon::common::ToProtoDuration;
 use cli_proto::daemon_api_client::*;
@@ -27,12 +29,9 @@ use tonic::transport::Channel;
 use tonic::Request;
 use tonic::Status;
 
-use crate::daemon::client::events_ctx::EventsCtx;
-use crate::daemon::client::events_ctx::FileTailers;
 use crate::version::BuckVersion;
 
 pub(crate) mod connect;
-mod events_ctx;
 
 use buck2_client::replayer::Replayer;
 
