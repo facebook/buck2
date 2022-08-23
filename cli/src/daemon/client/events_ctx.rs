@@ -11,6 +11,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::command_outcome::CommandOutcome;
 use buck2_client::file_tailer::FileTailer;
 use buck2_client::stream_value::StreamValue;
 use buck2_core::fs::paths::AbsPathBuf;
@@ -28,8 +29,6 @@ use tokio::time::Instant;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-
-use crate::daemon::client::CommandOutcome;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
 /// superconsole uses it to re-render the frame and this is what allows it to have constantly updating timers.

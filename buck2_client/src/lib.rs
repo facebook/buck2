@@ -13,6 +13,7 @@
 #![feature(try_trait_v2)]
 
 pub mod cleanup_ctx;
+pub mod command_outcome;
 pub mod exit_result;
 pub mod file_tailer;
 pub mod final_console;

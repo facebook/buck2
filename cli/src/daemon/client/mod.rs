@@ -7,14 +7,12 @@
  * of this source tree.
  */
 
-use std::ops::ControlFlow;
-use std::ops::FromResidual;
-use std::ops::Try;
 use std::pin::Pin;
 use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_client::command_outcome::CommandOutcome;
 use buck2_client::stream_value::StreamValue;
 use buck2_server::daemon::common::ToProtoDuration;
 use cli_proto::daemon_api_client::*;
@@ -36,7 +34,6 @@ use crate::version::BuckVersion;
 pub(crate) mod connect;
 mod events_ctx;
 
-use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
@@ -107,57 +104,6 @@ pub(crate) struct BuckdClient {
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
     pub(crate) events_ctx: EventsCtx,
-}
-
-/// The final outcome returned to the client of running a command in the daemon.
-///
-/// Either "successful", in which case `R`, the response type, is available, or "failure",
-/// where a general `CommandError` was returned. Consider this a "failed successfully" indicator.
-/// At the point where this is returned, all event processing / logging should be handled.
-#[must_use]
-pub(crate) enum CommandOutcome<R> {
-    /// The buckd client successfully returned the expected response.
-    ///
-    /// Additional processing of this response may be necessary to determine overall success or
-    /// failure within the client.
-    Success(R),
-    /// The buckd client successfully returned a response, but that response was a general failure.
-    ///
-    /// The user has already been presented an error message, and the CLI should exit with
-    /// this status code.
-    Failure(Option<u8>),
-}
-
-/// Small wrapper used in FromResidual
-pub(crate) struct CommandFailure(Option<u8>);
-
-/// Allow the usage of '?' when going from a CommandOutcome -> ExitResult
-impl<R> Try for CommandOutcome<R> {
-    type Output = R;
-    type Residual = CommandFailure;
-
-    fn from_output(output: Self::Output) -> Self {
-        Self::Success(output)
-    }
-
-    fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
-        match self {
-            CommandOutcome::Success(res) => ControlFlow::Continue(res),
-            CommandOutcome::Failure(status) => ControlFlow::Break(CommandFailure(status)),
-        }
-    }
-}
-
-impl FromResidual<CommandFailure> for ExitResult {
-    fn from_residual(residual: CommandFailure) -> Self {
-        ExitResult::status(residual.0.unwrap_or(1))
-    }
-}
-
-impl<R> FromResidual<CommandFailure> for CommandOutcome<R> {
-    fn from_residual(residual: CommandFailure) -> Self {
-        Self::Failure(residual.0)
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
