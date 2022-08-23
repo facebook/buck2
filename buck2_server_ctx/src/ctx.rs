@@ -28,4 +28,9 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
     fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>>;
 
     fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
+
+    async fn canonicalize_patterns_for_logging(
+        &self,
+        patterns: &[buck2_data::TargetPattern],
+    ) -> anyhow::Result<Vec<buck2_data::TargetPattern>>;
 }
