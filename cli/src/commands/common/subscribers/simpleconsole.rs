@@ -528,7 +528,7 @@ impl EventSubscriber for SimpleConsole {
                 }
                 None => {
                     if self.show_waiting_message {
-                        echo!("Waiting on daemon...")?
+                        echo!("Waiting on buck2 daemon...")?
                     }
                 }
             }
