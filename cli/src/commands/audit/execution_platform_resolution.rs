@@ -16,7 +16,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
 use buck2_core::pattern::TargetPattern;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::pattern::PatternParser;
@@ -51,7 +50,7 @@ pub(crate) struct AuditExecutionPlatformResolutionCommand {
 impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
@@ -60,7 +59,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         let pattern_parser = PatternParser::new(
             &cell_resolver,
             &ctx.get_legacy_configs().await?,
-            &server_ctx.working_dir,
+            server_ctx.working_dir(),
         )?;
 
         let mut configured_patterns = Vec::new();
@@ -89,7 +88,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         let target_platform = target_platform_from_client_context(
             Some(&client_ctx),
             &cell_resolver,
-            &server_ctx.working_dir,
+            server_ctx.working_dir(),
         )
         .await?;
 

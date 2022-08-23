@@ -11,7 +11,6 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_core::configuration::Configuration;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use itertools::Itertools;
@@ -48,7 +47,7 @@ pub(crate) struct AuditConfigurationsCommand {
 impl AuditSubcommand for AuditConfigurationsCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let mut stdout = server_ctx.stdout()?;

@@ -21,7 +21,6 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
@@ -38,13 +37,13 @@ pub(crate) struct StarlarkPackageDepsCommand {
 impl StarlarkPackageDepsCommand {
     pub(crate) async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let dice_ctx = server_ctx.dice_ctx().await?;
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        let current_cell_path = cell_resolver.get_cell_path(&server_ctx.working_dir)?;
+        let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
         let current_cell = BuildFileCell::new(current_cell_path.cell().clone());
 
         let cell_alias_resolver = cell_resolver

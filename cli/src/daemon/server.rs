@@ -906,7 +906,7 @@ impl DaemonApi for BuckdServer {
             span_async(start_event, async {
                 let result = command
                     .server_execute(
-                        context,
+                        box context,
                         req.context.expect("buck cli always sets a client context"),
                     )
                     .await;

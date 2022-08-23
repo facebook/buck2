@@ -18,7 +18,6 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
@@ -38,7 +37,7 @@ pub(crate) struct AuditPreludeCommand {}
 impl AuditSubcommand for AuditPreludeCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;

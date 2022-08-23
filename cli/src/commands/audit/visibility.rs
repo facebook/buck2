@@ -21,7 +21,6 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use cli_proto::ClientContext;
@@ -135,7 +134,7 @@ impl AuditVisibilityCommand {
 impl AuditSubcommand for AuditVisibilityCommand {
     async fn server_execute(
         &self,
-        server_ctx: ServerCommandContext,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
@@ -146,7 +145,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
                 .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
             &ctx.get_cell_resolver().await?,
             &ctx.get_legacy_configs().await?,
-            &server_ctx.working_dir,
+            server_ctx.working_dir(),
         )?;
 
         let parsed_target_patterns = load_patterns(&ctx, parsed_patterns).await?;

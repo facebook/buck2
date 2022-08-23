@@ -9,7 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_client::exit_result::ExitResult;
-use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use cli_proto::GenericRequest;
 use futures::FutureExt;
@@ -74,7 +74,7 @@ pub(crate) enum AuditCommand {
 pub(crate) trait AuditSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
-        server_ctx: ServerCommandContext,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
 
@@ -88,7 +88,7 @@ pub(crate) trait AuditSubcommand: Send + Sync + 'static {
 impl AuditCommand {
     pub(crate) async fn server_execute(
         &self,
-        server_ctx: ServerCommandContext,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         self.as_subcommand()

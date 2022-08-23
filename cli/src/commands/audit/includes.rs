@@ -33,7 +33,6 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use derive_more::Display;
@@ -221,12 +220,12 @@ fn resolve_path(
 impl AuditSubcommand for AuditIncludesCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
         let cells = ctx.get_cell_resolver().await?;
-        let cwd = &server_ctx.working_dir;
+        let cwd = server_ctx.working_dir();
         let current_cell = cells.get(cells.find(cwd)?)?;
         let fs = server_ctx.project_root();
 

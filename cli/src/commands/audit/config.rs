@@ -17,7 +17,6 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
 use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::*;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
@@ -196,10 +195,10 @@ impl AuditConfigCommand {
 impl AuditSubcommand for AuditConfigCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
-        let cwd = &server_ctx.working_dir;
+        let cwd = server_ctx.working_dir();
         let ctx = server_ctx.dice_ctx().await?;
         let cell_resolver = ctx.get_cell_resolver().await?;
 

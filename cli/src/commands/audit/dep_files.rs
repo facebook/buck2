@@ -24,7 +24,6 @@ use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::pattern::TargetPattern;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -64,15 +63,18 @@ pub(crate) struct AuditDepFilesCommand {
 impl AuditSubcommand for AuditDepFilesCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
         let cells = ctx.get_cell_resolver().await?;
 
-        let target_platform =
-            target_platform_from_client_context(Some(&client_ctx), &cells, &server_ctx.working_dir)
-                .await?;
+        let target_platform = target_platform_from_client_context(
+            Some(&client_ctx),
+            &cells,
+            server_ctx.working_dir(),
+        )
+        .await?;
 
         let label = parse_patterns_from_cli_args::<TargetPattern>(
             &[buck2_data::TargetPattern {
@@ -80,7 +82,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
             }],
             &cells,
             &ctx.get_legacy_configs().await?,
-            &server_ctx.working_dir,
+            server_ctx.working_dir(),
         )?
         .into_iter()
         .next()

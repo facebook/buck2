@@ -17,7 +17,6 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
@@ -62,15 +61,18 @@ pub(crate) struct AuditAnalysisQueriesCommand {
 impl AuditSubcommand for AuditAnalysisQueriesCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
         let cells = ctx.get_cell_resolver().await?;
 
-        let global_target_platform =
-            target_platform_from_client_context(Some(&client_ctx), &cells, &server_ctx.working_dir)
-                .await?;
+        let global_target_platform = target_platform_from_client_context(
+            Some(&client_ctx),
+            &cells,
+            server_ctx.working_dir(),
+        )
+        .await?;
 
         let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
             &self
@@ -78,7 +80,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                 .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
             &cells,
             &ctx.get_legacy_configs().await?,
-            &server_ctx.working_dir,
+            server_ctx.working_dir(),
         )?;
         let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
 

@@ -12,7 +12,6 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellAlias;
-use buck2_server::ctx::ServerCommandContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use indexmap::IndexMap;
@@ -54,13 +53,13 @@ pub(crate) struct AuditCellCommand {
 impl AuditSubcommand for AuditCellCommand {
     async fn server_execute(
         &self,
-        mut server_ctx: ServerCommandContext,
+        mut server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
         let cells = ctx.get_cell_resolver().await?;
         let fs = server_ctx.project_root();
-        let cwd = &server_ctx.working_dir;
+        let cwd = server_ctx.working_dir();
         let this_cell = cells.get(cells.find(cwd)?).unwrap();
 
         let mappings: IndexMap<_, _> = {

@@ -13,7 +13,7 @@ mod module;
 mod package_deps;
 
 use async_trait::async_trait;
-use buck2_server::ctx::ServerCommandContext;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::starlark::module::StarlarkModuleCommand;
@@ -34,7 +34,7 @@ pub(crate) enum StarlarkCommand {
 impl AuditSubcommand for StarlarkCommand {
     async fn server_execute(
         &self,
-        server_ctx: ServerCommandContext,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         match self {
