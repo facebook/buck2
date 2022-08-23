@@ -5,23 +5,31 @@ cpp_library(
     srcs = [
         "ActionErrorParser.cpp",
         "ErrorCategorizationParser.cpp",
+        "EventProcessingMetrics.cpp",
         "ProtoUtils.cpp",
     ],
     headers = [
         "ActionErrorParser.h",
         "ErrorCategorizationParser.h",
+        "EventProcessingMetrics.h",
         "ProtoUtils.h",
+    ],
+    deps = [
+        "//common/logging:logging",
+        "//maestro/if:if-cpp2-types",
     ],
     exported_deps = [
         "//buck2/facebook/proto:proto-cpp",
         "//folly/logging:logging",
+        "//monitoring/obc:obc_lib",
         "//rfe/scubadata:scubadata",
+        "//tupperware/agent/api:task_metadata",
     ],
     external_deps = [
-        "protobuf",
         "re2",
     ],
     exported_external_deps = [
+        "protobuf",
         ("boost", None, "boost_algorithm"),
     ],
 )

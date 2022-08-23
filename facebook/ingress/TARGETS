@@ -62,6 +62,7 @@ cpp_library(
         "ScubaEventProcessor.h",
     ],
     deps = [
+        "//common/logging:logging",
         "//common/time:time",
         "//fb303:export_type",
         "//fb303:thread_cached_service_data",
