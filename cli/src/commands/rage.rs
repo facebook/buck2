@@ -12,6 +12,7 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::exit_result::ExitResult;
+use buck2_client::find_certs::find_tls_cert;
 use buck2_core::fs::anyhow::create_dir_all;
 use buck2_core::fs::anyhow::remove_dir_all;
 use buck2_core::process::async_background_command;
@@ -30,7 +31,6 @@ use futures::TryStreamExt;
 use thiserror::Error;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::find_certs::find_tls_cert;
 use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::subscribers::event_log::log_upload_url;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;

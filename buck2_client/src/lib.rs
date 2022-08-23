@@ -12,6 +12,7 @@
 
 pub mod cleanup_ctx;
 pub mod exit_result;
+pub mod find_certs;
 pub mod stream_value;
 pub mod subscribers;
 pub mod verbosity;

@@ -18,6 +18,7 @@ rust_library(
         "//buck2/buck2_events:buck2_events",
         "//buck2/buck2_test_api:buck2_test_api",
         "//buck2/cli_proto:cli_proto",
+        "//buck2/facebook/find_certs:find_certs",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/superconsole:superconsole",
     ],

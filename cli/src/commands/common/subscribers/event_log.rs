@@ -626,7 +626,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     use std::io::ErrorKind;
     use std::process::Stdio;
 
-    use crate::commands::common::find_certs::find_tls_cert;
+    use buck2_client::find_certs::find_tls_cert;
 
     buck2_core::facebook_only();
     let manifold_url = match log_upload_url() {
