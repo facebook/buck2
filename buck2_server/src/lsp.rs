@@ -32,12 +32,14 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::TargetName;
 use buck2_events::dispatch::instant_event;
+use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::*;
 use dice::DiceTransaction;
@@ -536,8 +538,25 @@ impl LspContext for BuckLspContext {
     }
 }
 
+pub(crate) async fn run_lsp_server_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: StreamingRequestHandler<cli_proto::LspRequest>,
+) -> anyhow::Result<cli_proto::LspResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::LspCommandStart {}.into()),
+    };
+    span_async(start_event, async move {
+        let result = run_lsp_server(ctx, req).await;
+        let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
 /// Run an LSP server for a given client.
-pub async fn run_lsp_server(
+async fn run_lsp_server(
     ctx: Box<dyn ServerCommandContextTrait>,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {

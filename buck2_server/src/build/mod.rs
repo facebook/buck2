@@ -42,6 +42,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_events::dispatch::span_async;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
@@ -70,13 +72,48 @@ use crate::build::results::BuildResultCollector;
 pub mod results;
 
 #[derive(Debug)]
-pub struct BuildResult {
+struct BuildResult {
     pub build_targets: Vec<BuildTarget>,
     pub serialized_build_report: Option<String>,
     pub error_messages: Vec<String>,
 }
 
-pub async fn build(
+pub(crate) async fn build_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: cli_proto::BuildRequest,
+) -> anyhow::Result<cli_proto::BuildResponse> {
+    let project_root = ctx.project_root().to_string();
+    let metadata = ctx.request_metadata()?;
+    let patterns_for_logging = ctx
+        .canonicalize_patterns_for_logging(&req.target_patterns)
+        .await?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::BuildCommandStart {}.into()),
+    };
+    let result = span_async(start_event, async {
+        let result = build(ctx, req).await;
+        let end_event = command_end(
+            metadata,
+            &result,
+            buck2_data::BuildCommandEnd {
+                target_patterns: patterns_for_logging,
+            },
+        );
+
+        (result, end_event)
+    })
+    .await?;
+
+    Ok(cli_proto::BuildResponse {
+        build_targets: result.build_targets,
+        project_root,
+        serialized_build_report: result.serialized_build_report.unwrap_or_default(),
+        error_messages: result.error_messages,
+    })
+}
+
+async fn build(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: BuildRequest,
 ) -> anyhow::Result<BuildResult> {

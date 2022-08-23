@@ -15,9 +15,12 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::truncate::truncate;
+use buck2_events::dispatch::span_async;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::CqueryRequest;
@@ -29,7 +32,31 @@ use crate::query::printer::ProviderLookUp;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
-pub async fn cquery(
+pub(crate) async fn cquery_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: CqueryRequest,
+) -> anyhow::Result<CqueryResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(
+            buck2_data::CQueryCommandStart {
+                query: truncate(&req.query, 50000),
+                query_args: truncate(&req.query_args.join(","), 1000),
+                target_universe: truncate(&req.target_universe.join(","), 1000),
+            }
+            .into(),
+        ),
+    };
+    span_async(start_event, async {
+        let result = cquery(ctx, req).await;
+        let end_event = command_end(metadata, &result, buck2_data::CQueryCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
+async fn cquery(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     request: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -22,11 +23,13 @@ use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
+use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
@@ -35,6 +38,8 @@ use cli_proto::profile_request::Action;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
+
+use crate::ctx::ServerCommandContext;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
@@ -103,7 +108,48 @@ async fn generate_profile_loading(
     profiler.finish().map(Arc::new)
 }
 
-pub async fn generate_profile(
+pub(crate) async fn profile_command(
+    ctx: ServerCommandContext,
+    req: cli_proto::ProfileRequest,
+) -> anyhow::Result<cli_proto::ProfileResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::ProfileCommandStart {}.into()),
+    };
+    span_async(start_event, async {
+        let result: anyhow::Result<_> = try {
+            let output: PathBuf = req.destination_path.clone().into();
+
+            let profile_mode = ctx.starlark_profiler_instrumentation_override.dupe();
+
+            let action = cli_proto::profile_request::Action::from_i32(req.action)
+                .context("Invalid action")?;
+
+            let profile_data = generate_profile(
+                box ctx,
+                req.context.context("Missing client context")?,
+                req.target_pattern.context("Missing target pattern")?,
+                action,
+                &profile_mode,
+            )
+            .await?;
+
+            profile_data.write(&output)?;
+
+            cli_proto::ProfileResponse {
+                elapsed: Some(profile_data.elapsed().into()),
+                total_allocated_bytes: profile_data.total_allocated_bytes() as u64,
+            }
+        };
+
+        let end_event = command_end(metadata, &result, buck2_data::ProfileCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
+async fn generate_profile(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     client_ctx: ClientContext,
     pattern: buck2_data::TargetPattern,

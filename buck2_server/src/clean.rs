@@ -14,6 +14,8 @@ use anyhow::Context as _;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_events::dispatch::span_async;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::CleanRequest;
 use cli_proto::CleanResponse;
@@ -21,7 +23,24 @@ use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-pub async fn clean(
+pub(crate) async fn clean_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: cli_proto::CleanRequest,
+) -> anyhow::Result<cli_proto::CleanResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::CleanCommandStart {}.into()),
+    };
+    span_async(start_event, async {
+        let result = clean(ctx, req).await;
+        let end_event = command_end(metadata, &result, buck2_data::CleanCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
+async fn clean(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: CleanRequest,
 ) -> anyhow::Result<CleanResponse> {

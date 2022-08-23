@@ -27,6 +27,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::Package;
+use buck2_events::dispatch::span_async;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
 use buck2_interpreter::dice::HasCalculationDelegate;
@@ -35,6 +36,7 @@ use buck2_interpreter::interpreter::GlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::unstable_docs_response;
 use cli_proto::UnstableDocsRequest;
@@ -282,7 +284,24 @@ async fn get_docs_from_module(
     Ok(docs)
 }
 
-pub async fn docs(
+pub(crate) async fn docs_command(
+    context: Box<dyn ServerCommandContextTrait>,
+    req: UnstableDocsRequest,
+) -> anyhow::Result<UnstableDocsResponse> {
+    let metadata = context.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::DocsCommandStart {}.into()),
+    };
+    span_async(start_event, async {
+        let result = docs(context, req).await;
+        let end_event = command_end(metadata, &result, buck2_data::DocsCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
+async fn docs(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {

@@ -22,9 +22,11 @@ use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
+use buck2_events::dispatch::span_async;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -240,7 +242,24 @@ struct TargetsOptions {
     target_hash_graph_type: TargetHashGraphType,
 }
 
-pub async fn targets(
+pub(crate) async fn targets_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: TargetsRequest,
+) -> anyhow::Result<TargetsResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::TargetsCommandStart {}.into()),
+    };
+    span_async(start_event, async {
+        let result = targets(ctx, req).await;
+        let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
+async fn targets(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {

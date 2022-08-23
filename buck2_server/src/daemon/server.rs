@@ -10,7 +10,6 @@
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
 use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -31,15 +30,12 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
-use buck2_core::truncate::truncate;
-use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::ControlEvent;
 use buck2_events::Event;
 use buck2_events::EventSource;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
@@ -66,19 +62,24 @@ use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
 
-use crate::build::build;
-use crate::clean::clean;
+use crate::build::build_command;
+use crate::clean::clean_command;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
-use crate::install::install;
+use crate::docs::docs_command;
+use crate::install::install_command;
 use crate::jemalloc_stats::jemalloc_stats;
-use crate::lsp::run_lsp_server;
-use crate::materialize::materialize;
-use crate::profile::generate_profile;
-use crate::query::uquery::uquery;
+use crate::lsp::run_lsp_server_command;
+use crate::materialize::materialize_command;
+use crate::profile::profile_command;
+use crate::query::aquery::aquery_command;
+use crate::query::cquery::cquery_command;
+use crate::query::uquery::uquery_command;
 use crate::snapshot;
 use crate::streaming_request_handler::StreamingRequestHandler;
+use crate::targets::targets_command;
+use crate::targets_show_outputs::targets_show_outputs_command;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -641,18 +642,8 @@ impl DaemonApi for BuckdServer {
         self.run_streaming(
             req,
             CleanRunCommandOptions { shut_down_after },
-            move |context, req| async move {
-                let metadata = context.request_metadata()?;
-                let start_event = buck2_data::CommandStart {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::CleanCommandStart {}.into()),
-                };
-                let res = span_async(start_event, async {
-                    let result = clean(box context, req).await;
-                    let end_event = command_end(metadata, &result, buck2_data::CleanCommandEnd {});
-                    (result, end_event)
-                })
-                .await;
+            move |ctx, req| async move {
+                let res = clean_command(box ctx, req).await;
 
                 // Ensure that if all goes well, the drop guard lives until this point.
                 drop(drop_guard);
@@ -665,36 +656,8 @@ impl DaemonApi for BuckdServer {
 
     type BuildStream = ResponseStream;
     async fn build(&self, req: Request<BuildRequest>) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let project_root = context.base_context.project_root.to_string();
-            let metadata = context.request_metadata()?;
-            let patterns_for_logging = context
-                .canonicalize_patterns_for_logging(&req.target_patterns)
-                .await?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::BuildCommandStart {}.into()),
-            };
-            let result = span_async(start_event, async {
-                let result = build(box context, req).await;
-                let end_event = command_end(
-                    metadata,
-                    &result,
-                    buck2_data::BuildCommandEnd {
-                        target_patterns: patterns_for_logging,
-                    },
-                );
-
-                (result, end_event)
-            })
-            .await?;
-
-            Ok(BuildResponse {
-                build_targets: result.build_targets,
-                project_root,
-                serialized_build_report: result.serialized_build_report.unwrap_or_default(),
-                error_messages: result.error_messages,
-            })
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            build_command(box ctx, req)
         })
         .await
     }
@@ -722,18 +685,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<AqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::AqueryCommandStart {}.into()),
-            };
-            span_async(start_event, async {
-                let result = crate::query::aquery::aquery(box context, req).await;
-                let end_event = command_end(metadata, &result, buck2_data::AqueryCommandEnd {});
-                (result, end_event)
-            })
-            .await
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            aquery_command(box ctx, req)
         })
         .await
     }
@@ -743,18 +696,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::QueryCommandStart {}.into()),
-            };
-            span_async(start_event, async {
-                let result = uquery(box context, req).await;
-                let end_event = command_end(metadata, &result, buck2_data::QueryCommandEnd {});
-                (result, end_event)
-            })
-            .await
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            uquery_command(box ctx, req)
         })
         .await
     }
@@ -764,25 +707,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<CqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(
-                    buck2_data::CQueryCommandStart {
-                        query: truncate(&req.query, 50000),
-                        query_args: truncate(&req.query_args.join(","), 1000),
-                        target_universe: truncate(&req.target_universe.join(","), 1000),
-                    }
-                    .into(),
-                ),
-            };
-            span_async(start_event, async {
-                let result = crate::query::cquery::cquery(box context, req).await;
-                let end_event = command_end(metadata, &result, buck2_data::CQueryCommandEnd {});
-                (result, end_event)
-            })
-            .await
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            cquery_command(box ctx, req)
         })
         .await
     }
@@ -792,19 +718,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::TargetsCommandStart {}.into()),
-            };
-            let response = span_async(start_event, async {
-                let result = crate::targets::targets(box context, req).await;
-                let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
-                (result, end_event)
-            })
-            .await?;
-            Ok(response)
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            targets_command(box ctx, req)
         })
         .await
     }
@@ -814,20 +729,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::TargetsCommandStart {}.into()),
-            };
-            let response = span_async(start_event, async {
-                let result =
-                    crate::targets_show_outputs::targets_show_outputs(box context, req).await;
-                let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
-                (result, end_event)
-            })
-            .await?;
-            Ok(response)
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            targets_show_outputs_command(box ctx, req)
         })
         .await
     }
@@ -849,27 +752,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<InstallRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let patterns_for_logging = context
-                .canonicalize_patterns_for_logging(&req.target_patterns)
-                .await?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::InstallCommandStart {}.into()),
-            };
-            span_async(start_event, async {
-                let result = install(box context, req).await;
-                let end_event = command_end(
-                    metadata,
-                    &result,
-                    buck2_data::InstallCommandEnd {
-                        target_patterns: patterns_for_logging,
-                    },
-                );
-                (result, end_event)
-            })
-            .await
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            install_command(box ctx, req)
         })
         .await
     }
@@ -956,19 +840,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UnstableDocsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::DocsCommandStart {}.into()),
-            };
-            let result = span_async(start_event, async {
-                let result = crate::docs::docs(box context, req).await;
-                let end_event = command_end(metadata, &result, buck2_data::DocsCommandEnd {});
-                (result, end_event)
-            })
-            .await?;
-            Ok(result)
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            docs_command(box ctx, req)
         })
         .await
     }
@@ -1024,44 +897,8 @@ impl DaemonApi for BuckdServer {
             }
         }
 
-        self.run_streaming(req, ProfileCommandOptions, move |context, req| async move {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::ProfileCommandStart {}.into()),
-            };
-            let result = span_async(start_event, async {
-                let result: anyhow::Result<_> = try {
-                    let output: PathBuf = req.destination_path.clone().into();
-
-                    let profile_mode = context.starlark_profiler_instrumentation_override.dupe();
-
-                    let action = cli_proto::profile_request::Action::from_i32(req.action)
-                        .context("Invalid action")?;
-
-                    let profile_data = generate_profile(
-                        box context,
-                        req.context.context("Missing client context")?,
-                        req.target_pattern.context("Missing target pattern")?,
-                        action,
-                        &profile_mode,
-                    )
-                    .await?;
-
-                    profile_data.write(&output)?;
-
-                    ProfileResponse {
-                        elapsed: Some(profile_data.elapsed().into()),
-                        total_allocated_bytes: profile_data.total_allocated_bytes() as u64,
-                    }
-                };
-
-                let end_event = command_end(metadata, &result, buck2_data::ProfileCommandEnd {});
-                (result, end_event)
-            })
-            .await?;
-
-            Ok(result)
+        self.run_streaming(req, ProfileCommandOptions, |ctx, req| {
+            profile_command(ctx, req)
         })
         .await
     }
@@ -1071,22 +908,8 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<MaterializeRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(buck2_data::MaterializeCommandStart {}.into()),
-            };
-            span_async(start_event, async move {
-                let result = materialize(&context.base_context, req.paths)
-                    .await
-                    .map(|()| MaterializeResponse {})
-                    .context("Failed to materialize paths");
-                let end_event =
-                    command_end(metadata, &result, buck2_data::MaterializeCommandEnd {});
-                (result, end_event)
-            })
-            .await
+        self.run_streaming(req, DefaultCommandOptions, |context, req| {
+            materialize_command(context, req)
         })
         .await
     }
@@ -1099,18 +922,8 @@ impl DaemonApi for BuckdServer {
         self.run_bidirectional(
             req,
             DefaultCommandOptions,
-            |ctx, _client_ctx, req: StreamingRequestHandler<LspRequest>| async move {
-                let metadata = ctx.request_metadata()?;
-                let start_event = buck2_data::CommandStart {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::LspCommandStart {}.into()),
-                };
-                span_async(start_event, async move {
-                    let result = run_lsp_server(box ctx, req).await;
-                    let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
-                    (result, end_event)
-                })
-                .await
+            |ctx, _client_ctx, req: StreamingRequestHandler<LspRequest>| {
+                run_lsp_server_command(box ctx, req)
             },
         )
         .await

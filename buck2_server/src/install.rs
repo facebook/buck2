@@ -47,7 +47,9 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_events::dispatch::span_async;
 use buck2_node::execute::config::PathSeparatorKind;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
@@ -122,7 +124,33 @@ async fn get_installer_log_directory(
     Ok(install_log_dir)
 }
 
-pub async fn install(
+pub(crate) async fn install_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: InstallRequest,
+) -> anyhow::Result<InstallResponse> {
+    let metadata = ctx.request_metadata()?;
+    let patterns_for_logging = ctx
+        .canonicalize_patterns_for_logging(&req.target_patterns)
+        .await?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::InstallCommandStart {}.into()),
+    };
+    span_async(start_event, async {
+        let result = install(ctx, req).await;
+        let end_event = command_end(
+            metadata,
+            &result,
+            buck2_data::InstallCommandEnd {
+                target_patterns: patterns_for_logging,
+            },
+        );
+        (result, end_event)
+    })
+    .await
+}
+
+async fn install(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     request: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {

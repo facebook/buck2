@@ -9,7 +9,9 @@
 
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_events::dispatch::span_async;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::AqueryRequest;
@@ -18,7 +20,24 @@ use cli_proto::AqueryResponse;
 use crate::query::printer::QueryResultPrinter;
 use crate::query::printer::ShouldPrintProviders;
 
-pub async fn aquery(
+pub(crate) async fn aquery_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: cli_proto::AqueryRequest,
+) -> anyhow::Result<cli_proto::AqueryResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(buck2_data::AqueryCommandStart {}.into()),
+    };
+    span_async(start_event, async {
+        let result = aquery(ctx, req).await;
+        let end_event = command_end(metadata, &result, buck2_data::AqueryCommandEnd {});
+        (result, end_event)
+    })
+    .await
+}
+
+async fn aquery(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     request: AqueryRequest,
 ) -> anyhow::Result<AqueryResponse> {
