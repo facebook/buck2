@@ -75,10 +75,10 @@ def _build_js_file(
         ) if ctx.attrs.extra_json else command_args_file,
         identifier = identifier,
         category = "transform",
-        hidden_artifacts = [
+        hidden_artifacts = cmd_args([
             output_path.as_output(),
             grouped_src.main_source,
-        ] + grouped_src.additional_sources,
+        ] + grouped_src.additional_sources),
     )
 
     return output_path
@@ -106,7 +106,7 @@ def _build_library_files(
         command_args_file = command_args_file,
         identifier = transform_profile,
         category = "library_files",
-        hidden_artifacts = [output_path.as_output()] + js_files,
+        hidden_artifacts = cmd_args([output_path.as_output()] + js_files),
     )
     return output_path
 
@@ -143,10 +143,10 @@ def _build_js_library(
         ) if ctx.attrs.extra_json else command_args_file,
         identifier = transform_profile,
         category = "library_dependencies",
-        hidden_artifacts = [
+        hidden_artifacts = cmd_args([
             output_path.as_output(),
             library_files,
-        ] + js_library_deps,
+        ] + js_library_deps),
     )
 
     return output_path

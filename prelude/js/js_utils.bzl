@@ -109,7 +109,7 @@ def run_worker_command(
         command_args_file: "artifact",
         identifier: str.type,
         category: str.type,
-        hidden_artifacts = []):
+        hidden_artifacts = "cmd_args"):
     worker_tool_info = worker_tool[WorkerToolInfo]
     worker_command = worker_tool_info.command.copy()
     worker_command.add("--command-args-file", command_args_file)
