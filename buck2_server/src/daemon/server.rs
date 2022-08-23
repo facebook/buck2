@@ -39,6 +39,7 @@ use buck2_events::Event;
 use buck2_events::EventSource;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::daemon_api_server::*;
 use cli_proto::profile_request::Profiler;
@@ -648,17 +649,7 @@ impl DaemonApi for BuckdServer {
                 };
                 let res = span_async(start_event, async {
                     let result = clean(context, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata,
-                        data: Some(buck2_data::CleanCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
-
+                    let end_event = command_end(metadata, &result, buck2_data::CleanCommandEnd {});
                     (result, end_event)
                 })
                 .await;
@@ -686,24 +677,13 @@ impl DaemonApi for BuckdServer {
             };
             let result = span_async(start_event, async {
                 let result = build(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(response) => (
-                        response.error_messages.is_empty(),
-                        response.error_messages.clone(),
-                    ),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
+                let end_event = command_end(
                     metadata,
-                    data: Some(
-                        buck2_data::BuildCommandEnd {
-                            target_patterns: patterns_for_logging,
-                        }
-                        .into(),
-                    ),
-                    is_success,
-                    error_messages,
-                };
+                    &result,
+                    buck2_data::BuildCommandEnd {
+                        target_patterns: patterns_for_logging,
+                    },
+                );
 
                 (result, end_event)
             })
@@ -750,20 +730,7 @@ impl DaemonApi for BuckdServer {
             };
             span_async(start_event, async {
                 let result = crate::query::aquery::aquery(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(response) => (
-                        response.error_messages.is_empty(),
-                        response.error_messages.clone(),
-                    ),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::AqueryCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::AqueryCommandEnd {});
                 (result, end_event)
             })
             .await
@@ -784,20 +751,7 @@ impl DaemonApi for BuckdServer {
             };
             span_async(start_event, async {
                 let result = uquery(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(response) => (
-                        response.error_messages.is_empty(),
-                        response.error_messages.clone(),
-                    ),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::QueryCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::QueryCommandEnd {});
                 (result, end_event)
             })
             .await
@@ -825,20 +779,7 @@ impl DaemonApi for BuckdServer {
             };
             span_async(start_event, async {
                 let result = crate::query::cquery::cquery(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(response) => (
-                        response.error_messages.is_empty(),
-                        response.error_messages.clone(),
-                    ),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::CQueryCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::CQueryCommandEnd {});
                 (result, end_event)
             })
             .await
@@ -859,17 +800,7 @@ impl DaemonApi for BuckdServer {
             };
             let response = span_async(start_event, async {
                 let result = crate::targets::targets(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(_e) => (true, vec![]),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::TargetsCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
                 (result, end_event)
             })
             .await?;
@@ -891,17 +822,7 @@ impl DaemonApi for BuckdServer {
             };
             let response = span_async(start_event, async {
                 let result = crate::targets_show_outputs::targets_show_outputs(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(_e) => (true, vec![]),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::TargetsCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
                 (result, end_event)
             })
             .await?;
@@ -938,22 +859,13 @@ impl DaemonApi for BuckdServer {
             };
             span_async(start_event, async {
                 let result = install(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(_e) => (true, vec![]),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
+                let end_event = command_end(
                     metadata,
-                    data: Some(
-                        buck2_data::InstallCommandEnd {
-                            target_patterns: patterns_for_logging,
-                        }
-                        .into(),
-                    ),
-                    is_success,
-                    error_messages,
-                };
-
+                    &result,
+                    buck2_data::InstallCommandEnd {
+                        target_patterns: patterns_for_logging,
+                    },
+                );
                 (result, end_event)
             })
             .await
@@ -1051,17 +963,7 @@ impl DaemonApi for BuckdServer {
             };
             let result = span_async(start_event, async {
                 let result = crate::docs::docs(context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(_e) => (true, vec![]),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::DocsCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::DocsCommandEnd {});
                 (result, end_event)
             })
             .await?;
@@ -1153,18 +1055,7 @@ impl DaemonApi for BuckdServer {
                     }
                 };
 
-                let (is_success, error_messages) = match &result {
-                    Ok(_e) => (true, vec![]),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::ProfileCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event = command_end(metadata, &result, buck2_data::ProfileCommandEnd {});
                 (result, end_event)
             })
             .await?;
@@ -1190,17 +1081,8 @@ impl DaemonApi for BuckdServer {
                     .await
                     .map(|()| MaterializeResponse {})
                     .context("Failed to materialize paths");
-                let (is_success, error_messages) = match &result {
-                    Ok(_e) => (true, vec![]),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata: metadata.clone(),
-                    data: Some(buck2_data::MaterializeCommandEnd {}.into()),
-                    is_success,
-                    error_messages,
-                };
-
+                let end_event =
+                    command_end(metadata, &result, buck2_data::MaterializeCommandEnd {});
                 (result, end_event)
             })
             .await
@@ -1224,16 +1106,7 @@ impl DaemonApi for BuckdServer {
                 };
                 span_async(start_event, async move {
                     let result = run_lsp_server(ctx, req).await;
-                    let (is_success, error_messages) = match &result {
-                        Ok(_e) => (true, vec![]),
-                        Err(e) => (false, vec![format!("{:#}", e)]),
-                    };
-                    let end_event = buck2_data::CommandEnd {
-                        metadata,
-                        data: Some(buck2_data::LspCommandEnd {}.into()),
-                        is_success,
-                        error_messages,
-                    };
+                    let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
                     (result, end_event)
                 })
                 .await

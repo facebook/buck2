@@ -35,6 +35,7 @@ use buck2_core::target::TargetLabel;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::HasEvents;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
@@ -194,21 +195,13 @@ async fn test_command_inner(
     req: TestRequest,
 ) -> (anyhow::Result<TestResponse>, buck2_data::CommandEnd) {
     let result = test(context, req).await;
-    let (is_success, error_messages) = match &result {
-        Ok(response) => (response.exit_code != 0, response.error_messages.clone()),
-        Err(e) => (false, vec![format!("{:#}", e)]),
-    };
-    let end_event = buck2_data::CommandEnd {
-        metadata: metadata.clone(),
-        data: Some(
-            buck2_data::TestCommandEnd {
-                target_patterns: patterns_for_logging,
-            }
-            .into(),
-        ),
-        is_success,
-        error_messages,
-    };
+    let end_event = command_end(
+        metadata,
+        &result,
+        buck2_data::TestCommandEnd {
+            target_patterns: patterns_for_logging,
+        },
+    );
 
     (result, end_event)
 }

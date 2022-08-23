@@ -26,6 +26,7 @@ use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
@@ -69,19 +70,7 @@ async fn bxl_command_inner(
     let project_root = server_ctx.project_root().to_string();
     let bxl_label = req.bxl_label.clone();
     let result = bxl(server_ctx, req).await;
-    let (is_success, error_messages) = match &result {
-        Ok(response) => (
-            response.error_messages.is_empty(),
-            response.error_messages.clone(),
-        ),
-        Err(e) => (false, vec![format!("{:#}", e)]),
-    };
-    let end_event = buck2_data::CommandEnd {
-        metadata,
-        data: Some(buck2_data::BxlCommandEnd { bxl_label }.into()),
-        is_success,
-        error_messages,
-    };
+    let end_event = command_end(metadata, &result, buck2_data::BxlCommandEnd { bxl_label });
 
     let resp = result.map(|result| BxlResponse {
         project_root,

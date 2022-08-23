@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use buck2_core::env_helper::EnvHelper;
 use buck2_events::dispatch::instant_hg;
 use buck2_events::dispatch::span_async;
+use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
 use crate::AuditCommand;
@@ -46,16 +47,15 @@ async fn server_audit_command_inner(
     let args = req.serialized_opts.to_owned();
     let dir = context.working_dir().to_string();
     let result = parse_command_and_execute(context, req).await;
-    let (status, error_messages) = match &result {
-        Ok(_e) => (0, vec![]),
-        Err(e) => (1, vec![format!("{:#}", e)]),
-    };
-    let end_event = buck2_data::CommandEnd {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::AuditCommandEnd { status, args, dir }.into()),
-        is_success: status == 0,
-        error_messages,
-    };
+    let end_event = command_end(
+        metadata,
+        &result,
+        buck2_data::AuditCommandEnd {
+            status: if result.is_ok() { 0 } else { 1 },
+            args,
+            dir,
+        },
+    );
 
     let result = result.map(|()| cli_proto::GenericResponse {});
 
