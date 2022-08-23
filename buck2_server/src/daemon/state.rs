@@ -176,10 +176,13 @@ impl DaemonState {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        let io = buck2_common::io::create_io_provider(
-            fb,
-            fs,
-            legacy_configs.get(cells.root_cell()).ok(),
+        let (io, forkserver) = futures::future::try_join(
+            buck2_common::io::create_io_provider(
+                fb,
+                fs,
+                legacy_configs.get(cells.root_cell()).ok(),
+            ),
+            maybe_launch_forkserver(root_config),
         )
         .await?;
 
@@ -218,8 +221,6 @@ impl DaemonState {
         let event_logging_data = Arc::new(EventLoggingData { buffer_size });
 
         let dice = dice_constructor.construct_dice(io.dupe(), root_config)?;
-
-        let forkserver = maybe_launch_forkserver(root_config).await?;
 
         // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
