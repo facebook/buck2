@@ -26,6 +26,7 @@ use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
+use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
@@ -52,7 +53,6 @@ use crate::commands::audit::server::server_audit_command;
 use crate::daemon::server::BuckdServer;
 use crate::daemon::server::BuckdServerDelegate;
 use crate::daemon::server::BuckdServerDependencies;
-use crate::version::BuckVersion;
 
 #[derive(Debug, Error)]
 enum DaemonError {

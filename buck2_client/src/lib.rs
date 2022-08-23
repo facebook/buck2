@@ -24,4 +24,5 @@ pub mod stdio;
 pub mod stream_value;
 pub mod subscribers;
 pub mod verbosity;
+pub mod version;
 pub mod what_ran;

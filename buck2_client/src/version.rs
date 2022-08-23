@@ -15,22 +15,22 @@ use once_cell::sync::OnceCell;
 use serde_json::Value;
 
 /// Provides information about this buck version.
-pub(crate) struct BuckVersion {
+pub struct BuckVersion {
     version: String,
     internal_exe_hash: String,
 }
 
 impl BuckVersion {
-    pub(crate) fn get() -> &'static BuckVersion {
+    pub fn get() -> &'static BuckVersion {
         static VERSION: OnceCell<BuckVersion> = OnceCell::new();
         VERSION.get_or_init(Self::compute)
     }
 
-    pub(crate) fn get_unique_id() -> &'static str {
+    pub fn get_unique_id() -> &'static str {
         Self::get().unique_id()
     }
 
-    pub(crate) fn get_version() -> &'static str {
+    pub fn get_version() -> &'static str {
         Self::get().version()
     }
 
@@ -101,7 +101,7 @@ impl BuckVersion {
         {
             internal_exe_hash
         } else {
-            let _ignored = buck2_client::eprintln!(
+            let _ignored = crate::eprintln!(
                 "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash"
             );
             Self::hash_binary(&mut file)
@@ -120,11 +120,11 @@ impl BuckVersion {
     }
 
     /// Provides a globally unique identifier for this buck executable.
-    pub(crate) fn unique_id(&self) -> &str {
+    pub fn unique_id(&self) -> &str {
         &self.internal_exe_hash
     }
 
-    pub(crate) fn version(&self) -> &str {
+    pub fn version(&self) -> &str {
         &self.version
     }
 }

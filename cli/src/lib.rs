@@ -36,6 +36,7 @@ use buck2_client::replayer::Replayer;
 use buck2_client::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client::verbosity::Verbosity;
+use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots;
 use buck2_common::result::ToSharedResultExt;
@@ -83,7 +84,6 @@ use crate::commands::uquery::UqueryCommand;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::future::Either;
-use crate::version::BuckVersion;
 
 #[macro_use]
 pub mod panic;
@@ -93,7 +93,6 @@ mod client_command_context;
 pub mod commands;
 pub mod daemon;
 mod stdin_stream;
-pub mod version;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
