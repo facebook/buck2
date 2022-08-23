@@ -26,7 +26,6 @@ once_cell = "1.3"
 os_str_bytes = "6.0"
 num_cpus = "1.11"
 parking_lot = "0.11.2"
-prost-types = "0.10"
 regex = "1.3.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"

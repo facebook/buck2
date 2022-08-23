@@ -42,7 +42,6 @@ use buck2_interpreter::dice::HasEvents;
 use buck2_server::build::build;
 use buck2_server::clean::clean;
 use buck2_server::ctx::ServerCommandContext;
-use buck2_server::daemon::common::ToProtoDuration;
 use buck2_server::daemon::state::DaemonState;
 use buck2_server::daemon::state::DaemonStateDiceConstructor;
 use buck2_server::install::install;
@@ -572,7 +571,7 @@ impl DaemonApi for BuckdServer {
             let mut base = StatusResponse {
                 process_info: Some(self.process_info.clone()),
                 start_time: Some(self.start_time.clone()),
-                uptime: Some(uptime.to_proto()),
+                uptime: Some(uptime.try_into()?),
                 snapshot,
                 ..Default::default()
             };

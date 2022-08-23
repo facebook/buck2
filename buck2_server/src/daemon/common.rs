@@ -8,7 +8,6 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_build_api::actions::artifact::ArtifactFs;
@@ -37,19 +36,6 @@ use cli_proto::common_build_options::ExecutionStrategy;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
-
-pub trait ToProtoDuration {
-    fn to_proto(&self) -> prost_types::Duration;
-}
-
-impl ToProtoDuration for Duration {
-    fn to_proto(&self) -> prost_types::Duration {
-        prost_types::Duration {
-            seconds: self.as_secs() as i64,
-            nanos: self.subsec_nanos() as i32,
-        }
-    }
-}
 
 pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
     let mut ret = requested.try_into().context("Invalid concurrency")?;

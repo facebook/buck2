@@ -17,7 +17,6 @@ use buck2_client::events_ctx::EventsCtx;
 use buck2_client::events_ctx::FileTailers;
 use buck2_client::stream_value::StreamValue;
 use buck2_client::version::BuckVersion;
-use buck2_server::daemon::common::ToProtoDuration;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
 pub(crate) use connect::BuckdConnectOptions;
@@ -192,7 +191,7 @@ impl BuckdClient {
             .daemon_only_mut()
             .kill(Request::new(KillRequest {
                 reason: reason.to_owned(),
-                timeout: Some(GRACEFUL_SHUTDOWN_TIMEOUT.to_proto()),
+                timeout: Some(GRACEFUL_SHUTDOWN_TIMEOUT.try_into()?),
             }));
         let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
         let time_req_sent = Instant::now();
