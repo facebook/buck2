@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::exit_result::ExitResult;
 use cli_proto::QueryOutputFormat;
 use cli_proto::UqueryRequest;
 use futures::FutureExt;
@@ -18,7 +19,6 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::exit_result::ExitResult;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]

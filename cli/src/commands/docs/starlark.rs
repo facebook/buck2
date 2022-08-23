@@ -1,6 +1,7 @@
 mod markdown;
 
 use async_trait::async_trait;
+use buck2_client::exit_result::ExitResult;
 use cli_proto::UnstableDocsRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
@@ -13,7 +14,6 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::exit_result::ExitResult;
 use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]

@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::exit_result::ExitResult;
 use cli_proto::InstallRequest;
 use futures::FutureExt;
 use gazebo::prelude::*;
@@ -19,7 +20,6 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
-use crate::exit_result::ExitResult;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

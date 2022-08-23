@@ -40,8 +40,9 @@ mod file_tailer;
 pub(crate) mod replayer;
 pub(crate) mod stream_value;
 
+use buck2_client::exit_result::ExitResult;
+
 use crate::daemon::client::replayer::Replayer;
-use crate::exit_result::ExitResult;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);

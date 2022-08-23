@@ -28,6 +28,8 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_client::exit_result::ExitResult;
+use buck2_client::exit_result::FailureExitCode;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_events::subscriber::EventSubscriber;
@@ -39,11 +41,8 @@ use cleanup_ctx::AsyncCleanupContext;
 use cleanup_ctx::AsyncCleanupContextGuard;
 use client_command_context::ClientCommandContext;
 use dice::cycles::DetectCycles;
-use exit_result::ExitResult;
-use exit_result::FailureExitCode;
 use futures::future;
-use futures::future::Either;
-use gazebo::prelude::*;
+use gazebo::dupe::Dupe;
 use superconsole::Component;
 
 use crate::args::expand_argfiles;
@@ -62,7 +61,6 @@ use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::commands::common::HostPlatformOverride;
 use crate::commands::cquery::CqueryCommand;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::debug::DebugCommand;
@@ -84,6 +82,7 @@ use crate::commands::uquery::UqueryCommand;
 use crate::daemon::client::replayer::Replayer;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
+use crate::future::Either;
 use crate::version::BuckVersion;
 
 #[macro_use]
@@ -94,7 +93,6 @@ mod cleanup_ctx;
 mod client_command_context;
 pub mod commands;
 pub mod daemon;
-pub mod exit_result;
 mod stdin_stream;
 mod stdio;
 pub mod version;

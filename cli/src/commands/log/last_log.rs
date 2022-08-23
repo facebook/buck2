@@ -7,9 +7,10 @@
  * of this source tree.
  */
 
+use buck2_client::exit_result::ExitResult;
+
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
-use crate::exit_result::ExitResult;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]

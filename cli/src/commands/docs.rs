@@ -7,11 +7,12 @@
  * of this source tree.
  */
 
+use buck2_client::exit_result::ExitResult;
+
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::docs::query::DocsCqueryCommand;
 use crate::commands::docs::query::DocsUqueryCommand;
 use crate::commands::docs::starlark::DocsStarlarkCommand;
-use crate::exit_result::ExitResult;
 use crate::BuckSubcommand;
 
 mod query;

@@ -17,6 +17,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use buck2_client::exit_result::ExitResult;
 use buck2_common::convert::ProstDurationExt;
 use buck2_events::subscriber::VisitorError;
 use buck2_events::BuckEvent;
@@ -31,7 +32,6 @@ use tokio::runtime;
 use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
-use crate::exit_result::ExitResult;
 
 #[derive(Error, Debug)]
 pub(crate) enum ChromeTraceError {

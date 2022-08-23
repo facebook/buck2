@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
+use buck2_client::exit_result::ExitResult;
+
 use crate::client_command_context::ClientCommandContext;
-use crate::exit_result::ExitResult;
 use crate::version::BuckVersion;
 
 #[derive(Debug, clap::Parser)]

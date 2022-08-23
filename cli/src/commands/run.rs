@@ -13,6 +13,7 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::exit_result::ExitResult;
 use cli_proto::build_request::build_providers;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;
@@ -30,7 +31,6 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
-use crate::exit_result::ExitResult;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

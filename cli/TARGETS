@@ -26,6 +26,7 @@ rust_library(
         (
             "windows",
             [
+                "fbsource//third-party/rust:libc",
                 "fbsource//third-party/rust:winapi",
             ],
         ),
@@ -55,7 +56,6 @@ rust_library(
         "fbsource//third-party/rust:indent_write",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:maplit",
@@ -82,6 +82,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/buck2_build_api:buck2_build_api",
         "//buck2/buck2_bxl:buck2_bxl",
+        "//buck2/buck2_client:buck2_client",
         "//buck2/buck2_common:buck2_common",
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",
@@ -114,6 +115,7 @@ buck_rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:tracing-subscriber",
+        "//buck2/buck2_client:buck2_client",
         "//buck2/buck2_events:buck2_events",
         "//buck2/cli:cli",
         "//common/rust/folly/logging:logging",

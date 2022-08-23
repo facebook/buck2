@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::exit_result::ExitResult;
 use cli_proto::CqueryRequest;
 use futures::FutureExt;
 
@@ -17,7 +18,6 @@ use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::uquery::CommonQueryArgs;
 use crate::daemon::client::BuckdClientConnector;
-use crate::exit_result::ExitResult;
 use crate::StreamingCommand;
 
 /// Perform queries on the configured target graph.

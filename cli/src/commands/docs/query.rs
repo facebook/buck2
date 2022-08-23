@@ -1,11 +1,11 @@
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_build_api::query::uquery::environment::UqueryEnvironment;
+use buck2_client::exit_result::ExitResult;
 use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 use gazebo::dupe::Dupe;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::exit_result::ExitResult;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]
