@@ -17,7 +17,6 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 
@@ -151,11 +150,6 @@ impl TargetNode {
             },
             None => None,
         }
-    }
-
-    /// Returns the input files for this node.
-    pub fn files(&self) -> anyhow::Result<Vec<FileNode>> {
-        unimplemented!()
     }
 
     pub fn rule_type(&self) -> &RuleType {
