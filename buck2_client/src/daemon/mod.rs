@@ -7,4 +7,4 @@
  * of this source tree.
  */
 
-pub mod server;
+pub mod client;

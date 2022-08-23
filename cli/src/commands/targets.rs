@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use buck2_core::fs::paths::AbsPath;
 use cli_proto::targets_request;
@@ -16,11 +17,10 @@ use futures::future::FutureExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::BuckdClientConnector;
-use crate::ClientCommandContext;
-use crate::CommonBuildConfigurationOptions;
-use crate::CommonConsoleOptions;
-use crate::CommonDaemonCommandOptions;
+use crate::client_command_context::ClientCommandContext;
+use crate::commands::common::CommonBuildConfigurationOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::StreamingCommand;
 
 // Use non-camel case so the possible values match buck1's

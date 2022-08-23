@@ -11,6 +11,8 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::daemon::client::BuckdClientConnector;
+use buck2_client::daemon::client::BuckdConnectOptions;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::find_certs::find_tls_cert;
 use buck2_client::subscribers::event_log::get_local_logs;
@@ -39,8 +41,6 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
-use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::client::BuckdConnectOptions;
 use crate::Path;
 use crate::StreamingCommand;
 

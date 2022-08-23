@@ -14,6 +14,7 @@ use std::io::Write;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::command_outcome::CommandOutcome;
+use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use cli_proto::build_request::build_providers;
@@ -30,7 +31,6 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::client::BuckdClientConnector;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]

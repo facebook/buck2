@@ -5,6 +5,14 @@ rust_library(
     name = "buck2_client",
     srcs = glob(["src/**/*.rs"]),
     features = ["extra_logging"],
+    os_deps = [
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:winapi",
+            ],
+        ),
+    ],
     test_deps = [
         "fbsource//third-party/rust:pretty_assertions",
         "fbsource//third-party/rust:tempfile",
@@ -19,6 +27,7 @@ rust_library(
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:crossterm",
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:fs2",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:itertools",

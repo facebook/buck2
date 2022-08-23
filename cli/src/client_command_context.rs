@@ -11,6 +11,8 @@ use std::future::Future;
 use std::str::FromStr;
 
 use anyhow::Context;
+use buck2_client::daemon::client::BuckdClientConnector;
+use buck2_client::daemon::client::BuckdConnectOptions;
 use buck2_client::replayer::Replayer;
 use buck2_client::verbosity::Verbosity;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -24,8 +26,6 @@ use tokio::runtime::Builder;
 
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::HostPlatformOverride;
-use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::client::BuckdConnectOptions;
 use crate::AsyncCleanupContext;
 
 pub(crate) struct ClientCommandContext {

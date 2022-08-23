@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
@@ -30,7 +31,6 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
-use crate::daemon::client::BuckdClientConnector;
 use crate::StreamingCommand;
 
 pub mod analysis_queries;

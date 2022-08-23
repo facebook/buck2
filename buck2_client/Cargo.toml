@@ -14,6 +14,7 @@ clap = { version = "3.1.18", features = ["derive", "env"] }
 chrono = "0.4.19"
 crossterm = "0.23"
 derive_more = "0.99.3"
+fs2 = "0.4.3"
 futures = "0.3"
 hex = "0.4.3"
 # @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps", optional = true }
@@ -48,6 +49,9 @@ buck2_data = { path = "../buck2_data" }
 buck2_events = { path = "../buck2_events" }
 buck2_test_api = { path = "../buck2_test_api" }
 cli_proto = { path = "../cli_proto" }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["everything"] }
 
 [dev-dependencies]
 pretty_assertions = "0.6"

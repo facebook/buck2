@@ -14,9 +14,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use anyhow::Context;
-use buck2_client::events_ctx::EventsCtx;
-use buck2_client::replayer::Replayer;
-use buck2_client::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use buck2_common::client_utils::get_channel;
 use buck2_common::client_utils::retrying;
 use buck2_common::client_utils::ConnectionType;
@@ -40,6 +37,10 @@ use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::ClientKind;
 use crate::daemon::client::VersionCheckResult;
+use crate::events_ctx::EventsCtx;
+use crate::replayer::Replayer;
+use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+
 /// Responsible for starting the daemon when no daemon is running.
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {
@@ -191,7 +192,7 @@ impl<'a> Drop for BuckdLifecycle<'a> {
 struct BootstrapBuckdClient(BuckdClientConnector);
 
 impl BootstrapBuckdClient {
-    pub(crate) fn new(
+    pub fn new(
         client: DaemonApiClient<Channel>,
         info: DaemonProcessInfo,
         daemon_dir: AbsPathBuf,
@@ -208,7 +209,7 @@ impl BootstrapBuckdClient {
         Self(BuckdClientConnector { client })
     }
 
-    pub(crate) fn with_subscribers(
+    pub fn with_subscribers(
         self,
         subscribers: Vec<Box<dyn EventSubscriber>>,
     ) -> BuckdClientConnector {
@@ -225,12 +226,12 @@ impl BootstrapBuckdClient {
 /// If the `existing_only` method is called, then any existing buck daemon (regardless of version) is accepted.
 ///
 /// The default set of subscribers is *not* empty, but rather forwards stdout and stderr, which captures panics, for example.
-pub(crate) struct BuckdConnectOptions {
-    pub(crate) existing_only: bool,
+pub struct BuckdConnectOptions {
+    pub existing_only: bool,
     /// Subscribers manage the way that incoming events from the server are handled.
     /// The client will forward events and stderr/stdout output from the server to each subscriber.
     /// By default, this list is set to a single subscriber that notifies the user of basic output from the server.
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
+    pub subscribers: Vec<Box<dyn EventSubscriber>>,
 }
 
 impl Default for BuckdConnectOptions {
@@ -243,17 +244,14 @@ impl Default for BuckdConnectOptions {
 }
 
 impl BuckdConnectOptions {
-    pub(crate) fn existing_only() -> Self {
+    pub fn existing_only() -> Self {
         Self {
             existing_only: true,
             ..Default::default()
         }
     }
 
-    pub(crate) async fn connect(
-        self,
-        paths: &InvocationPaths,
-    ) -> anyhow::Result<BuckdClientConnector> {
+    pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
         buck2_core::fs::anyhow::create_dir_all(&daemon_dir)
             .with_context(|| format!("When creating daemon dir: {}", daemon_dir.display()))?;
@@ -266,7 +264,7 @@ impl BuckdConnectOptions {
         Ok(client.with_subscribers(self.subscribers))
     }
 
-    pub(crate) fn replay(
+    pub fn replay(
         self,
         replayer: Replayer,
         paths: &InvocationPaths,

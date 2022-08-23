@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::daemon::client::BuckdClientConnector;
+use buck2_client::daemon::client::BuckdConnectOptions;
 use buck2_client::exit_result::ExitResult;
 use cli_proto::UnstableCrashRequest;
 use futures::FutureExt;
@@ -15,8 +17,6 @@ use futures::FutureExt;
 use crate::client_command_context::ClientCommandContext;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::ConsoleType;
-use crate::BuckdClientConnector;
-use crate::BuckdConnectOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonDaemonCommandOptions;
 use crate::StreamingCommand;

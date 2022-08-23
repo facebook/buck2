@@ -12,14 +12,9 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
-use buck2_client::command_outcome::CommandOutcome;
-use buck2_client::events_ctx::EventsCtx;
-use buck2_client::events_ctx::FileTailers;
-use buck2_client::stream_value::StreamValue;
-use buck2_client::version::BuckVersion;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
-pub(crate) use connect::BuckdConnectOptions;
+pub use connect::BuckdConnectOptions;
 use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;
@@ -29,14 +24,20 @@ use tonic::transport::Channel;
 use tonic::Request;
 use tonic::Status;
 
-pub(crate) mod connect;
+use crate::command_outcome::CommandOutcome;
+use crate::events_ctx::EventsCtx;
+use crate::events_ctx::FileTailers;
+use crate::stream_value::StreamValue;
+use crate::version::BuckVersion;
 
-use buck2_client::replayer::Replayer;
+pub mod connect;
+
+use crate::replayer::Replayer;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
-pub(crate) enum VersionCheckResult {
+pub enum VersionCheckResult {
     Match,
     Mismatch { expected: String, actual: String },
 }
@@ -71,12 +72,12 @@ impl ClientKind {
 
 /// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
 /// The connector wraps all buckd calls with flushing.
-pub(crate) struct BuckdClientConnector {
+pub struct BuckdClientConnector {
     client: BuckdClient,
 }
 
 impl BuckdClientConnector {
-    pub(crate) async fn with_flushing<Fun, R: 'static>(&mut self, command: Fun) -> anyhow::Result<R>
+    pub async fn with_flushing<Fun, R: 'static>(&mut self, command: Fun) -> anyhow::Result<R>
     where
         for<'a> Fun: FnOnce(&'a mut BuckdClient) -> BoxFuture<'a, R>,
     {
@@ -95,12 +96,12 @@ impl BuckdClientConnector {
 /// some of the complexity/verbosity of making calls with that. For example, the user
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
 /// that take more primitive types than the protobuf structure itself.
-pub(crate) struct BuckdClient {
+pub struct BuckdClient {
     client: ClientKind,
     info: DaemonProcessInfo,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
-    pub(crate) events_ctx: EventsCtx,
+    pub events_ctx: EventsCtx,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -184,7 +185,7 @@ impl BuckdClient {
         }
     }
 
-    pub(crate) async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
         let pid = self.info.pid;
         let request_fut = self
             .client
@@ -244,7 +245,7 @@ impl BuckdClient {
             WaitFor::WaitTimedOut => {
                 match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
                     Ok(()) => {
-                        buck2_client::eprintln!("Graceful shutdown timed out. Sending SIGKILL.")?;
+                        crate::eprintln!("Graceful shutdown timed out. Sending SIGKILL.")?;
                     }
                     Err(nix::errno::Errno::ESRCH) => return Ok(()),
                     Err(e) => return Err(e).context("Failed to kill daemon"),
@@ -315,7 +316,7 @@ impl BuckdClient {
         }
     }
 
-    pub(crate) async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
+    pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
         let outcome = self
             .events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
@@ -336,7 +337,7 @@ impl BuckdClient {
         }
     }
 
-    pub(crate) async fn clean(
+    pub async fn clean(
         &mut self,
         req: CleanRequest,
     ) -> anyhow::Result<CommandOutcome<CleanResponse>> {
@@ -344,7 +345,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn aquery(
+    pub async fn aquery(
         &mut self,
         req: AqueryRequest,
     ) -> anyhow::Result<CommandOutcome<AqueryResponse>> {
@@ -352,7 +353,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn cquery(
+    pub async fn cquery(
         &mut self,
         req: CqueryRequest,
     ) -> anyhow::Result<CommandOutcome<CqueryResponse>> {
@@ -360,7 +361,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn uquery(
+    pub async fn uquery(
         &mut self,
         req: UqueryRequest,
     ) -> anyhow::Result<CommandOutcome<UqueryResponse>> {
@@ -368,7 +369,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn targets(
+    pub async fn targets(
         &mut self,
         req: TargetsRequest,
     ) -> anyhow::Result<CommandOutcome<TargetsResponse>> {
@@ -376,7 +377,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn targets_show_outputs(
+    pub async fn targets_show_outputs(
         &mut self,
         req: TargetsRequest,
     ) -> anyhow::Result<CommandOutcome<TargetsShowOutputsResponse>> {
@@ -387,7 +388,7 @@ impl BuckdClient {
         .await
     }
 
-    pub(crate) async fn build(
+    pub async fn build(
         &mut self,
         req: BuildRequest,
     ) -> anyhow::Result<CommandOutcome<BuildResponse>> {
@@ -395,23 +396,17 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn bxl(
-        &mut self,
-        req: BxlRequest,
-    ) -> anyhow::Result<CommandOutcome<BxlResponse>> {
+    pub async fn bxl(&mut self, req: BxlRequest) -> anyhow::Result<CommandOutcome<BxlResponse>> {
         self.stream(|d, r| Box::pin(DaemonApiClient::bxl(d, r)), req)
             .await
     }
 
-    pub(crate) async fn test(
-        &mut self,
-        req: TestRequest,
-    ) -> anyhow::Result<CommandOutcome<TestResponse>> {
+    pub async fn test(&mut self, req: TestRequest) -> anyhow::Result<CommandOutcome<TestResponse>> {
         self.stream(|d, r| Box::pin(DaemonApiClient::test(d, r)), req)
             .await
     }
 
-    pub(crate) async fn install(
+    pub async fn install(
         &mut self,
         req: InstallRequest,
     ) -> anyhow::Result<CommandOutcome<InstallResponse>> {
@@ -419,7 +414,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn audit(
+    pub async fn audit(
         &mut self,
         req: GenericRequest,
     ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
@@ -427,7 +422,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn materialize(
+    pub async fn materialize(
         &mut self,
         req: MaterializeRequest,
     ) -> anyhow::Result<CommandOutcome<MaterializeResponse>> {
@@ -435,7 +430,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn unstable_docs(
+    pub async fn unstable_docs(
         &mut self,
         req: UnstableDocsRequest,
     ) -> anyhow::Result<CommandOutcome<UnstableDocsResponse>> {
@@ -443,7 +438,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn unstable_crash(
+    pub async fn unstable_crash(
         &mut self,
         req: UnstableCrashRequest,
     ) -> anyhow::Result<UnstableCrashResponse> {
@@ -455,10 +450,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub(crate) async fn segfault(
-        &mut self,
-        req: SegfaultRequest,
-    ) -> anyhow::Result<SegfaultResponse> {
+    pub async fn segfault(&mut self, req: SegfaultRequest) -> anyhow::Result<SegfaultResponse> {
         let resp = self
             .client
             .daemon_only_mut()
@@ -467,7 +459,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub(crate) async fn unstable_heap_dump(
+    pub async fn unstable_heap_dump(
         &mut self,
         req: UnstableHeapDumpRequest,
     ) -> anyhow::Result<UnstableHeapDumpResponse> {
@@ -479,7 +471,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub(crate) async fn unstable_allocator_stats(
+    pub async fn unstable_allocator_stats(
         &mut self,
         req: UnstableAllocatorStatsRequest,
     ) -> anyhow::Result<UnstableAllocatorStatsResponse> {
@@ -491,7 +483,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub(crate) async fn unstable_dice_dump(
+    pub async fn unstable_dice_dump(
         &mut self,
         req: UnstableDiceDumpRequest,
     ) -> anyhow::Result<UnstableDiceDumpResponse> {
@@ -503,7 +495,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub(crate) async fn profile(
+    pub async fn profile(
         &mut self,
         req: ProfileRequest,
     ) -> anyhow::Result<CommandOutcome<ProfileResponse>> {
@@ -511,7 +503,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn flush_dep_files(
+    pub async fn flush_dep_files(
         &mut self,
         req: FlushDepFilesRequest,
     ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
@@ -524,7 +516,7 @@ impl BuckdClient {
             .await
     }
 
-    pub(crate) async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
+    pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
         let status = self.status(false).await?;
         Ok(VersionCheckResult::from(
             BuckVersion::get_unique_id().to_owned(),
@@ -549,7 +541,7 @@ impl BuckdClient {
         stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
     }
 
-    pub(crate) async fn lsp(
+    pub async fn lsp(
         &mut self,
         context: ClientContext,
         requests: impl Stream<Item = LspRequest> + Send + Sync + 'static,
@@ -564,10 +556,10 @@ impl BuckdClient {
 mod tests {
     use std::io::Write;
 
-    use buck2_client::file_tailer::FileTailer;
     use futures::StreamExt;
 
     use super::*;
+    use crate::file_tailer::FileTailer;
 
     #[tokio::test]
     async fn test_tailer() -> anyhow::Result<()> {

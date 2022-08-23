@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use cli_proto::SegfaultRequest;
 use futures::FutureExt;
@@ -26,7 +27,7 @@ impl StreamingCommand for SegfaultCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: crate::daemon::client::BuckdClientConnector,
+        mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: crate::ClientCommandContext,
     ) -> buck2_client::exit_result::ExitResult {

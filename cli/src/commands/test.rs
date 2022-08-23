@@ -9,6 +9,7 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::final_console::FinalConsole;
 use buck2_client::subscribers::superconsole::test::StylizedCount;
@@ -26,7 +27,6 @@ use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
-use crate::daemon::client::BuckdClientConnector;
 use crate::StreamingCommand;
 
 fn print_error_counter(

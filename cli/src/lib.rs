@@ -30,6 +30,8 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
+use buck2_client::daemon::client::BuckdClientConnector;
+use buck2_client::daemon::client::BuckdConnectOptions;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::exit_result::FailureExitCode;
 use buck2_client::replayer::Replayer;
@@ -81,8 +83,6 @@ use crate::commands::status::StatusCommand;
 use crate::commands::targets::TargetsCommand;
 use crate::commands::test::TestCommand;
 use crate::commands::uquery::UqueryCommand;
-use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::client::BuckdConnectOptions;
 use crate::future::Either;
 
 #[macro_use]
