@@ -14,16 +14,16 @@ use superconsole::style::StyledContent;
 /// A way to uniformly print to the console after a command has finished. This should
 /// only be used at the end of a command, after the event context from the buckd client
 /// is not available.
-pub(crate) struct FinalConsole {
+pub struct FinalConsole {
     is_tty: bool,
 }
 
 impl FinalConsole {
-    pub(crate) fn new_with_tty() -> Self {
+    pub fn new_with_tty() -> Self {
         Self { is_tty: true }
     }
 
-    pub(crate) fn new_without_tty() -> Self {
+    pub fn new_without_tty() -> Self {
         Self { is_tty: false }
     }
 
@@ -37,32 +37,32 @@ impl FinalConsole {
                 },
                 message,
             );
-            buck2_client::eprintln!("{}", sc)?;
+            crate::eprintln!("{}", sc)?;
         } else {
-            buck2_client::eprintln!("{}", message)?;
+            crate::eprintln!("{}", message)?;
         }
         Ok(())
     }
 
     /// Print the given message to stderr, in red if possible
-    pub(crate) fn print_error(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_error(&self, message: &str) -> anyhow::Result<()> {
         self.stderr_colored(message, Color::DarkRed)
     }
 
     /// Print the given message to stderr, in green if possible
-    pub(crate) fn print_success(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_success(&self, message: &str) -> anyhow::Result<()> {
         self.stderr_colored(message, Color::Green)
     }
 
     /// Print a string directly to stderr with no extra formatting
     #[allow(unused)]
-    pub(crate) fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
-        buck2_client::eprintln!("{}", message)
+    pub fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
+        crate::eprintln!("{}", message)
     }
 
     /// Print a string directly to stdout with no extra formatting
     #[allow(unused)]
-    pub(crate) fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
-        buck2_client::println!("{}", message)
+    pub fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
+        crate::println!("{}", message)
     }
 }

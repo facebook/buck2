@@ -18,6 +18,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::exit_result::FailureExitCode;
+use buck2_client::final_console::FinalConsole;
 use cli_proto::build_request::build_providers;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::ResponseOptions;
@@ -31,7 +32,6 @@ use multimap::MultiMap;
 use serde::Serialize;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::final_console::FinalConsole;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;

@@ -24,6 +24,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_client::final_console::FinalConsole;
 use buck2_core::fs::anyhow as fs;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::config_override::ConfigType;
@@ -31,10 +32,8 @@ use cli_proto::ConfigOverride;
 use gazebo::prelude::*;
 use termwiz::istty::IsTty;
 
-use crate::commands::common::final_console::FinalConsole;
 use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
 
-pub(crate) mod final_console;
 pub mod subscribers;
 
 pub const EVENT_LOG: &str = "--event-log";
