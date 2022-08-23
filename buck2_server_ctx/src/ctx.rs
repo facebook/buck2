@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceTransaction;
 
@@ -20,6 +21,8 @@ use crate::raw_output::RawOuputGuard;
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync + 'static {
     fn working_dir(&self) -> &ProjectRelativePath;
+
+    fn project_root(&self) -> &ProjectRoot;
 
     async fn dice_ctx(&self) -> SharedResult<DiceTransaction>;
 

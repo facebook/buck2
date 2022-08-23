@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Write;
@@ -20,6 +21,7 @@ use buck2_common::result::SharedError;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::Package;
+use buck2_events::dispatch::span_async;
 use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
@@ -27,6 +29,7 @@ use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
+use cli_proto::BxlResponse;
 use dice::DiceComputations;
 use futures::FutureExt;
 use gazebo::prelude::*;
@@ -37,11 +40,58 @@ use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::CliResolutionCtx;
 
 #[derive(Debug)]
-pub struct BxlResult {
+struct BxlResult {
     pub error_messages: Vec<String>,
 }
 
-pub async fn bxl(
+pub async fn bxl_command(
+    ctx: Box<dyn ServerCommandContextTrait>,
+    req: BxlRequest,
+) -> anyhow::Result<BxlResponse> {
+    let metadata = ctx.request_metadata()?;
+    let start_event = buck2_data::CommandStart {
+        metadata: metadata.clone(),
+        data: Some(
+            buck2_data::BxlCommandStart {
+                bxl_label: req.bxl_label.clone(),
+            }
+            .into(),
+        ),
+    };
+    span_async(start_event, bxl_command_inner(metadata, ctx, req)).await
+}
+
+async fn bxl_command_inner(
+    metadata: HashMap<String, String>,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
+    req: BxlRequest,
+) -> (anyhow::Result<BxlResponse>, buck2_data::CommandEnd) {
+    let project_root = server_ctx.project_root().to_string();
+    let bxl_label = req.bxl_label.clone();
+    let result = bxl(server_ctx, req).await;
+    let (is_success, error_messages) = match &result {
+        Ok(response) => (
+            response.error_messages.is_empty(),
+            response.error_messages.clone(),
+        ),
+        Err(e) => (false, vec![format!("{:#}", e)]),
+    };
+    let end_event = buck2_data::CommandEnd {
+        metadata,
+        data: Some(buck2_data::BxlCommandEnd { bxl_label }.into()),
+        is_success,
+        error_messages,
+    };
+
+    let resp = result.map(|result| BxlResponse {
+        project_root,
+        error_messages: result.error_messages,
+    });
+
+    (resp, end_event)
+}
+
+async fn bxl(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     request: BxlRequest,
 ) -> anyhow::Result<BxlResult> {

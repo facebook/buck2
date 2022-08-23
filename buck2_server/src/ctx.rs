@@ -404,10 +404,6 @@ impl ServerCommandContext {
         Ok(dice_ctx.commit())
     }
 
-    pub fn project_root(&self) -> &ProjectRoot {
-        &self.base_context.project_root
-    }
-
     pub fn get_re_connection(&self) -> ReConnectionHandle {
         self.base_context.re_client_manager.get_re_connection()
     }
@@ -424,6 +420,10 @@ impl Drop for ServerCommandContext {
 impl ServerCommandContextTrait for ServerCommandContext {
     fn working_dir(&self) -> &ProjectRelativePath {
         &self.working_dir
+    }
+
+    fn project_root(&self) -> &ProjectRoot {
+        &self.base_context.project_root
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.

@@ -28,7 +28,7 @@ use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
-use buck2_bxl::command::bxl;
+use buck2_bxl::command::bxl_command;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -693,43 +693,8 @@ impl DaemonApi for BuckdServer {
 
     type BxlStream = ResponseStream;
     async fn bxl(&self, req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
-            let project_root = context.base_context.project_root.to_string();
-            let metadata = context.request_metadata()?;
-            let start_event = buck2_data::CommandStart {
-                metadata: metadata.clone(),
-                data: Some(
-                    buck2_data::BxlCommandStart {
-                        bxl_label: req.bxl_label.clone(),
-                    }
-                    .into(),
-                ),
-            };
-            let result = span_async(start_event, async {
-                let bxl_label = req.bxl_label.clone();
-                let result = bxl(box context, req).await;
-                let (is_success, error_messages) = match &result {
-                    Ok(response) => (
-                        response.error_messages.is_empty(),
-                        response.error_messages.clone(),
-                    ),
-                    Err(e) => (false, vec![format!("{:#}", e)]),
-                };
-                let end_event = buck2_data::CommandEnd {
-                    metadata,
-                    data: Some(buck2_data::BxlCommandEnd { bxl_label }.into()),
-                    is_success,
-                    error_messages,
-                };
-
-                (result, end_event)
-            })
-            .await?;
-
-            Ok(BxlResponse {
-                project_root,
-                error_messages: result.error_messages,
-            })
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            bxl_command(box ctx, req)
         })
         .await
     }
