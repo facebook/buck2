@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::display::TargetDisplayOptions;
+use buck2_client::subscribers::span_tracker::SpanInfo;
 use superconsole::style::style;
 use superconsole::style::StyledContent;
 use superconsole::style::Stylize;
@@ -22,7 +23,6 @@ use superconsole::Lines;
 use superconsole::Span;
 use superconsole::State;
 
-use crate::commands::common::subscribers::span_tracker::SpanInfo;
 use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 
 #[derive(Debug)]

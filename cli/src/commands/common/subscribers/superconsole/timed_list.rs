@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::display::TargetDisplayOptions;
+use buck2_client::subscribers::span_tracker::SpanTracker;
 use buck2_events::subscriber::Tick;
 use superconsole::components::bordering::BorderedSpec;
 use superconsole::components::splitting::SplitKind;
@@ -29,7 +30,6 @@ use superconsole::State;
 
 use self::table_builder::Table;
 use crate::commands::common::subscribers::simpleconsole::ActionStats;
-use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::subscribers::superconsole::common::HeaderLineComponent;
 use crate::commands::common::subscribers::superconsole::common::StaticStringComponent;
 use crate::commands::common::subscribers::superconsole::TimeSpeed;

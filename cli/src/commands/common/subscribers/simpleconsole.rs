@@ -16,6 +16,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client::subscribers::display;
 use buck2_client::subscribers::display::TargetDisplayOptions;
+use buck2_client::subscribers::re::ReState;
+use buck2_client::subscribers::span_tracker::SpanTracker;
 use buck2_client::verbosity::Verbosity;
 use buck2_client::what_ran;
 use buck2_client::what_ran::local_command_to_string;
@@ -34,8 +36,6 @@ use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
 use crate::commands::common::subscribers;
-use crate::commands::common::subscribers::re::ReState;
-use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::subscribers::LastCommandExecutionKind;
 
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);

@@ -7,15 +7,12 @@
  * of this source tree.
  */
 
-mod build_id_writer;
-mod re;
 pub(crate) mod recorder;
 mod simpleconsole;
-pub mod span_tracker;
-pub(crate) mod stdout_stderr_forwarder;
 pub mod superconsole;
 
 use ::superconsole::Component;
+use buck2_client::subscribers::build_id_writer::BuildIdWriter;
 pub(crate) use buck2_client::subscribers::event_log::EventLog;
 use buck2_client::verbosity::Verbosity;
 use buck2_events::subscriber::EventSubscriber;
@@ -23,7 +20,6 @@ use gazebo::prelude::*;
 pub(crate) use simpleconsole::SimpleConsole;
 
 use crate::client_command_context::ClientCommandContext;
-use crate::commands::common::subscribers::build_id_writer::BuildIdWriter;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;

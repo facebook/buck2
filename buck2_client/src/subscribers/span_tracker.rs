@@ -11,8 +11,6 @@ use std::fmt;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use buck2_client::what_ran::WhatRanRelevantAction;
-use buck2_client::what_ran::WhatRanState;
 use buck2_data::SpanStartEvent;
 use buck2_events::subscriber::EventSubscriber;
 use buck2_events::BuckEvent;
@@ -20,6 +18,9 @@ use buck2_events::SpanId;
 use derive_more::From;
 use gazebo::prelude::*;
 use linked_hash_map::LinkedHashMap;
+
+use crate::what_ran::WhatRanRelevantAction;
+use crate::what_ran::WhatRanState;
 
 #[derive(Debug, thiserror::Error)]
 enum SpanTrackerError {
@@ -34,7 +35,7 @@ enum SpanTrackerError {
 }
 
 #[derive(Clone)]
-pub(crate) struct SpanInfo {
+pub struct SpanInfo {
     pub event: BuckEvent,
     pub start: Instant,
 }
@@ -44,24 +45,24 @@ struct Span {
     children: LinkedHashMap<SpanId, ()>,
 }
 
-pub(crate) struct SpanHandle<'a> {
+pub struct SpanHandle<'a> {
     tracker: &'a SpanTracker,
     span: &'a Span,
 }
 
 impl<'a> SpanHandle<'a> {
-    pub(crate) fn info(&self) -> &SpanInfo {
+    pub fn info(&self) -> &SpanInfo {
         &self.span.info
     }
 
     /// Returns how many children we expect to yield. If we received invalid data (a child was
     /// removed and didn't provide a parent ID when it did), this could be incorrect and there
     /// might be fewer (this should be infrequent)
-    pub(crate) fn children_count(&self) -> usize {
+    pub fn children_count(&self) -> usize {
         self.span.children.len()
     }
 
-    pub(crate) fn children<'b>(&'b self) -> impl Iterator<Item = SpanHandle<'b>> + 'b
+    pub fn children<'b>(&'b self) -> impl Iterator<Item = SpanHandle<'b>> + 'b
     where
         'a: 'b,
     {
@@ -86,14 +87,14 @@ impl<'a> SpanHandle<'a> {
 /// Internally, Spans also reference their children.
 ///
 /// We also keep track of how many roots have ended.
-pub(crate) struct SpanTracker {
+pub struct SpanTracker {
     roots: LinkedHashMap<SpanId, ()>,
     all: LinkedHashMap<SpanId, Span>,
     roots_completed: usize,
 }
 
 impl SpanTracker {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             roots: Default::default(),
             all: Default::default(),
@@ -109,7 +110,7 @@ impl SpanTracker {
             .collect()
     }
 
-    pub(crate) fn start_at(
+    pub fn start_at(
         &mut self,
         start: &SpanStartEvent,
         event: &BuckEvent,
@@ -150,7 +151,7 @@ impl SpanTracker {
         Ok(())
     }
 
-    pub(crate) fn iter_roots<'a>(&'a self) -> impl ExactSizeIterator<Item = SpanHandle<'a>> + 'a {
+    pub fn iter_roots<'a>(&'a self) -> impl ExactSizeIterator<Item = SpanHandle<'a>> + 'a {
         self.roots.keys().map(move |s| {
             // NOTE: This unwrap is safe because we always insert into roots after inserting into
             // `all`, and delete from `roots` before deleting from `all`.
@@ -166,16 +167,16 @@ impl SpanTracker {
         })
     }
 
-    pub(crate) fn roots_completed(&self) -> usize {
+    pub fn roots_completed(&self) -> usize {
         self.roots_completed
     }
 
     /// Return if span_tracker has been used.
-    pub(crate) fn is_unused(&self) -> bool {
+    pub fn is_unused(&self) -> bool {
         self.roots.is_empty() && self.roots_completed == 0
     }
 
-    pub(crate) fn roots_ongoing(&self) -> usize {
+    pub fn roots_ongoing(&self) -> usize {
         self.roots.len()
     }
 }
@@ -282,7 +283,7 @@ impl WhatRanState<OptionalSpanId> for SpanTracker {
 /// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
 /// Option<SpanId> on buck2_events::BuckEvent.
 #[derive(From, Copy, Clone, Dupe)]
-pub(crate) struct OptionalSpanId(Option<SpanId>);
+pub struct OptionalSpanId(Option<SpanId>);
 
 impl fmt::Display for OptionalSpanId {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

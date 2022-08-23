@@ -1,6 +1,5 @@
+use buck2_client::subscribers::re::ReState;
 use superconsole::Component;
-
-use crate::commands::common::subscribers::re::ReState;
 
 /// Draw the test summary line above the `timed_list`
 #[derive(Debug)]

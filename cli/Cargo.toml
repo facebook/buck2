@@ -42,7 +42,6 @@ itertools = "0.10.0"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 lsp-server = "0.5"
 maplit = "1.0.2"
 memmap = "0.7.0"

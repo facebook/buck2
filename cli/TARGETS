@@ -53,7 +53,6 @@ rust_library(
         "fbsource//third-party/rust:indent_write",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:memmap",
