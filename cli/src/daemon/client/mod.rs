@@ -35,7 +35,6 @@ use crate::version::BuckVersion;
 
 pub(crate) mod connect;
 mod events_ctx;
-mod file_tailer;
 
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
@@ -622,10 +621,10 @@ impl BuckdClient {
 mod tests {
     use std::io::Write;
 
+    use buck2_client::file_tailer::FileTailer;
     use futures::StreamExt;
 
     use super::*;
-    use crate::daemon::client::file_tailer::FileTailer;
 
     #[tokio::test]
     async fn test_tailer() -> anyhow::Result<()> {

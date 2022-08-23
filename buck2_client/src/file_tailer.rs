@@ -28,7 +28,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 ///
 /// When the tailer is dropped, it will do a final sync of the data to ensure that
 /// the tail is up-to-date at that point.
-pub(crate) struct FileTailer {
+pub struct FileTailer {
     // This thread is periodically checking the file for new data. When a message is
     // sent on the end_signaller, the thread will do one final sync of data and then exit.
     thread: Option<std::thread::JoinHandle<()>>,
@@ -43,9 +43,7 @@ impl Drop for FileTailer {
 }
 
 impl FileTailer {
-    pub(crate) fn tail_file(
-        file: PathBuf,
-    ) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
+    pub fn tail_file(file: PathBuf) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
         let mut reader = BufReader::new(
             File::open(&file)
                 .with_context(|| format!("when setting up tailer for {}", file.display()))?,
