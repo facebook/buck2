@@ -12,15 +12,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::BuckSubcommand;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
 use cli_proto::profile_request::Action;
 use cli_proto::profile_request::Profiler;
 use cli_proto::ProfileRequest;
@@ -28,9 +19,19 @@ use cli_proto::ProfileResponse;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::BuckSubcommand;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Profiling mechanisms")]
-pub(crate) enum ProfileCommand {
+pub enum ProfileCommand {
     #[clap(about = "Profile analysis")]
     Analysis(ProfileOptions),
 
@@ -39,7 +40,7 @@ pub(crate) enum ProfileCommand {
 }
 
 impl ProfileCommand {
-    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let submatches = matches.subcommand().expect("subcommand not found").1;
         match self {
             Self::Analysis(opts) => ProfileSubcommand {
@@ -69,7 +70,7 @@ enum BuckProfileMode {
 }
 
 #[derive(Debug, clap::Parser)]
-pub(crate) struct ProfileOptions {
+pub struct ProfileOptions {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
 
@@ -94,7 +95,7 @@ pub(crate) struct ProfileOptions {
     recursive: bool,
 }
 
-pub(crate) struct ProfileSubcommand {
+pub struct ProfileSubcommand {
     opts: ProfileOptions,
     action: Action,
 }
@@ -169,13 +170,13 @@ impl StreamingCommand for ProfileSubcommand {
             })
             .context("Elapsed is invalid")?;
 
-        buck2_client::println!(
+        crate::println!(
             "Starlark {:?} profile has been written to {}",
             profile_mode,
             self.opts.output.display(),
         )?;
-        buck2_client::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
-        buck2_client::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;
+        crate::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
+        crate::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;
 
         ExitResult::success()
     }

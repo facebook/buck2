@@ -8,20 +8,21 @@
  */
 
 use async_trait::async_trait;
-use buck2_client::client_ctx::ClientCommandContext;
-use buck2_client::commands::streaming::StreamingCommand;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
-use buck2_client::daemon::client::BuckdClientConnector;
-use buck2_client::exit_result::ExitResult;
 use clap::ArgMatches;
 use futures::FutureExt;
 
+use crate::client_ctx::ClientCommandContext;
+use crate::commands::streaming::StreamingCommand;
+use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonConsoleOptions;
+use crate::common::CommonDaemonCommandOptions;
+use crate::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
+
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start, query, and control the http server")]
-pub(crate) struct ServerCommand {}
+pub struct ServerCommand {}
 
 #[async_trait]
 impl StreamingCommand for ServerCommand {
@@ -36,7 +37,7 @@ impl StreamingCommand for ServerCommand {
         let status = buckd
             .with_flushing(|client| client.status(false).boxed())
             .await??;
-        buck2_client::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
+        crate::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
         ExitResult::success()
     }
 

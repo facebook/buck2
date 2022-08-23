@@ -8,13 +8,8 @@
  */
 
 pub mod audit;
-pub mod bxl;
-pub mod clean;
 pub mod daemon;
 pub mod debug;
 pub mod docs;
 pub mod forkserver;
 pub mod log;
-pub mod profile;
-pub mod rage;
-pub mod server;

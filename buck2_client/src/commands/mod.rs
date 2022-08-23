@@ -8,12 +8,17 @@
  */
 pub mod aquery;
 pub mod build;
+pub mod bxl;
+pub mod clean;
 pub mod cquery;
 pub mod install;
 pub mod kill;
 pub mod lsp;
+pub mod profile;
+pub mod rage;
 pub mod root;
 pub mod run;
+pub mod server;
 pub mod status;
 pub mod streaming;
 pub mod targets;
