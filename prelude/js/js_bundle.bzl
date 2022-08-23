@@ -1,14 +1,14 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo")
+load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
 load("@fbcode//buck2/prelude/js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "fixup_command_args", "get_bundle_name", "get_flavors", "run_worker_command")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "map_idx")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "map_idx")
 
 def _build_dependencies_file(
         ctx: "context",
         transform_profile: str.type,
-        transitive_js_library_outputs: ["artifact"]) -> "artifact":
+        transitive_js_library_outputs: "transitive_set_args_projection") -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
     # ctx.attrs.extra_json can contain attrs.arg().
@@ -43,8 +43,7 @@ def _build_dependencies_file(
         hidden_artifacts = cmd_args([
             dependencies_file.as_output(),
             extra_data_args,
-            transitive_js_library_outputs,
-        ]),
+        ]).add(transitive_js_library_outputs),
     )
     return dependencies_file
 
@@ -54,7 +53,7 @@ def _build_js_bundle(
         ram_bundle_name: str.type,
         ram_bundle_command: str.type,
         transform_profile: str.type,
-        transitive_js_library_outputs: ["artifact"],
+        transitive_js_library_outputs: "transitive_set_args_projection",
         dependencies_file: "artifact") -> JsBundleInfo.type:
     base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
     assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir))
@@ -110,8 +109,7 @@ def _build_js_bundle(
             misc_dir_path.as_output(),
             source_map.as_output(),
             extra_data_args,
-            transitive_js_library_outputs,
-        ]),
+        ]).add(transitive_js_library_outputs),
     )
 
     return JsBundleInfo(
@@ -170,7 +168,9 @@ def js_bundle_impl(ctx: "context") -> ["provider"]:
     bundle_name = get_bundle_name(ctx, "{}.js".format(ctx.attrs.name))
     for transform_profile in TRANSFORM_PROFILES:
         dep_infos = map_idx(JsLibraryInfo, [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps])
-        transitive_js_library_outputs = dedupe(flatten([dep_info.transitive_outputs for dep_info in dep_infos]))
+
+        transitive_js_library_tset = get_transitive_outputs(ctx.actions, deps = dep_infos)
+        transitive_js_library_outputs = transitive_js_library_tset.project_as_args("artifacts")
         dependencies_file = _build_dependencies_file(ctx, transform_profile, transitive_js_library_outputs)
 
         for ram_bundle_name, ram_bundle_command in RAM_BUNDLE_TYPES.items():

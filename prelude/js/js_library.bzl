@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsLibraryInfo")
+load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsLibraryInfo", "get_transitive_outputs")
 load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES", "fixup_command_args", "get_canonical_src_name", "get_flavors", "run_worker_command")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "map_idx")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "map_idx")
 
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
 # consistent (it is just the first source encountered when processing the src files).
@@ -173,10 +173,11 @@ def js_library_impl(ctx: "context") -> ["provider"]:
             [js_library_dep.output for js_library_dep in js_library_deps],
         )
 
-        transitive_outputs = dedupe(flatten(
-            [js_library_dep.transitive_outputs for js_library_dep in js_library_deps],
-        ))
-        transitive_outputs.append(js_library)
+        transitive_outputs = get_transitive_outputs(
+            ctx.actions,
+            value = js_library,
+            deps = js_library_deps,
+        )
 
         sub_targets[transform_profile] = [
             DefaultInfo(default_outputs = [js_library]),

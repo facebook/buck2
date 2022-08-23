@@ -1,7 +1,12 @@
+def _artifacts(value: "artifact"):
+    return value
+
+TransitiveOutputsTSet = transitive_set(args_projections = {"artifacts": _artifacts})
+
 JsLibraryInfo = provider(
     fields = [
         "output",  # "artifact"
-        "transitive_outputs",  # ["artifact"]
+        "transitive_outputs",  # "TransitiveOutputsTSet"
     ],
 )
 
@@ -27,3 +32,15 @@ JsToolchainInfo = provider(
         "command_args_fixup",  # RunInfo.
     ],
 )
+
+def get_transitive_outputs(
+        actions: "actions",
+        value: ["artifact", None] = None,
+        deps: [JsLibraryInfo.type] = []) -> TransitiveOutputsTSet.type:
+    kwargs = {}
+    if value:
+        kwargs["value"] = value
+    if deps:
+        kwargs["children"] = [js_library_info.transitive_outputs for js_library_info in deps]
+
+    return actions.tset(TransitiveOutputsTSet, **kwargs)
