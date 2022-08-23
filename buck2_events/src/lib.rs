@@ -22,7 +22,6 @@ pub mod metadata;
 pub mod sink;
 pub mod source;
 pub mod subscriber;
-pub mod truncate;
 
 use std::fmt::Display;
 use std::fmt::Formatter;

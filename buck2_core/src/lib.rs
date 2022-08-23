@@ -55,6 +55,7 @@ pub mod provider;
 pub mod rollout_percentage;
 pub mod target;
 pub mod target_aliases;
+pub mod truncate;
 
 /// Marker for things that are only sensible to use inside Facebook,
 /// not intended to be complete, but intended to be useful to audit

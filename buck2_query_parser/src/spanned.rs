@@ -9,7 +9,7 @@
 
 use std::ops::Range;
 
-use buck2_events::truncate::truncate;
+use buck2_core::truncate::truncate;
 use derive_more::Display;
 
 /// Pairs some output value with a span covering where the value came from. Unlike nom_locate, we drop
