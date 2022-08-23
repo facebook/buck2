@@ -12,8 +12,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task;
 
-use buck2_server::client_utils::UDS_DAEMON_FILENAME;
-use buck2_server::with_current_directory::WithCurrentDirectory;
+use buck2_common::client_utils::UDS_DAEMON_FILENAME;
+use buck2_common::with_current_directory::WithCurrentDirectory;
 use futures::Stream;
 use futures::TryFutureExt;
 use tokio::io::AsyncRead;

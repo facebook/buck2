@@ -37,7 +37,6 @@ threadpool = "1.8.1"
 tokio = {version = "1.5", features = ["full"]}
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tonic = "0.7.2"
-tower = "0.4"
 tracing = "0.1.22"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2.3.2"

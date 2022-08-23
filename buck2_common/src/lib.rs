@@ -25,6 +25,7 @@
 #[macro_use]
 extern crate maplit;
 
+pub mod client_utils;
 pub mod convert;
 pub mod dice;
 #[cfg(all(unix, any(feature = "eden_io", feature = "eden_materializer")))]
@@ -44,3 +45,4 @@ pub mod result;
 mod sorted_hash_map;
 pub mod sorted_index_set;
 pub mod target_aliases;
+pub mod with_current_directory;

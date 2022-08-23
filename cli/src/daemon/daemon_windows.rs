@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
 
-use buck2_server::client_utils::SOCKET_ADDR;
+use buck2_common::client_utils::SOCKET_ADDR;
 use futures::Stream;
 
 pub(crate) async fn create_listener(

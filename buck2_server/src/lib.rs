@@ -13,7 +13,6 @@
 pub mod active_commands;
 pub mod build;
 pub mod clean;
-pub mod client_utils;
 pub mod configs;
 pub mod ctx;
 pub mod daemon;
@@ -36,4 +35,3 @@ pub mod target_hash;
 pub mod targets;
 pub mod targets_show_outputs;
 pub mod watchman;
-pub mod with_current_directory;
