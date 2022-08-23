@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use buck2_server::roots::find_roots;
+use buck2_server::roots::find_invocation_roots;
 use thiserror::Error;
 
 use crate::client_command_context::ClientCommandContext;
@@ -67,11 +67,11 @@ impl RootCommand {
         let root = match self.kind {
             RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),
             RootKind::Cell => match self.dir {
-                Some(dir) => find_roots(&dir)?.cell_root,
+                Some(dir) => find_invocation_roots(&dir)?.cell_root,
                 None => ctx.paths()?.cell_root().to_owned(),
             },
             RootKind::Project => match self.dir {
-                Some(dir) => find_roots(&dir)?.project_root.root().to_owned(),
+                Some(dir) => find_invocation_roots(&dir)?.project_root.root().to_owned(),
                 None => ctx.paths()?.project_root().root().to_owned(),
             },
             RootKind::Daemon => ctx.paths()?.daemon_dir()?,

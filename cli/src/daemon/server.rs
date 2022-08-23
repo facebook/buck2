@@ -55,7 +55,7 @@ use buck2_server::install::install;
 use buck2_server::jemalloc_stats::jemalloc_stats;
 use buck2_server::lsp::run_lsp_server;
 use buck2_server::materialize::materialize;
-use buck2_server::paths::Paths;
+use buck2_server::paths::InvocationPaths;
 use buck2_server::profile::generate_profile;
 use buck2_server::query::uquery::uquery;
 use buck2_server::snapshot;
@@ -155,7 +155,7 @@ pub(crate) struct BuckdServer {
 impl BuckdServer {
     pub(crate) async fn run<I, IO, IE>(
         fb: fbinit::FacebookInit,
-        paths: Paths,
+        paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
         detect_cycles: Option<DetectCycles>,
         process_info: DaemonProcessInfo,

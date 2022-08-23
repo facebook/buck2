@@ -50,13 +50,13 @@ use crate::daemon::check_working_dir;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::file_watcher::FileWatcher;
-use crate::paths::Paths;
+use crate::paths::InvocationPaths;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 pub struct DaemonState {
     fb: fbinit::FacebookInit,
 
-    pub paths: Paths,
+    pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
     data: AsyncOnceCell<SharedResult<Arc<DaemonStateData>>>,
@@ -134,7 +134,7 @@ pub trait DaemonStateDiceConstructor: Send + Sync + 'static {
 impl DaemonState {
     pub fn new(
         fb: fbinit::FacebookInit,
-        paths: Paths,
+        paths: InvocationPaths,
         dice_constructor: Box<dyn DaemonStateDiceConstructor>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -149,7 +149,7 @@ impl DaemonState {
     // Starts up the watchman query.
     async fn init_data(
         fb: fbinit::FacebookInit,
-        paths: &Paths,
+        paths: &InvocationPaths,
         dice_constructor: &dyn DaemonStateDiceConstructor,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = paths.project_root().clone();

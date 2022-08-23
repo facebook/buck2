@@ -23,7 +23,7 @@ enum BuckCliError {
 }
 
 #[derive(Clone)]
-pub struct Roots {
+pub struct InvocationRoots {
     pub cell_root: AbsPathBuf,
     pub project_root: ProjectRoot,
 }
@@ -44,7 +44,7 @@ pub struct Roots {
 /// Doing this without those requirements (i.e. doing it correctly), would require us to
 /// parse the buckconfig files (including all file includes). It's unclear if we'll ever
 /// do that within the buckd client dir.
-pub fn find_roots(from: &Path) -> anyhow::Result<Roots> {
+pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
     let mut cell_root = None;
     let mut project_root = None;
 
@@ -65,7 +65,7 @@ pub fn find_roots(from: &Path) -> anyhow::Result<Roots> {
         }
     }
     match (project_root, cell_root) {
-        (Some(project_root), Some(cell_root)) => Ok(Roots {
+        (Some(project_root), Some(cell_root)) => Ok(InvocationRoots {
             cell_root: AbsPathBuf::try_from(cell_root)?,
             project_root: ProjectRoot::new(AbsPathBuf::try_from(project_root)?),
         }),
@@ -75,6 +75,6 @@ pub fn find_roots(from: &Path) -> anyhow::Result<Roots> {
 
 /// Finds the cell root and the project root starting at the cwd.
 /// For more details, see `find_roots`.
-pub fn find_current_roots() -> anyhow::Result<Roots> {
-    find_roots(&std::env::current_dir()?)
+pub fn find_current_invocation_roots() -> anyhow::Result<InvocationRoots> {
+    find_invocation_roots(&std::env::current_dir()?)
 }

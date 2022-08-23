@@ -26,7 +26,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_server::paths::Paths;
+use buck2_server::paths::InvocationPaths;
 use cli_proto::DaemonProcessInfo;
 use dice::cycles::DetectCycles;
 use futures::channel::mpsc;
@@ -67,7 +67,7 @@ pub(crate) struct DaemonCommand {
 
 pub(crate) async fn run_buckd(
     fb: fbinit::FacebookInit,
-    paths: Paths,
+    paths: InvocationPaths,
     detect_cycles: Option<DetectCycles>,
     delegate: Box<dyn BuckdServerDelegate>,
 ) -> anyhow::Result<()> {
@@ -127,7 +127,7 @@ impl DaemonCommand {
     fn run(
         &self,
         fb: fbinit::FacebookInit,
-        paths: Paths,
+        paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<()> {
         // Higher performance for jemalloc, recommended (but may not have any effect on Mac)

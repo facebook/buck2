@@ -14,7 +14,7 @@ use anyhow::Context;
 use buck2_client::verbosity::Verbosity;
 use buck2_common::result::SharedResult;
 use buck2_events::TraceId;
-use buck2_server::paths::Paths;
+use buck2_server::paths::InvocationPaths;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
 use dice::cycles::DetectCycles;
@@ -30,7 +30,7 @@ use crate::AsyncCleanupContext;
 
 pub(crate) struct ClientCommandContext {
     pub(crate) init: fbinit::FacebookInit,
-    pub(crate) paths: SharedResult<Paths>,
+    pub(crate) paths: SharedResult<InvocationPaths>,
     pub(crate) detect_cycles: Option<DetectCycles>,
     pub(crate) replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     pub(crate) verbosity: Verbosity,
@@ -43,7 +43,7 @@ impl ClientCommandContext {
         self.init
     }
 
-    pub(crate) fn paths(&self) -> SharedResult<&Paths> {
+    pub(crate) fn paths(&self) -> SharedResult<&InvocationPaths> {
         match &self.paths {
             Ok(p) => Ok(p),
             Err(e) => Err(e.dupe()),

@@ -36,7 +36,7 @@ use buck2_client::verbosity::Verbosity;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_events::subscriber::EventSubscriber;
-use buck2_server::paths::Paths;
+use buck2_server::paths::InvocationPaths;
 use buck2_server::roots;
 use clap::AppSettings;
 use clap::Parser;
@@ -346,12 +346,12 @@ impl CommandKind {
         replayer: Option<Replayer>,
         async_cleanup_context: AsyncCleanupContext,
     ) -> ExitResult {
-        let roots = roots::find_current_roots();
+        let roots = roots::find_current_invocation_roots();
         let replay_speed = replayer.as_ref().map(|r| r.speed());
         let command_ctx = ClientCommandContext {
             init,
             paths: roots
-                .map(|r| Paths {
+                .map(|r| InvocationPaths {
                     roots: r,
                     isolation: common_opts.isolation_dir,
                 })

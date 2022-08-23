@@ -22,11 +22,11 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 
-use crate::roots::Roots;
+use crate::roots::InvocationRoots;
 
 #[derive(Clone)]
-pub struct Paths {
-    pub roots: Roots,
+pub struct InvocationPaths {
+    pub roots: InvocationRoots,
 
     /// The isolation dir is a dir relative path used to create unique directories for
     /// all on-disk state relating to a daemon. This allows multiple daemons to run in
@@ -50,7 +50,7 @@ pub struct Paths {
     pub isolation: FileNameBuf,
 }
 
-impl Paths {
+impl InvocationPaths {
     pub fn daemon_dir(&self) -> anyhow::Result<AbsPathBuf> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
@@ -148,8 +148,8 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
 
-    use crate::paths::Paths;
-    use crate::roots::Roots;
+    use crate::paths::InvocationPaths;
+    use crate::roots::InvocationRoots;
 
     #[test]
     fn test_paths() {
@@ -163,8 +163,8 @@ mod tests {
         } else {
             "/my/project"
         };
-        let paths = Paths {
-            roots: Roots {
+        let paths = InvocationPaths {
+            roots: InvocationRoots {
                 cell_root: AbsPathBuf::unchecked_new(cell_root.to_owned()),
                 project_root: ProjectRoot::new(AbsPathBuf::unchecked_new(project_root.to_owned())),
             },

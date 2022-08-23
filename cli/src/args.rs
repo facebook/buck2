@@ -23,7 +23,7 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::process::background_command;
-use buck2_server::roots::find_current_roots;
+use buck2_server::roots::find_current_invocation_roots;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;
@@ -97,7 +97,7 @@ impl<'a> ArgCellPathResolver<'a> {
         let resolver_data = self
             .data
             .get_or_try_init(|| {
-                let roots = find_current_roots()?;
+                let roots = find_current_invocation_roots()?;
 
                 // See comment in `ArgCellPathResolver` about why we use `OnceCell` rather than `Lazy`
                 let project_filesystem = roots.project_root;

@@ -22,7 +22,7 @@ use buck2_server::client_utils::retrying;
 use buck2_server::client_utils::ConnectionType;
 use buck2_server::client_utils::ParseError;
 use buck2_server::client_utils::SOCKET_ADDR;
-use buck2_server::paths::Paths;
+use buck2_server::paths::InvocationPaths;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
 use fs2::FileExt;
@@ -44,13 +44,13 @@ use crate::daemon::client::VersionCheckResult;
 /// Responsible for starting the daemon when no daemon is running.
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {
-    paths: &'a Paths,
+    paths: &'a InvocationPaths,
     lock_file: File,
 }
 
 impl<'a> BuckdLifecycle<'a> {
     async fn lock_with_timeout(
-        paths: &'a Paths,
+        paths: &'a InvocationPaths,
         timeout: Duration,
     ) -> anyhow::Result<BuckdLifecycle<'a>> {
         let lifecycle_path = paths.daemon_dir()?.as_path().join("buckd.lifecycle");
@@ -251,7 +251,10 @@ impl BuckdConnectOptions {
         }
     }
 
-    pub(crate) async fn connect(self, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
+    pub(crate) async fn connect(
+        self,
+        paths: &InvocationPaths,
+    ) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
         buck2_core::fs::anyhow::create_dir_all(&daemon_dir)
             .with_context(|| format!("When creating daemon dir: {}", daemon_dir.display()))?;
@@ -267,7 +270,7 @@ impl BuckdConnectOptions {
     pub(crate) fn replay(
         self,
         replayer: Replayer,
-        paths: &Paths,
+        paths: &InvocationPaths,
     ) -> anyhow::Result<BuckdClientConnector> {
         let fake_info = DaemonProcessInfo {
             pid: 0,
@@ -285,7 +288,10 @@ impl BuckdConnectOptions {
         Ok(BuckdClientConnector { client })
     }
 
-    async fn establish_connection(&self, paths: &Paths) -> anyhow::Result<BootstrapBuckdClient> {
+    async fn establish_connection(
+        &self,
+        paths: &InvocationPaths,
+    ) -> anyhow::Result<BootstrapBuckdClient> {
         match self.try_connect_existing(paths).await {
             Ok(mut client) => {
                 if self.existing_only || client.0.client.check_version().await?.is_match() {
@@ -367,7 +373,10 @@ impl BuckdConnectOptions {
         }
     }
 
-    async fn try_connect_existing(&self, paths: &Paths) -> anyhow::Result<BootstrapBuckdClient> {
+    async fn try_connect_existing(
+        &self,
+        paths: &InvocationPaths,
+    ) -> anyhow::Result<BootstrapBuckdClient> {
         let daemon_dir = paths.daemon_dir()?;
         let location = daemon_dir.as_path().join("buckd.info");
         let file = File::open(&location)
