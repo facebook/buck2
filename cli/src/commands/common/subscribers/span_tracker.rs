@@ -19,9 +19,20 @@ use derive_more::From;
 use gazebo::prelude::*;
 use linked_hash_map::LinkedHashMap;
 
-use crate::commands::common::subscribers::superconsole::SuperConsoleError;
 use crate::commands::common::what_ran::WhatRanRelevantAction;
 use crate::commands::common::what_ran::WhatRanState;
+
+#[derive(Debug, thiserror::Error)]
+enum SpanTrackerError {
+    #[error("Tried to end an unstarted event: `{0:#?}`.\nStarted events: `{1:?}`.")]
+    InvalidRemoval(BuckEvent, Vec<BuckEvent>),
+    #[error(
+        "Tried to register with a parent span that had not started: `{0:#?}`.\nStarted events: `{1:?}`."
+    )]
+    InvalidParent(BuckEvent, Vec<BuckEvent>),
+    #[error("Tried to start an event not associated with a span: `{0:?}.")]
+    NonSpanEvent(BuckEvent),
+}
 
 #[derive(Clone)]
 pub(crate) struct SpanInfo {
@@ -108,7 +119,7 @@ impl SpanTracker {
         let is_root = span_is_root(start);
         let span_id = event
             .span_id
-            .ok_or_else(|| SuperConsoleError::NonSpanEvent(event.clone()))?;
+            .ok_or_else(|| SpanTrackerError::NonSpanEvent(event.clone()))?;
 
         self.all.entry(span_id).or_insert_with(|| Span {
             info: SpanInfo {
@@ -126,7 +137,7 @@ impl SpanTracker {
             let parent = match self.all.get_mut(&parent_id) {
                 Some(parent) => parent,
                 None => {
-                    return Err(SuperConsoleError::InvalidParent(
+                    return Err(SpanTrackerError::InvalidParent(
                         event.clone(),
                         self.debug_known_events(),
                     )
@@ -187,7 +198,7 @@ impl EventSubscriber for SpanTracker {
     ) -> anyhow::Result<()> {
         let span_id = event
             .span_id
-            .ok_or_else(|| SuperConsoleError::NonSpanEvent(event.clone()))?;
+            .ok_or_else(|| SpanTrackerError::NonSpanEvent(event.clone()))?;
 
         // This event might not be eligible as a root, but we need to maintain the invariant that
         // nothing can be in `roots` if it's not in `all` so we still have to clear it. Besides, we
@@ -198,18 +209,16 @@ impl EventSubscriber for SpanTracker {
 
         let removed = self.all.remove(&span_id).is_some();
         if !removed {
-            return Err(SuperConsoleError::InvalidRemoval(
-                event.clone(),
-                self.debug_known_events(),
-            )
-            .into());
+            return Err(
+                SpanTrackerError::InvalidRemoval(event.clone(), self.debug_known_events()).into(),
+            );
         }
 
         if let Some(parent_id) = event.parent_id {
             let parent = match self.all.get_mut(&parent_id) {
                 Some(parent) => parent,
                 None => {
-                    return Err(SuperConsoleError::InvalidParent(
+                    return Err(SpanTrackerError::InvalidParent(
                         event.clone(),
                         self.debug_known_events(),
                     )
@@ -220,7 +229,7 @@ impl EventSubscriber for SpanTracker {
             let removed = parent.children.remove(&span_id).is_some();
 
             if !removed {
-                return Err(SuperConsoleError::InvalidRemoval(
+                return Err(SpanTrackerError::InvalidRemoval(
                     event.clone(),
                     self.debug_known_events(),
                 )

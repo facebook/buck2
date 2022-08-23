@@ -38,7 +38,6 @@ use superconsole::Lines;
 use superconsole::Span;
 use superconsole::State;
 pub(crate) use superconsole::SuperConsole;
-use thiserror::Error;
 
 use crate::commands::common::subscribers::display;
 use crate::commands::common::subscribers::display::TargetDisplayOptions;
@@ -645,18 +644,6 @@ impl Component for SessionInfoComponent {
             Err(_) => Ok(vec![]),
         }
     }
-}
-
-#[derive(Error, Debug)]
-pub(crate) enum SuperConsoleError {
-    #[error("Tried to end an unstarted event: `{0:#?}`.\nStarted events: `{1:?}`.")]
-    InvalidRemoval(BuckEvent, Vec<BuckEvent>),
-    #[error(
-        "Tried to register with a parent span that had not started: `{0:#?}`.\nStarted events: `{1:?}`."
-    )]
-    InvalidParent(BuckEvent, Vec<BuckEvent>),
-    #[error("Tried to start an event not associated with a span: `{0:?}.")]
-    NonSpanEvent(BuckEvent),
 }
 
 #[cfg(test)]
