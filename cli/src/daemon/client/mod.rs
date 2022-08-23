@@ -25,7 +25,6 @@ use futures::pin_mut;
 use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
-use thiserror::Error;
 use tonic::transport::Channel;
 use tonic::Request;
 use tonic::Status;
@@ -45,30 +44,6 @@ use crate::daemon::client::replayer::Replayer;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
-
-#[derive(Debug, Error)]
-enum BuckdCommunicationError {
-    #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
-    UnexpectedResultType(command_result::Result),
-    #[error("buck daemon returned an empty CommandResult")]
-    EmptyCommandResult,
-    #[error("buck daemon request finished without returning a CommandResult")]
-    MissingCommandResult,
-    #[error("buckd communication encountered an unexpected error `{0:?}`")]
-    TonicError(tonic::Status),
-}
-
-impl From<tonic::Status> for BuckdCommunicationError {
-    fn from(status: tonic::Status) -> Self {
-        match status.code() {
-            tonic::Code::Ok => {
-                unreachable!("::Ok should be unreachable as it should produce an Ok result")
-            }
-            // all errors should be encoded into the CommandResult, we must've hit something strange to be here.
-            _ => BuckdCommunicationError::TonicError(status),
-        }
-    }
-}
 
 pub(crate) enum VersionCheckResult {
     Match,
@@ -188,6 +163,12 @@ impl<R> FromResidual<CommandFailure> for CommandOutcome<R> {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum GrpcToStreamError {
+    #[error("buck daemon returned an empty CommandProgress")]
+    EmptyCommandProgress,
+}
+
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC
 /// event stream.
 fn grpc_to_stream(
@@ -207,7 +188,7 @@ fn grpc_to_stream(
         let value = match msg.progress {
             Some(command_progress::Progress::Event(e)) => Some(Ok(StreamValue::Event(e))),
             Some(command_progress::Progress::Result(res)) => Some(Ok(StreamValue::Result(res))),
-            None => Some(Err(BuckdCommunicationError::EmptyCommandResult.into())),
+            None => Some(Err(GrpcToStreamError::EmptyCommandProgress.into())),
         };
 
         value.map(|v| (v, stream))

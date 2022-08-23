@@ -29,13 +29,36 @@ use tokio::time::MissedTickBehavior;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::daemon::client::file_tailer::FileTailer;
-use crate::daemon::client::BuckdCommunicationError;
 use crate::daemon::client::CommandOutcome;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
 /// superconsole uses it to re-render the frame and this is what allows it to have constantly updating timers.
 /// Other than tick() calls, implementations will only be notified when new events arrive.
 const TICKS_PER_SECOND: u32 = 10;
+
+#[derive(Debug, Error)]
+enum BuckdCommunicationError {
+    #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
+    UnexpectedResultType(command_result::Result),
+    #[error("buck daemon returned an empty CommandResult")]
+    EmptyCommandResult,
+    #[error("buck daemon request finished without returning a CommandResult")]
+    MissingCommandResult,
+    #[error("buckd communication encountered an unexpected error `{0:?}`")]
+    TonicError(tonic::Status),
+}
+
+impl From<tonic::Status> for BuckdCommunicationError {
+    fn from(status: tonic::Status) -> Self {
+        match status.code() {
+            tonic::Code::Ok => {
+                unreachable!("::Ok should be unreachable as it should produce an Ok result")
+            }
+            // all errors should be encoded into the CommandResult, we must've hit something strange to be here.
+            _ => BuckdCommunicationError::TonicError(status),
+        }
+    }
+}
 
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// fowards them to the appropriate subscribers registered on this struct
