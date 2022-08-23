@@ -42,6 +42,8 @@ prelude.python_library(
     base_module = "foo",
     srcs = [
         "lib.py",
+        "stub.pyi",
+        "resource.txt",
     ],
     deps = [
         ":dep",

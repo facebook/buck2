@@ -221,7 +221,10 @@ def _src_types(srcs: {str.type: "artifact"}, type_stubs: {str.type: "artifact"})
     src_types = {}
 
     # First, add all `.py` files.
-    src_types.update(srcs)
+    for name, src in srcs.items():
+        base, ext = paths.split_extension(name)
+        if ext == ".py" or ext == ".pyi":
+            src_types[name] = src
 
     # Override sources which have a corresponding type stub.
     for name, src in type_stubs.items():
