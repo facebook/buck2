@@ -21,7 +21,6 @@ use buck2_events::subscriber::EventSubscriber;
 use buck2_server::client_utils::get_channel;
 use buck2_server::client_utils::retrying;
 use buck2_server::client_utils::ConnectionType;
-use buck2_server::client_utils::ParseError;
 use buck2_server::client_utils::SOCKET_ADDR;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
@@ -398,7 +397,7 @@ impl BuckdConnectOptions {
                 port: endpoint.to_owned(),
             },
             _ => {
-                return Err(anyhow!(ParseError::ParseError(endpoint.to_owned())));
+                return Err(anyhow!(BuckdConnectError::ParseError(endpoint.to_owned())));
             }
         };
 
@@ -420,4 +419,6 @@ enum BuckdConnectError {
     },
     #[error("during buck daemon startup, the started process had the wrong version.")]
     BuckDaemonVersionWrongAfterStart { expected: String, actual: String },
+    #[error("Failed to parse correct endpoint information {0}")]
+    ParseError(String),
 }

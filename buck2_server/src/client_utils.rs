@@ -12,18 +12,11 @@ use std::time::Instant;
 
 use anyhow::Context;
 use futures::Future;
-use thiserror::Error;
 use tonic::transport::Channel;
 use tonic::transport::Endpoint;
 
 pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";
-
-#[derive(Debug, Error)]
-pub enum ParseError {
-    #[error("Failed to parse correct endpoint information {0}")]
-    ParseError(String),
-}
 
 pub enum ConnectionType {
     Uds { unix_socket: String },
