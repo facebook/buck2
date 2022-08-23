@@ -49,6 +49,8 @@ NativeLinkTargetInfo = provider(fields = [
     "deps",  # ["label"]
 ])
 
+Disposition = enum("root", "excluded", "body")
+
 # Bookkeeping information used to setup omnibus link rules.
 OmnibusSpec = record(
     body = field({"label": None}, {}),
@@ -57,6 +59,7 @@ OmnibusSpec = record(
     exclusion_roots = field(["label"]),
     # All link infos.
     link_infos = field({"label": LinkableNode.type}, {}),
+    dispositions = field({"label": Disposition.type}),
 )
 
 OmnibusRootProduct = record(
@@ -598,12 +601,33 @@ def _build_omnibus_spec(
         if label not in excluded
     }
 
+    dispositions = {}
+
+    for node, info in graph.nodes.items():
+        if _is_static_only(info):
+            continue
+
+        if node in roots:
+            dispositions[node] = Disposition("root")
+            continue
+
+        if node in excluded:
+            dispositions[node] = Disposition("excluded")
+            continue
+
+        if node in body:
+            dispositions[node] = Disposition("body")
+            continue
+
+        fail("Node was not assigned: {}".format(node))
+
     return OmnibusSpec(
         excluded = excluded,
         roots = roots,
         body = body,
         link_infos = graph.nodes,
         exclusion_roots = exclusion_roots,
+        dispositions = dispositions,
     )
 
 def _implicit_exclusion_roots(graph: LinkableGraph.type):
