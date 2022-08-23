@@ -261,7 +261,7 @@ impl GlobalsBuilder {
 
     /// Add a nested struct to the builder. If `f` adds the definition `foo`,
     /// it will end up on a struct `name`, accessible as `name.foo`.
-    pub fn struct_(&mut self, name: &str, f: impl Fn(&mut GlobalsBuilder)) {
+    pub fn struct_(&mut self, name: &str, f: impl FnOnce(&mut GlobalsBuilder)) {
         self.struct_fields.push(SmallMap::new());
         f(self);
         let fields = self.struct_fields.pop().unwrap();
