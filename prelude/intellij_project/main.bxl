@@ -23,15 +23,14 @@ def _impl(ctx):
         library_output = _create_output(action_factory, file_name, final_output_dir_dict)
         action_factory.write_json(library_output, get_library_json_contents(library))
 
-    output_module = _create_output(action_factory, "modules.xml", final_output_dir_dict)
+    output_module = _create_output(action_factory, "modules.json", final_output_dir_dict)
     action_factory.write(output_module, """\
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectModuleManager">
-    <modules>
-    </modules>
-  </component>
-</project>
+{
+  "moduleEntries" : [{
+    "fileUrl" : "file://$PROJECT_DIR$/.idea/modules/project_root.json",
+    "filePath" : ".idea/modules/project_root.json"
+  }]
+}
 """)
 
     dot_idea_dir = action_factory.symlinked_dir(".idea", final_output_dir_dict)

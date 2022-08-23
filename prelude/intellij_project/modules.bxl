@@ -106,8 +106,9 @@ def get_module_file_json_contents(ij_module: IjModule.type) -> dict.type:
         "dependencies": {
             "LIBRARY": _get_project_libraries_json(ij_module.project_libraries),
             "MODULE": _get_module_dependencies_json(ij_module.module_dependencies),
-            "MODULE-LIBRARY": _get_module_libraries_json(ij_module.module_libraries),
+            "MODULE_LIBRARY": _get_module_libraries_json(ij_module.module_libraries),
         },
+        "type": "JAVA_MODULE",
     }
 
 def _get_module_dependencies_json(module_dependencies: [AggregatedIjTargetNode.type]) -> [dict.type]:
@@ -122,9 +123,7 @@ def _get_module_libraries_json(libraries: ["IjLibrary"]) -> [dict.type]:
     return [_get_module_library_json(module_library) for module_library in libraries]
 
 def _get_module_library_json(module_library: "IjLibrary") -> dict.type:
-    return {
-        "library": get_library_json_contents(module_library),
-    }
+    return get_library_json_contents(module_library)
 
 def _get_project_libraries_json(libraries: ["IjLibrary"]) -> [dict.type]:
     return [_get_project_library_json(project_library) for project_library in libraries]
