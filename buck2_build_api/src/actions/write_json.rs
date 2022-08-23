@@ -26,8 +26,10 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::enumeration::EnumValue;
 use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::Struct;
 use starlark::values::tuple::Tuple;
@@ -54,9 +56,11 @@ use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 #[derive(Debug, Error)]
@@ -107,83 +111,139 @@ fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<A
     }
 }
 
+enum JsonUnpack<'v> {
+    None,
+    String(&'v str),
+    Number(i32),
+    Bool(bool),
+    List(&'v ListRef<'v>),
+    Tuple(&'v Tuple<'v>),
+    Dict(DictRef<'v>),
+    Struct(&'v Struct<'v>),
+    Record(&'v Record<'v>),
+    Enum(&'v EnumValue<'v>),
+    TargetLabel(&'v StarlarkTargetLabel),
+    Label(&'v Label<'v>),
+    Artifact(Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>),
+    CommandLine(&'v dyn CommandLineArgLike),
+    Provider(&'v dyn ProviderLike<'v>),
+    Unsupported,
+}
+
+fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
+    if value.is_none() {
+        JsonUnpack::None
+    } else if let Some(x) = value.unpack_str() {
+        JsonUnpack::String(x)
+    } else if let Some(x) = value.unpack_int() {
+        JsonUnpack::Number(x)
+    } else if let Some(x) = value.unpack_bool() {
+        JsonUnpack::Bool(x)
+    } else if let Some(x) = List::from_value(value) {
+        JsonUnpack::List(x)
+    } else if let Some(x) = Tuple::from_value(value) {
+        JsonUnpack::Tuple(x)
+    } else if let Some(x) = Dict::from_value(value) {
+        JsonUnpack::Dict(x)
+    } else if let Some(x) = Struct::from_value(value) {
+        JsonUnpack::Struct(x)
+    } else if let Some(x) = Record::from_value(value) {
+        JsonUnpack::Record(x)
+    } else if let Some(x) = EnumValue::from_value(value) {
+        JsonUnpack::Enum(x)
+    } else if let Some(x) = StarlarkTargetLabel::from_value(value) {
+        JsonUnpack::TargetLabel(x)
+    } else if let Some(x) = Label::from_value(value) {
+        JsonUnpack::Label(x)
+    } else if let Some(x) = get_artifact(value) {
+        JsonUnpack::Artifact(x)
+    } else if let Some(x) = value.as_command_line() {
+        JsonUnpack::CommandLine(x)
+    } else if let Some(x) = value.as_provider() {
+        JsonUnpack::Provider(x)
+    } else {
+        JsonUnpack::Unsupported
+    }
+}
+
 impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        if self.value.is_none() {
-            serializer.serialize_none()
-        } else if let Some(x) = self.value.unpack_str() {
-            serializer.serialize_str(x)
-        } else if let Some(x) = self.value.unpack_int() {
-            serializer.serialize_i32(x)
-        } else if let Some(x) = self.value.unpack_bool() {
-            serializer.serialize_bool(x)
-        } else if let Some(x) = List::from_value(self.value) {
-            serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
-        } else if let Some(x) = Tuple::from_value(self.value) {
-            serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
-        } else if let Some(x) = Dict::from_value(self.value) {
-            serializer.collect_map(
+        match unpack(self.value) {
+            JsonUnpack::None => serializer.serialize_none(),
+            JsonUnpack::String(x) => serializer.serialize_str(x),
+            JsonUnpack::Number(x) => serializer.serialize_i32(x),
+            JsonUnpack::Bool(x) => serializer.serialize_bool(x),
+            JsonUnpack::List(x) => serializer.collect_seq(x.iter().map(|v| self.with_value(v))),
+            JsonUnpack::Tuple(x) => serializer.collect_seq(x.iter().map(|v| self.with_value(v))),
+            JsonUnpack::Dict(x) => serializer.collect_map(
                 x.iter()
                     .map(|(k, v)| (self.with_value(k), self.with_value(v))),
-            )
-        } else if let Some(x) = Struct::from_value(self.value) {
-            serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
-        } else if let Some(x) = Record::from_value(self.value) {
-            serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
-        } else if let Some(x) = EnumValue::from_value(self.value) {
-            x.serialize(serializer)
-        } else if let Some(x) = StarlarkTargetLabel::from_value(self.value) {
-            // Users could do this with `str(ctx.label.raw_target())`, but in some benchmarks that causes
-            // a lot of additional memory to be retained for all those strings
-            x.serialize(serializer)
-        } else if let Some(x) = Label::from_value(self.value) {
-            // Users could do this with `str(ctx.label)`, but a bit wasteful
-            x.serialize(serializer)
-        } else if let Some(x) = get_artifact(self.value) {
-            match self.fs {
-                None => {
-                    // Invariant: If fs == None, then the writer = sink().
-                    // Therefore, in the None branch, we only care about getting Serde errors,
-                    // so pass something of the right type, but don't worry about the value.
-                    serializer.serialize_str("")
-                }
-                Some(fs) => serializer.serialize_str(err(fs.fs().resolve(&err(x())?))?.as_str()),
+            ),
+            JsonUnpack::Struct(x) => {
+                serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
             }
-        } else if let Some(x) = self.value.as_command_line() {
-            let singleton = is_singleton_cmdargs(self.value);
-            match self.fs {
-                None => {
-                    // See a few lines up for fs == None details.
-                    if singleton {
+            JsonUnpack::Record(x) => {
+                serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
+            }
+            JsonUnpack::Enum(x) => x.serialize(serializer),
+            JsonUnpack::TargetLabel(x) => {
+                // Users could do this with `str(ctx.label.raw_target())`, but in some benchmarks that causes
+                // a lot of additional memory to be retained for all those strings
+                x.serialize(serializer)
+            }
+            JsonUnpack::Label(x) => {
+                // Users could do this with `str(ctx.label)`, but a bit wasteful
+                x.serialize(serializer)
+            }
+            JsonUnpack::Artifact(x) => {
+                match self.fs {
+                    None => {
+                        // Invariant: If fs == None, then the writer = sink().
+                        // Therefore, in the None branch, we only care about getting Serde errors,
+                        // so pass something of the right type, but don't worry about the value.
                         serializer.serialize_str("")
-                    } else {
-                        serializer.collect_seq(&[""])
                     }
-                }
-                Some(fs) => {
-                    let mut cli_builder = BaseCommandLineBuilder::new(fs);
-                    err(x.add_to_command_line(&mut cli_builder))?;
-                    let items = cli_builder.build();
-                    // We change the type, based on the value - singleton = String, otherwise list.
-                    // That's a little annoying (type based on value), but otherwise there would be
-                    // no way to produce a cmd_args as a single string.
-                    if singleton {
-                        serializer.serialize_str(&items.concat())
-                    } else {
-                        serializer.collect_seq(items)
+                    Some(fs) => {
+                        serializer.serialize_str(err(fs.fs().resolve(&err(x())?))?.as_str())
                     }
                 }
             }
-        } else if let Some(x) = self.value.as_provider() {
-            serializer.collect_map(x.items().iter().map(|(k, v)| (k, self.with_value(*v))))
-        } else {
-            Err(serde::ser::Error::custom(format!(
+            JsonUnpack::CommandLine(x) => {
+                let singleton = is_singleton_cmdargs(self.value);
+                match self.fs {
+                    None => {
+                        // See a few lines up for fs == None details.
+                        if singleton {
+                            serializer.serialize_str("")
+                        } else {
+                            serializer.collect_seq(&[""])
+                        }
+                    }
+                    Some(fs) => {
+                        let mut cli_builder = BaseCommandLineBuilder::new(fs);
+                        err(x.add_to_command_line(&mut cli_builder))?;
+                        let items = cli_builder.build();
+                        // We change the type, based on the value - singleton = String, otherwise list.
+                        // That's a little annoying (type based on value), but otherwise there would be
+                        // no way to produce a cmd_args as a single string.
+                        if singleton {
+                            serializer.serialize_str(&items.concat())
+                        } else {
+                            serializer.collect_seq(items)
+                        }
+                    }
+                }
+            }
+            JsonUnpack::Provider(x) => {
+                serializer.collect_map(x.items().iter().map(|(k, v)| (k, self.with_value(*v))))
+            }
+            JsonUnpack::Unsupported => Err(serde::ser::Error::custom(format!(
                 "Type `{}` is not supported by `write_json`",
                 self.value.get_type()
-            )))
+            ))),
         }
     }
 }
