@@ -35,9 +35,10 @@ def extract_symbol_names(
     script = (
         "set -euo pipefail; " +
         '"$1" {} "${{@:2}}"'.format(nm_flags) +
-        # `grep` is way faster than `sed`
+        # Grab only the symbol name field.
+        ' | cut -d" " -f2 ' +
         # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
-        ' | (grep -P -o "(?<=: )[^ @]*" || [[ $? == 1 ]])' +
+        " | cut -d@ -f1 " +
         # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
         # make it significantly faster. CAUTION: if ten of these processes
         # run in parallel, they'll have cumulative allocations larger than RAM.
