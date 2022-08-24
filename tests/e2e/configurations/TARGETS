@@ -26,7 +26,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 

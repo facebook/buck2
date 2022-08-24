@@ -6,7 +6,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
@@ -16,7 +16,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
         "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
     },
 )
@@ -27,7 +27,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
@@ -37,7 +37,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
@@ -47,7 +47,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
@@ -78,7 +78,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
@@ -103,7 +103,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
@@ -123,7 +123,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
     test_with_compiled_buck2_tpx = True,
 )
@@ -159,7 +159,7 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
+        "PRELUDE": "$(location //buck2/prelude:prelude)",
     },
 )
 
