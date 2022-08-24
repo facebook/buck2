@@ -12,7 +12,6 @@
 use buck2_query_parser::parse_expr;
 use starlark_map::small_set::SmallSet;
 
-use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::values::QueryResultExt;
 use crate::query::syntax::simple::functions::QueryFunctions;
 use crate::query::syntax::simple::functions::QueryFunctionsExt;
@@ -20,7 +19,7 @@ use crate::query::syntax::simple::functions::QueryLiteralVisitor;
 
 /// Look through the expression to find all the target literals.
 /// Adds those that are found to `result` set.
-pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
+pub fn extract_target_literals<F: QueryFunctions>(
     functions: &F,
     query: &str,
     result: &mut SmallSet<String>,

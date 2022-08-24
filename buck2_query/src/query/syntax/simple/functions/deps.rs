@@ -64,7 +64,7 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
     pub(crate) async fn invoke_deps(
         &self,
         env: &Env,
-        functions: &dyn QueryFunctions<Env>,
+        functions: &dyn QueryFunctions<Env = Env>,
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
@@ -73,7 +73,7 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
             Some(expr) => {
                 struct Filter<'a, Env: QueryEnvironment> {
                     inner_env: &'a Env,
-                    functions: &'a dyn QueryFunctions<Env>,
+                    functions: &'a dyn QueryFunctions<Env = Env>,
                     expr: &'a CapturedExpr<'a>,
                 }
 

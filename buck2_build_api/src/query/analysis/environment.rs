@@ -139,13 +139,14 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
         Self { delegate }
     }
 
-    pub fn functions() -> impl QueryFunctions<ConfiguredGraphQueryEnvironment<'a>> {
+    pub fn functions() -> impl QueryFunctions<Env = ConfiguredGraphQueryEnvironment<'a>> {
         struct Functions<'a> {
             defaults: DefaultQueryFunctionsModule<ConfiguredGraphQueryEnvironment<'a>>,
             extra_functions: ConfiguredGraphFunctions<'a>,
         }
 
-        impl<'a> QueryFunctions<ConfiguredGraphQueryEnvironment<'a>> for Functions<'a> {
+        impl<'a> QueryFunctions for Functions<'a> {
+            type Env = ConfiguredGraphQueryEnvironment<'a>;
             fn get(
                 &self,
                 name: &str,

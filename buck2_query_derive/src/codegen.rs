@@ -339,7 +339,8 @@ pub(crate) fn codegen(parsed: Parsed) -> syn::Result<TokenStream> {
 
             #(#method_defs)*
 
-            impl #impl_generics QueryFunctions<#env_ty> for #self_ty #where_clause {
+            impl #impl_generics QueryFunctions for #self_ty #where_clause {
+                type Env = #env_ty;
                 fn get(&self, name: &str) -> Option<&dyn QueryFunction<#env_ty>> {
                     match name {
                         #(#method_dispatch,)*

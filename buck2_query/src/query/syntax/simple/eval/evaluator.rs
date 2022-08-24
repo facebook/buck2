@@ -28,11 +28,11 @@ use crate::query::syntax::simple::eval::values::QueryValue;
 use crate::query::syntax::simple::functions::QueryFunctions;
 pub struct QueryEvaluator<'e, Env: QueryEnvironment> {
     env: &'e Env,
-    functions: &'e dyn QueryFunctions<Env>,
+    functions: &'e dyn QueryFunctions<Env = Env>,
 }
 
 impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
-    pub fn new(env: &'e Env, functions: &'e dyn QueryFunctions<Env>) -> Self {
+    pub fn new(env: &'e Env, functions: &'e dyn QueryFunctions<Env = Env>) -> Self {
         Self { env, functions }
     }
 
@@ -40,7 +40,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
         self.env
     }
 
-    pub fn functions(&self) -> &dyn QueryFunctions<Env> {
+    pub fn functions(&self) -> &dyn QueryFunctions<Env = Env> {
         self.functions
     }
 

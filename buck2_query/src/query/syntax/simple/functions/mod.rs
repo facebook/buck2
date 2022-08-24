@@ -44,13 +44,15 @@ pub trait HasModuleDescription {
 }
 
 #[async_trait]
-pub trait QueryFunctions<Env: QueryEnvironment>: Send + Sync {
-    fn get(&self, name: &str) -> Option<&dyn QueryFunction<Env>>;
+pub trait QueryFunctions: Send + Sync {
+    type Env: QueryEnvironment;
 
-    fn get_op(&self, op: BinaryOp) -> Option<&dyn QueryBinaryOp<Env>>;
+    fn get(&self, name: &str) -> Option<&dyn QueryFunction<Self::Env>>;
+
+    fn get_op(&self, op: BinaryOp) -> Option<&dyn QueryBinaryOp<Self::Env>>;
 }
 
-pub trait QueryFunctionsExt<Env: QueryEnvironment> {
+pub trait QueryFunctionsExt {
     fn visit_literals(
         &self,
         visitor: &mut dyn QueryLiteralVisitor,
@@ -58,13 +60,13 @@ pub trait QueryFunctionsExt<Env: QueryEnvironment> {
     ) -> QueryResult<()>;
 }
 
-impl<Env: QueryEnvironment, F: QueryFunctions<Env>> QueryFunctionsExt<Env> for F {
+impl<F: QueryFunctions> QueryFunctionsExt for F {
     fn visit_literals(
         &self,
         visitor: &mut dyn QueryLiteralVisitor,
         expr: &Spanned<Expr>,
     ) -> QueryResult<()> {
-        fn visit_literals_recurse<Env: QueryEnvironment, F: QueryFunctions<Env>>(
+        fn visit_literals_recurse<F: QueryFunctions>(
             this: &F,
             visitor: &mut dyn QueryLiteralVisitor,
             expr: &Expr,
@@ -112,7 +114,7 @@ impl<Env: QueryEnvironment, F: QueryFunctions<Env>> QueryFunctionsExt<Env> for F
             }
         }
 
-        fn visit_literals_item<Env: QueryEnvironment, F: QueryFunctions<Env>>(
+        fn visit_literals_item<F: QueryFunctions>(
             this: &F,
             visitor: &mut dyn QueryLiteralVisitor,
             expr: &Spanned<Expr>,
@@ -455,7 +457,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     pub async fn deps(
         &self,
         env: &Env,
-        functions: &dyn QueryFunctions<Env>,
+        functions: &dyn QueryFunctions<Env = Env>,
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
@@ -601,20 +603,21 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 }
 
 pub struct AugmentedQueryFunctions<'a, Env: QueryEnvironment> {
-    inner: &'a dyn QueryFunctions<Env>,
-    extra: Box<dyn QueryFunctions<Env> + 'a>,
+    inner: &'a dyn QueryFunctions<Env = Env>,
+    extra: Box<dyn QueryFunctions<Env = Env> + 'a>,
 }
 
 impl<'a, Env: QueryEnvironment> AugmentedQueryFunctions<'a, Env> {
     pub fn augment(
-        inner: &'a dyn QueryFunctions<Env>,
-        extra: Box<dyn QueryFunctions<Env> + 'a>,
+        inner: &'a dyn QueryFunctions<Env = Env>,
+        extra: Box<dyn QueryFunctions<Env = Env> + 'a>,
     ) -> Self {
         Self { inner, extra }
     }
 }
 
-impl<'a, Env: QueryEnvironment> QueryFunctions<Env> for AugmentedQueryFunctions<'a, Env> {
+impl<'a, Env: QueryEnvironment> QueryFunctions for AugmentedQueryFunctions<'a, Env> {
+    type Env = Env;
     fn get(&self, name: &str) -> Option<&dyn QueryFunction<Env>> {
         match self.extra.get(name) {
             None => self.inner.get(name),
