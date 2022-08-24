@@ -9,7 +9,6 @@
 
 pub mod calculation;
 pub mod lookup;
-pub mod unconfigured;
 
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;

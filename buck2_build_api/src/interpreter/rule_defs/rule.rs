@@ -18,6 +18,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
+use buck2_interpreter_for_build::nodes::unconfigured::TargetNodeExt;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -49,7 +50,6 @@ use starlark::values::Value;
 
 use crate::interpreter::rule_defs::attr::AttributeAsStarlarkValue;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
-use crate::nodes::unconfigured::TargetNodeExt;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
