@@ -4,6 +4,7 @@ load(
     "@fbcode//buck2/prelude/cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxAdditionalArgsfileParams")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CHeader")
 load(
     "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
@@ -56,6 +57,8 @@ SwiftCompilationOutput = record(
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
     exported_pre = field(CPreprocessor.type),
+    # Argsfile to compile an object file which is used by some subtargets.
+    swift_argsfile = field("CxxAdditionalArgsfileParams"),
 )
 
 def compile_swift(
@@ -85,7 +88,7 @@ def compile_swift(
     )
 
     _compile_swiftmodule(ctx, toolchain, shared_flags, output_swiftmodule, unprocessed_header)
-    _compile_object(ctx, toolchain, shared_flags, output_object)
+    swift_argsfile = _compile_object(ctx, toolchain, shared_flags, output_object)
 
     _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
@@ -120,6 +123,7 @@ def compile_swift(
         providers = get_swift_dependency_infos(ctx, exported_pp_info, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
+        swift_argsfile = swift_argsfile,
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -155,7 +159,7 @@ def _compile_swiftmodule(
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
         output_swiftmodule: "artifact",
-        output_header: "artifact"):
+        output_header: "artifact") -> "CxxAdditionalArgsfileParams":
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-Xfrontend",
@@ -169,26 +173,26 @@ def _compile_swiftmodule(
         "-emit-objc-header-path",
         output_header.as_output(),
     ])
-    _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, cmd, toolchain)
+    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, cmd, toolchain)
 
 def _compile_object(
         ctx: "context",
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
-        output_object: "artifact"):
+        output_object: "artifact") -> "CxxAdditionalArgsfileParams":
     cmd = cmd_args([
         "-emit-object",
         "-o",
         output_object.as_output(),
     ])
-    _compile_with_argsfile(ctx, "swift_compile", shared_flags, cmd, toolchain)
+    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, cmd, toolchain)
 
 def _compile_with_argsfile(
         ctx: "context",
         name: str.type,
         shared_flags: "cmd_args",
         additional_flags: "cmd_args",
-        toolchain: "SwiftToolchainInfo"):
+        toolchain: "SwiftToolchainInfo") -> "CxxAdditionalArgsfileParams":
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argfile, macro_files = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
 
@@ -200,6 +204,10 @@ def _compile_with_argsfile(
     # otherwise they won't be materialised.
     cmd.hidden(macro_files + [shell_quoted_args])
     ctx.actions.run(cmd, category = name)
+
+    hidden_args = [shared_flags]
+    hidden_args.extend(macro_files)
+    return CxxAdditionalArgsfileParams(file = argfile, hidden_args = hidden_args, extension = ".swift")
 
 def _get_shared_flags(
         ctx: "context",
