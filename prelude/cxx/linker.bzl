@@ -200,6 +200,8 @@ def get_no_as_needed_shared_libs_flags(linker_type: str.type) -> [str.type]:
 
     if linker_type == "gnu":
         args.append("-Wl,--no-as-needed")
+    elif linker_type == "darwin":
+        pass
     else:
         fail("Linker type {} not supported".format(linker_type))
 
