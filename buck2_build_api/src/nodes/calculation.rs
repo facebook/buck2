@@ -834,8 +834,8 @@ mod tests {
     use starlark::collections::SmallMap;
     use starlark_map::smallmap;
 
-    use crate::attrs::testing::CoercedAttrExt;
-    use crate::attrs::testing::ConfiguredAttrExt;
+    use crate::attrs::coerce::testing::CoercedAttrExt;
+    use crate::attrs::coerce::testing::ConfiguredAttrExt;
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::interpreter::calculation::testing::InterpreterResultsKey;

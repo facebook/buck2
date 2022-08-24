@@ -34,9 +34,9 @@ use starlark::values::ValueLike;
 use thiserror::Error;
 
 use crate::analysis::registry::AnalysisRegistry;
-use crate::attrs::analysis::AnalysisQueryResult;
-use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::dep::ResolutionError;
+use crate::attrs::resolve::attr_type::dep::ResolutionError;
+use crate::attrs::resolve::ctx::AnalysisQueryResult;
+use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::deferred::DeferredAny;
 use crate::deferred::DeferredId;
 use crate::deferred::DeferredTable;
@@ -55,7 +55,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
 use starlark::values::ValueTyped;
 
-use crate::attrs::configured_attr::ConfiguredAttrExt;
+use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::deferred::BaseDeferredKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 

@@ -25,7 +25,7 @@ use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ExecutorFs;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
-use crate::attrs::attr_type::arg::value::ResolvedMacro;
+use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 
 pub trait CommandLineArtifactVisitor {

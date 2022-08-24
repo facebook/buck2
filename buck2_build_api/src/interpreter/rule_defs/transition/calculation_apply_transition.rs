@@ -39,7 +39,7 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::attrs::coerced_attr::CoercedAttrExr;
+use crate::attrs::resolve::coerced_attr::CoercedAttrResolveExt;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;

@@ -34,10 +34,10 @@ use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 
+use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_defs::register_natives;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
-use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
 use crate::interpreter::rule_defs::cmd_args::register_args_function;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::register_rule_defs;

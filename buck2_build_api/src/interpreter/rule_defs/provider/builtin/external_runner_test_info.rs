@@ -29,7 +29,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
+use crate::attrs::resolve::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;

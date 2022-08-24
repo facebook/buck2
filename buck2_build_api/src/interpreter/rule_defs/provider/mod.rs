@@ -157,7 +157,7 @@ pub mod testing {
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
 
-    use crate::attrs::testing;
+    use crate::attrs::coerce;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
     use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -177,7 +177,7 @@ pub mod testing {
                 .with(crate::interpreter::build_defs::register_natives)
                 .with(artifactory)
                 .build();
-            let value = testing::to_value(&env, &globals, providers);
+            let value = coerce::testing::to_value(&env, &globals, providers);
             let res_typed =
                 crate::interpreter::rule_defs::provider::ProviderCollection::try_from_value(value)
                     .map_err(|e| anyhow::anyhow!("{:?}", e))

@@ -13,7 +13,7 @@ use std::path::Path;
 use anyhow::Context;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::SourceArtifact;
-use buck2_build_api::attrs::configured_attr::ConfiguredAttrExt;
+use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;

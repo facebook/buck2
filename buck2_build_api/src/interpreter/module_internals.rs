@@ -27,7 +27,7 @@ use itertools::Itertools;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
-use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 
 /// An EvaluationResult contains the list of targets resulting from evaluating a build file.
 #[derive(Debug)]

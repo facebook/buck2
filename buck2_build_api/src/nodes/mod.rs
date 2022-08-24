@@ -56,8 +56,8 @@ mod tests {
     use starlark::values::Heap;
 
     use super::*;
-    use crate::attrs::attr_type::AttrTypeExt;
-    use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+    use crate::attrs::coerce::attr_type::AttrTypeExt;
+    use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
     use crate::interpreter::testing::cells;
 
     #[test]

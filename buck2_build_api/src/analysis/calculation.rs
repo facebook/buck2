@@ -48,7 +48,7 @@ use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::analysis::get_user_defined_rule_impl;
 use crate::analysis::run_analysis;
 use crate::analysis::AnalysisResult;
-use crate::attrs::analysis::AnalysisQueryResult;
+use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::events::proto::ToProtoMessage;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;

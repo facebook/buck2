@@ -20,7 +20,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
+use crate::attrs::resolve::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;

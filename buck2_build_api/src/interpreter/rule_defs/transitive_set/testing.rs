@@ -75,7 +75,7 @@ pub fn new_transitive_set(
         .with(artifactory)
         .build();
 
-    let val = crate::attrs::testing::to_value(&env, &globals, code);
+    let val = crate::attrs::coerce::testing::to_value(&env, &globals, code);
 
     env.set("", val);
     let frozen = env.freeze().context("Freeze failed")?;

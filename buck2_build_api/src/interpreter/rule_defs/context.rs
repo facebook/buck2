@@ -65,7 +65,7 @@ use crate::actions::write_json::UnregisteredWriteJsonAction;
 use crate::actions::write_macros::UnregisteredWriteMacrosToFileAction;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::artifact_groups::ArtifactGroup;
-use crate::attrs::attr_type::arg::value::ResolvedMacro;
+use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::execute::materializer::http::Checksum;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;

@@ -45,17 +45,11 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use starlark_map::small_map;
 
-pub(crate) mod analysis;
-pub mod attr_type;
-pub mod coerced_attr;
-pub mod configured_attr;
-
-#[cfg(test)]
-pub(crate) mod testing;
+pub(crate) mod coerce;
+pub mod resolve;
 #[cfg(test)]
 mod tests;
 
