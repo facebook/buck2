@@ -245,9 +245,9 @@ def merge_to_split_dex(
     ] for input in pre_dexed_lib_with_class_names_files]) + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
-    initial_secondary_dexes_dir = ctx.actions.declare_output("initial_secondary_dexes_dir")
+    secondary_dexes_dir = ctx.actions.declare_output("secondary_dexes_dir")
 
-    outputs = [primary_dex_output, primary_dex_artifact_list, initial_secondary_dexes_dir]
+    outputs = [primary_dex_output, primary_dex_artifact_list, secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context"):
         target_to_module_mapping_function = get_apk_module_graph_mapping_function(ctx, apk_module_graph_file) if apk_module_graph_file else all_targets_in_root_module
@@ -282,21 +282,26 @@ def merge_to_split_dex(
                 )
 
             secondary_dex_inputs = sorted_pre_dexed_input.secondary_dex_inputs
+            raw_secondary_dexes_for_compressing = {}
             for i in range(len(secondary_dex_inputs)):
-                if split_dex_merge_config.dex_compression == "jar":
-                    secondary_dex_path = _get_jar_secondary_dex_path(i, module)
-                    secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, i)
-                    secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
+                if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
+                    if split_dex_merge_config.dex_compression == "jar":
+                        secondary_dex_path = _get_jar_secondary_dex_path(i, module)
+                        secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, i)
+                        secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
+                    else:
+                        secondary_dex_path = _get_raw_secondary_dex_path(i, module)
+                        secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, i)
+
+                    secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
+                    secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
                     metadata_line_artifacts_by_module.setdefault(module, []).append(secondary_dex_metadata_config.secondary_dex_metadata_line)
                 else:
-                    secondary_dex_path = _get_raw_secondary_dex_path(i, module)
-                    if split_dex_merge_config.dex_compression == "raw":
-                        secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, i)
-                        metadata_line_artifacts_by_module.setdefault(module, []).append(secondary_dex_metadata_config.secondary_dex_metadata_line)
-                    else:
-                        secondary_dex_metadata_config = None
+                    secondary_dex_name = _get_raw_secondary_dex_name(i, module)
+                    secondary_dex_output = ctx.actions.declare_output("{}/{}".format(module, secondary_dex_name))
+                    raw_secondary_dexes_for_compressing[secondary_dex_name] = secondary_dex_output
+                    secondary_dex_metadata_config = None
 
-                secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
                 secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}_for_module_{}.txt".format(i + 2, module))
                 secondary_dex_class_list = ctx.actions.write(
                     "class_list_for_secondary_dex_{}_for_module_{}.txt".format(i + 2, module),
@@ -313,13 +318,26 @@ def merge_to_split_dex(
                     secondary_dex_metadata_config = secondary_dex_metadata_config,
                 )
 
-                secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
-
             if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
                 metadata_dot_txt_path = "{}/metadata.txt".format(_get_secondary_dex_subdir(module))
                 metadata_dot_txt_file = ctx.actions.declare_output(metadata_dot_txt_path)
                 secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
                 metadata_dot_txt_files_by_module[module] = metadata_dot_txt_file
+            else:
+                raw_secondary_dexes_dir = ctx.actions.symlinked_dir("raw_secondary_dexes_dir_for_module_{}".format(module), raw_secondary_dexes_for_compressing)
+                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dexes_dir_for_{}".format(module))
+                secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
+
+                multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
+                multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
+                multi_dex_cmd.add("--raw-secondary-dexes-dir", raw_secondary_dexes_dir)
+                multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
+                multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
+                multi_dex_cmd.add("--module", module)
+
+                ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
+
+                secondary_dexes_for_symlinking[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
 
         if metadata_dot_txt_files_by_module:
             def write_metadata_dot_txts(ctx: "context"):
@@ -337,29 +355,15 @@ def merge_to_split_dex(
             ctx.actions.dynamic_output(flatten(metadata_line_artifacts_by_module.values()), [], metadata_dot_txt_files_by_module.values(), write_metadata_dot_txts)
 
         ctx.actions.symlinked_dir(
-            ctx.outputs[initial_secondary_dexes_dir],
+            ctx.outputs[secondary_dexes_dir],
             secondary_dexes_for_symlinking,
         )
 
     ctx.actions.dynamic_output(input_artifacts, [], outputs, merge_pre_dexed_libs)
 
-    if split_dex_merge_config.dex_compression == "raw" or split_dex_merge_config.dex_compression == "jar":
-        secondary_dex_dir = initial_secondary_dexes_dir
-    else:
-        secondary_dex_dir = ctx.actions.declare_output("secondary_dexes_dir")
-
-        multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
-        multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir.as_output())
-        multi_dex_cmd.add("--raw-secondary-dexes-dir", initial_secondary_dexes_dir)
-        multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
-        multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
-        multi_dex_cmd.add("--module", ROOT_MODULE)
-
-        ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
-
     return DexFilesInfo(
         primary_dex = primary_dex_output,
-        secondary_dex_dirs = [secondary_dex_dir],
+        secondary_dex_dirs = [secondary_dexes_dir],
         proguard_text_files_path = None,
     )
 
@@ -459,15 +463,21 @@ def _sort_pre_dexed_files(
 
     return sorted_pre_dexed_inputs_map.values()
 
-def _get_raw_secondary_dex_path(index: int.type, module: str.type):
+def _get_raw_secondary_dex_name(index: int.type, module: str.type) -> str.type:
     # Root module begins at 2 (primary classes.dex is 1)
     # Non-root module begins at 1 (classes.dex)
     if is_root_module(module):
         return "classes{}.dex".format(index + 2)
     elif index == 0:
-        return "assets/{}/classes.dex".format(module)
+        return "classes.dex".format(module)
     else:
-        return "assets/{}/classes{}.dex".format(module, index + 1)
+        return "classes{}.dex".format(module, index + 1)
+
+def _get_raw_secondary_dex_path(index: int.type, module: str.type):
+    if is_root_module(module):
+        return _get_raw_secondary_dex_name(index, module)
+    else:
+        return "assets/{}/{}".format(module, _get_raw_secondary_dex_name(index, module))
 
 def _get_jar_secondary_dex_path(index: int.type, module: str.type):
     return "{}/{}-{}.dex.jar".format(
