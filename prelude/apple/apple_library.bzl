@@ -93,6 +93,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
 
     # Returns SwiftInfo and SwiftPcmInfo(compiled pcm of exported headers)
     swift_providers = swift_compile.providers if swift_compile else get_swift_dependency_infos(ctx, exported_pre, None)
+    swift_argsfile = swift_compile.swift_argsfile if swift_compile else None
 
     modular_pre = CPreprocessor(
         uses_modules = ctx.attrs.uses_modules,
@@ -123,7 +124,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre, swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [exported_pre]),
         srcs = cxx_srcs,
-        additional = CxxRuleAdditionalParams(srcs = swift_srcs),
+        additional = CxxRuleAdditionalParams(srcs = swift_srcs, argsfiles = [swift_argsfile] if swift_argsfile else []),
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
@@ -131,7 +132,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         strip_executable = ctx.attrs.stripped,
         strip_args_factory = apple_strip_args,
         force_link_group_linking = params.force_link_group_linking,
-        cxx_populate_xcode_attributes_func = params.populate_xcode_attributes_func,
+        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, swift_argsfile = swift_argsfile, populate_xcode_attributes_func = params.populate_xcode_attributes_func, **kwargs),
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
         link_postprocessor = get_apple_link_postprocessor(ctx),
@@ -177,3 +178,16 @@ def _get_linker_flags(ctx: "context", swift_providers: ["provider"]) -> "cmd_arg
             cmd.add(p.transitive_swiftmodule_paths.project_as_args("linker_args"))
 
     return cmd
+
+def _xcode_populate_attributes(
+        ctx,
+        srcs: ["CxxSrcWithFlags"],
+        argsfiles_by_ext: {str.type: "artifact"},
+        swift_argsfile: ["CxxAdditionalArgsfileParams", None],
+        populate_xcode_attributes_func: "function",
+        **_kwargs) -> {str.type: ""}:
+    if swift_argsfile:
+        argsfiles_by_ext[swift_argsfile.extension] = swift_argsfile.file
+
+    data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles_by_ext = argsfiles_by_ext, product_name = ctx.attrs.name)
+    return data

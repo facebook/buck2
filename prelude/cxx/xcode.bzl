@@ -1,13 +1,12 @@
 load(
     "@fbcode//buck2/prelude/cxx:compile.bzl",
-    "CxxExtension",  # @unused Used as a type
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 
 def cxx_populate_xcode_attributes(
         ctx,
         srcs: [CxxSrcWithFlags.type],
-        argsfiles_by_ext: {CxxExtension.type: "artifact"},
+        argsfiles_by_ext: {str.type: "artifact"},
         product_name: str.type) -> {str.type: ""}:
     converted_srcs = {}
     for src in srcs:

@@ -2,7 +2,6 @@ load("@fbcode//buck2/prelude/apple:apple_library.bzl", "AppleLibraryAdditionalPa
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
     "@fbcode//buck2/prelude/cxx:compile.bzl",
-    "CxxExtension",  # @unused Used as a type
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 load("@fbcode//buck2/prelude/cxx:cxx_library.bzl", "cxx_library_parameterized")
@@ -148,7 +147,7 @@ def _get_bundle_loader_flags(binary: ["cmd_args", None]) -> [""]:
 def _xcode_populate_attributes(
         ctx,
         srcs: [CxxSrcWithFlags.type],
-        argsfiles_by_ext: {CxxExtension.type: "artifact"},
+        argsfiles_by_ext: {str.type: "artifact"},
         xctest_bundle: "artifact",
         test_host_app_binary: ["cmd_args", None],
         **_kwargs) -> {str.type: ""}:

@@ -103,7 +103,7 @@ CxxCompileCommandOutput = record(
     # Argsfiles to generate in order to compile these source files
     argsfiles_info = field(DefaultInfo.type),
     # Each argsfile by the file extension for which it is used
-    argsfile_by_ext = field({CxxExtension.type: "artifact"}),
+    argsfile_by_ext = field({str.type: "artifact"}),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -191,10 +191,10 @@ def create_compile_cmds(
                         tag = headers_tag,
                     )
 
-            argsfile_by_ext[ext] = _mk_argsfile(ctx, pre, ext, headers_tag)
+            argsfile_by_ext[ext.value] = _mk_argsfile(ctx, pre, ext, headers_tag)
             cxx_compile_cmd_by_ext[ext] = _CxxCompileCommand(
                 base_compile_cmd = base_compile_cmd,
-                argsfile = argsfile_by_ext[ext],
+                argsfile = argsfile_by_ext[ext.value],
                 headers_dep_files = headers_dep_files,
             )
 
