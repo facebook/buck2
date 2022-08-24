@@ -115,50 +115,6 @@ impl BuildInterpreterConfiguror {
             additional_globals,
         })
     }
-
-    pub(crate) fn new_extra_context(
-        cell_info: &InterpreterCellInfo,
-        buildfile_path: BuildFilePath,
-        package_listing: PackageListing,
-        package_boundary_exception: bool,
-        loaded_modules: &LoadedModules,
-        implicit_import: Option<&Arc<ImplicitImport>>,
-        record_target_call_stack: bool,
-    ) -> SharedResult<Box<dyn ExtraContextDyn>> {
-        let package_implicits = implicit_import.map(|spec| {
-            PackageImplicits::new(
-                spec.dupe(),
-                loaded_modules
-                    .map
-                    .get(spec.import().id().as_str())
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Should've had an env for the package implicit import (`{}`).",
-                            spec.import(),
-                        )
-                    })
-                    .env()
-                    .dupe(),
-            )
-        });
-        let attr_coercer = BuildAttrCoercionContext::new_with_package(
-            cell_info.cell_alias_resolver().dupe(),
-            (buildfile_path.package().dupe(), package_listing),
-            package_boundary_exception,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
-        );
-
-        let imports = loaded_modules.imports().cloned().collect();
-
-        Ok(box ModuleInternals::new(
-            attr_coercer,
-            Arc::new(buildfile_path),
-            imports,
-            package_implicits,
-            cell_info.default_visibility_to_public(),
-            record_target_call_stack,
-        ))
-    }
 }
 
 // TODO(cjhopman): We need to figure out some other way to deal with this.
@@ -256,15 +212,40 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
     ) -> SharedResult<Box<dyn ExtraContextDyn>> {
-        BuildInterpreterConfiguror::new_extra_context(
-            cell_info,
-            buildfile_path,
-            package_listing,
+        let record_target_call_stack = self.record_target_call_stack;
+        let package_implicits = implicit_import.map(|spec| {
+            PackageImplicits::new(
+                spec.dupe(),
+                loaded_modules
+                    .map
+                    .get(spec.import().id().as_str())
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Should've had an env for the package implicit import (`{}`).",
+                            spec.import(),
+                        )
+                    })
+                    .env()
+                    .dupe(),
+            )
+        });
+        let attr_coercer = BuildAttrCoercionContext::new_with_package(
+            cell_info.cell_alias_resolver().dupe(),
+            (buildfile_path.package().dupe(), package_listing),
             package_boundary_exception,
-            loaded_modules,
-            implicit_import,
-            self.record_target_call_stack,
-        )
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
+        );
+
+        let imports = loaded_modules.imports().cloned().collect();
+
+        Ok(box ModuleInternals::new(
+            attr_coercer,
+            Arc::new(buildfile_path),
+            imports,
+            package_implicits,
+            cell_info.default_visibility_to_public(),
+            record_target_call_stack,
+        ))
     }
 
     fn prelude_import(&self) -> Option<&ImportPath> {
