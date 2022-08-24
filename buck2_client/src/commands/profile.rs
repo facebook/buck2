@@ -86,6 +86,16 @@ pub struct ProfileOptions {
     #[clap(long, short = 'o', value_name = "PATH")]
     output: PathBuf,
 
+    /// Profile mode.
+    ///
+    /// Memory profiling modes have suffixes either `-allocated` or `retained`.
+    ///
+    /// `-retained` means memory kept in frozen starlark heap after analysis complete.
+    /// `-retained` does not work when profiling loading,
+    /// because no memory is retained after loading and frozen heap is not even created.
+    /// This is probably what you want when profiling analysis.
+    ///
+    /// `-allocated` means allocated memory, including memory which is later garbage collected.
     #[clap(long, short = 'm', value_enum)]
     mode: BuckProfileMode,
 
