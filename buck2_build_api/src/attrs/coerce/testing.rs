@@ -29,6 +29,11 @@ use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_query::query::syntax::simple::eval::values::QueryResult;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
+use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
+use buck2_query_parser::spanned::Spanned;
+use buck2_query_parser::Expr;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -37,7 +42,6 @@ use starlark::syntax::Dialect;
 use starlark::values::Value;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 pub trait CoercedAttrExt {
     fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;
@@ -74,11 +78,23 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         &root_cell_name,
         CellRelativePath::unchecked_new("package/subdir"),
     );
+
+    struct NoFunctions;
+    impl QueryFunctionsExt for NoFunctions {
+        fn visit_literals(
+            &self,
+            _visitor: &mut dyn QueryLiteralVisitor,
+            _expr: &Spanned<Expr>,
+        ) -> QueryResult<()> {
+            panic!("not needed in tests")
+        }
+    }
+
     BuildAttrCoercionContext::new_with_package(
         CellAliasResolver::new(Arc::new(aliases)).unwrap(),
         (package, package_listing),
         false,
-        box ConfiguredGraphQueryEnvironment::functions(),
+        box NoFunctions,
     )
 }
 
