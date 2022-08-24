@@ -113,7 +113,6 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     bundle = bundle_output(ctx)
 
     assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
-    installer = ctx.attrs._apple_installer
 
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
@@ -121,18 +120,16 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
     install_data = generate_install_data(ctx)
-    product_name_sanitized = get_product_name(ctx).replace(" ", "_")
 
-    install_info_data = "options_" + product_name_sanitized
     return [
         DefaultInfo(default_outputs = [bundle], sub_targets = sub_targets),
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = get_is_watch_bundle(ctx)),
         AppleDebuggableInfo(dsyms = dsym_artifacts),
         InstallInfo(
-            installer = installer,
+            installer = ctx.attrs._apple_installer,
             files = {
-                product_name_sanitized: bundle,
-                install_info_data: install_data,
+                "app_bundle": bundle,
+                "options": install_data,
             },
         ),
         xcode_data_info,
