@@ -5,6 +5,50 @@ load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
 
+# Android builds use a tool called `d8` to compile Java bytecode is DEX (Dalvik EXecutable)
+# bytecode that runs on Android devices. Our Android builds have two distinct ways of
+# doing that:
+# 1) With pre-dexing enabled (this is the most common case for debug builds). That means that
+#    d8 runs on every individual .jar file (to produce a .jar.dex file), and then at the APK
+#    level we run d8 again to combine all the individual .jar.dex files.
+# 2) With pre-dexing disabled (this is the case if it is explicitly disabled, we are running
+#    proguard, or we preprocess the java classes at the APK level). This means that we run
+#    d8 at the APK level on all the .jar files.
+#
+# The .dex files that we package into the APK consist of a single classes.dex "primary DEX"
+# file, and N secondary DEX files. The classes that are put into the primary DEX are those
+# that are required at startup, and are specified via `primary_dex_patterns` (classes which
+# match one of those patterns are put into the primary DEX).
+#
+# The primary DEX is always stored in the root directory of the APK as `classes.dex`.
+#
+# We have 4 different ways of storing our secondary DEX files, which are specified via the
+# `dex_compression` attribute:
+# 1) `raw` compression. This means that we create `classes2.dex`, `classes3.dex`, ...,
+#    `classesN.dex` and store each of them in the root directory of the APK.
+# 2) `jar` compression. For each secondary DEX file, we put a `classes.dex` entry into a
+#    JAR file, and store it as an asset at `assets/secondary-program-dex-jars/secondary-I.dex.jar`
+# 3) `xz` compression. This is the same as `jar` compression, except that we run `xz` on the
+#    JAR file to produce `assets/secondary-program-dex-jars/secondary-I.dex.jar.xz`.
+# 4) `xzs` compression. We do the same as `jar` compression, then concatenate all the jars
+#    together and do `xz` compression on the result to produce a single
+#    `assets/secondary-program-dex-jars/secondary.dex.jar.xzs`.
+#
+# For all compression types, we also package a `assets/secondary-program-dex-jars/metadata.txt`,
+# which has an entry for each secondary DEX file:
+# <secondary DEX file name> <sha1 hash of secondary DEX> <canary class name>
+#
+# A "canary class" is a Java class that we add to every secondary DEX. It is a known class that
+# can be used for DEX verification when loading the DEX on a device.
+#
+# For compression types other than raw, we also include a metadata file per secondary DEX, which
+# consists of a single line of the form:
+# jar:<size of secondary dex jar (in bytes)> dex:<size of uncompressed dex file (in bytes)>
+#
+# If an APK has Voltron modules, then we produce a separate group of secondary DEX files for each
+# module, and we put them into `assets/<module_name>` instead of `assets/secondary-program-dex-jars`.
+# We produce a `metadata.txt` file for each Voltron module.
+
 _DEX_MERGE_OPTIONS = ["--no-desugar", "--no-optimize"]
 
 SplitDexMergeConfig = record(
