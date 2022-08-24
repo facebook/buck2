@@ -20,7 +20,7 @@ def _get_grouped_srcs(ctx: "context") -> [GroupedSource.type]:
             "src {} is not an artifact, its type is: {}".format(src, type(src)),
         )
         canonical_src_name = get_canonical_src_name(src.short_path)
-        if canonical_src_name not in grouped_srcs.keys():
+        if grouped_srcs.get(canonical_src_name, None) == None:
             grouped_srcs[canonical_src_name] = GroupedSource(
                 canonical_name = canonical_src_name,
                 main_source = src,
