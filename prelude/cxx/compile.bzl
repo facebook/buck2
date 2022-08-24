@@ -134,7 +134,7 @@ def create_compile_cmds(
     for src in impl_params.srcs:
         srcs_with_flags.append(src)
     header_only = False
-    if len(srcs_with_flags) == 0:
+    if len(srcs_with_flags) == 0 and len(impl_params.additional.srcs) == 0:
         all_headers = flatten([x.headers for x in own_preprocessors])
         if len(all_headers) == 0:
             return CxxCompileCommandOutputForCompDb(
@@ -212,6 +212,11 @@ def create_compile_cmds(
         argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
         other_outputs.extend(argsfile.hidden_args)
         argsfile_artifacts_by_ext[ext] = argsfile.file
+
+    for argsfile in impl_params.additional.argsfiles:
+        argsfiles.append(argsfile.file)
+        argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
+        other_outputs.extend(argsfile.hidden_args)
 
     argsfiles_summary = ctx.actions.write("argsfiles", argsfile_names)
 
