@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
+// TODO(nga): `output_subdir_for_doc` is the only function which prevents
+//   moving `docs` command to `buck2_client`. Possible solution is to generate docs
+//   (or maybe even write to the filesystem) on the server side.
 use buck2_server::lsp::output_subdir_for_doc;
 use itertools::Itertools;
 use starlark::values::docs::markdown::AsMarkdown;
