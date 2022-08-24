@@ -128,9 +128,8 @@ In `fbcode` with Buck1 there is a single platform (e.g. platform-009, platform-0
 Unfortunately, because `fbcode` with Buck1 doesn't use separate host and target platforms, some targets will not use the proper `$(exe_target ...)` macro and need to be adjusted. Once these details are correct throughout `fbcode` we'll be able to enable new experiences, like cross-compiling and greater `xplat` compatibilty.
 
 ### Code Coverage
-Buck2 does not currently support code coverage (multiple items need to be fixed including integration with tpx and compilation in coverage modes).
-FBCode CI code coverage (diff and full) is planned to be fully compatible in H2 2022. (T122036419)
-This should not block your migration however! You can just leave some contbuilds on buck1 in order to continue to collect coverage and mark coverage on diffs.
+Buck2 is supporting code coverage to the best of our knowledge (T122036419).
+In case you see any problems, feel free to reach out and unblock your migration by just leaving some contbuilds on buck1 in order to continue to collect coverage and mark coverage on diffs.
 
 ### Other changes
 
