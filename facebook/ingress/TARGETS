@@ -42,7 +42,6 @@ cpp_library(
         "IngressProcessor.cpp",
         "LoadReporterProcessor.cpp",
         "PanicProcessor.cpp",
-        "ReproReporterProcessor.cpp",
         "ScubaEventProcessor.cpp",
     ],
     headers = [
@@ -58,7 +57,6 @@ cpp_library(
         "IEventProcessor.h",
         "LoadReporterProcessor.h",
         "PanicProcessor.h",
-        "ReproReporterProcessor.h",
         "ScubaEventProcessor.h",
     ],
     deps = [

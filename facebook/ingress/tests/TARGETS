@@ -24,7 +24,6 @@ cpp_unittest(
         "IngressProcessorTest.cpp",
         "LoadReporterProcessorTest.cpp",
         "PanicTest.cpp",
-        "ReproReporterProcessorTest.cpp",
         "ScubaEventProcessorTest.cpp",
     ],
     deps = [
