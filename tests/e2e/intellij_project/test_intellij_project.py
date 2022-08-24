@@ -6,7 +6,7 @@ from pathlib import Path
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
-BXL_LABEL = "fbcode//buck2/prelude/intellij_project/main.bxl:generate_intellij_project"
+BXL_LABEL = "fbsource//xplat/buck2/intellij_project/main.bxl:generate_intellij_project"
 EXPECTED_DIR_RELATIVE_PATH = "buck2/tests/e2e/intellij_project/testdata"
 
 # TODO: Find a more general pattern: This regex work only if target is in fbandroid.
@@ -39,7 +39,7 @@ async def run_and_verify_project(
 
     with tempfile.TemporaryDirectory() as xml_output_temp_dir:
         await buck.run(
-            "fbcode//buck2/prelude/intellij_project/tools/project_writer:project_writer",
+            "fbsource//xplat/buck2/intellij_project/tools/project_writer:project_writer",
             "--",
             "--input_path",
             output_dir.as_posix(),
