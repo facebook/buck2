@@ -103,6 +103,7 @@ def get_multi_dex(
                 multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
 
             multi_dex_cmd.add("--module", module)
+            multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
 
             jar_to_dex_file = ctx.actions.write("jars_to_dex_file_for_module_{}.txt".format(module), jars)
             multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
@@ -186,6 +187,7 @@ def _get_secondary_dex_jar_metadata_config(
         actions: "actions",
         secondary_dex_path: str.type,
         module: str.type,
+        module_to_canary_class_name_function: "function",
         index: int.type) -> SecondaryDexMetadataConfig.type:
     secondary_dex_metadata_path = secondary_dex_path + ".meta"
     return SecondaryDexMetadataConfig(
@@ -193,16 +195,20 @@ def _get_secondary_dex_jar_metadata_config(
         secondary_dex_metadata_path = secondary_dex_metadata_path,
         secondary_dex_metadata_file = actions.declare_output(secondary_dex_metadata_path),
         secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}/{}".format(module, index + 1)),
-        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, index + 1),
+        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, module_to_canary_class_name_function, index + 1),
     )
 
-def _get_secondary_dex_raw_metadata_config(actions: "actions", module: str.type, index: int.type) -> SecondaryDexMetadataConfig.type:
+def _get_secondary_dex_raw_metadata_config(
+        actions: "actions",
+        module: str.type,
+        module_to_canary_class_name_function: "function",
+        index: int.type) -> SecondaryDexMetadataConfig.type:
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "raw",
         secondary_dex_metadata_path = None,
         secondary_dex_metadata_file = None,
         secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}/{}".format(module, index + 1)),
-        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, index + 1),
+        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, module_to_canary_class_name_function, index + 1),
     )
 
 def _get_filter_dex_batch_size() -> int.type:
@@ -278,12 +284,13 @@ def merge_to_split_dex(
 
     def merge_pre_dexed_libs(ctx: "context"):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
-        target_to_module_mapping_function = apk_module_graph_info.target_to_module_mapping_function
+        module_to_canary_class_name_function = apk_module_graph_info.module_to_canary_class_name_function
         sorted_pre_dexed_inputs = _sort_pre_dexed_files(
             ctx,
             pre_dexed_lib_with_class_names_files,
             split_dex_merge_config,
-            target_to_module_mapping_function,
+            get_module_from_target = apk_module_graph_info.target_to_module_mapping_function,
+            module_to_canary_class_name_function = module_to_canary_class_name_function,
         )
         secondary_dexes_for_symlinking = {}
         metadata_line_artifacts_by_module = {}
@@ -315,11 +322,11 @@ def merge_to_split_dex(
                 if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
                     if split_dex_merge_config.dex_compression == "jar":
                         secondary_dex_path = _get_jar_secondary_dex_path(i, module)
-                        secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, i)
+                        secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, module_to_canary_class_name_function, i)
                         secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
                     else:
                         secondary_dex_path = _get_raw_secondary_dex_path(i, module)
-                        secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, i)
+                        secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, module_to_canary_class_name_function, i)
 
                     secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
                     secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
@@ -362,6 +369,7 @@ def merge_to_split_dex(
                 multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
                 multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
                 multi_dex_cmd.add("--module", module)
+                multi_dex_cmd.add("--canary-class-name", module_to_canary_class_name_function(module))
 
                 ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
 
@@ -437,7 +445,8 @@ def _sort_pre_dexed_files(
         ctx: "context",
         pre_dexed_lib_with_class_names_files: ["DexInputWithClassNamesFile"],
         split_dex_merge_config: "SplitDexMergeConfig",
-        get_module_from_target: "function") -> [_SortedPreDexedInputs.type]:
+        get_module_from_target: "function",
+        module_to_canary_class_name_function: "function") -> [_SortedPreDexedInputs.type]:
     sorted_pre_dexed_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}
@@ -480,7 +489,13 @@ def _sort_pre_dexed_files(
 
             current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
             if len(current_secondary_dex_inputs) == 0:
-                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, module, ctx.attrs._dex_toolchain[DexToolchainInfo])
+                canary_class_dex_input = _create_canary_class(
+                    ctx,
+                    len(secondary_dex_inputs) + 1,
+                    module,
+                    module_to_canary_class_name_function,
+                    ctx.attrs._dex_toolchain[DexToolchainInfo],
+                )
                 current_secondary_dex_inputs.append(canary_class_dex_input)
                 secondary_dex_inputs.append(current_secondary_dex_inputs)
 
@@ -528,9 +543,9 @@ def _create_canary_class(
         ctx: "context",
         index: int.type,
         module: str.type,
+        module_to_canary_class_name_function: "function",
         dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
-    # TODO(ianc) Use hash of name for canary class naming
-    prefix = "secondary" if is_root_module(module) else module
+    prefix = module_to_canary_class_name_function(module)
     canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(prefix, index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(prefix, index), _CANARY_CLASS_INTERFACE_DEFINITION])
     canary_class_jar = ctx.actions.declare_output("canary_classes/{}/canary_jar_{}.jar".format(prefix, index))
     compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_prefix = "{}_canary_class{}".format(prefix, index))
@@ -539,9 +554,9 @@ def _create_canary_class(
 
     return DexInputWithSpecifiedClasses(
         lib = dex_library_info,
-        dex_class_names = [_get_fully_qualified_canary_class_name(module, index).replace(".", "/") + ".class"],
+        dex_class_names = [_get_fully_qualified_canary_class_name(module, module_to_canary_class_name_function, index).replace(".", "/") + ".class"],
     )
 
-def _get_fully_qualified_canary_class_name(module: str.type, index: int.type) -> str.type:
-    prefix = "secondary" if is_root_module(module) else module
+def _get_fully_qualified_canary_class_name(module: str.type, module_to_canary_class_name_function: "function", index: int.type) -> str.type:
+    prefix = module_to_canary_class_name_function(module)
     return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(prefix, index)
