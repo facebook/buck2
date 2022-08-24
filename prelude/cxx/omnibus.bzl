@@ -514,28 +514,31 @@ def _create_omnibus(
             force_no_link_groups = True,
         ))
 
-    # Add global symbols version script.
-    global_sym_vers = _create_global_symbols_version_script(
-        ctx,
-        # Extract symols from roots...
-        root_products.values(),
-        # ... and the shared libs from excluded nodes.
-        [
-            shared_lib.output
-            for label in spec.excluded
-            for shared_lib in spec.link_infos[label].shared_libs.values()
-        ],
-        # Extract explicit global symbol names from flags in all body link args.
-        global_symbols_link_args,
-    )
-    inputs.append(LinkInfo(pre_flags = [
-        "-Wl,--version-script",
-        global_sym_vers,
-    ]))
-
-    soname = _omnibus_soname(ctx)
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
+
+    # Add global symbols version script.
+    # FIXME(agallagher): Support global symbols for darwin.
+    if linker_info.type != "darwin":
+        global_sym_vers = _create_global_symbols_version_script(
+            ctx,
+            # Extract symols from roots...
+            root_products.values(),
+            # ... and the shared libs from excluded nodes.
+            [
+                shared_lib.output
+                for label in spec.excluded
+                for shared_lib in spec.link_infos[label].shared_libs.values()
+            ],
+            # Extract explicit global symbol names from flags in all body link args.
+            global_symbols_link_args,
+        )
+        inputs.append(LinkInfo(pre_flags = [
+            "-Wl,--version-script",
+            global_sym_vers,
+        ]))
+
+    soname = _omnibus_soname(ctx)
     return cxx_link_into_shared_library(
         ctx,
         soname,
