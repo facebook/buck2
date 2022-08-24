@@ -11,8 +11,6 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use buck2_core::target::TargetName;
-use buck2_interpreter_for_build::attrs::AttributeCoerceExt;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -26,7 +24,10 @@ use starlark::eval::ParametersSpec;
 use starlark::values::docs::DocString;
 use starlark::values::Value;
 
-pub(crate) trait AttributeSpecExt {
+use crate::attrs::AttributeCoerceExt;
+use crate::interpreter::module_internals::ModuleInternals;
+
+pub trait AttributeSpecExt {
     fn parse_params<'v>(
         &self,
         param_parser: ParametersParser<'v, '_>,

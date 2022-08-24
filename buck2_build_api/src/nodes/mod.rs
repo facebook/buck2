@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod attr_spec;
 pub mod calculation;
 pub mod lookup;
 pub mod unconfigured;
