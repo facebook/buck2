@@ -154,10 +154,10 @@ impl<'v, V: ValueLike<'v>> ValueAsProviderLike<'v> for V {
 #[cfg(test)]
 pub mod testing {
 
+    use buck2_interpreter_for_build::attrs::coerce;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
 
-    use crate::attrs::coerce;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
     use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;

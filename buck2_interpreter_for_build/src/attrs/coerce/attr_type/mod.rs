@@ -18,26 +18,26 @@ use starlark::values::Value;
 use crate::attrs::coerce::coerced_attr::CoercedAttrExr;
 use crate::attrs::coerce::AttrTypeCoerce;
 
-pub(crate) mod any;
+pub mod any;
 pub mod arg;
-pub(crate) mod bool;
-pub(crate) mod configuration_dep;
+pub mod bool;
+pub mod configuration_dep;
 mod default_only;
-pub(crate) mod dep;
+pub mod dep;
 mod dict;
 mod enumeration;
-pub(crate) mod int;
-pub(crate) mod label;
+pub mod int;
+pub mod label;
 mod list;
 mod one_of;
 mod option;
-pub(crate) mod query;
-pub(crate) mod source;
-pub(crate) mod split_transition_dep;
+pub mod query;
+pub mod source;
+pub mod split_transition_dep;
 mod string;
 mod tuple;
 
-pub(crate) trait AttrTypeExt {
+pub trait AttrTypeExt {
     fn this(&self) -> &AttrType;
 
     fn coerce_item(
@@ -79,7 +79,7 @@ impl AttrTypeExt for AttrType {
     }
 }
 
-pub(crate) trait AttrTypeInnerExt {
+pub trait AttrTypeInnerExt {
     fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,

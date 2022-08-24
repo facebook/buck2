@@ -13,6 +13,8 @@ use buck2_common::result::SharedResult;
 use buck2_core::configuration::Configuration;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_interpreter_for_build::attrs::coerce;
+use buck2_interpreter_for_build::attrs::coerce::testing;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::OptionRefExt;
@@ -26,8 +28,6 @@ use starlark::values::FrozenRef;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
-use crate::attrs::coerce;
-use crate::attrs::coerce::testing;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;

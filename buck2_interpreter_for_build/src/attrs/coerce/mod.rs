@@ -13,14 +13,13 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
-pub(crate) mod attr_type;
+pub mod attr_type;
 pub mod coerced_attr;
-pub(crate) mod ctx;
-pub(crate) mod error;
-#[cfg(test)]
-pub(crate) mod testing;
+pub mod ctx;
+pub mod error;
+pub mod testing;
 
-pub(crate) trait AttrTypeCoerce {
+pub trait AttrTypeCoerce {
     fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,

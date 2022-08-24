@@ -17,7 +17,6 @@ buck2_query = { path = "../buck2_query" }
 buck2_query_parser = { path = "../buck2_query_parser" }
 buck2_build_api_derive = { path = "../buck2_build_api_derive" }
 cli_proto = { path = "../cli_proto" }
-bumpalo = "3.8"
 dice = { path = "../dice/dice" }
 derive_more = "0.99.3"
 derivative = "2.1.1"
@@ -46,7 +45,6 @@ prost-types = "0.10"
 regex = "1.3.1"
 tracing = "0.1.22"
 tracing-subscriber = "0.3"
-twox-hash = "1.6.1"
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
@@ -56,6 +54,7 @@ starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
 static_assertions = "1.1.0"
 buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
 strsim = "0.10.0"
 structopt = "0.3.0"
 take_mut = "0.2.2"

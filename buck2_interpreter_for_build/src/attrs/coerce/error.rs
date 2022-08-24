@@ -36,7 +36,7 @@ impl CoercionError {
         )
     }
 
-    pub(crate) fn one_of_many(mut errs: Vec<anyhow::Error>) -> anyhow::Error {
+    pub fn one_of_many(mut errs: Vec<anyhow::Error>) -> anyhow::Error {
         if errs.is_empty() {
             CoercionError::OneOfEmpty.into()
         } else if errs.len() == 1 {

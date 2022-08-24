@@ -29,6 +29,7 @@ use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use maplit::hashset;
 use once_cell::sync::Lazy;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
@@ -46,7 +47,7 @@ static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
     Lazy::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
 
 #[derive(Debug, Error)]
-pub(crate) enum MacroError {
+pub enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),
     #[error("Can't expand unrecognized macros (`{0}`).")]
@@ -150,7 +151,7 @@ fn get_single_target_arg(
     ctx.coerce_label(&args[0])
 }
 
-pub(crate) trait UnconfiguredMacroExt {
+pub trait UnconfiguredMacroExt {
     fn new_location(
         ctx: &dyn AttrCoercionContext,
         args: Vec<String>,

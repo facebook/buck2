@@ -30,11 +30,11 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
+use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 
-use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_defs::register_natives;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;

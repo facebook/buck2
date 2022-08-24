@@ -1,0 +1,30 @@
+[package]
+name = "buck2_interpreter_for_build"
+version = "0.1.0"
+edition = "2021"
+description = "Interpreter setup to BUCK files"
+
+[dependencies]
+anyhow = "1.0.51"
+bumpalo = "3.8"
+hashbrown = { version = "0.11.2", features = ["raw"] }
+itertools = "0.10.3"
+maplit = "1.0.2"
+once_cell = "1.3"
+thiserror = "1.0.24"
+tracing = "0.1.22"
+twox-hash = "1.6.1"
+
+gazebo = { path = "../gazebo/gazebo" }
+starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_node = { path = "../buck2_node" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_query = { path = "../buck2_query" }
+buck2_query_parser = { path = "../buck2_query_parser" }
+
+[dev-dependencies]
+indexmap = { version = "1.6", features = ["serde-1"] }

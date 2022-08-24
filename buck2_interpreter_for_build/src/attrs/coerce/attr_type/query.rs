@@ -25,7 +25,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
-pub(crate) trait QueryAttrTypeExt {
+pub trait QueryAttrTypeExt {
     fn coerce(
         ctx: &dyn AttrCoercionContext,
         query: String,

@@ -14,6 +14,8 @@ use anyhow::Context;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
+use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
@@ -35,8 +37,6 @@ use starlark::values::ValueError;
 use thiserror::Error;
 use tracing::error;
 
-use crate::attrs::coerce::attr_type::AttrTypeExt;
-use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::rule::RuleError;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
@@ -557,6 +557,8 @@ mod tests {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::Package;
+    use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
+    use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coercion_context::AttrCoercionContext;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -564,8 +566,6 @@ mod tests {
     use indoc::indoc;
     use starlark::values::Heap;
 
-    use crate::attrs::coerce::attr_type::AttrTypeExt;
-    use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
     use crate::interpreter::testing::cells;
     use crate::interpreter::testing::run_starlark_bzl_test;
     use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;

@@ -34,6 +34,7 @@ use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use maplit::hashmap;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -106,7 +107,7 @@ fn cell_alias_resolver() -> CellAliasResolver {
     .unwrap()
 }
 
-pub(crate) fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {
+pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {
     let import_path = ImportPath::unchecked_new("", "", "defs.bzl");
     let ast = AstModule::parse(
         import_path.id().as_str(),

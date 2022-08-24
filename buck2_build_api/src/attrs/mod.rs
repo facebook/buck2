@@ -48,7 +48,6 @@
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use starlark_map::small_map;
 
-pub(crate) mod coerce;
 pub mod resolve;
 #[cfg(test)]
 mod tests;

@@ -25,7 +25,7 @@ use thiserror::Error;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 
 #[derive(Error, Debug)]
-pub(crate) enum SelectError {
+pub enum SelectError {
     #[error("select() condition was not a string, got `{0}`.")]
     KeyNotString(String),
     #[error("select() value was not a dict, got `{0}`.")]
@@ -36,7 +36,7 @@ pub(crate) enum SelectError {
     SelectCannotBeUsedForNonConfigurableAttr,
 }
 
-pub(crate) trait CoercedAttrExr: Sized {
+pub trait CoercedAttrExr: Sized {
     fn coerce(
         attr: &AttrType,
         configuable: AttrIsConfigurable,
@@ -148,9 +148,8 @@ mod tests {
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use gazebo::prelude::Dupe;
     use indexmap::IndexMap;
+    use starlark::collections::SmallMap;
     use starlark_map::smallmap;
-
-    use crate::attrs::OrderedMap;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {
@@ -272,7 +271,7 @@ mod tests {
         }
 
         // Test more specific is selected even if it is not first.
-        let select_entries = OrderedMap::from_iter([
+        let select_entries = SmallMap::from_iter([
             (linux.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
         ]);
@@ -282,7 +281,7 @@ mod tests {
         );
 
         // Test more specific is selected even if it is first.
-        let select_entries = OrderedMap::from_iter([
+        let select_entries = SmallMap::from_iter([
             (linux_x86_64.dupe(), literal_str()),
             (linux.dupe(), literal_true()),
         ]);
@@ -292,7 +291,7 @@ mod tests {
         );
 
         // Conflicting keys.
-        let select_entries = OrderedMap::from_iter([
+        let select_entries = SmallMap::from_iter([
             (linux_arm64.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
         ]);
@@ -326,7 +325,7 @@ mod tests {
         assert_eq!(
             r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
             CoercedAttr::Selector(box (
-                OrderedMap::from_iter([
+                SmallMap::from_iter([
                     (
                         TargetLabel::testing_parse("//:a"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true))
