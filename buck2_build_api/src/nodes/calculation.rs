@@ -61,7 +61,18 @@ use crate::configuration::calculation::ToolchainConstraints;
 use crate::configuration::ConfigurationCalculation;
 use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
-use crate::nodes::AttributeError;
+
+#[derive(Debug, thiserror::Error)]
+enum NodeCalculationError {
+    #[error("expected `{0}` attribute to be a list but got `{1}`")]
+    TargetCompatibleNotList(String, String),
+    #[error(
+        "`{0}` had both `{}` and `{}` attributes. It should only have one.",
+        TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+    )]
+    BothTargetCompatibleWith(String),
+}
 
 #[async_trait]
 pub(crate) trait NodeCalculation {
@@ -402,7 +413,7 @@ fn unpack_target_compatible_with_attr(
                 Ok(None)
             }
         }
-        None => Err(AttributeError::TargetCompatibleNotList(
+        None => Err(NodeCalculationError::TargetCompatibleNotList(
             attr_name.to_owned(),
             attr.to_string(),
         )
@@ -429,7 +440,9 @@ fn check_compatible(
     let compatibility_constraints = match (target_compatible_with, legacy_compatible_with) {
         (None, None) => return Ok(MaybeCompatible::Compatible(())),
         (Some(..), Some(..)) => {
-            return Err(AttributeError::BothTargetCompatibleWith(target_label.to_string()).into());
+            return Err(
+                NodeCalculationError::BothTargetCompatibleWith(target_label.to_string()).into(),
+            );
         }
         (Some(target_compatible_with), None) => {
             CompatibilityConstraints::All(target_compatible_with)

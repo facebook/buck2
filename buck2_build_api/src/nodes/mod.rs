@@ -11,21 +11,6 @@ pub mod calculation;
 pub mod lookup;
 
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum AttributeError {
-    #[error(
-        "`{0}` had both `{}` and `{}` attributes. It should only have one.",
-        TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
-    )]
-    BothTargetCompatibleWith(String),
-    #[error("expected `{0}` attribute to be a list but got `{1}`")]
-    TargetCompatibleNotList(String, String),
-}
 
 /// Utility functions to introspect coerced values. This will go away once we have more of the value
 /// coercion tooling done. For now, it handles things like stringification for the `targets` command,
