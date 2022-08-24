@@ -40,6 +40,7 @@ pub mod testing {
     use buck2_interpreter::file_loader::LoadedModule;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::import_paths::ImportPaths;
+    use buck2_interpreter::interpreter::configure_base_globals;
     use buck2_interpreter::interpreter::GlobalInterpreterState;
     use buck2_interpreter::interpreter::InterpreterConfigForCell;
     use buck2_interpreter::interpreter::InterpreterForCell;
@@ -52,6 +53,7 @@ pub mod testing {
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indoc::indoc;
+    use starlark::environment::Globals;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 
@@ -241,35 +243,42 @@ pub mod testing {
     }
 
     impl InterpreterConfiguror for InjectableInterpreterConfiguror {
-        fn configure_build_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-            self.inner.configure_build_file_globals(globals_builder);
-            common_helpers(globals_builder);
-            match &self.additional_globals {
-                None => {}
-                Some(module) => module(globals_builder),
-            }
+        fn build_file_globals(&self) -> Globals {
+            configure_base_globals(configure_extension_file_globals)
+                .with(|globals_builder| {
+                    configure_build_file_globals(globals_builder);
+                    common_helpers(globals_builder);
+                    match &self.additional_globals {
+                        None => {}
+                        Some(module) => module(globals_builder),
+                    }
+                })
+                .build()
         }
 
-        fn configure_extension_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-            self.inner.configure_extension_file_globals(globals_builder);
-            common_helpers(globals_builder);
-            match &self.additional_globals {
-                None => {}
-                Some(module) => module(globals_builder),
-            }
+        fn extension_file_globals(&self) -> Globals {
+            configure_base_globals(configure_extension_file_globals)
+                .with(|globals_builder| {
+                    configure_extension_file_globals(globals_builder);
+                    common_helpers(globals_builder);
+                    match &self.additional_globals {
+                        None => {}
+                        Some(module) => module(globals_builder),
+                    }
+                })
+                .build()
         }
 
-        fn configure_bxl_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-            self.inner.configure_bxl_file_globals(globals_builder);
-            common_helpers(globals_builder);
-            match &self.additional_globals {
-                None => {}
-                Some(module) => module(globals_builder),
-            }
-        }
-
-        fn configure_native_struct(&self, native_module: &mut GlobalsBuilder) {
-            self.inner.configure_native_struct(native_module)
+        fn bxl_file_globals(&self) -> Globals {
+            configure_base_globals(configure_extension_file_globals)
+                .with(|globals_builder| {
+                    common_helpers(globals_builder);
+                    match &self.additional_globals {
+                        None => {}
+                        Some(module) => module(globals_builder),
+                    }
+                })
+                .build()
         }
 
         fn host_platform(&self) -> InterpreterHostPlatform {
@@ -361,9 +370,9 @@ pub mod testing {
                                 InterpreterHostPlatform::Linux,
                                 InterpreterHostArchitecture::X86_64,
                                 false,
-                                configure_build_file_globals,
-                                configure_extension_file_globals,
-                                |_| {},
+                                |_| unreachable!(),
+                                |_| unreachable!(),
+                                |_| unreachable!(),
                             ),
                         ),
                         false,

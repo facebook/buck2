@@ -29,12 +29,14 @@ use buck2_interpreter::extra::InterpreterConfiguror;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
+use buck2_interpreter::interpreter::configure_base_globals;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_interpreter_for_build::interpreter::module_internals::PackageImplicits;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
+use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::build_defs::register_natives;
@@ -136,21 +138,23 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
 }
 
 impl InterpreterConfiguror for BuildInterpreterConfiguror {
-    fn configure_build_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-        (self.configure_build_file_globals.0)(globals_builder);
-    }
-
-    fn configure_extension_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-        (self.configure_extension_file_globals.0)(globals_builder);
-    }
-
-    fn configure_bxl_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-        (self.configure_bxl_file_globals.0)(globals_builder);
-    }
-
-    fn configure_native_struct(&self, native_module: &mut GlobalsBuilder) {
+    fn build_file_globals(&self) -> Globals {
         // We want the `native` module to contain most things, so match what is in extension files
-        self.configure_extension_file_globals(native_module);
+        configure_base_globals(self.configure_extension_file_globals.0)
+            .with(self.configure_build_file_globals.0)
+            .build()
+    }
+
+    fn extension_file_globals(&self) -> Globals {
+        configure_base_globals(self.configure_extension_file_globals.0)
+            .with(self.configure_extension_file_globals.0)
+            .build()
+    }
+
+    fn bxl_file_globals(&self) -> Globals {
+        configure_base_globals(self.configure_extension_file_globals.0)
+            .with(self.configure_bxl_file_globals.0)
+            .build()
     }
 
     fn host_platform(&self) -> InterpreterHostPlatform {

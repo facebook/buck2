@@ -24,7 +24,7 @@ use buck2_core::package::Package;
 use gazebo::any::ProvidesStaticType;
 use gazebo::cmp::PartialEqAny;
 use gazebo::dupe::Dupe;
-use starlark::environment::GlobalsBuilder;
+use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
@@ -217,16 +217,13 @@ impl Debug for Box<dyn ExtraContextDyn> {
 /// Used to configure the interperter's global functions and state
 pub trait InterpreterConfiguror: Sync + Send {
     /// Add additional global values for build files
-    fn configure_build_file_globals(&self, globals_builder: &mut GlobalsBuilder);
+    fn build_file_globals(&self) -> Globals;
 
     /// Add additional global values for extension files
-    fn configure_extension_file_globals(&self, globals_builder: &mut GlobalsBuilder);
+    fn extension_file_globals(&self) -> Globals;
 
     /// Add additional global values for bxl files
-    fn configure_bxl_file_globals(&self, globals_builder: &mut GlobalsBuilder);
-
-    /// Add any functions necessary to the 'native' struct
-    fn configure_native_struct(&self, native_module: &mut GlobalsBuilder);
+    fn bxl_file_globals(&self) -> Globals;
 
     fn host_platform(&self) -> InterpreterHostPlatform;
 
@@ -283,6 +280,7 @@ pub(crate) mod testing {
     use serde_json::Map;
     use serde_json::Value;
     use starlark::collections::SmallMap;
+    use starlark::environment::Globals;
     use starlark::environment::GlobalsBuilder;
     use starlark::eval::ParametersParser;
     use starlark::eval::ParametersSpec;
@@ -297,6 +295,7 @@ pub(crate) mod testing {
     use crate::extra::InterpreterHostArchitecture;
     use crate::extra::InterpreterHostPlatform;
     use crate::file_loader::LoadedModules;
+    use crate::interpreter::configure_base_globals;
     use crate::package_imports::ImplicitImport;
 
     #[derive(Clone, Debug)]
@@ -396,20 +395,22 @@ pub(crate) mod testing {
     }
 
     impl InterpreterConfiguror for TesterConfiguror {
-        fn configure_build_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-            add_builtins(globals_builder, &self.rules)
+        fn build_file_globals(&self) -> Globals {
+            let mut globals_builder = configure_base_globals(|_| {});
+            add_builtins(&mut globals_builder, &self.rules);
+            globals_builder.build()
         }
 
-        fn configure_extension_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-            add_builtins(globals_builder, &self.rules)
+        fn extension_file_globals(&self) -> Globals {
+            let mut globals_builder = configure_base_globals(|_| {});
+            add_builtins(&mut globals_builder, &self.rules);
+            globals_builder.build()
         }
 
-        fn configure_bxl_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
-            add_builtins(globals_builder, &self.rules)
-        }
-
-        fn configure_native_struct<'a>(&self, native_module: &mut GlobalsBuilder) {
-            add_builtins(native_module, &self.rules)
+        fn bxl_file_globals(&self) -> Globals {
+            let mut globals_builder = configure_base_globals(|_| {});
+            add_builtins(&mut globals_builder, &self.rules);
+            globals_builder.build()
         }
 
         fn host_platform(&self) -> InterpreterHostPlatform {
