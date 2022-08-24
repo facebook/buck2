@@ -761,6 +761,7 @@ mod tests {
                     data: Some(
                         buck2_data::RemoteExecutionSessionCreated {
                             session_id: "reSessionID-123".to_owned(),
+                            experiment_name: "".to_owned(),
                         }
                         .into(),
                     ),

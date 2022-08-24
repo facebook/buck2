@@ -23,6 +23,7 @@ use buck2_build_api::execute::blocking::BlockingExecutor;
 use buck2_build_api::execute::blocking::SetBlockingExecutor;
 use buck2_build_api::execute::commands::dice_data::set_fallback_executor_config;
 use buck2_build_api::execute::commands::dice_data::SetCommandExecutor;
+use buck2_build_api::execute::commands::re::client::RemoteExecutionClient;
 use buck2_build_api::execute::commands::re::manager::ReConnectionHandle;
 use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
 use buck2_build_api::execute::commands::re::manager::ReConnectionObserver;
@@ -230,10 +231,21 @@ impl ServerCommandContext {
         }
 
         impl ReConnectionObserver for Observer {
-            fn session_created(&self, session_id: &str) {
+            fn session_created(&self, client: &RemoteExecutionClient) {
+                let session_id = client.get_session_id();
+                let experiment_name = match client.get_experiment_name() {
+                    Ok(Some(exp)) => exp,
+                    Ok(None) => "".to_owned(),
+                    Err(e) => {
+                        tracing::debug!("Failed to access RE experiment name: {:#}", e);
+                        "<ffi error>".to_owned()
+                    }
+                };
+
                 self.events
                     .instant_event(buck2_data::RemoteExecutionSessionCreated {
                         session_id: session_id.to_owned(),
+                        experiment_name,
                     })
             }
         }

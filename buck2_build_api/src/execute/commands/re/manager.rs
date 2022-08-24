@@ -94,7 +94,7 @@ impl RemoteExecutionConfig {
 }
 
 pub trait ReConnectionObserver: 'static + Send + Sync {
-    fn session_created(&self, session_id: &str);
+    fn session_created(&self, client: &RemoteExecutionClient);
 }
 
 struct LazyRemoteExecutionClient {
@@ -139,12 +139,11 @@ impl LazyRemoteExecutionClient {
         let client = self.config.connect_now().await?;
 
         let mut observers = self.observers.lock().unwrap();
-        let session_id = client.get_session_id();
         let owned = std::mem::take(&mut *observers);
         // session_created is the only thing on observer right now, so we can just throw them all out at this point.
         for o in owned.into_iter() {
             if let Some(o) = o.upgrade() {
-                o.session_created(session_id);
+                o.session_created(&client);
             }
         }
         Ok(client)
@@ -156,7 +155,7 @@ impl LazyRemoteExecutionClient {
         let mut observers = self.observers.lock().unwrap();
         match self.client.get() {
             Some(Ok(client)) => {
-                observer.session_created(client.get_session_id());
+                observer.session_created(client);
             }
             Some(_) => {
                 // ignored

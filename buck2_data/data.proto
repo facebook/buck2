@@ -148,6 +148,7 @@ message DiceKeyState {
 
 message RemoteExecutionSessionCreated {
   string session_id = 1;
+  string experiment_name = 2;
 }
 
 message Location {
