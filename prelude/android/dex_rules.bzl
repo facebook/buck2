@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "DexFilesInfo")
-load("@fbcode//buck2/prelude/android:voltron.bzl", "all_targets_in_root_module", "get_apk_module_graph_mapping_function", "is_root_module")
+load("@fbcode//buck2/prelude/android:voltron.bzl", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
@@ -81,7 +81,8 @@ def get_multi_dex(
     outputs = [primary_dex_file, root_module_secondary_dex_output_dir, secondary_dex_dir]
 
     def do_multi_dex(ctx: "context"):
-        target_to_module_mapping_function = get_apk_module_graph_mapping_function(ctx, apk_module_graph_file) if apk_module_graph_file else all_targets_in_root_module
+        apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
+        target_to_module_mapping_function = apk_module_graph_info.target_to_module_mapping_function
         module_to_jars = {}
         for java_library_jar, owner in java_library_jars_to_owners.items():
             module = target_to_module_mapping_function(str(owner))
@@ -276,7 +277,8 @@ def merge_to_split_dex(
     outputs = [primary_dex_output, primary_dex_artifact_list, secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context"):
-        target_to_module_mapping_function = get_apk_module_graph_mapping_function(ctx, apk_module_graph_file) if apk_module_graph_file else all_targets_in_root_module
+        apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
+        target_to_module_mapping_function = apk_module_graph_info.target_to_module_mapping_function
         sorted_pre_dexed_inputs = _sort_pre_dexed_files(
             ctx,
             pre_dexed_lib_with_class_names_files,

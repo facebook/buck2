@@ -2,7 +2,7 @@ load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidPackageable
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx", "flatten")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx", "flatten")
 
 ROOT_MODULE = "dex"
 
@@ -12,19 +12,65 @@ def is_root_module(module: str.type) -> bool.type:
 def all_targets_in_root_module(_module: str.type) -> str.type:
     return ROOT_MODULE
 
-def get_apk_module_graph_mapping_function(
+APKModuleGraphInfo = record(
+    target_to_module_mapping_function = "function",
+    module_to_canary_class_name_function = "function",
+    module_to_module_deps_function = "function",
+)
+
+def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo.type:
+    def root_module_canary_class_name(module: str.type):
+        expect(is_root_module(module))
+        return "secondary"
+
+    def root_module_deps(module: str.type):
+        expect(is_root_module(module))
+        return []
+
+    return APKModuleGraphInfo(
+        target_to_module_mapping_function = all_targets_in_root_module,
+        module_to_canary_class_name_function = root_module_canary_class_name,
+        module_to_module_deps_function = root_module_deps,
+    )
+
+def get_apk_module_graph_info(
         ctx: "context",
-        apk_module_graph_file: "artifact") -> "function":
-    mapping = {str(ctx.label.raw_target()): ROOT_MODULE}
-    apk_module_graph_lines = ctx.artifacts[apk_module_graph_file].read_string().split("\n")[:-1]
-    for line in apk_module_graph_lines:
+        apk_module_graph_file: "artifact") -> APKModuleGraphInfo.type:
+    apk_module_graph_lines = ctx.artifacts[apk_module_graph_file].read_string().split("\n")
+    module_count = int(apk_module_graph_lines[0])
+    module_infos = apk_module_graph_lines[1:module_count + 1]
+    target_to_module_lines = apk_module_graph_lines[module_count + 1:-1]
+    expect(apk_module_graph_lines[-1] == "", "Expect last line to be an empty string!")
+
+    module_to_canary_class_name_map = {}
+    module_to_module_deps_map = {}
+    for line in module_infos:
+        line_data = line.split(" ")
+        module_name = line_data[0]
+        canary_class_name = line_data[1]
+        module_deps = [module_dep for module_dep in line_data[2:] if module_dep]
+        module_to_canary_class_name_map[module_name] = canary_class_name
+        module_to_module_deps_map[module_name] = module_deps
+
+    target_to_module_mapping = {str(ctx.label.raw_target()): ROOT_MODULE}
+    for line in target_to_module_lines:
         target, module = line.split(" ")
-        mapping[target] = module
+        target_to_module_mapping[target] = module
 
-    def mapping_function(raw_target: str.type) -> str.type:
-        return mapping.get(raw_target)
+    def target_to_module_mapping_function(raw_target: str.type) -> str.type:
+        return target_to_module_mapping.get(raw_target)
 
-    return mapping_function
+    def module_to_canary_class_name_function(voltron_module: str.type) -> str.type:
+        return module_to_canary_class_name_map.get(voltron_module)
+
+    def module_to_module_deps_function(voltron_module: str.type) -> list.type:
+        return module_to_module_deps_map.get(voltron_module)
+
+    return APKModuleGraphInfo(
+        target_to_module_mapping_function = target_to_module_mapping_function,
+        module_to_canary_class_name_function = module_to_canary_class_name_function,
+        module_to_module_deps_function = module_to_module_deps_function,
+    )
 
 # In order to calculate which targets belong to each module, we reconstruct a "target graph"
 # from "deps" information that is propagated up through AndroidPackageableInfo.
@@ -103,7 +149,7 @@ def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["arti
         ctx.attrs.application_module_blacklist,
     )
 
-    cmd.add("--output-target-to-module-only")
+    cmd.add("--output-module-info-and-target-to-module-only")
 
     ctx.actions.run(cmd, category = "apk_module_graph")
 

@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_mapping_function", "is_root_module")
+load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
 
@@ -92,7 +92,7 @@ def get_android_binary_native_library_info(
         ]
 
         def get_native_libs_info_modular(ctx: "context"):
-            get_module_from_target = get_apk_module_graph_mapping_function(ctx, apk_module_graph_file)
+            get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file).target_to_module_mapping_function
             dynamic_info = _get_native_libs_and_assets(
                 ctx,
                 get_module_from_target,
