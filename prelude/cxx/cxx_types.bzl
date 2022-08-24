@@ -53,6 +53,8 @@ CxxAdditionalArgsfileParams = record(
     file = field("artifact"),
     # Hidden args necessary for the argsfile to reference
     hidden_args = field([["artifacts", "cmd_args"]]),
+    # An extension of a file for which this argsfile is generated.
+    extension = field(str.type),
 )
 
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
