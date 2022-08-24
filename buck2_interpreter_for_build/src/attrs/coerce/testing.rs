@@ -95,7 +95,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         CellAliasResolver::new(Arc::new(aliases)).unwrap(),
         (package, package_listing),
         false,
-        box NoFunctions,
+        Arc::new(NoFunctions),
     )
 }
 

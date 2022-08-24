@@ -8,6 +8,7 @@
  */
 
 use std::cell::RefCell;
+use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::buck_path::BuckPath;
@@ -69,7 +70,7 @@ pub struct BuildAttrCoercionContext {
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
-    query_functions: Box<dyn QueryFunctionsExt>,
+    query_functions: Arc<dyn QueryFunctionsExt>,
 }
 
 impl BuildAttrCoercionContext {
@@ -77,7 +78,7 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(Package, PackageListing)>,
         package_boundary_exception: bool,
-        query_functions: Box<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsExt>,
     ) -> Self {
         Self {
             cell_alias_resolver,
@@ -91,7 +92,7 @@ impl BuildAttrCoercionContext {
 
     pub fn new_no_package(
         cell_alias_resolver: CellAliasResolver,
-        query_functions: Box<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsExt>,
     ) -> Self {
         Self::new(cell_alias_resolver, None, false, query_functions)
     }
@@ -100,7 +101,7 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (Package, PackageListing),
         package_boundary_exception: bool,
-        query_functions: Box<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsExt>,
     ) -> Self {
         Self::new(
             cell_alias_resolver,

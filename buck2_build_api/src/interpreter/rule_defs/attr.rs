@@ -183,7 +183,7 @@ pub(crate) fn get_attr_coercion_context<'v>(
             .cell_info()
             .cell_alias_resolver()
             .dupe(),
-        box ConfiguredGraphQueryEnvironment::functions(),
+        Arc::new(ConfiguredGraphQueryEnvironment::functions()),
     ))
 }
 
@@ -551,6 +551,8 @@ pub fn register_attr_module(registry: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
     use buck2_common::result::SharedResult;
@@ -658,7 +660,7 @@ mod tests {
             cell_alias_resolver,
             enclosing_package,
             false,
-            box ConfiguredGraphQueryEnvironment::functions(),
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
         let label_coercer = AttrType::dep(Vec::new());
         let string_coercer = AttrType::string();
@@ -814,11 +816,11 @@ mod tests {
                 PackageListing::testing_files(&["baz/quz.cpp"]),
             ),
             false,
-            box ConfiguredGraphQueryEnvironment::functions(),
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
         let no_package_ctx = BuildAttrCoercionContext::new_no_package(
             cell_alias_resolver,
-            box ConfiguredGraphQueryEnvironment::functions(),
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
 
         let err = no_package_ctx

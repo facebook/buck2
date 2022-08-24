@@ -190,7 +190,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing),
             package_boundary_exception,
-            box ConfiguredGraphQueryEnvironment::functions(),
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
 
         let imports = loaded_modules.imports().cloned().collect();

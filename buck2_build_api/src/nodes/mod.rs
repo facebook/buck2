@@ -49,6 +49,8 @@ pub mod hacks {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
     use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -81,7 +83,7 @@ mod tests {
         let heap = Heap::new();
         let coercer_ctx = BuildAttrCoercionContext::new_no_package(
             cells(None)?.0,
-            box ConfiguredGraphQueryEnvironment::functions(),
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
         let coercer = AttrType::string();
         let coerced = coercer
