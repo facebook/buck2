@@ -145,4 +145,8 @@ impl REClient {
     pub fn get_network_stats(&self) -> anyhow::Result<NetworkStatisticsResponse> {
         stub()
     }
+
+    pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
+        stub()
+    }
 }
