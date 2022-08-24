@@ -24,7 +24,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::anyhow;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
@@ -75,7 +74,7 @@ static ASSERT_STAR: Lazy<FrozenModule> = Lazy::new(|| {
 
 fn assert_equals<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
     if !a.equals(b)? {
-        Err(anyhow!("assert_eq: expected {}, got {}", a, b))
+        Err(anyhow::anyhow!("assert_eq: expected {}, got {}", a, b))
     } else {
         Ok(NoneType)
     }
@@ -83,7 +82,7 @@ fn assert_equals<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
 
 fn assert_different<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
     if a.equals(b)? {
-        Err(anyhow!("assert_ne: but {} == {}", a, b))
+        Err(anyhow::anyhow!("assert_ne: but {} == {}", a, b))
     } else {
         Ok(NoneType)
     }
@@ -91,7 +90,7 @@ fn assert_different<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> 
 
 fn assert_less_than<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
     if a.compare(b)? != std::cmp::Ordering::Less {
-        Err(anyhow!("assert_lt: but {} >= {}", a, b))
+        Err(anyhow::anyhow!("assert_lt: but {} >= {}", a, b))
     } else {
         Ok(NoneType)
     }
@@ -124,7 +123,11 @@ fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
 
     fn contains<'v>(xs: Value<'v>, x: Value<'v>) -> anyhow::Result<NoneType> {
         if !xs.is_in(x)? {
-            Err(anyhow!("assert.contains: expected {} to be in {}", x, xs))
+            Err(anyhow::anyhow!(
+                "assert.contains: expected {} to be in {}",
+                x,
+                xs
+            ))
         } else {
             Ok(NoneType)
         }
@@ -147,7 +150,7 @@ fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
         let _ = msg;
         match f.invoke_pos(&[], eval) {
             Err(_e) => Ok(NoneType), // We don't actually check the message
-            Ok(_) => Err(anyhow!("assert.fails: didn't fail")),
+            Ok(_) => Err(anyhow::anyhow!("assert.fails: didn't fail")),
         }
     }
 }
@@ -181,7 +184,7 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
 
     fn assert_true(a: Value) -> anyhow::Result<NoneType> {
         if !a.to_bool() {
-            Err(anyhow!("assertion failed"))
+            Err(anyhow::anyhow!("assertion failed"))
         } else {
             Ok(NoneType)
         }
@@ -189,7 +192,7 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
 
     fn assert_false(a: Value) -> anyhow::Result<NoneType> {
         if a.to_bool() {
-            Err(anyhow!("assertion failed"))
+            Err(anyhow::anyhow!("assertion failed"))
         } else {
             Ok(NoneType)
         }

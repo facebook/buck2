@@ -19,7 +19,6 @@
 
 use std::cmp;
 
-use anyhow::anyhow;
 use gazebo::prelude::*;
 
 use crate as starlark;
@@ -408,7 +407,11 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 return Ok((start + index).0 as i32);
             }
         }
-        Err(anyhow!("Substring '{}' not found in '{}'", needle, this))
+        Err(anyhow::anyhow!(
+            "Substring '{}' not found in '{}'",
+            needle,
+            this
+        ))
     }
 
     /// [string.isalnum](
@@ -768,7 +771,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<(StringValue<'v>, StringValue<'v>, StringValue<'v>)> {
         if needle.is_empty() {
-            return Err(anyhow!("Empty separator cannot be used for partitioning"));
+            return Err(anyhow::anyhow!(
+                "Empty separator cannot be used for partitioning"
+            ));
         }
         if let Some(offset) = this.find(needle.as_str()) {
             let offset2 = offset + needle.len();
@@ -819,7 +824,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
             Some(count) if count >= 0 => {
                 Ok(heap.alloc_str(&this.replacen(old, new, count as usize)))
             }
-            Some(count) => Err(anyhow!("Replace final argument was negative '{}'", count)),
+            Some(count) => Err(anyhow::anyhow!(
+                "Replace final argument was negative '{}'",
+                count
+            )),
             None => {
                 // Optimise `replace` using the Rust standard library definition,
                 // but avoiding redundant allocation in the last step
@@ -906,7 +914,11 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 return Ok((start + index).0 as i32);
             }
         }
-        Err(anyhow!("Substring '{}' not found in '{}'", needle, this))
+        Err(anyhow::anyhow!(
+            "Substring '{}' not found in '{}'",
+            needle,
+            this
+        ))
     }
 
     /// [string.rpartition](
@@ -931,7 +943,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<(StringValue<'v>, StringValue<'v>, StringValue<'v>)> {
         if needle.is_empty() {
-            return Err(anyhow!("Empty separator cannot be used for partitioning"));
+            return Err(anyhow::anyhow!(
+                "Empty separator cannot be used for partitioning"
+            ));
         }
         if let Some(offset) = this.rfind(needle.as_str()) {
             let offset2 = offset + needle.len();

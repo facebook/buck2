@@ -22,8 +22,6 @@ use std::cmp::Ordering;
 use std::fmt::Display;
 use std::num::NonZeroI32;
 
-use anyhow::anyhow;
-
 use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
@@ -54,7 +52,7 @@ fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>
                 }
             }
         }
-        Err(anyhow!(
+        Err(anyhow::anyhow!(
             "Found a non-pair element in the positional argument of dict(): {}",
             pair.to_repr(),
         ))
@@ -87,7 +85,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 None => x.collect_repr(&mut s),
             }
         }
-        Err(anyhow!("fail:{}", s))
+        Err(anyhow::anyhow!("fail:{}", s))
     }
 
     /// [any](
@@ -205,7 +203,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         let cp = i.to_int()? as u32;
         match std::char::from_u32(cp) {
             Some(x) => Ok(x.to_string()),
-            None => Err(anyhow!(
+            None => Err(anyhow::anyhow!(
                 "chr() parameter value is 0x{:x} which is not a valid UTF-8 codepoint",
                 cp
             )),
@@ -376,17 +374,24 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 Ok(f) => {
                     if f.is_infinite() && !s.to_lowercase().contains("inf") {
                         // if a resulting float is infinite but the parsed string is not explicitly infinity then we should fail with an error
-                        Err(anyhow!("float() floating-point number too large: {}", s))
+                        Err(anyhow::anyhow!(
+                            "float() floating-point number too large: {}",
+                            s
+                        ))
                     } else {
                         Ok(f)
                     }
                 }
-                Err(x) => Err(anyhow!("{} is not a valid number: {}", a.to_repr(), x)),
+                Err(x) => Err(anyhow::anyhow!(
+                    "{} is not a valid number: {}",
+                    a.to_repr(),
+                    x
+                )),
             }
         } else if let Some(b) = a.unpack_bool() {
             Ok(if b { 1.0 } else { 0.0 })
         } else {
-            Err(anyhow!(
+            Err(anyhow::anyhow!(
                 "float() argument must be a string, a number, or a boolean, not `{}`",
                 a.get_type()
             ))
@@ -547,7 +552,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 None => 0,
             };
             if base == 1 || base < 0 || base > 36 {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "{} is not a valid base, int() base must be >= 2 and <= 36",
                     base
                 ));
@@ -594,7 +599,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 _ => s,
             };
             fn err(a: Value, base: u32, error: impl Display) -> anyhow::Error {
-                anyhow!(
+                anyhow::anyhow!(
                     "{} is not a valid number in base {}: {}",
                     a.to_repr(),
                     base,
@@ -615,7 +620,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 (Err(x), _) => Err(err(a, base, x)),
             }
         } else if let Some(base) = base {
-            Err(anyhow!(
+            Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
                 base.to_repr()
             ))
@@ -623,7 +628,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             match num {
                 Num::Float(f) => match Num::from(f.trunc()).as_int() {
                     Some(i) => Ok(Value::new_int(i)),
-                    None => Err(anyhow!(
+                    None => Err(anyhow::anyhow!(
                         "int() cannot convert float to integer: {}",
                         a.to_repr()
                     )),
@@ -730,7 +735,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         let mut max = match it.next() {
             Some(x) => x,
             None => {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "Argument is an empty iterable, max() expect a non empty iterable"
                 ));
             }
@@ -788,7 +793,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         let mut min = match it.next() {
             Some(x) => x,
             None => {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "Argument is an empty iterable, min() expect a non empty iterable"
                 ));
             }
@@ -845,7 +850,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 }
             }
         }
-        Err(anyhow!(
+        Err(anyhow::anyhow!(
             "ord(): {} is not a single character string",
             a.to_repr()
         ))
@@ -897,7 +902,11 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         let stop = a2.unwrap_or(a1);
         let step = match NonZeroI32::new(step) {
             Some(step) => step,
-            None => return Err(anyhow!("Third argument of range (step) cannot be zero")),
+            None => {
+                return Err(anyhow::anyhow!(
+                    "Third argument of range (step) cannot be zero"
+                ));
+            }
         };
         Ok(Range::new(start, stop, step))
     }

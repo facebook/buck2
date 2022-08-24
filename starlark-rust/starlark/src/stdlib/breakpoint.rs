@@ -17,7 +17,6 @@
 
 use std::sync::Mutex;
 
-use anyhow::anyhow;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use thiserror::Error;
@@ -170,7 +169,9 @@ fn breakpoint_loop(
                         match cmd(eval, &mut *rl)? {
                             Next::Again => {}
                             Next::Resume => return Ok(State::Allow),
-                            Next::Fail => return Err(anyhow!("Selected :fail at breakpoint()")),
+                            Next::Fail => {
+                                return Err(anyhow::anyhow!("Selected :fail at breakpoint()"));
+                            }
                         }
                     }
                 } else {

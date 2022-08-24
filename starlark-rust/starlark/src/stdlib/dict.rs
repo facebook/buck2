@@ -20,8 +20,6 @@
 use std::intrinsics::unlikely;
 use std::mem;
 
-use anyhow::anyhow;
-
 use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::values::dict::Dict;
@@ -181,7 +179,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
                 Some(v) => Ok(v),
                 None => {
                     mem::drop(me);
-                    Err(anyhow!(
+                    Err(anyhow::anyhow!(
                         "Key `{}` not found in dictionary `{}`",
                         key.to_repr(),
                         this.to_repr()
@@ -228,7 +226,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         let key = this.iter_hashed().next().map(|(k, _)| k);
         match key {
             Some(k) => Ok((*k.key(), this.remove_hashed(k).unwrap())),
-            None => Err(anyhow!("Cannot .popitem() on an empty dictionary")),
+            None => Err(anyhow::anyhow!("Cannot .popitem() on an empty dictionary")),
         }
     }
 
@@ -336,7 +334,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
                     let k = it.next();
                     let v = if k.is_some() { it.next() } else { None };
                     if unlikely(v.is_none() || it.next().is_some()) {
-                        return Err(anyhow!(
+                        return Err(anyhow::anyhow!(
                             "dict.update expect a list of pairs or a dictionary as first argument, got a list of non-pairs.",
                         ));
                     };

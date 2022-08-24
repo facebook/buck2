@@ -32,7 +32,6 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use eval::Context;
 use gazebo::prelude::*;
 use itertools::Either;
@@ -260,7 +259,7 @@ fn main() -> anyhow::Result<()> {
             if !args.json {
                 println!("{}", stats);
                 if stats.error > 0 {
-                    return Err(anyhow!("Failed with {} errors", stats.error));
+                    return Err(anyhow::anyhow!("Failed with {} errors", stats.error));
                 }
             }
         }

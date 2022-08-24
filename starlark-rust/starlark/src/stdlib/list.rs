@@ -17,8 +17,6 @@
 
 //! Methods for the `list` type.
 
-use anyhow::anyhow;
-
 use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::stdlib::util::convert_index;
@@ -166,7 +164,11 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
                 }
             }
         }
-        Err(anyhow!("Element '{}' not found in '{}'", needle, this))
+        Err(anyhow::anyhow!(
+            "Element '{}' not found in '{}'",
+            needle,
+            this
+        ))
     }
 
     /// [list.insert](
@@ -292,7 +294,11 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
             match position {
                 Some(i) => i,
                 None => {
-                    return Err(anyhow!("Element '{}' not found in list '{}'", needle, this));
+                    return Err(anyhow::anyhow!(
+                        "Element '{}' not found in list '{}'",
+                        needle,
+                        this
+                    ));
                 }
             }
         };

@@ -22,7 +22,6 @@ use std::fmt::Write;
 use std::mem;
 use std::str::FromStr;
 
-use anyhow::anyhow;
 use gazebo::cast;
 use gazebo::prelude::*;
 use thiserror::Error;
@@ -296,13 +295,13 @@ impl<'v, T: Iterator<Item = Value<'v>>> FormatArgs<'v, T> {
 
     fn next_ordered(&mut self) -> anyhow::Result<Value<'v>> {
         if self.by_index {
-            Err(anyhow!(
+            Err(anyhow::anyhow!(
                 "Cannot mix manual field specification and automatic field numbering in format string",
             ))
         } else {
             self.by_order = true;
             match self.iterator.next() {
-                None => Err(anyhow!("Not enough parameters in format string")),
+                None => Err(anyhow::anyhow!("Not enough parameters in format string")),
                 Some(x) => Ok(x),
             }
         }
@@ -310,7 +309,7 @@ impl<'v, T: Iterator<Item = Value<'v>>> FormatArgs<'v, T> {
 
     fn by_index(&mut self, index: usize) -> anyhow::Result<Value<'v>> {
         if self.by_order {
-            Err(anyhow!(
+            Err(anyhow::anyhow!(
                 "Cannot mix manual field specification and automatic field numbering in format string",
             ))
         } else {
@@ -375,7 +374,7 @@ impl<'a> FormatParser<'a> {
                             _ => i += 1,
                         }
                     }
-                    return Err(anyhow!(
+                    return Err(anyhow::anyhow!(
                         "Unmatched '{{' in format string `{}`",
                         self.format_str
                     ));
@@ -386,7 +385,7 @@ impl<'a> FormatParser<'a> {
                         self.rem_input = &self.rem_input[2..];
                         return Ok(Some(FormatToken::Text("}")));
                     }
-                    return Err(anyhow!(
+                    return Err(anyhow::anyhow!(
                         "Standalone '}}' in format string `{}`",
                         self.format_str
                     ));
@@ -449,7 +448,7 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
         "s" => &conv_s,
         "r" => &conv_r,
         c => {
-            return Err(anyhow!(
+            return Err(anyhow::anyhow!(
                 concat!(
                     "'{}' is not a valid format string specifier, only ",
                     "'s' and 'r' are valid specifiers",
@@ -470,7 +469,7 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
             '.' | ',' | '[' | ']' => true,
             _ => false,
         }) {
-            return Err(anyhow!(
+            return Err(anyhow::anyhow!(
                 "Invalid character '{}' inside replacement field",
                 x
             ));

@@ -19,7 +19,6 @@ use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 
-use anyhow::anyhow;
 use gazebo::prelude::*;
 use lalrpop_util as lu;
 
@@ -95,7 +94,7 @@ pub(crate) fn parse_error_add_span(
         lu::ParseError::User { .. } => unreachable!(),
     };
 
-    Diagnostic::new(anyhow!(message), span, codemap)
+    Diagnostic::new(anyhow::anyhow!(message), span, codemap)
 }
 
 impl AstModule {

@@ -20,7 +20,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::anyhow;
 use gazebo::prelude::*;
 
 use crate::environment::FrozenModule;
@@ -45,7 +44,7 @@ impl<'a> FileLoader for ReturnFileLoader<'a> {
     fn load(&self, path: &str) -> anyhow::Result<FrozenModule> {
         match self.modules.get(path) {
             Some(v) => Ok((*v).dupe()),
-            None => Err(anyhow!(
+            None => Err(anyhow::anyhow!(
                 "ReturnFileLoader does not know the module `{}`",
                 path
             )),
