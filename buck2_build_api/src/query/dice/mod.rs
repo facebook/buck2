@@ -41,6 +41,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_node::compatibility::IncompatiblePlatformReason;
 use buck2_node::compatibility::MaybeCompatible;

@@ -21,6 +21,7 @@ use buck2_events::dispatch::with_dispatcher;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use gazebo::prelude::*;

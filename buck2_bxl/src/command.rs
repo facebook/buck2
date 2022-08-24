@@ -26,6 +26,7 @@ use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::build_request::Materializations;

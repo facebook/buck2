@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::Package;
 use buck2_interpreter::common::StarlarkModulePath;
@@ -39,6 +40,11 @@ pub trait InterpreterCalculation<'c> {
 
     /// Returns the LoadedModule for a given starlark file. This is cached on the dice graph.
     async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule>;
+
+    async fn get_loaded_module_from_import_path(
+        &self,
+        path: &ImportPath,
+    ) -> SharedResult<LoadedModule>;
 }
 
 #[async_trait]
@@ -86,6 +92,14 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
             .await?
             .eval_module(path)
             .await
+    }
+
+    async fn get_loaded_module_from_import_path(
+        &self,
+        path: &ImportPath,
+    ) -> SharedResult<LoadedModule> {
+        let module_path = StarlarkModulePath::LoadFile(path);
+        self.get_loaded_module(module_path).await
     }
 }
 

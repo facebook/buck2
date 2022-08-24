@@ -16,7 +16,6 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
-use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::Configuration;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
@@ -27,9 +26,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_interpreter::common::StarlarkModulePath;
-use buck2_interpreter::file_loader::LoadedModule;
-use buck2_interpreter_for_build::interpreter::calculation as interpreter_calculation;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -143,23 +140,6 @@ pub trait Calculation<'c> {
         global_target_platform: Option<&TargetLabel>,
     ) -> SharedResult<T::Configured>;
 
-    /// Returns the LoadedModule for a given starlark file. This is primarily useful when inspecting
-    /// the graph of imports.
-    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule>;
-
-    /// Returns the LoadedModule for a starlark file corresponding to a given import path.
-    async fn get_loaded_module_from_import_path(
-        &self,
-        path: &ImportPath,
-    ) -> SharedResult<LoadedModule>;
-
-    /// Returns the full interpreter evaluation result for a Package. This consists of the full set
-    /// of `TargetNode`s of interpreting that build file.
-    async fn get_interpreter_results(
-        &self,
-        package: &Package,
-    ) -> SharedResult<Arc<EvaluationResult>>;
-
     /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
     /// results for the the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.
@@ -246,26 +226,6 @@ impl<'c> Calculation<'c> for DiceComputations {
                 Ok(target.configure_with_exec(cfg, exec_cfg))
             }
         }
-    }
-
-    async fn get_interpreter_results(
-        &self,
-        package: &Package,
-    ) -> SharedResult<Arc<EvaluationResult>> {
-        interpreter_calculation::InterpreterCalculation::get_interpreter_results(self, package)
-            .await
-    }
-
-    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule> {
-        interpreter_calculation::InterpreterCalculation::get_loaded_module(self, path).await
-    }
-
-    async fn get_loaded_module_from_import_path(
-        &self,
-        path: &ImportPath,
-    ) -> SharedResult<LoadedModule> {
-        let module_path = StarlarkModulePath::LoadFile(path);
-        interpreter_calculation::InterpreterCalculation::get_loaded_module(self, module_path).await
     }
 
     async fn get_target_node(&self, target: &TargetLabel) -> SharedResult<TargetNode> {

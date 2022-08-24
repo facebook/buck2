@@ -22,6 +22,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;

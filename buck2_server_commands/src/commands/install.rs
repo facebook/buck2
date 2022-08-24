@@ -48,6 +48,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_events::dispatch::span_async;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::execute::config::PathSeparatorKind;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
