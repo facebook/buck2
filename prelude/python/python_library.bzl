@@ -4,6 +4,7 @@ load(
     "ResourceInfo",
     "gather_resources",
 )
+load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "shared_libs_symlink_tree_name")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@fbcode//buck2/prelude/cxx:omnibus.bzl",
@@ -209,13 +210,18 @@ def py_resources(
     """
     Generate a manifest to wrap this rules resources.
     """
-    manifest = create_manifest_for_source_map(
-        ctx,
-        "resources",
-        {name: resource for name, (resource, _) in resources.items()},
-    )
-    hidden = dedupe(flatten([other for _, other in resources.values()]))
-    return manifest, hidden
+    d = {name: resource for name, (resource, _) in resources.items()}
+    hidden = []
+    for name, (resource, other) in resources.items():
+        for o in other:
+            if type(o) == "artifact" and o.basename == shared_libs_symlink_tree_name(resource):
+                # Package the binary's shared libs next to the binary
+                # (the path is stored in RPATH relative to the binary).
+                d[paths.join(paths.dirname(name), o.basename)] = o
+            else:
+                hidden.append(o)
+    manifest = create_manifest_for_source_map(ctx, "resources", d)
+    return manifest, dedupe(hidden)
 
 def _src_types(srcs: {str.type: "artifact"}, type_stubs: {str.type: "artifact"}) -> {str.type: "artifact"}:
     src_types = {}

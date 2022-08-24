@@ -136,6 +136,9 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
 
     return (args, [args] + filelists, dwo_dir)
 
+def shared_libs_symlink_tree_name(output: "artifact") -> str.type:
+    return "__{}__shared_libs_symlink_tree".format(output.short_path)
+
 # Returns a tuple of:
 # - list of extra arguments,
 # - list of files/directories that should be present for executable to be run successfully
@@ -155,7 +158,7 @@ def executable_shared_lib_arguments(
 
     if len(shared_libs) > 0:
         shared_libs_symlink_tree = ctx.actions.symlinked_dir(
-            "__{}__shared_libs_symlink_tree".format(output.short_path),
+            shared_libs_symlink_tree_name(output),
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)
