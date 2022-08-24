@@ -1,5 +1,9 @@
 #[cfg(all(unix, feature = "eden_io"))]
 pub mod eden;
+
+#[cfg(all(not(feature = "eden_io"), unix, fbcode_build))]
+compile_error!("eden_io must be enabled when compiling in fbcode");
+
 pub mod fs;
 
 use std::sync::Arc;
@@ -64,6 +68,8 @@ pub async fn create_io_provider(
             }
         }
     }
+    #[cfg(all(not(feature = "eden_io"), unix, fbcode_build))]
+    compile_error!("eden_io must be enabled when compiling in fbcode");
 
     let _allow_unused = fb;
     let _allow_unused = root_config;
