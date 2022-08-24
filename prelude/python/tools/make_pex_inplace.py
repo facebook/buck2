@@ -31,6 +31,7 @@ $ ./bin.pex
 import argparse
 import errno
 import os
+import platform
 import stat
 from pathlib import Path
 
@@ -101,6 +102,13 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Where to write the bootstrapper script to",
     )
+    parser.add_argument(
+        "--native-libs-env-var",
+        default=(
+            "DYLD_LIBRARY_PATH" if platform.system() == "Darwin" else "LD_LIBRARY_PATH"
+        ),
+        help="The dynamic loader env used to find native library deps",
+    )
 
     return parser.parse_args()
 
@@ -139,7 +147,7 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     new_data = new_data.replace("<MAIN_MODULE>", args.entry_point)
 
     # Things that are only required for the full template
-    new_data = new_data.replace("<NATIVE_LIBS_ENV_VAR>", "LD_LIBRARY_PATH")
+    new_data = new_data.replace("<NATIVE_LIBS_ENV_VAR>", args.native_libs_env_var)
     new_data = new_data.replace("<NATIVE_LIBS_DIR>", repr(relative_modules_dir))
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD_ENV_VAR>", "LD_PRELOAD")
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD>", ld_preload)
