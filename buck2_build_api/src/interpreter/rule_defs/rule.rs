@@ -319,6 +319,7 @@ mod tests {
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::attrs::spec::AttributeSpec;
+    use buck2_node::nodes::unconfigured::testing::targets_to_json;
     use indoc::indoc;
     use serde_json::json;
     use starlark::values::docs;
@@ -333,7 +334,6 @@ mod tests {
     use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
     use crate::nodes::attr_spec::AttributeSpecExt;
-    use crate::nodes::unconfigured::testing::targets_to_json;
 
     #[test]
     fn rule_creates_callable() -> anyhow::Result<()> {

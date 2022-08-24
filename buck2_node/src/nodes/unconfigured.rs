@@ -403,6 +403,8 @@ pub mod testing {
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
     use gazebo::dupe::Dupe;
+    use serde_json::map::Map;
+    use serde_json::value::Value;
     use starlark_map::small_map::SmallMap;
 
     use super::*;
@@ -410,8 +412,10 @@ pub mod testing {
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::id::AttributeId;
+    use crate::attrs::inspect_options::AttrInspectOptions;
     use crate::attrs::spec::AttributeSpec;
     use crate::attrs::values::AttrValues;
+    use crate::nodes::unconfigured::TargetsMap;
     use crate::rule_type::RuleType;
     use crate::visibility::VisibilitySpecification;
 
@@ -462,5 +466,26 @@ pub mod testing {
                 None,
             )
         }
+    }
+
+    /// Take a TargetsMap and convert it to a nice json representation. Adds in a __type__ attr
+    /// for each target's values to make it clear what the rule type is. That can probably go
+    /// away eventually.
+    pub fn targets_to_json(target: &TargetsMap, opts: AttrInspectOptions) -> anyhow::Result<Value> {
+        let map: Map<String, Value> = target
+            .iter()
+            .map(|(target_name, values)| {
+                let mut json_values: Map<String, Value> = values
+                    .attrs(opts)
+                    .map(|(key, value)| Ok((key.to_owned(), value.to_json()?)))
+                    .collect::<anyhow::Result<Map<String, Value>>>()?;
+                json_values.insert(
+                    "__type__".to_owned(),
+                    Value::String(values.rule_type().to_string()),
+                );
+                Ok((target_name.to_string(), Value::from(json_values)))
+            })
+            .collect::<anyhow::Result<Map<String, Value>>>()?;
+        Ok(Value::from(map))
     }
 }

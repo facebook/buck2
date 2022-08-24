@@ -205,34 +205,3 @@ fn parse_visibility(
         Ok(VisibilitySpecification::VisibleTo(specs))
     }
 }
-
-pub mod testing {
-
-    use buck2_node::attrs::inspect_options::AttrInspectOptions;
-    use buck2_node::nodes::unconfigured::TargetsMap;
-    use serde_json::map::Map;
-    use serde_json::value::Value;
-
-    use crate::nodes::hacks::value_to_json;
-
-    /// Take a TargetsMap and convert it to a nice json representation. Adds in a __type__ attr
-    /// for each target's values to make it clear what the rule type is. That can probably go
-    /// away eventually.
-    pub fn targets_to_json(target: &TargetsMap, opts: AttrInspectOptions) -> anyhow::Result<Value> {
-        let map: Map<String, Value> = target
-            .iter()
-            .map(|(target_name, values)| {
-                let mut json_values: Map<String, Value> = values
-                    .attrs(opts)
-                    .map(|(key, value)| Ok((key.to_owned(), value_to_json(value)?)))
-                    .collect::<anyhow::Result<Map<String, Value>>>()?;
-                json_values.insert(
-                    "__type__".to_owned(),
-                    Value::String(values.rule_type().to_string()),
-                );
-                Ok((target_name.to_string(), Value::from(json_values)))
-            })
-            .collect::<anyhow::Result<Map<String, Value>>>()?;
-        Ok(Value::from(map))
-    }
-}

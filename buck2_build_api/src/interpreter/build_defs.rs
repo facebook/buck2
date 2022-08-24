@@ -156,6 +156,7 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
+    use buck2_node::nodes::unconfigured::testing::targets_to_json;
     use indoc::indoc;
     use serde_json::json;
 
@@ -165,7 +166,6 @@ mod tests {
     use crate::interpreter::testing::run_simple_starlark_test;
     use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
-    use crate::nodes::unconfigured::testing::targets_to_json;
 
     #[test]
     fn prelude_is_included() -> anyhow::Result<()> {
