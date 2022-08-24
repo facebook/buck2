@@ -464,6 +464,7 @@ mod tests {
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
+    use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
     use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
@@ -478,7 +479,6 @@ mod tests {
     use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
-    use crate::interpreter::context::BuildInterpreterConfiguror;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::testing::Tester;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;

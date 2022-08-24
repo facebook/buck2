@@ -41,6 +41,8 @@ pub mod testing {
     use buck2_interpreter::interpreter::InterpreterForCell;
     use buck2_interpreter::interpreter::ParseResult;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+    use buck2_interpreter_for_build::interpreter::configuror::AdditionalGlobalsFn;
+    use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
     use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
     use buck2_node::nodes::unconfigured::TargetsMap;
@@ -51,8 +53,6 @@ pub mod testing {
 
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
-    use crate::interpreter::context::AdditionalGlobalsFn;
-    use crate::interpreter::context::BuildInterpreterConfiguror;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     /// Simple container that allows us to instrument things like imports
