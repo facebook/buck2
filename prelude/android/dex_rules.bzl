@@ -101,6 +101,7 @@ def get_multi_dex(
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
                 secondary_dex_dir_srcs[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
                 multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
+                multi_dex_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
 
             multi_dex_cmd.add("--module", module)
             multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
@@ -370,6 +371,8 @@ def merge_to_split_dex(
                 multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
                 multi_dex_cmd.add("--module", module)
                 multi_dex_cmd.add("--canary-class-name", module_to_canary_class_name_function(module))
+                if not is_root_module(module):
+                    multi_dex_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
 
                 ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
 
@@ -382,6 +385,7 @@ def merge_to_split_dex(
                     expect(metadata_line_artifacts != None, "Should have metadata lines!")
 
                     metadata_lines = [".id {}".format(voltron_module)]
+                    metadata_lines.extend([".requires {}".format(module_dep) for module_dep in apk_module_graph_info.module_to_module_deps_function(voltron_module)])
                     if split_dex_merge_config.dex_compression == "raw" and is_root_module(voltron_module):
                         metadata_lines.append(".root_relative")
                     for metadata_line_artifact in metadata_line_artifacts:
