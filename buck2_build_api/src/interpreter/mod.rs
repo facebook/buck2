@@ -24,7 +24,6 @@ pub mod testing {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
-    use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::*;
     use buck2_core::fs::paths::*;
@@ -308,12 +307,8 @@ pub mod testing {
             )
         }
 
-        fn get_prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath> {
-            self.inner.get_prelude_import(import)
-        }
-
-        fn is_prelude_path(&self, path: &CellPath) -> bool {
-            self.inner.is_prelude_path(path)
+        fn prelude_import(&self) -> Option<&ImportPath> {
+            self.inner.prelude_import()
         }
 
         fn eq_token(&self) -> PartialEqAny {

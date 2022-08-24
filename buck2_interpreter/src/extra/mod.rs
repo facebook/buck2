@@ -18,7 +18,6 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::Package;
 use gazebo::any::ProvidesStaticType;
@@ -240,19 +239,14 @@ pub trait InterpreterConfiguror: Sync + Send {
         implicit_import: Option<&Arc<ImplicitImport>>,
     ) -> SharedResult<Box<dyn ExtraContextDyn>>;
 
-    /// Returns the "prelude" import. This allows the configuror to inject symbols defined in
-    /// starlark code into all modules. Buck uses this to add symbols to the "native" module
-    /// (by replacing it in the prelude). The shimmed native module includes starlark-defined
-    /// "native" rules.
+    /// Path to prelude import (typically `prelude//:prelude.bzl`).
     ///
-    /// The configuror needs to be careful to ensure that shimming doesn't introduce any
-    /// cycles.
-    fn get_prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath>;
-
-    /// Indicates whether a given path is part of the prelude. When a path is part of the prelude,
-    /// it will always be loaded using the prelude's cell configuration (and not the loading cell's
-    /// configuration).
-    fn is_prelude_path(&self, path: &CellPath) -> bool;
+    /// It serves two purposes:
+    /// * It defines symbols imported into each file (e.g. rule definitions)
+    /// * Parent directory of prelude import (e.g. `prelude//`) is considered special:
+    ///   imports from that directory are evaluated with prelude cell context,
+    ///   not with caller cell context (see the comments in `resolve_load`)
+    fn prelude_import(&self) -> Option<&ImportPath>;
 
     fn eq_token(&self) -> PartialEqAny;
 }
@@ -273,7 +267,7 @@ pub(crate) mod testing {
     use buck2_common::package_listing::listing::PackageListing;
     use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
-    use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::bzl::ImportPath;
     use buck2_core::package::Package;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
@@ -287,7 +281,6 @@ pub(crate) mod testing {
     use starlark::values;
     use starlark::values::function::NativeFunction;
 
-    use crate::common::StarlarkPath;
     use crate::extra::cell_info::InterpreterCellInfo;
     use crate::extra::ExtraContext;
     use crate::extra::ExtraContextDyn;
@@ -436,15 +429,8 @@ pub(crate) mod testing {
             })
         }
 
-        fn get_prelude_import(
-            &self,
-            _import: StarlarkPath<'_>,
-        ) -> Option<&buck2_core::bzl::ImportPath> {
+        fn prelude_import(&self) -> Option<&ImportPath> {
             None
-        }
-
-        fn is_prelude_path(&self, _path: &CellPath) -> bool {
-            false
         }
 
         fn eq_token(&self) -> PartialEqAny {

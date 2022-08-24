@@ -307,12 +307,14 @@ impl LoadResolver for InterpreterLoadResolver {
         // ensures that if you define a UDR outside of the prelude's cell, it gets the same prelude
         // as using the exported rules from the prelude would. This matters notably for identity
         // checks in t-sets, which would fail if we had > 1 copy of the prelude.
-        if self.config.global_state.configuror.is_prelude_path(&path) {
-            let cell = path.cell().clone();
-            return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
-                path,
-                BuildFileCell::new(cell),
-            )?));
+        if let Some(prelude_import) = self.config.global_state.configuror.prelude_import() {
+            if is_prelude_path(&path, prelude_import.path()) {
+                let cell = path.cell().clone();
+                return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
+                    path,
+                    BuildFileCell::new(cell),
+                )?));
+            }
         }
 
         Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
@@ -320,6 +322,16 @@ impl LoadResolver for InterpreterLoadResolver {
             self.build_file_cell.clone(),
         )?))
     }
+}
+
+fn is_prelude_path(import_path: &CellPath, prelude_import: &CellPath) -> bool {
+    import_path.cell() == prelude_import.cell()
+        && import_path.path().starts_with(
+            prelude_import
+                .path()
+                .parent()
+                .expect("prelude should have a dir"),
+        )
 }
 
 impl InterpreterConfigForCell {
@@ -498,10 +510,19 @@ impl InterpreterForCell {
     }
 
     fn prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath> {
-        self.config
-            .global_state
-            .configuror
-            .get_prelude_import(import)
+        let prelude_import = self.config.global_state.configuror.prelude_import();
+        if let Some(prelude_import) = prelude_import {
+            let import_path = import.path();
+            let prelude_path = prelude_import.path();
+
+            // Only return the prelude for things outside the prelude directory.
+            if import.unpack_build_file().is_some() || !is_prelude_path(&import_path, prelude_path)
+            {
+                return Some(prelude_import);
+            }
+        }
+
+        None
     }
 
     /// Parses skylark code to an AST.

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ptr;
 use std::sync::Arc;
@@ -22,7 +21,6 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
-use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::ExtraContextDyn;
 use buck2_interpreter::extra::InterpreterConfiguror;
@@ -209,42 +207,11 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
         ))
     }
 
-    fn get_prelude_import(&self, import: StarlarkPath) -> Option<&buck2_core::bzl::ImportPath> {
-        if let Some(prelude_import) = &self.prelude_import {
-            let import_path = import.path();
-            let prelude_path = prelude_import.path();
-
-            // Only return the prelude for things outside the prelude directory.
-            if import.unpack_build_file().is_some()
-                || !is_prelude_path(import_path.borrow(), prelude_path)
-            {
-                return Some(prelude_import);
-            }
-        }
-
-        None
-    }
-
-    fn is_prelude_path(&self, path: &CellPath) -> bool {
-        if let Some(prelude_import) = &self.prelude_import {
-            let prelude_path = prelude_import.path();
-            return is_prelude_path(path, prelude_path);
-        }
-
-        false
+    fn prelude_import(&self) -> Option<&ImportPath> {
+        self.prelude_import.as_ref()
     }
 
     fn eq_token(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }
-}
-
-fn is_prelude_path(import_path: &CellPath, prelude_path: &CellPath) -> bool {
-    import_path.cell() == prelude_path.cell()
-        && import_path.path().starts_with(
-            prelude_path
-                .path()
-                .parent()
-                .expect("prelude should have a dir"),
-        )
 }
