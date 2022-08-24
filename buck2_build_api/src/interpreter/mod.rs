@@ -226,17 +226,17 @@ pub mod testing {
     /// (e.g. ProviderCollection, or Artifact)
     struct InjectableInterpreterConfiguror {
         additional_globals: Option<GlobalsConfigurationFn>,
-        inner: Arc<BuildInterpreterConfiguror>,
+        prelude_path: Option<ImportPath>,
     }
 
     impl InjectableInterpreterConfiguror {
         fn new(
             additional_globals: Option<GlobalsConfigurationFn>,
-            inner: Arc<BuildInterpreterConfiguror>,
+            prelude_path: Option<ImportPath>,
         ) -> Arc<Self> {
             Arc::new(Self {
                 additional_globals,
-                inner,
+                prelude_path,
             })
         }
     }
@@ -281,11 +281,11 @@ pub mod testing {
         }
 
         fn host_platform(&self) -> InterpreterHostPlatform {
-            self.inner.host_platform()
+            InterpreterHostPlatform::Linux
         }
 
         fn host_architecture(&self) -> InterpreterHostArchitecture {
-            self.inner.host_architecture()
+            InterpreterHostArchitecture::X86_64
         }
 
         fn new_extra_context(
@@ -297,18 +297,19 @@ pub mod testing {
             loaded_modules: &LoadedModules,
             implicit_import: Option<&Arc<ImplicitImport>>,
         ) -> SharedResult<Box<dyn ExtraContextDyn>> {
-            self.inner.new_extra_context(
+            BuildInterpreterConfiguror::new_extra_context(
                 cell_info,
                 buildfile_path,
                 package_listing,
                 package_boundary_exception,
                 loaded_modules,
                 implicit_import,
+                false,
             )
         }
 
         fn prelude_import(&self) -> Option<&ImportPath> {
-            self.inner.prelude_import()
+            self.prelude_path.as_ref()
         }
 
         fn eq_token(&self) -> PartialEqAny {
@@ -360,15 +361,7 @@ pub mod testing {
                         self.cell_resolver.dupe(),
                         InjectableInterpreterConfiguror::new(
                             self.additional_globals.dupe(),
-                            BuildInterpreterConfiguror::new(
-                                self.prelude_path.clone(),
-                                InterpreterHostPlatform::Linux,
-                                InterpreterHostArchitecture::X86_64,
-                                false,
-                                |_| unreachable!(),
-                                |_| unreachable!(),
-                                |_| unreachable!(),
-                            ),
+                            self.prelude_path.clone(),
                         ),
                         false,
                     )?),
