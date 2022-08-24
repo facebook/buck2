@@ -66,25 +66,20 @@ where
 
 struct NodeRegistry {
     keys: HashMap<AnyKey, u64>,
-    idx: u64,
 }
 
 impl NodeRegistry {
     fn new() -> Self {
         Self {
             keys: HashMap::new(),
-            idx: 0,
         }
     }
 
     fn map(&mut self, key: AnyKey) -> u64 {
+        let next_idx = self.keys.len() as u64;
         match self.keys.entry(key) {
             Entry::Occupied(e) => *e.get(),
-            Entry::Vacant(e) => {
-                let idx = self.idx;
-                self.idx += 1;
-                *e.insert(idx)
-            }
+            Entry::Vacant(e) => *e.insert(next_idx),
         }
     }
 
