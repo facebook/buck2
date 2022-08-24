@@ -16,6 +16,7 @@ buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
 buck2_client = { path = "../buck2_client" }
 buck2_server = { path = "../buck2_server" }
+buck2_server_commands = { path = "../buck2_server_commands" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
 buck2_test = { path = "../buck2_test" }
 clap = { version = "3.1.18", features = ["derive", "env"] }
@@ -70,6 +71,6 @@ path = "bin/buck2.rs"
 
 [features]
 # @oss-disable: default = ["gazebo_lint", "eden_materializer", "extra_logging"]
-eden_materializer = ["buck2_build_api/eden_materializer", "buck2_server/eden_materializer"]
+eden_materializer = ["buck2_build_api/eden_materializer", "buck2_server/eden_materializer", "buck2_server_commands/eden_materializer"]
 # @oss-disable: extra_logging = ["buck2_client/extra_logging"]
 extra_logging = [] # @oss-enable

@@ -62,12 +62,12 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use tracing::info;
 
-use crate::build::results::build_report::BuildReportCollector;
-use crate::build::results::providers::ProvidersPrinter;
-use crate::build::results::result_report::ResultReporter;
-use crate::build::results::result_report::ResultReporterOptions;
-use crate::build::results::BuildOwner;
-use crate::build::results::BuildResultCollector;
+use crate::commands::build::results::build_report::BuildReportCollector;
+use crate::commands::build::results::providers::ProvidersPrinter;
+use crate::commands::build::results::result_report::ResultReporter;
+use crate::commands::build::results::result_report::ResultReporterOptions;
+use crate::commands::build::results::BuildOwner;
+use crate::commands::build::results::BuildResultCollector;
 
 pub mod results;
 

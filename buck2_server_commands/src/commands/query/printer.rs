@@ -32,10 +32,10 @@ use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::commands::query::QueryCommandError;
 use crate::dot::targets::DotTargetGraph;
 use crate::dot::Dot;
 use crate::dot::DotCompact;
-use crate::query::QueryCommandError;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
 pub enum ShouldPrintProviders<'a, T> {

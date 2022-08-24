@@ -17,8 +17,8 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::UqueryRequest;
 use cli_proto::UqueryResponse;
 
-use crate::query::printer::QueryResultPrinter;
-use crate::query::printer::ShouldPrintProviders;
+use crate::commands::query::printer::QueryResultPrinter;
+use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn uquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,

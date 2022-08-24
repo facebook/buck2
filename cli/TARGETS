@@ -60,6 +60,7 @@ rust_library(
         "//buck2/buck2_forkserver:buck2_forkserver",
         "//buck2/buck2_query:buck2_query",
         "//buck2/buck2_server:buck2_server",
+        "//buck2/buck2_server_commands:buck2_server_commands",
         "//buck2/buck2_server_ctx:buck2_server_ctx",
         "//buck2/buck2_test:buck2_test",
         "//buck2/cli_proto:cli_proto",

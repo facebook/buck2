@@ -12,27 +12,18 @@
 #![feature(try_blocks)]
 
 pub mod active_commands;
-pub mod build;
-pub mod clean;
 pub mod configs;
 pub mod ctx;
 pub mod daemon;
 pub mod dice_tracker;
 pub mod docs;
-pub mod dot;
 pub mod file_watcher;
 pub mod heartbeat_guard;
 pub mod host_info;
-pub mod install;
 pub mod jemalloc_stats;
-pub mod json;
 pub mod lsp;
 pub mod materialize;
 pub mod profile;
-pub mod query;
 pub mod snapshot;
 pub mod streaming_request_handler;
-pub mod target_hash;
-pub mod targets;
-pub mod targets_show_outputs;
 pub mod watchman;

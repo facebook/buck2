@@ -28,9 +28,9 @@ use cli_proto::CqueryResponse;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
-use crate::query::printer::ProviderLookUp;
-use crate::query::printer::QueryResultPrinter;
-use crate::query::printer::ShouldPrintProviders;
+use crate::commands::query::printer::ProviderLookUp;
+use crate::commands::query::printer::QueryResultPrinter;
+use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn cquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
