@@ -842,9 +842,9 @@ mod tests {
             false,
         );
 
-        assert_eq!(filter.is_excluded(vec!["include_me"]), false);
-        assert_eq!(filter.is_excluded(vec!["not_me"]), true);
-        assert_eq!(filter.is_excluded(vec!["blah"]), true);
+        assert!(!filter.is_excluded(vec!["include_me"]));
+        assert!(filter.is_excluded(vec!["not_me"]));
+        assert!(filter.is_excluded(vec!["blah"]));
     }
 
     #[test]
@@ -856,7 +856,7 @@ mod tests {
             false,
         );
 
-        assert_eq!(conflicting_filter.is_excluded(vec!["not_me1"]), true);
+        assert!(conflicting_filter.is_excluded(vec!["not_me1"]));
 
         let conflicting_filter = TestLabelFiltering::new(
             vec!["include_me".to_owned(), "!include_me".to_owned()],
@@ -865,7 +865,7 @@ mod tests {
             false,
         );
 
-        assert_eq!(conflicting_filter.is_excluded(vec!["include_me"]), false);
+        assert!(!conflicting_filter.is_excluded(vec!["include_me"]));
 
         let conflicting_filter = TestLabelFiltering::new(
             vec!["include_me".to_owned()],
@@ -874,7 +874,7 @@ mod tests {
             false,
         );
 
-        assert_eq!(conflicting_filter.is_excluded(vec!["include_me"]), false);
+        assert!(!conflicting_filter.is_excluded(vec!["include_me"]));
     }
 
     #[test]
@@ -886,9 +886,9 @@ mod tests {
             false,
         );
 
-        assert_eq!(filter.is_excluded(vec!["include_me", "blah"]), false);
-        assert_eq!(filter.is_excluded(vec!["include_me", "not_me1"]), true);
-        assert_eq!(filter.is_excluded(vec!["include_me", "not_me2"]), true);
+        assert!(!filter.is_excluded(vec!["include_me", "blah"]));
+        assert!(filter.is_excluded(vec!["include_me", "not_me1"]));
+        assert!(filter.is_excluded(vec!["include_me", "not_me2"]));
 
         let conflicting_filter = TestLabelFiltering::new(
             vec!["include_me".to_owned(), "!include_me".to_owned()],
@@ -897,6 +897,6 @@ mod tests {
             false,
         );
 
-        assert_eq!(conflicting_filter.is_excluded(vec!["include_me"]), true);
+        assert!(conflicting_filter.is_excluded(vec!["include_me"]));
     }
 }
