@@ -11,10 +11,6 @@
 
 use std::fs::File;
 use std::io::Write;
-#[cfg(unix)]
-use std::os::unix::io::AsRawFd;
-#[cfg(windows)]
-use std::os::windows::io::AsRawHandle;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
@@ -407,6 +403,8 @@ impl DaemonCommand {
 
     #[cfg(unix)]
     fn redirect_output(&self, stdout: File, stderr: File) -> anyhow::Result<()> {
+        use std::os::unix::io::AsRawFd;
+
         nix::unistd::dup2(stdout.as_raw_fd(), nix::libc::STDOUT_FILENO)?;
         nix::unistd::dup2(stderr.as_raw_fd(), nix::libc::STDERR_FILENO)?;
         Ok(())
@@ -414,6 +412,8 @@ impl DaemonCommand {
 
     #[cfg(windows)]
     fn redirect_output(&self, stdout: File, stderr: File) -> anyhow::Result<()> {
+        use std::os::windows::io::AsRawHandle;
+
         unsafe {
             let stdout_fd = libc::open_osfhandle(stdout.as_raw_handle() as isize, libc::O_RDWR);
             let stderr_fd = libc::open_osfhandle(stderr.as_raw_handle() as isize, libc::O_RDWR);
