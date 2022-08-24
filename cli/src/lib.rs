@@ -156,7 +156,7 @@ pub fn exec(
 
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
-    let opt = Opt::from_clap(&matches);
+    let opt: Opt = Opt::from_clap(&matches);
     opt.exec(&matches, init, replayer, async_cleanup_context)
 }
 
