@@ -139,7 +139,7 @@ pub(crate) async fn profile_command(
 
             cli_proto::ProfileResponse {
                 elapsed: Some(profile_data.elapsed().into()),
-                total_allocated_bytes: profile_data.total_allocated_bytes() as u64,
+                total_retained_bytes: profile_data.total_retained_bytes() as u64,
             }
         };
 

@@ -547,7 +547,7 @@ message ProfileRequest {
 
 message ProfileResponse {
   google.protobuf.Duration elapsed = 1;
-  uint64 total_allocated_bytes = 2;
+  uint64 total_retained_bytes = 2;
 }
 
 message MaterializeRequest {

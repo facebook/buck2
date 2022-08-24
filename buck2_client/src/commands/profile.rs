@@ -160,7 +160,7 @@ impl StreamingCommand for ProfileSubcommand {
             .await???;
         let ProfileResponse {
             elapsed,
-            total_allocated_bytes,
+            total_retained_bytes,
         } = response;
 
         let elapsed = elapsed
@@ -176,7 +176,7 @@ impl StreamingCommand for ProfileSubcommand {
             self.opts.output.display(),
         )?;
         crate::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
-        crate::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;
+        crate::println!("Total retained bytes: {}", total_retained_bytes)?;
 
         ExitResult::success()
     }

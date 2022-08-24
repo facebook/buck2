@@ -96,7 +96,7 @@ pub struct StarlarkProfileDataAndStats {
     profile_data: StarlarkProfileData,
     initialized_at: Instant,
     finalized_at: Instant,
-    total_allocated_bytes: usize,
+    total_retained_bytes: usize,
 }
 
 impl StarlarkProfileDataAndStats {
@@ -104,8 +104,8 @@ impl StarlarkProfileDataAndStats {
         self.finalized_at.duration_since(self.initialized_at)
     }
 
-    pub fn total_allocated_bytes(&self) -> usize {
-        self.total_allocated_bytes
+    pub fn total_retained_bytes(&self) -> usize {
+        self.total_retained_bytes
     }
 
     pub fn write(&self, path: &Path) -> anyhow::Result<()> {
@@ -118,7 +118,7 @@ impl StarlarkProfileDataAndStats {
         let mut iter = datas.clone().into_iter();
         let first = iter.next().context("empty collection of profile data")?;
         let profile_mode = first.profile_mode.dupe();
-        let mut total_allocated_bytes = first.total_allocated_bytes;
+        let mut total_retained_bytes = first.total_retained_bytes;
         let mut initialized_at = first.initialized_at;
         let mut finalized_at = first.finalized_at;
 
@@ -128,7 +128,7 @@ impl StarlarkProfileDataAndStats {
             }
             initialized_at = cmp::min(initialized_at, data.initialized_at);
             finalized_at = cmp::max(finalized_at, data.finalized_at);
-            total_allocated_bytes += data.total_allocated_bytes;
+            total_retained_bytes += data.total_retained_bytes;
         }
 
         let profile_data = match profile_mode {
@@ -168,7 +168,7 @@ impl StarlarkProfileDataAndStats {
             profile_data,
             initialized_at,
             finalized_at,
-            total_allocated_bytes,
+            total_retained_bytes,
         })
     }
 }
@@ -182,7 +182,7 @@ pub struct StarlarkProfiler {
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
     profile_data: Option<StarlarkProfileData>,
-    total_allocated_bytes: Option<usize>,
+    total_retained_bytes: Option<usize>,
 }
 
 impl StarlarkProfiler {
@@ -193,7 +193,7 @@ impl StarlarkProfiler {
             initialized_at: None,
             finalized_at: None,
             profile_data: None,
-            total_allocated_bytes: None,
+            total_retained_bytes: None,
         }
     }
 
@@ -207,8 +207,8 @@ impl StarlarkProfiler {
             finalized_at: self
                 .finalized_at
                 .context("did not finalize (internal error)")?,
-            total_allocated_bytes: self
-                .total_allocated_bytes
+            total_retained_bytes: self
+                .total_retained_bytes
                 .context("did not visit heap (internal error)")?,
             profile_data: self
                 .profile_data
@@ -256,14 +256,14 @@ impl StarlarkProfiler {
             _ => {}
         }
 
-        let total_allocated_bytes = module.map_or(0, |module| {
+        let total_retained_bytes = module.map_or(0, |module| {
             module
                 .frozen_heap()
                 .allocated_summary()
                 .total_allocated_bytes()
         });
 
-        self.total_allocated_bytes = Some(total_allocated_bytes);
+        self.total_retained_bytes = Some(total_retained_bytes);
 
         Ok(())
     }
@@ -397,7 +397,7 @@ mod tests {
                 profile_data: StarlarkProfileData::Frozen(AggregateHeapProfileInfo::default()),
                 initialized_at: now,
                 finalized_at: now,
-                total_allocated_bytes: 0,
+                total_retained_bytes: 0,
             }
         }
 
