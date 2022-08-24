@@ -26,6 +26,7 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -59,7 +60,6 @@ use crate::calculation::BuildErrors;
 use crate::configuration::calculation::ToolchainConstraints;
 use crate::configuration::ConfigurationCalculation;
 use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
-use crate::interpreter::calculation::InterpreterCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 use crate::nodes::AttributeError;
 
@@ -813,6 +813,7 @@ mod tests {
     use buck2_core::target::TargetName;
     use buck2_interpreter_for_build::attrs::coerce::testing::CoercedAttrExt;
     use buck2_interpreter_for_build::attrs::coerce::testing::ConfiguredAttrExt;
+    use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
     use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
     use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
@@ -839,7 +840,6 @@ mod tests {
 
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
-    use crate::interpreter::calculation::testing::InterpreterResultsKey;
     use crate::nodes::calculation::NodeCalculation;
 
     #[tokio::test]

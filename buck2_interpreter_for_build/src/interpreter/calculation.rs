@@ -20,16 +20,16 @@ use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentati
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use dice::DiceComputations;
 use dice::Key;
 use gazebo::prelude::*;
 
 use crate::interpreter::calculation::keys::InterpreterResultsKey;
+use crate::interpreter::module_internals::EvaluationResult;
+use crate::interpreter::module_internals::ModuleInternals;
 
 #[async_trait]
-pub(crate) trait InterpreterCalculation<'c> {
+pub trait InterpreterCalculation<'c> {
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
     async fn get_interpreter_results(
