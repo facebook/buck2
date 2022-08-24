@@ -1018,4 +1018,7 @@ message InvocationRecord {
   Snapshot last_snapshot = 21;
   // Optional - the merge base revision that the build ran on
   string branched_from_revision = 22;
+  // If any, the name of the RE experiment config that was used by the RE
+  // client in this build.
+  string re_experiment_name = 23;
 }

@@ -46,6 +46,7 @@ mod imp {
         command_end: Option<buck2_data::CommandEnd>,
         command_duration: Option<prost_types::Duration>,
         re_session_id: Option<String>,
+        re_experiment_name: Option<String>,
         critical_path_duration: Option<Duration>,
         tags: Vec<String>,
         run_local_count: u64,
@@ -67,6 +68,7 @@ mod imp {
                 command_end: None,
                 command_duration: None,
                 re_session_id: None,
+                re_experiment_name: None,
                 critical_path_duration: None,
                 tags: vec![],
                 run_local_count: 0,
@@ -86,6 +88,7 @@ mod imp {
                     command_duration: self.command_duration.take(),
                     client_walltime: Some(self.start_time.elapsed().into()),
                     re_session_id: self.re_session_id.take().unwrap_or_default(),
+                    re_experiment_name: self.re_session_id.take().unwrap_or_default(),
                     cli_args: std::env::args().collect::<Vec<String>>(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
@@ -196,6 +199,7 @@ mod imp {
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             self.re_session_id = Some(session.session_id.clone());
+            self.re_experiment_name = Some(session.experiment_name.clone());
             Ok(())
         }
 
