@@ -55,7 +55,6 @@ starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
 static_assertions = "1.1.0"
 buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
-strsim = "0.10.0"
 structopt = "0.3.0"
 take_mut = "0.2.2"
 tempfile = "3.1"

@@ -12,7 +12,6 @@ use std::path::Path;
 
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::interpreter::module_internals::EvaluationResult;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
@@ -30,6 +29,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;

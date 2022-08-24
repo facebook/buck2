@@ -10,7 +10,6 @@
 pub mod build_defs;
 pub mod calculation;
 pub mod context;
-pub mod module_internals;
 pub mod rule_defs;
 
 #[cfg(test)]
@@ -48,6 +47,8 @@ pub mod testing {
     use buck2_interpreter::interpreter::ParseResult;
     use buck2_interpreter::package_imports::ImplicitImport;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+    use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
+    use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
     use buck2_node::nodes::unconfigured::TargetsMap;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
@@ -58,8 +59,6 @@ pub mod testing {
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::context::BuildInterpreterConfiguror;
-    use crate::interpreter::module_internals::EvaluationResult;
-    use crate::interpreter::module_internals::ModuleInternals;
 
     pub type GlobalsConfigurationFn = Arc<dyn Fn(&mut GlobalsBuilder) + Sync + Send>;
 

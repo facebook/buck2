@@ -16,6 +16,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -45,7 +46,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 
-use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::attr::AttributeAsStarlarkValue;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 use crate::nodes::attr_spec::AttributeSpecExt;

@@ -11,6 +11,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::functions::host_info::register_host_info;
 use buck2_interpreter::functions::read_config::register_read_config;
+use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use either::Either;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -21,7 +22,6 @@ use starlark::values::none::NoneType;
 use starlark::values::Value;
 use thiserror::Error;
 
-use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;

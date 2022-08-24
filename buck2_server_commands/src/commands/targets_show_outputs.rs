@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::interpreter::module_internals::EvaluationResult;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -27,6 +26,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_events::dispatch::span_async;
+use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;

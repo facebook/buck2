@@ -19,7 +19,6 @@ use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::package_imports::ImplicitImport;
-use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetsMap;
 use gazebo::prelude::*;
@@ -27,6 +26,8 @@ use indexmap::map::Entry;
 use itertools::Itertools;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
+
+use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 
 /// An EvaluationResult contains the list of targets resulting from evaluating a build file.
 #[derive(Debug)]
@@ -224,7 +225,7 @@ impl TargetsRecorder {
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.targets.borrow().is_empty()
     }
 
@@ -248,13 +249,13 @@ impl TargetsRecorder {
 }
 
 #[derive(Debug)]
-pub(crate) struct SuggestedSimilarTargets {
+pub struct SuggestedSimilarTargets {
     package: Package,
     targets: Vec<TargetName>,
 }
 
 impl SuggestedSimilarTargets {
-    pub(crate) fn suggest<'a>(
+    pub fn suggest<'a>(
         target: &TargetName,
         package: Package,
         available_targets: impl Iterator<Item = &'a TargetName>,

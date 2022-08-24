@@ -14,6 +14,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -35,7 +36,6 @@ use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
 
-use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 
 pub(crate) trait TargetNodeExt: Sized {

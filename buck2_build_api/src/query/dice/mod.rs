@@ -41,6 +41,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_node::compatibility::IncompatiblePlatformReason;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -57,7 +58,6 @@ use starlark::collections::SmallSet;
 
 use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
-use crate::interpreter::module_internals::EvaluationResult;
 use crate::query::cquery::environment::CqueryDelegate;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;

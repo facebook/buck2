@@ -813,6 +813,7 @@ mod tests {
     use buck2_core::target::TargetName;
     use buck2_interpreter_for_build::attrs::coerce::testing::CoercedAttrExt;
     use buck2_interpreter_for_build::attrs::coerce::testing::ConfiguredAttrExt;
+    use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
     use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
@@ -839,7 +840,6 @@ mod tests {
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::interpreter::calculation::testing::InterpreterResultsKey;
-    use crate::interpreter::module_internals::EvaluationResult;
     use crate::nodes::calculation::NodeCalculation;
 
     #[tokio::test]

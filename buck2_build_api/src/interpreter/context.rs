@@ -31,13 +31,13 @@ use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
+use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
+use buck2_interpreter_for_build::interpreter::module_internals::PackageImplicits;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::build_defs::register_natives;
-use crate::interpreter::module_internals::ModuleInternals;
-use crate::interpreter::module_internals::PackageImplicits;
 use crate::interpreter::rule_defs::cmd_args::register_args_function;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::register_rule_defs;
