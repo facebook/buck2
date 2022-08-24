@@ -1,5 +1,6 @@
 import argparse
 import os
+import platform
 import subprocess
 import sys
 import tempfile
@@ -16,20 +17,42 @@ def _path(root, lib):
 
 def _deps(path):
     deps = set()
-    out = subprocess.check_output(["objdump", "-p", path])
-    for line in out.decode("utf-8").splitlines():
-        parts = line.split()
-        if len(parts) == 2 and parts[0] == "NEEDED":
-            deps.add(parts[1])
+
+    system = platform.system()
+    if system == "Linux":
+        out = subprocess.check_output(["objdump", "-p", path])
+        for line in out.decode("utf-8").splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == "NEEDED":
+                deps.add(parts[1])
+
+    elif system == "Darwin":
+        out = subprocess.check_output(["otool", "-XL", path])
+        for line in out.decode("utf-8").splitlines()[1:]:
+            lib = line.strip().split()[0]
+            prefix = "@rpath/"
+            if lib.startswith(prefix):
+                deps.add(lib[len(prefix) :])
+
+    else:
+        raise Exception(f"unexpected platform: {system}")
+
     return deps
 
 
 def _syms(path, defined=True):
     syms = set()
-    cmd = ["nm", "-gPD", "--defined-only" if defined else "-u", path]
+    cmd = ["nm", "-gP", "--defined-only" if defined else "-u"]
+    if platform.system() != "Darwin":
+        cmd.append("-D")
+    cmd.append(path)
     out = subprocess.check_output(cmd)
     for line in out.decode("utf-8").splitlines():
-        syms.add(line.split()[0])
+        sym = line.split()[0]
+        if platform.system() == "Darwin":
+            assert sym[0] == "_"
+            sym = sym[1:]
+        syms.add(sym)
     return syms
 
 
