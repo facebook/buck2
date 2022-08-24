@@ -191,13 +191,14 @@ fn create_scribe_event_dispatcher(
     // without using configurations at the call site
     #[cfg(fbcode_build)]
     {
+        use buck2_common::events;
         use buck2_events::sink::scribe;
         if scribe::is_enabled() {
             Some(EventDispatcher::new(
                 trace_id,
                 scribe::ThriftScribeSink::new(
                     ctx.fbinit(),
-                    "buck2_events".to_owned(),
+                    events::scribe_category().ok()?,
                     /* buffer size */ 100,
                 )
                 .ok()?,

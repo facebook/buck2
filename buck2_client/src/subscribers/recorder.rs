@@ -249,12 +249,13 @@ mod imp {
 pub fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+    use buck2_common::events;
     if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
         let recorder = imp::InvocationRecorder::new(
             ctx.async_cleanup_context().dupe(),
             buck2_events::sink::scribe::ThriftScribeSink::new(
                 ctx.fbinit(),
-                "buck2_events".to_owned(),
+                events::scribe_category()?,
                 1,
             )?,
         );

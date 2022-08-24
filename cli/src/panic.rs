@@ -152,6 +152,7 @@ mod imp {
     fn write_to_scribe(fb: FacebookInit, location: Option<Location>, message: String) {
         use std::time::SystemTime;
 
+        use buck2_common::events;
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
         use buck2_events::sink::scribe;
@@ -165,14 +166,18 @@ mod imp {
             return;
         }
 
-        let sink =
-            match ThriftScribeSink::new(fb, "buck2_events".to_owned(), /* buffer size */ 100) {
-                Ok(sink) => sink,
-                Err(_) => {
-                    // We're already panicking and we can't connect to the scribe daemon? Things are bad and we're SOL.
-                    return;
-                }
-            };
+        let scribe_category = match events::scribe_category() {
+            Ok(category) => category,
+            Err(_) => return,
+        };
+
+        let sink = match ThriftScribeSink::new(fb, scribe_category, /* buffer size */ 100) {
+            Ok(sink) => sink,
+            Err(_) => {
+                // We're already panicking and we can't connect to the scribe daemon? Things are bad and we're SOL.
+                return;
+            }
+        };
 
         let metadata = get_metadata_for_panic();
         let panic_payload: buck2_data::instant_event::Data = buck2_data::Panic {

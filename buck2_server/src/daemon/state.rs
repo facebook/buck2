@@ -329,13 +329,11 @@ impl DaemonState {
         &self,
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
+        use buck2_common::events;
         use buck2_core::facebook_only;
         use buck2_events::sink::scribe;
         use buck2_events::sink::scribe::ThriftScribeSink;
         use buck2_events::sink::tee::TeeSink;
-
-        // The Scribe category to which we'll write buck2 events.
-        const BUCK2_EVENTS_CATEGORY: &str = "buck2_events";
 
         // facebook only: logging events to Scribe.
         facebook_only();
@@ -347,7 +345,7 @@ impl DaemonState {
                 TeeSink::new(
                     ThriftScribeSink::new(
                         self.fb,
-                        BUCK2_EVENTS_CATEGORY.to_owned(),
+                        events::scribe_category()?,
                         data.event_logging_data.buffer_size,
                     )?,
                     sink,
