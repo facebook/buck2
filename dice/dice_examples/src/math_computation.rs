@@ -16,7 +16,6 @@ use std::convert::Infallible;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -65,7 +64,7 @@ impl FromStr for Equation {
                 .unwrap();
 
             if units.len() < 2 {
-                return Err(anyhow!("+ must have left and right"));
+                return Err(anyhow::anyhow!("+ must have left and right"));
             }
 
             Equation::Add(units)
@@ -84,7 +83,7 @@ pub fn parse_math_equations<'a>(
 pub fn parse_math_equation(math: &str) -> anyhow::Result<(Var, Equation)> {
     let (l, r) = math.split1("=");
     if l.is_empty() || r.is_empty() {
-        return Err(anyhow!("= must have left and right"));
+        return Err(anyhow::anyhow!("= must have left and right"));
     }
 
     Ok((Var(Arc::new(l.to_owned())), r.parse()?))
