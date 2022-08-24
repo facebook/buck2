@@ -60,6 +60,11 @@ pub fn collect() -> HashMap<String, String> {
             map.insert("os_version".to_owned(), version);
         }
     }
+    #[cfg(not(feature = "extra_logging"))]
+    {
+        #[cfg(fbcode_build)]
+        compile_error!("extra_logging must be enabled when compiling in fbcode");
+    }
 
     add_env_var(&mut map, "sandcastle_job_info", "SANDCASTLE_JOB_INFO");
     add_env_var(&mut map, "sandcastle_alias", "SANDCASTLE_ALIAS");
