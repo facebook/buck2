@@ -24,7 +24,8 @@ load(
     "cxx_merge_cpreprocessors",
 )
 
-_CXX_EXTENSIONS = [
+# Supported Cxx file extensions
+CxxExtension = enum(
     ".cpp",
     ".cc",
     ".cxx",
@@ -40,13 +41,7 @@ _CXX_EXTENSIONS = [
     ".asmpp",
     ".h",
     ".hpp",
-]
-
-# Supported Cxx file extensions
-CxxExtension = enum(*_CXX_EXTENSIONS)
-
-# Supported file extensions on Apple platforms
-AppleCxxExtension = enum(*(_CXX_EXTENSIONS + [".swift"]))
+)
 
 # Information on argsfiles created for Cxx compilation.
 _CxxCompileArgsfile = record(
