@@ -39,6 +39,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
+    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
     if should_pre_dex:
         pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
         if ctx.attrs.use_split_dex:
@@ -47,6 +48,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
                 android_toolchain,
                 pre_dexed_libs,
                 get_split_dex_merge_config(ctx, android_toolchain),
+                target_to_module_mapping_file,
             )
         else:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
@@ -86,7 +88,6 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
                 is_optimized = has_proguard_config,
             )
 
-    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
     native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
     unstripped_native_libs = native_library_info.unstripped_libs
     sub_targets["unstripped_native_libraries"] = [

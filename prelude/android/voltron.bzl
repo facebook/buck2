@@ -12,8 +12,10 @@ def is_root_module(module: str.type) -> bool.type:
 def all_targets_in_root_module(_module: str.type) -> str.type:
     return ROOT_MODULE
 
-def get_apk_module_graph_mapping_function(ctx: "context", apk_module_graph_file: "artifact") -> "function":
-    mapping = {}
+def get_apk_module_graph_mapping_function(
+        ctx: "context",
+        apk_module_graph_file: "artifact") -> "function":
+    mapping = {str(ctx.label.raw_target()): ROOT_MODULE}
     apk_module_graph_lines = ctx.artifacts[apk_module_graph_file].read_string().split("\n")[:-1]
     for line in apk_module_graph_lines:
         target, module = line.split(" ")

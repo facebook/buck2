@@ -155,23 +155,27 @@ SecondaryDexMetadataConfig = record(
     secondary_dex_canary_class_name = str.type,
 )
 
-def _get_secondary_dex_jar_metadata_config(actions: "actions", secondary_dex_path: str.type, index: int.type) -> SecondaryDexMetadataConfig.type:
+def _get_secondary_dex_jar_metadata_config(
+        actions: "actions",
+        secondary_dex_path: str.type,
+        module: str.type,
+        index: int.type) -> SecondaryDexMetadataConfig.type:
     secondary_dex_metadata_path = secondary_dex_path + ".meta"
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "jar",
         secondary_dex_metadata_path = secondary_dex_metadata_path,
         secondary_dex_metadata_file = actions.declare_output(secondary_dex_metadata_path),
-        secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}".format(index + 1)),
-        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(index + 1),
+        secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}/{}".format(module, index + 1)),
+        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, index + 1),
     )
 
-def _get_secondary_dex_raw_metadata_config(actions: "actions", index: int.type) -> SecondaryDexMetadataConfig.type:
+def _get_secondary_dex_raw_metadata_config(actions: "actions", module: str.type, index: int.type) -> SecondaryDexMetadataConfig.type:
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "raw",
         secondary_dex_metadata_path = None,
         secondary_dex_metadata_file = None,
-        secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}".format(index + 1)),
-        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(index + 1),
+        secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}/{}".format(module, index + 1)),
+        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, index + 1),
     )
 
 def _get_filter_dex_batch_size() -> int.type:
@@ -254,44 +258,48 @@ def merge_to_split_dex(
             target_to_module_mapping_function,
         )
         secondary_dexes_for_symlinking = {}
+        metadata_line_artifacts_by_module = {}
+        metadata_dot_txt_files_by_module = {}
 
         for sorted_pre_dexed_input in sorted_pre_dexed_inputs:
+            module = sorted_pre_dexed_input.module
             primary_dex_inputs = sorted_pre_dexed_input.primary_dex_inputs
             pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
-            primary_dex_class_list = ctx.actions.write(
-                "class_list_for_primary_dex.txt",
-                flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
-            )
+            if pre_dexed_artifacts:
+                expect(is_root_module(module), "module {} should not have a primary dex!".format(module))
+                primary_dex_class_list = ctx.actions.write(
+                    "class_list_for_primary_dex.txt",
+                    flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
+                )
 
-            _merge_dexes(
-                ctx,
-                android_toolchain,
-                ctx.outputs[primary_dex_output],
-                pre_dexed_artifacts,
-                ctx.outputs[primary_dex_artifact_list],
-                class_names_to_include = primary_dex_class_list,
-            )
+                _merge_dexes(
+                    ctx,
+                    android_toolchain,
+                    ctx.outputs[primary_dex_output],
+                    pre_dexed_artifacts,
+                    ctx.outputs[primary_dex_artifact_list],
+                    class_names_to_include = primary_dex_class_list,
+                )
 
-            metadata_line_artifacts = []
             secondary_dex_inputs = sorted_pre_dexed_input.secondary_dex_inputs
             for i in range(len(secondary_dex_inputs)):
                 if split_dex_merge_config.dex_compression == "jar":
-                    secondary_dex_path = _get_jar_secondary_dex_path(i)
-                    secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, i)
+                    secondary_dex_path = _get_jar_secondary_dex_path(i, module)
+                    secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, i)
                     secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
-                    metadata_line_artifacts.append(secondary_dex_metadata_config.secondary_dex_metadata_line)
+                    metadata_line_artifacts_by_module.setdefault(module, []).append(secondary_dex_metadata_config.secondary_dex_metadata_line)
                 else:
-                    secondary_dex_path = _get_raw_secondary_dex_path(i)
+                    secondary_dex_path = _get_raw_secondary_dex_path(i, module)
                     if split_dex_merge_config.dex_compression == "raw":
-                        secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, i)
-                        metadata_line_artifacts.append(secondary_dex_metadata_config.secondary_dex_metadata_line)
+                        secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, i)
+                        metadata_line_artifacts_by_module.setdefault(module, []).append(secondary_dex_metadata_config.secondary_dex_metadata_line)
                     else:
                         secondary_dex_metadata_config = None
 
                 secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
-                secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}.txt".format(i + 2))
+                secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}_for_module_{}.txt".format(i + 2, module))
                 secondary_dex_class_list = ctx.actions.write(
-                    "class_list_for_secondary_dex_{}.txt".format(i + 2),
+                    "class_list_for_secondary_dex_{}_for_module_{}.txt".format(i + 2, module),
                     flatten([secondary_dex_input.dex_class_names for secondary_dex_input in secondary_dex_inputs[i]]),
                 )
                 pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
@@ -308,19 +316,25 @@ def merge_to_split_dex(
                 secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
 
             if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
-                metadata_dot_txt_path = "{}/metadata.txt".format(_SECONDARY_DEX_SUBDIR)
+                metadata_dot_txt_path = "{}/metadata.txt".format(_get_secondary_dex_subdir(module))
                 metadata_dot_txt_file = ctx.actions.declare_output(metadata_dot_txt_path)
                 secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
+                metadata_dot_txt_files_by_module[module] = metadata_dot_txt_file
 
-                def write_metadata_dot_txt(ctx: "context"):
-                    metadata_lines = [".id {}".format(sorted_pre_dexed_input.module)]
-                    if split_dex_merge_config.dex_compression == "raw" and is_root_module(sorted_pre_dexed_input.module):
+        if metadata_dot_txt_files_by_module:
+            def write_metadata_dot_txts(ctx: "context"):
+                for voltron_module, metadata_dot_txt in metadata_dot_txt_files_by_module.items():
+                    metadata_line_artifacts = metadata_line_artifacts_by_module[voltron_module]
+                    expect(metadata_line_artifacts != None, "Should have metadata lines!")
+
+                    metadata_lines = [".id {}".format(voltron_module)]
+                    if split_dex_merge_config.dex_compression == "raw" and is_root_module(voltron_module):
                         metadata_lines.append(".root_relative")
                     for metadata_line_artifact in metadata_line_artifacts:
                         metadata_lines.append(ctx.artifacts[metadata_line_artifact].read_string().strip())
-                    ctx.actions.write(ctx.outputs[metadata_dot_txt_file], metadata_lines)
+                    ctx.actions.write(ctx.outputs[metadata_dot_txt], metadata_lines)
 
-                ctx.actions.dynamic_output(metadata_line_artifacts, [], [metadata_dot_txt_file], write_metadata_dot_txt)
+            ctx.actions.dynamic_output(flatten(metadata_line_artifacts_by_module.values()), [], metadata_dot_txt_files_by_module.values(), write_metadata_dot_txts)
 
         ctx.actions.symlinked_dir(
             ctx.outputs[initial_secondary_dexes_dir],
@@ -434,7 +448,7 @@ def _sort_pre_dexed_files(
 
             current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
             if len(current_secondary_dex_inputs) == 0:
-                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attrs._dex_toolchain[DexToolchainInfo])
+                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, module, ctx.attrs._dex_toolchain[DexToolchainInfo])
                 current_secondary_dex_inputs.append(canary_class_dex_input)
                 secondary_dex_inputs.append(current_secondary_dex_inputs)
 
@@ -445,32 +459,51 @@ def _sort_pre_dexed_files(
 
     return sorted_pre_dexed_inputs_map.values()
 
-def _get_raw_secondary_dex_path(index: int.type):
-    return "classes{}.dex".format(index + 2)
+def _get_raw_secondary_dex_path(index: int.type, module: str.type):
+    # Root module begins at 2 (primary classes.dex is 1)
+    # Non-root module begins at 1 (classes.dex)
+    if is_root_module(module):
+        return "classes{}.dex".format(index + 2)
+    elif index == 0:
+        return "assets/{}/classes.dex".format(module)
+    else:
+        return "assets/{}/classes{}.dex".format(module, index + 1)
 
-_SECONDARY_DEX_SUBDIR = "assets/secondary-program-dex-jars"
+def _get_jar_secondary_dex_path(index: int.type, module: str.type):
+    return "{}/{}-{}.dex.jar".format(
+        _get_secondary_dex_subdir(module),
+        "secondary" if is_root_module(module) else module,
+        index + 1,
+    )
 
-def _get_jar_secondary_dex_path(index: int.type):
-    return "{}/secondary-{}.dex.jar".format(_SECONDARY_DEX_SUBDIR, index + 1)
+def _get_secondary_dex_subdir(module: str.type):
+    return "assets/{}".format("secondary-program-dex-jars" if is_root_module(module) else module)
 
 # We create "canary" classes and add them to each secondary dex jar to ensure each jar has a class
 # that can be safely loaded on any system. This class is used during secondary dex verification.
-_CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE = "secondary.dex{}.Canary"
-_CANARY_FILE_NAME_TEMPLATE = "canary_classes/secondary/dex{}/Canary.java"
-_CANARY_CLASS_PACKAGE_TEMPLATE = "package secondary.dex{};\n"
+_CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE = "{}.dex{}.Canary"
+_CANARY_FILE_NAME_TEMPLATE = "canary_classes/{}/dex{}/Canary.java"
+_CANARY_CLASS_PACKAGE_TEMPLATE = "package {}.dex{};\n"
 _CANARY_CLASS_INTERFACE_DEFINITION = "public interface Canary {}"
 
-def _create_canary_class(ctx: "context", index: int.type, dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
-    canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(index), _CANARY_CLASS_INTERFACE_DEFINITION])
-    canary_class_jar = ctx.actions.declare_output("canary_classes/canary_jar_{}.jar".format(index))
-    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_prefix = "canary_class{}".format(index))
+def _create_canary_class(
+        ctx: "context",
+        index: int.type,
+        module: str.type,
+        dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
+    # TODO(ianc) Use hash of name for canary class naming
+    prefix = "secondary" if is_root_module(module) else module
+    canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(prefix, index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(prefix, index), _CANARY_CLASS_INTERFACE_DEFINITION])
+    canary_class_jar = ctx.actions.declare_output("canary_classes/{}/canary_jar_{}.jar".format(prefix, index))
+    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_prefix = "{}_canary_class{}".format(prefix, index))
 
     dex_library_info = get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
 
     return DexInputWithSpecifiedClasses(
         lib = dex_library_info,
-        dex_class_names = [_get_fully_qualified_canary_class_name(index).replace(".", "/") + ".class"],
+        dex_class_names = [_get_fully_qualified_canary_class_name(module, index).replace(".", "/") + ".class"],
     )
 
-def _get_fully_qualified_canary_class_name(index: int.type):
-    return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(index)
+def _get_fully_qualified_canary_class_name(module: str.type, index: int.type) -> str.type:
+    prefix = "secondary" if is_root_module(module) else module
+    return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(prefix, index)
