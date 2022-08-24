@@ -42,6 +42,7 @@ use crate::interpreter::rule_defs::cmd_args::register_args_function;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::rule_defs::transition::starlark::register_transition_defs;
+use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[derive(Clone)]
 struct ConfigureGlobalsFn(fn(&mut GlobalsBuilder));
@@ -189,6 +190,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing),
             package_boundary_exception,
+            box ConfiguredGraphQueryEnvironment::functions(),
         );
 
         let imports = loaded_modules.imports().cloned().collect();

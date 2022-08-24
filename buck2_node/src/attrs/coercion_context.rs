@@ -12,6 +12,9 @@ use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
+use buck2_query_parser::spanned::Spanned;
+use buck2_query_parser::Expr;
 
 use crate::attrs::coerced_path::CoercedPath;
 
@@ -39,4 +42,11 @@ pub trait AttrCoercionContext {
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
 
     fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>>;
+
+    fn visit_query_function_literals(
+        &self,
+        visitor: &mut dyn QueryLiteralVisitor,
+        expr: &Spanned<Expr>,
+        query: &str,
+    ) -> anyhow::Result<()>;
 }

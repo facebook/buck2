@@ -40,6 +40,7 @@ use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::rule::RuleError;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
+use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
@@ -181,6 +182,7 @@ pub(crate) fn get_attr_coercion_context<'v>(
             .cell_info()
             .cell_alias_resolver()
             .dupe(),
+        box ConfiguredGraphQueryEnvironment::functions(),
     ))
 }
 
@@ -568,6 +570,7 @@ mod tests {
     use crate::interpreter::testing::run_starlark_bzl_test;
     use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
     use crate::nodes::hacks::value_to_string;
+    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     #[test]
     fn string_works() -> SharedResult<()> {
@@ -654,6 +657,7 @@ mod tests {
             cell_alias_resolver,
             enclosing_package,
             false,
+            box ConfiguredGraphQueryEnvironment::functions(),
         );
         let label_coercer = AttrType::dep(Vec::new());
         let string_coercer = AttrType::string();
@@ -809,8 +813,12 @@ mod tests {
                 PackageListing::testing_files(&["baz/quz.cpp"]),
             ),
             false,
+            box ConfiguredGraphQueryEnvironment::functions(),
         );
-        let no_package_ctx = BuildAttrCoercionContext::new_no_package(cell_alias_resolver);
+        let no_package_ctx = BuildAttrCoercionContext::new_no_package(
+            cell_alias_resolver,
+            box ConfiguredGraphQueryEnvironment::functions(),
+        );
 
         let err = no_package_ctx
             .coerce_path("baz/quz.cpp", false)

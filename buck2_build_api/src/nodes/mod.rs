@@ -59,6 +59,7 @@ mod tests {
     use crate::attrs::coerce::attr_type::AttrTypeExt;
     use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
     use crate::interpreter::testing::cells;
+    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     #[test]
     fn function_id_has_useful_string() {
@@ -78,7 +79,10 @@ mod tests {
     #[test]
     fn stringifies_correctly() -> anyhow::Result<()> {
         let heap = Heap::new();
-        let coercer_ctx = BuildAttrCoercionContext::new_no_package(cells(None)?.0);
+        let coercer_ctx = BuildAttrCoercionContext::new_no_package(
+            cells(None)?.0,
+            box ConfiguredGraphQueryEnvironment::functions(),
+        );
         let coercer = AttrType::string();
         let coerced = coercer
             .coerce(

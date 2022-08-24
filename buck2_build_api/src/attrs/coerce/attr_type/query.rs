@@ -17,8 +17,6 @@ use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_query::query::syntax::simple::eval::error::QueryError;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
 use starlark::values::string::STRING_TYPE;
@@ -26,7 +24,6 @@ use starlark::values::Value;
 
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 pub(crate) trait QueryAttrTypeExt {
     fn coerce(
@@ -74,9 +71,7 @@ impl QueryAttrTypeExt for QueryAttrType {
             literals: BTreeMap::new(),
         };
 
-        ConfiguredGraphQueryEnvironment::functions()
-            .visit_literals(&mut collector, &parsed_query)
-            .map_err(|e| QueryError::convert_error(e, &query))?;
+        ctx.visit_query_function_literals(&mut collector, &parsed_query, &query)?;
 
         Ok(QueryAttrBase {
             query,

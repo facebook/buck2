@@ -37,6 +37,7 @@ use starlark::syntax::Dialect;
 use starlark::values::Value;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 pub trait CoercedAttrExt {
     fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;
@@ -77,6 +78,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         CellAliasResolver::new(Arc::new(aliases)).unwrap(),
         (package, package_listing),
         false,
+        box ConfiguredGraphQueryEnvironment::functions(),
     )
 }
 

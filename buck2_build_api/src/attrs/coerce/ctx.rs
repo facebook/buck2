@@ -23,6 +23,11 @@ use buck2_core::soft_error;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
+use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
+use buck2_query_parser::spanned::Spanned;
+use buck2_query_parser::Expr;
 use bumpalo::Bump;
 use gazebo::dupe::Dupe;
 use hashbrown::raw::RawTable;
@@ -63,6 +68,8 @@ pub struct BuildAttrCoercionContext {
     /// allocating a key to perform a query using `entry` API.
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
+    /// `ConfiguredGraphQueryEnvironment::functions()`.
+    query_functions: Box<dyn QueryFunctionsExt>,
 }
 
 impl BuildAttrCoercionContext {
@@ -70,6 +77,7 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(Package, PackageListing)>,
         package_boundary_exception: bool,
+        query_functions: Box<dyn QueryFunctionsExt>,
     ) -> Self {
         Self {
             cell_alias_resolver,
@@ -77,22 +85,28 @@ impl BuildAttrCoercionContext {
             package_boundary_exception,
             alloc: Bump::new(),
             label_cache: RefCell::new(RawTable::new()),
+            query_functions,
         }
     }
 
-    pub fn new_no_package(cell_alias_resolver: CellAliasResolver) -> Self {
-        Self::new(cell_alias_resolver, None, false)
+    pub fn new_no_package(
+        cell_alias_resolver: CellAliasResolver,
+        query_functions: Box<dyn QueryFunctionsExt>,
+    ) -> Self {
+        Self::new(cell_alias_resolver, None, false, query_functions)
     }
 
     pub fn new_with_package(
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (Package, PackageListing),
         package_boundary_exception: bool,
+        query_functions: Box<dyn QueryFunctionsExt>,
     ) -> Self {
         Self::new(
             cell_alias_resolver,
             Some(enclosing_package),
             package_boundary_exception,
+            query_functions,
         )
     }
 
@@ -198,5 +212,17 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
 
     fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {
         self.parse_pattern(pattern)
+    }
+
+    fn visit_query_function_literals(
+        &self,
+        visitor: &mut dyn QueryLiteralVisitor,
+        expr: &Spanned<Expr>,
+        query: &str,
+    ) -> anyhow::Result<()> {
+        self.query_functions
+            .visit_literals(visitor, expr)
+            .map_err(|e| QueryError::convert_error(e, query))?;
+        Ok(())
     }
 }
