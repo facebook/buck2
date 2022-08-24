@@ -593,6 +593,7 @@ mod tests {
                 configure_build_file_globals,
                 configure_extension_file_globals,
                 |_| {},
+                None,
             ),
             configs,
         )?;

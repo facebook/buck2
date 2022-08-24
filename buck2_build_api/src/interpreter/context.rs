@@ -59,6 +59,27 @@ impl PartialEq for ConfigureGlobalsFn {
     }
 }
 
+#[derive(Clone, Dupe)]
+pub struct AdditionalGlobalsFn(pub(crate) Arc<dyn Fn(&mut GlobalsBuilder) + Sync + Send>);
+
+impl Debug for AdditionalGlobalsFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AdditionalGlobalsFn").finish()
+    }
+}
+
+impl PartialEq for AdditionalGlobalsFn {
+    fn eq(&self, other: &Self) -> bool {
+        // https://rust-lang.github.io/rust-clippy/master/index.html#vtable_address_comparisons
+        // `ptr_eq` compares both data addresses and vtables.
+        // And if compiler merges or splits vtables, we don't care,
+        // because we behavior will be correct either way.
+        // Anyway, this code is used only in tests.
+        #[allow(clippy::vtable_address_comparisons)]
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuildInterpreterConfiguror {
     prelude_import: Option<ImportPath>,
@@ -68,6 +89,8 @@ pub struct BuildInterpreterConfiguror {
     configure_build_file_globals: ConfigureGlobalsFn,
     configure_extension_file_globals: ConfigureGlobalsFn,
     configure_bxl_file_globals: ConfigureGlobalsFn,
+    /// For test.
+    additional_globals: Option<AdditionalGlobalsFn>,
 }
 
 impl BuildInterpreterConfiguror {
@@ -79,6 +102,7 @@ impl BuildInterpreterConfiguror {
         configure_build_file_globals: fn(&mut GlobalsBuilder),
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
+        additional_globals: Option<AdditionalGlobalsFn>,
     ) -> Arc<Self> {
         Arc::new(Self {
             prelude_import,
@@ -88,6 +112,7 @@ impl BuildInterpreterConfiguror {
             configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
             configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
             configure_bxl_file_globals: ConfigureGlobalsFn(configure_bxl_file_globals),
+            additional_globals,
         })
     }
 
@@ -183,19 +208,34 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
     fn build_file_globals(&self) -> Globals {
         // We want the `native` module to contain most things, so match what is in extension files
         configure_base_globals(self.configure_extension_file_globals.0)
-            .with(self.configure_build_file_globals.0)
+            .with(|g| {
+                (self.configure_build_file_globals.0)(g);
+                if let Some(additional_globals) = &self.additional_globals {
+                    (additional_globals.0)(g);
+                }
+            })
             .build()
     }
 
     fn extension_file_globals(&self) -> Globals {
         configure_base_globals(self.configure_extension_file_globals.0)
-            .with(self.configure_extension_file_globals.0)
+            .with(|g| {
+                (self.configure_extension_file_globals.0)(g);
+                if let Some(additional_globals) = &self.additional_globals {
+                    (additional_globals.0)(g);
+                }
+            })
             .build()
     }
 
     fn bxl_file_globals(&self) -> Globals {
         configure_base_globals(self.configure_extension_file_globals.0)
-            .with(self.configure_bxl_file_globals.0)
+            .with(|g| {
+                (self.configure_bxl_file_globals.0)(g);
+                if let Some(additional_globals) = &self.additional_globals {
+                    (additional_globals.0)(g);
+                }
+            })
             .build()
     }
 

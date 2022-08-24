@@ -254,6 +254,7 @@ fn main(fb: FacebookInit) -> anyhow::Result<()> {
                 configure_build_file_globals,
                 configure_extension_file_globals,
                 |_| {},
+                None,
             );
             setup_interpreter(
                 &ctx,

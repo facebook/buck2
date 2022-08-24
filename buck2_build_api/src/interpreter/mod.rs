@@ -31,36 +31,28 @@ pub mod testing {
     use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::common::StarlarkModulePath;
     use buck2_interpreter::common::StarlarkPath;
-    use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
-    use buck2_interpreter::extra::ExtraContextDyn;
-    use buck2_interpreter::extra::InterpreterConfiguror;
     use buck2_interpreter::extra::InterpreterHostArchitecture;
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModule;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::import_paths::ImportPaths;
-    use buck2_interpreter::interpreter::configure_base_globals;
     use buck2_interpreter::interpreter::GlobalInterpreterState;
     use buck2_interpreter::interpreter::InterpreterConfigForCell;
     use buck2_interpreter::interpreter::InterpreterForCell;
     use buck2_interpreter::interpreter::ParseResult;
-    use buck2_interpreter::package_imports::ImplicitImport;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
     use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
     use buck2_node::nodes::unconfigured::TargetsMap;
-    use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indoc::indoc;
-    use starlark::environment::Globals;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
+    use crate::interpreter::context::AdditionalGlobalsFn;
     use crate::interpreter::context::BuildInterpreterConfiguror;
-
-    pub type GlobalsConfigurationFn = Arc<dyn Fn(&mut GlobalsBuilder) + Sync + Send>;
 
     /// Simple container that allows us to instrument things like imports
     pub struct Tester {
@@ -68,7 +60,7 @@ pub mod testing {
         cell_resolver: CellResolver,
         configs: LegacyBuckConfigs,
         loaded_modules: LoadedModules,
-        additional_globals: Option<GlobalsConfigurationFn>,
+        additional_globals: Option<AdditionalGlobalsFn>,
         prelude_path: Option<ImportPath>,
     }
 
@@ -221,102 +213,6 @@ pub mod testing {
         }
     }
 
-    /// Configuror for testing that can add extra symbols into globals. This can be handy
-    /// for testing structures that aren't directly exposed, but need to operate in Starlark
-    /// (e.g. ProviderCollection, or Artifact)
-    struct InjectableInterpreterConfiguror {
-        additional_globals: Option<GlobalsConfigurationFn>,
-        prelude_path: Option<ImportPath>,
-    }
-
-    impl InjectableInterpreterConfiguror {
-        fn new(
-            additional_globals: Option<GlobalsConfigurationFn>,
-            prelude_path: Option<ImportPath>,
-        ) -> Arc<Self> {
-            Arc::new(Self {
-                additional_globals,
-                prelude_path,
-            })
-        }
-    }
-
-    impl InterpreterConfiguror for InjectableInterpreterConfiguror {
-        fn build_file_globals(&self) -> Globals {
-            configure_base_globals(configure_extension_file_globals)
-                .with(|globals_builder| {
-                    configure_build_file_globals(globals_builder);
-                    common_helpers(globals_builder);
-                    match &self.additional_globals {
-                        None => {}
-                        Some(module) => module(globals_builder),
-                    }
-                })
-                .build()
-        }
-
-        fn extension_file_globals(&self) -> Globals {
-            configure_base_globals(configure_extension_file_globals)
-                .with(|globals_builder| {
-                    configure_extension_file_globals(globals_builder);
-                    common_helpers(globals_builder);
-                    match &self.additional_globals {
-                        None => {}
-                        Some(module) => module(globals_builder),
-                    }
-                })
-                .build()
-        }
-
-        fn bxl_file_globals(&self) -> Globals {
-            configure_base_globals(configure_extension_file_globals)
-                .with(|globals_builder| {
-                    common_helpers(globals_builder);
-                    match &self.additional_globals {
-                        None => {}
-                        Some(module) => module(globals_builder),
-                    }
-                })
-                .build()
-        }
-
-        fn host_platform(&self) -> InterpreterHostPlatform {
-            InterpreterHostPlatform::Linux
-        }
-
-        fn host_architecture(&self) -> InterpreterHostArchitecture {
-            InterpreterHostArchitecture::X86_64
-        }
-
-        fn new_extra_context(
-            &self,
-            cell_info: &InterpreterCellInfo,
-            buildfile_path: BuildFilePath,
-            package_listing: PackageListing,
-            package_boundary_exception: bool,
-            loaded_modules: &LoadedModules,
-            implicit_import: Option<&Arc<ImplicitImport>>,
-        ) -> SharedResult<Box<dyn ExtraContextDyn>> {
-            BuildInterpreterConfiguror::new_extra_context(
-                cell_info,
-                buildfile_path,
-                package_listing,
-                package_boundary_exception,
-                loaded_modules,
-                implicit_import,
-                false,
-            )
-        }
-
-        fn prelude_import(&self) -> Option<&ImportPath> {
-            self.prelude_path.as_ref()
-        }
-
-        fn eq_token(&self) -> PartialEqAny {
-            PartialEqAny::always_false()
-        }
-    }
-
     impl Tester {
         pub fn new() -> anyhow::Result<Self> {
             Self::with_cells(cells(None)?)
@@ -338,7 +234,7 @@ pub mod testing {
             &mut self,
             additional_globals: impl Fn(&mut GlobalsBuilder) + Sync + Send + 'static,
         ) {
-            self.additional_globals = Some(Arc::new(additional_globals));
+            self.additional_globals = Some(AdditionalGlobalsFn(Arc::new(additional_globals)));
         }
 
         pub fn set_prelude(&mut self, prelude_import: ImportPath) {
@@ -353,15 +249,27 @@ pub mod testing {
                 &BuildFileCell::new(self.cell_alias_resolver.resolve_self().clone()),
                 &self.cell_alias_resolver,
             )?;
+            let additional_globals = self.additional_globals.dupe();
             Ok(InterpreterForCell::new(
                 Arc::new(InterpreterConfigForCell::new(
                     self.cell_alias_resolver.dupe(),
                     Arc::new(GlobalInterpreterState::new(
                         &self.configs,
                         self.cell_resolver.dupe(),
-                        InjectableInterpreterConfiguror::new(
-                            self.additional_globals.dupe(),
+                        BuildInterpreterConfiguror::new(
                             self.prelude_path.clone(),
+                            InterpreterHostPlatform::Linux,
+                            InterpreterHostArchitecture::X86_64,
+                            false,
+                            configure_build_file_globals,
+                            configure_extension_file_globals,
+                            |_| {},
+                            Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
+                                common_helpers(globals_builder);
+                                if let Some(additional_globals) = &additional_globals {
+                                    (additional_globals.0)(globals_builder)
+                                }
+                            }))),
                         ),
                         false,
                     )?),

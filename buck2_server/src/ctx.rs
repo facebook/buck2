@@ -317,6 +317,7 @@ impl ServerCommandContext {
             configure_build_file_globals,
             configure_extension_file_globals,
             self.configure_bxl_file_globals,
+            None,
         );
 
         let root_config = legacy_configs
