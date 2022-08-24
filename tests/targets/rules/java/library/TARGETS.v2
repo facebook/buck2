@@ -753,6 +753,7 @@ native.genrule(
     name = "run_java_binary_with_native_lib_with_wrapper",
     cmd = "$(exe :run_java_binary_script) $(location //buck2/tests/targets/rules/java/library/java_binary_with_native_libs:binary_with_native_lib_with_wrapper) > $OUT",
     out = "out.txt",
+    labels = ["uses_hg"],
 )
 
 JAVA_BINARY_WITH_NATIVE_LIBS = ["binary_with_native_lib", "binary_with_native_lib_with_wrapper"]
