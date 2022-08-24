@@ -10,25 +10,20 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_node::attrs::attr::Attribute;
-use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_type;
-use starlark::values::docs::DocString;
-use starlark::values::docs::DocStringKind;
 use starlark::values::none::NoneType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -50,8 +45,6 @@ enum AttrError {
         OPTION_NONE_EXPLANATION
     )]
     OptionDefaultNone(String),
-    #[error("Parameter `{0}` had no value provided, but it is mandatory")]
-    MissingMandatoryParameter(String),
 }
 
 pub(crate) trait AttributeExt {
@@ -65,18 +58,6 @@ pub(crate) trait AttributeExt {
 
     /// An `attr` which is not allowed to have a default as a relative label.
     fn check_not_relative_label<'v>(default: Option<Value<'v>>, attr: &str) -> anyhow::Result<()>;
-
-    fn coerce<'v>(
-        &self,
-        param_name: &str,
-        configurable: AttrIsConfigurable,
-        coercer_ctx: &dyn AttrCoercionContext,
-        value: Option<Value<'v>>,
-    ) -> anyhow::Result<CoercedValue>;
-
-    fn docstring(&self) -> Option<DocString>;
-
-    fn starlark_type(&self) -> String;
 }
 
 impl AttributeExt for Attribute {
@@ -118,39 +99,6 @@ impl AttributeExt for Attribute {
             }
         }
         Ok(())
-    }
-
-    /// Attempt to coerce a value. If the value provided is `None`, and a default value is available,
-    /// that default value is returned.
-    fn coerce<'v>(
-        &self,
-        param_name: &str,
-        configurable: AttrIsConfigurable,
-        coercer_ctx: &dyn AttrCoercionContext,
-        value: Option<Value<'v>>,
-    ) -> anyhow::Result<CoercedValue> {
-        match (&self.default, value) {
-            (default, Some(value)) if !value.is_none() => self
-                .coercer
-                .coerce_with_default(
-                    configurable,
-                    coercer_ctx,
-                    value,
-                    default.as_ref().map(|x| &**x),
-                )
-                .map(CoercedValue::Custom)
-                .with_context(|| format!("when coercing attribute `{}`", param_name)),
-            (Some(_), _) => Ok(CoercedValue::Default),
-            (None, _) => Err(AttrError::MissingMandatoryParameter(param_name.to_owned()).into()),
-        }
-    }
-
-    fn docstring(&self) -> Option<DocString> {
-        DocString::from_docstring(DocStringKind::Starlark, &self.doc)
-    }
-
-    fn starlark_type(&self) -> String {
-        self.coercer.starlark_type()
     }
 }
 
