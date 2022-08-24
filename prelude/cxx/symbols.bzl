@@ -19,7 +19,8 @@ def extract_symbol_names(
     if not objects:
         fail("no objects provided")
 
-    nm = get_cxx_toolchain_info(ctx).binary_utilities_info.nm
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    nm = cxx_toolchain.binary_utilities_info.nm
     output = ctx.actions.declare_output(name)
 
     # -A: Prepend all lines with the name of the input file to which it
@@ -30,8 +31,11 @@ def extract_symbol_names(
         nm_flags += "g"
     if undefined_only:
         nm_flags += "u"
-    if dynamic:
+
+    # darwin objects don't have dynamic symbol tables.
+    if dynamic and cxx_toolchain.linker_info.type != "darwin":
         nm_flags += "D"
+
     script = (
         "set -euo pipefail; " +
         '"$1" {} "${{@:2}}"'.format(nm_flags) +
