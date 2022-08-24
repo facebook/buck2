@@ -74,11 +74,12 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             dex_files_info = get_multi_dex(
                 ctx,
                 ctx.attrs._android_toolchain[AndroidToolchainInfo],
-                jars_to_owners.keys(),
+                jars_to_owners,
                 ctx.attrs.primary_dex_patterns,
                 proguard_output.proguard_configuration_output_file if proguard_output else None,
                 proguard_output.proguard_mapping_output_file if proguard_output else None,
                 is_optimized = has_proguard_config,
+                apk_module_graph_file = target_to_module_mapping_file,
             )
         else:
             dex_files_info = get_single_primary_dex(

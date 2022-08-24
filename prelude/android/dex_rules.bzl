@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "DexFilesInfo")
-load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_mapping_function", "is_root_module")
+load("@fbcode//buck2/prelude/android:voltron.bzl", "all_targets_in_root_module", "get_apk_module_graph_mapping_function", "is_root_module")
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
@@ -65,44 +65,70 @@ def get_single_primary_dex(
 def get_multi_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
-        java_library_jars: ["artifact"],
+        java_library_jars_to_owners: {"artifact": "target_label"},
         primary_dex_patterns: [str.type],
         proguard_configuration_output_file: ["artifact", None],
         proguard_mapping_output_file: ["artifact", None],
-        is_optimized: bool.type) -> "DexFilesInfo":
-    multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
-
-    output_dex_file = ctx.actions.declare_output("classes.dex")
-    multi_dex_cmd.add("--primary-dex", output_dex_file.as_output())
+        is_optimized: bool.type,
+        apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
+    primary_dex_file = ctx.actions.declare_output("classes.dex")
+    root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir")
     secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir")
-    multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir.as_output())
 
-    multi_dex_cmd.add("--module", ROOT_MODULE)
+    # dynamic actions are not valid with no input, but it's easier to use the same code regardless,
+    # so just create an empty input.
+    inputs = [apk_module_graph_file] if apk_module_graph_file else [ctx.actions.write("empty_artifact_for_multi_dex_dynamic_action", [])]
+    outputs = [primary_dex_file, root_module_secondary_dex_output_dir, secondary_dex_dir]
 
-    multi_dex_cmd.add("--primary-dex-patterns-path", ctx.actions.write("primary_dex_patterns", primary_dex_patterns))
+    def do_multi_dex(ctx: "context"):
+        target_to_module_mapping_function = get_apk_module_graph_mapping_function(ctx, apk_module_graph_file) if apk_module_graph_file else all_targets_in_root_module
+        module_to_jars = {}
+        for java_library_jar, owner in java_library_jars_to_owners.items():
+            module = target_to_module_mapping_function(str(owner))
+            module_to_jars.setdefault(module, []).append(java_library_jar)
 
-    jar_to_dex_file = ctx.actions.write("jars_to_dex_file.txt", java_library_jars)
-    multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
-    multi_dex_cmd.hidden(java_library_jars)
+        secondary_dex_dir_srcs = {}
+        for module, jars in module_to_jars.items():
+            multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
 
-    multi_dex_cmd.add("--android-jar", android_toolchain.android_jar)
-    if not is_optimized:
-        multi_dex_cmd.add("--no-optimize")
+            if is_root_module(module):
+                multi_dex_cmd.add("--primary-dex", ctx.outputs[primary_dex_file].as_output())
+                multi_dex_cmd.add("--primary-dex-patterns-path", ctx.actions.write("primary_dex_patterns", primary_dex_patterns))
+                multi_dex_cmd.add("--secondary-dex-output-dir", ctx.outputs[root_module_secondary_dex_output_dir].as_output())
+            else:
+                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dex_output_dir_for_module_{}".format(module))
+                secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
+                secondary_dex_dir_srcs[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
+                multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
 
-    if proguard_configuration_output_file:
-        multi_dex_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
-        multi_dex_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
+            multi_dex_cmd.add("--module", module)
 
-    multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
-    multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
-    if ctx.attrs.minimize_primary_dex_size:
-        multi_dex_cmd.add("--minimize-primary-dex")
+            jar_to_dex_file = ctx.actions.write("jars_to_dex_file_for_module_{}.txt".format(module), jars)
+            multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
+            multi_dex_cmd.hidden(jars)
 
-    ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
+            multi_dex_cmd.add("--android-jar", android_toolchain.android_jar)
+            if not is_optimized:
+                multi_dex_cmd.add("--no-optimize")
+
+            if proguard_configuration_output_file:
+                multi_dex_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
+                multi_dex_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
+
+            multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
+            multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
+            if ctx.attrs.minimize_primary_dex_size:
+                multi_dex_cmd.add("--minimize-primary-dex")
+
+            ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
+
+        ctx.actions.symlinked_dir(ctx.outputs[secondary_dex_dir], secondary_dex_dir_srcs)
+
+    ctx.actions.dynamic_output(inputs, [], outputs, do_multi_dex)
 
     return DexFilesInfo(
-        primary_dex = output_dex_file,
-        secondary_dex_dirs = [secondary_dex_dir],
+        primary_dex = primary_dex_file,
+        secondary_dex_dirs = [root_module_secondary_dex_output_dir, secondary_dex_dir],
         proguard_text_files_path = None,
     )
 
