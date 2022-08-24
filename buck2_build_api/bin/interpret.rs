@@ -25,6 +25,7 @@ use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
@@ -255,6 +256,7 @@ fn main(fb: FacebookInit) -> anyhow::Result<()> {
                 configure_extension_file_globals,
                 |_| {},
                 None,
+                Arc::new(ConfiguredGraphQueryEnvironment::functions()),
             );
             setup_interpreter(
                 &ctx,

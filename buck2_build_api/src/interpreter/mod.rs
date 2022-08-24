@@ -53,6 +53,7 @@ pub mod testing {
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::context::AdditionalGlobalsFn;
     use crate::interpreter::context::BuildInterpreterConfiguror;
+    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     /// Simple container that allows us to instrument things like imports
     pub struct Tester {
@@ -270,6 +271,7 @@ pub mod testing {
                                     (additional_globals.0)(globals_builder)
                                 }
                             }))),
+                            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
                         ),
                         false,
                     )?),

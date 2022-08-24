@@ -34,6 +34,7 @@ use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
+use buck2_build_api::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -318,6 +319,7 @@ impl ServerCommandContext {
             configure_extension_file_globals,
             self.configure_bxl_file_globals,
             None,
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
 
         let root_config = legacy_configs

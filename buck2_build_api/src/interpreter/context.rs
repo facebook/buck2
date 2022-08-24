@@ -32,6 +32,7 @@ use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_interpreter_for_build::interpreter::module_internals::PackageImplicits;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use starlark::environment::Globals;
@@ -42,7 +43,6 @@ use crate::interpreter::rule_defs::cmd_args::register_args_function;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::rule_defs::transition::starlark::register_transition_defs;
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[derive(Clone)]
 struct ConfigureGlobalsFn(fn(&mut GlobalsBuilder));
@@ -80,6 +80,25 @@ impl PartialEq for AdditionalGlobalsFn {
     }
 }
 
+#[derive(Clone, Dupe)]
+struct QueryFunctionsHolder(Arc<dyn QueryFunctionsExt>);
+
+impl PartialEq for QueryFunctionsHolder {
+    fn eq(&self, _other: &Self) -> bool {
+        // Query functions are always created with
+        // `ConfiguredGraphQueryEnvironment::functions()`,
+        // which has no state. So it is safe to return true here.
+        true
+    }
+}
+
+impl Debug for QueryFunctionsHolder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QueryFunctionsHolder")
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuildInterpreterConfiguror {
     prelude_import: Option<ImportPath>,
@@ -91,6 +110,7 @@ pub struct BuildInterpreterConfiguror {
     configure_bxl_file_globals: ConfigureGlobalsFn,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
+    query_functions: QueryFunctionsHolder,
 }
 
 impl BuildInterpreterConfiguror {
@@ -103,6 +123,7 @@ impl BuildInterpreterConfiguror {
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
+        query_functions: Arc<dyn QueryFunctionsExt>,
     ) -> Arc<Self> {
         Arc::new(Self {
             prelude_import,
@@ -113,6 +134,7 @@ impl BuildInterpreterConfiguror {
             configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
             configure_bxl_file_globals: ConfigureGlobalsFn(configure_bxl_file_globals),
             additional_globals,
+            query_functions: QueryFunctionsHolder(query_functions),
         })
     }
 }
@@ -233,7 +255,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing),
             package_boundary_exception,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
+            self.query_functions.0.dupe(),
         );
 
         let imports = loaded_modules.imports().cloned().collect();

@@ -481,6 +481,7 @@ mod tests {
     use crate::interpreter::context::BuildInterpreterConfiguror;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::testing::Tester;
+    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
     use crate::spawner::BuckSpawner;
 
     #[tokio::test]
@@ -594,6 +595,7 @@ mod tests {
                 configure_extension_file_globals,
                 |_| {},
                 None,
+                Arc::new(ConfiguredGraphQueryEnvironment::functions()),
             ),
             configs,
         )?;
