@@ -94,13 +94,11 @@ impl<'v> Display for RuleCallable<'v> {
 
 /// Errors around rule declaration, instantiation, validation, etc
 #[derive(Debug, thiserror::Error)]
-pub enum RuleError {
+enum RuleError {
     #[error("The output of rule() may only be called after the module is loaded")]
     RuleCalledBeforeFreezing,
     #[error("`{0}` is not a valid attribute name")]
     InvalidParameterName(String),
-    #[error("Parameter `{0}` had no value provided, but it is mandatory")]
-    MissingMandatoryParameter(String),
     #[error("Rule defined in `{0}` must be assigned to a variable, e.g. `my_rule = rule(...)`")]
     RuleNotAssigned(ImportPath),
     #[error(

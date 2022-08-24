@@ -38,7 +38,6 @@ use thiserror::Error;
 use tracing::error;
 
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
-use crate::interpreter::rule_defs::rule::RuleError;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
@@ -51,6 +50,8 @@ enum AttrError {
         OPTION_NONE_EXPLANATION
     )]
     OptionDefaultNone(String),
+    #[error("Parameter `{0}` had no value provided, but it is mandatory")]
+    MissingMandatoryParameter(String),
 }
 
 pub(crate) trait AttributeExt {
@@ -140,7 +141,7 @@ impl AttributeExt for Attribute {
                 .map(CoercedValue::Custom)
                 .with_context(|| format!("when coercing attribute `{}`", param_name)),
             (Some(_), _) => Ok(CoercedValue::Default),
-            (None, _) => Err(RuleError::MissingMandatoryParameter(param_name.to_owned()).into()),
+            (None, _) => Err(AttrError::MissingMandatoryParameter(param_name.to_owned()).into()),
         }
     }
 
