@@ -200,7 +200,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         self.remote.re_platform()
     }
 
-    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+    fn re_use_case(&self) -> RemoteExecutorUseCase {
         self.remote.re_use_case()
     }
 

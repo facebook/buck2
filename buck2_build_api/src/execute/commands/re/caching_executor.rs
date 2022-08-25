@@ -154,7 +154,7 @@ impl PreparedCommandExecutor for CachingExecutor {
         self.inner.re_platform()
     }
 
-    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+    fn re_use_case(&self) -> RemoteExecutorUseCase {
         self.inner.re_use_case()
     }
 

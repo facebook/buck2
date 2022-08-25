@@ -88,7 +88,7 @@ impl Uploader {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.

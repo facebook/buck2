@@ -959,7 +959,7 @@ pub trait PreparedCommandExecutor: Send + Sync {
 
     fn re_platform(&self) -> Option<&RE::Platform>;
 
-    fn re_use_case(&self) -> &RemoteExecutorUseCase;
+    fn re_use_case(&self) -> RemoteExecutorUseCase;
 
     fn name(&self) -> ExecutorName;
 }

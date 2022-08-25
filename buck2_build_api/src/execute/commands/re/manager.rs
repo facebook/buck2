@@ -283,7 +283,7 @@ impl ManagedRemoteExecutionClient {
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Option<ActionResultResponse>> {
         Ok(self
             .lock()?
@@ -299,7 +299,7 @@ impl ManagedRemoteExecutionClient {
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.lock()?
@@ -314,7 +314,7 @@ impl ManagedRemoteExecutionClient {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.lock()?
             .get()
@@ -332,7 +332,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
@@ -346,7 +346,7 @@ impl ManagedRemoteExecutionClient {
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.lock()?
             .get()
@@ -358,7 +358,7 @@ impl ManagedRemoteExecutionClient {
     pub async fn download_trees(
         &self,
         digests: Vec<TDigest>,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<RE::Tree>> {
         self.lock()?
             .get()
@@ -370,7 +370,7 @@ impl ManagedRemoteExecutionClient {
     pub async fn download_blob(
         &self,
         digest: &TDigest,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<u8>> {
         self.lock()?
             .get()

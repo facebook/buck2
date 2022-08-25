@@ -97,7 +97,7 @@ impl Materializer for EdenMaterializer {
         self.re_client_manager
             .get_re_connection()
             .get_client()
-            .upload_files_and_directories(files, directories, Vec::new(), &self.re_use_case)
+            .upload_files_and_directories(files, directories, Vec::new(), self.re_use_case)
             .await?;
 
         // Second upload the tree structure that contains directories/file/symlink metadata
@@ -114,7 +114,7 @@ impl Materializer for EdenMaterializer {
                 &ActionBlobs::new(),
                 ProjectRelativePath::empty(),
                 &input_dir,
-                &self.re_use_case,
+                self.re_use_case,
                 &ReExecutorGlobalKnobs {
                     always_check_ttls: true,
                 },
@@ -181,7 +181,7 @@ impl Materializer for EdenMaterializer {
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
         let (paths, values) =
-            write_to_cas(self.re_client_manager.as_ref(), &self.re_use_case, gen).await?;
+            write_to_cas(self.re_client_manager.as_ref(), self.re_use_case, gen).await?;
 
         futures::future::try_join_all(
             std::iter::zip(paths.iter(), values.iter())
@@ -243,14 +243,14 @@ impl EdenMaterializer {
             )),
             eden_buck_out,
             fs,
-            re_use_case: *RemoteExecutorUseCase::buck2_default(), // TODO (yipu): Should this be configurable?
+            re_use_case: RemoteExecutorUseCase::buck2_default(), // TODO (yipu): Should this be configurable?
         })
     }
 }
 
 async fn write_to_cas<'a>(
     re: &ReConnectionManager,
-    re_use_case: &RemoteExecutorUseCase,
+    re_use_case: RemoteExecutorUseCase,
     gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> anyhow::Result<(Vec<ProjectRelativePathBuf>, Vec<ArtifactValue>)> {
     let contents = gen()?;

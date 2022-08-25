@@ -34,10 +34,10 @@ impl RemoteExecutorUseCase {
 
     /// The "buck2-default" use case. This is meant to be used when no use case is configured. It's
     /// not meant to be used for convenience when a use case is not available where it's needed!
-    pub fn buck2_default() -> &'static Self {
+    pub fn buck2_default() -> Self {
         static USE_CASE: Lazy<RemoteExecutorUseCase> =
             Lazy::new(|| RemoteExecutorUseCase::new("buck2-default".to_owned()));
-        &USE_CASE
+        *USE_CASE
     }
 }
 

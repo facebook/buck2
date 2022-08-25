@@ -169,7 +169,7 @@ impl ReExecutor {
                     blobs,
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
-                    &self.re_use_case,
+                    self.re_use_case,
                     &self.knobs,
                 ),
             )
@@ -204,7 +204,7 @@ impl ReExecutor {
             .execute(
                 action_digest.dupe(),
                 &self.re_platform,
-                &self.re_use_case,
+                self.re_use_case,
                 &identity,
                 &mut manager,
             )
@@ -240,7 +240,7 @@ impl ReExecutor {
                     //   failing tests running on RE. See D34344489 for context.
                     IndexMap::new(),
                     response
-                        .std_streams(&self.re_client, &self.re_use_case)
+                        .std_streams(&self.re_client, self.re_use_case)
                         .into(),
                     Some(action_result.exit_code),
                 ),
@@ -284,7 +284,7 @@ impl PreparedCommandExecutor for ReExecutor {
             request,
             &*self.materializer,
             &self.re_client,
-            &self.re_use_case,
+            self.re_use_case,
             manager,
             buck2_data::ReStage {
                 stage: Some(buck2_data::ReDownload {}.into()),
@@ -302,8 +302,8 @@ impl PreparedCommandExecutor for ReExecutor {
         Some(&self.re_platform)
     }
 
-    fn re_use_case(&self) -> &RemoteExecutorUseCase {
-        &self.re_use_case
+    fn re_use_case(&self) -> RemoteExecutorUseCase {
+        self.re_use_case
     }
 
     fn name(&self) -> ExecutorName {
@@ -322,7 +322,7 @@ pub trait RemoteActionResult: Send + Sync {
     fn std_streams(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> RemoteCommandStdStreams;
 
     /// The TTL given by RE for the outputs for this action.
@@ -349,7 +349,7 @@ impl RemoteActionResult for ExecuteResponse {
     fn std_streams(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> RemoteCommandStdStreams {
         RemoteCommandStdStreams::new(&self.action_result, client, use_case)
     }
@@ -381,7 +381,7 @@ impl RemoteActionResult for ActionResultResponse {
     fn std_streams(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> RemoteCommandStdStreams {
         RemoteCommandStdStreams::new(&self.action_result, client, use_case)
     }

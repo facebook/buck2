@@ -127,7 +127,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
         None
     }
 
-    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+    fn re_use_case(&self) -> RemoteExecutorUseCase {
         RemoteExecutorUseCase::buck2_default()
     }
 

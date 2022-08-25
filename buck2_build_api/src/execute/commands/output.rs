@@ -48,8 +48,8 @@ impl CommandStdStreams {
             },
             Self::Remote(remote) => {
                 let (stdout, stderr) = future::join(
-                    remote.stdout.to_lossy(&remote.client, &remote.use_case),
-                    remote.stderr.to_lossy(&remote.client, &remote.use_case),
+                    remote.stdout.to_lossy(&remote.client, remote.use_case),
+                    remote.stderr.to_lossy(&remote.client, remote.use_case),
                 )
                 .await;
                 StdStreamPair {
@@ -73,7 +73,7 @@ impl CommandStdStreams {
             Self::Remote(remote) => {
                 remote
                     .stderr
-                    .to_lossy(&remote.client, &remote.use_case)
+                    .to_lossy(&remote.client, remote.use_case)
                     .await
             }
             Self::Empty => String::new(),
@@ -91,8 +91,8 @@ impl CommandStdStreams {
             }),
             Self::Remote(remote) => {
                 let (stdout, stderr) = future::try_join(
-                    remote.stdout.into_bytes(&remote.client, &remote.use_case),
-                    remote.stderr.into_bytes(&remote.client, &remote.use_case),
+                    remote.stdout.into_bytes(&remote.client, remote.use_case),
+                    remote.stderr.into_bytes(&remote.client, remote.use_case),
                 )
                 .await?;
                 Ok(StdStreamPair {
@@ -125,7 +125,7 @@ impl RemoteCommandStdStreams {
     pub fn new(
         action_result: &TActionResult2,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> Self {
         let stdout = ReStdStream::new(
             action_result.stdout_raw.clone(),
@@ -138,7 +138,7 @@ impl RemoteCommandStdStreams {
 
         Self {
             client: client.dupe(),
-            use_case: *use_case,
+            use_case,
             stdout,
             stderr,
         }
@@ -146,7 +146,7 @@ impl RemoteCommandStdStreams {
 
     pub async fn prefetch_lossy_stderr(mut self) -> Self {
         self.stderr
-            .prefetch_lossy(&self.client, &self.use_case)
+            .prefetch_lossy(&self.client, self.use_case)
             .await;
         self
     }
@@ -206,7 +206,7 @@ impl ReStdStream {
     async fn to_lossy(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> String {
         // 4MBs seems like a reasonably large volume of output. There is no research or science behind
         // this number.
@@ -240,7 +240,7 @@ impl ReStdStream {
     async fn into_bytes(
         self,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Raw(raw) => Ok(raw),
@@ -261,7 +261,7 @@ impl ReStdStream {
     async fn prefetch_lossy(
         &mut self,
         client: &ManagedRemoteExecutionClient,
-        use_case: &RemoteExecutorUseCase,
+        use_case: RemoteExecutorUseCase,
     ) {
         if let Self::Digest(digest) = &self {
             let data = self.to_lossy(client, use_case).await;
