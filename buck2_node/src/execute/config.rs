@@ -36,12 +36,23 @@ impl From<RemoteExecutorUseCase> for String {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Default, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct RemoteExecutorOptions {
     pub re_properties: SmallMap<String, String>,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
     pub re_use_case: RemoteExecutorUseCase,
+}
+
+impl Default for RemoteExecutorOptions {
+    fn default() -> Self {
+        Self {
+            re_properties: Default::default(),
+            re_action_key: Default::default(),
+            re_max_input_files_bytes: Default::default(),
+            re_use_case: RemoteExecutorUseCase::new("buck2-default".to_owned()),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
