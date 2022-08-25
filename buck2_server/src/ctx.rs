@@ -55,9 +55,11 @@ use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
+use buck2_node::execute::config::CacheUploadBehavior;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::LocalExecutorOptions;
+use buck2_node::execute::config::PathSeparatorKind;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::raw_output::RawOuputGuard;
@@ -138,9 +140,11 @@ impl BaseServerCommandContext {
             // For commands that don't set a fallback executor config, set a local one.
             set_fallback_executor_config(
                 &mut data,
-                CommandExecutorConfig::new_with_default_path_separator(CommandExecutorKind::Local(
-                    LocalExecutorOptions {},
-                )),
+                CommandExecutorConfig {
+                    executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
+                    path_separator: PathSeparatorKind::system_default(),
+                    cache_upload_behavior: CacheUploadBehavior::Disabled,
+                },
             );
 
             let data = UserComputationData {

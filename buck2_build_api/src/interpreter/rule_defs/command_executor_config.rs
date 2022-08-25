@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::fmt;
 
 use anyhow::Context as _;
+use buck2_node::execute::config::CacheUploadBehavior;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::HybridExecutionLevel;
@@ -58,6 +59,8 @@ struct StarlarkCommandExecutorConfig<'v> {
     pub(super) allow_hybrid_fallbacks_on_failure: bool,
     /// Whether to use Windows path separators in command line arguments.
     pub(super) use_windows_path_separators: bool,
+    /// Whether to upload local actions to the RE cache
+    pub(super) allow_cache_uploads: bool,
 }
 
 impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
@@ -170,14 +173,19 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             },
         };
 
-        Ok(CommandExecutorConfig::new(
-            CommandExecutorKind::new(local_options, remote_options, hybrid_level)?,
-            if self.use_windows_path_separators {
+        Ok(CommandExecutorConfig {
+            executor_kind: CommandExecutorKind::new(local_options, remote_options, hybrid_level)?,
+            path_separator: if self.use_windows_path_separators {
                 PathSeparatorKind::Windows
             } else {
                 PathSeparatorKind::Unix
             },
-        ))
+            cache_upload_behavior: if self.allow_cache_uploads {
+                CacheUploadBehavior::Enabled
+            } else {
+                CacheUploadBehavior::Disabled
+            },
+        })
     }
 }
 
@@ -245,6 +253,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = false, require = named)] allow_limited_hybrid_fallbacks: bool,
         #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
         #[starlark(default = false, require = named)] use_windows_path_separators: bool,
+        #[starlark(default = false, require = named)] allow_cache_uploads: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let config = StarlarkCommandExecutorConfig {
@@ -259,6 +268,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             allow_limited_hybrid_fallbacks,
             allow_hybrid_fallbacks_on_failure,
             use_windows_path_separators,
+            allow_cache_uploads,
         };
         // This checks that the values are valid.
         config.to_command_executor_config()?;

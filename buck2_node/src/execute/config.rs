@@ -92,10 +92,33 @@ pub enum PathSeparatorKind {
     Windows,
 }
 
+impl PathSeparatorKind {
+    pub fn system_default() -> Self {
+        if cfg!(windows) {
+            Self::Windows
+        } else {
+            Self::Unix
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
+pub enum CacheUploadBehavior {
+    Enabled,
+    Disabled,
+}
+
+impl Default for CacheUploadBehavior {
+    fn default() -> Self {
+        Self::Disabled
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct CommandExecutorConfig {
     pub executor_kind: CommandExecutorKind,
     pub path_separator: PathSeparatorKind,
+    pub cache_upload_behavior: CacheUploadBehavior,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
@@ -131,25 +154,11 @@ impl CommandExecutorKind {
 }
 
 impl CommandExecutorConfig {
-    pub fn new(executor_kind: CommandExecutorKind, path_separator: PathSeparatorKind) -> Self {
-        Self {
-            executor_kind,
-            path_separator,
-        }
-    }
-
-    pub fn new_with_default_path_separator(executor_kind: CommandExecutorKind) -> Self {
-        Self {
-            executor_kind,
-            path_separator: if cfg!(windows) {
-                PathSeparatorKind::Windows
-            } else {
-                PathSeparatorKind::Unix
-            },
-        }
-    }
-
     pub fn testing_local() -> Self {
-        Self::new_with_default_path_separator(CommandExecutorKind::Local(LocalExecutorOptions {}))
+        Self {
+            executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
+            path_separator: PathSeparatorKind::system_default(),
+            cache_upload_behavior: CacheUploadBehavior::Disabled,
+        }
     }
 }

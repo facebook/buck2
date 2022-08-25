@@ -26,10 +26,12 @@ use buck2_build_api::execute::materializer::Materializer;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_node::execute::config::CacheUploadBehavior;
 use buck2_node::execute::config::CommandExecutorConfig;
 use buck2_node::execute::config::CommandExecutorKind;
 use buck2_node::execute::config::HybridExecutionLevel;
 use buck2_node::execute::config::LocalExecutorOptions;
+use buck2_node::execute::config::PathSeparatorKind;
 use buck2_node::execute::config::RemoteExecutorOptions;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
@@ -262,7 +264,12 @@ pub fn get_executor_config_for_strategy(
             ..Default::default()
         }),
     };
-    CommandExecutorConfig::new_with_default_path_separator(executor_kind)
+
+    CommandExecutorConfig {
+        executor_kind,
+        path_separator: PathSeparatorKind::system_default(),
+        cache_upload_behavior: CacheUploadBehavior::Disabled,
+    }
 }
 
 fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecutionPlatform {
