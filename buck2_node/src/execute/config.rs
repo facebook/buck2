@@ -10,6 +10,7 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use derive_more::Display;
 use gazebo::prelude::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
@@ -19,7 +20,7 @@ use starlark_map::small_map::SmallMap;
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display)]
 pub struct RemoteExecutorUseCase(Intern<String>);
 
 impl RemoteExecutorUseCase {

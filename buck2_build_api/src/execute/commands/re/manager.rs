@@ -379,6 +379,14 @@ impl ManagedRemoteExecutionClient {
             .await
     }
 
+    pub async fn upload_blob(
+        &self,
+        blob: Vec<u8>,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<TDigest> {
+        self.lock()?.get().await?.upload_blob(blob, use_case).await
+    }
+
     pub async fn get_session_id(&self) -> anyhow::Result<String> {
         let session_id = self.lock()?.get().await?.get_session_id().to_owned();
         Ok(session_id)

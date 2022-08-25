@@ -108,6 +108,51 @@ impl CommandStdStreams {
             }),
         }
     }
+
+    pub async fn into_re(
+        self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<StdStreamPair<ReStdStream>> {
+        match self {
+            Self::Local { stdout, stderr } => {
+                let (stdout, stderr) = future::try_join(
+                    maybe_upload_to_re(client, use_case, stdout),
+                    maybe_upload_to_re(client, use_case, stderr),
+                )
+                .await?;
+
+                Ok(StdStreamPair {
+                    stdout,
+                    stderr,
+                    _private: (),
+                })
+            }
+            Self::Remote(remote) => {
+                // TODO (torozco): This assumes that the existing remote outputs we have have the
+                // same re use case as what we passed in. Lots of things make this assumption, but
+                // for the sake of being safe, check it.
+                if remote.use_case != use_case {
+                    return Err(anyhow::anyhow!(
+                        "Copying log outputs across RE use cases (from `{}` to `{}`) is not supported",
+                        remote.use_case,
+                        use_case
+                    ));
+                }
+
+                Ok(StdStreamPair {
+                    stdout: remote.stdout,
+                    stderr: remote.stderr,
+                    _private: (),
+                })
+            }
+            Self::Empty => Ok(StdStreamPair {
+                stdout: ReStdStream::None,
+                stderr: ReStdStream::None,
+                _private: (),
+            }),
+        }
+    }
 }
 
 #[derive(Derivative, Clone)]
@@ -153,7 +198,7 @@ impl RemoteCommandStdStreams {
 }
 
 #[derive(Clone)]
-enum ReStdStream {
+pub enum ReStdStream {
     /// Raw bytes received inline from RE.
     Raw(Vec<u8>),
 
@@ -174,6 +219,14 @@ impl ReStdStream {
             (Some(raw), _) if !raw.is_empty() => Self::Raw(raw),
             (_, Some(digest)) => Self::Digest(digest),
             (_, None) => Self::None,
+        }
+    }
+
+    pub fn into_raw_or_digest(self) -> (Option<Vec<u8>>, Option<ReDigest>) {
+        match self {
+            Self::Raw(raw) => (Some(raw), None),
+            Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => (None, Some(digest)),
+            Self::None => (None, None),
         }
     }
 }
@@ -271,4 +324,17 @@ impl ReStdStream {
             };
         }
     }
+}
+
+async fn maybe_upload_to_re(
+    client: &ManagedRemoteExecutionClient,
+    use_case: RemoteExecutorUseCase,
+    bytes: Vec<u8>,
+) -> anyhow::Result<ReStdStream> {
+    const MIN_STREAM_UPLOAD_SIZE: usize = 50 * 1024; // Same as RE
+    if bytes.len() < MIN_STREAM_UPLOAD_SIZE {
+        return Ok(ReStdStream::Raw(bytes));
+    }
+    let digest = client.upload_blob(bytes, use_case).await?;
+    Ok(ReStdStream::Digest(digest))
 }

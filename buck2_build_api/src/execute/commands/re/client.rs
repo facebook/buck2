@@ -316,6 +316,18 @@ impl RemoteExecutionClient {
             .map_err(|e| self.decorate_error(e))
     }
 
+    pub async fn upload_blob(
+        &self,
+        blob: Vec<u8>,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<TDigest> {
+        self.data
+            .client
+            .upload_blob(blob, use_case)
+            .await
+            .map_err(|e| self.decorate_error(e))
+    }
+
     pub fn get_session_id(&self) -> &str {
         self.data.client.client().get_session_id()
     }
@@ -828,6 +840,14 @@ impl RemoteExecutionClientImpl {
             .next()
             .map(|blob| blob.blob)
             .with_context(|| format!("No digest was returned in request for {}", digest))
+    }
+
+    pub async fn upload_blob(
+        &self,
+        blob: Vec<u8>,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<TDigest> {
+        self.client().upload_blob(blob, use_case.metadata()).await
     }
 
     async fn materialize_files(
