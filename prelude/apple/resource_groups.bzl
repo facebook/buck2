@@ -12,7 +12,14 @@ load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_resource_types.bzl", "AppleResourceSpec")
 
-ResourceNode = record(
+ResourceGroupInfo = provider(fields = [
+    "groups",  # [Group.type]
+    "groups_hash",  # str.type
+    "mappings",  # {"label": str.type}
+])
+
+ResourceGraphNode = record(
+    label = field("label"),
     # Attribute labels on the target.
     labels = field([str.type], []),
     # Deps of this target which might have resources transitively.
@@ -27,45 +34,40 @@ ResourceNode = record(
     core_data_spec = field([AppleCoreDataSpec.type, None], None),
 )
 
+ResourceGraphTSet = transitive_set()
+
 ResourceGraph = provider(fields = [
-    # Target identifier of the graph.
     "label",  # "label"
-    # All nodes of the resources DAG indexed by target label.
-    "nodes",  # {"label", ResourceNode.type}
+    "nodes",  # "ResourceGraphTSet"
 ])
-
-ResourceGroupInfo = provider(fields = [
-    "groups",  # [Group.type]
-    "groups_hash",  # str.type
-    "mappings",  # {"label": str.type}
-])
-
-def get_resource_graph_node_map(graph: ResourceGraph.type) -> {"label": ResourceNode.type}:
-    return graph.nodes
 
 def create_resource_graph(
-        root: "label",
+        ctx: "context",
         labels: [str.type],
         deps: ["dependency"],
         exported_deps: ["dependency"],
         resource_spec: [AppleResourceSpec.type, None] = None,
         asset_catalog_spec: [AppleAssetCatalogSpec.type, None] = None,
         core_data_spec: [AppleCoreDataSpec.type, None] = None) -> ResourceGraph.type:
-    nodes = {
-        root: ResourceNode(
-            labels = labels,
-            deps = _with_resources_deps(deps),
-            exported_deps = _with_resources_deps(exported_deps),
-            resource_spec = resource_spec,
-            asset_catalog_spec = asset_catalog_spec,
-            core_data_spec = core_data_spec,
-        ),
-    }
+    node = ResourceGraphNode(
+        label = ctx.label,
+        labels = labels,
+        deps = _with_resources_deps(deps),
+        exported_deps = _with_resources_deps(exported_deps),
+        resource_spec = resource_spec,
+        asset_catalog_spec = asset_catalog_spec,
+        core_data_spec = core_data_spec,
+    )
     all_deps = deps + exported_deps
-    graphs = filter(None, [d[ResourceGraph] for d in all_deps])
-    for g in graphs:
-        nodes.update(g.nodes)
-    return ResourceGraph(label = root, nodes = nodes)
+    child_nodes = filter(None, [d[ResourceGraph] for d in all_deps])
+    return ResourceGraph(
+        label = ctx.label,
+        nodes = ctx.actions.tset(ResourceGraphTSet, value = node, children = [child_node.nodes for child_node in child_nodes]),
+    )
+
+def get_resource_graph_node_map(graph: ResourceGraph.type) -> {"label": ResourceGraphNode.type}:
+    nodes = graph.nodes.traverse()
+    return {node.label: node for node in filter(None, nodes)}
 
 def _with_resources_deps(deps: ["dependency"]) -> ["label"]:
     """
@@ -91,7 +93,7 @@ def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
     groups = parse_groups_definitions(resource_group_map)
     resource_groups_deps = [mapping.target for group in groups for mapping in group.mappings]
     resource_graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = [],
         deps = resource_groups_deps,
         exported_deps = [],
@@ -102,7 +104,7 @@ def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
 
 def get_filtered_resources(
         root: "label",
-        resource_graph_node_map: {"label": ResourceNode.type},
+        resource_graph_node_map: {"label": ResourceGraphNode.type},
         resource_group: [str.type, None],
         resource_group_mappings: [{"label": str.type}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]):
     """

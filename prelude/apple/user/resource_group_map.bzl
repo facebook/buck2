@@ -23,7 +23,7 @@ def _impl(ctx: "context") -> ["provider"]:
     resource_groups = parse_groups_definitions(ctx.attrs.map)
     resource_groups_deps = [mapping.target for group in resource_groups for mapping in group.mappings]
     resource_graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = [],
         deps = resource_groups_deps,
         exported_deps = [],

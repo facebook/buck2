@@ -13,7 +13,7 @@ def apple_resource_impl(ctx: "context") -> ["provider"]:
         codesign_files_on_copy = ctx.attrs.codesign_on_copy,
     )
     graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = ctx.attrs.labels,
         deps = [],
         exported_deps = [],

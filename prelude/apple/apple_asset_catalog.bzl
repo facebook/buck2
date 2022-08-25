@@ -14,7 +14,7 @@ def apple_asset_catalog_impl(ctx: "context") -> ["provider"]:
         launch_image = StringWithSourceTarget(source = ctx.label, value = ctx.attrs.launch_image) if ctx.attrs.launch_image != None else None,
     )
     graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = ctx.attrs.labels,
         deps = [],
         exported_deps = [],

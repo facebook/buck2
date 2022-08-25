@@ -9,7 +9,7 @@ def apple_core_data_impl(ctx: "context") -> ["provider"]:
         path = ctx.attrs.path,
     )
     graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = ctx.attrs.labels,
         deps = [],
         exported_deps = [],

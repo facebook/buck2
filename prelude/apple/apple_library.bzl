@@ -51,7 +51,7 @@ def apple_library_impl(ctx: "context") -> ["provider"]:
     constructor_params, swift_providers = apple_library_rule_constructor_params_and_swift_providers(ctx, AppleLibraryAdditionalParams(rule_type = "apple_library"))
 
     resource_graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = ctx.attrs.labels,
         deps = cxx_attr_deps(ctx),
         exported_deps = cxx_attr_exported_deps(ctx),

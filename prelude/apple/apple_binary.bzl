@@ -51,7 +51,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
 
     resource_graph = create_resource_graph(
-        root = ctx.label,
+        ctx = ctx,
         labels = ctx.attrs.labels,
         deps = cxx_attr_deps(ctx),
         exported_deps = cxx_attr_exported_deps(ctx),
