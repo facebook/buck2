@@ -36,7 +36,7 @@ use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_node::compatibility::MaybeCompatible;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::command_end::command_end_ext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
@@ -196,12 +196,13 @@ async fn test_command_inner(
     req: TestRequest,
 ) -> (anyhow::Result<TestResponse>, buck2_data::CommandEnd) {
     let result = test(context, req).await;
-    let end_event = command_end(
+    let end_event = command_end_ext(
         metadata,
         &result,
         buck2_data::TestCommandEnd {
             target_patterns: patterns_for_logging,
         },
+        |test_response| test_response.exit_code == 0,
     );
 
     (result, end_event)

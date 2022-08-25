@@ -18,8 +18,21 @@ pub fn command_end<R, D>(
 where
     D: Into<buck2_data::command_end::Data>,
 {
+    command_end_ext(metadata, result, data.into(), |_| true)
+}
+
+pub fn command_end_ext<R, D, F>(
+    metadata: HashMap<String, String>,
+    result: &anyhow::Result<R>,
+    data: D,
+    is_success: F,
+) -> buck2_data::CommandEnd
+where
+    F: FnOnce(&R) -> bool,
+    D: Into<buck2_data::command_end::Data>,
+{
     let (is_success, error_messages) = match result {
-        Ok(_) => (true, Vec::new()),
+        Ok(r) => (is_success(r), Vec::new()),
         Err(e) => (false, vec![format!("{:#}", e)]),
     };
     buck2_data::CommandEnd {
