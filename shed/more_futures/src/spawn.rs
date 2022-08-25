@@ -19,12 +19,13 @@ use std::task::Context;
 use std::task::Poll;
 
 use futures::future::BoxFuture;
-use futures::future::Shared;
 use futures::FutureExt;
 use pin_project::pin_project;
 use tokio::sync::oneshot;
 use tracing::Span;
 
+use crate::instrumented_shared::SharedEvents;
+use crate::instrumented_shared::SharedEventsFuture;
 use crate::spawner::Spawner;
 use crate::util::guarded_rc::guarded_rc;
 use crate::util::guarded_rc::GuardedRcStrongGuard;
@@ -38,13 +39,15 @@ thread_local! {
 /// A unit of computation within Dice. Futures to the result of this computation should be obtained
 /// via this task struct
 pub struct WeakJoinHandle<T> {
-    join_handle: Shared<BoxFuture<'static, T>>,
+    join_handle: SharedEventsFuture<BoxFuture<'static, T>>,
     ref_handle: GuardedRcWeakGuard,
 }
 
-impl<T> WeakJoinHandle<T> {
+impl<T: 'static> WeakJoinHandle<T> {
     /// Return `None` if the task has been canceled.
-    pub fn pollable(&self) -> Option<StrongCancellableJoinHandle<Shared<BoxFuture<'static, T>>>> {
+    pub fn pollable(
+        &self,
+    ) -> Option<StrongCancellableJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>> {
         self.ref_handle
             .upgrade()
             .map(|inner| StrongCancellableJoinHandle {
@@ -115,7 +118,7 @@ pub fn spawn_task<T, S>(
     span: Span,
 ) -> (
     WeakJoinHandle<T::Output>,
-    StrongCancellableJoinHandle<Shared<BoxFuture<'static, T::Output>>>,
+    StrongCancellableJoinHandle<SharedEventsFuture<BoxFuture<'static, T::Output>>>,
 )
 where
     T: Future + Send + 'static,
@@ -145,7 +148,7 @@ where
     let fut = rx
         .map(|r: Result<T::Output, oneshot::error::RecvError>| r.expect("spawned task cancelled"))
         .boxed()
-        .shared();
+        .instrumented_shared();
 
     let task = WeakJoinHandle {
         join_handle: fut.clone(),

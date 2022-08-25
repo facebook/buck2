@@ -302,7 +302,7 @@ where
     EVENTS.scope(dispatcher, fut)
 }
 
-fn get_dispatcher() -> Option<EventDispatcher> {
+pub fn get_dispatcher() -> Option<EventDispatcher> {
     match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
         Ok(dispatcher) => Some(dispatcher),
         Err(_) => {

@@ -43,7 +43,7 @@ pub fn guarded_rc<T: Send + 'static>(t: T) -> (GuardedWeakRc<T>, GuardedRcStrong
     (weak_rc, guard)
 }
 
-/// A ref counted reference where the value is accessible only in  a single threaded, but its
+/// A ref counted reference where the value is accessible only in a single thread, but its
 /// reference counters can be modified in multiple threads. This only holds a Weak reference, which
 /// means that the underlying reference may be dropped when there is a ref count of 0.
 /// A strong reference can be obtained by `upgrade`.
@@ -56,7 +56,7 @@ pub fn guarded_rc<T: Send + 'static>(t: T) -> (GuardedWeakRc<T>, GuardedRcStrong
 /// std::thread::spawn(move || x);
 /// ```
 ///
-///  
+///
 /// ```compile_fail
 /// use more_futures::util::guarded_rc::guarded_rc;
 ///

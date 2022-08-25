@@ -11,6 +11,8 @@ rust_library(
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_events:buck2_events",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )

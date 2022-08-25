@@ -9,12 +9,14 @@
 
 #![feature(negative_impls)]
 #![feature(box_syntax)]
+#![feature(assert_matches)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 pub mod drop;
+pub mod instrumented_shared;
 pub mod spawn;
 pub mod spawner;
 pub mod util;
