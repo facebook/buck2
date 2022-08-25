@@ -98,6 +98,14 @@ impl REClient {
         stub()
     }
 
+    pub async fn upload_blob(
+        &self,
+        blob: Vec<u8>,
+        metadata: RemoteExecutionMetadata,
+    ) -> anyhow::Result<TDigest> {
+        stub()
+    }
+
     pub async fn download(
         &self,
         metadata: RemoteExecutionMetadata,
