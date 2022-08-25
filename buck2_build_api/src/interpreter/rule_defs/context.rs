@@ -714,16 +714,16 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         }
         let starlark = heap.alloc((starlark_cli, starlark_env));
 
-        let action = UnregisteredRunAction::new(
+        let action = UnregisteredRunAction {
             category,
             identifier,
             executor_preference,
             always_print_stderr,
             weight,
-            dep_files_configuration,
+            dep_files: dep_files_configuration,
             metadata_param,
             no_outputs_cleanup,
-        );
+        };
         this.state().register_action(
             artifacts.inputs,
             artifacts.outputs,

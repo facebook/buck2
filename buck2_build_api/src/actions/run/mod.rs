@@ -109,38 +109,14 @@ pub fn new_executor_preference(
 
 #[derive(Debug)]
 pub(crate) struct UnregisteredRunAction {
-    category: Category,
-    identifier: Option<String>,
-    executor_preference: ExecutorPreference,
-    always_print_stderr: bool,
-    weight: usize,
-    dep_files: RunActionDepFiles,
-    metadata_param: Option<MetadataParameter>,
-    no_outputs_cleanup: bool,
-}
-
-impl UnregisteredRunAction {
-    pub(crate) fn new(
-        category: Category,
-        identifier: Option<String>,
-        executor_preference: ExecutorPreference,
-        always_print_stderr: bool,
-        weight: usize,
-        dep_files: RunActionDepFiles,
-        metadata_param: Option<MetadataParameter>,
-        no_outputs_cleanup: bool,
-    ) -> Self {
-        Self {
-            category,
-            identifier,
-            executor_preference,
-            always_print_stderr,
-            weight,
-            dep_files,
-            metadata_param,
-            no_outputs_cleanup,
-        }
-    }
+    pub category: Category,
+    pub identifier: Option<String>,
+    pub executor_preference: ExecutorPreference,
+    pub always_print_stderr: bool,
+    pub weight: usize,
+    pub dep_files: RunActionDepFiles,
+    pub metadata_param: Option<MetadataParameter>,
+    pub no_outputs_cleanup: bool,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
