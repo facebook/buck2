@@ -71,6 +71,8 @@ def make_pex(
     if package_style == PackageStyle("standalone") or bundled_runtime:
         if symlink_tree_path != None:
             fail("Cannot have a symlink_tree_path for standalone packaging")
+        if python_toolchain.make_pex_standalone == None:
+            fail("Python toolchain does not provide make_pex_standalone")
 
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).

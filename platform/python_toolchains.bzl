@@ -57,7 +57,9 @@ def config_backed_python_toolchain(
             continue
         for section in sections:
             val = reader(section, key, None)
-            if val != None:
+
+            # Skip if value is missing or explicitly set to empty.
+            if val != None and val != "":
                 kwargs[key] = val
                 break
 
@@ -136,7 +138,7 @@ _config_backed_python_toolchain_rule = rule(
         "make_source_db": attrs.dep(default = "fbcode//buck2/prelude/python/tools:make_source_db"),
         "native_link_strategy": attrs.enum(native.python.NativeLinkStrategy.values()),
         "package_style": attrs.enum(native.python.PackageStyle.values()),
-        "path_to_pex": attrs.dep(default = "@fbcode//tools/make_par:buck_make_par", providers = [RunInfo]),
+        "path_to_pex": attrs.option(attrs.dep(providers = [RunInfo])),
         "path_to_pex_executer": attrs.option(attrs.dep(providers = [RunInfo])),
         "path_to_pex_inplace": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_inplace", providers = [RunInfo]),
         "path_to_pex_modules": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_modules", providers = [RunInfo]),
