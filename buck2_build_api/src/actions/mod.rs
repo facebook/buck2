@@ -251,7 +251,7 @@ pub struct ActionsRegistry {
 }
 
 #[derive(Error, Debug)]
-pub enum ActionErrors {
+pub(crate) enum ActionErrors {
     #[error("Output path for artifact or metadata file cannot be empty.")]
     EmptyOutputPath,
     #[error(
@@ -262,8 +262,6 @@ pub enum ActionErrors {
         "Multiple artifacts and/or metadata files are declared at conflicting output locations. Output path `{0}` conflicts with the following output paths: {1:?}."
     )]
     ConflictingOutputPaths(ForwardRelativePathBuf, Vec<PathBuf>),
-    #[error("No action found for artifact `{0}`")]
-    ActionNotFound(BuildArtifact),
     #[error(
         "Action category `{0}` contains duplicate identifier `{1}`; category-identifier pairs must be unique within a rule"
     )]
