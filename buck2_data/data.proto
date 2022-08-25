@@ -1011,6 +1011,9 @@ message InvocationRecord {
   uint64 run_remote_count = 11;
   // Count of actions that downloaded action cache
   uint64 run_action_cache_count = 12;
+  // Count of actions that were skipped. Actions are usually skipped due to a
+  // dep-files hit.
+  uint64 run_skipped_count = 13;
   // Optional - the first snapshot sent.
   Snapshot first_snapshot = 20;
   // Optional - the last snapshot sent.

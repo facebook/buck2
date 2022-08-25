@@ -53,6 +53,7 @@ mod imp {
         run_local_count: u64,
         run_remote_count: u64,
         run_action_cache_count: u64,
+        run_skipped_count: u64,
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
         branched_from_revision: Option<String>,
@@ -80,6 +81,7 @@ mod imp {
                 run_local_count: 0,
                 run_remote_count: 0,
                 run_action_cache_count: 0,
+                run_skipped_count: 0,
                 first_snapshot: None,
                 last_snapshot: None,
                 branched_from_revision: None,
@@ -102,6 +104,7 @@ mod imp {
                     run_local_count: self.run_local_count,
                     run_remote_count: self.run_remote_count,
                     run_action_cache_count: self.run_action_cache_count,
+                    run_skipped_count: self.run_skipped_count,
                     first_snapshot: self.first_snapshot.take(),
                     last_snapshot: self.last_snapshot.take(),
                     branched_from_revision: self.branched_from_revision.take().unwrap_or_default(),
@@ -192,7 +195,9 @@ mod imp {
                     LastCommandExecutionKind::Remote => {
                         self.run_remote_count += 1;
                     }
-                    LastCommandExecutionKind::NoCommand => {}
+                    LastCommandExecutionKind::NoCommand => {
+                        self.run_skipped_count += 1;
+                    }
                 }
             }
             Ok(())
