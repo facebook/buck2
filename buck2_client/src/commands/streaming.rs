@@ -55,13 +55,15 @@ fn default_subscribers<T: StreamingCommand>(
     )? {
         subscribers.push(v)
     }
-    if let Some(event_log) = try_get_event_log_subscriber(cmd.event_log_opts(), ctx)? {
+    if let Some(event_log) =
+        try_get_event_log_subscriber(cmd.event_log_opts(), cmd.sanitized_argv(), ctx)?
+    {
         subscribers.push(event_log)
     }
     if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts())? {
         subscribers.push(build_id_writer)
     }
-    if let Some(recorder) = try_get_invocation_recorder(ctx)? {
+    if let Some(recorder) = try_get_invocation_recorder(ctx, cmd.sanitized_argv())? {
         subscribers.push(recorder);
     }
     Ok(subscribers)
@@ -106,6 +108,10 @@ pub trait StreamingCommand: Sized + Send + Sync {
     /// Allows a command to add additional superconsole components when superconsole is used.
     fn extra_superconsole_component(&self) -> Option<Box<dyn Component>> {
         None
+    }
+
+    fn sanitized_argv(&self) -> Vec<String> {
+        std::env::args().collect()
     }
 }
 

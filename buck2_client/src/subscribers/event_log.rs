@@ -311,6 +311,7 @@ enum Compression {
 pub struct EventLog {
     state: LogFileState,
     async_cleanup_context: Option<AsyncCleanupContext>,
+    sanitized_argv: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -323,18 +324,20 @@ impl EventLog {
     pub fn new(
         logdir: AbsPathBuf,
         extra_path: Option<PathBuf>,
+        sanitized_argv: Vec<String>,
         async_cleanup_context: AsyncCleanupContext,
     ) -> anyhow::Result<EventLog> {
         Ok(Self {
             state: LogFileState::Unopened(logdir, extra_path),
             async_cleanup_context: Some(async_cleanup_context),
+            sanitized_argv,
         })
     }
 
     /// Get the command line arguments and cwd and serialize them for replaying later.
     async fn log_invocation(&mut self) -> anyhow::Result<()> {
         let working_dir = std::env::current_dir()?;
-        let command_line_args = std::env::args().collect();
+        let command_line_args = self.sanitized_argv.clone();
         let invocation = Invocation {
             command_line_args,
             working_dir,
@@ -848,6 +851,7 @@ mod tests {
                 state: LogFileState::Opened(vec![
                     open_event_log_for_writing(log, TraceId::new()).await?,
                 ]),
+                sanitized_argv: vec!["buck2".to_owned()],
                 async_cleanup_context: None,
             })
         }

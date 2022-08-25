@@ -68,6 +68,7 @@ pub fn get_console_with_root(
 /// Given the command arguments, conditionally create an event log.
 pub fn try_get_event_log_subscriber(
     event_log_opts: &CommonDaemonCommandOptions,
+    sanitized_argv: Vec<String>,
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if event_log_opts.no_event_log {
@@ -77,6 +78,7 @@ pub fn try_get_event_log_subscriber(
     let log = EventLog::new(
         logdir,
         event_log_opts.event_log.clone(),
+        sanitized_argv,
         ctx.async_cleanup_context().dupe(),
     )?;
     Ok(Some(box log))

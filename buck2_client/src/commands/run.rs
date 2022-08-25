@@ -183,6 +183,13 @@ impl StreamingCommand for RunCommand {
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
+
+    fn sanitized_argv(&self) -> Vec<String> {
+        let to_redact: std::collections::HashSet<_> = self.extra_run_args.iter().collect();
+        std::env::args()
+            .filter(move |arg| !to_redact.contains(arg))
+            .collect()
+    }
 }
 
 #[derive(Serialize)]

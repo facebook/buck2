@@ -38,6 +38,7 @@ mod imp {
     use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
 
     pub struct InvocationRecorder {
+        cli_args: Vec<String>,
         start_time: Instant,
         async_cleanup_context: AsyncCleanupContext,
         scribe: Arc<ThriftScribeSink>,
@@ -58,8 +59,13 @@ mod imp {
     }
 
     impl InvocationRecorder {
-        pub fn new(async_cleanup_context: AsyncCleanupContext, scribe: ThriftScribeSink) -> Self {
+        pub fn new(
+            async_cleanup_context: AsyncCleanupContext,
+            scribe: ThriftScribeSink,
+            sanitized_argv: Vec<String>,
+        ) -> Self {
             Self {
+                cli_args: sanitized_argv,
                 start_time: Instant::now(),
                 async_cleanup_context,
                 scribe: Arc::new(scribe),
@@ -89,7 +95,7 @@ mod imp {
                     client_walltime: Some(self.start_time.elapsed().into()),
                     re_session_id: self.re_session_id.take().unwrap_or_default(),
                     re_experiment_name: self.re_session_id.take().unwrap_or_default(),
-                    cli_args: std::env::args().collect::<Vec<String>>(),
+                    cli_args: self.cli_args.clone(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
                     tags: self.tags.drain(..).collect(),
@@ -252,6 +258,7 @@ mod imp {
 #[cfg(fbcode_build)]
 pub fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
+    sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     use buck2_common::events;
     if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
@@ -262,6 +269,7 @@ pub fn try_get_invocation_recorder(
                 events::scribe_category()?,
                 1,
             )?,
+            sanitized_argv,
         );
         return Ok(Some(Box::new(recorder)));
     }
@@ -271,6 +279,7 @@ pub fn try_get_invocation_recorder(
 #[cfg(not(fbcode_build))]
 pub fn try_get_invocation_recorder(
     _ctx: &ClientCommandContext,
+    _sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     Ok(None)
 }
