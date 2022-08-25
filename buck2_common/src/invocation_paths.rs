@@ -135,6 +135,12 @@ impl InvocationPaths {
     pub fn buck_out_path(&self) -> AbsPathBuf {
         self.roots.project_root.root().join(&self.buck_out_dir())
     }
+
+    /// Directory containing on-disk cache
+    pub fn cache_dir(&self) -> ProjectRelativePathBuf {
+        self.buck_out_dir()
+            .join(ForwardRelativePath::unchecked_new("cache"))
+    }
 }
 
 #[cfg(test)]
@@ -226,5 +232,10 @@ mod tests {
             "/my/project/buck-out/isolation/dice_dump"
         };
         assert_eq!(paths.dice_dump_dir().as_os_str(), OsStr::new(expected_path));
+
+        assert_eq!(
+            paths.cache_dir(),
+            ProjectRelativePathBuf::unchecked_new("buck-out/isolation/cache".to_owned())
+        );
     }
 }

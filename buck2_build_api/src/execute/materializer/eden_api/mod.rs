@@ -195,7 +195,7 @@ fn setup(buck_out: &AbsPathBuf) -> Result<(), SetupBuckOutError> {
     execute_eden_clone(buck_out)?;
 
     // Run eden redirection to exclude write heavy dirs from using EdenFS
-    ["log", "tmp", "re_logs"]
+    ["log", "tmp", "re_logs", "cache"]
         .into_iter()
         .try_for_each(|dir| -> Result<(), SetupBuckOutError> {
             execute_eden_redirection_add(buck_out, dir)?;
