@@ -182,10 +182,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
         Ok(Arc::new(CachingExecutor::new(
             inner_executor,
+            artifact_fs.clone(),
             self.materializer.dupe(),
             self.re_connection.get_client(),
             self.upload_all_actions,
             self.re_global_knobs.dupe(),
+            executor_config.cache_upload_behavior,
         )))
     }
 }

@@ -31,6 +31,7 @@ use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 use remote_execution::NetworkStatisticsResponse;
+use remote_execution::TActionResult2;
 use remote_execution::TDigest;
 
 use crate::actions::directory::ActionImmutableDirectory;
@@ -385,6 +386,19 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
         self.lock()?.get().await?.upload_blob(blob, use_case).await
+    }
+
+    pub async fn write_action_result(
+        &self,
+        digest: TDigest,
+        result: TActionResult2,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        self.lock()?
+            .get()
+            .await?
+            .write_action_result(digest, result, use_case)
+            .await
     }
 
     pub async fn get_session_id(&self) -> anyhow::Result<String> {

@@ -108,6 +108,15 @@ pub enum CacheUploadBehavior {
     Disabled,
 }
 
+impl CacheUploadBehavior {
+    pub fn is_enabled(self) -> bool {
+        match self {
+            Self::Enabled => true,
+            Self::Disabled => false,
+        }
+    }
+}
+
 impl Default for CacheUploadBehavior {
     fn default() -> Self {
         Self::Disabled

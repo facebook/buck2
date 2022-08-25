@@ -82,6 +82,7 @@ rust_library(
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/shed/hostname:hostname",
     ],
 )
 

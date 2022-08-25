@@ -47,10 +47,12 @@ use remote_execution::REClientBuilder;
 use remote_execution::RemoteExecutionMetadata;
 use remote_execution::RichClientMode;
 use remote_execution::Stage;
+use remote_execution::TActionResult2;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
 use remote_execution::TResultsCachePolicy;
 use remote_execution::UploadRequest;
+use remote_execution::WriteActionResultRequest;
 use tokio::sync::Semaphore;
 use tracing::warn;
 
@@ -328,6 +330,19 @@ impl RemoteExecutionClient {
             .map_err(|e| self.decorate_error(e))
     }
 
+    pub async fn write_action_result(
+        &self,
+        digest: TDigest,
+        result: TActionResult2,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        self.data
+            .client
+            .write_action_result(digest, result, use_case)
+            .await
+            .map_err(|e| self.decorate_error(e))
+    }
+
     pub fn get_session_id(&self) -> &str {
         self.data.client.client().get_session_id()
     }
@@ -377,6 +392,12 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
 
 #[derive(Display, Debug, Clone, Dupe)]
 pub struct ActionDigest(TrackedFileDigest);
+
+impl ActionDigest {
+    pub fn as_digest(&self) -> &TrackedFileDigest {
+        &self.0
+    }
+}
 
 pub struct PreparedAction {
     pub action: ActionDigest,
@@ -879,6 +900,27 @@ impl RemoteExecutionClientImpl {
         });
 
         futures::future::try_join_all(futs).await?;
+
+        Ok(())
+    }
+
+    async fn write_action_result(
+        &self,
+        digest: TDigest,
+        result: TActionResult2,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        self.client()
+            .get_action_cache_client()
+            .write_action_result(
+                use_case.metadata(),
+                WriteActionResultRequest {
+                    action_digest: digest,
+                    action_result: result,
+                    ..Default::default()
+                },
+            )
+            .await?;
 
         Ok(())
     }
