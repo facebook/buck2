@@ -73,6 +73,17 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
     assert "already materialized, no need to declare again" in result.stderr
     assert "materialize artifact" not in result.stderr
 
+    # In this case, modifying `src` changes the output, so the output should be rematerialized
+    with open(buck.cwd / "src", "w", encoding="utf-8") as f:
+        f.write("SRC2")
+
+    result = await buck.build(target)
+    # Check output still exists
+    output = result.get_build_report().output_for_target(target)
+    assert output.exists()
+    with open(output) as f:
+        assert f.read().strip() == "SRC2"
+
 
 @buck_test(
     inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
