@@ -50,10 +50,11 @@ use crate::actions::digest::FileDigestFromProtoExt;
 use crate::actions::digest::FileDigestFromReExt;
 use crate::actions::digest::FileDigestToReExt;
 
-pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
-    Lazy::new(DashMapDirectoryInterner::new);
+pub(crate) static INTERNER: Lazy<
+    DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>,
+> = Lazy::new(DashMapDirectoryInterner::new);
 
-pub static EMPTY_DIRECTORY: Lazy<ActionSharedDirectory> = Lazy::new(|| {
+pub(crate) static EMPTY_DIRECTORY: Lazy<ActionSharedDirectory> = Lazy::new(|| {
     ActionDirectoryBuilder::empty()
         .fingerprint()
         .shared(&*INTERNER)
@@ -72,14 +73,16 @@ pub enum ActionDirectoryMember {
 
 pub type ActionDirectoryEntry<D> = DirectoryEntry<D, ActionDirectoryMember>;
 
-pub type ActionImmutableDirectory =
+pub(crate) type ActionImmutableDirectory =
     ImmutableDirectory<ActionDirectoryMember, ReDirectorySerializer>;
 
-pub type ActionSharedDirectory = SharedDirectory<ActionDirectoryMember, ReDirectorySerializer>;
+pub(crate) type ActionSharedDirectory =
+    SharedDirectory<ActionDirectoryMember, ReDirectorySerializer>;
 
-pub type ActionDirectoryBuilder = DirectoryBuilder<ActionDirectoryMember, ReDirectorySerializer>;
+pub(crate) type ActionDirectoryBuilder =
+    DirectoryBuilder<ActionDirectoryMember, ReDirectorySerializer>;
 
-pub trait ActionDirectory = Directory<ActionDirectoryMember, ReDirectorySerializer>;
+pub(crate) trait ActionDirectory = Directory<ActionDirectoryMember, ReDirectorySerializer>;
 
 pub trait ActionFingerprintedDirectory =
     FingerprintedDirectory<ActionDirectoryMember, ReDirectorySerializer>;
@@ -144,7 +147,7 @@ impl ReDirectorySerializer {
         }
     }
 
-    pub fn serialize_entries<'a, D, I>(entries: I) -> Vec<u8>
+    pub(crate) fn serialize_entries<'a, D, I>(entries: I) -> Vec<u8>
     where
         I: Iterator<
             Item = (
@@ -184,12 +187,12 @@ impl DirectoryHasher<ActionDirectoryMember> for ReDirectorySerializer {
 }
 
 impl Symlink {
-    pub fn new(target: RelativePathBuf) -> Self {
+    pub(crate) fn new(target: RelativePathBuf) -> Self {
         Self(target)
     }
 
     /// Returns the path the symlink points to.
-    pub fn target(&self) -> &RelativePath {
+    pub(crate) fn target(&self) -> &RelativePath {
         self.0.as_relative_path()
     }
 
@@ -201,14 +204,14 @@ impl Symlink {
     /// want to keep linking to the same artifact. How can we adjust the target
     /// in order to achieve that? We need to know how to get to `src` from
     /// `dest`, which is what `src_relative_to_dest` tells us.
-    pub fn relativized<P: AsRef<RelativePath>>(&self, src_relative_to_dest: P) -> Self {
+    pub(crate) fn relativized<P: AsRef<RelativePath>>(&self, src_relative_to_dest: P) -> Self {
         // FIXME(rafaelc): we don't need to normalize the target anymore!
         let relativized_t = src_relative_to_dest.as_ref().join_normalized(&self.0);
         Self(relativized_t)
     }
 }
 
-pub fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
+pub(crate) fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
     let target = target.as_ref();
     if target.is_absolute() {
         ActionDirectoryMember::ExternalSymlink(Arc::new(ExternalSymlink::new(
@@ -222,7 +225,7 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
     }
 }
 
-pub fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE::Tree {
+pub(crate) fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE::Tree {
     let children = directory
         .fingerprinted_ordered_walk()
         .without_paths()
@@ -245,7 +248,7 @@ pub fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE
 /// `RE::Tree` is valid (i.e. nothing is broken in the RE side), this
 /// should always succeed.
 #[allow(clippy::trivially_copy_pass_by_ref)] // SystemTime is a different size on Windows
-pub fn re_tree_to_directory(
+pub(crate) fn re_tree_to_directory(
     tree: &RE::Tree,
     leaf_expires: &SystemTime,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
@@ -337,7 +340,7 @@ pub fn re_tree_to_directory(
 }
 
 #[derive(Debug, Error)]
-pub enum DirectoryReConversionError {
+pub(crate) enum DirectoryReConversionError {
     // Conversion from RE::Tree errors (these shouldn't happen unless something is broken on RE side)
     #[error("Converting RE::Tree to Directory, dir `{1}` has child `{0}` with digest=None.")]
     NodeWithDigestNone(String, FileDigest),
@@ -362,7 +365,7 @@ impl<'a> From<&'a RE::SymlinkNode> for ActionDirectoryMember {
     }
 }
 
-pub fn relativize_directory(
+pub(crate) fn relativize_directory(
     builder: &mut ActionDirectoryBuilder,
     orig_root: &ForwardRelativePath,
     new_root: &ForwardRelativePath,
@@ -406,7 +409,7 @@ pub fn relativize_directory(
     Ok(())
 }
 
-pub fn insert_entry(
+pub(crate) fn insert_entry(
     builder: &mut ActionDirectoryBuilder,
     path: &ForwardRelativePath,
     entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
@@ -432,7 +435,7 @@ pub fn insert_entry(
 
 /// Inserts an input to the tree, which will be required when following
 /// symlinks to calculate the `deps` of the `ArtifactValue`.
-pub fn insert_artifact(
+pub(crate) fn insert_artifact(
     builder: &mut ActionDirectoryBuilder,
     path: &ForwardRelativePath,
     value: &ArtifactValue,
@@ -449,7 +452,8 @@ pub fn insert_artifact(
     Ok(())
 }
 
-pub fn insert_file(
+#[cfg(test)]
+pub(crate) fn insert_file(
     builder: &mut ActionDirectoryBuilder,
     path: &ForwardRelativePath,
     meta: FileMetadata,
@@ -461,7 +465,8 @@ pub fn insert_file(
     )
 }
 
-pub fn insert_symlink(
+#[cfg(test)]
+pub(crate) fn insert_symlink(
     builder: &mut ActionDirectoryBuilder,
     path: &ForwardRelativePath,
     symlink: Arc<Symlink>,
@@ -473,7 +478,7 @@ pub fn insert_symlink(
     )
 }
 
-pub fn expand_selector_for_dependencies(
+pub(crate) fn expand_selector_for_dependencies(
     builder: &ActionDirectoryBuilder,
     paths_to_take: &mut DirectorySelector,
 ) {
@@ -561,7 +566,7 @@ pub fn expand_selector_for_dependencies(
 
 /// Given a builder and a Path, return it as an ArtifactValue. Dependencies are produced by
 /// extracting any symlinks found in the builder.
-pub fn extract_artifact_value(
+pub(crate) fn extract_artifact_value(
     builder: &ActionDirectoryBuilder,
     path: &ForwardRelativePath,
 ) -> anyhow::Result<Option<ArtifactValue>> {

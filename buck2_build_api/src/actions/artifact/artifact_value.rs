@@ -38,7 +38,7 @@ impl From<ActionDirectoryEntry<ActionSharedDirectory>> for ArtifactValue {
 }
 
 impl ArtifactValue {
-    pub fn new(
+    pub(crate) fn new(
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         deps: Option<ActionSharedDirectory>,
     ) -> Self {

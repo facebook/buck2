@@ -174,7 +174,7 @@ where
 
 /// Materializes the directories and symlinks of an entry at `dest`. Files
 /// are not materialized.
-pub fn materialize_dirs_and_syms<P, D>(
+pub(crate) fn materialize_dirs_and_syms<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
     dest: P,
 ) -> anyhow::Result<()>
@@ -189,7 +189,7 @@ where
 ///
 /// Files are copied from `src`. In other words, if a file would be
 /// materialized at `dest/p`, then it's copied from `src/p`.
-pub fn materialize_files<P, D>(
+pub(crate) fn materialize_files<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
     src: P,
     dest: P,
@@ -219,7 +219,7 @@ where
 /// For a file at path `file_dest` in the entry, if `file_dest` exists in
 /// `srcs` with value `file_src`, the file is copied from `file_src` to
 /// `file_dest`. It's then removed from `srcs`.
-pub fn materialize_files_from_map<P, D>(
+fn _materialize_files_from_map<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
     srcs: &mut HashMap<AbsPathBuf, AbsPathBuf>,
     dest: P,
