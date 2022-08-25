@@ -72,6 +72,10 @@ Stella shared that the [Training_platform fbpkg is Buck2 ready](https://fb.workp
 
 > With buck2 build time was reduced by 73% for TTK backend worker and 56% for TTK workflow. 12.98 eng halves can be saved every 2 years with the current 72% adoption rate.
 
+Shoaib used Buck2 for [upgrading Android native code to a new compiler version](https://fb.workplace.com/groups/4318511658259181/posts/4996007023842971):
+
+> Buck1 took 12 minutes to build that; Buck2 only took 6.5 🙂 It's super awesome to see how far we've come with Buck2 for Android and be able to reap the build speed benefits;
+
 ## Good UX
 
 [Lucian prefers the experience](https://fb.workplace.com/groups/503973410692177/posts/595893258166858/) for a large variety of reasons:
