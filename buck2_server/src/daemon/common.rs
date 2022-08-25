@@ -182,7 +182,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
             inner_executor,
             self.materializer.dupe(),
             self.re_connection.get_client(),
-            Default::default(), // TODO: This should probably use the RemoteExecutor's use case.
             self.upload_all_actions,
             self.re_global_knobs.dupe(),
         )))

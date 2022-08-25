@@ -13,6 +13,7 @@ use std::hash::Hasher;
 use gazebo::prelude::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
+use once_cell::sync::Lazy;
 use starlark_map::small_map::SmallMap;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
@@ -29,6 +30,14 @@ impl RemoteExecutorUseCase {
 
     pub fn as_str(&self) -> &'static str {
         self.0.deref_static().as_str()
+    }
+
+    /// The "buck2-default" use case. This is meant to be used when no use case is configured. It's
+    /// not meant to be used for convenience when a use case is not available where it's needed!
+    pub fn buck2_default() -> &'static Self {
+        static USE_CASE: Lazy<RemoteExecutorUseCase> =
+            Lazy::new(|| RemoteExecutorUseCase::new("buck2-default".to_owned()));
+        &USE_CASE
     }
 }
 

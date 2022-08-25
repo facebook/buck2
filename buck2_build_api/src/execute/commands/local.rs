@@ -30,6 +30,7 @@ use buck2_core::process::async_background_command;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
 use buck2_forkserver::run::GatherOutputStatus;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::From;
 use faccess::PathExt;
 use futures::future;
@@ -473,6 +474,10 @@ impl PreparedCommandExecutor for LocalExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         None
+    }
+
+    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+        RemoteExecutorUseCase::buck2_default()
     }
 
     fn name(&self) -> ExecutorName {

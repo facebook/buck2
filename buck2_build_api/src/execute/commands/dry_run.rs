@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
@@ -124,6 +125,10 @@ impl PreparedCommandExecutor for DryRunExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         None
+    }
+
+    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+        RemoteExecutorUseCase::buck2_default()
     }
 
     fn name(&self) -> ExecutorName {

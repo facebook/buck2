@@ -35,6 +35,7 @@ use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_node::execute::config::PathSeparatorKind;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::Display;
 use derive_more::From;
 use futures::future::Future;
@@ -957,6 +958,8 @@ pub trait PreparedCommandExecutor: Send + Sync {
     ) -> CommandExecutionResult;
 
     fn re_platform(&self) -> Option<&RE::Platform>;
+
+    fn re_use_case(&self) -> &RemoteExecutorUseCase;
 
     fn name(&self) -> ExecutorName;
 }

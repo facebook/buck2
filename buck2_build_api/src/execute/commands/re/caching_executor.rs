@@ -36,7 +36,6 @@ pub struct CachingExecutor {
     pub inner: Arc<dyn PreparedCommandExecutor>,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub upload_all_actions: bool,
     pub knobs: ReExecutorGlobalKnobs,
 }
@@ -46,7 +45,6 @@ impl CachingExecutor {
         inner: Arc<dyn PreparedCommandExecutor>,
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
-        re_use_case: RemoteExecutorUseCase,
         upload_all_actions: bool,
         knobs: ReExecutorGlobalKnobs,
     ) -> Self {
@@ -54,7 +52,6 @@ impl CachingExecutor {
             inner,
             materializer,
             re_client,
-            re_use_case,
             upload_all_actions,
             knobs,
         }
@@ -74,7 +71,7 @@ impl CachingExecutor {
                 buck2_data::CacheQuery {
                     action_digest: action_digest.to_string(),
                 },
-                re_client.action_cache(action_digest.dupe(), &self.re_use_case),
+                re_client.action_cache(action_digest.dupe(), self.re_use_case()),
             )
             .await;
 
@@ -85,7 +82,7 @@ impl CachingExecutor {
                     action_blobs,
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
-                    &self.re_use_case,
+                    self.re_use_case(),
                     &self.knobs,
                 )
                 .await
@@ -116,7 +113,7 @@ impl CachingExecutor {
                 request,
                 &*self.materializer,
                 &self.re_client,
-                &self.re_use_case,
+                self.re_use_case(),
                 manager,
                 // TODO (torozco): We should deduplicate this and ActionExecutionKind.
                 buck2_data::CacheHit {
@@ -155,6 +152,10 @@ impl PreparedCommandExecutor for CachingExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         self.inner.re_platform()
+    }
+
+    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+        self.inner.re_use_case()
     }
 
     fn name(&self) -> ExecutorName {

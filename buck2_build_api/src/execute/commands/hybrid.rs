@@ -12,6 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_node::execute::config::HybridExecutionLevel;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 use futures::future::Either;
 use futures::future::Future;
@@ -197,6 +198,10 @@ impl PreparedCommandExecutor for HybridExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         self.remote.re_platform()
+    }
+
+    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+        self.remote.re_use_case()
     }
 
     fn name(&self) -> ExecutorName {

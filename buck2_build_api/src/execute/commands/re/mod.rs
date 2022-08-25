@@ -302,6 +302,10 @@ impl PreparedCommandExecutor for ReExecutor {
         Some(&self.re_platform)
     }
 
+    fn re_use_case(&self) -> &RemoteExecutorUseCase {
+        &self.re_use_case
+    }
+
     fn name(&self) -> ExecutorName {
         ExecutorName("remote")
     }
