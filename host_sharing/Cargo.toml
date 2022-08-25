@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "host_sharing"
 version = "0.1.0"
@@ -5,5 +7,5 @@ authors = ["Logan Wendholt <lwendholt@fb.com>"]
 edition = "2021"
 
 [dependencies]
-dashmap = "4.0"
-futures-intrusive = "0.4"
+dashmap = { workspace = true }
+futures-intrusive = { workspace = true }

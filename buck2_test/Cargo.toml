@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_test"
 version = "0.1.0"
@@ -5,19 +7,19 @@ edition = "2021"
 description = "Buck V2 test runner"
 
 [dependencies]
-anyhow = "1.0.51"
-async-trait = "0.1.24"
-dashmap = "4.0.2"
-futures = "0.3"
-chrono = "0.4.19"
-derive_more = "0.99.3"
-indexmap = { version = "1.6", features = ["serde-1"] }
-libc = "0.2"
-once_cell = "1.3"
-serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1.5", features = ["full"]}
-tracing = "0.1.22"
-uuid = { version = "0.8", features = ["v4"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+futures = { workspace = true }
+chrono = { workspace = true }
+derive_more = { workspace = true }
+indexmap = { workspace = true }
+libc = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
 
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]

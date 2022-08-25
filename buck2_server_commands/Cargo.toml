@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_server_commands"
 version = "0.1.0"
@@ -5,32 +7,32 @@ edition = "2021"
 description = "Implementation of several Buck commands"
 
 [dependencies]
-anyhow = "1.0.51"
-async-recursion = "1.0"
-async-trait = "0.1.24"
-blake3 = "0.3.7"
-chrono = "0.4.19"
-derivative = "2.1.1"
-futures = "0.3"
-indent_write = "2.2.0"
-indexmap = { version = "1.6", features = ["serde-1"] }
-itertools = "0.10.0"
-num_cpus = "1.11"
-once_cell = "1.3"
-os_str_bytes = "6.0"
-regex = "1.3.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.48"
-siphasher = "0.3.5"
-tempfile = "3.1.0"
-threadpool = "1.8.1"
-thiserror = "1.0.24"
-tokio = { version = "1.5", features = ["full"] }
-tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
-tonic = "0.7.2"
-tracing = "0.1.22"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-walkdir = "2.3.2"
+anyhow = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+blake3 = { workspace = true }
+chrono = { workspace = true }
+derivative = { workspace = true }
+futures = { workspace = true }
+indent_write = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+os_str_bytes = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+siphasher = { workspace = true }
+tempfile = { workspace = true }
+threadpool = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+walkdir = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { path = "../gazebo/gazebo" }

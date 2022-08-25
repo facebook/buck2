@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_audit"
 version = "0.1.0"
@@ -5,19 +7,19 @@ edition = "2021"
 description = "`buck2 audit` command implementation, both client and server"
 
 [dependencies]
-anyhow = "1.0.51"
-async-trait = "0.1.24"
-clap = "3.1.5"
-derive_more = "0.99.3"
-futures = "0.3"
-indent_write = "2.2.0"
-indexmap = { version = "1.6", features = ["serde-1"] }
-itertools = "0.10.3"
-maplit = "1.0.2"
-ref-cast = "1.0.0"
-thiserror = "1.0.24"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.48"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+indent_write = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+maplit = { workspace = true }
+ref-cast = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { path = "../gazebo/gazebo" }

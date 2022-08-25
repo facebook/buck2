@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 description = ""
 edition = "2021"
@@ -5,65 +7,67 @@ name = "cli"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.51"
-async-trait = "0.1.24"
-backtrace = "0.3.51"
-blake3 = "0.3.7"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+backtrace = { workspace = true }
+blake3 = { workspace = true }
+clap = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+itertools = { workspace = true }
+nix = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sync_wrapper = { workspace = true }
+termimad = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+dice = { path = "../dice/dice" }
+fbinit.version = "0.1"
+# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+host_sharing = { path = "../host_sharing" }
+starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
+# @oss-disable: user = { path = "../../common/rust/user", optional = true }
+
 buck2_audit = { path = "../buck2_audit" }
-buck2_core = { path = "../buck2_core" }
-buck2_query = { path = "../buck2_query" }
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
+buck2_core = { path = "../buck2_core" }
+buck2_query = { path = "../buck2_query" }
 buck2_client = { path = "../buck2_client" }
+buck2_common = { path = "../buck2_common" }
+buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
+buck2_forkserver = { path = "../buck2_forkserver" }
 buck2_server = { path = "../buck2_server" }
 buck2_server_commands = { path = "../buck2_server_commands" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
 buck2_test = { path = "../buck2_test" }
-clap = { version = "3.1.18", features = ["derive", "env"] }
 cli_proto = { path = "../cli_proto" }
-buck2_common = { path = "../buck2_common" }
-dice = { path = "../dice/dice" }
-buck2_events = { path = "../buck2_events" }
-buck2_data = { path = "../buck2_data" }
-futures = "0.3"
-gazebo.version = "0.8.0"
-gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
-hex = "0.4.3"
-host_sharing = { path = "../host_sharing" }
-itertools = "0.10.0"
-gazebo_lint.version = "0.1"
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-nix = "0.22"
-rand = "0.8"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.48"
-starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
-sync_wrapper = "0.1.0"
-termimad = "0.20.1"
-thiserror = "1.0.9"
-tokio = {version = "1.5", features = ["full"]}
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# @oss-disable: user = { path = "../../common/rust/user", optional = true }
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
-buck2_forkserver = { path = "../buck2_forkserver" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-daemonize = "0.5"
+daemonize = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-daemonize = "0.5"
-jemallocator = { version = "0.3.2", features = ["profiling"] }
+daemonize = { workspace = true }
+jemallocator = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-libc = "0.2.103"
-winapi = { version = "0.3", features = ["everything"] }
+libc = { workspace = true }
+winapi = { workspace = true }
 
 [dev-dependencies]
-maplit = "1.0.2"
-tempfile = "3.1"
+maplit = { workspace = true }
+tempfile = { workspace = true }
 
 [[bin]]
 name = "buck2"

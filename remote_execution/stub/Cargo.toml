@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "remote_execution"
 version = "0.1.0"
@@ -5,12 +7,13 @@ edition = "2021"
 description = "A library providing remote execution stubs"
 
 [dependencies]
-anyhow = "1.0"
-futures = "0.3"
-thiserror = "1.0.9"
-prost-types = "0.10"
-prost = "0.10"
-regex = "1.0"
+anyhow = { workspace = true }
+futures = { workspace = true }
+thiserror = { workspace = true }
+prost-types = { workspace = true }
+prost = { workspace = true }
+regex = { workspace = true }
+
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"

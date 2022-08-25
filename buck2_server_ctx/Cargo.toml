@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_server_ctx"
 version = "0.1.0"
@@ -5,9 +7,9 @@ edition = "2021"
 description = "Common parts of Buck commands"
 
 [dependencies]
-anyhow = "1.0.51"
-async-trait = "0.1.24"
-tracing = "0.1.22"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { path = "../gazebo/gazebo" }

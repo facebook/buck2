@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_query_parser"
 version = "0.1.0"
@@ -5,18 +7,20 @@ edition = "2021"
 description = "Buck2 query language parser"
 
 [dependencies]
+anyhow = { workspace = true }
+derive_more = { workspace = true }
+enum-map = { workspace = true }
+nom = { workspace = true }
+structopt = { workspace = true }
+thiserror = { workspace = true }
+
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-anyhow = "1.0.51"
-derive_more = "0.99.3"
-enum-map = "0.6.4"
-nom = "6.1.2"
-structopt = "0.3.0"
-thiserror = "1.0.9"
+
 buck2_core = { path = "../buck2_core" }
 
 [features]

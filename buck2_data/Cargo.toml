@@ -1,18 +1,21 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_data"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-derive_more = "0.99.3"
+derive_more = { workspace = true }
+hex = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true }
+tonic = { workspace = true }
+
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
-hex = "0.4"
-prost = "0.10"
-prost-types = "0.10"
-serde = { version = "1.0", features = ["derive"] }
-tonic = "0.7.2"
 
 [build-dependencies]
-tonic-build = {version = "0.7.2", features = ["prost"]}
+tonic-build = { workspace = true }

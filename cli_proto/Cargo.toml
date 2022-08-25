@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "cli_proto"
 
@@ -5,13 +7,14 @@ edition = "2021"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.51"
+anyhow = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tonic = { workspace = true }
+
 buck2_data = { path = "../buck2_data" }
-prost = "0.10"
-prost-types = "0.10"
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0.9"
-tonic = "0.7.2"
 
 [build-dependencies]
-tonic-build = {version = "0.7.2", features = ["prost"]}
+tonic-build = { workspace = true }

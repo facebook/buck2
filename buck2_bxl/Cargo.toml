@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_bxl"
 version = "0.1.0"
@@ -5,20 +7,20 @@ edition = "2021"
 description = "Buck V2 extension language"
 
 [dependencies]
-anyhow = "1.0.51"
-async-trait = "0.1.24"
-clap = "3.1.5"
-derivative = "2.1.1"
-derive_more = "0.99.3"
-either = "1.5"
-futures = "0.3"
-indexmap = { version = "1.6", features = ["serde-1"] }
-itertools = "0.10.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.48"
-structopt = "0.3.0"
-thiserror = "1.0.9"
-tokio = { version = "1.5", features = ["full"]}
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+derivative = { workspace = true }
+derive_more = { workspace = true }
+either = { workspace = true }
+futures = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+structopt = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
@@ -46,4 +48,4 @@ buck2_server_ctx = { path = "../buck2_server_ctx" }
 cli_proto = { path = "../cli_proto" }
 
 [target.'cfg(unix)'.dependencies]
-jemallocator = { version = "0.3.2", features = ["profiling"] }
+jemallocator = { workspace = true }

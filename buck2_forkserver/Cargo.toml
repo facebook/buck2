@@ -1,40 +1,44 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "buck2_forkserver"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.51"
-async-trait = "0.1.24"
-buck2_common = { path = "../buck2_common" }
-buck2_core = { path = "../buck2_core" }
-buck2_grpc = { path = "../buck2_grpc" }
-bytes = "1.0"
-forkserver_proto = { path = "../forkserver_proto" }
-futures = "0.3"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+futures = { workspace = true }
+libc = { workspace = true }
+nix = { workspace = true }
+pin-project = { workspace = true }
+take_mut = { workspace = true }
+tokio-util = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+
 gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo.version = "0.8.0"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 gazebo_lint.version = "0.1"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
-gazebo.version = "0.8.0"
-libc = "0.2"
-nix = "0.22"
-pin-project = "0.4"
-take_mut = "0.2.2"
-tokio-util = { version = "0.7", features = ["full"] }
-tokio = { version = "1.5", features = ["full"]}
-tonic = "0.7"
-tracing = "0.1.22"
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_grpc = { path = "../buck2_grpc" }
+forkserver_proto = { path = "../forkserver_proto" }
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["everything"] }
+winapi = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.5"
-bytes = "1.0"
-tempfile = "3.1"
-tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
+assert_matches = { workspace = true }
+bytes = { workspace = true }
+tempfile = { workspace = true }
+tokio-stream = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
