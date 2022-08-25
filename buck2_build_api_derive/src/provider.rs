@@ -508,7 +508,7 @@ impl ProviderCodegen {
                 use super::*;
                 use starlark::environment::MethodsBuilder;
 
-                #[starlark_module]
+                #[starlark::starlark_module]
                 pub(crate) fn #register_func_name(builder: &mut MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
