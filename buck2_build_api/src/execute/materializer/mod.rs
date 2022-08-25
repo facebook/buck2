@@ -29,6 +29,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_events::dispatch::span_async;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -287,13 +288,17 @@ pub struct CasDownloadInfo {
     /// typically represents how much time has passed since we executed the action or hit in the
     /// action cache.
     action_instant: Instant,
+
+    /// RE Use case to use whne downloading this
+    re_use_case: RemoteExecutorUseCase,
 }
 
 impl CasDownloadInfo {
-    pub fn new(action_digest: ActionDigest) -> Self {
+    pub fn new(action_digest: ActionDigest, re_use_case: RemoteExecutorUseCase) -> Self {
         Self {
             action_digest,
             action_instant: Instant::now(),
+            re_use_case,
         }
     }
 

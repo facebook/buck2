@@ -878,7 +878,7 @@ impl DeferredMaterializerCommandProcessor {
                 let re_client = connection.get_client();
 
                 re_client
-                    .materialize_files(files, &Default::default())
+                    .materialize_files(files, &info.re_use_case)
                     .await
                     .map_err(|e| match e.downcast_ref::<REClientError>() {
                         Some(e) if e.code == TCode::NOT_FOUND => {
