@@ -66,6 +66,40 @@ When you use `args` in a command line, it will expand to `-Dbar -Dfoo`.
 Note that creating projections is very cheap. Notably, it is independent of the
 size of the set.
 
+## Projections: using transitive sets in write_json()
+
+Like command lines, sets can form json projections to be used in write_json.
+
+A json projection is defined in the same way as an arg projection. The function
+should return a value that `write_json` otherwise supports. Then, you call
+`project_as_json` to turn a set into a value that can be passed to `write_json`
+(or can appear within the value passed to it, it doesn't need to be the top-level
+value). When expanded, the projection will expand like a list of all the node's
+individual projected values.
+
+Here is an example:
+
+```starlark
+# Declare the projection
+def project_as_json(value: str.type):
+  return struct(key = "foo", value = value)
+
+# Add it to the set definition
+MySet = transitive_set(json_projections = { "define": project_as_json })
+
+# Create a set
+set1 = ctx.actions.tset(MySet, value = "foo")
+set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
+
+# Call the projection.
+# Note "define" is the key we used above in `json_projections`.
+args = set2.project_as_json("define")
+```
+
+Note that if your projected values include (or may include) artifacts, you
+will likely want to use `write_json(with_inputs=True)` to get back a cmd_args
+that has all the artifacts in the json structure already in its `.hidden`.
+
 ### Traversals in depth
 
 Transitive sets form DAGs. Notably, this means individual nodes can exist more

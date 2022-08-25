@@ -37,8 +37,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
-use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
-use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetArgsProjectionTraversal;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 /// TransitiveSetArgsProjection is the starlark value returned from the starlark method `transitive_set.project_as_args()`
@@ -74,19 +73,9 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
 
 impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
     fn projection_name(&self) -> anyhow::Result<&'v str> {
-        let set = TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?;
-
-        let def =
-            transitive_set_definition_from_value(set.definition).context("Invalid definition")?;
-
-        Ok(def
-            .operations()
-            .args_projections
-            .get_index(self.projection)
-            .context("Invalid projection id")?
-            .0
-            .as_str())
+        TransitiveSet::from_value(self.transitive_set.to_value())
+            .context("Invalid transitive_set")?
+            .projection_name(self.projection)
     }
 }
 
@@ -170,33 +159,6 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             Ok(Impl::Item(value.as_command_line_err()?))
         }
     }
-
-    pub(super) fn iter_values<'a>(
-        &'a self,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        let set = TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?;
-
-        let mut iter = set.iter().values().peekable();
-
-        // Defensively, check the projection is valid. We know the set has the same definition
-        // throughout so it'll be safe (enough) to unwrap if it is valid on the first one.
-        if let Some(v) = iter.peek() {
-            v.args_projections
-                .get(self.projection)
-                .context("Invalid projection")?;
-        }
-
-        Ok(box iter.map(move |node| {
-            node.args_projections
-                .get(self.projection)
-                .unwrap()
-                .to_value()
-        }))
-    }
 }
 
 starlark_complex_value!(pub TransitiveSetArgsProjection);
@@ -220,7 +182,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
 
         for node in set.iter().values() {
             let projection = node
-                .args_projections
+                .projections
                 .get(self.projection)
                 .context("Invalid projection id")?;
 
@@ -266,6 +228,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
 #[starlark_module]
 fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
     fn traverse<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(TransitiveSetArgsProjectionTraversal { inner: this }))
+        let projection = TransitiveSetArgsProjection::from_value(this).context("Invalid this")?;
+        Ok(heap.alloc(TransitiveSetProjectionTraversal {
+            transitive_set: projection.transitive_set,
+            projection: projection.projection,
+        }))
     }
 }

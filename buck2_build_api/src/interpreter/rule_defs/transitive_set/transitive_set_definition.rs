@@ -35,6 +35,36 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 
+#[derive(Debug, Clone, Dupe, Copy, Trace, Freeze, PartialEq)]
+pub enum TransitiveSetProjectionKind {
+    Args,
+    Json,
+}
+
+impl TransitiveSetProjectionKind {
+    pub fn short_name(&self) -> &'static str {
+        match self {
+            TransitiveSetProjectionKind::Args => "args",
+            TransitiveSetProjectionKind::Json => "json",
+        }
+    }
+
+    pub fn function_name(&self) -> &'static str {
+        match self {
+            TransitiveSetProjectionKind::Args => "project_as_args",
+            TransitiveSetProjectionKind::Json => "project_as_json",
+        }
+    }
+}
+
+// The Coerce derivation doesn't work if this is just a tuple in the SmallMap value.
+#[derive(Debug, Clone, Trace, Coerce, Freeze)]
+#[repr(C)]
+pub struct TransitiveSetProjectionSpec<V> {
+    pub kind: TransitiveSetProjectionKind,
+    pub projection: V,
+}
+
 /// A unique identity for a given [`TransitiveSetDefinition`].
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "{}", "name")]
@@ -55,12 +85,12 @@ pub struct TransitiveSetDefinition<'v> {
     operations: TransitiveSetOperationsGen<Value<'v>>,
 }
 
-#[derive(Debug, Clone, Trace, Coerce)]
+#[derive(Debug, Clone, Trace, Coerce, Freeze)]
 #[repr(C)]
 pub struct TransitiveSetOperationsGen<V> {
     /// Callables that will project the values contained in transitive sets of this type to
-    /// cmd_args. This can be used to include a transitive set into a command.
-    pub(crate) args_projections: SmallMap<String, V>,
+    /// cmd_args or json. This can be used to include a transitive set into a command or json file.
+    pub(crate) projections: SmallMap<String, TransitiveSetProjectionSpec<V>>,
 
     /// Callables that will reduce the values contained in transitive sets to a single value per
     /// node. This can be used to e.g. aggregate flags throughout a transitive set;
@@ -69,27 +99,47 @@ pub struct TransitiveSetOperationsGen<V> {
 
 pub type TransitiveSetOperations<'v> = TransitiveSetOperationsGen<Value<'v>>;
 
-impl<'v> TransitiveSetOperationsGen<Value<'v>> {
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<TransitiveSetOperationsGen<FrozenValue>> {
-        let Self {
-            args_projections,
-            reductions,
-        } = self;
+impl<V> TransitiveSetOperationsGen<V> {
+    pub fn valid_projections(&self, kind: TransitiveSetProjectionKind) -> Vec<String> {
+        self.projections
+            .iter()
+            .filter_map(|(k, spec)| {
+                if kind == spec.kind {
+                    Some(k.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+    }
 
-        let args_projections = args_projections
-            .into_iter()
-            .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-            .collect::<anyhow::Result<_>>()?;
+    pub fn get_index_of_projection(
+        &self,
+        kind: TransitiveSetProjectionKind,
+        proj: &str,
+    ) -> anyhow::Result<usize> {
+        let index = match self.projections.get_index_of(proj) {
+            Some(index) => index,
+            None => {
+                return Err(TransitiveSetError::ProjectionDoesNotExist {
+                    projection: proj.to_owned(),
+                    valid_projections: self.valid_projections(TransitiveSetProjectionKind::Args),
+                }
+                .into());
+            }
+        };
 
-        let reductions = reductions
-            .into_iter()
-            .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-            .collect::<anyhow::Result<_>>()?;
+        let (_, spec) = self.projections.get_index(index).unwrap();
+        if spec.kind != kind {
+            return Err(TransitiveSetError::ProjectionKindMismatch {
+                projection: proj.to_owned(),
+                expected_kind: kind,
+                actual_kind: spec.kind,
+            }
+            .into());
+        }
 
-        Ok(TransitiveSetOperationsGen {
-            args_projections,
-            reductions,
-        })
+        Ok(index)
     }
 }
 

@@ -13,6 +13,7 @@ mod transitive_set;
 mod transitive_set_args_projection;
 mod transitive_set_definition;
 mod transitive_set_iterator;
+mod transitive_set_json_projection;
 mod traversal;
 
 #[cfg(test)]
@@ -33,7 +34,11 @@ pub use self::transitive_set_definition::transitive_set_definition_from_value;
 pub use self::transitive_set_definition::FrozenTransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetOperations;
+pub use self::transitive_set_definition::TransitiveSetProjectionKind;
+pub use self::transitive_set_definition::TransitiveSetProjectionSpec;
 use self::transitive_set_iterator::TransitiveSetIteratorGen;
+pub use self::transitive_set_json_projection::FrozenTransitiveSetJsonProjection;
+pub use self::transitive_set_json_projection::TransitiveSetJsonProjection;
 
 #[derive(Debug, Error)]
 pub enum TransitiveSetError {
@@ -76,6 +81,19 @@ pub enum TransitiveSetError {
     ProjectionDoesNotExist {
         projection: String,
         valid_projections: Vec<String>,
+    },
+
+    #[error(
+        "Requested a {} projection, but `{}` is a `{}` projection (and should use `{}` instead)",
+        .expected_kind.short_name(),
+        .projection,
+        .actual_kind.short_name(),
+        .actual_kind.function_name(),
+    )]
+    ProjectionKindMismatch {
+        projection: String,
+        expected_kind: TransitiveSetProjectionKind,
+        actual_kind: TransitiveSetProjectionKind,
     },
 
     #[error("Error evaluating transitive set projection {}", .name)]

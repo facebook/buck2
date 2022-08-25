@@ -73,6 +73,7 @@ use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 
 #[derive(Debug, Error)]
 enum WriteJsonActionValidationError {
@@ -133,6 +134,7 @@ enum JsonUnpack<'v> {
     Struct(&'v Struct<'v>),
     Record(&'v Record<'v>),
     Enum(&'v EnumValue<'v>),
+    TransitiveSetJsonProjection(&'v TransitiveSetJsonProjection<'v>),
     TargetLabel(&'v StarlarkTargetLabel),
     Label(&'v Label<'v>),
     Artifact(Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>),
@@ -162,6 +164,8 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::Record(x)
     } else if let Some(x) = EnumValue::from_value(value) {
         JsonUnpack::Enum(x)
+    } else if let Some(x) = TransitiveSetJsonProjection::from_value(value) {
+        JsonUnpack::TransitiveSetJsonProjection(x)
     } else if let Some(x) = StarlarkTargetLabel::from_value(value) {
         JsonUnpack::TargetLabel(x)
     } else if let Some(x) = Label::from_value(value) {
@@ -200,6 +204,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
             }
             JsonUnpack::Enum(x) => x.serialize(serializer),
+            JsonUnpack::TransitiveSetJsonProjection(x) => {
+                serializer.collect_seq(err(x.iter_values())?.map(|v| self.with_value(v)))
+            }
             JsonUnpack::TargetLabel(x) => {
                 // Users could do this with `str(ctx.label.raw_target())`, but in some benchmarks that causes
                 // a lot of additional memory to be retained for all those strings
@@ -499,6 +506,10 @@ pub(crate) fn visit_json_artifacts(
                 visit_json_artifacts(v, visitor)?;
             }
         }
+        JsonUnpack::TransitiveSetJsonProjection(x) => visitor.visit_input(
+            ArtifactGroup::TransitiveSetProjection(x.to_projection_key()?),
+            None,
+        ),
         JsonUnpack::Artifact(_x) => {
             // The _x function requires that the artifact is already bound, but we may need to visit artifacts
             // before that happens. Treating it like an opaque command_line works as we want for any artifact

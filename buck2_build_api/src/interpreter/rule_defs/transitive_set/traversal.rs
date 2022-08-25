@@ -20,7 +20,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 
 #[derive(
     Debug,
@@ -58,6 +57,8 @@ where
     }
 }
 
+/// The type returned from .traverse() on a tset projection. This is shared by multiple types of
+/// projection (as the traversals all just iterate over the projected values).
 #[derive(
     Debug,
     Clone,
@@ -68,15 +69,16 @@ where
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "Traversal({})", inner)]
+#[display(fmt = "Traversal({}[\"{}\"])", transitive_set, projection)]
 #[repr(C)]
-pub struct TransitiveSetArgsProjectionTraversalGen<V> {
-    pub(super) inner: V,
+pub struct TransitiveSetProjectionTraversalGen<V> {
+    pub(super) transitive_set: V,
+    pub projection: usize,
 }
 
-starlark_complex_value!(pub TransitiveSetArgsProjectionTraversal);
+starlark_complex_value!(pub TransitiveSetProjectionTraversal);
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetArgsProjectionTraversalGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetProjectionTraversalGen<V>
 where
     Self: ProvidesStaticType,
 {
@@ -89,8 +91,8 @@ where
     where
         'v: 'a,
     {
-        let projection = TransitiveSetArgsProjection::from_value(self.inner.to_value())
-            .context("Invalid inner")?;
-        projection.iter_values()
+        let set =
+            TransitiveSet::from_value(self.transitive_set.to_value()).context("Invalid inner")?;
+        set.iter_projection_values(self.projection)
     }
 }

@@ -399,6 +399,39 @@ fn test_projection_iteration() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_json_projection() -> anyhow::Result<()> {
+    let mut tester = Tester::new()?;
+    tester.set_additional_globals(|builder| {
+        tset_factory(builder);
+        command_line_stringifier(builder);
+    });
+
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def project(value):
+            return struct(value = value)
+
+        FooSet = transitive_set(json_projections = {
+            "project": project
+        })
+
+        def test():
+            f2 = make_tset(FooSet, value = "bar")
+            f1 = make_tset(FooSet, value = "foo", children = [f2])
+            proj = f1.project_as_json("project")
+
+            l = list(proj.traverse())
+
+            assert_eq(2, len(l))
+            assert_eq(struct(value="foo"), l[0])
+            assert_eq(struct(value="bar"), l[1])
+        "#
+    ))?;
+
+    Ok(())
+}
+
+#[test]
 fn test_reduction() -> anyhow::Result<()> {
     let mut tester = Tester::new()?;
     tester.set_additional_globals(|builder| {

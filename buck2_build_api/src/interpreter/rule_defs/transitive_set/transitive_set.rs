@@ -33,16 +33,19 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::actions::write_json::visit_json_artifacts;
+use crate::actions::write_json::UnregisteredWriteJsonAction;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetProjectionKind;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorGen;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 
 #[derive(Debug, Clone, Trace, ProvidesStaticType)]
 #[repr(C)]
@@ -71,8 +74,8 @@ pub struct NodeGen<V> {
     /// The value
     pub value: V,
 
-    /// Pre-computed args projections. Those are command lines.
-    pub args_projections: Vec<V>,
+    /// Pre-computed projections.
+    pub projections: Vec<V>,
 }
 
 unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenValue> {}
@@ -122,24 +125,18 @@ impl<V> TransitiveSetGen<V> {
 
 impl<V> NodeGen<V> {
     fn extra_memory(&self) -> usize {
-        self.args_projections.capacity() * std::mem::size_of::<V>()
+        self.projections.capacity() * std::mem::size_of::<V>()
     }
 }
 
 impl<'v> NodeGen<Value<'v>> {
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<NodeGen<FrozenValue>> {
-        let Self {
-            value,
-            args_projections,
-        } = self;
+        let Self { value, projections } = self;
 
         let value = value.freeze(freezer)?;
-        let args_projections = args_projections.into_try_map(|x| x.freeze(freezer))?;
+        let projections = projections.into_try_map(|x| x.freeze(freezer))?;
 
-        Ok(NodeGen {
-            value,
-            args_projections,
-        })
+        Ok(NodeGen { value, projections })
     }
 }
 
@@ -148,12 +145,25 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         definition.ptr_eq(self.definition.to_value())
     }
 
+    pub fn projection_name(&'v self, projection: usize) -> anyhow::Result<&'v str> {
+        let def = transitive_set_definition_from_value(self.definition.to_value())
+            .context("Invalid definition")?;
+
+        Ok(def
+            .operations()
+            .projections
+            .get_index(projection)
+            .context("Invalid projection id")?
+            .0
+            .as_str())
+    }
+
     pub fn get_projection_value(&self, projection: usize) -> anyhow::Result<Option<V>> {
         match &self.node {
             None => Ok(None),
             Some(node) => Ok(Some(
                 *node
-                    .args_projections
+                    .projections
                     .get(projection)
                     .context("Invalid projection id")?,
             )),
@@ -175,10 +185,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
 
         if let Some(projection) = self.get_projection_value(projection)? {
             let mut visitor = SimpleCommandLineArtifactVisitor::new();
-
-            TransitiveSetArgsProjection::as_command_line(projection.to_value())?
-                .visit_artifacts(&mut visitor)?;
-
+            // It's either an args-like or a json projection. visit_json_artifacts handles both the way we want.
+            visit_json_artifacts(projection.to_value(), &mut visitor)?;
             sub_inputs.extend(visitor.inputs);
         }
 
@@ -213,6 +221,26 @@ where
         'v: 'a,
     {
         Ok(box self.iter().values().map(|node| node.value.to_value()))
+    }
+
+    pub(super) fn iter_projection_values<'a>(
+        &'a self,
+        projection: usize,
+    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    where
+        'v: 'a,
+    {
+        let mut iter = self.iter().values().peekable();
+
+        // Defensively, check the projection is valid. We know the set has the same definition
+        // throughout so it'll be safe (enough) to unwrap if it is valid on the first one.
+        if let Some(v) = iter.peek() {
+            v.projections
+                .get(projection)
+                .context("Invalid projection")?;
+        }
+
+        Ok(box iter.map(move |node| node.projections.get(projection).unwrap().to_value()))
     }
 }
 
@@ -323,27 +351,30 @@ impl<'v> TransitiveSet<'v> {
         })?;
 
         let node = value.into_try_map(|value| {
-            let args_projections = def
+            let projections = def
                 .operations()
-                .args_projections
+                .projections
                 .iter()
-                .map(|(name, proj)| {
-                    let cli = eval.eval_function(*proj, &[value], &[]).map_err(|error| {
-                        TransitiveSetError::ProjectionError {
+                .map(|(name, spec)| {
+                    let projected_value = eval
+                        .eval_function(spec.projection, &[value], &[])
+                        .map_err(|error| TransitiveSetError::ProjectionError {
                             error,
                             name: name.clone(),
+                        })?;
+                    match spec.kind {
+                        TransitiveSetProjectionKind::Args => {
+                            TransitiveSetArgsProjection::as_command_line(projected_value)?;
                         }
-                    })?;
-                    // verify that its command-line-like.
-                    TransitiveSetArgsProjection::as_command_line(cli)?;
-                    anyhow::Ok(cli)
+                        TransitiveSetProjectionKind::Json => {
+                            UnregisteredWriteJsonAction::validate(projected_value)?;
+                        }
+                    }
+                    anyhow::Ok(projected_value)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
 
-            anyhow::Ok(NodeGen {
-                value,
-                args_projections,
-            })
+            anyhow::Ok(NodeGen { value, projections })
         })?;
 
         let reductions = def
@@ -401,6 +432,26 @@ impl<'v> TransitiveSet<'v> {
 
 #[starlark_module]
 fn transitive_set_methods(builder: &mut MethodsBuilder) {
+    fn project_as_json<'v>(
+        this: Value<'v>,
+        projection: &str,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        let set = TransitiveSet::from_value(this).context("Invalid this")?;
+
+        let def = transitive_set_definition_from_value(set.definition)
+            .context("Invalid this.definition")?;
+
+        let index = def
+            .operations()
+            .get_index_of_projection(TransitiveSetProjectionKind::Json, projection)?;
+
+        Ok(heap.alloc(TransitiveSetJsonProjection {
+            transitive_set: this,
+            projection: index,
+        }))
+    }
+
     fn project_as_args<'v>(
         this: Value<'v>,
         projection: &str,
@@ -411,21 +462,9 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         let def = transitive_set_definition_from_value(set.definition)
             .context("Invalid this.definition")?;
 
-        let index = match def.operations().args_projections.get_index_of(projection) {
-            Some(index) => index,
-            None => {
-                return Err(TransitiveSetError::ProjectionDoesNotExist {
-                    projection: projection.into(),
-                    valid_projections: def
-                        .operations()
-                        .args_projections
-                        .keys()
-                        .map(String::from)
-                        .collect::<Vec<_>>(),
-                }
-                .into());
-            }
-        };
+        let index = def
+            .operations()
+            .get_index_of_projection(TransitiveSetProjectionKind::Args, projection)?;
 
         Ok(heap.alloc(TransitiveSetArgsProjection {
             transitive_set: this,

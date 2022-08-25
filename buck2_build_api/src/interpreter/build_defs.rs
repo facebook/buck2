@@ -26,6 +26,8 @@ use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionKind;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionSpec;
 
 #[derive(Debug, Error)]
 enum OncallErrors {
@@ -96,31 +98,59 @@ fn natives(builder: &mut GlobalsBuilder) {
 
     fn transitive_set<'v>(
         args_projections: Option<SmallMap<String, Value<'v>>>,
+        json_projections: Option<SmallMap<String, Value<'v>>>,
         reductions: Option<SmallMap<String, Value<'v>>>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
         let build_context = BuildContext::from_context(eval)?;
-        if let Some(v) = &args_projections {
-            for (name, proj) in v.iter() {
-                // We should probably be able to require that the projection returns a parameters_spec, but
-                // we don't depend on this type-checking and we'd just error out later when calling it if it
-                // were wrong.
-                if let Some(v) = proj.parameters_spec() {
-                    if v.len() != 1 {
-                        return Err(TransitiveSetError::ProjectionSignatureError {
-                            name: name.clone(),
-                        }
-                        .into());
-                    }
-                };
-            }
-        }
         // TODO(cjhopman): Reductions could do similar signature checking.
+        let projections: SmallMap<_, _> = args_projections
+            .into_iter()
+            .flat_map(|v| v.into_iter())
+            .map(|(k, v)| {
+                (
+                    k,
+                    TransitiveSetProjectionSpec {
+                        kind: TransitiveSetProjectionKind::Args,
+                        projection: v,
+                    },
+                )
+            })
+            .chain(
+                json_projections
+                    .into_iter()
+                    .flat_map(|v| v.into_iter())
+                    .map(|(k, v)| {
+                        (
+                            k,
+                            TransitiveSetProjectionSpec {
+                                kind: TransitiveSetProjectionKind::Json,
+                                projection: v,
+                            },
+                        )
+                    }),
+            )
+            .collect();
+
+        // Both kinds of projections take functions with the same signature.
+        for (name, spec) in projections.iter() {
+            // We should probably be able to require that the projection returns a parameters_spec, but
+            // we don't depend on this type-checking and we'd just error out later when calling it if it
+            // were wrong.
+            if let Some(v) = spec.projection.parameters_spec() {
+                if v.len() != 1 {
+                    return Err(TransitiveSetError::ProjectionSignatureError {
+                        name: name.clone(),
+                    }
+                    .into());
+                }
+            };
+        }
 
         Ok(TransitiveSetDefinition::new(
             build_context.starlark_path.id().clone(),
             TransitiveSetOperations {
-                args_projections: args_projections.unwrap_or_default(),
+                projections,
                 reductions: reductions.unwrap_or_default(),
             },
         ))
