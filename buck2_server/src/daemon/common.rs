@@ -140,7 +140,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 options
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
-                options.re_use_case.clone(),
+                options.re_use_case,
                 self.re_global_knobs.dupe(),
             )
         };

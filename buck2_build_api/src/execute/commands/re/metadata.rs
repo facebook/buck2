@@ -8,7 +8,7 @@ pub trait RemoteExecutionMetadataExt {
 impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
     fn metadata(&self) -> RemoteExecutionMetadata {
         RemoteExecutionMetadata {
-            use_case_id: self.clone().into(),
+            use_case_id: self.as_str().to_owned(),
             ..Default::default()
         }
     }

@@ -7,32 +7,42 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use gazebo::prelude::Dupe;
+use internment_tweaks::Intern;
+use internment_tweaks::StaticInterner;
 use starlark_map::small_map::SmallMap;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct RemoteExecutorUseCase(Cow<'static, str>);
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe)]
+pub struct RemoteExecutorUseCase(Intern<String>);
 
 impl RemoteExecutorUseCase {
     pub fn new(use_case: String) -> Self {
-        Self(Cow::Owned(use_case))
+        static USE_CASE_INTERNER: StaticInterner<String> = StaticInterner::new();
+        Self(USE_CASE_INTERNER.intern(use_case))
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        self.0.deref_static().as_str()
+    }
+}
+
+// The derived PartialEq (which uses pointer equality on the interned data) is still correct.
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for RemoteExecutorUseCase {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 
 impl Default for RemoteExecutorUseCase {
     fn default() -> Self {
-        Self(Cow::Borrowed("buck2-default"))
-    }
-}
-
-impl From<RemoteExecutorUseCase> for String {
-    fn from(use_case: RemoteExecutorUseCase) -> String {
-        use_case.0.into_owned()
+        Self::new("buck2-default".to_owned())
     }
 }
 
