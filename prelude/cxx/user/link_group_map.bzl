@@ -11,6 +11,7 @@ load(
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
+    "get_linkable_graph_node_map",
 )
 load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -28,7 +29,8 @@ def _impl(ctx: "context") -> ["provider"]:
         ctx.label,
         link_group_deps,
     )
-    mappings = compute_mappings(groups = link_groups, graph = linkable_graph)
+    linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
+    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
     return [
         DefaultInfo(),
         LinkGroupInfo(groups = link_groups, groups_hash = hash(str(link_groups)), mappings = mappings),

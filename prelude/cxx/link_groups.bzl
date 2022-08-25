@@ -7,9 +7,10 @@ load(
 )
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
-    "LinkableGraph",  # @unused Used as a type
+    "LinkableNode",  # @unused Used as a type
     "create_merged_linkable_graph",
     "get_link_info",
+    "get_linkable_graph_node_map",
     "linkable_deps",
 )
 load(
@@ -61,8 +62,8 @@ def get_link_group_info(ctx: "context", deps: ["dependency"]) -> [LinkGroupInfo.
         ctx.label,
         link_group_deps,
     )
-
-    _, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = deps, groups = groups, graph = linkable_graph)
+    linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
+    _, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = deps, groups = groups, graph_map = linkable_graph_node_map)
 
     return link_group_info
 
@@ -75,7 +76,7 @@ def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Lin
     }
 
 def get_filtered_labels_to_links_map(
-        linkable_graph: LinkableGraph.type,
+        linkable_graph_node_map: {"label": LinkableNode.type},
         link_group: [str.type, None],
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
@@ -93,7 +94,7 @@ def get_filtered_labels_to_links_map(
     deps = linkable_deps(non_exported_deps)
 
     def get_traversed_deps(node: "label") -> ["label"]:
-        linkable_node = linkable_graph.nodes[node]  # buildifier: disable=uninitialized
+        linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
 
         # Always link against exported deps
         node_linkables = list(linkable_node.exported_deps)
@@ -113,7 +114,7 @@ def get_filtered_labels_to_links_map(
 
     # Get all potential linkable targets
     linkables = breadth_first_traversal_by(
-        linkable_graph.nodes,
+        linkable_graph_node_map,
         deps,
         get_traversed_deps,
     )
@@ -122,12 +123,12 @@ def get_filtered_labels_to_links_map(
 
     def add_link(target: "label", link_style: LinkStyle.type):
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = get_link_info(linkable_graph.nodes[target], link_style, prefer_stripped),
+            link_info = get_link_info(linkable_graph_node_map[target], link_style, prefer_stripped),
             link_style = link_style,
         )  # buildifier: disable=uninitialized
 
     for target in linkables:
-        node = linkable_graph.nodes[target]
+        node = linkable_graph_node_map[target]
         actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
 
         # Always link any shared dependencies

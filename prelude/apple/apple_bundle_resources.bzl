@@ -28,6 +28,7 @@ load(
     ":resource_groups.bzl",
     "create_resource_graph",
     "get_filtered_resources",
+    "get_resource_graph_node_map",
     "get_resource_group_info",
 )
 
@@ -99,7 +100,8 @@ def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAsset
         deps = deps + resource_groups_deps,
         exported_deps = [],
     )
-    return get_filtered_resources(resource_graph, ctx.attrs.resource_group, resource_group_mappings)
+    resource_graph_node_map = get_resource_graph_node_map(resource_graph)
+    return get_filtered_resources(ctx.label, resource_graph_node_map, ctx.attrs.resource_group, resource_group_mappings)
 
 def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBundlePart.type]:
     result = []

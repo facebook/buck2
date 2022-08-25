@@ -3,10 +3,6 @@ load(
     "Linkage",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
-    "LinkableGraph",  # @unused Used as a type
-)
-load(
     "@fbcode//buck2/prelude/utils:build_target_pattern.bzl",
     "BuildTargetPattern",
     "label_matches_build_target_pattern",
@@ -72,13 +68,6 @@ Group = record(
     mappings = [GroupMapping.type],
 )
 
-ResourceGraph = provider(fields = [
-    # Target identifier of the graph.
-    "label",  # "label"
-    # All nodes of the resources DAG indexed by target label.
-    "nodes",  # {"label", ResourceNode.type}
-])
-
 GroupsMappings = record(
     groups = [Group.type],
     mappings = {"label": str.type},
@@ -127,7 +116,7 @@ def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "r
             fail("Invalid group mapping filter: {}\nFilter must begin with `label:` or `pattern:`.".format(entry))
     return filter_type, label_regex, build_target_pattern
 
-def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> ({"label": str.type}, ["_a", None]):
+def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], groups: [Group.type], graph_map: {"label": "_b"}) -> ({"label": str.type}, ["_a", None]):
     if not groups:
         return {}, None
 
@@ -143,10 +132,10 @@ def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], gro
         expect(hash(str(groups)) == computed_groups_info.groups_hash, "The group spec used for a build must be the same.")
         return computed_groups_info.mappings, computed_groups_info
 
-    mappings = compute_mappings(groups, graph)
+    mappings = compute_mappings(groups, graph_map)
     return mappings, (group_info_type(groups = groups, groups_hash = hash(str(groups)), mappings = mappings) if mappings else None)
 
-def compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceGraph.type]) -> {"label": str.type}:
+def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"label": str.type}:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
@@ -155,17 +144,17 @@ def compute_mappings(groups: [Group.type], graph: [LinkableGraph.type, ResourceG
 
     for group in groups:
         for mapping in group.mappings:
-            targets_in_mapping = _find_targets_in_mapping(graph, mapping)
+            targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
             if not targets_in_mapping:
                 warning("Could not find any targets for mapping: `{}` in group: `{}`".format(mapping, group.name))
                 continue
             for target in targets_in_mapping:
-                _update_target_to_group_mapping(graph, target_to_group_map, node_traversed_targets, group.name, mapping, target)
+                _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group.name, mapping, target)
 
     return target_to_group_map
 
 def _find_targets_in_mapping(
-        graph: [LinkableGraph.type, ResourceGraph.type],
+        graph_map: {"label": "_b"},
         mapping: GroupMapping.type) -> ["label"]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if mapping.filter_type == None:
@@ -183,7 +172,7 @@ def _find_targets_in_mapping(
             return label_matches_build_target_pattern(target, mapping.build_target_pattern)
 
     def find_matching_targets(node):  # "label" -> ["label"]:
-        graph_node = graph.nodes[node]
+        graph_node = graph_map[node]
         if matches_target(node, graph_node.labels):
             matching_targets[node] = None
             if mapping.traversal == Traversal("tree"):
@@ -193,13 +182,13 @@ def _find_targets_in_mapping(
                 return []
         return graph_node.deps + graph_node.exported_deps
 
-    breadth_first_traversal_by(graph.nodes, [mapping.target.label], find_matching_targets)
+    breadth_first_traversal_by(graph_map, [mapping.target.label], find_matching_targets)
 
     return matching_targets.keys()
 
 # Types removed to avoid unnecessary type checking which degrades performance.
 def _update_target_to_group_mapping(
-        graph,  # [LinkableGraph.type, ResourceGraph.type]
+        graph_map,  # {"label": "_b"}
         target_to_group_map,  #: {"label": str.type}
         node_traversed_targets,  #: {"label": None}
         group,  #  str.type,
@@ -224,10 +213,10 @@ def _update_target_to_group_mapping(
         # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned
         if previously_processed and node not in node_traversed_targets:
             return []
-        graph_node = graph.nodes[node]
+        graph_node = graph_map[node]
         return graph_node.deps + graph_node.exported_deps
 
     if mapping.traversal == Traversal("node"):
         assign_target_to_group(target = target, node_traversal = True)
     else:  # tree
-        breadth_first_traversal_by(graph.nodes, [target], transitively_add_targets_to_group_mapping)
+        breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)

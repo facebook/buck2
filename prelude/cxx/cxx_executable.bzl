@@ -30,6 +30,7 @@ load(
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
+    "get_linkable_graph_node_map",
 )
 load(
     "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
@@ -158,6 +159,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ctx.label,
         first_order_deps + link_group_deps,
     )
+    linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
 
     # Gather link inputs.
     own_link_flags = cxx_attr_linker_flags(ctx)
@@ -173,7 +175,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # scenarios for which we need to propagate up link info and simplify this logic. For now
     # base which links to use based on whether link groups are defined.
     if link_group_mappings:
-        filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, link_group, link_group_mappings, link_group_preferred_linkage, link_style, first_order_deps, is_executable_link = True)
+        filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph_node_map, link_group, link_group_mappings, link_group_preferred_linkage, link_style, first_order_deps, is_executable_link = True)
         filtered_links = get_filtered_links(filtered_labels_to_links_map)
         filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
 
@@ -187,7 +189,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         if is_cxx_test and link_group != None:
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
             # from the root again to ensure we link in gtest deps
-            rest_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, None, link_group_mappings, link_group_preferred_linkage, link_style, first_order_deps, is_executable_link = True)
+            rest_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph_node_map, None, link_group_mappings, link_group_preferred_linkage, link_style, first_order_deps, is_executable_link = True)
             filtered_links.extend(get_filtered_links(rest_labels_to_links_map))
             filtered_targets.extend(get_filtered_targets(rest_labels_to_links_map))
 

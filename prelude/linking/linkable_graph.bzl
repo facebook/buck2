@@ -101,6 +101,9 @@ LinkableGraph = provider(fields = [
 # https://www.internalfb.com/code/fbsource/tools/build_defs/fbcode_macros/build_defs/rust_python_extension.bzl
 ForceConsiderationOfOmnibusRoots = provider(fields = [])
 
+def get_linkable_graph_node_map(graph: LinkableGraph.type) -> {"label": LinkableNode.type}:
+    return graph.nodes
+
 def create_merged_linkable_graph(
         label: "label",
         deps: ["dependency"] = []) -> LinkableGraph.type:

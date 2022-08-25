@@ -1,7 +1,6 @@
 load(
     "@fbcode//buck2/prelude/cxx:groups.bzl",
     "MATCH_ALL_LABEL",
-    "ResourceGraph",  # @unused Used as a type
     "get_group_mappings_and_info",
     "parse_groups_definitions",
 )
@@ -28,11 +27,21 @@ ResourceNode = record(
     core_data_spec = field([AppleCoreDataSpec.type, None], None),
 )
 
+ResourceGraph = provider(fields = [
+    # Target identifier of the graph.
+    "label",  # "label"
+    # All nodes of the resources DAG indexed by target label.
+    "nodes",  # {"label", ResourceNode.type}
+])
+
 ResourceGroupInfo = provider(fields = [
     "groups",  # [Group.type]
     "groups_hash",  # str.type
     "mappings",  # {"label": str.type}
 ])
+
+def get_resource_graph_node_map(graph: ResourceGraph.type) -> {"label": ResourceNode.type}:
+    return graph.nodes
 
 def create_resource_graph(
         root: "label",
@@ -87,12 +96,13 @@ def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
         deps = resource_groups_deps,
         exported_deps = [],
     )
-
-    _, resource_group_info = get_group_mappings_and_info(group_info_type = ResourceGroupInfo, groups = groups, graph = resource_graph, deps = [])
+    resource_graph_node_map = get_resource_graph_node_map(resource_graph)
+    _, resource_group_info = get_group_mappings_and_info(group_info_type = ResourceGroupInfo, groups = groups, graph_map = resource_graph_node_map, deps = [])
     return resource_group_info
 
 def get_filtered_resources(
-        resource_graph: ResourceGraph.type,
+        root: "label",
+        resource_graph_node_map: {"label": ResourceNode.type},
         resource_group: [str.type, None],
         resource_group_mappings: [{"label": str.type}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]):
     """
@@ -100,12 +110,12 @@ def get_filtered_resources(
     """
 
     def get_traversed_deps(target: "label") -> ["label"]:
-        node = resource_graph.nodes[target]  # buildifier: disable=uninitialized
+        node = resource_graph_node_map[target]  # buildifier: disable=uninitialized
         return node.exported_deps + node.deps
 
     targets = breadth_first_traversal_by(
-        resource_graph.nodes,
-        get_traversed_deps(resource_graph.label),
+        resource_graph_node_map,
+        get_traversed_deps(root),
         get_traversed_deps,
     )
 
@@ -122,7 +132,7 @@ def get_filtered_resources(
             target_resource_group == MATCH_ALL_LABEL or
             # Does it match currently evaluated group?
             target_resource_group == resource_group):
-            node = resource_graph.nodes[target]
+            node = resource_graph_node_map[target]
             resource_spec = node.resource_spec
             if resource_spec:
                 resource_specs.append(resource_spec)
