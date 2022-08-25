@@ -18,6 +18,8 @@ package buck.data;
 // A single event originating from Buck. Its semantics depend on the `data`
 // member.
 message BuckEvent {
+  reserved 2047;
+
   // A timestamp for when this event was fired, taken from the system clock.
   // Required.
   google.protobuf.Timestamp timestamp = 1;
@@ -38,9 +40,6 @@ message BuckEvent {
     // directly.
     RecordEvent record = 23;
   }
-  // A temporary field to verify that the locally-held dispatcher is the
-  // same as the one in global state.
-  bool is_global_dispatcher_diff = 2047;
 }
 
 // An event that begins a span.

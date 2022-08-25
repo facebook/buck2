@@ -682,7 +682,6 @@ mod tests {
                     },
                 )),
             }),
-            is_global_dispatcher_diff: false,
         };
         console.handle_event(&event).await.unwrap();
 
@@ -711,7 +710,6 @@ mod tests {
                 stats: None,
                 duration: None,
             }),
-            is_global_dispatcher_diff: false,
         };
         assert!(console.handle_event(&event).await.is_ok());
     }
@@ -747,7 +745,6 @@ mod tests {
                         .into(),
                     ),
                 }),
-                is_global_dispatcher_diff: false,
             })
             .await?;
 
@@ -767,7 +764,6 @@ mod tests {
                     ),
                 }
                 .into(),
-                is_global_dispatcher_diff: false,
             })
             .await?;
 
@@ -787,7 +783,6 @@ mod tests {
                     ),
                 }
                 .into(),
-                is_global_dispatcher_diff: false,
             })
             .await?;
 

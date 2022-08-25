@@ -371,7 +371,6 @@ mod tests {
                     caramba: "test".to_owned(),
                 })),
             }),
-            is_global_dispatcher_diff: false,
         };
 
         let module = BuckEvent {
@@ -384,7 +383,6 @@ mod tests {
                     caramba: "foo".to_owned(),
                 })),
             }),
-            is_global_dispatcher_diff: false,
         };
 
         let mut state = SpanTracker::new();
@@ -450,7 +448,6 @@ mod tests {
                     caramba: "e1".to_owned(),
                 })),
             }),
-            is_global_dispatcher_diff: false,
         };
 
         let e2 = BuckEvent {
@@ -463,7 +460,6 @@ mod tests {
                     caramba: "e2".to_owned(),
                 })),
             }),
-            is_global_dispatcher_diff: false,
         };
 
         let e3 = BuckEvent {
@@ -476,7 +472,6 @@ mod tests {
                     caramba: "e3".to_owned(),
                 })),
             }),
-            is_global_dispatcher_diff: false,
         };
 
         let mut state = SpanTracker::new();
@@ -566,7 +561,6 @@ mod tests {
                 ),
             }
             .into(),
-            is_global_dispatcher_diff: false,
         };
 
         let prepare = BuckEvent {
@@ -583,7 +577,6 @@ mod tests {
                 ),
             }
             .into(),
-            is_global_dispatcher_diff: false,
         };
 
         let mut state = SpanTracker::new();
@@ -658,7 +651,6 @@ mod tests {
                 ),
             }
             .into(),
-            is_global_dispatcher_diff: false,
         };
 
         state

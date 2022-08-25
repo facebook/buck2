@@ -196,7 +196,6 @@ mod imp {
                 data: Some(panic_payload),
             }
             .into(),
-            is_global_dispatcher_diff: false,
         };
         let _err = sink.send(event);
 

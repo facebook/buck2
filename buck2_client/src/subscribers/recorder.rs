@@ -115,7 +115,6 @@ mod imp {
                         data: Some(record.into()),
                     }
                     .into(),
-                    is_global_dispatcher_diff: false,
                 };
                 tracing::info!("Recording invocation to Scribe: {:?}", &event);
                 self.scribe.send(event);

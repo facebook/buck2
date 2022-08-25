@@ -87,7 +87,6 @@ mod fbcode {
                                 .into(),
                             ),
                         }),
-                        is_global_dispatcher_diff: false,
                         parent_id: None,
                         span_id: None,
                         timestamp: SystemTime::now(),

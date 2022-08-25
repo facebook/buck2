@@ -877,7 +877,6 @@ mod tests {
                     },
                 )),
             }),
-            is_global_dispatcher_diff: false,
         };
 
         // Create event log

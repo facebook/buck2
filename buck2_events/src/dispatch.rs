@@ -76,11 +76,6 @@ impl EventDispatcher {
         parent_id: Option<SpanId>,
     ) {
         let now = SystemTime::now();
-        let is_global_dispatcher_diff = if let Some(dispatcher) = get_dispatcher() {
-            dispatcher.trace_id != self.trace_id
-        } else {
-            true
-        };
 
         let event = BuckEvent {
             timestamp: now,
@@ -88,7 +83,6 @@ impl EventDispatcher {
             span_id,
             parent_id,
             data: data.into(),
-            is_global_dispatcher_diff,
         };
         self.sink.send(event);
     }
