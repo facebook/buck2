@@ -18,6 +18,8 @@ buck_filegroup(
         "configurations_uncategorized/**/.*",
         "directory_sources/**",
         "directory_sources/**/.*",
+        "deferred_materializer_matching_artifact_optimization/**",
+        "deferred_materializer_matching_artifact_optimization/**/.*",
         "docs/**",
         "docs/**/.*",
         "eden_materializer/**",

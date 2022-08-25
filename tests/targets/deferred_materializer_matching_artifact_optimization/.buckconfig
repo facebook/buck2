@@ -1,0 +1,13 @@
+[buildfile]
+name=TARGETS.fixture
+
+[repositories]
+root = .
+fbcode = fbcode
+fbsource = fbsource
+buck = buck
+toolchains = toolchains
+
+[buck2]
+materializations = deferred
+enable_local_caching_of_re_artifacts = true

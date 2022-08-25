@@ -51,18 +51,20 @@ async def test_modify_dep_materialization(buck: Buck) -> None:
     await buck.build("//:check")
 
 
-@buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
 @env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
 async def test_matching_artifact_optimization(buck: Buck) -> None:
-    target = "root//:remote_text"
+    target = "root//:copy"
     result = await buck.build(target)
     # Check output is correctly materialized
     assert result.get_build_report().output_for_target(target).exists()
 
-    # In this case, modifying the input does not change the output, so the output should not
+    # In this case, modifying `hidden` does not change the output, so the output should not
     # need to be rematerialized
-    with open(buck.cwd / "text", "w", encoding="utf-8") as f:
-        f.write("TEXT2")
+    with open(buck.cwd / "hidden", "w", encoding="utf-8") as f:
+        f.write("HIDDEN2")
 
     result = await buck.build(target)
     # Check output still exists
@@ -72,7 +74,9 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
     assert "materialize artifact" not in result.stderr
 
 
-@buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
 @env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
 async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
     # Disable local caching of RE artifacts
@@ -83,13 +87,13 @@ async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
         file=buckconfig_file,
     )
 
-    target = "root//:remote_text"
+    target = "root//:copy"
     result = await buck.build(target)
     # Check output is correctly materialized
     assert result.get_build_report().output_for_target(target).exists()
 
-    with open(buck.cwd / "text", "w", encoding="utf-8") as f:
-        f.write("TEXT2")
+    with open(buck.cwd / "hidden", "w", encoding="utf-8") as f:
+        f.write("HIDDEN2")
 
     result = await buck.build(target)
     # Check output still exists
