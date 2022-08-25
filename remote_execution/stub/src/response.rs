@@ -14,6 +14,7 @@ use crate::error::*;
 pub struct TTimestamp {
     pub seconds: i64,
     pub nanos: i32,
+    pub _dot_dot_default: (),
 }
 
 impl TTimestamp {
@@ -39,6 +40,7 @@ impl TTimestamp {
         Self {
             seconds: 0,
             nanos: 0,
+            ..Default::default()
         }
     }
 }
@@ -60,6 +62,8 @@ pub struct TExecutedActionMetadata {
     pub input_analyzing_completed_timestamp: TTimestamp,
     pub execution_attempts: i32,
     pub last_queued_timestamp: TTimestamp,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
@@ -72,6 +76,8 @@ pub struct TActionResult2 {
     pub stderr_raw: Option<Vec<u8>>,
     pub stderr_digest: Option<TDigest>,
     pub execution_metadata: TExecutedActionMetadata,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
@@ -100,12 +106,16 @@ pub struct InlinedDigestWithStatus {
 pub struct DigestWithStatus {
     pub digest: TDigest,
     pub status: TStatus,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
 pub struct TStatus {
     pub code: TCode,
     pub message: String,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
@@ -162,6 +172,8 @@ pub struct TDirectory2 {
     pub path: String,
     pub tree_digest: TDigest,
     pub root_directory_digest: TDigest,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
@@ -171,6 +183,8 @@ pub struct TFile {
     pub existed: bool,
     pub executable: bool,
     pub ttl: i64,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
