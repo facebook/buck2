@@ -1,4 +1,4 @@
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
 def check_omnibus(
         name,
@@ -11,7 +11,7 @@ def check_omnibus(
         check_not_defined = [],
         check_undefined = []):
     ext = "dylib" if native.host_info().os.is_macos else "so"
-    fb_native.genrule(
+    buck_genrule(
         name = name,
         cmd = " && ".join([
             "$(exe {})".format(binary),

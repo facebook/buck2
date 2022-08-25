@@ -16,6 +16,10 @@ def fbcode_linux_only() -> bool:
     return sys.platform == "linux"
 
 
+def mac_only() -> bool:
+    return sys.platform == "darwin"
+
+
 @buck_test(inplace=True)
 async def test_genrule(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
@@ -260,6 +264,16 @@ if fbcode_linux_only():
             f"fbcode//buck2/tests/targets/rules/python/omnibus/cxx_lib_root:bin[{sub_target}]",
             "-c",
             "python.emit_omnibus_metadata=true",
+        )
+
+
+if mac_only():
+
+    @buck_test(inplace=True)
+    async def test_python_mac(buck: Buck) -> None:
+        await buck.build(
+            "@fbcode//mode/mac",
+            "fbcode//buck2/tests/targets/rules/python/omnibus/mult_cpp_ext_roots:check_bin",
         )
 
 

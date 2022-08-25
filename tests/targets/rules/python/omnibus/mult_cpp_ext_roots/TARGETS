@@ -8,23 +8,23 @@ check_omnibus(
     name = "check_bin",
     binary = ":bin",
     check_defined = [
-        ("libomnibus.so", "lib_func"),
+        ("libomnibus.{ext}", "lib_func"),
     ],
     check_deps = [
-        ("extension.so", "libomnibus.so"),
-        ("extension2.so", "libomnibus.so"),
+        ("extension.so", "libomnibus.{ext}"),
+        ("extension2.so", "libomnibus.{ext}"),
     ],
     check_libs = [
-        "libomnibus.so",
+        "libomnibus.{ext}",
         "extension.so",
         "extension2.so",
     ],
     check_no_deps = [
-        ("libomnibus.so", "extension.so"),
-        ("libomnibus.so", "extension2.so"),
+        ("libomnibus.{ext}", "extension.so"),
+        ("libomnibus.{ext}", "extension2.so"),
     ],
     check_no_libs = [
-        "lib2.so",
+        "lib2.{ext}",
     ],
 )
 
@@ -75,5 +75,5 @@ fb_native.cxx_library(
     srcs = [
         "lib.cpp",
     ],
-    soname = "lib.so",
+    soname = "lib.$(ext)",
 )

@@ -1,4 +1,4 @@
-#include <python/Python.h>
+#include <Python.h>
 
 extern "C" int lib_func();
 
