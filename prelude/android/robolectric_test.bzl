@@ -64,6 +64,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
 
     return [
         java_providers.java_library_info,
+        java_providers.java_packaging_info,
         java_providers.template_placeholder_info,
         java_providers.default_info,
         external_runner_test_info,
