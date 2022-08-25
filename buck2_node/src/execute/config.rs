@@ -49,12 +49,6 @@ impl Hash for RemoteExecutorUseCase {
     }
 }
 
-impl Default for RemoteExecutorUseCase {
-    fn default() -> Self {
-        Self::new("buck2-default".to_owned())
-    }
-}
-
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct RemoteExecutorOptions {
     pub re_properties: SmallMap<String, String>,

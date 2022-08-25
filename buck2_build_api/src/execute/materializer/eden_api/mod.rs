@@ -236,6 +236,7 @@ impl EdenBuckOut {
         })
     }
 
+    // TODO(yipu): This needs to take a RE use case as input and pass it to Eden.
     pub async fn set_path_object_id(
         &self,
         path: &ProjectRelativePathBuf,
