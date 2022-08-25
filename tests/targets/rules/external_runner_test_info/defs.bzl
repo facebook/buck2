@@ -13,6 +13,7 @@ def _test_impl(ctx):
         remote_execution_properties = {
             "platform": "linux-remote-execution",
         },
+        remote_execution_use_case = "buck2-default",
     )
 
     default_executor = re_config if ctx.attrs.set_default_executor else None
