@@ -14,6 +14,7 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_node::execute::config::CacheUploadBehavior;
 use buck2_node::execute::config::RemoteExecutorUseCase;
@@ -51,6 +52,9 @@ use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
+
+// Whether to throw errors when cache uploads fail (primarily for tests).
+static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
 
 /// A PreparedCommandExecutor that will check the action cache before executing any actions using the underlying executor.
 pub struct CachingExecutor {
@@ -338,6 +342,11 @@ impl PreparedCommandExecutor for CachingExecutor {
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
+        let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get() {
+            Ok(r) => r.unwrap_or_default(),
+            Err(e) => return manager.error("cache_upload".to_owned(), e),
+        };
+
         let manager = self
             .try_action_cache_fetch(
                 manager,
@@ -348,12 +357,26 @@ impl PreparedCommandExecutor for CachingExecutor {
             )
             .await?;
 
-        let res = self.inner.exec_cmd(command, manager).await;
+        let mut res = self.inner.exec_cmd(command, manager).await;
 
-        // TODO:
-        let _ignored = self
+        let upload_res = self
             .perform_cache_upload(command.request, &command.prepared_action.action, &res)
             .await;
+
+        if let Err(error) = upload_res {
+            if error_on_cache_upload {
+                res.report.status = CommandExecutionStatus::Error {
+                    stage: "cache_upload".to_owned(),
+                    error,
+                };
+            } else {
+                tracing::warn!(
+                    "Cache upload for `{}` failed: {:#}",
+                    command.prepared_action.action,
+                    error
+                );
+            }
+        }
 
         res
     }
