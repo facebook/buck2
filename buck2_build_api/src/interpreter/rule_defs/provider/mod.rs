@@ -78,26 +78,6 @@ pub mod registration;
 pub mod test_provider;
 pub(crate) mod user;
 
-#[derive(Debug, thiserror::Error)]
-enum ProviderError {
-    #[error("expected a list of Provider objects, got {repr}")]
-    CollectionNotAList { repr: String },
-    #[error("expected a Provider object, got {repr}")]
-    CollectionElementNotAProvider { repr: String },
-    #[error("provider of type {provider_name} specified twice ({original_repr} and {new_repr})")]
-    CollectionSpecifiedProviderTwice {
-        provider_name: String,
-        original_repr: String,
-        new_repr: String,
-    },
-    #[error("collection {repr} did not receive a DefaultInfo provider")]
-    CollectionMissingDefaultInfo { repr: String },
-    #[error(
-        "provider value that should have been `DefaultInfo` was not. It was `{repr}`. This is an internal error."
-    )]
-    ValueIsNotDefaultInfo { repr: String },
-}
-
 pub(crate) trait ProviderLike<'v>: Debug {
     /// The ID. Guaranteed to be set on the `ProviderCallable` before constructing this object
     fn id(&self) -> &Arc<ProviderId>;

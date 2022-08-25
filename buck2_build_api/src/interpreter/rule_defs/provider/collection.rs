@@ -14,6 +14,7 @@ use std::sync::Arc;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
@@ -37,13 +38,39 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
-use crate::analysis::AnalysisError;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
-use crate::interpreter::rule_defs::provider::ProviderError;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
+
+#[derive(Debug, thiserror::Error)]
+enum ProviderCollectionError {
+    #[error("expected a list of Provider objects, got {repr}")]
+    CollectionNotAList { repr: String },
+    #[error("expected a Provider object, got {repr}")]
+    CollectionElementNotAProvider { repr: String },
+    #[error("provider of type {provider_name} specified twice ({original_repr} and {new_repr})")]
+    CollectionSpecifiedProviderTwice {
+        provider_name: String,
+        original_repr: String,
+        new_repr: String,
+    },
+    #[error("collection {repr} did not receive a DefaultInfo provider")]
+    CollectionMissingDefaultInfo { repr: String },
+    #[error(
+        "requested sub target named `{0}` of target `{1}` is not available. Available subtargets are: `{2:?}`"
+    )]
+    RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
+    #[error(
+        "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
+    )]
+    UnknownFlavors { target: String, flavor: String },
+    #[error(
+        "provider value that should have been `DefaultInfo` was not. It was `{repr}`. This is an internal error."
+    )]
+    ValueIsNotDefaultInfo { repr: String },
+}
 
 /// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
 /// a `ProviderCallable` object.
@@ -98,7 +125,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     ) -> anyhow::Result<SmallMap<Arc<ProviderId>, Value<'v>>> {
         let maybe_list: anyhow::Result<_> = match List::from_value(value) {
             Some(v) => Ok(v),
-            None => Err(ProviderError::CollectionNotAList {
+            None => Err(ProviderCollectionError::CollectionNotAList {
                 repr: value.to_repr(),
             }
             .into()),
@@ -110,7 +137,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
             match value.as_provider() {
                 Some(provider) => {
                     if let Some(existing_value) = providers.insert(provider.id().dupe(), value) {
-                        return Err(ProviderError::CollectionSpecifiedProviderTwice {
+                        return Err(ProviderCollectionError::CollectionSpecifiedProviderTwice {
                             provider_name: provider.id().name.clone(),
                             original_repr: existing_value.to_repr(),
                             new_repr: value.to_repr(),
@@ -119,7 +146,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
                     };
                 }
                 None => {
-                    return Err(ProviderError::CollectionElementNotAProvider {
+                    return Err(ProviderCollectionError::CollectionElementNotAProvider {
                         repr: value.to_repr(),
                     }
                     .into());
@@ -139,7 +166,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     pub fn try_from_value(value: Value<'v>) -> anyhow::Result<ProviderCollection<'v>> {
         let providers = Self::try_from_value_impl(value)?;
         if !providers.contains_key(DefaultInfoCallable::provider_id()) {
-            return Err(ProviderError::CollectionMissingDefaultInfo {
+            return Err(ProviderCollectionError::CollectionMissingDefaultInfo {
                 repr: value.to_repr(),
             }
             .into());
@@ -164,7 +191,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
         if !providers.contains_key(DefaultInfoCallable::provider_id()) {
             let di_value = default_info_creator();
             if DefaultInfo::from_value(di_value).is_none() {
-                return Err(ProviderError::ValueIsNotDefaultInfo {
+                return Err(ProviderCollectionError::ValueIsNotDefaultInfo {
                     repr: di_value.to_repr(),
                 }
                 .into());
@@ -307,7 +334,7 @@ impl FrozenProviderCollectionValue {
                                 }
                                 None => {
                                     return Err(anyhow::anyhow!(
-                                        AnalysisError::RequestedInvalidSubTarget(
+                                        ProviderCollectionError::RequestedInvalidSubTarget(
                                             provider_name.clone(),
                                             label.clone(),
                                             v.default_info()
@@ -325,11 +352,13 @@ impl FrozenProviderCollectionValue {
                     })?,
                 ))
             }
-            ProvidersName::UnrecognizedFlavor(flavor) => Err(AnalysisError::UnknownFlavors {
-                target: label.unconfigured().to_string(),
-                flavor: flavor.clone(),
+            ProvidersName::UnrecognizedFlavor(flavor) => {
+                Err(ProviderCollectionError::UnknownFlavors {
+                    target: label.unconfigured().to_string(),
+                    flavor: flavor.clone(),
+                }
+                .into())
             }
-            .into()),
         }
     }
 }

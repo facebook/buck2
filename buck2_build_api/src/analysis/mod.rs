@@ -14,7 +14,6 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use buck2_common::result::SharedResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
@@ -62,17 +61,9 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 #[derive(Error, Debug)]
 pub enum AnalysisError {
     #[error(
-        "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
-    )]
-    UnknownFlavors { target: String, flavor: String },
-    #[error(
         "Analysis context was missing a query result, this shouldn't be possible. Query was `{0}`"
     )]
     MissingQuery(String),
-    #[error(
-        "requested sub target named `{0}` of target `{1}` is not available. Available subtargets are: `{2:?}`"
-    )]
-    RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
 }
 
 #[derive(Debug, Clone, Dupe)]
