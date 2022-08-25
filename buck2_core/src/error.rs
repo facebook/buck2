@@ -58,7 +58,6 @@ pub fn initialize(handler: SoftErrorHandler) {
 mod test {
     use std::sync::Mutex;
 
-    use anyhow::anyhow;
     use once_cell::sync::OnceCell;
 
     use crate as buck2_core;
@@ -77,7 +76,7 @@ mod test {
     #[test]
     fn test_soft_error() {
         // No logs without handler:
-        let _ignore_hard_error = soft_error!(anyhow!("Should not be logged"));
+        let _ignore_hard_error = soft_error!(anyhow::anyhow!("Should not be logged"));
         assert_eq!(
             0,
             RESULT
@@ -89,7 +88,7 @@ mod test {
 
         // Now set the handler and assert that we log
         super::initialize(box mock_handler);
-        let _ignore_hard_error = soft_error!(anyhow!("Should be logged"));
+        let _ignore_hard_error = soft_error!(anyhow::anyhow!("Should be logged"));
         assert_eq!(
             Some(&format!(
                 "({:?}, {}, 34), : Should be logged",

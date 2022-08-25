@@ -39,7 +39,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use derive_more::Display;
 use gazebo::prelude::*;
 use serde::ser::Serialize;
@@ -78,10 +77,12 @@ impl TargetName {
         } else {
             if let Some((_, p)) = name.split_once('[') {
                 if p.contains(']') {
-                    return Err(anyhow!(InvalidTarget::FoundProvidersLabel(name.to_owned())));
+                    return Err(anyhow::anyhow!(InvalidTarget::FoundProvidersLabel(
+                        name.to_owned()
+                    )));
                 }
             }
-            Err(anyhow!(InvalidTarget::InvalidName(name.to_owned())))
+            Err(anyhow::anyhow!(InvalidTarget::InvalidName(name.to_owned())))
         }
     }
 

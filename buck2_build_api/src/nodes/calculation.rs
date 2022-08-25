@@ -13,7 +13,6 @@ use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedError;
@@ -778,7 +777,7 @@ impl NodeCalculation for DiceComputations {
             .targets()
             .get(target.name())
             .ok_or_else(|| {
-                anyhow!(BuildErrors::MissingTarget(
+                anyhow::anyhow!(BuildErrors::MissingTarget(
                     target.pkg().dupe(),
                     target.name().dupe()
                 ))

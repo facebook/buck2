@@ -13,7 +13,6 @@
 
 use std::borrow::Cow;
 
-use anyhow::anyhow;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
@@ -85,10 +84,10 @@ impl InvocationPaths {
         // start a new one.
         // 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
         // output directories between different buckd instances.
-        let home =
-            dirs::home_dir().ok_or_else(|| anyhow!("Expected a HOME directory to be available"))?;
+        let home = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("Expected a HOME directory to be available"))?;
         let paths = AbsPath::new(&home)
-            .map_err(|e| anyhow!("Expected an absolute HOME directory. {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Expected an absolute HOME directory. {}", e))?;
 
         let prefix = ".buck/buckd";
 

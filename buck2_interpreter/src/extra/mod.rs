@@ -12,7 +12,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
@@ -142,7 +141,9 @@ impl<'a> BuildContext<'a> {
     pub fn require_package(&self) -> anyhow::Result<&Package> {
         match self.starlark_path {
             StarlarkPath::BuildFile(b) => Ok(b.package()),
-            _ => Err(anyhow!("package can only be fetched from a build file")),
+            _ => Err(anyhow::anyhow!(
+                "package can only be fetched from a build file"
+            )),
         }
     }
 
@@ -152,7 +153,9 @@ impl<'a> BuildContext<'a> {
     ) -> anyhow::Result<impl Iterator<Item = &'a PackageRelativePath> + 'a> {
         match &self.listing {
             Some(listing) => Ok(spec.resolve_glob(listing.files())),
-            None => Err(anyhow!("glob() can only be called from a build file")),
+            None => Err(anyhow::anyhow!(
+                "glob() can only be called from a build file"
+            )),
         }
     }
 }
@@ -172,7 +175,7 @@ where
     /// Try to get this inner context from the `ctx.extra` property.
     fn from_context<'a>(ctx: &'a starlark::eval::Evaluator) -> anyhow::Result<&'a Self> {
         match &BuildContext::from_context(ctx)?.additional {
-            None => Err(anyhow!(
+            None => Err(anyhow::anyhow!(
                 "Unable to access module internals. This could be due to accessing it in the context of interpreting a .bzl file."
             )),
             Some(v) => Ok(Self::get(&**v).unwrap()),
@@ -184,7 +187,7 @@ where
     fn into_eval_result(untyped: Box<dyn ExtraContextDyn>) -> anyhow::Result<Self::EvalResult> {
         match untyped.into_any().downcast::<Self>() {
             Ok(inner) => Ok(Self::EvalResult::from(*inner)),
-            Err(_) => Err(anyhow!(
+            Err(_) => Err(anyhow::anyhow!(
                 "Unable to access module internals. This could be due to accessing it in the context of interpreting a .bzl file."
             )),
         }

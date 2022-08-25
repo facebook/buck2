@@ -13,7 +13,6 @@ use std::hash::Hasher;
 use std::ops::Deref;
 use std::path::Path;
 
-use anyhow::anyhow;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -40,15 +39,17 @@ impl FileNameVerifier {
     fn verify<P: ?Sized + AsRef<str>>(file_name: &P) -> anyhow::Result<()> {
         let file_name = file_name.as_ref();
         if file_name.is_empty() {
-            Err(anyhow!(FileNameError::Empty))
+            Err(anyhow::anyhow!(FileNameError::Empty))
         } else if file_name == "." {
-            Err(anyhow!(FileNameError::Dot))
+            Err(anyhow::anyhow!(FileNameError::Dot))
         } else if file_name == ".." {
-            Err(anyhow!(FileNameError::DotDot))
+            Err(anyhow::anyhow!(FileNameError::DotDot))
         } else if file_name.contains('/') || file_name.contains('\\') {
             // Note we do not allow backslashes in file names
             // even if it is valid file name on Linux.
-            Err(anyhow!(FileNameError::Slashes(file_name.to_owned())))
+            Err(anyhow::anyhow!(FileNameError::Slashes(
+                file_name.to_owned()
+            )))
         } else {
             // At the moment we allow characters like '\0'
             // even if they are not valid at least on Linux.

@@ -14,7 +14,6 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -994,7 +993,7 @@ impl ForwardRelativePathNormalizer {
     ) -> anyhow::Result<Cow<ForwardRelativePath>> {
         let rel_path = rel_path.as_ref();
         if !rel_path.is_relative() {
-            return Err(anyhow!(ForwardRelativePathError::PathNotRelative(
+            return Err(anyhow::anyhow!(ForwardRelativePathError::PathNotRelative(
                 rel_path.display().to_string(),
             )));
         }
@@ -1022,7 +1021,7 @@ impl ForwardRelativePathVerifier {
         #[cold]
         #[inline(never)]
         fn err(rel_path: &str) -> anyhow::Error {
-            anyhow!(ForwardRelativePathError::PathNotNormalized(
+            anyhow::anyhow!(ForwardRelativePathError::PathNotNormalized(
                 rel_path.to_owned()
             ))
         }
@@ -1032,7 +1031,7 @@ impl ForwardRelativePathVerifier {
             return Ok(());
         }
         if bytes[0] == b'/' {
-            return Err(anyhow!(ForwardRelativePathError::PathNotRelative(
+            return Err(anyhow::anyhow!(ForwardRelativePathError::PathNotRelative(
                 rel_path.to_owned()
             )));
         }

@@ -740,7 +740,6 @@ pub mod testing {
     use std::collections::BTreeSet;
     use std::sync::Arc;
 
-    use anyhow::anyhow;
     use async_trait::async_trait;
     use buck2_core::cells::cell_path::CellPath;
     use gazebo::cmp::PartialEqAny;
@@ -864,7 +863,7 @@ pub mod testing {
                     TestFileOpsEntry::File(data, ..) => Some(data.clone()),
                     _ => None,
                 })
-                .ok_or_else(|| anyhow!("couldn't find file {:?}", path))
+                .ok_or_else(|| anyhow::anyhow!("couldn't find file {:?}", path))
         }
 
         async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
@@ -876,7 +875,7 @@ pub mod testing {
                     )),
                     _ => None,
                 })
-                .ok_or_else(|| anyhow!("couldn't find dir {:?}", path))
+                .ok_or_else(|| anyhow::anyhow!("couldn't find dir {:?}", path))
                 .shared_error()
         }
 
@@ -901,7 +900,7 @@ pub mod testing {
                         TestFileOpsEntry::ExternalSymlink(sym) => {
                             Ok(PathMetadata::ExternalSymlink(sym.dupe()).into())
                         }
-                        _ => Err(anyhow!("couldn't get metadata for {:?}", path)),
+                        _ => Err(anyhow::anyhow!("couldn't get metadata for {:?}", path)),
                     }
                     .map(Some)
                 })

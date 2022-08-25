@@ -141,7 +141,6 @@ use std::hash::Hash;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use derivative::Derivative;
 use derive_more::Display;
@@ -536,7 +535,7 @@ impl CellsAggregator {
             .insert(parsed_alias.clone(), alias_path.clone());
         if let Some(old) = old {
             if old != alias_path {
-                return Err(anyhow!(CellError::DuplicateAliases(
+                return Err(anyhow::anyhow!(CellError::DuplicateAliases(
                     parsed_alias,
                     old,
                     alias_path
@@ -559,7 +558,7 @@ impl CellsAggregator {
             .and_then(|info| info.all_aliases.first())
             .map(|alias| CellName::unchecked_new(alias.clone()))
             .ok_or_else(|| {
-                anyhow!(CellError::UnknownCellPath(
+                anyhow::anyhow!(CellError::UnknownCellPath(
                     path.as_project_relative_path().to_buf(),
                     self.cell_infos
                         .keys()
@@ -598,7 +597,7 @@ impl CellsAggregator {
                 ),
             );
             if let Some(old) = old {
-                return Err(anyhow!(CellError::DuplicateNames(
+                return Err(anyhow::anyhow!(CellError::DuplicateNames(
                     old.name().clone(),
                     old.path().to_buf(),
                     cell_path.clone()

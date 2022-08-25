@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
 
-use anyhow::anyhow;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::arg::parser;
@@ -84,7 +83,7 @@ impl AttrTypeCoerce for ArgAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         let value = value
             .unpack_str()
-            .ok_or_else(|| anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
         let mut items = parse_macros(value)?.into_items();
         if let [parser::ArgItem::String(val)] = items.as_mut_slice() {

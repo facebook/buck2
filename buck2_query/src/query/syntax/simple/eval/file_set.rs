@@ -9,7 +9,6 @@
 
 use std::fmt;
 
-use anyhow::anyhow;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
 use gazebo::display::display_container;
@@ -58,7 +57,9 @@ impl FileSet {
         &self,
         _env: &dyn QueryEnvironment<Target = T>,
     ) -> anyhow::Result<TargetSet<T>> {
-        Err(anyhow!(QueryError::FunctionUnimplemented("owner()")))
+        Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
+            "owner()"
+        )))
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &CellPath> + '_ {

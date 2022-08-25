@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
 use gazebo::prelude::*;
@@ -106,7 +105,7 @@ impl InterpreterFileLoader {
 }
 
 fn to_diagnostic(err: &anyhow::Error, id: &str) -> anyhow::Error {
-    anyhow!("UnkownError in {}: {}", id, err)
+    anyhow::anyhow!("UnkownError in {}: {}", id, err)
 }
 
 impl InterpreterFileLoader {
@@ -115,7 +114,7 @@ impl InterpreterFileLoader {
         match self.loaded_modules.map.get(id) {
             Some(v) => Ok(&v.0.env),
             None => Err(to_diagnostic(
-                &anyhow!(
+                &anyhow::anyhow!(
                     "Should have had an env for {}. had <{:?}>",
                     id,
                     self.loaded_modules.map.keys().collect::<Vec<_>>()
@@ -163,7 +162,7 @@ mod tests {
                     "last/package",
                     "import.bzl",
                 ))),
-                _ => Err(anyhow!("error")),
+                _ => Err(anyhow::anyhow!("error")),
             }
         }
     }

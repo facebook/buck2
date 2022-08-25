@@ -12,7 +12,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use anyhow::anyhow;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -62,7 +61,7 @@ impl QuoteStyle {
     pub fn parse(s: &str) -> anyhow::Result<QuoteStyle> {
         match s {
             "shell" => Ok(QuoteStyle::Shell),
-            _ => Err(anyhow!(CommandLineArgError::UnknownQuotingStyle(
+            _ => Err(anyhow::anyhow!(CommandLineArgError::UnknownQuotingStyle(
                 s.to_owned()
             ))),
         }
@@ -375,7 +374,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
         for _ in 0..parent {
             if !relative_path.pop() {
                 return Err(
-                    anyhow!(CommandLineArgError::TooManyParentCalls).context(format!(
+                    anyhow::anyhow!(CommandLineArgError::TooManyParentCalls).context(format!(
                         "Error accessing {}-th parent of {}",
                         parent, origin
                     )),

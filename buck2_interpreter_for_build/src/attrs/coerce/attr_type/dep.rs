@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
@@ -33,7 +32,7 @@ impl AttrTypeCoerce for DepAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         let label = value
             .unpack_str()
-            .ok_or_else(|| anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
         let label = ctx.coerce_label(label)?;
 
@@ -54,7 +53,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
             .ok_or_else(|| {
-                anyhow!(CoercionError::type_error(
+                anyhow::anyhow!(CoercionError::type_error(
                     "Tuple must be a pair of two strings",
                     value,
                 ))
@@ -62,12 +61,12 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
 
         let label_string = label_value
             .unpack_str()
-            .ok_or_else(|| anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let label = ctx.coerce_label(label_string)?;
 
         let platform_string = platform_value
             .unpack_str()
-            .ok_or_else(|| anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let platform = ctx.coerce_target(platform_string)?;
 
         Ok(AttrLiteral::ExplicitConfiguredDep(

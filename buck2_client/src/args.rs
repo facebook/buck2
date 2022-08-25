@@ -14,7 +14,6 @@ use std::path::Path;
 use std::process::Command;
 use std::str;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
 use buck2_common::invocation_roots::find_current_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
@@ -201,7 +200,7 @@ fn expand_argfiles_with_context(
             "--flagfile" => {
                 let flagfile = match arg_iterator.next() {
                     Some(val) => val,
-                    None => return Err(anyhow!(ArgExpansionError::MissingFlagFilePath)),
+                    None => return Err(anyhow::anyhow!(ArgExpansionError::MissingFlagFilePath)),
                 };
                 // TODO: We want to detect cyclic inclusion
                 let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context)?;
@@ -210,7 +209,9 @@ fn expand_argfiles_with_context(
             next_arg if next_arg.starts_with('@') => {
                 let flagfile = next_arg.strip_prefix('@').unwrap();
                 if flagfile.is_empty() {
-                    return Err(anyhow!(ArgExpansionError::MissingFlagFilePathInArgfile));
+                    return Err(anyhow::anyhow!(
+                        ArgExpansionError::MissingFlagFilePathInArgfile
+                    ));
                 }
                 // TODO: We want to detect cyclic inclusion
                 let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context)?;
@@ -276,7 +277,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
                     .map(|s| s.to_owned())
                     .collect::<Vec<String>>())
             } else {
-                Err(anyhow!(ArgExpansionError::PythonExecutableFailed {
+                Err(anyhow::anyhow!(ArgExpansionError::PythonExecutableFailed {
                     path: path.to_string_lossy().into_owned(),
                     err: String::from_utf8_lossy(&cmd_out.stderr).to_string(),
                 }))

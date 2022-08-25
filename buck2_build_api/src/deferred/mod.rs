@@ -30,7 +30,6 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -485,7 +484,7 @@ impl DeferredRegistry {
         if self.pending.is_empty() {
             Ok(self.registry)
         } else {
-            Err(anyhow!(DeferredErrors::UnboundReservedDeferred(
+            Err(anyhow::anyhow!(DeferredErrors::UnboundReservedDeferred(
                 self.pending
             )))
         }
@@ -537,7 +536,7 @@ impl DeferredTable {
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
         match self.0.get(&id) {
             Some(deferred) => Ok(&**deferred),
-            None => Err(anyhow!(DeferredErrors::DeferredNotFound(id.0))),
+            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.0))),
         }
     }
 }
@@ -554,7 +553,7 @@ impl DeferredResult {
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
         match self.0.deferreds.get(&id) {
             Some(deferred) => Ok(&**deferred),
-            None => Err(anyhow!(DeferredErrors::DeferredNotFound(id.0))),
+            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.0))),
         }
     }
 

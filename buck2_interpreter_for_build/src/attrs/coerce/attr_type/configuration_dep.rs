@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::anyhow;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
@@ -30,7 +29,7 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         let label = value
             .unpack_str()
-            .ok_or_else(|| anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
         let label = ctx.coerce_label(label)?;
 

@@ -20,15 +20,13 @@
 mod imp {
     use std::env;
 
-    use anyhow::anyhow;
-
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
     /// Requires MALLOC_CONF=prof:true to be set in environment variables
     /// when run, though must be built without MALLOC_CONF=prof:true.
     pub fn write_heap_to_file(filename: &str) -> anyhow::Result<()> {
         if !memory::is_using_jemalloc() {
-            return Err(anyhow!(
+            return Err(anyhow::anyhow!(
                 "not using jemalloc; are you building with @mode/dev or @mode/dbgo?"
             ));
         }
@@ -36,12 +34,12 @@ mod imp {
         let prof_enabled: bool = memory::mallctl_read("opt.prof")?;
         if !prof_enabled {
             if env::var_os("MALLOC_CONF").is_some() {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "the environment variable MALLOC_CONF is set, but profiling is not enabled. MALLOC_CONF must contain prof:true to enable the profiler"
                 ));
             }
 
-            return Err(anyhow!(
+            return Err(anyhow::anyhow!(
                 "profiling is not enabled for this process; you must set the environment variable MALLOC_CONF to contain at least prof:true in order to profile"
             ));
         }
@@ -71,16 +69,19 @@ mod imp {
 
 #[cfg(not(fbcode_build))]
 mod imp {
-    use anyhow::anyhow;
 
     pub fn write_heap_to_file(_filename: &str) -> anyhow::Result<()> {
         // TODO(swgillespie) the `jemalloc_ctl` crate is probably capable of doing this
         // and we already link against it
-        Err(anyhow!("not implemented: heap dump for Cargo builds"))
+        Err(anyhow::anyhow!(
+            "not implemented: heap dump for Cargo builds"
+        ))
     }
 
     pub fn allocator_stats(_: &str) -> anyhow::Result<String> {
-        Err(anyhow!("not implemented: alloctor stats  for Cargo builds"))
+        Err(anyhow::anyhow!(
+            "not implemented: alloctor stats  for Cargo builds"
+        ))
     }
 
     pub fn enable_background_threads() -> anyhow::Result<()> {

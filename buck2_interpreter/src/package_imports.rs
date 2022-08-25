@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -78,12 +77,11 @@ impl PackageImplicitImports {
                 CellRelativePathBuf::unchecked_new("".to_owned()),
             );
             for item in value.split(',') {
-                let (dir, import_spec) = item
-                    .trim()
-                    .split_once("=>")
-                    .ok_or_else(|| anyhow!(PackageImportsError::MissingArrow(item.to_owned())))?;
+                let (dir, import_spec) = item.trim().split_once("=>").ok_or_else(|| {
+                    anyhow::anyhow!(PackageImportsError::MissingArrow(item.to_owned()))
+                })?;
                 let (import, symbol_specs) = import_spec.split_once("::").ok_or_else(|| {
-                    anyhow!(PackageImportsError::MissingColons(import_spec.to_owned()))
+                    anyhow::anyhow!(PackageImportsError::MissingColons(import_spec.to_owned()))
                 })?;
                 let import_path = parse_import(&cell_alias_resolver, &root_path, import)?;
                 // Package implicit imports are only going to be used for a top-level module in

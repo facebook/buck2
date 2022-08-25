@@ -13,7 +13,6 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -440,7 +439,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             cli: &dyn CommandLineArgLike,
         ) -> anyhow::Result<u32> {
             if !args_allowed && cli.contains_arg_attr() {
-                return Err(anyhow!(WriteActionError::ArgAttrsDetectedButNotAllowed));
+                return Err(anyhow::anyhow!(
+                    WriteActionError::ArgAttrsDetectedButNotAllowed
+                ));
             }
 
             struct WriteToFileMacrosCounter {
@@ -705,8 +706,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 this.state().claim_output_path(&path)?;
                 Ok(Some(MetadataParameter { env_var, path }))
             }
-            (Some(_), None) => Err(anyhow!(RunActionError::MetadataPathMissing)),
-            (None, Some(_)) => Err(anyhow!(RunActionError::MetadataEnvVarMissing)),
+            (Some(_), None) => Err(anyhow::anyhow!(RunActionError::MetadataPathMissing)),
+            (None, Some(_)) => Err(anyhow::anyhow!(RunActionError::MetadataEnvVarMissing)),
             (None, None) => Ok(None),
         }?;
 

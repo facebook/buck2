@@ -12,7 +12,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::time::Duration;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use buck2_common::client_utils::get_channel;
 use buck2_common::client_utils::retrying;
@@ -395,7 +394,9 @@ impl BuckdConnectOptions {
                 port: endpoint.to_owned(),
             },
             _ => {
-                return Err(anyhow!(BuckdConnectError::ParseError(endpoint.to_owned())));
+                return Err(anyhow::anyhow!(BuckdConnectError::ParseError(
+                    endpoint.to_owned()
+                )));
             }
         };
 

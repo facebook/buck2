@@ -29,7 +29,6 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::fs::paths::FileName;
@@ -288,7 +287,9 @@ impl DeclaredArtifact {
         let artifact = match &*borrow {
             DeclaredArtifactKind::Bound(built) => built.dupe(),
             DeclaredArtifactKind::Unbound(unbound) => {
-                return Err(anyhow!(ArtifactErrors::UnboundArtifact(unbound.clone())));
+                return Err(anyhow::anyhow!(ArtifactErrors::UnboundArtifact(
+                    unbound.clone()
+                )));
             }
         };
 
@@ -473,7 +474,10 @@ impl OutputArtifact {
                 // the projected artifacts and then try to bind each of them, but the same
                 // underlying artifact is the one that gets bound.
                 if *a.key() != key {
-                    return Err(anyhow!(ArtifactErrors::DuplicateBind(a.dupe(), key)));
+                    return Err(anyhow::anyhow!(ArtifactErrors::DuplicateBind(
+                        a.dupe(),
+                        key
+                    )));
                 }
             }
             a => take_mut::take(a, |artifact| match artifact {

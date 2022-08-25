@@ -23,7 +23,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
@@ -293,13 +292,13 @@ pub fn parse_config_section_and_key(
     if trimmed_section.find(char::is_whitespace).is_some()
         || raw_key.find(char::is_whitespace).is_some()
     {
-        return Err(anyhow!(ConfigArgumentParseError::WhitespaceInKeyOrValue(
-            raw_arg.to_owned()
-        )));
+        return Err(anyhow::anyhow!(
+            ConfigArgumentParseError::WhitespaceInKeyOrValue(raw_arg.to_owned())
+        ));
     }
 
     if trimmed_section.is_empty() || raw_key.is_empty() {
-        return Err(anyhow!(ConfigArgumentParseError::MissingData(
+        return Err(anyhow::anyhow!(ConfigArgumentParseError::MissingData(
             raw_arg.to_owned()
         )));
     }
@@ -598,7 +597,7 @@ impl<'a> LegacyConfigParser<'a> {
             if let Some(remaining) = line.strip_prefix('[') {
                 match remaining.strip_suffix(']') {
                     None => {
-                        return Err(anyhow!(ConfigError::SectionMissingTrailingBracket(
+                        return Err(anyhow::anyhow!(ConfigError::SectionMissingTrailingBracket(
                             line.to_owned()
                         )));
                     }
@@ -616,7 +615,7 @@ impl<'a> LegacyConfigParser<'a> {
                 let key = key.trim();
                 let val = val.trim();
                 if key.is_empty() {
-                    return Err(anyhow!(ConfigError::EmptyKey(line.to_owned())));
+                    return Err(anyhow::anyhow!(ConfigError::EmptyKey(line.to_owned())));
                 }
                 self.current_section.1.insert(
                     key.to_owned(),
@@ -640,7 +639,7 @@ impl<'a> LegacyConfigParser<'a> {
                         match dir.join_normalized(relative) {
                             Ok(d) => d,
                             Err(_) => {
-                                return Err(anyhow!(ConfigError::BadIncludePath(
+                                return Err(anyhow::anyhow!(ConfigError::BadIncludePath(
                                     include.to_owned()
                                 )));
                             }
@@ -654,7 +653,9 @@ impl<'a> LegacyConfigParser<'a> {
                             self.pop_file();
                         }
                         (false, false) => {
-                            return Err(anyhow!(ConfigError::MissingInclude(include.to_owned())));
+                            return Err(anyhow::anyhow!(ConfigError::MissingInclude(
+                                include.to_owned()
+                            )));
                         }
                         (true, _) => {
                             // optional case, missing is okay.
@@ -662,7 +663,7 @@ impl<'a> LegacyConfigParser<'a> {
                     }
                 }
             } else {
-                return Err(anyhow!(ConfigError::InvalidLine(line.to_owned())));
+                return Err(anyhow::anyhow!(ConfigError::InvalidLine(line.to_owned())));
             }
         }
         Ok(())
@@ -1003,7 +1004,7 @@ impl LegacyBuckConfig {
     ) -> anyhow::Result<AbsPathBuf> {
         if let Some((cell_alias, cell_relative_path)) = file_arg.split_once("//") {
             let cell_resolution_state = cell_resolution.ok_or_else(|| {
-                anyhow!(ConfigError::UnableToResolveCellRelativePath(
+                anyhow::anyhow!(ConfigError::UnableToResolveCellRelativePath(
                     file_arg.to_owned()
                 ))
             })?;
@@ -1207,8 +1208,6 @@ fn push_all_files_from_a_directory(
 pub mod testing {
     use std::cmp::min;
 
-    use anyhow::anyhow;
-
     use super::*;
 
     pub fn legacy_buck_config_from_entries<'a>(
@@ -1277,7 +1276,7 @@ pub mod testing {
             let content = self
                 .data
                 .get(path)
-                .ok_or_else(|| anyhow!("didn't have data for {:?}", path))?
+                .ok_or_else(|| anyhow::anyhow!("didn't have data for {:?}", path))?
                 .to_owned();
             // Need a Read implementation that owns the bytes.
             struct StringReader(Vec<u8>, usize);

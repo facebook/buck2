@@ -9,7 +9,6 @@
 
 use std::fmt::Debug;
 
-use anyhow::anyhow;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use indexmap::IndexSet;
@@ -100,7 +99,7 @@ impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
     fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
         if let Some((files, pos)) = self.maybe_macros_state {
             if pos >= files.len() {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     CommandLineBuilderErrors::InconsistentNumberOfMacroArtifacts
                 ));
             }
@@ -109,7 +108,7 @@ impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
                 .resolve_project_path(self.fs.fs().resolve(&files[pos])?)?
                 .into_relative())
         } else {
-            Err(anyhow!(
+            Err(anyhow::anyhow!(
                 CommandLineBuilderErrors::WriteToFileMacroNotSupported
             ))
         }
@@ -148,7 +147,7 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
         let executor_fs = self.0.fs();
         let mut path = executor_fs.fs().fs().root().to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
-        RelativePathBuf::from_path(path).map_err(|e| anyhow!(e))
+        RelativePathBuf::from_path(path).map_err(|e| anyhow::anyhow!(e))
     }
 }
 

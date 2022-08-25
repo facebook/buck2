@@ -10,7 +10,6 @@
 use std::fmt;
 use std::fmt::Display;
 
-use anyhow::anyhow;
 use fancy_regex::Regex;
 use gazebo::display::display_container;
 use indexmap::IndexSet;
@@ -79,7 +78,9 @@ impl<T: QueryTarget> TargetSet<T> {
     // TODO(cjhopman): Does this even make sense?
     // TODO(cjhopman): I think this needs a heap to allocate values
     pub fn labels(&self, _attr: &str) -> anyhow::Result<()> {
-        Err(anyhow!(QueryError::FunctionUnimplemented("labels()")))
+        Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
+            "labels()"
+        )))
     }
 
     pub fn union(&self, right: &TargetSet<T>) -> TargetSet<T> {

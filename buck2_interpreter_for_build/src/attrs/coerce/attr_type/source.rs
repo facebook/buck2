@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -44,7 +43,7 @@ impl AttrTypeCoerce for SourceAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         let source_label = value
             .unpack_str()
-            .ok_or_else(|| anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         match ctx.coerce_label(source_label) {
             Ok(label) => Ok(AttrLiteral::SourceLabel(box label)),
             Err(label_err) => {

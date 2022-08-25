@@ -310,7 +310,7 @@ pub fn get_dispatcher() -> Option<EventDispatcher> {
                 None // panic on unwrap
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
-                // let _ignored = soft_error!(anyhow!("Task local event dispatcher not set."));
+                // let _ignored = soft_error!(anyhow::anyhow!("Task local event dispatcher not set."));
                 Some(EventDispatcher::null())
             }
         }

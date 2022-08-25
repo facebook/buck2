@@ -10,7 +10,6 @@
 use std::fmt;
 use std::fmt::Display;
 
-use anyhow::anyhow;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::collections::SmallMap;
@@ -142,7 +141,9 @@ impl<'v> Selector<'v> {
         ) -> anyhow::Result<bool> {
             eval.eval_function(func, &[val], &[])?
                 .unpack_bool()
-                .ok_or_else(|| anyhow!("Expected testing function to have a boolean return type"))
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Expected testing function to have a boolean return type")
+                })
         }
 
         if let Some(selector) = Selector::from_value(val) {

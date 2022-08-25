@@ -9,7 +9,6 @@
 
 use std::cmp::Ordering;
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dict::DictAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -53,7 +52,10 @@ impl AttrTypeCoerce for DictAttrType {
             }
             Ok(AttrLiteral::Dict(res))
         } else {
-            Err(anyhow!(CoercionError::type_error(Dict::TYPE, value,)))
+            Err(anyhow::anyhow!(CoercionError::type_error(
+                Dict::TYPE,
+                value,
+            )))
         }
     }
 

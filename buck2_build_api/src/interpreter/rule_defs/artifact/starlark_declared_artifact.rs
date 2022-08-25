@@ -12,7 +12,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::ForwardRelativePath;
@@ -138,7 +137,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
 impl CommandLineArgLike for StarlarkDeclaredArtifact {
     fn add_to_command_line(&self, _cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
         // TODO: proper error message
-        Err(anyhow!(
+        Err(anyhow::anyhow!(
             "proper error here; we should not be adding mutable starlark objects to clis"
         ))
     }

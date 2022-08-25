@@ -9,7 +9,6 @@
 
 //! Contains the internal support within the attribute framework for `select()`.
 
-use anyhow::anyhow;
 use anyhow::Context;
 use buck2_interpreter::selector::Selector;
 use buck2_interpreter::selector::SelectorGen;
@@ -76,9 +75,9 @@ impl CoercedAttrExr for CoercedAttr {
                         let mut items = SmallMap::new();
                         let mut default = None;
                         for (k, v) in dict.iter() {
-                            let k = k
-                                .unpack_str()
-                                .ok_or_else(|| anyhow!(SelectError::KeyNotString(k.to_repr())))?;
+                            let k = k.unpack_str().ok_or_else(|| {
+                                anyhow::anyhow!(SelectError::KeyNotString(k.to_repr()))
+                            })?;
                             let v = match default_attr {
                                 Some(default_attr) if v.is_none() => default_attr.clone(),
                                 _ => CoercedAttr::coerce(attr, configuable, ctx, v, None)?,
@@ -96,12 +95,12 @@ impl CoercedAttrExr for CoercedAttr {
                         }
                         Ok(CoercedAttr::Selector(box (items, default)))
                     } else {
-                        Err(anyhow!(SelectError::ValueNotDict(v.to_repr())))
+                        Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
                     }
                 }
                 SelectorGen::Added(l, r) => {
                     if !attr.supports_concat() {
-                        return Err(anyhow!(SelectError::ConcatNotSupported(
+                        return Err(anyhow::anyhow!(SelectError::ConcatNotSupported(
                             attr.to_string(),
                             format!("{} + {}", l, r)
                         )));

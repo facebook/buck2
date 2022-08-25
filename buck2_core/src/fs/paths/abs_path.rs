@@ -15,7 +15,6 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -237,7 +236,7 @@ impl AbsPath {
                 .strip_prefix(base.strip_windows_prefix()?)
                 .map_err(anyhow::Error::from)
         } else {
-            Err(anyhow!("Path is not a prefix"))
+            Err(anyhow::anyhow!("Path is not a prefix"))
         }
     }
 
@@ -361,7 +360,7 @@ impl AbsPath {
                 std::path::Component::CurDir => {}
                 std::path::Component::ParentDir => {
                     if stack.pop().is_none() {
-                        return Err(anyhow!(PathNormalizationError::OutOfBounds(
+                        return Err(anyhow::anyhow!(PathNormalizationError::OutOfBounds(
                             self.as_os_str().into(),
                             path.as_ref().as_str().into(),
                         )));
@@ -404,7 +403,7 @@ impl AbsPath {
             .0
             .components()
             .next()
-            .ok_or_else(|| anyhow!("AbsPath is empty."))?
+            .ok_or_else(|| anyhow::anyhow!("AbsPath is empty."))?
         {
             std::path::Component::Prefix(prefix_component) => match prefix_component.kind() {
                 Prefix::Disk(disk) | Prefix::VerbatimDisk(disk) => {
@@ -417,9 +416,9 @@ impl AbsPath {
                     Ok(server)
                 }
                 Prefix::DeviceNS(device) => Ok(device.to_owned()),
-                prefix => Err(anyhow!("Unknown prefix kind: {:?}.", prefix)),
+                prefix => Err(anyhow::anyhow!("Unknown prefix kind: {:?}.", prefix)),
             },
-            _ => Err(anyhow!("AbsPath doesn't have prefix.")),
+            _ => Err(anyhow::anyhow!("AbsPath doesn't have prefix.")),
         }
     }
 
@@ -443,7 +442,9 @@ impl AbsPath {
     /// ```
     pub fn strip_windows_prefix(&self) -> anyhow::Result<&Path> {
         let mut iter = self.0.iter();
-        let prefix = iter.next().ok_or_else(|| anyhow!("AbsPath is empty."))?;
+        let prefix = iter
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("AbsPath is empty."))?;
         let mut prefix = prefix.to_owned();
         // Strip leading path separator as well.
         if let Some(component) = iter.next() {
@@ -680,7 +681,7 @@ struct AbsPathVerifier;
 impl AbsPathVerifier {
     fn verify<P: ?Sized + AsRef<Path>>(path: &P) -> anyhow::Result<()> {
         if !path.as_ref().is_absolute() {
-            return Err(anyhow!(AbsPathError::PathNotAbsolute(
+            return Err(anyhow::anyhow!(AbsPathError::PathNotAbsolute(
                 path.as_ref().to_owned()
             )));
         }
@@ -694,14 +695,14 @@ impl AbsPathVerifier {
             .split('/')
             .any(|part| part == ".")
         {
-            return Err(anyhow!(AbsPathError::PathNotNormalized(
+            return Err(anyhow::anyhow!(AbsPathError::PathNotNormalized(
                 path.as_ref().to_owned()
             )));
         }
         for part in path.as_ref().components() {
             match part {
                 std::path::Component::ParentDir => {
-                    return Err(anyhow!(AbsPathError::PathNotNormalized(
+                    return Err(anyhow::anyhow!(AbsPathError::PathNotNormalized(
                         path.as_ref().to_owned()
                     )));
                 }

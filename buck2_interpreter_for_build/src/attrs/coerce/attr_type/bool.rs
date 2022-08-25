@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::bool::BoolAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -27,7 +26,7 @@ impl AttrTypeCoerce for BoolAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match value.unpack_bool() {
             Some(s) => Ok(AttrLiteral::Bool(s)),
-            None => Err(anyhow!(CoercionError::type_error("bool", value))),
+            None => Err(anyhow::anyhow!(CoercionError::type_error("bool", value))),
         }
     }
 

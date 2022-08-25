@@ -157,7 +157,6 @@ pub fn shared_downcast_ref<'a, E: std::error::Error + Display + Debug + Send + S
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
 
     use super::*;
 
@@ -178,7 +177,7 @@ mod tests {
         // and also easy to get O(n^2) instances if you do alternative formatting, AND
         // anyhow looks at Error::source (which it does with alternative formatting).
 
-        let x = anyhow!(" ~A ");
+        let x = anyhow::anyhow!(" ~A ");
         assert_eq!(parts(&format!("{}", x)), &["A"]);
         assert_eq!(parts(&format!("{:#}", x)), &["A"]);
 

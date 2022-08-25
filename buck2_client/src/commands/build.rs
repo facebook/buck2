@@ -13,7 +13,6 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use async_trait::async_trait;
 use cli_proto::build_request::build_providers;
@@ -449,14 +448,14 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
 
         let single_default_output = match default_outputs.len() {
             0 => {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "target {} produced zero default outputs",
                     target.target
                 ));
             }
             1 => &default_outputs[0],
             n => {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "target {} produced {} outputs, choice of output is ambiguous",
                     target.target,
                     n
@@ -481,7 +480,7 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
         // Check no output is a directory. We allow outputting any number of
         // files (including 0) to stdout.
         if let Some(dir_i) = outputs_to_be_copied.iter().position(|o| o.is_dir) {
-            return Err(anyhow!(
+            return Err(anyhow::anyhow!(
                 "target {} produces a default output that is a directory, and cannot be sent to stdout",
                 targets[dir_i].target,
             ));
@@ -489,7 +488,7 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
     } else {
         // Check we are outputting exactly 1 target. Okay if directory.
         if outputs_to_be_copied.len() != 1 {
-            return Err(anyhow!(
+            return Err(anyhow::anyhow!(
                 "build command built multiple top-level targets, choice of output is ambiguous"
             ));
         }

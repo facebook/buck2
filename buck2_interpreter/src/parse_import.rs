@@ -9,7 +9,6 @@
 
 //! Parses imports for load_file() calls in build files.
 
-use anyhow::anyhow;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -109,7 +108,7 @@ pub fn parse_import_with_config(
                         })?;
                         Ok(current_dir.join(rel_path))
                     } else {
-                        Err(anyhow!(ImportParseError::ProhibitedRelativeImport(
+                        Err(anyhow::anyhow!(ImportParseError::ProhibitedRelativeImport(
                             import.to_owned()
                         )))
                     }
@@ -125,7 +124,9 @@ pub fn parse_import_with_config(
         }
         Some((path, filename)) => {
             if filename.is_empty() {
-                return Err(anyhow!(ImportParseError::EmptyFileName(import.to_owned())));
+                return Err(anyhow::anyhow!(ImportParseError::EmptyFileName(
+                    import.to_owned()
+                )));
             }
 
             let filename = FileName::new(filename)
@@ -135,7 +136,7 @@ pub fn parse_import_with_config(
                 if opts.allow_relative_imports {
                     Ok(current_dir.join(filename))
                 } else {
-                    Err(anyhow!(ImportParseError::ProhibitedRelativeImport(
+                    Err(anyhow::anyhow!(ImportParseError::ProhibitedRelativeImport(
                         import.to_owned()
                     )))
                 }

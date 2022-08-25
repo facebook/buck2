@@ -44,7 +44,6 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
@@ -300,7 +299,7 @@ impl ActionsRegistry {
         {
             Ok(None) => Ok(()),
             Ok(Some(conflict)) => match conflict {
-                DirectoryEntry::Leaf(_payload) => Err(anyhow!(
+                DirectoryEntry::Leaf(_payload) => Err(anyhow::anyhow!(
                     ActionErrors::ConflictingOutputPath(path.to_owned())
                 )),
                 DirectoryEntry::Dir(conflict_dir) => {
@@ -312,15 +311,17 @@ impl ActionsRegistry {
                             _ => None,
                         })
                         .collect::<Vec<_>>();
-                    Err(anyhow!(ActionErrors::ConflictingOutputPaths(
+                    Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
                         path.to_owned(),
                         conflicting_paths,
                     )))
                 }
             },
-            Err(DirectoryInsertError::EmptyPath) => Err(anyhow!(ActionErrors::EmptyOutputPath)),
+            Err(DirectoryInsertError::EmptyPath) => {
+                Err(anyhow::anyhow!(ActionErrors::EmptyOutputPath))
+            }
             Err(DirectoryInsertError::CannotTraverseLeaf { path: conflict }) => {
-                Err(anyhow!(ActionErrors::ConflictingOutputPaths(
+                Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
                     path.to_owned(),
                     vec![conflict.to_string().into()],
                 )))

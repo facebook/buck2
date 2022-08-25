@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
@@ -107,7 +106,7 @@ impl<'v> AllocValue<'v> for StarlarkOutputArtifact {
 impl CommandLineArgLike for StarlarkOutputArtifact {
     fn add_to_command_line(&self, _cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
         // TODO: proper error message
-        Err(anyhow!(
+        Err(anyhow::anyhow!(
             "proper error here; we should not be adding mutable starlark objects to clis"
         ))
     }

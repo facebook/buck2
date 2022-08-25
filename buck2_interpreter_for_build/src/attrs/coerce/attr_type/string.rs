@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::string::StringAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -28,7 +27,10 @@ impl AttrTypeCoerce for StringAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match value.unpack_str() {
             Some(s) => Ok(AttrLiteral::String(s.to_owned())),
-            None => Err(anyhow!(CoercionError::type_error(STRING_TYPE, value))),
+            None => Err(anyhow::anyhow!(CoercionError::type_error(
+                STRING_TYPE,
+                value
+            ))),
         }
     }
 

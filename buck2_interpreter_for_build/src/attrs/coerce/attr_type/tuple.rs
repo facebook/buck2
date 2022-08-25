@@ -9,7 +9,6 @@
 
 use std::iter;
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::tuple::TupleAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -46,7 +45,7 @@ impl AttrTypeCoerce for TupleAttrType {
                 }
                 Ok(AttrLiteral::Tuple(res.into_boxed_slice()))
             } else {
-                Err(anyhow!(CoercionError::type_error(
+                Err(anyhow::anyhow!(CoercionError::type_error(
                     &format!("Tuple of at most length {}", self.xs.len()),
                     value
                 )))
@@ -57,7 +56,10 @@ impl AttrTypeCoerce for TupleAttrType {
         } else if let Some(list) = List::from_value(value) {
             coerce(value, list.content())
         } else {
-            Err(anyhow!(CoercionError::type_error(Tuple::TYPE, value,)))
+            Err(anyhow::anyhow!(CoercionError::type_error(
+                Tuple::TYPE,
+                value,
+            )))
         }
     }
 

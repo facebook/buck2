@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::anyhow;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::int::IntAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -27,7 +26,7 @@ impl AttrTypeCoerce for IntAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match value.unpack_int() {
             Some(x) => Ok(AttrLiteral::Int(x)),
-            None => Err(anyhow!(CoercionError::type_error("int", value))),
+            None => Err(anyhow::anyhow!(CoercionError::type_error("int", value))),
         }
     }
 
