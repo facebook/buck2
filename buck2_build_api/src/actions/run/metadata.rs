@@ -18,7 +18,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::directory::ActionDirectoryBuilder;
 use crate::actions::directory::ActionDirectoryMember;
 use crate::artifact_groups::ArtifactGroupValues;

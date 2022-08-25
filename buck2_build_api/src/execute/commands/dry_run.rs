@@ -18,8 +18,8 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactFs;
 use crate::actions::artifact::ArtifactValue;
 use crate::execute::commands::CommandExecutionInput;
 use crate::execute::commands::CommandExecutionKind;

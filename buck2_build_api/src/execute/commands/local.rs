@@ -43,7 +43,7 @@ use thiserror::Error;
 use tokio::process::Command;
 use tracing::info;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::ArtifactValue;
 use crate::actions::directory::extract_artifact_value;
 use crate::actions::directory::insert_entry;

@@ -32,7 +32,7 @@ use itertools::Either;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::calculation::ActionCalculation;
 use crate::actions::ActionKey;
 use crate::artifact_groups::ArtifactGroup;

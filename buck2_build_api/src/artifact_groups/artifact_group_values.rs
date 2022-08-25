@@ -17,8 +17,8 @@ use gazebo::prelude::*;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactFs;
 use crate::actions::artifact::ArtifactValue;
 use crate::actions::directory::insert_artifact;
 use crate::actions::directory::ActionDirectoryBuilder;

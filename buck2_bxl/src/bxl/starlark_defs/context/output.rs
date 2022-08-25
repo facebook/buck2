@@ -6,7 +6,7 @@ use std::io::Write;
 use std::ops::DerefMut;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::fs::ArtifactFs;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::fs::project::ProjectRoot;
 use derivative::Derivative;

@@ -69,11 +69,11 @@ pub mod testing {
     use starlark::eval::Evaluator;
     use starlark::values::Value;
 
+    use crate::actions::artifact::fs::ArtifactFs;
+    use crate::actions::artifact::fs::ExecutorFs;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
-    use crate::actions::artifact::ArtifactFs;
     use crate::actions::artifact::BuildArtifact;
-    use crate::actions::artifact::ExecutorFs;
     use crate::actions::artifact::SourceArtifact;
     use crate::actions::testing::SimpleUnregisteredAction;
     use crate::actions::ActionsRegistry;

@@ -31,8 +31,8 @@ use parking_lot::MutexGuard;
 use thiserror::Error;
 use tracing::instrument;
 
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactFs;
 use crate::actions::artifact::OutputArtifact;
 use crate::actions::directory::expand_selector_for_dependencies;
 use crate::actions::directory::ActionDirectoryBuilder;

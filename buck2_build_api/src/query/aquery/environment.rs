@@ -35,8 +35,8 @@ use internment::ArcIntern;
 use ref_cast::RefCast;
 use serde::Serialize;
 
-use crate::actions::artifact::ArtifactFs;
-use crate::actions::artifact::ExecutorFs;
+use crate::actions::artifact::fs::ArtifactFs;
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::TransitiveSetProjectionKey;

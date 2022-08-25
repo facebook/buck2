@@ -16,9 +16,9 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::fs::ArtifactFs;
+use buck2_build_api::actions::artifact::fs::ExecutorFs;
 use buck2_build_api::actions::artifact::ArtifactValue;
-use buck2_build_api::actions::artifact::ExecutorFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::BaseDeferredKey;

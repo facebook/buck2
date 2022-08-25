@@ -21,8 +21,8 @@ use buck2_node::execute::config::PathSeparatorKind;
 use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
 
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ExecutorFs;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;

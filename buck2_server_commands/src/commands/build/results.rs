@@ -33,7 +33,7 @@ impl BuildResultCollector for Vec<&mut dyn BuildResultCollector> {
 }
 
 pub mod result_report {
-    use buck2_build_api::actions::artifact::ArtifactFs;
+    use buck2_build_api::actions::artifact::fs::ArtifactFs;
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_common::result::SharedError;
@@ -181,7 +181,7 @@ pub mod result_report {
 pub mod build_report {
     use std::collections::HashMap;
 
-    use buck2_build_api::actions::artifact::ArtifactFs;
+    use buck2_build_api::actions::artifact::fs::ArtifactFs;
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::configuration::Configuration;

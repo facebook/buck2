@@ -15,9 +15,9 @@ use dice::DiceComputations;
 use futures::future;
 use gazebo::dupe::Dupe;
 
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::BaseArtifactKind;
 use crate::actions::artifact::BuildArtifact;
-use crate::actions::artifact::ExecutorFs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::calculation::Calculation;

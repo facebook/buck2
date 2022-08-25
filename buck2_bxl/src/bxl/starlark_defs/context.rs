@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::io::Write;
 use std::sync::Arc;
 
-use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::fs::ArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::types::BxlKey;

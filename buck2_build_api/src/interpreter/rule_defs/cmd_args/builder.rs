@@ -14,8 +14,8 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use indexmap::IndexSet;
 use thiserror::Error;
 
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ExecutorFs;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
@@ -169,7 +169,7 @@ mod tests {
     use buck2_node::execute::config::PathSeparatorKind;
 
     use super::*;
-    use crate::actions::artifact::ArtifactFs;
+    use crate::actions::artifact::fs::ArtifactFs;
     use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
     use crate::path::BuckOutPathResolver;

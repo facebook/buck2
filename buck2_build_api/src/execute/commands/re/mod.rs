@@ -31,7 +31,7 @@ use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::directory::ActionImmutableDirectory;
 use crate::execute::commands::output::RemoteCommandStdStreams;
 use crate::execute::commands::re::client::ActionDigest;

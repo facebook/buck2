@@ -60,9 +60,7 @@ pub use source_artifact::SourceArtifact;
 mod projected_artifact;
 pub use projected_artifact::ProjectedArtifact;
 
-mod fs;
-pub use fs::ArtifactFs;
-pub use fs::ExecutorFs;
+pub mod fs;
 
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -614,8 +612,8 @@ mod tests {
     use buck2_core::target::TargetName;
     use gazebo::prelude::*;
 
+    use crate::actions::artifact::fs::ArtifactFs;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
-    use crate::actions::artifact::ArtifactFs;
     use crate::actions::artifact::BuildArtifact;
     use crate::actions::artifact::DeclaredArtifact;
     use crate::actions::artifact::DeclaredArtifactKind;

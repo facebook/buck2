@@ -17,7 +17,7 @@ use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::execute::commands::PreparedCommandExecutor;
 
 pub trait SetCommandExecutor {

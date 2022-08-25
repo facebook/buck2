@@ -47,10 +47,10 @@ use indexmap::IndexSet;
 use once_cell::sync::OnceCell;
 use remote_execution as RE;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::ArtifactValue;
 use crate::actions::artifact::BuildArtifact;
-use crate::actions::artifact::ExecutorFs;
 use crate::actions::directory::insert_entry;
 use crate::actions::directory::ActionDirectoryBuilder;
 use crate::actions::directory::ActionDirectoryMember;

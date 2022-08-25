@@ -16,11 +16,11 @@ use std::net::TcpListener;
 use std::process::Stdio;
 
 use anyhow::Context;
+use buck2_build_api::actions::artifact::fs::ArtifactFs;
+use buck2_build_api::actions::artifact::fs::ExecutorFs;
 use buck2_build_api::actions::artifact::Artifact;
-use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::actions::artifact::ArtifactValue;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
-use buck2_build_api::actions::artifact::ExecutorFs;
 use buck2_build_api::actions::directory::ActionDirectoryMember;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;

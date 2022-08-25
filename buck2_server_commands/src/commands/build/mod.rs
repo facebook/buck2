@@ -16,7 +16,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::fs::ArtifactFs;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildProviderType;

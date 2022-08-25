@@ -43,7 +43,7 @@ use itertools::Itertools;
 use owning_ref::ArcRef;
 use thiserror::Error;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::BuildArtifact;
 use crate::actions::calculation as action_calculation;
 use crate::actions::ActionKey;

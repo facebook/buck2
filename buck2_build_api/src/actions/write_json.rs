@@ -46,9 +46,9 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::BuildArtifact;
-use crate::actions::artifact::ExecutorFs;
 use crate::actions::Action;
 use crate::actions::ActionExecutable;
 use crate::actions::ActionExecutionCtx;

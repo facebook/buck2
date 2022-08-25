@@ -25,7 +25,7 @@ use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact::ExecutorFs;
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;

@@ -28,7 +28,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
-use crate::actions::artifact::ExecutorFs;
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::resolve::attr_type::arg::query::ResolvedQueryMacro;
 use crate::attrs::resolve::attr_type::arg::ArgBuilder;

@@ -27,8 +27,8 @@ use starlark::values::tuple::Tuple;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
+use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::BuildArtifact;
-use crate::actions::artifact::ExecutorFs;
 use crate::actions::run::dep_files::match_or_clear_dep_file;
 use crate::actions::run::dep_files::populate_dep_files;
 use crate::actions::run::dep_files::DepFilesCommandLineVisitor;
