@@ -2,6 +2,7 @@ use std::fmt;
 
 use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use derivative::Derivative;
 use derive_more::From;
 use futures::future;
@@ -47,8 +48,8 @@ impl CommandStdStreams {
             },
             Self::Remote(remote) => {
                 let (stdout, stderr) = future::join(
-                    remote.stdout.to_lossy(&remote.client),
-                    remote.stderr.to_lossy(&remote.client),
+                    remote.stdout.to_lossy(&remote.client, &remote.use_case),
+                    remote.stderr.to_lossy(&remote.client, &remote.use_case),
                 )
                 .await;
                 StdStreamPair {
@@ -69,7 +70,12 @@ impl CommandStdStreams {
     pub async fn to_lossy_stderr(&self) -> String {
         match self {
             Self::Local { stderr, .. } => String::from_utf8_lossy(stderr).into_owned(),
-            Self::Remote(remote) => remote.stderr.to_lossy(&remote.client).await,
+            Self::Remote(remote) => {
+                remote
+                    .stderr
+                    .to_lossy(&remote.client, &remote.use_case)
+                    .await
+            }
             Self::Empty => String::new(),
         }
     }
@@ -85,8 +91,8 @@ impl CommandStdStreams {
             }),
             Self::Remote(remote) => {
                 let (stdout, stderr) = future::try_join(
-                    remote.stdout.into_bytes(&remote.client),
-                    remote.stderr.into_bytes(&remote.client),
+                    remote.stdout.into_bytes(&remote.client, &remote.use_case),
+                    remote.stderr.into_bytes(&remote.client, &remote.use_case),
                 )
                 .await?;
                 Ok(StdStreamPair {
@@ -109,12 +115,18 @@ impl CommandStdStreams {
 pub struct RemoteCommandStdStreams {
     #[derivative(Debug = "ignore")]
     client: ManagedRemoteExecutionClient,
+    #[derivative(Debug = "ignore")]
+    use_case: RemoteExecutorUseCase,
     stdout: ReStdStream,
     stderr: ReStdStream,
 }
 
 impl RemoteCommandStdStreams {
-    pub fn new(action_result: &TActionResult2, client: &ManagedRemoteExecutionClient) -> Self {
+    pub fn new(
+        action_result: &TActionResult2,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) -> Self {
         let stdout = ReStdStream::new(
             action_result.stdout_raw.clone(),
             action_result.stdout_digest.clone(),
@@ -126,13 +138,16 @@ impl RemoteCommandStdStreams {
 
         Self {
             client: client.dupe(),
+            use_case: *use_case,
             stdout,
             stderr,
         }
     }
 
     pub async fn prefetch_lossy_stderr(mut self) -> Self {
-        self.stderr.prefetch_lossy(&self.client).await;
+        self.stderr
+            .prefetch_lossy(&self.client, &self.use_case)
+            .await;
         self
     }
 }
@@ -188,7 +203,11 @@ impl fmt::Debug for ReStdStream {
 }
 
 impl ReStdStream {
-    async fn to_lossy(&self, client: &ManagedRemoteExecutionClient) -> String {
+    async fn to_lossy(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) -> String {
         // 4MBs seems like a reasonably large volume of output. There is no research or science behind
         // this number.
         const MAX_STREAM_DOWNLOAD_SIZE: i64 = 4 * 1024 * 1024;
@@ -196,7 +215,7 @@ impl ReStdStream {
         match self {
             Self::Raw(raw) => String::from_utf8_lossy(raw).into_owned(),
             Self::Digest(digest) if digest.size_in_bytes <= MAX_STREAM_DOWNLOAD_SIZE => {
-                match client.download_blob(digest, &Default::default()).await {
+                match client.download_blob(digest, use_case).await {
                     Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
                     Err(e) => {
                         tracing::warn!("Failed to download action stderr: {:#}", e);
@@ -218,12 +237,16 @@ impl ReStdStream {
         }
     }
 
-    async fn into_bytes(self, client: &ManagedRemoteExecutionClient) -> anyhow::Result<Vec<u8>> {
+    async fn into_bytes(
+        self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Raw(raw) => Ok(raw),
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
                 let bytes = client
-                    .download_blob(&digest, &Default::default())
+                    .download_blob(&digest, use_case)
                     .await
                     .with_context(|| {
                         format!("Error downloading from {}", FileDigest::from_re(&digest))
@@ -235,9 +258,13 @@ impl ReStdStream {
     }
 
     /// Prefetch the output, if relevant.
-    async fn prefetch_lossy(&mut self, client: &ManagedRemoteExecutionClient) {
+    async fn prefetch_lossy(
+        &mut self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) {
         if let Self::Digest(digest) = &self {
-            let data = self.to_lossy(client).await;
+            let data = self.to_lossy(client, use_case).await;
             *self = Self::PrefetchedLossy {
                 data,
                 digest: digest.clone(),

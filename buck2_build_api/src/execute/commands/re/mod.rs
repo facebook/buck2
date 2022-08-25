@@ -230,17 +230,21 @@ impl ReExecutor {
             );
         }
         if action_result.exit_code != 0 {
-            return ControlFlow::Break(manager.failure(
-                CommandExecutionKind::Remote {
-                    digest: action_digest.dupe(),
-                },
-                // TODO: we want to expose RE outputs even when actions fail,
-                //   this will allow tpx to correctly retrieve the output of
-                //   failing tests running on RE. See D34344489 for context.
-                IndexMap::new(),
-                response.std_streams(&self.re_client).into(),
-                Some(action_result.exit_code),
-            ));
+            return ControlFlow::Break(
+                manager.failure(
+                    CommandExecutionKind::Remote {
+                        digest: action_digest.dupe(),
+                    },
+                    // TODO: we want to expose RE outputs even when actions fail,
+                    //   this will allow tpx to correctly retrieve the output of
+                    //   failing tests running on RE. See D34344489 for context.
+                    IndexMap::new(),
+                    response
+                        .std_streams(&self.re_client, &self.re_use_case)
+                        .into(),
+                    Some(action_result.exit_code),
+                ),
+            );
         }
 
         ControlFlow::Continue((manager, response))
@@ -311,7 +315,11 @@ pub trait RemoteActionResult: Send + Sync {
 
     fn timing(&self) -> CommandExecutionTimingData;
 
-    fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams;
+    fn std_streams(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) -> RemoteCommandStdStreams;
 
     /// The TTL given by RE for the outputs for this action.
     fn ttl(&self) -> i64;
@@ -334,8 +342,12 @@ impl RemoteActionResult for ExecuteResponse {
         timing_from_re_metadata(&self.action_result.execution_metadata)
     }
 
-    fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client)
+    fn std_streams(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) -> RemoteCommandStdStreams {
+        RemoteCommandStdStreams::new(&self.action_result, client, use_case)
     }
 
     fn ttl(&self) -> i64 {
@@ -362,8 +374,12 @@ impl RemoteActionResult for ActionResultResponse {
         timing
     }
 
-    fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client)
+    fn std_streams(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: &RemoteExecutorUseCase,
+    ) -> RemoteCommandStdStreams {
+        RemoteCommandStdStreams::new(&self.action_result, client, use_case)
     }
 
     fn ttl(&self) -> i64 {

@@ -75,7 +75,7 @@ pub async fn download_action_results<'a>(
         response,
     );
 
-    let std_streams = response.std_streams(re_client);
+    let std_streams = response.std_streams(re_client, re_use_case);
     let std_streams = async {
         if request.prefetch_lossy_stderr() {
             std_streams.prefetch_lossy_stderr().await
