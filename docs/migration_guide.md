@@ -346,6 +346,8 @@ When opting teams or users into the GK, you can make sure that all their workflo
 You can use the buck2_adoption.py script that suggests what additional contbuilds need to have a buck2 setup.
 [Script guide](https://fb.workplace.com/notes/1064408477443910)
 
+Notice that atm GK logic is disabled in fbandroid and fbobjc.
+
 More details in the [post](https://fb.workplace.com/groups/buck2prototyping/permalink/2866678096963005/).
 
 ## On Demand migration
