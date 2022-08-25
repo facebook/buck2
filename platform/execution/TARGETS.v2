@@ -27,6 +27,7 @@ os-specific binary at runtime).
 """
 
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
+load("@fbsource//tools/build_defs:fbsource_utils.bzl", "is_arvr_mode")
 load(
     ":defs.bzl",
     "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY",
@@ -125,6 +126,25 @@ fat_mac_linux = execution_platform(
 
 fat_platforms = fat_mac_linux if fat_platforms_enabled and not host_is_windows and not host_is_linux_aarch64 else []
 
+# The Xtensa platform is used for compiling with the Xtensa toolchain. This
+# toolchain must be run on corp and with access to ASIC Dev Infrastructure,
+# specifically the network filesystem "/nfs"
+asic_devinfra_xtensa_platform = execution_platform(
+    name = "asic_devinfra_xtensa",
+    base_platform = "ovr_config//platform/xtensa:base",
+    local_enabled = False,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "asic",
+        "testing": "xtensa",
+    },
+    remote_execution_use_case = "buck2-asic-devinfra",
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+)
+asic_devinfra_platforms = asic_devinfra_xtensa_platform if is_arvr_mode() else []
+
 execution_platforms(
     name = "platforms",
     # Before execution platforms, we'd generally use the host platform as the
@@ -135,7 +155,8 @@ execution_platforms(
     # requirements.
     platforms = (
         fat_platforms +
-        ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platforms)
+        ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platforms) +
+        asic_devinfra_platforms
     ),
 )
 
