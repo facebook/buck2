@@ -404,6 +404,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
         #[starlark(require = pos)] content: Value<'v>,
+        #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
@@ -416,7 +417,14 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             UnregisteredWriteJsonAction::new(),
             Some(content),
         )?;
-        Ok(output_value)
+        // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
+        // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
+        if with_inputs {
+            let cli = UnregisteredWriteJsonAction::cli(output_value, content)?;
+            Ok(eval.heap().alloc(cli))
+        } else {
+            Ok(output_value)
+        }
     }
 
     fn write<'v>(

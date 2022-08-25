@@ -110,6 +110,41 @@ def _write_json_test_impl(ctx: "context") -> ["provider"]:
 
 write_json_test = rule(impl = _write_json_test_impl, attrs = {})
 
+def _write_json_with_inputs_test(ctx: "context") -> ["provider"]:
+    input = ctx.actions.write("input", ctx.attrs.content)
+    as_json = ctx.actions.write_json("json", input, with_inputs = True)
+
+    output = ctx.actions.declare_output("output")
+
+    # as_json will contain a quoted-path and we want to cat the contents of that path. piping through xargs allows us to interpret it again as cli args (and so the quotes are removed).
+    script = ctx.actions.write("script", cmd_args(["cat", as_json, "| xargs cat", ">", output], delimiter = " "), is_executable = True)
+    cmd = cmd_args(script)
+    cmd.hidden(as_json, output.as_output())
+    ctx.actions.run(cmd, category = "cmd")
+
+    marker = ctx.actions.declare_output("marker")
+
+    # @lint-ignore BUCKRESTRICTEDSYNTAX
+    def f(ctx: "context"):
+        expected = ctx.artifacts[input].read_string()
+        actual = ctx.artifacts[output].read_string()
+        if expected != actual:
+            fail("mismatched output. expected `{}`, actual `{}`".format(expected, actual))
+        ctx.actions.write(ctx.outputs[marker], "")
+
+    ctx.actions.dynamic_output([input, output], [], [marker], f)
+    return [DefaultInfo(default_outputs = [marker])]
+
+write_json_with_inputs_test = rule(impl = _write_json_with_inputs_test, attrs = {"content": attrs.string()})
+
 def test():
     for name, _, _ in tests:
         write_json_test(name = name)
+
+    inputs_content = native.read_config("write_json", "content")
+    if inputs_content == None:
+        fail("config value write_json.content required")
+    write_json_with_inputs_test(
+        name = "with_inputs",
+        content = inputs_content,
+    )

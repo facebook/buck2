@@ -213,7 +213,9 @@ async def test_output_size(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="actions")
 async def test_write_json(buck: Buck) -> None:
-    await buck.build("//write_json:")
+    await buck.build("//write_json:", "-c", "write_json.content=default")
+    # we need to test that with_inputs properly flows input dependencies through to consumers
+    await buck.build("//write_json:with_inputs", "-c", "write_json.content=other")
 
 
 @buck_test(inplace=False, data_dir="actions")
