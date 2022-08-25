@@ -124,6 +124,14 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             shared_libraries = native_library_info.apk_under_test_shared_libraries,
         ),
         DefaultInfo(default_outputs = [output_apk], sub_targets = sub_targets),
+        InstallInfo(
+            installer = ctx.attrs._android_installer,
+            files = {
+                ctx.attrs.name: output_apk,
+                "manifest": resources_info.manifest,
+                "options": generate_install_config(ctx),
+            },
+        ),
     ]
 
 def build_apk(
@@ -224,3 +232,18 @@ def _verify_params(ctx: "context"):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
     expect(ctx.attrs.allow_r_dot_java_in_secondary_dex == True)
+
+def generate_install_config(ctx: "context") -> "artifact":
+    data = get_install_config()
+    return ctx.actions.write_json("install_android_options.json", data)
+
+def get_install_config() -> {str.type: ""}:
+    # TODO: read from toolchains
+    return {
+        "adb_restart_on_failure": read_config("adb", "adb_restart_on_failure", "false"),
+        "agent_port_base": read_config("adb", "agent_port_base", "2828"),
+        "always_use_java_agent": read_config("adb", "always_use_java_agent", "false"),
+        "is_zstd_compression_enabled": read_config("adb", "is_zstd_compression_enabled", "false"),
+        "multi_install_mode": read_config("adb", "multi_install_mode", "false"),
+        "skip_install_metadata": read_config("adb", "skip_install_metadata", "false"),
+    }

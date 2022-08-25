@@ -84,6 +84,9 @@ extra_attributes = {
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+        "_android_installer": attrs.label(
+            default = "buck//src/com/facebook/buck/installer/android:android_installer",
+        ),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
