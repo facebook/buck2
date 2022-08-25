@@ -10,6 +10,7 @@
 pub mod last_log;
 pub mod show_log;
 pub mod what_ran;
+pub mod what_up;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::exit_result::ExitResult;
@@ -26,6 +27,10 @@ pub enum LogCommand {
 
     /// Prints the most recent log to console
     Show(show_log::ShowLogCommand),
+
+    /// Show all the spans that where open when the log ended
+    #[clap(alias = "whatup")]
+    WhatUp(what_up::WhatUpCommand),
 }
 
 impl LogCommand {
@@ -34,6 +39,7 @@ impl LogCommand {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::Last(cmd) => cmd.exec(matches, ctx),
             Self::Show(cmd) => cmd.exec(matches, ctx),
+            Self::WhatUp(cmd) => cmd.exec(matches, ctx),
         }
     }
 }

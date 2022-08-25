@@ -19,7 +19,7 @@ use crate::subscribers::event_log::retrieve_nth_recent_log;
 use crate::subscribers::event_log::EventLogPathBuf;
 use crate::subscribers::event_log::SerializeForLog;
 
-/// This command outputs the path to a redcent log.
+/// This command outputs the most recent log in JSON format
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct ShowLogCommand {
