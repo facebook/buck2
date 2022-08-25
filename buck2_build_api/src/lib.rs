@@ -23,6 +23,7 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
+#![allow(clippy::trivially_copy_pass_by_ref)] // TODO(torozco): temporary
 
 #[macro_use]
 extern crate starlark;
