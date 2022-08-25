@@ -48,7 +48,7 @@ struct StarlarkCommandExecutorConfig<'v> {
     /// The maximum input file size (in bytes) that remote execution can support.
     pub(super) remote_execution_max_input_files_mebibytes: Option<i32>,
     /// The use case to use when communicating with RE.
-    pub(super) remote_execution_use_case: Value<'v>, // [String, None]
+    pub(super) remote_execution_use_case: Value<'v>, // String
     /// Whether to use the limited hybrid executor
     pub(super) use_limited_hybrid: bool,
     /// Whether to allow fallbacks
@@ -142,12 +142,11 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
                 .context("remote_execution_max_input_files_mebibytes is negative")?
                 .map(|b| b * 1024 * 1024);
 
-            let re_use_case = self.remote_execution_use_case.to_value();
-            let re_use_case = if re_use_case.is_none() {
-                Default::default()
-            } else {
-                RemoteExecutorUseCase::new(re_use_case.to_str())
-            };
+            let re_use_case = self
+                .remote_execution_use_case
+                .unpack_str()
+                .context("remote_execution_use_case is missing")?;
+            let re_use_case = RemoteExecutorUseCase::new(re_use_case.to_owned());
 
             Some(RemoteExecutorOptions {
                 re_properties,
