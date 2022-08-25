@@ -141,6 +141,12 @@ impl InvocationPaths {
         self.buck_out_dir()
             .join(ForwardRelativePath::unchecked_new("cache"))
     }
+
+    /// Subdirectory of `cache_dir` responsible for caching materializer state
+    pub fn materializer_cache_dir(&self) -> ProjectRelativePathBuf {
+        self.cache_dir()
+            .join(ForwardRelativePath::unchecked_new("materializer"))
+    }
 }
 
 #[cfg(test)]
@@ -236,6 +242,13 @@ mod tests {
         assert_eq!(
             paths.cache_dir(),
             ProjectRelativePathBuf::unchecked_new("buck-out/isolation/cache".to_owned())
+        );
+
+        assert_eq!(
+            paths.materializer_cache_dir(),
+            ProjectRelativePathBuf::unchecked_new(
+                "buck-out/isolation/cache/materializer".to_owned()
+            )
         );
     }
 }
