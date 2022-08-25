@@ -38,7 +38,6 @@ def main(argv):
     parser.add_argument("--meta")
     parser.add_argument("--index")
     parser.add_argument("--link-plan")
-    parser.add_argument("--final-link-index")
     parser.add_argument("index_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
 
@@ -46,7 +45,6 @@ def main(argv):
 
     bitcode_suffix = ".thinlto.bc"
     imports_suffix = ".imports"
-    opt_objects_suffix = ".opt.o"  # please note the files are not exist yet, this is to generate the index file use in final link
 
     with open(args.meta) as meta:
         meta_lines = [line.strip() for line in meta.readlines()]
@@ -212,28 +210,10 @@ def main(argv):
         with open(archive["plan"], "w") as planout:
             json.dump(archive_plan, planout, sort_keys=True)
 
-    # We read the `index`` and `index.full`` files produced by linker in index stage
-    # and translate them to 2 outputs:
-    # 1. A link plan build final_link args. (This one may be able to be removed if we refactor the workflow)
-    # 2. A files list (*.final_link_index) used for final link stage which includes all the
-    #    files needed. it's based on index.full with some modification, like path updates
-    #    and redundent(added by toolchain) dependencies removing.
     index = {}
-    index_files_set = set()
-    # TODO(T130322878): since we call linker wrapper twice (in index and in final_link), to avoid these libs get
-    # added twice we remove them from the index file for now.
-    KNOWN_REMOVABLE_DEPS_SUFFIX = [
-        "glibc/lib/crt1.o",
-        "glibc/lib/crti.o",
-        "crtbegin.o",
-        ".build_info.o",
-        "crtend.o",
-        "glibc/lib/crtn.o",
-    ]
     with open(index_path("index")) as indexfile:
-        for line in indexfile:
+        for line in indexfile.readlines():
             line = line.strip()
-            index_files_set.add(line)
             path = os.path.relpath(line, start=args.index)
             index[mapping[path]["index"]] = 1
 
@@ -247,23 +227,6 @@ def main(argv):
             indent=2,
             sort_keys=True,
         )
-
-    # build index file for final link use
-    with open(index_path("index.full")) as full_index_input, open(
-        args.final_link_index, "w"
-    ) as final_link_index_output:
-        for line in full_index_input:
-            line = line.strip()
-            if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
-                continue
-            path = os.path.relpath(line, start=args.index)
-            if line in index_files_set and mapping[path]["output"]:
-                output = mapping[path]["output"].replace(
-                    bitcode_suffix, opt_objects_suffix
-                )
-                final_link_index_output.write(output + "\n")
-            else:
-                final_link_index_output.write(line + "\n")
 
 
 sys.exit(main(sys.argv))

@@ -20,7 +20,7 @@ load(
     "LinkArgs",
     "LinkableType",
     "LinkedObject",
-    "ObjectsLinkable",  # @unused Used as a type
+    "ObjectsLinkable",
     "SharedLibLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
@@ -261,9 +261,8 @@ def cxx_dist_link(
                 add_linkable(idx, linkable)
 
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.index.argsfile")
-    final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
-    def dynamic_plan(link_plan: "artifact", index_argsfile_out: "artifact", final_link_index: "artifact"):
+    def dynamic_plan(link_plan: "artifact", index_argsfile_out: "artifact"):
         def plan(ctx):
             # buildifier: disable=uninitialized
             def add_pre_flags(idx: int.type):
@@ -341,7 +340,7 @@ def cxx_dist_link(
 
             index_cat = make_cat("thin_lto_index")
             index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
-            index_out_dir = cmd_args(index_file_out.as_output()).parent()
+            index_out = cmd_args(index_file_out.as_output()).parent()
 
             index_cmd = cxx_link_cmd(ctx)
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
@@ -351,8 +350,7 @@ def cxx_dist_link(
             index_cmd.add("-o", output_as_string)
             index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
             index_cmd.add("-Wl,--thinlto-emit-imports-files")
-            index_cmd.add("-Wl,--thinlto-full-index")
-            index_cmd.add(cmd_args(index_out_dir, format = "-Wl,--thinlto-prefix-replace=;{}/"))
+            index_cmd.add(cmd_args(index_out, format = "-Wl,--thinlto-prefix-replace=;{}/"))
 
             # Terminate the index file with a newline.
             index_meta.add("")
@@ -361,7 +359,7 @@ def cxx_dist_link(
                 index_meta,
             )
 
-            plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", ctx.outputs[link_plan].as_output(), "--final-link-index", ctx.outputs[final_link_index].as_output(), "--"])
+            plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out, "--link-plan", ctx.outputs[link_plan].as_output(), "--"])
             plan_cmd.add(index_cmd)
 
             plan_extra_inputs = cmd_args()
@@ -379,12 +377,11 @@ def cxx_dist_link(
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
         plan_inputs.append(ctx.actions.write("plan_hack.txt", ""))
-        plan_outputs.extend([link_plan, index_argsfile_out, final_link_index])
-
-        ctx.actions.dynamic_output(plan_inputs, [], plan_outputs, plan)
+        plan_outputs.append(link_plan)
+        ctx.actions.dynamic_output(plan_inputs, [], plan_outputs + [index_argsfile_out], plan)
 
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
-    dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
+    dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out)
 
     def prepare_opt_flags(link_infos: ["LinkInfo"]) -> "cmd_args":
         # Linker flags/prefix we're going to detect and manipulate
@@ -608,10 +605,18 @@ def cxx_dist_link(
                     )
 
                     # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
-
+                    append_linkable_args(link_args, linkable, use_link_groups = False)
                 elif linkable._type == LinkableType("archive"):
+                    manifest = index_link_data[current_index].link_data
                     current_index += 1
-
+                    opt_manifest = ctx.artifacts[manifest.opt_manifest].read_string().splitlines()
+                    link_args.add("-Wl,--start-lib")
+                    for line in opt_manifest:
+                        link_args.add(line)
+                    link_args.add("-Wl,--end-lib")
+                else:
+                    # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
+                    append_linkable_args(link_args, linkable, use_link_groups = False)
             link_args.add(link.post_flags)
 
         link_cmd = cxx_link_cmd(ctx)
@@ -626,7 +631,6 @@ def cxx_dist_link(
             if artifact.data_type == DataType("archive"):
                 link_cmd.hidden(artifact.link_data.opt_objects_dir)
         link_cmd.add(cmd_args(final_link_argfile, format = "@{}"))
-        link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         link_cmd.add("-o", ctx.outputs[output].as_output())
         link_cmd_extra_inputs = cmd_args()
         link_cmd_extra_inputs.add(final_link_inputs)
@@ -637,7 +641,7 @@ def cxx_dist_link(
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
-    final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
+    final_link_inputs = [link_plan_out] + archive_opt_manifests
     ctx.actions.dynamic_output(
         final_link_inputs,
         [],
