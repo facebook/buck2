@@ -23,10 +23,8 @@ use crate::StorageType;
 /// `DiceCtx::changed_to(Key, Value)`. Therefore, the `compute` function on this
 /// Key is never called.
 ///
-/// This key is never cloned. However, clone marker needs to be on this Key
-/// because it is a specialization of 'Key' trait, which does need to be cloned.
 /// TODO when rust gets smarter about negative trait bounds and specializations,
-/// we can make these key types disjoint, and not have this clone issue nor
+/// we can make injected and normal key types disjoint, and not have this clone issue nor
 /// require a `panic!` implementation in `compute` function, both of which are
 /// horrible and breaks semantics of traits.
 pub trait InjectedKey: Clone + Debug + Display + Send + Sync + Eq + Hash + 'static {
