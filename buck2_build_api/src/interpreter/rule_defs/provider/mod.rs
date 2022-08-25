@@ -80,10 +80,6 @@ pub(crate) mod user;
 
 #[derive(Debug, thiserror::Error)]
 enum ProviderError {
-    #[error(
-        "The result of `provider()` must be assigned to a top-level variable before it can be called"
-    )]
-    NotBound,
     #[error("expected a list of Provider objects, got {repr}")]
     CollectionNotAList { repr: String },
     #[error("expected a Provider object, got {repr}")]
@@ -96,16 +92,10 @@ enum ProviderError {
     },
     #[error("collection {repr} did not receive a DefaultInfo provider")]
     CollectionMissingDefaultInfo { repr: String },
-    #[error("provider callable did not have a bound id; this is an internal error")]
-    ProviderCallableMissingID,
     #[error(
         "provider value that should have been `DefaultInfo` was not. It was `{repr}`. This is an internal error."
     )]
     ValueIsNotDefaultInfo { repr: String },
-    #[error(
-        "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
-    )]
-    ProviderNotAssigned(Vec<String>),
 }
 
 pub(crate) trait ProviderLike<'v>: Debug {

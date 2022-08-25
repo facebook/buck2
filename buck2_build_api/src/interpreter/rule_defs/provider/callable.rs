@@ -41,7 +41,20 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
-use crate::interpreter::rule_defs::provider::ProviderError;
+
+#[derive(Debug, thiserror::Error)]
+enum ProviderCallableError {
+    #[error("provider callable did not have a bound id; this is an internal error")]
+    ProviderCallableMissingID,
+    #[error(
+        "The result of `provider()` must be assigned to a top-level variable before it can be called"
+    )]
+    NotBound,
+    #[error(
+        "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
+    )]
+    ProviderNotAssigned(Vec<String>),
+}
 
 pub trait ProviderCallableLike {
     fn id(&self) -> Option<&Arc<ProviderId>>;
@@ -50,7 +63,7 @@ pub trait ProviderCallableLike {
     fn require_id(&self) -> anyhow::Result<Arc<ProviderId>> {
         match self.id() {
             Some(id) => Ok(id.dupe()),
-            None => Err(ProviderError::ProviderCallableMissingID.into()),
+            None => Err(ProviderCallableError::ProviderCallableMissingID.into()),
         }
     }
 
@@ -131,7 +144,7 @@ impl ProviderCallableImpl {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         match self {
-            ProviderCallableImpl::Unbound => Err(ProviderError::NotBound.into()),
+            ProviderCallableImpl::Unbound => Err(ProviderCallableError::NotBound.into()),
             ProviderCallableImpl::Bound(signature, id, fields) => {
                 signature.parser(args, eval, |parser, eval| {
                     user_provider_creator(id.dupe(), fields, eval, parser)
@@ -241,7 +254,7 @@ impl Freeze for ProviderCallable {
             None => {
                 // Unfortunately we have no name or location for the provider at this point,
                 // so reproduce the fields so that the provider can be identified.
-                return Err(ProviderError::ProviderNotAssigned(self.fields).into());
+                return Err(ProviderCallableError::ProviderNotAssigned(self.fields).into());
             }
         };
 
@@ -394,7 +407,7 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
     fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         if let Some(x) = this.downcast_ref::<ProviderCallable>() {
             match &*x.id.borrow() {
-                None => Err(ProviderError::ProviderNotAssigned(x.fields.clone()).into()),
+                None => Err(ProviderCallableError::ProviderNotAssigned(x.fields.clone()).into()),
                 Some(id) => Ok(heap.alloc(id.name.as_str())),
             }
         } else if let Some(x) = this.downcast_ref::<FrozenProviderCallable>() {
