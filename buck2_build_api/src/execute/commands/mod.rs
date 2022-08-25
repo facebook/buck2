@@ -359,6 +359,8 @@ pub struct CommandExecutionRequest {
     outputs_cleanup: bool,
     /// What environment variables to inherit from the Buck2 daemon.
     local_environment_inheritance: Option<EnvironmentInheritance>,
+    /// Whether this command should be uploaded to cache when successful.
+    allow_cache_upload: bool,
 }
 
 impl CommandExecutionRequest {
@@ -382,6 +384,7 @@ impl CommandExecutionRequest {
             prefetch_lossy_stderr: false,
             outputs_cleanup: true,
             local_environment_inheritance: None,
+            allow_cache_upload: false,
         }
     }
 
@@ -495,6 +498,15 @@ impl CommandExecutionRequest {
 
     pub fn local_environment_inheritance(&self) -> Option<&EnvironmentInheritance> {
         self.local_environment_inheritance.as_ref()
+    }
+
+    pub fn with_allow_cache_upload(mut self, allow_cache_upload: bool) -> Self {
+        self.allow_cache_upload = allow_cache_upload;
+        self
+    }
+
+    pub fn allow_cache_upload(&self) -> bool {
+        self.allow_cache_upload
     }
 }
 

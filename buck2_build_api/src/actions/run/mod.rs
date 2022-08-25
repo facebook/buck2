@@ -117,6 +117,7 @@ pub(crate) struct UnregisteredRunAction {
     pub dep_files: RunActionDepFiles,
     pub metadata_param: Option<MetadataParameter>,
     pub no_outputs_cleanup: bool,
+    pub allow_cache_upload: bool,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -378,7 +379,8 @@ impl IncrementalActionExecutable for RunAction {
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
-            .with_outputs_cleanup(!self.inner.no_outputs_cleanup);
+            .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
+            .with_allow_cache_upload(self.inner.allow_cache_upload);
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 

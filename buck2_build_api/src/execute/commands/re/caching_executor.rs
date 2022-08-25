@@ -162,6 +162,7 @@ impl CachingExecutor {
     /// for this executor and this particular action.
     async fn perform_cache_upload(
         &self,
+        request: &CommandExecutionRequest,
         digest: &ActionDigest,
         result: &CommandExecutionResult,
     ) -> anyhow::Result<()> {
@@ -169,7 +170,9 @@ impl CachingExecutor {
             return Ok(());
         }
 
-        // TODO (torozco): Check if the action allows cache uploads.
+        if !request.allow_cache_upload() {
+            return Ok(());
+        }
 
         match &result.report.status {
             CommandExecutionStatus::Success {
@@ -349,7 +352,7 @@ impl PreparedCommandExecutor for CachingExecutor {
 
         // TODO:
         let _ignored = self
-            .perform_cache_upload(&command.prepared_action.action, &res)
+            .perform_cache_upload(command.request, &command.prepared_action.action, &res)
             .await;
 
         res

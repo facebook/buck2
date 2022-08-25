@@ -594,6 +594,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] metadata_path: Option<String>,
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
+        #[starlark(require = named, default = false)] allow_cache_upload: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -723,6 +724,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             dep_files: dep_files_configuration,
             metadata_param,
             no_outputs_cleanup,
+            allow_cache_upload,
         };
         this.state().register_action(
             artifacts.inputs,
