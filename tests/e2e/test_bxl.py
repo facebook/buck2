@@ -610,3 +610,14 @@ async def test_bxl_fs_list(buck: Buck) -> None:
         "root//bin/kind/TARGETS.fixture",
         "root//bin/kind/rules.bzl",
     ]
+
+    result = await buck.bxl(
+        "//bxl:fs.bxl:list_include_ignored",
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin/TARGETS.fixture",
+        "root//bin/ignored",
+        "root//bin/ignored.txt",
+        "root//bin/kind",
+    ]

@@ -1,12 +1,11 @@
 //! Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
 //! detect simple properties of artifacts, and source directories.
+
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
-use buck2_core::fs::paths::ForwardRelativePath;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -25,7 +24,7 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
-use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
+use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
 
 #[derive(
     ProvidesStaticType,
@@ -91,22 +90,30 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         }
     }
 
+    /// returns all the contents of the given 'FileExpr' that points to a directory.
+    /// Errors if the given path is a file.  the optional `include_ignored` specifies
+    /// whether to include the buckconfig's ignored files in the output.
     fn list<'v>(
         this: &BxlFilesystem<'v>,
         expr: FileExpr<'v>,
-    ) -> anyhow::Result<Vec<StarlarkFileNode>> {
+        #[starlark(require = named, default = false)] include_ignored: bool,
+    ) -> anyhow::Result<StarlarkReadDirSet> {
         let path = expr.get(this.dice);
 
         match path {
             Ok(path) => this.dice.via_dice(async move |ctx| {
-                let files = ctx.file_ops().read_dir(&path).await;
+                let read_dir_output = ctx.file_ops().read_dir_with_ignores(&path).await;
 
-                match files {
-                    Ok(files) => Ok(files.map(|file| {
-                        StarlarkFileNode(
-                            path.join(AsRef::<ForwardRelativePath>::as_ref(&file.file_name)),
-                        )
-                    })),
+                match read_dir_output {
+                    Ok(read_dir_output) => Ok(StarlarkReadDirSet {
+                        cell_path: path,
+                        included: read_dir_output.included,
+                        ignored: if include_ignored {
+                            Some(read_dir_output.ignored)
+                        } else {
+                            None
+                        },
+                    }),
                     Err(e) => Err(e.into()),
                 }
             }),

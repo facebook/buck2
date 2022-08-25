@@ -8,14 +8,19 @@
  */
 
 use std::borrow::Cow;
+use std::fmt;
 use std::ops::Deref;
+use std::sync::Arc;
 
+use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
+use gazebo::display::display_container;
+use gazebo::prelude::*;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -144,4 +149,52 @@ starlark_simple_value!(StarlarkFileNode);
 
 impl StarlarkValue<'_> for StarlarkFileNode {
     starlark_type!("file_node");
+}
+
+#[derive(Debug, ProvidesStaticType, Clone)]
+#[derive(NoSerialize)]
+pub struct StarlarkReadDirSet {
+    pub cell_path: CellPath,
+    pub included: Arc<Vec<SimpleDirEntry>>,
+    pub ignored: Option<Arc<Vec<SimpleDirEntry>>>,
+}
+
+starlark_simple_value!(StarlarkReadDirSet);
+
+impl StarlarkReadDirSet {
+    fn iter(&self) -> impl Iterator<Item = CellPath> + '_ {
+        itertools::merge(
+            self.included.iter().map(|e| &e.file_name),
+            self.ignored
+                .as_ref()
+                .map(|i| i.map(|e| &e.file_name))
+                .into_iter()
+                .flatten(),
+        )
+        .map(|file_name| self.cell_path.join(&file_name))
+    }
+}
+
+impl fmt::Display for StarlarkReadDirSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        display_container(f, "[", "]", self.iter())
+    }
+}
+
+impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
+    starlark_type!("read_dir_set");
+
+    fn iterate<'a>(
+        &'a self,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    where
+        'v: 'a,
+    {
+        let iter = self
+            .iter()
+            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path)));
+
+        Ok(box iter)
+    }
 }
