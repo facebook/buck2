@@ -99,6 +99,19 @@ async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
     assert "materialize artifact" in result.stderr
 
 
+# Doesn't matter which fake repository we use. We just a generic one.
+@buck_test(inplace=False, data_dir="modify_deferred_materialization")
+async def test_cache_directory_is_always_empty(buck: Buck) -> None:
+    cache_dir = Path(buck.cwd, "buck-out", "v2", "cache")
+    cache_dir.mkdir(parents=True)
+
+    # Need to run a command to start the daemon.
+    await buck.audit_config()
+
+    cache_dir_listing = list(cache_dir.iterdir())
+    assert len(cache_dir_listing) == 0
+
+
 if eden_linux_only():
 
     @buck_test(inplace=False, data_dir="eden_materializer")

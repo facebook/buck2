@@ -142,6 +142,10 @@ impl InvocationPaths {
             .join(ForwardRelativePath::unchecked_new("cache"))
     }
 
+    pub fn cache_dir_path(&self) -> AbsPathBuf {
+        self.roots.project_root.root().join(&self.cache_dir())
+    }
+
     /// Subdirectory of `cache_dir` responsible for caching materializer state
     pub fn materializer_cache_dir(&self) -> ProjectRelativePathBuf {
         self.cache_dir()
