@@ -1,9 +1,9 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "DexFilesInfo")
-load("@fbcode//buck2/prelude/android:voltron.bzl", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
-load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
-load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
+load("@prelude//android:android_providers.bzl", "DexFilesInfo")
+load("@prelude//android:voltron.bzl", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
+load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")
+load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
+load("@prelude//java:java_library.bzl", "compile_to_jar")
+load("@prelude//utils:utils.bzl", "expect", "flatten")
 
 # Android builds use a tool called `d8` to compile Java bytecode is DEX (Dalvik EXecutable)
 # bytecode that runs on Android devices. Our Android builds have two distinct ways of

@@ -1,11 +1,11 @@
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -16,17 +16,17 @@ load(
     "get_link_styles_for_linkage",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "add_linkable_node",
     "create_merged_linkable_graph",
 )
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
     "create_shared_libraries",
     "merge_shared_libraries",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx", "flatten_dict")
+load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx", "flatten_dict")
 load(
     ":cxx_library_utility.bzl",
     "cxx_inherited_link_info",

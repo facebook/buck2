@@ -14,7 +14,7 @@
 
 """Unit tests for paths.bzl"""
 
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load("@fbcode//buck2/tests/targets/starlib:unittest.bzl", "asserts")
 
 def basename_test():

@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude:genrule.bzl", "process_genrule")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//:genrule.bzl", "process_genrule")
+load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo")
+load("@prelude//utils:utils.bzl", "expect")
 
 def apk_genrule_impl(ctx: "context") -> ["provider"]:
     # TODO(T104150125) The underlying APK should not have exopackage enabled

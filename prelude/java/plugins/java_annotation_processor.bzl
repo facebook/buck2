@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo", "get_all_java_packaging_deps")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx", "map_idx")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "get_all_java_packaging_deps")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx", "map_idx")
 
 JavaProcessorsType = enum(
     "java_annotation_processor",

@@ -1,20 +1,20 @@
-load("@fbcode//buck2/prelude/apple:apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")
-load("@fbcode//buck2/prelude/apple:apple_stripping.bzl", "apple_strip_args")
-load("@fbcode//buck2/prelude/apple:swift_compilation.bzl", "compile_swift", "get_swift_dependency_infos")
-load("@fbcode//buck2/prelude/cxx:cxx.bzl", "get_srcs_with_flags")
-load("@fbcode//buck2/prelude/cxx:cxx_library.bzl", "cxx_library_parameterized")
-load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
-load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "cxx_attr_exported_headers")
+load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")
+load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//apple:swift_compilation.bzl", "compile_swift", "get_swift_dependency_infos")
+load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
+load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+load("@prelude//cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
+load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
-    "@fbcode//buck2/prelude/cxx:linker.bzl",
+    "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
 )
-load("@fbcode//buck2/prelude/linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_link_postprocessor.bzl", "get_apple_link_postprocessor")

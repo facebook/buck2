@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "LinkableDepType", "Linkage")
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
-load("@fbcode//buck2/prelude/cxx/user:link_group_map.bzl", "link_group_map_attr")
+load("@prelude//:attributes.bzl", "LinkableDepType", "Linkage")
+load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
+load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
@@ -145,6 +145,6 @@ extra_attributes = {
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-        "_swiftc_wrapper": attrs.dep(providers = [RunInfo], default = "@fbcode//buck2/prelude/apple/tools:swift_exec"),
+        "_swiftc_wrapper": attrs.dep(providers = [RunInfo], default = "@prelude//apple/tools:swift_exec"),
     },
 }

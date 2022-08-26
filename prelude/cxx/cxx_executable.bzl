@@ -1,26 +1,26 @@
-load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(
-    "@fbcode//buck2/prelude:resources.bzl",
+    "@prelude//:resources.bzl",
     "create_resource_db",
     "gather_resources",
 )
 load(
-    "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
+    "@prelude//apple:apple_frameworks.bzl",
     "build_link_args_with_deduped_framework_flags",
     "create_frameworks_linkable",
     "get_frameworks_link_info_by_deduping_link_infos",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
+    "@prelude//cxx:cxx_bolt.bzl",
     "cxx_use_bolt",
 )
 load(
-    "@fbcode//buck2/prelude/ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
     "generate_xcode_data",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
     "LinkStyle",
@@ -28,18 +28,18 @@ load(
     "ObjectsLinkable",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
     "get_linkable_graph_node_map",
 )
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "flatten_dict",
     "map_idx",
 )

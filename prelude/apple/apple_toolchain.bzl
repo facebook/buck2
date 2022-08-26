@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/apple:swift_toolchain_types.bzl", "SwiftToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:swift_toolchain_types.bzl", "SwiftToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 
 def apple_toolchain_impl(ctx: "context") -> ["provider"]:
     sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path

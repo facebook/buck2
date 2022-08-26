@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
-    "@fbcode//buck2/prelude/java:java_providers.bzl",
+    "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
     "JavaProviders",
     "create_abi",
@@ -10,14 +10,14 @@ load(
     "make_compile_outputs",
     "to_list",
 )
-load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
-load("@fbcode//buck2/prelude/java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
-load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params")
-load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac", "get_path_separator")
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//java:java_resources.bzl", "get_resources_map")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
+load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
+load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params")
+load("@prelude//java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
+load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_path_separator")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
+load("@prelude//utils:utils.bzl", "expect")
 
 _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]

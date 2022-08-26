@@ -1,12 +1,12 @@
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkInfo",  # @unused Used as a type
     "LinkStyle",
     "Linkage",
     "get_actual_link_style",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "LinkableNode",  # @unused Used as a type
     "create_merged_linkable_graph",
     "get_link_info",
@@ -14,7 +14,7 @@ load(
     "linkable_deps",
 )
 load(
-    "@fbcode//buck2/prelude/utils:graph_utils.bzl",
+    "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
 load(

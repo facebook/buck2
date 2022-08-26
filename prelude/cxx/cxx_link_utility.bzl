@@ -1,11 +1,11 @@
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def linker_map_args(ctx, linker_map) -> LinkArgs.type:

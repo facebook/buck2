@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
+load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 
 def config_backed_python_bootstrap_toolchain(flavor, **kwargs):
     interpreter = native.read_config("python#" + flavor, "interpreter", None)

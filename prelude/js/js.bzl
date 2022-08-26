@@ -1,8 +1,8 @@
-load("@fbcode//buck2/prelude/android:android.bzl", "android_toolchain")
-load("@fbcode//buck2/prelude/js:js_bundle.bzl", "js_bundle_impl")
-load("@fbcode//buck2/prelude/js:js_bundle_genrule.bzl", "js_bundle_genrule_impl")
-load("@fbcode//buck2/prelude/js:js_library.bzl", "js_library_impl")
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsToolchainInfo")
+load("@prelude//android:android.bzl", "android_toolchain")
+load("@prelude//js:js_bundle.bzl", "js_bundle_impl")
+load("@prelude//js:js_bundle_genrule.bzl", "js_bundle_genrule_impl")
+load("@prelude//js:js_library.bzl", "js_library_impl")
+load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
 
 def _select_platform():
     return select({

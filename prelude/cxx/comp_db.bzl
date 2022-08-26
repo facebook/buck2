@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
     ":compile.bzl",
     "CxxSrcCompileCommand",  # @unused Used as a type

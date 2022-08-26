@@ -1,13 +1,13 @@
-load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@fbcode//buck2/prelude/java:java.bzl", "select_dex_toolchain", "select_junit_toolchain")
+load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
+load("@prelude//java:java.bzl", "select_dex_toolchain", "select_junit_toolchain")
 load(
-    "@fbcode//buck2/prelude/java:java_toolchain.bzl",
+    "@prelude//java:java_toolchain.bzl",
     "JUnitToolchainInfo",
     "JavaPlatformInfo",
     "JavaToolchainInfo",
 )
 load(
-    "@fbcode//buck2/prelude/kotlin:kotlin_toolchain.bzl",
+    "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
 load(":kotlin_library.bzl", "kotlin_library_impl")

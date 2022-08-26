@@ -1,6 +1,6 @@
 # Implementation of the `genrule` build rule.
 
-load("@fbcode//buck2/prelude:genrule_local_labels.bzl", "genrule_labels_require_local")
+load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
 
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual

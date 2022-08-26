@@ -1,11 +1,11 @@
 # Rules for mapping requirements to options
 
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "Linkage",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 # --crate-type=
 # Excludes `lib` because we want to explicitly choose the library flavour

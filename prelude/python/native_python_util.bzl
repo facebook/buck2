@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "ObjectsLinkable",
 )
 

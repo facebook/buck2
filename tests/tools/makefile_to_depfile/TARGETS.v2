@@ -8,6 +8,6 @@ cram_test(
         "fixtures/**/*",
     ]),
     env = {
-        "MAKEFILE_TO_DEP_FILE": "$(exe //buck2/prelude/cxx/tools:makefile_to_dep_file)",
+        "MAKEFILE_TO_DEP_FILE": "$(exe prelude//cxx/tools:makefile_to_dep_file)",
     },
 )

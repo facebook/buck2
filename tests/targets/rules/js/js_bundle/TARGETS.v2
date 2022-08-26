@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES")
+load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES")
 load("@fbcode//buck2/tests/targets/rules/js:snapshot_tests.bzl", "js_snapshot_test")
 
 native.js_bundle(

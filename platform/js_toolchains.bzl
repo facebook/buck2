@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsToolchainInfo")
+load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
 
 def _js_toolchain_rule_impl(ctx):
     return [

@@ -1,16 +1,16 @@
-load("@fbcode//buck2/prelude:resources.bzl", "ResourceInfo", "gather_resources")
-load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:linker.bzl",
+    "@prelude//cxx:linker.bzl",
     "get_default_shared_library_name",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:omnibus.bzl",
+    "@prelude//cxx:omnibus.bzl",
     "create_native_link_target",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
     "LinkInfo",
@@ -24,13 +24,13 @@ load(
     "merge_link_infos",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "ForceConsiderationOfOmnibusRoots",
     "add_linkable_node",
     "create_merged_linkable_graph",
 )
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "create_shared_libraries",
     "merge_shared_libraries",
 )

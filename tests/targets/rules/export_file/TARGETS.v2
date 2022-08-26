@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:assert.bzl", "assert_artifact_properties", "assert_exists")
+load("@prelude//:assert.bzl", "assert_artifact_properties", "assert_exists")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 

@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/android:android_providers.bzl",
+    "@prelude//android:android_providers.bzl",
     "PrebuiltNativeLibraryDir",
     "merge_android_packageable_info",
 )

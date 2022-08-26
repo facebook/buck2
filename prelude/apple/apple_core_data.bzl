@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_bundle_resource_processing_options")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_sdk.bzl", "get_apple_sdk_name")

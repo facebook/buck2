@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude:worker_tool.bzl", "WorkerToolInfo")
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsToolchainInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//:worker_tool.bzl", "WorkerToolInfo")
+load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
+load("@prelude//utils:utils.bzl", "expect")
 
 RAM_BUNDLE_TYPES = {
     "": "",

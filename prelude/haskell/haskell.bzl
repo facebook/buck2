@@ -1,20 +1,20 @@
 # Implementation of the Haskell build rules.
 
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/cxx:archive.bzl", "make_archive")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:archive.bzl", "make_archive")
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl",
+    "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
     "LinkInfo",
@@ -32,22 +32,22 @@ load(
     "unpack_link_args",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
 )
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
     "create_shared_libraries",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
 load(
-    "@fbcode//buck2/prelude/python:python.bzl",
+    "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
-load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
+load("@prelude//utils:utils.bzl", "flatten")
 
 HaskellPlatformInfo = provider(fields = [
     "name",

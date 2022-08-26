@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 
 def _derive_link(artifact):
     if artifact.is_source:

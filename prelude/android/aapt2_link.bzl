@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "Aapt2LinkInfo")
+load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo")
 
 BASE_PACKAGE_ID = 0x7f
 

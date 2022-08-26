@@ -1,23 +1,23 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
-    "@fbcode//buck2/prelude/java:java_library.bzl",
+    "@prelude//java:java_library.bzl",
     "build_java_library",
     "split_on_archives_and_plain_files",
 )
 load(
-    "@fbcode//buck2/prelude/java:java_providers.bzl",
+    "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
     "derive_compiling_deps",
     "get_all_java_packaging_deps",
     "to_list",
 )
-load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load(
-    "@fbcode//buck2/prelude/kotlin:kotlin_toolchain.bzl",
+    "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "map_idx")
+load("@prelude//utils:utils.bzl", "map_idx")
 
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 

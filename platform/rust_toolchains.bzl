@@ -7,10 +7,10 @@ load(
     "read_list_with_comma_as_delimiter",
     "string_attr",
 )
-load("@fbcode//buck2/prelude/rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
+load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
 
-DEFAULT_RUSTC_ACTION = "fbcode//buck2/prelude/rust/tools:rustc_action"
-DEFAULT_FAILURE_FILTER_ACTION = "fbcode//buck2/prelude/rust/tools:failure_filter_action"
+DEFAULT_RUSTC_ACTION = "prelude//rust/tools:rustc_action"
+DEFAULT_FAILURE_FILTER_ACTION = "prelude//rust/tools:failure_filter_action"
 
 # Lints are comma-separated in config
 _lint_attr = attr_info(reader = read_list_with_comma_as_delimiter, attr_type = attrs.list(attrs.arg()))

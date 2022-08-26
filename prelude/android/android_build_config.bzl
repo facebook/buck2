@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:java_library.bzl", "compile_to_jar")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
 def android_build_config_impl(ctx: "context") -> ["provider"]:

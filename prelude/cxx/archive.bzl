@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/linking:link_info.bzl", "Archive")
+load("@prelude//linking:link_info.bzl", "Archive")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _supports_thin(linker_type: str.type) -> bool.type:

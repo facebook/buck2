@@ -1,12 +1,12 @@
 load("@fbcode//buck2/platform:utils.bzl", "attr_info", "binary_attr", "bool_attr", "flags_attr", "optional_binary_attr", "optional_bool_attr", "optional_flags_attr", "optional_int_attr", "optional_string_attr", "read_string", "string_attr")
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
-load("@fbcode//buck2/prelude/linking:link_info.bzl", "LinkStyle")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "expect_non_none", "value_or")
-load("//buck2/prelude/cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
+load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
+load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//utils:utils.bzl", "expect", "expect_non_none", "value_or")
 
-DEFAULT_MK_COMP_DB = "@fbcode//buck2/prelude/cxx/tools:make_comp_db"
-DEFAULT_DIST_LTO_TOOLS = "@fbcode//buck2/prelude/cxx/dist_lto/tools:dist_lto_tools"
-DEFAULT_DEP_FILES_PROCESSOR = "@fbcode//buck2/prelude/cxx/tools:makefile_to_dep_file"
+DEFAULT_MK_COMP_DB = "@prelude//cxx/tools:make_comp_db"
+DEFAULT_DIST_LTO_TOOLS = "@prelude//cxx/dist_lto/tools:dist_lto_tools"
+DEFAULT_DEP_FILES_PROCESSOR = "@prelude//cxx/tools:makefile_to_dep_file"
 
 # TODO(cjhopman): Figure out a nice default value mechanism for these. Also,
 # probably for each "language" type require that the preprocessor or compiler

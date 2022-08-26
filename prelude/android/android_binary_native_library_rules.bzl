@@ -1,9 +1,9 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "CPU_FILTER_TO_ABI_DIRECTORY")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
 # package native libraries for one (or more, for multi-arch builds) ABIs into an Android APK.

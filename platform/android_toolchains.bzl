@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
+load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load("@fbsource//third-party/toolchains/android-sdk:defs.bzl", "OPTIONAL_JAR_NAMES")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read", "read_int")
 

@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolsInfo")
-load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _impl(ctx: "context") -> ["provider"]:
     return [

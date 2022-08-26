@@ -1,6 +1,6 @@
 # Providers for OCaml build rules.
 
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//utils:utils.bzl", "flatten")
 
 OCamlToolchainInfo = provider(fields = [
     "ocaml_compiler",

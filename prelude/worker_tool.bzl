@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 WorkerToolInfo = provider(
     fields = [

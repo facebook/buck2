@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude/cxx:linker.bzl", "get_link_whole_args", "get_objects_as_library_args")
+load("@prelude//cxx:linker.bzl", "get_link_whole_args", "get_objects_as_library_args")
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "flatten",
     "value_or",
 )

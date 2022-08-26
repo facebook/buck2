@@ -1,16 +1,13 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "RType")
-load(
-    "@fbcode//buck2/prelude:resources.bzl",
-    "gather_resources",
-)
-load("@fbcode//buck2/prelude/android:aapt2_link.bzl", "get_aapt2_link")
-load("@fbcode//buck2/prelude/android:android_manifest.bzl", "generate_android_manifest")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo")
-load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/android:r_dot_java.bzl", "generate_r_dot_java")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//:attributes.bzl", "RType")
+load("@prelude//:resources.bzl", "gather_resources")
+load("@prelude//android:aapt2_link.bzl", "get_aapt2_link")
+load("@prelude//android:android_manifest.bzl", "generate_android_manifest")
+load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo")
+load("@prelude//android:android_resource.bzl", "aapt2_compile")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:r_dot_java.bzl", "generate_r_dot_java")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//utils:utils.bzl", "expect")
 
 def get_android_binary_resources_info(
         ctx: "context",

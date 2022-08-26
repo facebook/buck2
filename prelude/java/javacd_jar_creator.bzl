@@ -1,12 +1,12 @@
 load(
-    "@fbcode//buck2/prelude/java:java_providers.bzl",
+    "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
     "create_abi",
     "derive_compiling_deps",
     "make_compile_outputs",
 )
-load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode")
+load("@prelude//java:java_resources.bzl", "get_resources_map")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
 
 def create_jar_artifact_javacd(
         actions: "actions",

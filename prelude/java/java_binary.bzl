@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx")
 load(
     ":java_providers.bzl",
     "create_template_info",

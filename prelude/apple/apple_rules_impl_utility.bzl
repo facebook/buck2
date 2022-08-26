@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude/apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
-load("@fbcode//buck2/prelude/apple:apple_code_signing_types.bzl", "CodeSignType")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
-load("@fbcode//buck2/prelude/apple/user:resource_group_map.bzl", "resource_group_map_attr")
+load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
+load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignType")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_attr")
 
 def get_apple_toolchain_attr():
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])

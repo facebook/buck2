@@ -1,11 +1,11 @@
-load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(
-    "@fbcode//buck2/prelude/cxx:link.bzl",
+    "@prelude//cxx:link.bzl",
     "cxx_link_into_shared_library",
     "cxx_link_shared_library",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
     "LinkStyle",
@@ -16,7 +16,7 @@ load(
     "link_info_to_args",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",
     "get_deps_for_link",
@@ -25,11 +25,11 @@ load(
     "linkable_graph",
 )
 load(
-    "@fbcode//buck2/prelude/utils:graph_utils.bzl",
+    "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
     "topo_sort",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":linker.bzl",

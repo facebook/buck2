@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "from_named_set")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:utils.bzl", "expect", "from_named_set")
 
 def rust_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
     """

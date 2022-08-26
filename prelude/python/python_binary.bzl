@@ -1,21 +1,21 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude:resources.bzl", "gather_resources")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//:resources.bzl", "gather_resources")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:omnibus.bzl",
+    "@prelude//cxx:omnibus.bzl",
     "add_omnibus_exclusions",
     "add_omnibus_roots",
     "create_omnibus_libraries",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
 )
 load(
-    "@fbcode//buck2/prelude/utils:types.bzl",
+    "@prelude//utils:types.bzl",
     "unchecked",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":compile.bzl", "compile_manifests")
 load(
     ":interface.bzl",

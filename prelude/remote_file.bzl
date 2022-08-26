@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude:http_file.bzl", "http_file_shared")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "value_or")
+load("@prelude//:http_file.bzl", "http_file_shared")
+load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 _ROOT = "https://maven.thefacebook.com/nexus/content/groups/public"
 

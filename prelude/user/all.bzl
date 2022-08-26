@@ -1,9 +1,9 @@
-load("@fbcode//buck2/prelude/apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
-load("@fbcode//buck2/prelude/apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")
-load("@fbcode//buck2/prelude/apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
-load("@fbcode//buck2/prelude/apple/user:resource_group_map.bzl", _resource_group_map_spec = "registration_spec")
-load("@fbcode//buck2/prelude/apple/user:watchos_bundle.bzl", _watchos_bundle_spec = "registration_spec")
-load("@fbcode//buck2/prelude/cxx/user:link_group_map.bzl", _link_group_map_spec = "registration_spec")
+load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
+load("@prelude//apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")
+load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
+load("@prelude//apple/user:resource_group_map.bzl", _resource_group_map_spec = "registration_spec")
+load("@prelude//apple/user:watchos_bundle.bzl", _watchos_bundle_spec = "registration_spec")
+load("@prelude//cxx/user:link_group_map.bzl", _link_group_map_spec = "registration_spec")
 load(":extract_archive.bzl", _extract_archive_spec = "registration_spec")
 
 _all_specs = [

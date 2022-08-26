@@ -1,13 +1,13 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "PrebuiltNativeLibraryDir", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "PrebuiltNativeLibraryDir", "merge_android_packageable_info")
+load("@prelude//android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/java:java_providers.bzl",
+    "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",
     "create_abi",
     "create_java_library_providers",
 )
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
 def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     manifest = ctx.actions.declare_output("unpack_dir/AndroidManifest.xml")

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 
 # Abstraction of a place in a resulting bundle where file or directory will be copied. Actual value
 # of path relative to bundle root depends on a platform. This class is an implementation detail and

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 # All modules owned by a library. This will be used by top-level tests to find
 # paths that corresponds to the library.

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 def gen_aidl_impl(ctx: "context") -> ["provider"]:

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@prelude//utils:utils.bzl", "value_or")
 
 def go_attr_pkg_name(ctx: "context") -> str.type:
     """

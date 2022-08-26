@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "link")
 

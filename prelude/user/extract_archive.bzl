@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@prelude//utils:utils.bzl", "value_or")
 load(":rule_spec.bzl", "RuleRegistrationSpec")
 
 # Buck v2 doesn't support directories as source inputs, while v1 allows that.

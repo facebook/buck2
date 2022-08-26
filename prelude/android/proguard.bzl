@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//utils:utils.bzl", "expect")
 
 _UNSCRUBBED_JARS_DIR = "unscrubbed"
 

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def dwp_available(ctx: "context"):

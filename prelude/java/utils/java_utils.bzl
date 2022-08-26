@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 def get_path_separator() -> "string":
     # TODO: msemko : replace with system-dependent path-separator character

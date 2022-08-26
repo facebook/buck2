@@ -1,8 +1,8 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "AppleBundleExtension")
-load("@fbcode//buck2/prelude/apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
-load("@fbcode//buck2/prelude/apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
-load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//:attributes.bzl", "AppleBundleExtension")
+load("@prelude//apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
+load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":resource_group_map.bzl", "resource_group_map_attr")
 
 def _get_apple_resources_tolchain_attr():

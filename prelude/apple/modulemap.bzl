@@ -1,10 +1,10 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:headers.bzl",
+    "@prelude//cxx:headers.bzl",
     "CHeader",  # @unused Used as a type
 )
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
 )
 load(":apple_utility.bzl", "get_module_name")

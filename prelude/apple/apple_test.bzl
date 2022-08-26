@@ -1,13 +1,13 @@
-load("@fbcode//buck2/prelude/apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:compile.bzl",
+    "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/cxx:cxx_library.bzl", "cxx_library_parameterized")
-load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
+load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
+load("@prelude//cxx:cxx_types.bzl", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
 load(
-    "@fbcode//buck2/prelude/cxx:linker.bzl",
+    "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
 )
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")

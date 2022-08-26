@@ -1,10 +1,10 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
     "generate_xcode_data",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
+load("@prelude//utils:utils.bzl", "expect", "flatten")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")

@@ -14,7 +14,7 @@
 
 """Unit tests for js_utils."""
 
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "get_canonical_src_name")
+load("@prelude//js:js_utils.bzl", "get_canonical_src_name")
 load("@fbcode//buck2/tests/targets/starlib:unittest.bzl", "asserts")
 
 def get_canonical_src_name_test():

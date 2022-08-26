@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidManifestInfo", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:android_providers.bzl", "AndroidManifestInfo", "merge_android_packageable_info")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 
 ROOT_APKMODULE_NAME = "dex"
 

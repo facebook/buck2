@@ -1,18 +1,18 @@
-load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
-load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "make_link_args")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//cxx:cxx_link_utility.bzl", "make_link_args")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:linker.bzl",
+    "@prelude//cxx:linker.bzl",
     "get_default_shared_library_name",
     "get_shared_library_name_linker_flags",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkStyle",  #@unused Used as a type
     "get_link_args",
 )
-load("@fbcode//buck2/prelude/utils:set.bzl", "set")
+load("@prelude//utils:set.bzl", "set")
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type

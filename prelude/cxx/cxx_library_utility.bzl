@@ -1,13 +1,13 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "Linkage",
     "MergedLinkInfo",
     "merge_link_infos",
 )
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
     "from_named_set",

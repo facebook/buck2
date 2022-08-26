@@ -1,15 +1,15 @@
 load(
-    "@fbcode//buck2/prelude:resources.bzl",
+    "@prelude//:resources.bzl",
     "ResourceInfo",
     "gather_resources",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:omnibus.bzl",
+    "@prelude//cxx:omnibus.bzl",
     "add_omnibus_exclusions",
     "add_omnibus_roots",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
 )
 load(":compile.bzl", "compile_manifests")

@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
     "LinkArgs",
@@ -15,17 +15,17 @@ load(
     "get_link_styles_for_linkage",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "add_linkable_node",
     "create_merged_linkable_graph",
 )
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load(
-    "@fbcode//buck2/prelude/tests:re_utils.bzl",
+    "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
     "map_idx",

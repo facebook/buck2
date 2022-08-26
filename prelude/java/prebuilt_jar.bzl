@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
     ":java_providers.bzl",
     "JavaClasspathEntry",

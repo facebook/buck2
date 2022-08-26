@@ -1,18 +1,18 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:compile.bzl",
+    "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxAdditionalArgsfileParams")
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "CHeader")
+load("@prelude//cxx:cxx_types.bzl", "CxxAdditionalArgsfileParams")
+load("@prelude//cxx:headers.bzl", "CHeader")
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "map_idx")
+load("@prelude//utils:utils.bzl", "map_idx")
 load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_module_name", "get_versioned_target_triple")

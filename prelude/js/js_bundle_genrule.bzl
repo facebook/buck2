@@ -1,8 +1,8 @@
-load("@fbcode//buck2/prelude:genrule.bzl", "process_genrule")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsBundleInfo")
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//:genrule.bzl", "process_genrule")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
+load("@prelude//js:js_providers.bzl", "JsBundleInfo")
+load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name")
+load("@prelude//utils:utils.bzl", "expect")
 
 def _build_js_bundle(
         ctx: "context",

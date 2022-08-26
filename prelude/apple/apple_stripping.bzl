@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 def apple_strip_args(ctx: "context") -> "cmd_args":
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)

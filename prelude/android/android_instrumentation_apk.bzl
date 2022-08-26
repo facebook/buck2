@@ -1,12 +1,12 @@
-load("@fbcode//buck2/prelude/android:android_apk.bzl", "build_apk")
-load("@fbcode//buck2/prelude/android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
-load("@fbcode//buck2/prelude/android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidInstrumentationApkInfo", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/android:configuration.bzl", "get_deps_by_platform")
-load("@fbcode//buck2/prelude/android:dex_rules.bzl", "merge_to_single_dex")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//android:android_apk.bzl", "build_apk")
+load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
+load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
+load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidInstrumentationApkInfo", "merge_android_packageable_info")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:configuration.bzl", "get_deps_by_platform")
+load("@prelude//android:dex_rules.bzl", "merge_to_single_dex")
+load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
+load("@prelude//utils:utils.bzl", "expect")
 
 def android_instrumentation_apk_impl(ctx: "context"):
     # To begin with, let's just implement something that has a single DEX file and a manifest.

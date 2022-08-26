@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 
 # The functions below allow the Cxx rules to find toolchain providers
 # from different rule contexts. For example, the Cxx functions are

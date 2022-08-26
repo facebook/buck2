@@ -1,24 +1,24 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/cxx:compile.bzl",
+    "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/cxx:cxx_library.bzl", "cxx_compile_srcs")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_library.bzl", "cxx_compile_srcs")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_types.bzl",
+    "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout", "prepare_headers")
+load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout", "prepare_headers")
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "Linkage",
     "MergedLinkInfo",
     "merge_link_infos",

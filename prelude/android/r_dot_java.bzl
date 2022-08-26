@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
+load("@prelude//java:java_library.bzl", "compile_to_jar")
+load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
 
 def get_dummy_r_dot_java(
         ctx: "context",

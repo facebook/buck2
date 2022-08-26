@@ -4,7 +4,7 @@ Transforms both OS and SDK constraints.
 Only sanity check for source configuration is done.
 """
 
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 def _os_and_sdk_unrelated_constraints(platform: PlatformInfo.type, refs: struct.type) -> {"target_label": ConstraintValueInfo.type}:
     return {

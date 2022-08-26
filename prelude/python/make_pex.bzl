@@ -3,12 +3,12 @@ Rule for the inplace pex builder, and some utility methods for generic pex build
 execution
 """
 
-load("@fbcode//buck2/prelude:local_only.bzl", "package_python_locally")
+load("@prelude//:local_only.bzl", "package_python_locally")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//utils:utils.bzl", "flatten")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
 load(":toolchain.bzl", "PackageStyle")

@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
+load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 
 _VERSION_PLACEHOLDER = "(VERSION)"

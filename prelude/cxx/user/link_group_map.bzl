@@ -1,19 +1,19 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "Linkage", "Traversal")
+load("@prelude//:attributes.bzl", "Linkage", "Traversal")
 load(
-    "@fbcode//buck2/prelude/cxx:groups.bzl",
+    "@prelude//cxx:groups.bzl",
     "compute_mappings",
     "parse_groups_definitions",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:link_groups.bzl",
+    "@prelude//cxx:link_groups.bzl",
     "LinkGroupInfo",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
     "get_linkable_graph_node_map",
 )
-load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _v1_attrs():
     return attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage))))))

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 # Flags to apply to decompress the various types of archives.
 _FLAGS = {

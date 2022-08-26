@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/tests:re_utils.bzl",
+    "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
 load(

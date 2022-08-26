@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/apple:apple_bundle_types.bzl", "AppleBundleInfo")
-load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleInfo")
+load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":watch_transition.bzl", "watch_transition")
 
 def _impl(ctx: "context") -> ["provider"]:

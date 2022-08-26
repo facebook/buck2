@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//utils:utils.bzl", "expect")
 
 def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "target_label"}) -> {"artifact": "target_label"}:
     sh_script, macro_files = ctx.actions.write(

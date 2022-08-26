@@ -1,11 +1,11 @@
-load("@fbcode//buck2/prelude/apple:apple_sdk.bzl", "get_apple_sdk_name")
-load("@fbcode//buck2/prelude/apple:apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
-load("@fbcode//buck2/prelude/apple:apple_utility.bzl", "has_apple_toolchain")
+load("@prelude//apple:apple_sdk.bzl", "get_apple_sdk_name")
+load("@prelude//apple:apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
+load("@prelude//apple:apple_utility.bzl", "has_apple_toolchain")
 load(
-    "@fbcode//buck2/prelude/cxx:compile.bzl",
+    "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/cxx:xcode.bzl", "cxx_populate_xcode_attributes")
+load("@prelude//cxx:xcode.bzl", "cxx_populate_xcode_attributes")
 
 def apple_populate_xcode_attributes(
         ctx,

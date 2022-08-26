@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 def topo_sort(graph: {"_a": ["_a"]}) -> ["_a"]:
     """

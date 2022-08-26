@@ -1,9 +1,9 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/tests:re_utils.bzl",
+    "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "from_named_set", "value_or")
+load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 

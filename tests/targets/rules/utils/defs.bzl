@@ -1,9 +1,9 @@
 load(
-    "@fbcode//buck2/prelude/utils:build_target_pattern.bzl",
+    "@prelude//utils:build_target_pattern.bzl",
     "label_matches_build_target_pattern",
     "parse_build_target_pattern",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 def _test_parse_build_target_pattern_impl(ctx):
     for pattern, expected_result in ctx.attrs.patterns.items():

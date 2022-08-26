@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(":packages.bzl", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 

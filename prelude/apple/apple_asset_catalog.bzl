@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//utils:utils.bzl", "flatten")
 load(":apple_asset_catalog_compilation_options.bzl", "AppleAssetCatalogsCompilationOptions", "get_apple_asset_catalogs_compilation_options")  # @unused Used as a type
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogResult", "AppleAssetCatalogSpec", "StringWithSourceTarget")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_bundle_resource_processing_options")

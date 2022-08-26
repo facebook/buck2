@@ -1,14 +1,14 @@
-load("@fbcode//buck2/prelude/apple:apple_stripping.bzl", "apple_strip_args")
-load("@fbcode//buck2/prelude/cxx:cxx.bzl", "get_srcs_with_flags")
-load("@fbcode//buck2/prelude/cxx:cxx_executable.bzl", "cxx_executable")
-load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
-load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxRuleConstructorParams")
+load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
+load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
 )
-load("@fbcode//buck2/prelude/linking:link_info.bzl", "extract_default_filelist_from_link_args")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//linking:link_info.bzl", "extract_default_filelist_from_link_args")
+load("@prelude//utils:utils.bzl", "flatten")
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")

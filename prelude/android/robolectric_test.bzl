@@ -1,10 +1,10 @@
-load("@fbcode//buck2/prelude/android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
-load("@fbcode//buck2/prelude/android:android_library.bzl", "build_android_library")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_test.bzl", "build_junit_test")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
+load("@prelude//android:android_library.bzl", "build_android_library")
+load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:java_test.bzl", "build_junit_test")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//utils:utils.bzl", "expect")
 
 def robolectric_test_impl(ctx: "context") -> ["provider"]:
     _verify_attributes(ctx)

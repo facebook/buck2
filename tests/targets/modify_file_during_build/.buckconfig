@@ -7,6 +7,7 @@ fbcode = fbcode
 fbsource = fbsource
 buck = buck
 toolchains = toolchains
+prelude = prelude
 
 [buck2]
 materializations = deferred

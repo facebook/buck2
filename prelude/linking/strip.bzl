@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 def strip_debug_info(ctx: "context", name: str.type, obj: "artifact") -> "artifact":
     """

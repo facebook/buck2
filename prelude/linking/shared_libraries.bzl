@@ -1,11 +1,11 @@
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
-load("@fbcode//buck2/prelude/linking:strip.bzl", "strip_shared_library")
+load("@prelude//linking:strip.bzl", "strip_shared_library")
 load(
-    "@fbcode//buck2/prelude/utils:types.bzl",
+    "@prelude//utils:types.bzl",
     "unchecked",  # @unused Used as a type
 )
 

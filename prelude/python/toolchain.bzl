@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
+load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 
 # The ways that Python exectuables handle native linkable dependencies.
 NativeLinkStrategy = enum(

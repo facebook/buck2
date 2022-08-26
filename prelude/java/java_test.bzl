@@ -1,9 +1,9 @@
-load("@fbcode//buck2/prelude/java:java_library.bzl", "build_java_library")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_all_java_packaging_deps_from_packaging_infos")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaToolchainInfo")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
+load("@prelude//java:java_library.bzl", "build_java_library")
+load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_from_packaging_infos")
+load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
 def java_test_impl(ctx: "context") -> ["provider"]:
     java_providers = build_java_library(ctx, ctx.attrs.srcs)

@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "flatten",
 )
 load(":attr_selection.bzl", "cxx_by_language_ext")

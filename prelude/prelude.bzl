@@ -4,13 +4,13 @@
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.
 
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
-load("@fbcode//buck2/prelude/apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
-load("@fbcode//buck2/prelude/python:toolchain.bzl", _python = "python")
-load("@fbcode//buck2/prelude/user:all.bzl", _user_rules = "rules")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
+load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
+load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
+load("@prelude//python:toolchain.bzl", _python = "python")
+load("@prelude//user:all.bzl", _user_rules = "rules")
+load("@prelude//utils:utils.bzl", "expect")
+load(":paths.bzl", "paths")
 load(":rules.bzl", __rules__ = "rules")
 
 def __struct_to_dict(s):

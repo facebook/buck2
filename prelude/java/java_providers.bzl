@@ -1,17 +1,17 @@
 load(
-    "@fbcode//buck2/prelude:resources.bzl",
+    "@prelude//:resources.bzl",
     "ResourceInfo",
     "gather_resources",
 )
-load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
-load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")
+load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
+load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx")
 
 # JAVA PROVIDER DOCS
 #

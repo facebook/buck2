@@ -1,18 +1,18 @@
 # Implementation of the Rust build rules.
 
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "MergedLinkInfo",
     "merge_link_infos",
 )
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
 )
-load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
+load("@prelude//utils:utils.bzl", "flatten")
 
 # Override dylib crates to static_pic, so that Rust code is always
 # statically linked.

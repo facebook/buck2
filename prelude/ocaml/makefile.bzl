@@ -1,5 +1,5 @@
 # Parse and resolve Makefile's produce by ocamldeps.
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 
 # [Note: Dynamic dependency calculations]
 # ---------------------------------------

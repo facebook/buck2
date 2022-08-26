@@ -1,21 +1,21 @@
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
+    "@prelude//cxx:cxx_bolt.bzl",
     "bolt",
     "cxx_use_bolt",
 )
 load(
-    "@fbcode//buck2/prelude/cxx/dist_lto:dist_lto.bzl",
+    "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_dist_link",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkedObject",
     "unpack_link_args",
 )
-load("@fbcode//buck2/prelude/linking:link_postprocessor.bzl", "postprocess")
-load("@fbcode//buck2/prelude/linking:strip.bzl", "strip_shared_library")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@prelude//linking:link_postprocessor.bzl", "postprocess")
+load("@prelude//linking:strip.bzl", "strip_shared_library")
+load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",

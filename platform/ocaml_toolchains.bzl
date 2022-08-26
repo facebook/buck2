@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
+load("@prelude//ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 
 def _tp2(platform, project, rule):
     return "fbcode//third-party-buck/{}/build/{}:{}".format(platform, project, rule)

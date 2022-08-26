@@ -1,65 +1,65 @@
 # Android
-load("@fbcode//buck2/prelude/android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
+load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
 
 # Apple
-load("@fbcode//buck2/prelude/apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
+load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 
 # Configuration
-load("@fbcode//buck2/prelude/configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
-load("@fbcode//buck2/prelude/cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain.bzl", "cxx_toolchain_impl")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo", "DistLtoToolsInfo")
+load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
+load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
+load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_impl")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo", "DistLtoToolsInfo")
 
 # C++
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
-load("@fbcode//buck2/prelude/cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
-load("@fbcode//buck2/prelude/cxx/user:link_group_map.bzl", "link_group_map_attr")
-load("@fbcode//buck2/prelude/go:cgo_library.bzl", "cgo_library_impl")
+load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
+load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
+load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
+load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
 
 # Go
-load("@fbcode//buck2/prelude/go:go_binary.bzl", "go_binary_impl")
-load("@fbcode//buck2/prelude/go:go_library.bzl", "go_library_impl")
-load("@fbcode//buck2/prelude/go:go_test.bzl", "go_test_impl")
-load("@fbcode//buck2/prelude/go:toolchain.bzl", "GoToolchainInfo")
+load("@prelude//go:go_binary.bzl", "go_binary_impl")
+load("@prelude//go:go_library.bzl", "go_library_impl")
+load("@prelude//go:go_test.bzl", "go_test_impl")
+load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
 # Haskell
-load("@fbcode//buck2/prelude/haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
+load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 
 # Http archive
-load("@fbcode//buck2/prelude/http_archive:http_archive.bzl", "http_archive_impl")
+load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
 
 # Java
-load("@fbcode//buck2/prelude/java:java.bzl", _java_extra_attributes = "extra_attributes", _java_implemented_rules = "implemented_rules")
+load("@prelude//java:java.bzl", _java_extra_attributes = "extra_attributes", _java_implemented_rules = "implemented_rules")
 
 # JavaScript
-load("@fbcode//buck2/prelude/js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
+load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
 
 # Kotlin
-load("@fbcode//buck2/prelude/kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
+load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
 
 # OCaml
-load("@fbcode//buck2/prelude/ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "prebuilt_ocaml_library_impl")
-load("@fbcode//buck2/prelude/ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
+load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "prebuilt_ocaml_library_impl")
+load("@prelude//ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 
 # Python
-load("@fbcode//buck2/prelude/python:cxx_python_extension.bzl", "cxx_python_extension_impl")
-load("@fbcode//buck2/prelude/python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
-load("@fbcode//buck2/prelude/python:python_binary.bzl", "python_binary_impl")
-load("@fbcode//buck2/prelude/python:python_library.bzl", "python_library_impl")
-load("@fbcode//buck2/prelude/python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
-load("@fbcode//buck2/prelude/python:python_test.bzl", "python_test_impl")
-load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
+load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
+load("@prelude//python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
+load("@prelude//python:python_binary.bzl", "python_binary_impl")
+load("@prelude//python:python_library.bzl", "python_library_impl")
+load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
+load("@prelude//python:python_test.bzl", "python_test_impl")
+load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 
 # Python Bootstrap
-load("@fbcode//buck2/prelude/python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "PythonBootstrapToolchainInfo", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
+load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "PythonBootstrapToolchainInfo", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 
 # Rust
-load("@fbcode//buck2/prelude/rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
-load("@fbcode//buck2/prelude/rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
-load("@fbcode//buck2/prelude/rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
+load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
+load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
+load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
 
 # Zip file
-load("@fbcode//buck2/prelude/zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
+load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
@@ -193,7 +193,7 @@ def _python_test_attrs():
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_python_toolchain": _python_toolchain(),
-        "_test_main": attrs.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
+        "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
     }
 
 def _cxx_binary_and_test_attrs():
@@ -244,7 +244,7 @@ def _target_os_type() -> "attribute":
     }))
 
 def _create_manifest_for_source_dir():
-    return attrs.exec_dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir")
+    return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")
 
 extra_attributes = struct(
     export_file = {
@@ -326,8 +326,8 @@ extra_attributes = struct(
         "strip": attrs.dep(providers = [RunInfo]),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),
-        "_dist_lto_tools": attrs.dep(providers = [DistLtoToolsInfo], default = "fbcode//buck2/prelude/cxx/dist_lto/tools:dist_lto_tools"),
-        "_mk_comp_db": attrs.dep(providers = [RunInfo], default = "fbcode//buck2/prelude/cxx/tools:make_comp_db"),
+        "_dist_lto_tools": attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools"),
+        "_mk_comp_db": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db"),
         "_mk_hmap": attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
     },
     cxx_python_extension = _cxx_python_extension_attrs(),
@@ -360,7 +360,7 @@ extra_attributes = struct(
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
-        "_testmaingen": attrs.exec_dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
+        "_testmaingen": attrs.exec_dep(default = "prelude//go/tools:testmaingen"),
     },
 
     #ocaml
@@ -410,7 +410,7 @@ extra_attributes = struct(
     #python
     prebuilt_python_library = {
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        "_extract": attrs.dep(default = "fbcode//buck2/prelude/python/tools:extract"),
+        "_extract": attrs.dep(default = "prelude//python/tools:extract"),
         "_python_toolchain": _python_toolchain(),
     },
     python_library = {
@@ -510,7 +510,7 @@ extra_attributes = struct(
     http_archive = {
         "sha1": attrs.option(attrs.string()),
         "sha256": attrs.option(attrs.string()),
-        "_create_exclusion_list": attrs.exec_dep(default = "fbcode//buck2/prelude/http_archive/tools:create_exclusion_list"),
+        "_create_exclusion_list": attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list"),
     },
     http_file = {
         "sha1": attrs.option(attrs.string()),

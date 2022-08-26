@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
+load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 
 def empty_dex_toolchain(
         name,

@@ -1,8 +1,8 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidPackageableInfo", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "get_all_java_packaging_deps")
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx", "flatten")
+load("@prelude//android:android_providers.bzl", "AndroidPackageableInfo", "merge_android_packageable_info")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
 # modules can then be downloaded on demand rather than shipped with the "main" APK.

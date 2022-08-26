@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/cxx:preprocessor.bzl", "CPreprocessor")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//cxx:preprocessor.bzl", "CPreprocessor")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 
 # TODO(T112099448): In the future, the min version flag should live on the apple_toolchain()

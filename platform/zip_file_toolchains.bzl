@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
+load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def config_backed_zip_file_toolchain(name, **kwargs):
     kwargs["create_zip"] = "buck//src/com/facebook/buck/features/zip/rules/utils:zip_binary"

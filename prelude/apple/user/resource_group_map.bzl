@@ -1,16 +1,16 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "Traversal")
+load("@prelude//:attributes.bzl", "Traversal")
 load(
-    "@fbcode//buck2/prelude/apple:resource_groups.bzl",
+    "@prelude//apple:resource_groups.bzl",
     "ResourceGroupInfo",
     "create_resource_graph",
     "get_resource_graph_node_map",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:groups.bzl",
+    "@prelude//cxx:groups.bzl",
     "compute_mappings",
     "parse_groups_definitions",
 )
-load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def v1_attrs():
     return attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string())))))

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
 Aapt2LinkInfo = provider(
     fields = [

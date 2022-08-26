@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
 
 _REFS = {
     "arm64": "ovr_config//cpu/constraints:arm64",

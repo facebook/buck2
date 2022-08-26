@@ -43,20 +43,20 @@
 #     quux/corge/corge.o
 #   quux
 
-load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl",
+    "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
+    "@prelude//cxx:preprocessor.bzl",
     "CPreprocessorInfo",
     "cxx_merge_cpreprocessors",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -68,16 +68,16 @@ load(
     "unpack_link_args",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
 )
 load(
-    "@fbcode//buck2/prelude/python:python.bzl",
+    "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
-load("@fbcode//buck2/prelude/utils:graph_utils.bzl", "breadth_first_traversal", "topo_sort")
-load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
+load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "topo_sort")
+load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
+load("@prelude//utils:utils.bzl", "flatten")
 load(":makefile.bzl", "parse_makefile")
 load(":providers.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 

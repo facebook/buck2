@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _is_core_tool(ctx: "context"):
     return "is_core_tool" in ctx.attrs.labels

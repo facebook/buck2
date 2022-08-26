@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "from_named_set", "value_or")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:utils.bzl", "expect", "from_named_set", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":platform.bzl", "cxx_by_platform")
 

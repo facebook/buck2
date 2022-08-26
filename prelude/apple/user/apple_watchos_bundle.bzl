@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "AppleBundleExtension", "Traversal")
-load("@fbcode//buck2/prelude/apple:apple_bundle.bzl", "apple_bundle_impl")
-load("@fbcode//buck2/prelude/apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
-load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//:attributes.bzl", "AppleBundleExtension", "Traversal")
+load("@prelude//apple:apple_bundle.bzl", "apple_bundle_impl")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
+load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":watch_transition.bzl", "watch_transition")
 
 def _apple_bundle_base_attrs():

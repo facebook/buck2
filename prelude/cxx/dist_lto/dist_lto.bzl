@@ -1,20 +1,20 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
+    "@prelude//cxx:cxx_bolt.bzl",
     "bolt",
     "cxx_use_bolt",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl",
+    "@prelude//cxx:cxx_link_utility.bzl",
     "cxx_link_cmd",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:dwp.bzl",
+    "@prelude//cxx:dwp.bzl",
     "run_dwp_action",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",  # @unused Used as a type
     "FrameworksLinkable",  # @unused Used as a type
     "LinkArgs",

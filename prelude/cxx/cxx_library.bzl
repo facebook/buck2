@@ -1,31 +1,31 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude:resources.bzl",
+    "@prelude//:resources.bzl",
     "ResourceInfo",
     "gather_resources",
 )
 load(
-    "@fbcode//buck2/prelude/android:android_providers.bzl",
+    "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
 load(
-    "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
+    "@prelude//apple:apple_frameworks.bzl",
     "build_link_args_with_deduped_framework_flags",
     "create_frameworks_linkable",
     "get_frameworks_link_info_by_deduping_link_infos",
 )
 load(
-    "@fbcode//buck2/prelude/ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfo",
     "generate_xcode_data",
 )
 load(
-    "@fbcode//buck2/prelude/java:java_providers.bzl",
+    "@prelude//java:java_providers.bzl",
     "get_java_packaging_info",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
     "LinkArgs",
     "LinkInfo",
@@ -43,16 +43,16 @@ load(
     "wrap_link_info",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "LinkableNode",  # @unused Used as a type
     "add_linkable_node",
     "create_merged_linkable_graph",
     "get_linkable_graph_node_map",
 )
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
-load("@fbcode//buck2/prelude/linking:strip.bzl", "strip_debug_info")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
     "map_idx",

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES")
+load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES")
 
 native.js_bundle_genrule(
     name = "fruit_salad_genrule",

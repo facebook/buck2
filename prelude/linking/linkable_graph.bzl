@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/python:python.bzl", "PythonLibraryInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//python:python.bzl", "PythonLibraryInfo")
+load("@prelude//utils:utils.bzl", "expect")
 load(
     ":link_info.bzl",
     "LinkInfo",  # @unused Used as a type

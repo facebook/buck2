@@ -1,5 +1,5 @@
 load("@fbcode//buck2/platform:utils.bzl", "bool_attr", "flags_attr", "int_attr", "string_attr")
-load("@fbcode//buck2/prelude/haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
+load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
 
 # Got these attributes from
 # 'fbcode/tools/buckconfigs/fbcode/modes/dev-sand.bcfg'

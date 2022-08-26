@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//utils:utils.bzl", "expect")
 load(
     ":apple_asset_catalog.bzl",
     "compile_apple_asset_catalog",

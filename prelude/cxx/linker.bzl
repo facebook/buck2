@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 
 # Platform-specific linker flags handling.  Modeled after the `Linker` abstraction
 # in v1 (https://fburl.com/diffusion/kqd2ylcy).

@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/cxx:comp_db.bzl",
+    "@prelude//cxx:comp_db.bzl",
     "CxxCompilationDbInfo",
 )
 

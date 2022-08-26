@@ -1,9 +1,9 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
-load("@fbcode//buck2/prelude/android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "fixup_command_args", "get_bundle_name", "get_flavors", "run_worker_command")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "map_idx")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
+load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
+load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "fixup_command_args", "get_bundle_name", "get_flavors", "run_worker_command")
+load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 def _build_dependencies_file(
         ctx: "context",

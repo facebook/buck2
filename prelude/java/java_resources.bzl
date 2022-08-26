@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 
 def get_resources_map(
         java_toolchain: "JavaToolchainInfo",

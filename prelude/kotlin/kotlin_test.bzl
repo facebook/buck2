@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/java:java_test.bzl", "build_junit_test")
-load("@fbcode//buck2/prelude/kotlin:kotlin_library.bzl", "build_kotlin_library")
+load("@prelude//java:java_test.bzl", "build_junit_test")
+load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 
 def kotlin_test_impl(ctx: "context") -> ["provider"]:
     java_providers = build_kotlin_library(ctx, ctx.attrs.srcs)

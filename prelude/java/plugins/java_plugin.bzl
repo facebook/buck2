@@ -1,10 +1,10 @@
 load(
-    "@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl",
+    "@prelude//java/plugins:java_annotation_processor.bzl",
     "JavaProcessorsInfo",
     "JavaProcessorsType",
     "derive_transitive_deps",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
 PluginParams = record(
     processors = field(["string"]),

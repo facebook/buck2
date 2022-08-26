@@ -1,27 +1,27 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude:resources.bzl",
+    "@prelude//:resources.bzl",
     "ResourceInfo",
     "gather_resources",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "shared_libs_symlink_tree_name")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load("@prelude//cxx:cxx_link_utility.bzl", "shared_libs_symlink_tree_name")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:omnibus.bzl",
+    "@prelude//cxx:omnibus.bzl",
     "add_omnibus_exclusions",
     "add_omnibus_roots",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
 )
-load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
-load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "from_named_set")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
+load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "from_named_set")
 load(":compile.bzl", "compile_manifests")
 load(
     ":manifest.bzl",

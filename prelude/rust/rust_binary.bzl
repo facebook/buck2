@@ -1,26 +1,26 @@
 load(
-    "@fbcode//buck2/prelude:resources.bzl",
+    "@prelude//:resources.bzl",
     "create_resource_db",
     "gather_resources",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps")
-load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
+load("@prelude//cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "Linkage",
 )
 load(
-    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "@prelude//linking:shared_libraries.bzl",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
 load(
-    "@fbcode//buck2/prelude/tests:re_utils.bzl",
+    "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten_dict")
+load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
     "compile_context",

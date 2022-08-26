@@ -1,19 +1,19 @@
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "Linkage",
 )
 load(
-    "@fbcode//buck2/prelude/utils:build_target_pattern.bzl",
+    "@prelude//utils:build_target_pattern.bzl",
     "BuildTargetPattern",
     "label_matches_build_target_pattern",
     "parse_build_target_pattern",
 )
 load(
-    "@fbcode//buck2/prelude/utils:graph_utils.bzl",
+    "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
 load(
-    "@fbcode//buck2/prelude/utils:utils.bzl",
+    "@prelude//utils:utils.bzl",
     "expect",
     "map_idx",
 )

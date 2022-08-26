@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@prelude//:paths.bzl", "paths")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "FrameworksLinkable",
     "LinkArgs",
     "LinkInfo",
@@ -10,7 +10,7 @@ load(
     "get_link_args",
     "merge_framework_linkables",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "expect")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [

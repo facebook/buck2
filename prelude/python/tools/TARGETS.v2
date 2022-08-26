@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/python:make_pex.bzl", "make_pex_inplace_binary", "make_pex_modules_binary")
+load("@prelude//python:make_pex.bzl", "make_pex_inplace_binary", "make_pex_modules_binary")
 
 prelude = native
 

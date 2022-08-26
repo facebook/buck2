@@ -1,6 +1,6 @@
 load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "source_list_attr", "string_attr", "string_list_attr")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
-load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "derive_javac")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 
 _buckconfig_java_toolchain_attrs = {

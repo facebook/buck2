@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "KeystoreInfo")
+load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 
 def keystore_impl(ctx: "context") -> ["provider"]:
     sub_targets = {}

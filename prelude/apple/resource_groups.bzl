@@ -1,11 +1,11 @@
 load(
-    "@fbcode//buck2/prelude/cxx:groups.bzl",
+    "@prelude//cxx:groups.bzl",
     "MATCH_ALL_LABEL",
     "get_group_mappings_and_info",
     "parse_groups_definitions",
 )
 load(
-    "@fbcode//buck2/prelude/utils:graph_utils.bzl",
+    "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")

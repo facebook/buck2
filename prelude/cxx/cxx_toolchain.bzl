@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
-load("@fbcode//buck2/prelude/linking:link_info.bzl", "LinkStyle")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
+load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//utils:utils.bzl", "value_or")
 
 def cxx_toolchain_impl(ctx):
     c_info = CCompilerInfo(

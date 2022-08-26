@@ -1,13 +1,13 @@
-load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
+load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/java:java_toolchain.bzl",
+    "@prelude//java:java_toolchain.bzl",
     "JUnitToolchainInfo",
     "JavaPlatformInfo",
     "JavaToolchainInfo",
     "PrebuiltJarToolchainInfo",
 )
-load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
-load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "java_plugin_impl")
+load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
+load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
 load(":jar_genrule.bzl", "jar_genrule_impl")
 load(":java_binary.bzl", "java_binary_impl")
 load(":java_library.bzl", "java_library_impl")

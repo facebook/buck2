@@ -1,4 +1,4 @@
-load("//buck2/prelude/cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
 
 def _impl(ctx):
     return [

@@ -1,5 +1,5 @@
 load(
-    "@fbcode//buck2/prelude/cxx:compile.bzl",
+    "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 

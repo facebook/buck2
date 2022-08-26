@@ -1,5 +1,5 @@
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo")
+load("@prelude//utils:utils.bzl", "expect")
 
 def _extract_expected_artifacts(ctx, use_abi: "bool"):
     expected_deps = []

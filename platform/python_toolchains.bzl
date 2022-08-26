@@ -1,6 +1,6 @@
 load("@fbcode//buck2/platform:utils.bzl", "read_bool")
-load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
+load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
+load("@prelude//utils:utils.bzl", "value_or")
 load("@fbcode//buck2/platform/execution/util.bzl", "fat_platform_incompatible")
 
 # These interpreters are distributed everywhere to mac and linux and so are
@@ -132,16 +132,16 @@ _config_backed_python_toolchain_rule = rule(
     is_toolchain_rule = True,
     attrs = {
         "cache_binaries": attrs.bool(default = True),
-        "compile": attrs.source(default = "fbcode//buck2/prelude/python/tools:compile.py"),
+        "compile": attrs.source(default = "prelude//python/tools:compile.py"),
         "emit_omnibus_metadata": attrs.bool(default = False),
         "interpreter": attrs.arg(),
-        "make_source_db": attrs.dep(default = "fbcode//buck2/prelude/python/tools:make_source_db"),
+        "make_source_db": attrs.dep(default = "prelude//python/tools:make_source_db"),
         "native_link_strategy": attrs.enum(native.python.NativeLinkStrategy.values()),
         "package_style": attrs.enum(native.python.PackageStyle.values()),
         "path_to_pex": attrs.option(attrs.dep(providers = [RunInfo])),
         "path_to_pex_executer": attrs.option(attrs.dep(providers = [RunInfo])),
-        "path_to_pex_inplace": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_inplace", providers = [RunInfo]),
-        "path_to_pex_modules": attrs.dep(default = "@fbcode//buck2/prelude/python/tools:make_pex_modules", providers = [RunInfo]),
+        "path_to_pex_inplace": attrs.dep(default = "@prelude//python/tools:make_pex_inplace", providers = [RunInfo]),
+        "path_to_pex_modules": attrs.dep(default = "@prelude//python/tools:make_pex_modules", providers = [RunInfo]),
         "pex_extension": attrs.string(default = ".par"),
         "platform_name": attrs.option(attrs.string()),
         "version": attrs.string(),

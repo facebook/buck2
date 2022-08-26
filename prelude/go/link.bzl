@@ -1,7 +1,7 @@
-load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_inherited_link_info")
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_inherited_link_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "get_link_args",
     "unpack_link_args",

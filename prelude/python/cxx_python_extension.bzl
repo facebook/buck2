@@ -1,31 +1,31 @@
 load(
-    "@fbcode//buck2/prelude/cxx:cxx.bzl",
+    "@prelude//cxx:cxx.bzl",
     "get_srcs_with_flags",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_library.bzl",
+    "@prelude//cxx:cxx_library.bzl",
     "cxx_library_parameterized",
 )
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl",
+    "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
     "cxx_inherited_link_info",
 )
-load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
-    "@fbcode//buck2/prelude/cxx:cxx_types.bzl",
+    "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
-load("@fbcode//buck2/prelude/cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
+load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load(
-    "@fbcode//buck2/prelude/cxx:omnibus.bzl",
+    "@prelude//cxx:omnibus.bzl",
     "add_omnibus_roots",
 )
 load(
-    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
     "LinkInfosTSet",
@@ -34,12 +34,12 @@ load(
     "merge_framework_linkables",
 )
 load(
-    "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
+    "@prelude//linking:linkable_graph.bzl",
     "ForceConsiderationOfOmnibusRoots",
     "create_merged_linkable_graph",
 )
-load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(
     ":native_python_util.bzl",

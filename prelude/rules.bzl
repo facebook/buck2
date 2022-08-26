@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
+load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 
 # Combine the attributes we generate, we the custom implementations we have.
 load(":attributes.bzl", "attributes")

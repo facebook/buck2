@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
+load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 
 def config_backed_kotlin_toolchain(
         name,
