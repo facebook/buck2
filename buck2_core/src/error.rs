@@ -98,6 +98,7 @@ mod test {
 
         // Now set the handler and assert that we log
         super::initialize(box mock_handler);
+        let before_error_line = line!();
         let _ignore_hard_error = soft_error!(
             "test_logged_soft_error",
             anyhow::anyhow!("Should be logged")
@@ -106,7 +107,7 @@ mod test {
             Some(&format!(
                 "({:?}, {}, 34), : Should be logged : test_logged_soft_error",
                 file!(),
-                line!() - 8,
+                before_error_line + 1,
             )),
             RESULT
                 .get_or_init(|| Mutex::new(Vec::new()))
