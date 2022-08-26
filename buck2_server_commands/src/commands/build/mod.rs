@@ -283,7 +283,8 @@ fn create_unhashed_outputs(
             Ok((artifact, _)) => match provider_artifact.provider_type {
                 BuildProviderType::Default => match artifact.as_parts().0 {
                     BaseArtifactKind::Build(build) => {
-                        let unhashed_path = artifact_fs.retrieve_unhashed_location(build);
+                        let unhashed_path =
+                            artifact_fs.retrieve_unhashed_location(build.get_path());
                         let path = artifact_fs.resolve(artifact.get_path())?;
                         let abs_unhashed_path = fs.resolve(&unhashed_path);
                         let entry = unhashed_to_hashed

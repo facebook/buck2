@@ -183,7 +183,7 @@ impl PristineActionExecutable for SymlinkedDirAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs().fs();
-        let output = ctx.fs().resolve_build(self.output());
+        let output = ctx.fs().resolve_build(self.output().get_path());
         let mut builder = ArtifactValueBuilder::new(fs);
         let mut srcs = Vec::new();
 

@@ -360,7 +360,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         let output_paths = self
             .outputs
             .iter()
-            .map(|o| self.fs().resolve_build(o))
+            .map(|o| self.fs().resolve_build(o.get_path()))
             .collect::<Vec<_>>();
 
         // Invalidate all the output paths this action might provide. Note that this is a bit
@@ -434,14 +434,14 @@ impl ActionExecutor for BuckActionExecutor {
                 let wanted = outputs
                     .iter()
                     .filter(|x| !result.0.outputs.contains_key(*x))
-                    .map(|x| self.command_executor.fs().resolve_build(x))
+                    .map(|x| self.command_executor.fs().resolve_build(x.get_path()))
                     .collect();
                 let got = result
                     .0
                     .outputs
                     .keys()
                     .filter(|x| !outputs.contains(*x))
-                    .map(|x| self.command_executor.fs().resolve_build(x))
+                    .map(|x| self.command_executor.fs().resolve_build(x.get_path()))
                     .collect::<Vec<_>>();
                 if got.is_empty() {
                     Err(ExecuteError::MissingOutputs { wanted })
@@ -707,7 +707,7 @@ mod tests {
 
                 // Must write out the things we promised to do
                 for x in &self.outputs {
-                    ctx.fs().write_file(x, "", false)?
+                    ctx.fs().write_file(x.get_path(), "", false)?
                 }
 
                 res?;

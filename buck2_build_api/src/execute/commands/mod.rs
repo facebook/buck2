@@ -563,7 +563,7 @@ impl<'a> CommandExecutionOutputRef<'a> {
     pub fn resolve(&self, fs: &ArtifactFs) -> ResolvedCommandExecutionOutput {
         match self {
             Self::BuildArtifact(artifact) => ResolvedCommandExecutionOutput {
-                path: fs.resolve_build(artifact),
+                path: fs.resolve_build(artifact.get_path()),
                 create: OutputCreationBehavior::Parent,
             },
             Self::TestPath { path, create } => ResolvedCommandExecutionOutput {

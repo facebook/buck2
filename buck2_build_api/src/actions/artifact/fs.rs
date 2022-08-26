@@ -5,8 +5,8 @@ use buck2_node::execute::config::PathSeparatorKind;
 use either::Either;
 
 use crate::actions::artifact::path::ArtifactPath;
-use crate::actions::artifact::BuildArtifact;
 use crate::actions::artifact::SourceArtifact;
+use crate::path::BuckOutPath;
 use crate::path::BuckOutPathResolver;
 use crate::path::BuckPathResolver;
 
@@ -47,13 +47,12 @@ impl ArtifactFs {
         })
     }
 
-    pub fn retrieve_unhashed_location(&self, artifact: &BuildArtifact) -> ProjectRelativePathBuf {
-        self.buck_out_path_resolver
-            .unhashed_gen(artifact.get_path())
+    pub fn retrieve_unhashed_location(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+        self.buck_out_path_resolver.unhashed_gen(path)
     }
 
-    pub fn resolve_build(&self, artifact: &BuildArtifact) -> ProjectRelativePathBuf {
-        self.buck_out_path_resolver.resolve_gen(artifact.get_path())
+    pub fn resolve_build(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+        self.buck_out_path_resolver.resolve_gen(path)
     }
 
     pub fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
@@ -70,7 +69,7 @@ impl ArtifactFs {
     /// Writes a file's contents to disk, creating any intermediate directories needed
     pub fn write_file(
         &self,
-        dest: &BuildArtifact,
+        dest: &BuckOutPath,
         contents: impl AsRef<[u8]>,
         executable: bool,
     ) -> anyhow::Result<()> {
@@ -79,7 +78,7 @@ impl ArtifactFs {
             .write_file(&dest_path, contents, executable)
     }
 
-    pub fn copy(&self, src: ArtifactPath, dest: &BuildArtifact) -> anyhow::Result<()> {
+    pub fn copy(&self, src: ArtifactPath, dest: &BuckOutPath) -> anyhow::Result<()> {
         let src_path = self.resolve(src)?;
         let dest_path = self.resolve_build(dest);
         self.project_filesystem.copy(&src_path, &dest_path)

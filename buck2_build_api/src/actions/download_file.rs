@@ -216,7 +216,7 @@ impl PristineActionExecutable for DownloadFileAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let artifact_fs = ctx.fs();
         let project_fs = artifact_fs.fs();
-        let rel_path = artifact_fs.resolve_build(self.output());
+        let rel_path = artifact_fs.resolve_build(self.output().get_path());
 
         let client = http_client()?;
 

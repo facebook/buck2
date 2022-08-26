@@ -413,7 +413,7 @@ impl PristineActionExecutable for WriteJsonAction {
                 execution_start = Some(Instant::now());
                 let content = self.get_contents(&ctx.executor_fs())?;
                 Ok(vec![WriteRequest {
-                    path: fs.resolve_build(&self.output),
+                    path: fs.resolve_build(self.output.get_path()),
                     content,
                     is_executable: false,
                 }])

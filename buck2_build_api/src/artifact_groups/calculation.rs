@@ -164,7 +164,7 @@ impl Key for EnsureProjectedArtifactKey {
         let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
 
         let base_path = match self.0.base() {
-            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built),
+            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path()),
             BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source)?,
         };
 

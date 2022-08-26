@@ -162,7 +162,7 @@ impl PristineActionExecutable for CopyAction {
 
         let artifact_fs = ctx.fs();
         let src = artifact_fs.resolve(input.get_path())?;
-        let dest = artifact_fs.resolve_build(self.output());
+        let dest = artifact_fs.resolve_build(self.output().get_path());
 
         let value = {
             let fs = artifact_fs.fs();
