@@ -316,9 +316,6 @@ impl DaemonState {
                         materialization_method,
                         MaterializationMethod::Deferred
                     ),
-                    enable_local_caching_of_re_artifacts: root_config
-                        .parse("buck2", "enable_local_caching_of_re_artifacts")?
-                        .unwrap_or(false),
                     defer_write_actions: root_config
                         .parse("buck2", "defer_write_actions")?
                         .unwrap_or(false),

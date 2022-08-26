@@ -11,4 +11,3 @@ prelude = prelude
 
 [buck2]
 materializations = deferred
-enable_local_caching_of_re_artifacts = true

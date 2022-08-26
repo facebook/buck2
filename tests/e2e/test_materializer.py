@@ -85,35 +85,6 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
         assert f.read().strip() == "SRC2"
 
 
-@buck_test(
-    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
-)
-@env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
-async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
-    # Disable local caching of RE artifacts
-    buckconfig_file = buck.cwd / ".buckconfig"
-    replace_in_file(
-        "enable_local_caching_of_re_artifacts = true",
-        "enable_local_caching_of_re_artifacts = false",
-        file=buckconfig_file,
-    )
-
-    target = "root//:copy"
-    result = await buck.build(target)
-    # Check output is correctly materialized
-    assert result.get_build_report().output_for_target(target).exists()
-
-    with open(buck.cwd / "hidden", "w", encoding="utf-8") as f:
-        f.write("HIDDEN2")
-
-    result = await buck.build(target)
-    # Check output still exists
-    assert result.get_build_report().output_for_target(target).exists()
-    # Check that materializer did have to rematerialize in this case
-    assert "already materialized, updating deps only" not in result.stderr
-    assert "materialize artifact" in result.stderr
-
-
 # Doesn't matter which fake repository we use. We just a generic one.
 @buck_test(inplace=False, data_dir="modify_deferred_materialization")
 async def test_cache_directory_is_always_empty(buck: Buck) -> None:

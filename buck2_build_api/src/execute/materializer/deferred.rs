@@ -124,7 +124,6 @@ impl Drop for DeferredMaterializer {
 
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
-    pub enable_local_caching_of_re_artifacts: bool,
     pub defer_write_actions: bool,
 }
 
@@ -135,9 +134,6 @@ struct DeferredMaterializerCommandProcessor {
     io_executor: Arc<dyn BlockingExecutor>,
     /// Used to emit MaterializationFinished to the command thread
     command_sender: mpsc::UnboundedSender<MaterializerCommand>,
-    /// Whether to enable local caching of RE artifacts. If enables this skips
-    /// rematerializing of the same RE artifacts that have already been materalized.
-    enable_local_caching_of_re_artifacts: bool,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -515,7 +511,6 @@ impl DeferredMaterializer {
             re_client_manager,
             io_executor: io_executor.dupe(),
             command_sender: command_sender.clone(),
-            enable_local_caching_of_re_artifacts: configs.enable_local_caching_of_re_artifacts,
         });
         let command_thread = tokio::spawn(async move { command_processor.run(command_recv).await });
 
@@ -684,10 +679,6 @@ impl DeferredMaterializerCommandProcessor {
         path: &'a ProjectRelativePath,
         value: ArtifactValue,
     ) -> Option<&'a mut Box<ArtifactMaterializationData>> {
-        if !self.enable_local_caching_of_re_artifacts {
-            // If this feature is not enabled, then we treat no artifact as already materialized.
-            return None;
-        }
         if let Some(data) = tree.prefix_get_mut(&mut path.iter()) {
             match data.stage {
                 ArtifactMaterializationStage::Materialized { .. } => {
