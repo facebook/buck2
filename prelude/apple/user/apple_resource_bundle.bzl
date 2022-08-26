@@ -5,7 +5,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleTo
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":resource_group_map.bzl", "resource_group_map_attr")
 
-def _get_apple_resources_tolchain_attr():
+def _get_apple_resources_toolchain_attr():
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-resources", providers = [AppleToolchainInfo])
 
 def _impl(ctx: "context") -> ["provider"]:
@@ -33,7 +33,7 @@ registration_spec = RuleRegistrationSpec(
         "resource_group": attrs.option(attrs.string(), default = None),
         "resource_group_map": resource_group_map_attr(),
         # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
-        "_apple_toolchain": _get_apple_resources_tolchain_attr(),
+        "_apple_toolchain": _get_apple_resources_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
 )
