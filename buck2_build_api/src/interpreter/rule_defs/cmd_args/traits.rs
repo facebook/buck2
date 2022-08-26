@@ -218,7 +218,7 @@ pub trait CommandLineBuilderContext {
 
     /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
     fn resolve_artifact(&self, artifact: &Artifact) -> anyhow::Result<CommandLineLocation> {
-        self.resolve_project_path(self.fs().fs().resolve(artifact)?)
+        self.resolve_project_path(self.fs().fs().resolve(artifact.get_path())?)
             .with_context(|| format!("Error resolving artifact: {}", artifact))
     }
 

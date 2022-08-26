@@ -151,7 +151,7 @@ pub mod result_report {
                     artifacts
                         .into_iter()
                         .map(|(a, providers)| BuildOutput {
-                            path: artifact_fs.resolve(a).unwrap().to_string(),
+                            path: artifact_fs.resolve(a.get_path()).unwrap().to_string(),
                             providers: Some(providers),
                         })
                         .collect()
@@ -335,12 +335,15 @@ pub mod build_report {
 
                             for (artifact, _value) in artifacts.values.iter() {
                                 if is_default {
-                                    default_outs
-                                        .insert(self.artifact_fs.resolve(artifact).unwrap());
+                                    default_outs.insert(
+                                        self.artifact_fs.resolve(artifact.get_path()).unwrap(),
+                                    );
                                 }
 
                                 if is_other && self.include_other_outputs {
-                                    other_outs.insert(self.artifact_fs.resolve(artifact).unwrap());
+                                    other_outs.insert(
+                                        self.artifact_fs.resolve(artifact.get_path()).unwrap(),
+                                    );
                                 }
                             }
                         }

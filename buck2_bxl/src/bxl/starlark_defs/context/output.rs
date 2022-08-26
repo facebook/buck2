@@ -136,9 +136,9 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 .try_map(|x| {
                     anyhow::Ok(
                         if let Some(ensured) = <&EnsuredArtifact>::unpack_value(*x) {
-                            let resolved = this
-                                .artifact_fs
-                                .resolve_artifactlike(ensured.artifact.as_artifact().unwrap())?;
+                            let resolved = this.artifact_fs.resolve(
+                                ensured.artifact.as_artifact().unwrap().get_artifact_path(),
+                            )?;
 
                             if ensured.abs {
                                 format!("{}", this.project_fs.resolve(&resolved).display())
@@ -189,7 +189,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value) {
                     let resolved = self
                         .artifact_fs
-                        .resolve_artifactlike(ensured.artifact.as_artifact().unwrap())
+                        .resolve(ensured.artifact.as_artifact().unwrap().get_artifact_path())
                         .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
 
                     if ensured.abs {

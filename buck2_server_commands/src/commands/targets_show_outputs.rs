@@ -98,7 +98,7 @@ async fn targets_show_outputs(
     {
         let mut paths = Vec::new();
         for artifact in targets_artifacts.artifacts {
-            let path = artifact_fs.resolve(&artifact)?;
+            let path = artifact_fs.resolve(artifact.get_path())?;
             paths.push(path.to_string());
         }
         targets_paths.push(TargetPaths {

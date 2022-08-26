@@ -105,7 +105,7 @@ impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
             }
             self.maybe_macros_state = Some((files, pos + 1));
             Ok(self
-                .resolve_project_path(self.fs.fs().resolve(&files[pos])?)?
+                .resolve_project_path(self.fs.fs().resolve(files[pos].get_path())?)?
                 .into_relative())
         } else {
             Err(anyhow::anyhow!(

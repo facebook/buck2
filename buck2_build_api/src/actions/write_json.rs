@@ -224,9 +224,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         // so pass something of the right type, but don't worry about the value.
                         serializer.serialize_str("")
                     }
-                    Some(fs) => {
-                        serializer.serialize_str(err(fs.fs().resolve(&err(x())?))?.as_str())
-                    }
+                    Some(fs) => serializer
+                        .serialize_str(err(fs.fs().resolve(err(x())?.get_path()))?.as_str()),
                 }
             }
             JsonUnpack::CommandLine(x) => {

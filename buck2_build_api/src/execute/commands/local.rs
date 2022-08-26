@@ -522,7 +522,7 @@ pub async fn materialize_inputs(
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, _) in group.iter() {
                     if !artifact.is_source() {
-                        paths.push(artifact_fs.resolve(artifact)?);
+                        paths.push(artifact_fs.resolve(artifact.get_path())?);
                     }
                 }
             }

@@ -505,6 +505,7 @@ mod tests {
 
     use crate::actions::artifact::fs::ArtifactFs;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::Artifact;
     use crate::actions::artifact::BuildArtifact;
     use crate::actions::artifact::DeclaredArtifact;
     use crate::actions::artifact::DeclaredArtifactKind;
@@ -581,7 +582,7 @@ mod tests {
         );
 
         assert_eq!(
-            fs.resolve(&source.into())?,
+            fs.resolve(Artifact::from(source).get_path())?,
             ProjectRelativePath::unchecked_new("cell_path/pkg/src.cpp")
         );
 

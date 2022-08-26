@@ -161,7 +161,7 @@ impl PristineActionExecutable for CopyAction {
             .context("Input did not dereference to exactly one artifact")?;
 
         let artifact_fs = ctx.fs();
-        let src = artifact_fs.resolve(input)?;
+        let src = artifact_fs.resolve(input.get_path())?;
         let dest = artifact_fs.resolve_build(self.output());
 
         let value = {

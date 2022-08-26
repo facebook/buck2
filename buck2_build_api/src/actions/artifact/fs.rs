@@ -5,10 +5,8 @@ use buck2_node::execute::config::PathSeparatorKind;
 use either::Either;
 
 use crate::actions::artifact::path::ArtifactPath;
-use crate::actions::artifact::Artifact;
 use crate::actions::artifact::BuildArtifact;
 use crate::actions::artifact::SourceArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::path::BuckOutPathResolver;
 use crate::path::BuckPathResolver;
 
@@ -32,20 +30,7 @@ impl ArtifactFs {
         }
     }
 
-    /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
-    pub fn resolve(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_impl(artifact.get_path())
-    }
-
-    /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
-    pub fn resolve_artifactlike(
-        &self,
-        artifactlike: &dyn StarlarkArtifactLike,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_impl(artifactlike.get_artifact_path())
-    }
-
-    fn resolve_impl(&self, artifact: ArtifactPath<'_>) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve(&self, artifact: ArtifactPath<'_>) -> anyhow::Result<ProjectRelativePathBuf> {
         let ArtifactPath {
             base_path,
             projected_path,
@@ -94,7 +79,7 @@ impl ArtifactFs {
             .write_file(&dest_path, contents, executable)
     }
 
-    pub fn copy(&self, src: &Artifact, dest: &BuildArtifact) -> anyhow::Result<()> {
+    pub fn copy(&self, src: ArtifactPath, dest: &BuildArtifact) -> anyhow::Result<()> {
         let src_path = self.resolve(src)?;
         let dest_path = self.resolve_build(dest);
         self.project_filesystem.copy(&src_path, &dest_path)

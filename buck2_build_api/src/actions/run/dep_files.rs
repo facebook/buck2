@@ -549,7 +549,7 @@ impl DeclaredDepFiles {
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
             let path = fs
-                .resolve(dep_file)
+                .resolve(dep_file.get_path())
                 .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
             paths.push(path);
         }
@@ -589,7 +589,7 @@ impl DeclaredDepFiles {
         for declared_dep_file in self.tagged.values() {
             let mut selector = DirectorySelector::empty();
 
-            let dep_file = fs.resolve(&declared_dep_file.output)?;
+            let dep_file = fs.resolve(declared_dep_file.output.get_path())?;
 
             let read_dep_file: anyhow::Result<()> = try {
                 let dep_file = fs.fs().resolve(&dep_file);

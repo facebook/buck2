@@ -353,7 +353,9 @@ async fn send_install_info(
 ) -> anyhow::Result<()> {
     let mut files_map = HashMap::new();
     for (file_name, artifact) in install_files {
-        let artifact_path = &artifact_fs.fs().resolve(&artifact_fs.resolve(artifact)?);
+        let artifact_path = &artifact_fs
+            .fs()
+            .resolve(&artifact_fs.resolve(artifact.get_path())?);
         files_map
             .entry((*file_name).to_owned())
             .or_insert_with(|| artifact_path.to_string());
@@ -616,7 +618,9 @@ async fn send_file(
         _ => return Err(InstallError::ErrorRetrievingHash(name).into()),
     };
     let (sha1, _size) = sha1.split1(":");
-    let path = &artifact_fs.fs().resolve(&artifact_fs.resolve(&artifact)?);
+    let path = &artifact_fs
+        .fs()
+        .resolve(&artifact_fs.resolve(artifact.get_path())?);
     let request = tonic::Request::new(FileReadyRequest {
         install_id: install_id.to_owned(),
         name: name.to_owned(),

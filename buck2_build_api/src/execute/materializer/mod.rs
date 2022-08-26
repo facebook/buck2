@@ -511,7 +511,7 @@ impl ArtifactMaterializer for DiceComputations {
     async fn materialize(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
-        let path = artifact_fs.resolve(artifact)?;
+        let path = artifact_fs.resolve(artifact.get_path())?;
         materializer.ensure_materialized(vec![path.clone()]).await?;
         Ok(path)
     }
