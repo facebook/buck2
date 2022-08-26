@@ -11,5 +11,8 @@ cpp_binary(
 prelude.cxx_library(
     name = "lib",
     exported_linker_flags = ["-Wl,-does-not-work"],
-    exported_headers = ["lib.h"],
+    exported_headers = {
+        "./lib.h": "lib.h",
+        "lib.h": "lib.h",
+    },
 )

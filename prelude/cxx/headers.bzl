@@ -180,7 +180,7 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
         return Headers(
             include_path = cmd_args(hmap).hidden(srcs.values()),
         )
-    symlink_dir = ctx.actions.symlinked_dir(name, srcs)
+    symlink_dir = ctx.actions.symlinked_dir(name, _normalize_header_srcs(srcs))
     if header_mode == HeaderMode("symlink_tree_only"):
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
@@ -190,6 +190,23 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
             symlink_tree = symlink_dir,
         )
     fail("Unsupported header mode: {}".format(header_mode))
+
+def _normalize_header_srcs(srcs: dict.type) -> dict.type:
+    normalized_srcs = {}
+    for key, val in srcs.items():
+        normalized_key = paths.normalize(key)
+        stored_val = normalized_srcs.get(normalized_key, None)
+        expect(
+            stored_val == None or stored_val == val,
+            "Got different values {} and {} for the same normalized header {}".format(
+                val,
+                stored_val,
+                normalized_key,
+            ),
+        )
+        normalized_srcs[normalized_key] = val
+
+    return normalized_srcs
 
 def _as_raw_headers(
         ctx: "context",
