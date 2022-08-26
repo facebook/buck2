@@ -96,7 +96,7 @@ mod imp {
                     command_duration: self.command_duration.take(),
                     client_walltime: Some(self.start_time.elapsed().into()),
                     re_session_id: self.re_session_id.take().unwrap_or_default(),
-                    re_experiment_name: self.re_session_id.take().unwrap_or_default(),
+                    re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
                     cli_args: self.cli_args.clone(),
                     critical_path_duration: self.critical_path_duration.map(Into::into),
                     client_metadata: Some(Self::collect_client_metadata()),
