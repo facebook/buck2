@@ -167,7 +167,11 @@ def _find_targets_in_mapping(
             target,  # "label"
             labels) -> bool.type:  # labels: [str.type]
         if mapping.filter_type == FilterType("label"):
-            return any([mapping.label_regex.match(label) for label in labels])
+            # Use a for loop to avoid creating a temporary array in a BFS.
+            for label in labels:
+                if mapping.label_regex.match(label):
+                    return True
+            return False
         else:
             return label_matches_build_target_pattern(target, mapping.build_target_pattern)
 
