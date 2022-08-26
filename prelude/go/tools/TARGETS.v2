@@ -18,7 +18,7 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
-native.go_binary(
+prelude.go_binary(
     name = "testmaingen",
     srcs = [
         "testmaingen.go",
