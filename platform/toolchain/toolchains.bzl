@@ -85,6 +85,9 @@ def _get_infer_select_map():
 def _get_sledge_select_map():
     return {"ovr_config//toolchain/fb:platform010-sledge": "fbcode//buck2/platform:buck2-sledge"}
 
+def _get_xtensa_select_map():
+    return {"ovr_config//toolchain/xtensa:xtensa": "fbsource//arvr/third-party/toolchains/xtensa:default-toolchain"}
+
 def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
@@ -93,6 +96,7 @@ def default_cxx_toolchain_inner():
             _get_fbcode_select_map("buck2"),
             _get_infer_select_map(),
             _get_sledge_select_map(),
+            _get_xtensa_select_map(),
         ]),
     )
 
