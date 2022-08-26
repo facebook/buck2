@@ -165,13 +165,16 @@ def create_linkable_graph(ctx: "context", node: [LinkableGraphNode.type, None] =
         nodes = ctx.actions.tset(LinkableGraphTSet, **kwargs),
     )
 
-def get_linkable_graph_node_map(graph: LinkableGraph.type) -> {"label": LinkableNode.type}:
-    nodes = graph.nodes.traverse()
-    linkable_nodes = {}
-    for node in filter(None, nodes):
-        if node.linkable:
-            linkable_nodes[node.label] = node.linkable
-    return linkable_nodes
+def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
+    def get_linkable_graph_node_map() -> {"label": LinkableNode.type}:
+        nodes = graph.nodes.traverse()
+        linkable_nodes = {}
+        for node in filter(None, nodes):
+            if node.linkable:
+                linkable_nodes[node.label] = node.linkable
+        return linkable_nodes
+
+    return get_linkable_graph_node_map
 
 def linkable_deps(deps: ["dependency"]) -> ["label"]:
     labels = []

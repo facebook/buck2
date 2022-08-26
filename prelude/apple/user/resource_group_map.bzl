@@ -3,7 +3,7 @@ load(
     "@prelude//apple:resource_groups.bzl",
     "ResourceGroupInfo",
     "create_resource_graph",
-    "get_resource_graph_node_map",
+    "get_resource_graph_node_map_func",
 )
 load(
     "@prelude//cxx:groups.bzl",
@@ -28,8 +28,8 @@ def _impl(ctx: "context") -> ["provider"]:
         deps = resource_groups_deps,
         exported_deps = [],
     )
-    resource_graph_node_map = get_resource_graph_node_map(resource_graph)
-    mappings = compute_mappings(groups = resource_groups, graph_map = resource_graph_node_map)
+    resource_graph_node_map_func = get_resource_graph_node_map_func(resource_graph)
+    mappings = compute_mappings(groups = resource_groups, graph_map_func = resource_graph_node_map_func)
     return [
         DefaultInfo(),
         ResourceGroupInfo(groups = resource_groups, groups_hash = hash(str(resource_groups)), mappings = mappings),

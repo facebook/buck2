@@ -65,9 +65,12 @@ def create_resource_graph(
         nodes = ctx.actions.tset(ResourceGraphTSet, value = node, children = [child_node.nodes for child_node in child_nodes]),
     )
 
-def get_resource_graph_node_map(graph: ResourceGraph.type) -> {"label": ResourceGraphNode.type}:
-    nodes = graph.nodes.traverse()
-    return {node.label: node for node in filter(None, nodes)}
+def get_resource_graph_node_map_func(graph: ResourceGraph.type):
+    def get_resource_graph_node_map() -> {"label": ResourceGraphNode.type}:
+        nodes = graph.nodes.traverse()
+        return {node.label: node for node in filter(None, nodes)}
+
+    return get_resource_graph_node_map
 
 def _with_resources_deps(deps: ["dependency"]) -> ["label"]:
     """
@@ -98,18 +101,20 @@ def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
         deps = resource_groups_deps,
         exported_deps = [],
     )
-    resource_graph_node_map = get_resource_graph_node_map(resource_graph)
-    _, resource_group_info = get_group_mappings_and_info(group_info_type = ResourceGroupInfo, groups = groups, graph_map = resource_graph_node_map, deps = [])
+    resource_graph_node_map_func = get_resource_graph_node_map_func(resource_graph)
+    _, resource_group_info = get_group_mappings_and_info(group_info_type = ResourceGroupInfo, groups = groups, graph_map_func = resource_graph_node_map_func, deps = [])
     return resource_group_info
 
 def get_filtered_resources(
         root: "label",
-        resource_graph_node_map: {"label": ResourceGraphNode.type},
+        resource_graph_node_map_func,
         resource_group: [str.type, None],
         resource_group_mappings: [{"label": str.type}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
+
+    resource_graph_node_map = resource_graph_node_map_func()
 
     def get_traversed_deps(target: "label") -> ["label"]:
         node = resource_graph_node_map[target]  # buildifier: disable=uninitialized

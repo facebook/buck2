@@ -116,7 +116,7 @@ def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "r
             fail("Invalid group mapping filter: {}\nFilter must begin with `label:` or `pattern:`.".format(entry))
     return filter_type, label_regex, build_target_pattern
 
-def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], groups: [Group.type], graph_map: {"label": "_b"}) -> ({"label": str.type}, ["_a", None]):
+def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], groups: [Group.type], graph_map_func) -> ({"label": str.type}, ["_a", None]):
     if not groups:
         return {}, None
 
@@ -132,13 +132,17 @@ def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], gro
         expect(hash(str(groups)) == computed_groups_info.groups_hash, "The group spec used for a build must be the same.")
         return computed_groups_info.mappings, computed_groups_info
 
-    mappings = compute_mappings(groups, graph_map)
+    mappings = compute_mappings(groups, graph_map_func)
     return mappings, (group_info_type(groups = groups, groups_hash = hash(str(groups)), mappings = mappings) if mappings else None)
 
-def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"label": str.type}:
+def compute_mappings(groups: [Group.type], graph_map_func) -> {"label": str.type}:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
+    if not groups:
+        return {}
+
+    graph_map = graph_map_func()
     target_to_group_map = {}
     node_traversed_targets = {}
 

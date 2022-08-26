@@ -44,11 +44,10 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "LinkableNode",  # @unused Used as a type
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
-    "get_linkable_graph_node_map",
+    "get_linkable_graph_node_map_func",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
@@ -281,12 +280,12 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         ctx,
         deps = linkable_graph_deps,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
+    linkable_graph_node_map_func = get_linkable_graph_node_map_func(linkable_graph)
 
     frameworks_linkable = create_frameworks_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(
         ctx,
-        linkable_graph_node_map,
+        linkable_graph_node_map_func,
         link_group,
         link_group_mappings,
         link_group_preferred_linkage,
@@ -668,7 +667,7 @@ def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
 
 def _get_shared_library_links(
         ctx: "context",
-        linkable_graph_node_map: {"label": LinkableNode.type},
+        linkable_graph_node_map_func,
         link_group: [str.type, None],
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
@@ -712,7 +711,7 @@ def _get_shared_library_links(
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
     link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
-    filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph_node_map, link_group, link_group_mappings, link_group_preferred_linkage, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
+    filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph_node_map_func, link_group, link_group_mappings, link_group_preferred_linkage, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
     filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
 

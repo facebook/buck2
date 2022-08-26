@@ -11,7 +11,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
-    "get_linkable_graph_node_map",
+    "get_linkable_graph_node_map_func",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -29,8 +29,8 @@ def _impl(ctx: "context") -> ["provider"]:
         ctx,
         deps = link_group_deps,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
-    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
+    linkable_graph_node_map_func = get_linkable_graph_node_map_func(linkable_graph)
+    mappings = compute_mappings(groups = link_groups, graph_map_func = linkable_graph_node_map_func)
     return [
         DefaultInfo(),
         LinkGroupInfo(groups = link_groups, groups_hash = hash(str(link_groups)), mappings = mappings),

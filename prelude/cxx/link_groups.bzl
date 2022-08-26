@@ -7,10 +7,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "LinkableNode",  # @unused Used as a type
     "create_linkable_graph",
     "get_link_info",
-    "get_linkable_graph_node_map",
+    "get_linkable_graph_node_map_func",
     "linkable_deps",
 )
 load(
@@ -62,8 +61,8 @@ def get_link_group_info(ctx: "context", deps: ["dependency"]) -> [LinkGroupInfo.
         ctx,
         deps = link_group_deps,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
-    _, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = deps, groups = groups, graph_map = linkable_graph_node_map)
+    linkable_graph_node_map_func = get_linkable_graph_node_map_func(linkable_graph)
+    _, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = deps, groups = groups, graph_map_func = linkable_graph_node_map_func)
 
     return link_group_info
 
@@ -76,7 +75,7 @@ def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Lin
     }
 
 def get_filtered_labels_to_links_map(
-        linkable_graph_node_map: {"label": LinkableNode.type},
+        linkable_graph_node_map_func,
         link_group: [str.type, None],
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
@@ -90,6 +89,8 @@ def get_filtered_labels_to_links_map(
     identifies which link infos and targets belong the in the provided link group.
     If no link group is provided, all unmatched link infos are returned.
     """
+
+    linkable_graph_node_map = linkable_graph_node_map_func()
 
     deps = linkable_deps(non_exported_deps)
 
