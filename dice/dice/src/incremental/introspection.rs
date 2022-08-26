@@ -20,7 +20,6 @@ use crate::incremental::graph::dependencies::VersionedDependencies;
 use crate::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::graph::GraphNodeDyn;
-use crate::incremental::graph::VersionedGraph;
 use crate::incremental::graph::VersionedGraphNodeInternal;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::Dependency;
@@ -34,12 +33,16 @@ use crate::introspection::graph::NodeID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodesForKey;
 
-impl<K> EngineForIntrospection for VersionedGraph<K>
+impl<K, T> EngineForIntrospection for IncrementalEngine<K>
 where
-    K: StorageProperties + 'static,
+    K: IncrementalComputeProperties<Value = T> + 'static,
+    T: Dupe + Send + Sync + 'static,
 {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
-        box self.iter().map(|e| AnyKey::new(e.key().clone()))
+        box self
+            .versioned_cache
+            .iter()
+            .map(|e| AnyKey::new(e.key().clone()))
     }
 
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a> {
@@ -55,7 +58,7 @@ where
                 .last()
         }
 
-        box self.iter().map(|e| {
+        box self.versioned_cache.iter().map(|e| {
             let k = AnyKey::new(e.key().clone());
             let deps = match extract_deps(e.value()) {
                 Some(deps) => deps.iter().map(|d| d.introspect()).collect(),
@@ -124,7 +127,7 @@ where
                 }
             })
         }
-        box self.iter().map(move |e| {
+        box self.versioned_cache.iter().map(move |e| {
             let k = AnyKey::new(e.key().clone());
             SerializedGraphNodesForKey {
                 id: map_id(AnyKey::new(e.key().clone())),
@@ -140,31 +143,6 @@ where
     }
 
     fn len_for_introspection(&self) -> usize {
-        self.len()
-    }
-}
-
-impl<K, T> EngineForIntrospection for IncrementalEngine<K>
-where
-    K: IncrementalComputeProperties<Value = T> + 'static,
-    T: Dupe + Send + Sync + 'static,
-{
-    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
-        self.versioned_cache.keys()
-    }
-
-    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a> {
-        self.versioned_cache.edges()
-    }
-
-    fn nodes<'a>(
-        &'a self,
-        keys: &'a mut HashMap<AnyKey, KeyID>,
-    ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
-        self.versioned_cache.nodes(keys)
-    }
-
-    fn len_for_introspection(&self) -> usize {
-        self.versioned_cache.len_for_introspection()
+        self.versioned_cache.len()
     }
 }
