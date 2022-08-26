@@ -95,7 +95,7 @@ impl NodeRegistry {
         keys.sort_by_key(|(idx, _)| *idx);
 
         for (idx, key) in keys {
-            out.write_all(format!("{}\t{}\t{}\n", idx, key, key.short_type_name()).as_bytes())
+            out.write_all(format!("{}\t{}\t{}\n", idx, key.short_type_name(), key).as_bytes())
                 .context("Failed to write node")?;
         }
         Ok(())

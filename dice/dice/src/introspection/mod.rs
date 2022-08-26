@@ -101,6 +101,7 @@ mod tests {
         for line in nodes.lines() {
             let mut it = line.trim().split('\t');
             let idx = it.next().context("No idx")?.parse()?;
+            let _key_type = it.next().context("No key type")?;
             let key = it.next().context("No key")?;
             node_map.insert(key.into(), idx);
         }
