@@ -340,7 +340,7 @@ impl ActionsRegistry {
                     if let ActionErrors::ConflictingOutputPath(_) = action_error {
                         Err(e)
                     } else {
-                        soft_error!(e)?;
+                        soft_error!("conflicting_output_path", e)?;
                         Ok(())
                     }
                 } else {

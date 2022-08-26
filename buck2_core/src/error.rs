@@ -6,23 +6,30 @@ use once_cell::sync::OnceCell;
 use crate::env_helper::EnvHelper;
 
 type SoftErrorHandler =
-    Box<dyn Fn(&anyhow::Error, (&'static str, u32, u32)) + Send + Sync + 'static>;
+    Box<dyn Fn(&'static str, &anyhow::Error, (&'static str, u32, u32)) + Send + Sync + 'static>;
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
 /// Throw a "soft_error" i.e. one that is destined to become a hard error
 /// in the near future. The macro lives in this crate to allow it be
 /// made available everywhere. Calling programs are responsible for
-/// calling initialize() to provide a handler for logging these soft_errors
+/// calling initialize() to provide a handler for logging these soft_errors.
+///
+/// You should pass two arguments:
+///
+/// * The category string that will remain constant and identifies this specific soft error
+///   (used to report as a key).
+/// * The error is an `anyhow::Error` will in the future will be propagated as the error.
 #[macro_export]
 macro_rules! soft_error(
-    ($e:expr) => { {
+    ($category:expr, $err:expr) => { {
         static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        buck2_core::error::handle_soft_error($e, &COUNT, (file!(), line!(), column!()))
+        buck2_core::error::handle_soft_error($category, $err, &COUNT, (file!(), line!(), column!()))
     } }
 );
 
 pub fn handle_soft_error(
+    category: &'static str,
     err: anyhow::Error,
     count: &AtomicUsize,
     loc: (&'static str, u32, u32),
@@ -33,7 +40,7 @@ pub fn handle_soft_error(
     if count.fetch_add(1, Ordering::SeqCst) <= 10 {
         tracing::warn!("Important warning at {}:{}:{} {}", loc.0, loc.1, loc.2, err);
         if let Some(handler) = HANDLER.get() {
-            handler(&err, loc);
+            handler(category, &err, loc);
         }
     }
 
@@ -65,18 +72,21 @@ mod test {
 
     static RESULT: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
 
-    fn mock_handler(err: &anyhow::Error, loc: (&'static str, u32, u32)) {
+    fn mock_handler(category: &'static str, err: &anyhow::Error, loc: (&'static str, u32, u32)) {
         RESULT
             .get_or_init(|| Mutex::new(Vec::new()))
             .lock()
             .unwrap()
-            .push(format!("{:?}, : {}", loc, err));
+            .push(format!("{:?}, : {} : {}", loc, err, category));
     }
 
     #[test]
     fn test_soft_error() {
         // No logs without handler:
-        let _ignore_hard_error = soft_error!(anyhow::anyhow!("Should not be logged"));
+        let _ignore_hard_error = soft_error!(
+            "test_unlogged_soft_error",
+            anyhow::anyhow!("Should not be logged")
+        );
         assert_eq!(
             0,
             RESULT
@@ -88,12 +98,15 @@ mod test {
 
         // Now set the handler and assert that we log
         super::initialize(box mock_handler);
-        let _ignore_hard_error = soft_error!(anyhow::anyhow!("Should be logged"));
+        let _ignore_hard_error = soft_error!(
+            "test_logged_soft_error",
+            anyhow::anyhow!("Should be logged")
+        );
         assert_eq!(
             Some(&format!(
-                "({:?}, {}, 34), : Should be logged",
+                "({:?}, {}, 34), : Should be logged : test_logged_soft_error",
                 file!(),
-                line!() - 5,
+                line!() - 8,
             )),
             RESULT
                 .get_or_init(|| Mutex::new(Vec::new()))

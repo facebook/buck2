@@ -24,9 +24,10 @@ pub fn initialize(fb: FacebookInit) {
         the_panic_hook(fb, info);
         hook(info);
     });
-    buck2_core::error::initialize(box move |err, loc| {
+    buck2_core::error::initialize(box move |category, err, loc| {
         imp::write_soft_error_to_scribe(
             fb,
+            category,
             err,
             buck2_data::Location {
                 file: loc.0.to_owned(),
@@ -142,10 +143,15 @@ mod imp {
 
     pub(crate) fn write_soft_error_to_scribe(
         fb: FacebookInit,
+        category: &'static str,
         err: &anyhow::Error,
         location: Location,
     ) {
-        write_to_scribe(fb, Some(location), format!("Soft Error: {:#}", err));
+        write_to_scribe(
+            fb,
+            Some(location),
+            format!("Soft Error: {}: {:#}", category, err),
+        );
     }
 
     /// Writes a representation of the given error (hard or soft) to Scribe
@@ -229,6 +235,7 @@ mod imp {
 
     pub(crate) fn write_soft_error_to_scribe(
         _: FacebookInit,
+        _: &'static str,
         _: &anyhow::Error,
         _: buck2_data::Location,
     ) {

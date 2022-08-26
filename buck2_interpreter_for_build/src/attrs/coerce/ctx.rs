@@ -181,7 +181,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                     if self.package_boundary_exception {
                         info!("{} (could be due to a package boundary violation)", e);
                     } else {
-                        soft_error!(e.into())?;
+                        soft_error!("source_directory_includes_subpackage", e.into())?;
                     }
                 }
                 let files = listing
@@ -200,7 +200,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                 if self.package_boundary_exception {
                     info!("{} (could be due to a package boundary violation)", e);
                 } else {
-                    soft_error!(e.into())?;
+                    soft_error!("source_file_missing", e.into())?;
                 }
             }
         }
