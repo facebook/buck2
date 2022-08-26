@@ -17,8 +17,8 @@ use starlark::collections::StarlarkHasher;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::actions::artifact::path::ArtifactPath;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactPath;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;

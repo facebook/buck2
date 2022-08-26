@@ -4,8 +4,8 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_node::execute::config::PathSeparatorKind;
 use either::Either;
 
+use crate::actions::artifact::path::ArtifactPath;
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactPath;
 use crate::actions::artifact::BuildArtifact;
 use crate::actions::artifact::SourceArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;

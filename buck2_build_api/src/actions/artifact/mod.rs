@@ -18,28 +18,21 @@
 //! it becomes a 'BuildArtifact' that can be available.
 //!
 
-use std::borrow::Cow;
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use anyhow::Context as _;
-use buck2_core::buck_path::BuckPath;
-use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use derive_more::Display;
 use derive_more::From;
 use either::Either;
 use gazebo::cell::ARef;
-use gazebo::cmp_chain;
-use gazebo::eq_chain;
 use gazebo::hash::Hashed;
 use gazebo::prelude::*;
 use thiserror::Error;
@@ -60,7 +53,10 @@ pub use source_artifact::SourceArtifact;
 mod projected_artifact;
 pub use projected_artifact::ProjectedArtifact;
 
+use crate::actions::artifact::path::ArtifactPath;
+
 pub mod fs;
+pub(crate) mod path;
 
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -328,111 +324,6 @@ impl PartialOrd for DeclaredArtifact {
 impl Ord for DeclaredArtifact {
     fn cmp(&self, other: &Self) -> Ordering {
         self.get_path().cmp(&other.get_path())
-    }
-}
-
-#[derive(Debug)]
-pub struct ArtifactPath<'a> {
-    base_path: Either<ARef<'a, BuckOutPath>, &'a BuckPath>,
-    projected_path: Option<&'a ForwardRelativePath>,
-}
-
-impl<'a> ArtifactPath<'a> {
-    pub(crate) fn with_filename<F, T>(&self, f: F) -> T
-    where
-        for<'b> F: FnOnce(anyhow::Result<&'b FileName>) -> T,
-    {
-        let file_name = match self.projected_path.as_ref() {
-            Some(projected_path) => projected_path,
-            None => match self.base_path.as_ref() {
-                Either::Left(buck_out) => buck_out.path(),
-                Either::Right(buck) => buck.path().as_ref(),
-            },
-        }
-        .file_name()
-        .with_context(|| format!("Artifact has no file name: `{}`", self));
-
-        f(file_name)
-    }
-
-    pub(crate) fn with_short_path<F, T>(&self, f: F) -> T
-    where
-        for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
-    {
-        let base_short_path = match self.base_path.as_ref() {
-            Either::Left(buck_out) => buck_out.short_path(),
-            Either::Right(buck) => buck.path().as_ref(),
-        };
-
-        let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(base_short_path.join(projected_path)),
-            None => Cow::Borrowed(base_short_path),
-        };
-
-        f(&path)
-    }
-
-    pub(crate) fn with_full_path<F, T>(&self, f: F) -> T
-    where
-        for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
-    {
-        let base_path = match self.base_path.as_ref() {
-            Either::Left(buck_out) => Cow::Borrowed(buck_out.path()),
-            Either::Right(buck) => Cow::Owned(
-                buck.package()
-                    .cell_relative_path()
-                    .as_forward_relative_path()
-                    .join(buck.path()),
-            ),
-        };
-
-        let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(base_path.join(projected_path)),
-            None => base_path,
-        };
-
-        f(&path)
-    }
-}
-
-impl Hash for ArtifactPath<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base_path.hash(state);
-        self.projected_path.as_ref().hash(state);
-    }
-}
-
-impl PartialEq for ArtifactPath<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        eq_chain! {
-            self.base_path == other.base_path,
-            self.projected_path.as_ref() == other.projected_path.as_ref()
-        }
-    }
-}
-
-impl Eq for ArtifactPath<'_> {}
-
-impl PartialOrd for ArtifactPath<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ArtifactPath<'_> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        cmp_chain! {
-            (self.base_path).cmp(&other.base_path),
-            self.projected_path.as_ref().cmp(&other.projected_path.as_ref()),
-        }
-    }
-}
-
-impl fmt::Display for ArtifactPath<'_> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // NOTE: This produces a representation we tend to use in Starlark for those, which isn't
-        // really consistent with what we use when *not* in Starlark.
-        self.with_short_path(|p| write!(fmt, "{}", p))
     }
 }
 
