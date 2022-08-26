@@ -202,7 +202,6 @@ cpp_unittest(
 cpp_library(
     name = "cpp_generated_src",
     srcs = [":generated_main"],
-    link_style = "static",
     preferred_linkage = "static",
 )
 
