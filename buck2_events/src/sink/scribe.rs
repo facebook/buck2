@@ -79,7 +79,7 @@ mod fbcode {
                                         line: line!(),
                                         column: column!(),
                                     }),
-                                    payload: format!("Soft Error: Message is oversized. Event data: {}. Original message size: {}", truncate(&json, TRUNCATED_SCRIBE_MESSAGE_SIZE),
+                                    payload: format!("Soft Error: oversized_scribe: Message is oversized. Event data: {}. Original message size: {}", truncate(&json, TRUNCATED_SCRIBE_MESSAGE_SIZE),
                                     b64.len()),
                                     metadata: metadata::collect(),
                                     backtrace: Vec::new(),
