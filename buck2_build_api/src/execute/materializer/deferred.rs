@@ -546,55 +546,8 @@ impl DeferredMaterializerCommandProcessor {
                 }
                 // Entry point for `declare_{copy|cas}` calls
                 MaterializerCommand::Declare(path, value, method) => {
-                    // Check if artifact to be declared is same as artifact that's already materialized.
-                    if let Some(mut data) =
-                        self.get_if_already_materialized(&mut tree, &path, value.dupe())
-                    {
-                        // In this case, the entry declared matches the already materialized
-                        // entry on disk, so just update the deps field but leave
-                        // the artifact as materialized.
-                        tracing::trace!(
-                            path = %path,
-                            "already materialized, updating deps only",
-                        );
-                        let deps = value.deps().duped();
-                        data.stage = ArtifactMaterializationStage::Materialized {
-                            check_deps: deps.is_some(),
-                        };
-                        data.deps = deps;
-                    } else {
-                        tracing::trace!(
-                            path = %path,
-                            method = %method,
-                            value = %value.entry(),
-                            version = next_version,
-                            "declare artifact",
-                        );
-                        // Always invalidate materializer state before actual deleting from filesystem
-                        // so there will never be a moment where artifact is deleted but materializer
-                        // thinks it still exists.
-                        let (_, existing_futs) =
-                            tree.remove_paths_and_collect_futures(vec![path.clone()]);
-                        let data = box ArtifactMaterializationData {
-                            entry: value.entry().dupe(),
-                            deps: value.deps().duped(),
-                            method: Arc::new(*method),
-                            stage: ArtifactMaterializationStage::Declared,
-                            version: next_version,
-                            processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
-                                self.io_executor.dupe(),
-                                path.clone(),
-                                // In order to make sure we don't have any race conditions when deleting,
-                                // we need to wait for all existing I/O futures to finish before
-                                // running out own cleaning future. In the case `remove_paths_and_collect_futures`
-                                // removed an entire sub-trie, we need to wait for all futures from that
-                                // sub-trie to finish first.
-                                Some(existing_futs),
-                            ))),
-                        };
-                        next_version += 1;
-                        tree.insert(path.iter().map(|f| f.to_owned()), data);
-                    }
+                    self.declare(&mut tree, path, value, method, next_version);
+                    next_version += 1;
                 }
                 MaterializerCommand::InvalidateFilePaths(paths, sender) => {
                     tracing::trace!(
@@ -671,8 +624,7 @@ impl DeferredMaterializerCommandProcessor {
         tasks.collect::<FuturesOrdered<_>>().boxed()
     }
 
-    /// If matching artifact optimization is enabled, returns the element corresponding to `path`
-    /// from `tree`. Always returns None if matching artifact optimization is disabled.
+    /// Returns the artifact corresponding to `path` from `tree` if artifact matches.
     fn get_if_already_materialized<'a>(
         &self,
         tree: &'a mut ArtifactTree,
@@ -693,6 +645,61 @@ impl DeferredMaterializerCommandProcessor {
             }
         }
         None
+    }
+
+    fn declare<'a>(
+        &self,
+        tree: &'a mut ArtifactTree,
+        path: ProjectRelativePathBuf,
+        value: ArtifactValue,
+        method: Box<ArtifactMaterializationMethod>,
+        version: u64,
+    ) {
+        // Check if artifact to be declared is same as artifact that's already materialized.
+        if let Some(mut data) = self.get_if_already_materialized(tree, &path, value.dupe()) {
+            // In this case, the entry declared matches the already materialized
+            // entry on disk, so just update the deps field but leave
+            // the artifact as materialized.
+            tracing::trace!(
+                path = %path,
+                "already materialized, updating deps only",
+            );
+            let deps = value.deps().duped();
+            data.stage = ArtifactMaterializationStage::Materialized {
+                check_deps: deps.is_some(),
+            };
+            data.deps = deps;
+        } else {
+            tracing::trace!(
+                path = %path,
+                method = %method,
+                value = %value.entry(),
+                version = version,
+                "declare artifact",
+            );
+            // Always invalidate materializer state before actual deleting from filesystem
+            // so there will never be a moment where artifact is deleted but materializer
+            // thinks it still exists.
+            let (_, existing_futs) = tree.remove_paths_and_collect_futures(vec![path.clone()]);
+            let data = box ArtifactMaterializationData {
+                entry: value.entry().dupe(),
+                deps: value.deps().duped(),
+                method: Arc::new(*method),
+                stage: ArtifactMaterializationStage::Declared,
+                version,
+                processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
+                    self.io_executor.dupe(),
+                    path.clone(),
+                    // In order to make sure we don't have any race conditions when deleting,
+                    // we need to wait for all existing I/O futures to finish before
+                    // running out own cleaning future. In the case `remove_paths_and_collect_futures`
+                    // removed an entire sub-trie, we need to wait for all futures from that
+                    // sub-trie to finish first.
+                    Some(existing_futs),
+                ))),
+            };
+            tree.insert(path.iter().map(|f| f.to_owned()), data);
+        }
     }
 
     #[instrument(level = "debug", skip(self, tree), fields(path = %path))]
