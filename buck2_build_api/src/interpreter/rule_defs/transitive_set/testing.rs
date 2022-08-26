@@ -24,12 +24,12 @@ use starlark::eval::Evaluator;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
-use crate::deferred::testing::DeferredDataExt;
-use crate::deferred::testing::DeferredIdExt;
-use crate::deferred::BaseDeferredKey;
-use crate::deferred::DeferredData;
-use crate::deferred::DeferredId;
-use crate::deferred::DeferredKey;
+use crate::deferred::types::testing::DeferredDataExt;
+use crate::deferred::types::testing::DeferredIdExt;
+use crate::deferred::types::BaseDeferredKey;
+use crate::deferred::types::DeferredData;
+use crate::deferred::types::DeferredId;
+use crate::deferred::types::DeferredKey;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;

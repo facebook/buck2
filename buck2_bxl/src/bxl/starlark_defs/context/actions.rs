@@ -3,7 +3,7 @@
 
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
-use buck2_build_api::deferred::BaseDeferredKey;
+use buck2_build_api::deferred::types::BaseDeferredKey;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;

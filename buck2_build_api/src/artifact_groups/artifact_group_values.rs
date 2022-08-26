@@ -226,8 +226,8 @@ mod tests {
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::ArtifactValue;
     use crate::actions::artifact::BuildArtifact;
-    use crate::deferred::testing::DeferredIdExt;
-    use crate::deferred::DeferredId;
+    use crate::deferred::types::testing::DeferredIdExt;
+    use crate::deferred::types::DeferredId;
 
     fn artifact(name: &str) -> (Artifact, ArtifactValue) {
         let target = ConfiguredTargetLabel::testing_new(

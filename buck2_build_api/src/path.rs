@@ -24,7 +24,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
 
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
 /// of a `Package`. The `BuckOutPath` refers to only the outputs of rules,
@@ -439,7 +439,7 @@ mod tests {
     use gazebo::prelude::*;
     use regex::Regex;
 
-    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::types::BaseDeferredKey;
     use crate::path::BuckOutPath;
     use crate::path::BuckOutPathResolver;
     use crate::path::BuckOutScratchPath;

@@ -16,7 +16,7 @@ use buck2_build_api::actions::run::dep_files::get_dep_files;
 use buck2_build_api::actions::run::dep_files::DepFilesKey;
 use buck2_build_api::actions::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::deferred::BaseDeferredKey;
+use buck2_build_api::deferred::types::BaseDeferredKey;
 use buck2_build_api::execute::materializer::HasMaterializer;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;

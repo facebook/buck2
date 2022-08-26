@@ -475,7 +475,7 @@ mod tests {
 
     use crate::analysis::calculation::RuleAnalysisCalculation;
     use crate::configuration::calculation::ExecutionPlatformsKey;
-    use crate::deferred::testing::DeferredAnalysisResultExt;
+    use crate::deferred::types::testing::DeferredAnalysisResultExt;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;

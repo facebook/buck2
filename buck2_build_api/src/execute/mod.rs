@@ -592,12 +592,12 @@ mod tests {
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
-    use crate::deferred::testing::DeferredDataExt;
-    use crate::deferred::testing::DeferredIdExt;
-    use crate::deferred::BaseDeferredKey;
-    use crate::deferred::DeferredData;
-    use crate::deferred::DeferredId;
-    use crate::deferred::DeferredKey;
+    use crate::deferred::types::testing::DeferredDataExt;
+    use crate::deferred::types::testing::DeferredIdExt;
+    use crate::deferred::types::BaseDeferredKey;
+    use crate::deferred::types::DeferredData;
+    use crate::deferred::types::DeferredId;
+    use crate::deferred::types::DeferredKey;
     use crate::execute::blocking::testing::DummyBlockingExecutor;
     use crate::execute::cleanup_path;
     use crate::execute::commands::dry_run::DryRunExecutor;

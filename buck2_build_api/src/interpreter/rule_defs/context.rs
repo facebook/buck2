@@ -846,7 +846,7 @@ mod tests {
     use starlark::values::ValueTyped;
 
     use crate::analysis::registry::AnalysisRegistry;
-    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::types::BaseDeferredKey;
     use crate::interpreter::rule_defs::context::AnalysisContext;
     use crate::starlark::values::UnpackValue;
 

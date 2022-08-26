@@ -55,7 +55,7 @@ use crate::actions::directory::insert_entry;
 use crate::actions::directory::ActionDirectoryBuilder;
 use crate::actions::directory::ActionDirectoryMember;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::re::client::re_create_action;
 use crate::execute::commands::re::client::PreparedAction;

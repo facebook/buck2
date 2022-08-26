@@ -42,7 +42,7 @@ use crate::actions::directory::INTERNER;
 use crate::actions::run::expanded_command_line::ExpandedCommandLineDigest;
 use crate::actions::ActionExecutionCtx;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::materializer::MaterializationError;
 use crate::execute::materializer::Materializer;
@@ -691,8 +691,8 @@ mod test {
     use super::*;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::BuildArtifact;
-    use crate::deferred::testing::DeferredIdExt;
-    use crate::deferred::DeferredId;
+    use crate::deferred::types::testing::DeferredIdExt;
+    use crate::deferred::types::DeferredId;
 
     #[test]
     fn test_declares_same_dep_files() {

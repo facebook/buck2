@@ -44,7 +44,7 @@ use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactPath;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;

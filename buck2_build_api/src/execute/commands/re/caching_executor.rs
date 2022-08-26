@@ -33,7 +33,7 @@ use remote_execution::TStatus;
 use remote_execution::TTimestamp;
 use tracing::info;
 
-use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::digest::FileDigestToReExt;
 use crate::actions::directory::directory_to_re_tree;
 use crate::actions::directory::ActionDirectoryMember;

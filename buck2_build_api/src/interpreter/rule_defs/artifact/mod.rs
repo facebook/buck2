@@ -22,7 +22,7 @@ pub use self::starlark_artifact_value::StarlarkArtifactValue;
 pub use self::starlark_declared_artifact::StarlarkDeclaredArtifact;
 pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 pub use self::starlark_output_artifact::StarlarkOutputArtifact;
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 
 #[derive(Debug, thiserror::Error)]
 enum ArtifactError {
@@ -77,11 +77,11 @@ pub mod testing {
     use crate::actions::artifact::SourceArtifact;
     use crate::actions::testing::SimpleUnregisteredAction;
     use crate::actions::ActionsRegistry;
-    use crate::deferred::testing::DeferredIdExt;
-    use crate::deferred::BaseDeferredKey;
-    use crate::deferred::BaseKey;
-    use crate::deferred::DeferredId;
-    use crate::deferred::DeferredRegistry;
+    use crate::deferred::types::testing::DeferredIdExt;
+    use crate::deferred::types::BaseDeferredKey;
+    use crate::deferred::types::BaseKey;
+    use crate::deferred::types::DeferredId;
+    use crate::deferred::types::DeferredRegistry;
     use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
     use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
     use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;

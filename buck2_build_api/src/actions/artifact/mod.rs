@@ -45,7 +45,7 @@ use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::actions::ActionKey;
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 use crate::path::BuckOutPath;
 
 mod artifact_value;
@@ -526,11 +526,11 @@ pub mod testing {
     use crate::actions::artifact::DeclaredArtifact;
     use crate::actions::artifact::DeclaredArtifactKind;
     use crate::actions::ActionKey;
-    use crate::deferred::testing::DeferredDataExt;
-    use crate::deferred::BaseDeferredKey;
-    use crate::deferred::DeferredData;
-    use crate::deferred::DeferredId;
-    use crate::deferred::DeferredKey;
+    use crate::deferred::types::testing::DeferredDataExt;
+    use crate::deferred::types::BaseDeferredKey;
+    use crate::deferred::types::DeferredData;
+    use crate::deferred::types::DeferredId;
+    use crate::deferred::types::DeferredKey;
     use crate::path::BuckOutPath;
 
     pub trait ArtifactTestingExt {
@@ -619,11 +619,11 @@ mod tests {
     use crate::actions::artifact::DeclaredArtifactKind;
     use crate::actions::artifact::SourceArtifact;
     use crate::actions::ActionKey;
-    use crate::deferred::testing::DeferredDataExt;
-    use crate::deferred::testing::DeferredIdExt;
-    use crate::deferred::BaseDeferredKey;
-    use crate::deferred::DeferredId;
-    use crate::deferred::DeferredKey;
+    use crate::deferred::types::testing::DeferredDataExt;
+    use crate::deferred::types::testing::DeferredIdExt;
+    use crate::deferred::types::BaseDeferredKey;
+    use crate::deferred::types::DeferredId;
+    use crate::deferred::types::DeferredKey;
     use crate::path::BuckOutPath;
     use crate::path::BuckOutPathResolver;
     use crate::path::BuckPathResolver;

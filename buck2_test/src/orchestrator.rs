@@ -21,7 +21,7 @@ use buck2_build_api::actions::artifact::fs::ExecutorFs;
 use buck2_build_api::actions::artifact::ArtifactValue;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::deferred::BaseDeferredKey;
+use buck2_build_api::deferred::types::BaseDeferredKey;
 use buck2_build_api::execute::blocking::HasBlockingExecutor;
 use buck2_build_api::execute::commands;
 use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;

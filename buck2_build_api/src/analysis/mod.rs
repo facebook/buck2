@@ -36,9 +36,9 @@ use crate::analysis::registry::AnalysisRegistry;
 use crate::attrs::resolve::attr_type::dep::ResolutionError;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::deferred::DeferredAny;
-use crate::deferred::DeferredId;
-use crate::deferred::DeferredTable;
+use crate::deferred::types::DeferredAny;
+use crate::deferred::types::DeferredId;
+use crate::deferred::types::DeferredTable;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
@@ -55,7 +55,7 @@ use buck2_node::rule_type::StarlarkRuleType;
 use starlark::values::ValueTyped;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Error, Debug)]

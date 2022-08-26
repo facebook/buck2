@@ -33,18 +33,18 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BxlCalculation;
 use crate::bxl::result::BxlResult;
 use crate::deferred::calculation::keys::DeferredResolve;
-use crate::deferred::AnyValue;
-use crate::deferred::BaseDeferredKey;
-use crate::deferred::BaseKey;
-use crate::deferred::DeferredAny;
-use crate::deferred::DeferredData;
-use crate::deferred::DeferredId;
-use crate::deferred::DeferredInput;
-use crate::deferred::DeferredKey;
-use crate::deferred::DeferredRegistry;
-use crate::deferred::DeferredResult;
-use crate::deferred::DeferredValueAny;
-use crate::deferred::ResolveDeferredCtx;
+use crate::deferred::types::AnyValue;
+use crate::deferred::types::BaseDeferredKey;
+use crate::deferred::types::BaseKey;
+use crate::deferred::types::DeferredAny;
+use crate::deferred::types::DeferredData;
+use crate::deferred::types::DeferredId;
+use crate::deferred::types::DeferredInput;
+use crate::deferred::types::DeferredKey;
+use crate::deferred::types::DeferredRegistry;
+use crate::deferred::types::DeferredResult;
+use crate::deferred::types::DeferredValueAny;
+use crate::deferred::types::ResolveDeferredCtx;
 
 #[async_trait]
 pub(crate) trait DeferredCalculation {
@@ -297,7 +297,7 @@ mod keys {
     use derive_more::Display;
     use gazebo::prelude::*;
 
-    use crate::deferred::DeferredKey;
+    use crate::deferred::types::DeferredKey;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
     #[display(fmt = "ResolveDeferred({})", _0)]
@@ -338,14 +338,14 @@ mod tests {
     use crate::analysis::calculation::testing::AnalysisKey;
     use crate::analysis::AnalysisResult;
     use crate::deferred::calculation::DeferredCalculation;
-    use crate::deferred::BaseDeferredKey;
-    use crate::deferred::BaseKey;
-    use crate::deferred::Deferred;
-    use crate::deferred::DeferredCtx;
-    use crate::deferred::DeferredInput;
-    use crate::deferred::DeferredRegistry;
-    use crate::deferred::DeferredTable;
-    use crate::deferred::DeferredValue;
+    use crate::deferred::types::BaseDeferredKey;
+    use crate::deferred::types::BaseKey;
+    use crate::deferred::types::Deferred;
+    use crate::deferred::types::DeferredCtx;
+    use crate::deferred::types::DeferredInput;
+    use crate::deferred::types::DeferredRegistry;
+    use crate::deferred::types::DeferredTable;
+    use crate::deferred::types::DeferredValue;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
     use crate::nodes::calculation::ConfiguredNodeKey;

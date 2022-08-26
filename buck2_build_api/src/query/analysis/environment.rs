@@ -55,7 +55,7 @@ use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::AnyValue;
+use crate::deferred::types::AnyValue;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;

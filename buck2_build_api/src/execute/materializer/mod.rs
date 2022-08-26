@@ -82,7 +82,7 @@ pub struct WriteRequest {
     pub is_executable: bool,
 }
 
-use crate::deferred::BaseDeferredKey;
+use crate::deferred::types::BaseDeferredKey;
 #[cfg(all(unix, feature = "eden_materializer"))]
 use crate::execute::materializer::eden_api::EdenBuckOut;
 

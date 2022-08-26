@@ -448,9 +448,9 @@ mod tests {
     use crate::artifact_groups::ArtifactGroup;
     use crate::context::SetBuildContextData;
     use crate::deferred::calculation::testing::DeferredResolve;
-    use crate::deferred::testing::DeferredIdExt;
-    use crate::deferred::AnyValue;
-    use crate::deferred::DeferredId;
+    use crate::deferred::types::testing::DeferredIdExt;
+    use crate::deferred::types::AnyValue;
+    use crate::deferred::types::DeferredId;
     use crate::execute::blocking::testing::DummyBlockingExecutor;
     use crate::execute::blocking::SetBlockingExecutor;
     use crate::execute::commands::dice_data::set_fallback_executor_config;

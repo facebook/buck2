@@ -16,8 +16,8 @@ use starlark::values::ValueLike;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::deferred::DeferredTransitiveSet;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
-use crate::deferred::DeferredRegistry;
-use crate::deferred::ReservedDeferredData;
+use crate::deferred::types::DeferredRegistry;
+use crate::deferred::types::ReservedDeferredData;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 

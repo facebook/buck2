@@ -3,9 +3,9 @@ use itertools::Itertools;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::build_result::BxlBuildResult;
-use crate::deferred::DeferredAny;
-use crate::deferred::DeferredId;
-use crate::deferred::DeferredTable;
+use crate::deferred::types::DeferredAny;
+use crate::deferred::types::DeferredId;
+use crate::deferred::types::DeferredTable;
 use crate::path::BuckOutPath;
 
 /// The result of evaluating a bxl function

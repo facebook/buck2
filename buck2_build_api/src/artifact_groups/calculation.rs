@@ -313,7 +313,7 @@ mod tests {
     use crate::artifact_groups::deferred::DeferredTransitiveSetData;
     use crate::context::SetBuildContextData;
     use crate::deferred::calculation::testing::DeferredResolve;
-    use crate::deferred::AnyValue;
+    use crate::deferred::types::AnyValue;
     use crate::interpreter::rule_defs::transitive_set::testing;
     use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
