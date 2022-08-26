@@ -361,10 +361,12 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.soft_claim_output_path(&path)?;
-        let mut out_path = BuckOutPath::with_hidden(self.owner.dupe(), path, hidden);
-        if let Some(action_key) = &self.action_key {
-            out_path.set_action_key(action_key.dupe());
-        }
+        let out_path = BuckOutPath::with_hidden_and_action_key(
+            self.owner.dupe(),
+            path,
+            hidden,
+            self.action_key.dupe(),
+        );
         let declared = DeclaredArtifact::new(out_path);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");

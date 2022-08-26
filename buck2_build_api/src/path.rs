@@ -72,16 +72,21 @@ impl BuckOutPath {
         path: ForwardRelativePathBuf,
         hidden_components_count: usize,
     ) -> Self {
+        Self::with_hidden_and_action_key(owner, path, hidden_components_count, None)
+    }
+
+    pub fn with_hidden_and_action_key(
+        owner: BaseDeferredKey,
+        path: ForwardRelativePathBuf,
+        hidden_components_count: usize,
+        action_key: Option<Arc<str>>,
+    ) -> Self {
         Self {
             owner,
-            action_key: None,
+            action_key,
             path,
             hidden_components_count,
         }
-    }
-
-    pub fn set_action_key(&mut self, action_key: Arc<str>) {
-        self.action_key = Some(action_key);
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
@@ -536,11 +541,12 @@ mod tests {
             resolved
         );
 
-        let mut path = BuckOutPath::new(
+        let path = BuckOutPath::with_hidden_and_action_key(
             BaseDeferredKey::TargetLabel(cfg_target),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
+            0,
+            Some(Arc::from("xxx")),
         );
-        path.set_action_key(Arc::from("xxx"));
         let resolved = path_resolver.resolve_gen(&path);
 
         let re = Regex::new("buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__xxx__/quux")?;
