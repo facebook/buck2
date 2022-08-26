@@ -37,6 +37,10 @@ load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_imple
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
 
+# Lua
+load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
+load("@prelude//lua:lua_library.bzl", "lua_library_impl")
+
 # OCaml
 load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "prebuilt_ocaml_library_impl")
 load("@prelude//ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
@@ -125,6 +129,10 @@ implemented_rules = struct(
     haskell_library = haskell_library_impl,
     haskell_binary = haskell_binary_impl,
     haskell_prebuilt_library = haskell_prebuilt_library_impl,
+
+    #lua
+    lua_binary = lua_binary_impl,
+    lua_library = lua_library_impl,
 
     #ocaml
     ocaml_binary = ocaml_binary_impl,
