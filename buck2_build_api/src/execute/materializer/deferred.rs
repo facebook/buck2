@@ -259,7 +259,10 @@ impl std::fmt::Debug for MaterializerCommand {
 type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
 struct ArtifactMaterializationData {
-    value: ArtifactValue,
+    /// Taken from `entry` of `ArtifactValue`. Used to materialize the actual artifact.
+    entry: ActionDirectoryEntry<ActionSharedDirectory>,
+    /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
+    deps: Option<ActionSharedDirectory>,
     method: Arc<ArtifactMaterializationMethod>,
     stage: ArtifactMaterializationStage,
     /// The version is just an internal counter that increases every time an
@@ -548,7 +551,23 @@ impl DeferredMaterializerCommandProcessor {
                 }
                 // Entry point for `declare_{copy|cas}` calls
                 MaterializerCommand::Declare(path, value, method) => {
-                    if !self.is_already_materialized(&tree, &path, value.dupe()) {
+                    // Check if artifact to be declared is same as artifact that's already materialized.
+                    if let Some(mut data) =
+                        self.get_if_already_materialized(&mut tree, &path, value.dupe())
+                    {
+                        // In this case, the entry declared matches the already materialized
+                        // entry on disk, so just update the deps field but leave
+                        // the artifact as materialized.
+                        tracing::trace!(
+                            path = %path,
+                            "already materialized, updating deps only",
+                        );
+                        let deps = value.deps().duped();
+                        data.stage = ArtifactMaterializationStage::Materialized {
+                            check_deps: deps.is_some(),
+                        };
+                        data.deps = deps;
+                    } else {
                         tracing::trace!(
                             path = %path,
                             method = %method,
@@ -562,7 +581,8 @@ impl DeferredMaterializerCommandProcessor {
                         let (_, existing_futs) =
                             tree.remove_paths_and_collect_futures(vec![path.clone()]);
                         let data = box ArtifactMaterializationData {
-                            value,
+                            entry: value.entry().dupe(),
+                            deps: value.deps().duped(),
                             method: Arc::new(*method),
                             stage: ArtifactMaterializationStage::Declared,
                             version: next_version,
@@ -656,33 +676,32 @@ impl DeferredMaterializerCommandProcessor {
         tasks.collect::<FuturesOrdered<_>>().boxed()
     }
 
-    /// If local caching of RE artifacts is enabled, returns whether a path with equal value
-    /// already exists on the tree. Always returns false if local caching of RE artifacts is disabled.
-    fn is_already_materialized(
+    /// If matching artifact optimization is enabled, returns the element corresponding to `path`
+    /// from `tree`. Always returns None if matching artifact optimization is disabled.
+    fn get_if_already_materialized<'a>(
         &self,
-        tree: &ArtifactTree,
-        path: &ProjectRelativePath,
+        tree: &'a mut ArtifactTree,
+        path: &'a ProjectRelativePath,
         value: ArtifactValue,
-    ) -> bool {
+    ) -> Option<&'a mut Box<ArtifactMaterializationData>> {
         if !self.enable_local_caching_of_re_artifacts {
             // If this feature is not enabled, then we treat no artifact as already materialized.
-            return false;
+            return None;
         }
-        if let Some(data) = tree.prefix_get(&mut path.iter()) {
+        if let Some(data) = tree.prefix_get_mut(&mut path.iter()) {
             match data.stage {
                 ArtifactMaterializationStage::Materialized { .. } => {
-                    if data.value == value {
-                        tracing::trace!(
-                            path = %path,
-                            "already materialized, no need to declare again",
-                        );
-                        return true;
+                    // For checking if artifact is already materialized, we just
+                    // need to check that the entry matches. If the deps are different
+                    // we can just update them but keep the artifact as materialized.
+                    if &data.entry == value.entry() {
+                        return Some(data);
                     }
                 }
                 _ => {}
             }
         }
-        false
+        None
     }
 
     #[instrument(level = "debug", skip(self, tree), fields(path = %path))]
@@ -719,7 +738,7 @@ impl DeferredMaterializerCommandProcessor {
         };
 
         let entry = match &data.stage {
-            ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
+            ArtifactMaterializationStage::Declared => Some(data.entry.dupe()),
             ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
                 true => None,
                 false => {
@@ -731,8 +750,7 @@ impl DeferredMaterializerCommandProcessor {
                 }
             },
         };
-        let value = data.value.dupe();
-        let deps = value.deps().duped();
+        let deps = data.deps.dupe();
         let method = data.method.dupe();
         let version = data.version;
 
@@ -990,8 +1008,7 @@ impl ArtifactTree {
 
                 let mut entry = Some(
                     materialization_data
-                        .value
-                        .entry()
+                        .entry
                         .as_ref()
                         .map_dir(|d| d as &dyn ActionDirectory),
                 );
@@ -1016,7 +1033,7 @@ impl ArtifactTree {
                     None => Err(
                         ArtifactNotMaterializedReason::DeferredMaterializerCorruption {
                             path,
-                            entry: materialization_data.value.entry().dupe(),
+                            entry: materialization_data.entry.dupe(),
                             info: info.dupe(),
                         },
                     ),

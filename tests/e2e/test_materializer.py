@@ -70,7 +70,7 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
     # Check output still exists
     assert result.get_build_report().output_for_target(target).exists()
     # Check that materializer did not report any rematerialization
-    assert "already materialized, no need to declare again" in result.stderr
+    assert "already materialized, updating deps only" in result.stderr
     assert "materialize artifact" not in result.stderr
 
     # In this case, modifying `src` changes the output, so the output should be rematerialized
@@ -110,7 +110,7 @@ async def test_disabling_matching_artifact_optimization(buck: Buck) -> None:
     # Check output still exists
     assert result.get_build_report().output_for_target(target).exists()
     # Check that materializer did have to rematerialize in this case
-    assert "already materialized, no need to declare again" not in result.stderr
+    assert "already materialized, updating deps only" not in result.stderr
     assert "materialize artifact" in result.stderr
 
 
