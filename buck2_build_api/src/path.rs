@@ -26,22 +26,10 @@ use gazebo::prelude::*;
 
 use crate::deferred::types::BaseDeferredKey;
 
-/// Represents a resolvable path corresponding to outputs of rules that are part
-/// of a `Package`. The `BuckOutPath` refers to only the outputs of rules,
-/// not the repo sources.
-///
-/// This structure contains a target label for generating the base of the path (base
-/// path), and a `ForwardRelativePath` that represents the specific output
-/// location relative to the 'base path'. When a user asks for the `short_path`
-/// of a `BuckOutPath`, some of the `path` prefix may be hidden, as requested
-/// by `declare_output`.
-///
-/// For `Eq`/`Hash` we want the equality to be based on the path on disk,
-/// regardless of how the path looks to the user. Therefore we ignore the `hidden` field.
 #[derive(Clone, Debug, Display, Derivative)]
 #[derivative(Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[display(fmt = "({})/{}", owner, "path.as_str()")]
-pub struct BuckOutPath {
+struct BuckOutPathData {
     /// The owner responsible for creating this path.
     owner: BaseDeferredKey,
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
@@ -57,6 +45,30 @@ pub struct BuckOutPath {
         PartialOrd = "ignore"
     )]
     hidden_components_count: usize,
+}
+
+/// Represents a resolvable path corresponding to outputs of rules that are part
+/// of a `Package`. The `BuckOutPath` refers to only the outputs of rules,
+/// not the repo sources.
+///
+/// This structure contains a target label for generating the base of the path (base
+/// path), and a `ForwardRelativePath` that represents the specific output
+/// location relative to the 'base path'. When a user asks for the `short_path`
+/// of a `BuckOutPath`, some of the `path` prefix may be hidden, as requested
+/// by `declare_output`.
+///
+/// For `Eq`/`Hash` we want the equality to be based on the path on disk,
+/// regardless of how the path looks to the user. Therefore we ignore the `hidden` field.
+#[derive(Clone, Dupe, Debug, Display, Derivative)]
+#[derivative(Hash, Eq, Ord, PartialOrd)]
+#[display(fmt = "{}", .0)]
+pub struct BuckOutPath(Arc<BuckOutPathData>);
+
+impl PartialEq for BuckOutPath {
+    fn eq(&self, other: &Self) -> bool {
+        // Optimize comparison.
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
 }
 
 impl BuckOutPath {
@@ -81,30 +93,30 @@ impl BuckOutPath {
         hidden_components_count: usize,
         action_key: Option<Arc<str>>,
     ) -> Self {
-        Self {
+        BuckOutPath(Arc::new(BuckOutPathData {
             owner,
             action_key,
             path,
             hidden_components_count,
-        }
+        }))
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
-        &self.owner
+        &self.0.owner
     }
 
     pub fn action_key(&self) -> Option<&str> {
-        self.action_key.as_deref()
+        self.0.action_key.as_deref()
     }
 
     pub fn path(&self) -> &ForwardRelativePath {
-        &*self.path
+        &*self.0.path
     }
 
     // The suffix of `path` that is usually relevant to user rules.
     pub fn short_path(&self) -> &ForwardRelativePath {
-        self.path
-            .strip_prefix_components(self.hidden_components_count)
+        self.0.path
+            .strip_prefix_components(self.0.hidden_components_count)
             .unwrap_or_else(|| panic!("Invalid BuckOutPath, `hidden_components_count` greater than the number of path components, {:?}", self))
     }
 }
@@ -277,20 +289,20 @@ impl BuckOutPathResolver {
     /// This function returns the exact location of the symlink of a given target.
     /// Note that it (deliberately) ignores the configuration and takes no action_key information.
     pub fn unhashed_gen(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
-        let owner_path = path.owner.as_path();
+        let owner_path = path.0.owner.as_path();
         let size = self.0.as_str().len()
             + 1
             + "gen".len()
             + 1
             + owner_path.as_str().len()
             + 1
-            + path.path.as_str().len();
+            + path.0.path.as_str().len();
 
         let mut ret = ProjectRelativePathBuf::with_capacity(size);
 
         ret.push(&self.0);
         ret.push(ForwardRelativePath::unchecked_new("gen"));
-        ret.push(path.owner.as_path());
+        ret.push(path.0.owner.as_path());
         ret.push(path.path());
 
         ret

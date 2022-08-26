@@ -282,7 +282,7 @@ impl DeclaredArtifact {
             DeclaredArtifactKind::Bound(built) => built.dupe(),
             DeclaredArtifactKind::Unbound(unbound) => {
                 return Err(anyhow::anyhow!(ArtifactErrors::UnboundArtifact(
-                    unbound.clone()
+                    unbound.dupe()
                 )));
             }
         };
@@ -328,7 +328,7 @@ impl Ord for DeclaredArtifact {
 }
 
 /// A 'DeclaredArtifact' can be either "bound" to an 'Action', or "unbound"
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Dupe, Debug, Display)]
 enum DeclaredArtifactKind {
     Bound(BuildArtifact),
     Unbound(UnboundArtifact),
@@ -399,7 +399,7 @@ impl Deref for OutputArtifact {
     }
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Dupe, Debug, Display)]
 pub struct UnboundArtifact(BuckOutPath);
 
 impl UnboundArtifact {
