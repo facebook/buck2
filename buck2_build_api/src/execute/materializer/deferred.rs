@@ -255,8 +255,6 @@ impl std::fmt::Debug for MaterializerCommand {
 type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
 struct ArtifactMaterializationData {
-    /// Taken from `entry` of `ArtifactValue`. Used to materialize the actual artifact.
-    entry: ActionDirectoryEntry<ActionSharedDirectory>,
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     deps: Option<ActionSharedDirectory>,
     method: Arc<ArtifactMaterializationMethod>,
@@ -271,14 +269,42 @@ struct ArtifactMaterializationData {
     processing_fut: Option<ProcessingFuture>,
 }
 
+/// Fingerprint used to identify `ActionSharedDirectory`. We give it an explicit
+/// alias because `TrackedFileDigest` can look confusing.
+pub type ActionDirectoryFingerprint = TrackedFileDigest;
+
+/// Metadata used to identify an artifact entry without all of its content. Stored on materialized
+/// artifacts to check matching artifact optimizations. For `ActionSharedDirectory`, we use its fingerprint,
+/// For everything else (files, symlinks, and external symlinks), we use `ActionDirectoryMember`
+/// as is because it already holds the metadata we need.
+#[derive(Clone, Dupe, PartialEq, Eq)]
+pub struct ArtifactEntryMetadata(ActionDirectoryEntry<ActionDirectoryFingerprint>);
+
+impl From<ActionDirectoryEntry<ActionSharedDirectory>> for ArtifactEntryMetadata {
+    fn from(entry: ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
+        let new_entry: ActionDirectoryEntry<ActionDirectoryFingerprint> = match entry {
+            DirectoryEntry::Dir(dir) => DirectoryEntry::Dir(dir.fingerprint().dupe()),
+            DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf),
+        };
+        ArtifactEntryMetadata(new_entry)
+    }
+}
+
 enum ArtifactMaterializationStage {
     /// The artifact was declared, but the materialization hasn't started yet.
     /// If it did start but end with an error, it returns to this stage.
     /// When the the artifact was declared, we spawn a deletion future to delete
     /// all existing paths that conflict with the output paths.
-    Declared,
+    Declared {
+        /// Taken from `entry` of `ArtifactValue`. Used to materialize the actual artifact.
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+    },
     /// This artifact was materialized
     Materialized {
+        /// Once the artifact is materialized, we don't need the full entry anymore.
+        /// We can throw away most of the entry and just keep some metadata used to
+        /// check if materialized artifact matches declared artifact.
+        metadata: ArtifactEntryMetadata,
         // Artifact may need its dependencies checked as they might have changed
         check_deps: bool,
     },
@@ -634,12 +660,13 @@ impl DeferredMaterializerCommandProcessor {
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
         if let Some(data) = tree.prefix_get_mut(&mut path.iter()) {
-            match data.stage {
-                ArtifactMaterializationStage::Materialized { .. } => {
+            match &data.stage {
+                ArtifactMaterializationStage::Materialized { metadata, .. } => {
                     // For checking if artifact is already materialized, we just
                     // need to check that the entry matches. If the deps are different
                     // we can just update them but keep the artifact as materialized.
-                    if &data.entry == value.entry() {
+                    let new_metadata: ArtifactEntryMetadata = value.entry().dupe().into();
+                    if metadata == &new_metadata {
                         // In this case, the entry declared matches the already materialized
                         // entry on disk, so just update the deps field but leave
                         // the artifact as materialized.
@@ -649,6 +676,7 @@ impl DeferredMaterializerCommandProcessor {
                         );
                         let deps = value.deps().duped();
                         data.stage = ArtifactMaterializationStage::Materialized {
+                            metadata: metadata.dupe(),
                             check_deps: deps.is_some(),
                         };
                         data.deps = deps;
@@ -673,10 +701,11 @@ impl DeferredMaterializerCommandProcessor {
         // thinks it still exists.
         let (_, existing_futs) = tree.remove_paths_and_collect_futures(vec![path.clone()]);
         let data = box ArtifactMaterializationData {
-            entry: value.entry().dupe(),
             deps: value.deps().duped(),
             method: Arc::new(*method),
-            stage: ArtifactMaterializationStage::Declared,
+            stage: ArtifactMaterializationStage::Declared {
+                entry: value.entry().dupe(),
+            },
             version,
             processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
                 self.io_executor.dupe(),
@@ -726,8 +755,11 @@ impl DeferredMaterializerCommandProcessor {
         };
 
         let entry = match &data.stage {
-            ArtifactMaterializationStage::Declared => Some(data.entry.dupe()),
-            ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
+            ArtifactMaterializationStage::Declared { entry } => Some(entry.dupe()),
+            ArtifactMaterializationStage::Materialized {
+                metadata: _metadata,
+                check_deps,
+            } => match check_deps {
                 true => None,
                 false => {
                     tracing::debug!(
@@ -979,22 +1011,18 @@ impl ArtifactTree {
             None => return Ok(path),
             Some(data) => data,
         };
-        match materialization_data.stage {
+        let entry = match &materialization_data.stage {
             ArtifactMaterializationStage::Materialized { .. } => {
                 return Ok(path);
             }
-            _ => {}
-        }
+            ArtifactMaterializationStage::Declared { entry } => entry.dupe(),
+        };
         match materialization_data.method.as_ref() {
             ArtifactMaterializationMethod::CasDownload { info } => {
                 let path_iter = path_iter.peekable();
 
-                let mut entry = Some(
-                    materialization_data
-                        .entry
-                        .as_ref()
-                        .map_dir(|d| d as &dyn ActionDirectory),
-                );
+                let root_entry = entry.dupe();
+                let mut entry = Some(entry.as_ref().map_dir(|d| d as &dyn ActionDirectory));
 
                 // Check if the path we are asking for exists in this entry.
                 for name in path_iter {
@@ -1016,7 +1044,7 @@ impl ArtifactTree {
                     None => Err(
                         ArtifactNotMaterializedReason::DeferredMaterializerCorruption {
                             path,
-                            entry: materialization_data.entry.dupe(),
+                            entry: root_entry,
                             info: info.dupe(),
                         },
                     ),
@@ -1068,8 +1096,7 @@ impl ArtifactTree {
                 info.processing_fut = None;
 
                 if result.is_err() {
-                    tracing::debug!("transition to Declared");
-                    info.stage = ArtifactMaterializationStage::Declared;
+                    tracing::debug!("materialization failed, redeclaring artifact");
                     // Bump the version here because the artifact is redeclared.
                     info.version = next_version;
                     // Even though materialization failed, something may have still materialized at artifact_path,
@@ -1081,14 +1108,21 @@ impl ArtifactTree {
                         artifact_path,
                         None,
                     )));
-                    return;
+                } else {
+                    tracing::debug!("transition to Materialized {{ check_deps: {} }}", has_deps);
+                    let entry = match &info.stage {
+                        ArtifactMaterializationStage::Materialized { .. } => {
+                            tracing::debug!("artifact is somehow already marked materialized");
+                            return;
+                        }
+                        ArtifactMaterializationStage::Declared { entry } => entry.dupe(),
+                    };
+                    let metadata = entry.into();
+                    info.stage = ArtifactMaterializationStage::Materialized {
+                        metadata,
+                        check_deps: has_deps,
+                    };
                 }
-
-                // If the entry is a tree and we have a file,
-                tracing::debug!("transition to Materialized {{ check_deps: {} }}", has_deps);
-                info.stage = ArtifactMaterializationStage::Materialized {
-                    check_deps: has_deps,
-                };
             }
             None => {
                 tracing::debug!("materialization_finished but path is vacant!")
