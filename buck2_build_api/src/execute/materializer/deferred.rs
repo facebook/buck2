@@ -976,12 +976,8 @@ impl DeferredMaterializerCommandProcessor {
 
 impl ArtifactTree {
     /// Given a path that's (possibly) not yet materialized, returns the path
-    /// `contents_path` where its contents can be found.
-    /// - If the contents aren't materialized anywhere yet, returns
-    ///   `(contents_path, true)` meaning it'll be available in `contents_path`
-    ///   after a CAS fetch is done on that path.
-    /// - If the contents are already fetched, returns
-    ///   `Some(contents_path, false)`.
+    /// `contents_path` where its contents can be found. Returns Err if the
+    /// contents cannot be found (ex. if it requires HTTP or CAS download)
     ///
     /// Note that the returned `contents_path` could be the same as `path`.
     #[instrument(level = "trace", skip(self), fields(path = %path))]
@@ -996,8 +992,7 @@ impl ArtifactTree {
             Some(data) => data,
         };
         match materialization_data.stage {
-            // it's materialized already and has no deps to check.
-            ArtifactMaterializationStage::Materialized { check_deps: false } => {
+            ArtifactMaterializationStage::Materialized { .. } => {
                 return Ok(path);
             }
             _ => {}
