@@ -19,8 +19,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "add_linkable_node",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
+    "create_linkable_node",
 )
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_frameworks.bzl", "to_framework_name")
@@ -64,13 +65,17 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
         ))
 
         # Create, augment and provide the linkable graph.
-        linkable_graph = create_merged_linkable_graph(ctx.label)
-        add_linkable_node(
-            linkable_graph,
+        linkable_graph = create_linkable_graph(
             ctx,
-            preferred_linkage = Linkage("shared"),
-            link_infos = {LinkStyle("shared"): LinkInfos(default = link)},
-            excluded = True,
+            node = create_linkable_graph_node(
+                ctx,
+                linkable_node = create_linkable_node(
+                    ctx,
+                    preferred_linkage = Linkage("shared"),
+                    link_infos = {LinkStyle("shared"): LinkInfos(default = link)},
+                ),
+                excluded = {ctx.label: None},
+            ),
         )
         providers.append(linkable_graph)
 

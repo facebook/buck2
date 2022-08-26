@@ -16,8 +16,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "add_linkable_node",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
+    "create_linkable_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load(
@@ -373,23 +374,27 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
     ))
 
-    native_link_target = None
-    linkable_graph = create_merged_linkable_graph(ctx.label, first_order_deps)
-
     # Create, augment and provide the linkable graph.
-    add_linkable_node(
-        linkable_graph,
+    linkable_graph = create_linkable_graph(
         ctx,
-        preferred_linkage = preferred_linkage,
-        # If we don't have link input for this link style, we pass in `None` so
-        # that omnibus knows to avoid it.
-        link_infos = libraries,
-        shared_libs = solibs,
-        excluded = not value_or(ctx.attrs.supports_merged_linking, True),
-        exported_deps = first_order_deps,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                preferred_linkage = preferred_linkage,
+                exported_deps = first_order_deps,
+                # If we don't have link input for this link style, we pass in `None` so
+                # that omnibus knows to avoid it.
+                link_infos = libraries,
+                shared_libs = solibs,
+            ),
+            excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
+        ),
+        deps = first_order_deps,
     )
 
     # Omnibus root provider.
+    native_link_target = None
     if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
         native_link_target = create_native_link_target(

@@ -10,7 +10,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
     "get_linkable_graph_node_map",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
@@ -25,9 +25,9 @@ def link_group_map_attr():
 def _impl(ctx: "context") -> ["provider"]:
     link_groups = parse_groups_definitions(ctx.attrs.map)
     link_group_deps = [mapping.target for group in link_groups for mapping in group.mappings]
-    linkable_graph = create_merged_linkable_graph(
-        ctx.label,
-        link_group_deps,
+    linkable_graph = create_linkable_graph(
+        ctx,
+        deps = link_group_deps,
     )
     linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
     mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)

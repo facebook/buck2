@@ -26,8 +26,9 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "ForceConsiderationOfOmnibusRoots",
-    "add_linkable_node",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
+    "create_linkable_node",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -118,13 +119,18 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     )
 
     # Native link graph setup.
-    linkable_graph = create_merged_linkable_graph(ctx.label, ctx.attrs.deps)
-    add_linkable_node(
-        linkable_graph,
+    linkable_graph = create_linkable_graph(
         ctx,
-        preferred_linkage = Linkage("static"),
-        link_infos = {link_style: LinkInfos(default = link) for link_style in LinkStyle},
-        exported_deps = ctx.attrs.deps,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                preferred_linkage = Linkage("static"),
+                exported_deps = ctx.attrs.deps,
+                link_infos = {link_style: LinkInfos(default = link) for link_style in LinkStyle},
+            ),
+        ),
+        deps = ctx.attrs.deps,
     )
     providers.append(linkable_graph)
 
@@ -486,14 +492,19 @@ def _native_providers(
     ))
 
     # Create, augment and provide the linkable graph.
-    linkable_graph = create_merged_linkable_graph(ctx.label, inherited_non_rust_link_deps)
-    add_linkable_node(
-        linkable_graph,
+    linkable_graph = create_linkable_graph(
         ctx,
-        preferred_linkage = preferred_linkage,
-        link_infos = link_infos,
-        shared_libs = solibs,
-        exported_deps = inherited_non_rust_link_deps,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                preferred_linkage = preferred_linkage,
+                exported_deps = inherited_non_rust_link_deps,
+                link_infos = link_infos,
+                shared_libs = solibs,
+            ),
+        ),
+        deps = inherited_non_rust_link_deps,
     )
     providers.append(linkable_graph)
 

@@ -18,7 +18,8 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
-    "LinkableNode",
+    "LinkableNode",  # @unused Used as a type
+    "NativeLinkTargetInfo",
     "get_deps_for_link",
     "get_link_info",
     "linkable_deps",
@@ -40,16 +41,16 @@ load(
 )
 load(":symbols.bzl", "extract_symbol_names")
 
-# A provider with information used to link a rule into a shared library.
-# Potential omnibus roots must provide this so that omnibus can link them
-# here, in the context of the top-level packaging rule.
-NativeLinkTargetInfo = provider(fields = [
-    "link_info",  # LinkInfo.type
-    "name",  # [str.type, None]
-    "deps",  # ["label"]
-])
-
 Disposition = enum("root", "excluded", "body")
+
+OmnibusGraph = record(
+    nodes = field({"label": LinkableNode.type}),
+    # All potential root notes for an omnibus link (e.g. C++ libraries,
+    # C++ Python extensions).
+    roots = field({"label": NativeLinkTargetInfo.type}),
+    # All nodes that should be excluded from libomnibus.
+    excluded = field({"label": None}),
+)
 
 # Bookkeeping information used to setup omnibus link rules.
 OmnibusSpec = record(
@@ -76,6 +77,32 @@ OmnibusSharedLibraries = record(
     excluded = field(["label"]),
 )
 
+def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": NativeLinkTargetInfo.type}, excluded: {"label": None}) -> OmnibusGraph.type:
+    graph_nodes = graph.nodes.traverse()
+    nodes = {}
+    for node in filter(None, graph_nodes):
+        if node.linkable:
+            nodes[node.label] = node.linkable
+        roots.update(node.roots)
+        excluded.update(node.excluded)
+
+    return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
+
+def get_roots(deps: ["dependency"]) -> {"label": NativeLinkTargetInfo.type}:
+    roots = {}
+    for dep in deps:
+        if dep[NativeLinkTargetInfo]:
+            roots[dep.label] = dep[NativeLinkTargetInfo]
+    return roots
+
+def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
+    excluded_nodes = {}
+    for dep in deps:
+        dep_info = linkable_graph(dep)
+        if dep_info != None:
+            excluded_nodes[dep_info.label] = None
+    return excluded_nodes
+
 def create_native_link_target(
         link_info: LinkInfo.type,
         name: [str.type, None],
@@ -88,35 +115,6 @@ def create_native_link_target(
         link_info = link_info,
         deps = deps,
     )
-
-def add_omnibus_exclusions(
-        graph: LinkableGraph.type,
-        deps: ["dependency"]):
-    """
-    Mark all deps as excluded from omnibus linking.
-
-    For example: Python libraries which wrap/package prebuilt native extensions
-    must set this to prevent transitive native deps being merged, breaking the
-    hard-coded `DT_NEEDED` tags in the extensions.
-    """
-
-    for dep in deps:
-        dep_info = linkable_graph(dep)
-        if dep_info != None:
-            expect(dep_info.label in graph.nodes)
-            graph.excluded[dep_info.label] = None
-
-def add_omnibus_roots(
-        graph: LinkableGraph.type,
-        first_order_deps: ["dependency"] = []):
-    """
-    Non-native langue rules should call this to add roots nodes for all
-    first-order native dependencies.
-    """
-
-    for dep in first_order_deps:
-        if dep[NativeLinkTargetInfo]:
-            graph.roots[dep.label] = dep[NativeLinkTargetInfo]
 
 def _omnibus_soname(ctx):
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
@@ -558,7 +556,7 @@ def _create_omnibus(
 
 def _build_omnibus_spec(
         _ctx: "context",
-        graph: LinkableGraph.type) -> OmnibusSpec.type:
+        graph: OmnibusGraph.type) -> OmnibusSpec.type:
     """
     Divide transitive deps into excluded, root, and body nodes, which we'll
     use to link the various parts of omnibus.
@@ -634,7 +632,7 @@ def _build_omnibus_spec(
         dispositions = dispositions,
     )
 
-def _implicit_exclusion_roots(graph: LinkableGraph.type):
+def _implicit_exclusion_roots(graph: OmnibusGraph.type):
     return [
         label
         for label, info in graph.nodes.items()
@@ -671,7 +669,7 @@ def _ordered_roots(
 
 def create_omnibus_libraries(
         ctx: "context",
-        graph: LinkableGraph.type,
+        graph: OmnibusGraph.type,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool.type = False) -> OmnibusSharedLibraries.type:
     spec = _build_omnibus_spec(ctx, graph)

@@ -33,7 +33,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -272,7 +272,10 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
         ),
         merge_haskell_link_infos(haskell_infos + [haskell_link_infos]),
         merged_link_info,
-        create_merged_linkable_graph(ctx.label, ctx.attrs.deps),
+        create_linkable_graph(
+            ctx,
+            deps = ctx.attrs.deps,
+        ),
     ]
 
 def merge_haskell_link_infos(deps: [HaskellLinkInfo.type]) -> HaskellLinkInfo.type:
@@ -635,7 +638,10 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         merged_link_info,
         cxx_merge_cpreprocessors(ctx, pp, inherited_pp_info),
         merge_shared_libraries(ctx.actions, create_shared_libraries(ctx, solibs), shared_library_infos),
-        create_merged_linkable_graph(ctx.label, ctx.attrs.deps),
+        create_linkable_graph(
+            ctx,
+            deps = ctx.attrs.deps,
+        ),
     ]
     if indexing_tsets:
         providers.append(HaskellIndexInfo(info = indexing_tsets))

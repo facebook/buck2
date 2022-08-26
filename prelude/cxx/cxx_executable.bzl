@@ -29,7 +29,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
     "get_linkable_graph_node_map",
 )
 load(
@@ -155,9 +155,9 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     # Create the linkable graph with the binary's deps and any link group deps.
-    linkable_graph = create_merged_linkable_graph(
-        ctx.label,
-        first_order_deps + link_group_deps,
+    linkable_graph = create_linkable_graph(
+        ctx,
+        deps = first_order_deps + link_group_deps,
     )
     linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
 

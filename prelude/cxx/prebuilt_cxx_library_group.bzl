@@ -17,8 +17,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "add_linkable_node",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
+    "create_linkable_node",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -242,15 +243,20 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
     ))
 
     # Create, augment and provide the linkable graph.
-    linkable_graph = create_merged_linkable_graph(ctx.label, deps + exported_deps)
-    add_linkable_node(
-        linkable_graph,
+    linkable_graph = create_linkable_graph(
         ctx,
-        preferred_linkage = preferred_linkage,
-        link_infos = libraries,
-        shared_libs = solibs,
-        exported_deps = exported_deps,
-        deps = deps,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                deps = deps,
+                exported_deps = exported_deps,
+                preferred_linkage = preferred_linkage,
+                link_infos = libraries,
+                shared_libs = solibs,
+            ),
+        ),
+        deps = deps + exported_deps,
     )
     providers.append(linkable_graph)
 

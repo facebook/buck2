@@ -22,7 +22,7 @@ load(
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load(
     "@prelude//cxx:omnibus.bzl",
-    "add_omnibus_roots",
+    "get_roots",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -36,7 +36,8 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "ForceConsiderationOfOmnibusRoots",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
 )
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
@@ -185,19 +186,21 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     ))
 
     # Omnibus providers
-    linkable_graph = create_merged_linkable_graph(ctx.label, flatten(raw_deps))
-
-    # Handle the case where C++ Python extensions depend on other C++ Python
-    # extensions, which should also be treated as roots.
-    add_omnibus_roots(
-        linkable_graph,
-        [
-            dep
-            for dep in flatten(raw_deps)
-            # We only want to handle C++ Python extension deps, but not other native
-            # linkable deps like C++ libraries.
-            if dep[ForceConsiderationOfOmnibusRoots] != None or dep[PythonLibraryInfo] != None
-        ],
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            # Handle the case where C++ Python extensions depend on other C++ Python
+            # extensions, which should also be treated as roots.
+            roots = get_roots([
+                dep
+                for dep in flatten(raw_deps)
+                # We only want to handle C++ Python extension deps, but not other native
+                # linkable deps like C++ libraries.
+                if dep[ForceConsiderationOfOmnibusRoots] != None or dep[PythonLibraryInfo] != None
+            ]),
+        ),
+        deps = flatten(raw_deps),
     )
     providers.append(linkable_graph)
     return providers

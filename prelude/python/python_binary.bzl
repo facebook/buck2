@@ -3,13 +3,14 @@ load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:omnibus.bzl",
-    "add_omnibus_exclusions",
-    "add_omnibus_roots",
     "create_omnibus_libraries",
+    "get_excluded",
+    "get_omnibus_graph",
+    "get_roots",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
 )
 load(
     "@prelude//utils:types.bzl",
@@ -179,19 +180,24 @@ def convert_python_library_to_executable(
     # update the libraries we'll pull into the final binary.
     if _link_strategy(ctx) == NativeLinkStrategy("merged"):
         # Collect omnibus info from deps.
-        linkable_graph = create_merged_linkable_graph(ctx.label, deps)
+        linkable_graph = create_linkable_graph(
+            ctx,
+            deps = deps,
+        )
 
-        # Add in any potential native root targets from our first-order deps.
-        add_omnibus_roots(linkable_graph, deps)
-
-        # Exclude preloaded deps from omnibus linking, to prevent preloading
-        # the monolithic omnibus library.
-        add_omnibus_exclusions(linkable_graph, ctx.attrs.preload_deps)
+        omnibus_graph = get_omnibus_graph(
+            graph = linkable_graph,
+            # Add in any potential native root targets from our first-order deps.
+            roots = get_roots(deps),
+            # Exclude preloaded deps from omnibus linking, to prevent preloading
+            # the monolithic omnibus library.
+            excluded = get_excluded(deps = ctx.attrs.preload_deps),
+        )
 
         # Link omnibus libraries.
         omnibus_libs = create_omnibus_libraries(
             ctx,
-            linkable_graph,
+            omnibus_graph,
             ctx.attrs.linker_flags,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
         )
@@ -213,8 +219,8 @@ def convert_python_library_to_executable(
             omnibus_excluded = ctx.actions.write_json("omnibus/excluded.json", omnibus_libs.excluded)
             extra["omnibus-excluded"] = [DefaultInfo(default_outputs = [omnibus_excluded])]
 
-            linkable_graph = ctx.actions.write_json("linkable_graph.json", linkable_graph)
-            extra["linkable-graph"] = [DefaultInfo(default_outputs = [linkable_graph])]
+            omnibus_graph_json = ctx.actions.write_json("omnibus_graph.json", omnibus_graph)
+            extra["linkable-graph"] = [DefaultInfo(default_outputs = [omnibus_graph_json])]
     else:
         native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
 

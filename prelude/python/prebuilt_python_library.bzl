@@ -5,12 +5,13 @@ load(
 )
 load(
     "@prelude//cxx:omnibus.bzl",
-    "add_omnibus_exclusions",
-    "add_omnibus_roots",
+    "get_excluded",
+    "get_roots",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
 )
 load(":compile.bzl", "compile_manifests")
 load(":manifest.bzl", "create_manifest_for_source_dir")
@@ -44,10 +45,15 @@ def prebuilt_python_library_impl(ctx: "context") -> ["provider"]:
     ))
 
     # Create, augment and provide the linkable graph.
-    linkable_graph = create_merged_linkable_graph(ctx.label, ctx.attrs.deps)
-    add_omnibus_roots(linkable_graph, ctx.attrs.deps)
-    if ctx.attrs.exclude_deps_from_merged_linking:
-        add_omnibus_exclusions(linkable_graph, ctx.attrs.deps)
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            roots = get_roots(ctx.attrs.deps),
+            excluded = get_excluded(deps = ctx.attrs.deps if ctx.attrs.exclude_deps_from_merged_linking else []),
+        ),
+        deps = ctx.attrs.deps,
+    )
     providers.append(linkable_graph)
 
     providers.append(DefaultInfo(default_outputs = [ctx.attrs.binary_src]))

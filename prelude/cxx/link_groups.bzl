@@ -8,7 +8,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableNode",  # @unused Used as a type
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
     "get_link_info",
     "get_linkable_graph_node_map",
     "linkable_deps",
@@ -58,9 +58,9 @@ def get_link_group_info(ctx: "context", deps: ["dependency"]) -> [LinkGroupInfo.
 
     groups = parse_groups_definitions(link_group_map)
     link_group_deps = [mapping.target for group in groups for mapping in group.mappings]
-    linkable_graph = create_merged_linkable_graph(
-        ctx.label,
-        link_group_deps,
+    linkable_graph = create_linkable_graph(
+        ctx,
+        deps = link_group_deps,
     )
     linkable_graph_node_map = get_linkable_graph_node_map(linkable_graph)
     _, link_group_info = get_group_mappings_and_info(group_info_type = LinkGroupInfo, deps = deps, groups = groups, graph_map = linkable_graph_node_map)

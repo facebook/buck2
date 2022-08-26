@@ -69,7 +69,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
 )
 load(
     "@prelude//python:python.bzl",
@@ -642,7 +642,10 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
         merge_ocaml_link_infos(infos),
         merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
         other_outputs_info,
-        create_merged_linkable_graph(ctx.label, _attr_deps(ctx)),
+        create_linkable_graph(
+            ctx,
+            deps = _attr_deps(ctx),
+        ),
     ]
 
 def ocaml_binary_impl(ctx: "context") -> ["provider"]:
@@ -760,7 +763,10 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(default_outputs = [obj]),
         merged_link_info,
-        create_merged_linkable_graph(ctx.label, ctx.attrs.deps),
+        create_linkable_graph(
+            ctx,
+            deps = ctx.attrs.deps,
+        ),
     ]
 
 def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
@@ -826,5 +832,8 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(),
         merge_ocaml_link_infos(ocaml_infos + [OCamlLinkInfo(info = [info])]),
         merge_link_infos(ctx, native_infos),
-        create_merged_linkable_graph(ctx.label, ctx.attrs.deps),
+        create_linkable_graph(
+            ctx,
+            deps = ctx.attrs.deps,
+        ),
     ]

@@ -8,8 +8,8 @@ load("@prelude//cxx:cxx_link_utility.bzl", "shared_libs_symlink_tree_name")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:omnibus.bzl",
-    "add_omnibus_exclusions",
-    "add_omnibus_roots",
+    "get_excluded",
+    "get_roots",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -17,7 +17,8 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "create_merged_linkable_graph",
+    "create_linkable_graph",
+    "create_linkable_graph_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
@@ -287,15 +288,24 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 
     # Source DBs.
-    sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, flatten(raw_deps))]
+    deps = flatten(raw_deps)
+    sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, deps)]
 
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
-    linkable_graph = create_merged_linkable_graph(ctx.label, flatten(raw_deps))
-    add_omnibus_roots(linkable_graph, flatten(raw_deps))
-    if _exclude_deps_from_omnibus(ctx, qualified_srcs):
-        add_omnibus_exclusions(linkable_graph, flatten(raw_deps))
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            # Add in any potential native root targets from our first-order deps.
+            roots = get_roots(deps),
+            # Exclude preloaded deps from omnibus linking, to prevent preloading
+            # the monolithic omnibus library.
+            excluded = get_excluded(deps = (deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else [])),
+        ),
+        deps = deps,
+    )
     providers.append(linkable_graph)
 
     # C++ resources.
