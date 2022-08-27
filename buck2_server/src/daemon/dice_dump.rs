@@ -44,6 +44,7 @@ pub fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
     let path = path.to_path_buf();
     let nodes_path = path.join("nodes.gz");
     let edges_path = path.join("edges.gz");
+    let nodes_currently_running_path = path.join("nodes_currently_running.gz");
 
     std::fs::create_dir_all(path).context("Failed to create directory")?;
 
@@ -59,7 +60,16 @@ pub fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
     ))?;
     let mut edges = GzEncoder::new(BufWriter::new(edges), Compression::default());
 
-    dice.serialize_tsv(&mut nodes, &mut edges)
+    let nodes_currently_running = File::create(&nodes_currently_running_path).context(format!(
+        "Failed to open DICE node currently running dumpfile {:?}",
+        &nodes_currently_running_path
+    ))?;
+    let mut nodes_currently_running = GzEncoder::new(
+        BufWriter::new(nodes_currently_running),
+        Compression::default(),
+    );
+
+    dice.serialize_tsv(&mut nodes, &mut edges, &mut nodes_currently_running)
         .context("Failed to serialize")?;
 
     nodes
@@ -68,6 +78,10 @@ pub fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> anyhow::Result<()> {
     edges
         .try_finish()
         .context(format!("Failed to flush DICE edges to {:?}", &edges_path))?;
+    nodes_currently_running.try_finish().context(format!(
+        "Failed to flush DICE nodes currently running to {:?}",
+        &nodes_currently_running_path
+    ))?;
 
     Ok(())
 }

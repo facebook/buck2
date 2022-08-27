@@ -561,7 +561,7 @@ pub(crate) struct VersionedGraph<K: StorageProperties> {
     /// the node changes. Corresponding to each key is a node storing the values and the history.
     /// VacantGraphEntries can only be present when no other entries are present for the key at
     /// any version.
-    last_n: DashMap<K::Key, BTreeMap<VersionNumber, VersionedGraphNodeInternal<K>>>,
+    pub(crate) last_n: DashMap<K::Key, BTreeMap<VersionNumber, VersionedGraphNodeInternal<K>>>,
     pub(crate) storage_properties: K,
 }
 

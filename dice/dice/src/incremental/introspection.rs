@@ -68,6 +68,13 @@ where
         })
     }
 
+    fn keys_currently_running<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
+        box self.currently_running.iter().map(|e| {
+            let (k, _v) = e.key();
+            AnyKey::new(k.clone())
+        })
+    }
+
     fn nodes<'a>(
         &'a self,
         keys: &'a mut HashMap<AnyKey, KeyID>,

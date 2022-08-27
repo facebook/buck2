@@ -400,8 +400,18 @@ impl Dice {
         std::mem::replace(&mut map, DiceMap::new())
     }
 
-    pub fn serialize_tsv(&self, nodes: impl Write, edges: impl Write) -> anyhow::Result<()> {
-        serialize_graph(&self.to_introspectable(), nodes, edges)
+    pub fn serialize_tsv(
+        &self,
+        nodes: impl Write,
+        edges: impl Write,
+        nodes_currently_running: impl Write,
+    ) -> anyhow::Result<()> {
+        serialize_graph(
+            &self.to_introspectable(),
+            nodes,
+            edges,
+            nodes_currently_running,
+        )
     }
 
     pub fn serialize_serde(&self, out: impl Write) -> anyhow::Result<()> {

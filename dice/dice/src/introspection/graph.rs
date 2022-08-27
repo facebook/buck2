@@ -162,6 +162,7 @@ pub struct SerializedGraphNodesForKey {
 pub trait EngineForIntrospection {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
+    fn keys_currently_running<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn nodes<'a>(
         &'a self,
         keys: &'a mut HashMap<AnyKey, KeyID>,

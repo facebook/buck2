@@ -22,6 +22,7 @@ pub fn serialize_graph(
     graph: &GraphIntrospectable,
     nodes: impl Write,
     mut edges: impl Write,
+    mut nodes_currently_running: impl Write,
 ) -> anyhow::Result<()> {
     let mut reg = NodeRegistry::new();
 
@@ -35,6 +36,17 @@ pub fn serialize_graph(
                     .write_all(format!("{}\t{}\n", k, v).as_bytes())
                     .context("Failed to write edge")?;
             }
+        }
+
+        for k in engine.keys_currently_running() {
+            let k_short_type_name = k.short_type_name();
+            let k_str = k.to_string();
+            let k_n = reg.map(k);
+            writeln!(
+                nodes_currently_running,
+                "{}\t{}\t{}",
+                k_n, k_short_type_name, k_str,
+            )?;
         }
     }
 

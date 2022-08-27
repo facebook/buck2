@@ -15,7 +15,7 @@ use crate::introspection::graph::GraphIntrospectable;
 use crate::Dice;
 
 pub mod graph;
-mod introspect;
+pub(crate) mod introspect;
 
 pub use crate::introspection::introspect::serialize_dense_graph;
 pub use crate::introspection::introspect::serialize_graph;
@@ -90,8 +90,15 @@ mod tests {
 
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
+        let mut nodes_currently_running = Vec::new();
 
-        serialize_graph(&dice.to_introspectable(), &mut nodes, &mut edges).unwrap();
+        serialize_graph(
+            &dice.to_introspectable(),
+            &mut nodes,
+            &mut edges,
+            &mut nodes_currently_running,
+        )
+        .unwrap();
         let nodes = String::from_utf8(nodes)?;
         let edges = String::from_utf8(edges)?;
 
@@ -123,6 +130,8 @@ mod tests {
         expected_edge_list.sort_unstable();
         edge_list.sort_unstable();
         assert_eq!(expected_edge_list, edge_list);
+
+        assert!(nodes_currently_running.is_empty());
 
         Ok(())
     }
