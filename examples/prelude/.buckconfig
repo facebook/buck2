@@ -1,0 +1,7 @@
+[buildfile]
+name=BUILD
+
+[repositories]
+prelude = ./prelude
+platform = ./toolchain
+root = .
