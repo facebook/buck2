@@ -465,7 +465,15 @@ def _requires_private_root(
         return OmnibusPrivateRootProductCause(category = "prefer_stripped_objects")
 
     if extra_ldflags:
-        return OmnibusPrivateRootProductCause(category = "extra_ldflags")
+        # NOTE: For now we are ignoring this. In practice this doesn't seem to
+        # exist in Buck1: it seems to be relied on for the libomnibus.so link,
+        # not the individual libs. In fbcode this is is currently getting set
+        # to provide -fuse-ld, which is already in the linker flags,
+        # build-id=xxhpadded, which is to speed things up (but is a lot faster
+        # if we reuse), -S (which is handled by prefer_stripped_objects), and
+        # --as-needed, which we override above...
+        # return OmnibusPrivateRootProductCause(category = "extra_ldflags")
+        pass
 
     for required_body in candidate.required_body:
         if not (required_body in spec.body and required_body not in spec.roots):
