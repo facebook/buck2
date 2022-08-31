@@ -274,7 +274,7 @@ def _get_native_linkables(
     cpu_filters = ctx.attrs.cpu_filters
     for platform, native_linkables in platform_to_native_linkables.items():
         if cpu_filters and platform not in cpu_filters:
-            return [], {}
+            fail("Platform `{}` is not in the CPU filters `{}`".format(platform, cpu_filters))
 
         abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
         for so_name, native_linkable in native_linkables.items():
