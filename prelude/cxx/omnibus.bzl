@@ -963,9 +963,6 @@ def is_known_omnibus_root(ctx: "context") -> bool.type:
     if ctx.attrs.supports_python_dlopen != None:
         return ctx.attrs.supports_python_dlopen
 
-    if "omnibus=ctypes_root" in ctx.attrs.labels:
-        return True
-
     if ctx.label.raw_target() in env.roots:
         return True
 
