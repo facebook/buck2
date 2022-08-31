@@ -14,6 +14,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::Display;
@@ -26,6 +27,7 @@ use thiserror::Error;
 use crate::artifact_value::ArtifactValue;
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::directory::ActionDirectoryEntry;
+use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::ActionDigest;
@@ -121,21 +123,14 @@ pub enum MaterializationError {
 ///    declared.
 #[async_trait]
 pub trait Materializer: Send + Sync + 'static {
-    /// Declare an artifact at `path` whose files can be materialized by doing
-    /// a local copy.
-    ///
-    /// The dest of each copied artifact in `srcs` must either be equal to
-    /// `path`, or be a subpath of `path`; otherwise, [`Err`] is returned.
-    async fn declare_copy(
+    async fn declare_copy_impl(
         &self,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()>;
 
-    /// Declares a list of artifacts whose files can be materialized by
-    /// downloading from the CAS.
-    async fn declare_cas_many<'a, 'b>(
+    async fn declare_cas_many_impl<'a, 'b>(
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
@@ -227,6 +222,58 @@ pub trait Materializer: Send + Sync + 'static {
     /// Return None if not based on Eden.
     fn eden_buck_out(&self) -> Option<&EdenBuckOut> {
         None
+    }
+}
+
+impl dyn Materializer {
+    /// Declare an artifact at `path` whose files can be materialized by doing
+    /// a local copy.
+    ///
+    /// The dest of each copied artifact in `srcs` must either be equal to
+    /// `path`, or be a subpath of `path`; otherwise, [`Err`] is returned.
+    pub async fn declare_copy(
+        &self,
+        path: ProjectRelativePathBuf,
+        value: ArtifactValue,
+        srcs: Vec<CopiedArtifact>,
+    ) -> anyhow::Result<()> {
+        self.check_declared_external_symlink(&value)?;
+        self.declare_copy_impl(path, value, srcs).await
+    }
+
+    /// Declares a list of artifacts whose files can be materialized by
+    /// downloading from the CAS.
+    pub async fn declare_cas_many<'a, 'b>(
+        &self,
+        info: Arc<CasDownloadInfo>,
+        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    ) -> anyhow::Result<()> {
+        for (_, value) in artifacts.iter() {
+            self.check_declared_external_symlink(value)?;
+        }
+        self.declare_cas_many_impl(info, artifacts).await
+    }
+
+    /// External symlink is a hack used to resolve the symlink to the correct external hack.
+    /// No external symlink should be declared on the materializer with a non-empty remaining
+    /// path. This function runs a check on all declared artifacts and returns `Err` if they
+    /// are external symlinks with an existing value on `remaining_path` and `Ok` otherwise.
+    fn check_declared_external_symlink(&self, value: &ArtifactValue) -> anyhow::Result<()> {
+        match value.entry() {
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
+                match external_symlink.remaining_path() {
+                    Some(_) => {
+                        return Err(anyhow::anyhow!(
+                            "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
+                            external_symlink.dupe().to_path_buf().to_string_lossy()
+                        ));
+                    }
+                    None => {}
+                }
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }
 

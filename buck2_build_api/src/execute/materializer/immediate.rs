@@ -66,7 +66,7 @@ impl ImmediateMaterializer {
 
 #[async_trait]
 impl Materializer for ImmediateMaterializer {
-    async fn declare_copy(
+    async fn declare_copy_impl(
         &self,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
@@ -108,7 +108,7 @@ impl Materializer for ImmediateMaterializer {
             .await
     }
 
-    async fn declare_cas_many<'a, 'b>(
+    async fn declare_cas_many_impl<'a, 'b>(
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,

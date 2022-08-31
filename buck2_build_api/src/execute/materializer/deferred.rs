@@ -340,7 +340,7 @@ enum ArtifactMaterializationMethod {
 
 #[async_trait]
 impl Materializer for DeferredMaterializer {
-    async fn declare_copy(
+    async fn declare_copy_impl(
         &self,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
@@ -376,7 +376,7 @@ impl Materializer for DeferredMaterializer {
         Ok(())
     }
 
-    async fn declare_cas_many<'a, 'b>(
+    async fn declare_cas_many_impl<'a, 'b>(
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,

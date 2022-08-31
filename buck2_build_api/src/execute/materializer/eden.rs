@@ -59,7 +59,7 @@ impl Materializer for EdenMaterializer {
     /// For Eden, copying could be an expensive operation when large amount of
     /// file system materialization is required. Instead, uploading to CAS then
     /// declare on Eden would be faster so not all tree nodes would be actually materialized.
-    async fn declare_copy(
+    async fn declare_copy_impl(
         &self,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
@@ -136,7 +136,7 @@ impl Materializer for EdenMaterializer {
 
     // This method will call Eden's setPathObjectId method, which is to placehold a
     // tree or a blob to a path of an Eden mount.
-    async fn declare_cas_many<'a, 'b>(
+    async fn declare_cas_many_impl<'a, 'b>(
         &self,
         _info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
