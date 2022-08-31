@@ -96,6 +96,7 @@ impl WhatUpCommand {
                 Some(Box::new(io::stdout())),
             )?;
             let mut first_timestamp = None;
+            let mut should_render = true;
             // Ignore any events that are truncated, hence unreadable
             while let Ok(Some(event)) = events.try_next().await {
                 match event {
@@ -118,10 +119,15 @@ impl WhatUpCommand {
                     }
                     StreamValue::Result(result) => {
                         console.handle_command_result(&result).await.unwrap();
+                        should_render = false;
                     }
                 }
             }
-            console.render_console()?;
+            if should_render {
+                console.render_console()?;
+            } else {
+                crate::eprintln!("No open spans to render when log ended")?;
+            }
             anyhow::Ok(())
         })?;
 
