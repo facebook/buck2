@@ -57,6 +57,7 @@ def _impl(ctx):
         cmd.add(outputDir.as_output())
         cmd.add("--filename")
         cmd.add(filename)
+        cmd.add("--use-dotslash")
 
         # TODO: do we need these as well?
         # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
