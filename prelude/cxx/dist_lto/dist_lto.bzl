@@ -6,6 +6,7 @@ load(
 )
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
+    "cxx_is_split_dwarf",
     "cxx_link_cmd",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -110,8 +111,6 @@ def cxx_dist_link(
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
     lto_copy = cxx_toolchain.dist_lto_tools_info.copy
-
-    dwp_generation_enabled = (generate_dwp and cxx_toolchain.split_dwarf_enabled)
 
     BitcodeLinkData = record(
         name = str.type,
@@ -480,10 +479,11 @@ def cxx_dist_link(
             # dwo files unless -gsplit-dwarf is explicitly passed in. In other words, even if
             # 'splitDebugFilename' set in IR 'DICompileUnit', we still need to force clang to tell
             # llc to generate dwo sections.
-            # Note that -gsplit-dwarf will not do anything if the IR is not compiled with
-            # -gsplit-dwarf. I.e. no dwo sections will be generated if IR metadata contains
-            # 'splitDebugInlining: false' in 'DICompileUnit'.
-            if dwp_generation_enabled:
+            #
+            # Local thinlto generates .dwo files by default. For distributed thinlto, however, we
+            # want to keep all dwo debug info in the object file to reduce the number of files to
+            # materialize.
+            if cxx_is_split_dwarf(ctx):
                 opt_cmd.add("-gsplit-dwarf=single")
 
             imports = [index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
@@ -644,9 +644,9 @@ def cxx_dist_link(
     )
 
     final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
-    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_generation_enabled else None
+    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
 
-    if dwp_generation_enabled:
+    if generate_dwp:
         run_dwp_action(
             ctx = ctx,
             obj = final_output,

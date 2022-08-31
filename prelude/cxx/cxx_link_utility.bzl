@@ -182,3 +182,6 @@ def cxx_link_cmd(ctx: "context") -> "cmd_args":
     command = cmd_args(toolchain.linker_info.linker)
     command.add(toolchain.linker_info.linker_flags)
     return command
+
+def cxx_is_split_dwarf(ctx: "context") -> bool.type:
+    return hasattr(ctx.attrs, "split_dwarf") and ctx.attrs.split_dwarf
