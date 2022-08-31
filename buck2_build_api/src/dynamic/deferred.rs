@@ -221,73 +221,39 @@ impl Deferred for DynamicLambda {
             outputs.insert_hashed(k.get_hashed()?, v);
         }
 
-        // TODO(wendyy) - T129144268 Fix this when DynamicLambda API migration is complete
-        let use_only_analysis_ctx = if let Some(v) = lambda.parameters_spec() {
-            v.len() == 1
-        } else {
-            false
-        };
-
         let artifacts = Dict::new(artifacts);
         let outputs = Dict::new(outputs);
 
-        if use_only_analysis_ctx {
-            let ctx = heap.alloc(AnalysisContext::new_dynamic(
-                heap,
-                attributes,
-                match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => Some(
-                        ValueTyped::new(heap.alloc(LabelGen::new(
-                            heap,
-                            ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-                        )))
-                        .unwrap(),
-                    ),
-                    BaseDeferredKey::BxlLabel(_) => None,
-                },
-                registry,
-                artifacts,
-                outputs,
-            ));
+        let ctx = heap.alloc(AnalysisContext::new_dynamic(
+            heap,
+            attributes,
+            match &self.owner {
+                BaseDeferredKey::TargetLabel(target) => Some(
+                    ValueTyped::new(heap.alloc(LabelGen::new(
+                        heap,
+                        ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+                    )))
+                    .unwrap(),
+                ),
+                BaseDeferredKey::BxlLabel(_) => None,
+            },
+            registry,
+            Dict::new(SmallMap::new()),
+            Dict::new(SmallMap::new()),
+        ));
 
-            eval.eval_function(lambda, &[ctx], &[])?;
+        eval.eval_function(
+            lambda,
+            &[ctx, heap.alloc(artifacts), heap.alloc(outputs)],
+            &[],
+        )?;
 
-            let analysis_registry = AnalysisContext::take_state(ctx);
+        let analysis_registry = AnalysisContext::take_state(ctx);
 
-            let (_frozen_env, deferred) = analysis_registry.finalize(&env)(env)?;
-            let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
-        } else {
-            let ctx = heap.alloc(AnalysisContext::new_dynamic(
-                heap,
-                attributes,
-                match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => Some(
-                        ValueTyped::new(heap.alloc(LabelGen::new(
-                            heap,
-                            ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-                        )))
-                        .unwrap(),
-                    ),
-                    BaseDeferredKey::BxlLabel(_) => None,
-                },
-                registry,
-                Dict::new(SmallMap::new()),
-                Dict::new(SmallMap::new()),
-            ));
+        let (_frozen_env, deferred) = analysis_registry.finalize(&env)(env)?;
+        let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
 
-            eval.eval_function(
-                lambda,
-                &[ctx, heap.alloc(artifacts), heap.alloc(outputs)],
-                &[],
-            )?;
-
-            let analysis_registry = AnalysisContext::take_state(ctx);
-
-            let (_frozen_env, deferred) = analysis_registry.finalize(&env)(env)?;
-            let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
-
-            // TODO(ndmitchell): Check we don't use anything not in `inputs`
-        }
+        // TODO(ndmitchell): Check we don't use anything not in `inputs`
 
         let output: anyhow::Result<Vec<_>> = declared_outputs
             .into_iter()
