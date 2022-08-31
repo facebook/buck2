@@ -16,7 +16,7 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.1"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.2"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
