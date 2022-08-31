@@ -23,6 +23,19 @@ LinkableRootInfo = provider(fields = [
     "shared_root",  # SharedOmnibusRoot.type
 ])
 
+# This annotation is added on an AnnotatedLinkableRoot to indicate what
+# dependend resulted in it being discovered as an implicit root. For example,
+# if Python library A depends on C++ library B, then in the
+# AnnotatedLinkableRoot for B, we'll have A as the dependent.
+LinkableRootAnnotation = record(
+    dependent = field(""),
+)
+
+AnnotatedLinkableRoot = record(
+    root = field(LinkableRootInfo.type),
+    annotation = field([LinkableRootAnnotation.type, None], None),
+)
+
 ###############################################################################
 # Linkable Graph collects information on a node in the target graph that
 # contains linkable output. This graph information may then be provided to any
@@ -59,7 +72,7 @@ LinkableGraphNode = record(
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": LinkableRootInfo.type}, {}),
+    roots = field({"label": AnnotatedLinkableRoot.type}, {}),
 
     # Exclusions this node adds to the Omnibus graph
     excluded = field({"label": None}, {}),
@@ -104,7 +117,7 @@ def create_linkable_node(
 def create_linkable_graph_node(
         ctx: "context",
         linkable_node: [LinkableNode.type, None] = None,
-        roots: {"label": LinkableRootInfo.type} = {},
+        roots: {"label": AnnotatedLinkableRoot.type} = {},
         excluded: {"label": None} = {}) -> LinkableGraphNode.type:
     return LinkableGraphNode(
         label = ctx.label,

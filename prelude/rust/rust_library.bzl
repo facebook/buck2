@@ -26,6 +26,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "AnnotatedLinkableRoot",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -497,7 +498,7 @@ def _native_providers(
     roots = {}
 
     if known_omnibus_root:
-        roots[ctx.label] = linkable_root
+        roots[ctx.label] = AnnotatedLinkableRoot(root = linkable_root)
 
     linkable_graph = create_linkable_graph(
         ctx,

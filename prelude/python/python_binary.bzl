@@ -190,7 +190,7 @@ def convert_python_library_to_executable(
         omnibus_graph = get_omnibus_graph(
             graph = linkable_graph,
             # Add in any potential native root targets from our first-order deps.
-            roots = get_roots(deps),
+            roots = get_roots(ctx.label, deps),
             # Exclude preloaded deps from omnibus linking, to prevent preloading
             # the monolithic omnibus library.
             excluded = get_excluded(deps = ctx.attrs.preload_deps),
@@ -206,7 +206,7 @@ def convert_python_library_to_executable(
 
         # Extract re-linked extensions.
         extensions = {
-            dest: (omnibus_libs.roots[label].shared_library, label)
+            dest: (omnibus_libs.roots[label].product.shared_library, label)
             for dest, (_, label) in extensions.items()
         }
         native_libs = omnibus_libs.libraries

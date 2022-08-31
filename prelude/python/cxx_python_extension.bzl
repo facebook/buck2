@@ -36,6 +36,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "AnnotatedLinkableRoot",
     "create_linkable_graph",
     "create_linkable_graph_node",
 )
@@ -190,14 +191,14 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
 
     # Handle the case where C++ Python extensions depend on other C++ Python
     # extensions, which should also be treated as roots.
-    roots = get_roots([
+    roots = get_roots(ctx.label, [
         dep
         for dep in flatten(raw_deps)
         # We only want to handle C++ Python extension deps, but not other native
         # linkable deps like C++ libraries.
         if dep[PythonLibraryInfo] != None
     ])
-    roots[ctx.label] = cxx_library_info.linkable_root
+    roots[ctx.label] = AnnotatedLinkableRoot(root = cxx_library_info.linkable_root)
 
     linkable_graph = create_linkable_graph(
         ctx,

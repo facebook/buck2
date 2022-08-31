@@ -19,8 +19,10 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "AnnotatedLinkableRoot",
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",
+    "LinkableRootAnnotation",
     "LinkableRootInfo",
     "get_deps_for_link",
     "get_link_info",
@@ -51,7 +53,7 @@ OmnibusGraph = record(
     nodes = field({"label": LinkableNode.type}),
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": LinkableRootInfo.type}),
+    roots = field({"label": AnnotatedLinkableRoot.type}),
     # All nodes that should be excluded from libomnibus.
     excluded = field({"label": None}),
 )
@@ -60,7 +62,7 @@ OmnibusGraph = record(
 OmnibusSpec = record(
     body = field({"label": None}, {}),
     excluded = field({"label": None}, {}),
-    roots = field({"label": LinkableRootInfo.type}, {}),
+    roots = field({"label": AnnotatedLinkableRoot.type}, {}),
     exclusion_roots = field(["label"]),
     # All link infos.
     link_infos = field({"label": LinkableNode.type}, {}),
@@ -73,30 +75,48 @@ OmnibusRootProduct = record(
     global_syms = field("artifact"),
 )
 
+AnnotatedOmnibusRootProduct = record(
+    product = field(OmnibusRootProduct.type),
+    annotation = field([LinkableRootAnnotation.type, None]),
+)
+
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
     libraries = field({str.type: LinkedObject.type}, {}),
-    roots = field({"label": OmnibusRootProduct.type}, {}),
+    roots = field({"label": AnnotatedOmnibusRootProduct.type}, {}),
     exclusion_roots = field(["label"]),
     excluded = field(["label"]),
 )
 
-def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": LinkableRootInfo.type}, excluded: {"label": None}) -> OmnibusGraph.type:
+def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": AnnotatedLinkableRoot.type}, excluded: {"label": None}) -> OmnibusGraph.type:
     graph_nodes = graph.nodes.traverse()
     nodes = {}
     for node in filter(None, graph_nodes):
         if node.linkable:
             nodes[node.label] = node.linkable
-        roots.update(node.roots)
+
+        for root, annotated in node.roots.items():
+            # When building ou graph, we prefer un-annotated roots. Annotations
+            # tell us if a root was discovered implicitly, but if was
+            # discovered explicitly (in which case it has no annotation) then
+            # we would rather record that, since the annotation wasn't
+            # necessary.
+            if annotated.annotation:
+                roots.setdefault(root, annotated)
+            else:
+                roots[root] = annotated
         excluded.update(node.excluded)
 
     return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
 
-def get_roots(deps: ["dependency"]) -> {"label": LinkableRootInfo.type}:
+def get_roots(label: "label", deps: ["dependency"]) -> {"label": AnnotatedLinkableRoot.type}:
     roots = {}
     for dep in deps:
         if dep[LinkableRootInfo]:
-            roots[dep.label] = dep[LinkableRootInfo]
+            roots[dep.label] = AnnotatedLinkableRoot(
+                root = dep[LinkableRootInfo],
+                annotation = LinkableRootAnnotation(dependent = label),
+            )
     return roots
 
 def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
@@ -170,7 +190,7 @@ def all_deps(
 def _create_root(
         ctx: "context",
         spec: OmnibusSpec.type,
-        root_products,
+        annotated_root_products,
         root: LinkableRootInfo.type,
         label: "label",
         link_deps: ["label"],
@@ -226,10 +246,10 @@ def _create_root(
 
         # If this is another root.
         if dep in spec.roots:
-            other_root = root_products[dep]
+            other_root = annotated_root_products[dep]
 
             # TODO(cjhopman): This should be passing structured linkables
-            inputs.append(LinkInfo(pre_flags = [cmd_args(other_root.shared_library.output)]))
+            inputs.append(LinkInfo(pre_flags = [cmd_args(other_root.product.shared_library.output)]))
             continue
 
         # If this node is in omnibus, just add that to the link line.
@@ -385,7 +405,7 @@ echo "};" >> "$2"
 
 def _create_global_symbols_version_script(
         ctx: "context",
-        roots: [OmnibusRootProduct.type],
+        roots: [AnnotatedOmnibusRootProduct.type],
         excluded: ["artifact"],
         link_args: [["artifact", "resolved_macro", "cmd_args", str.type]]) -> "artifact":
     """
@@ -397,7 +417,7 @@ def _create_global_symbols_version_script(
     # using a single rule to process all roots adds overhead to the critical
     # path of incremental flows (e.g. that only update a single root).
     global_symbols_files = [
-        root.global_syms
+        root.product.global_syms
         for root in roots
     ]
 
@@ -455,15 +475,15 @@ def _is_shared_only(info: LinkableNode.type) -> bool.type:
 def _create_omnibus(
         ctx: "context",
         spec: OmnibusSpec.type,
-        root_products,
+        annotated_root_products,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool.type = False) -> LinkedObject.type:
     inputs = []
 
     # Undefined symbols roots...
     non_body_root_undefined_syms = [
-        root.undefined_syms
-        for label, root in root_products.items()
+        root.product.undefined_syms
+        for label, root in annotated_root_products.items()
         if label not in spec.body
     ]
     if non_body_root_undefined_syms:
@@ -481,7 +501,7 @@ def _create_omnibus(
     for label in spec.body:
         # If this body node is a root, add the it's output to the link.
         if label in spec.roots:
-            root = root_products[label]
+            root = annotated_root_products[label].product
 
             # TODO(cjhopman): This should be passing structured linkables
             inputs.append(LinkInfo(pre_flags = [cmd_args(root.shared_library.output)]))
@@ -533,7 +553,7 @@ def _create_omnibus(
         global_sym_vers = _create_global_symbols_version_script(
             ctx,
             # Extract symols from roots...
-            root_products.values(),
+            annotated_root_products.values(),
             # ... and the shared libs from excluded nodes.
             [
                 shared_lib.output
@@ -597,7 +617,7 @@ def _build_omnibus_spec(
     # Find the deps of the root nodes.  These form the roots of the nodes
     # included in the omnibus link.
     first_order_root_deps = []
-    for label in _link_deps(graph.nodes, flatten([r.deps for r in roots.values()])):
+    for label in _link_deps(graph.nodes, flatten([r.root.deps for r in roots.values()])):
         # We only consider deps which aren't *only* statically linked.
         if _is_static_only(graph.nodes[label]):
             continue
@@ -653,7 +673,7 @@ def _implicit_exclusion_roots(env: OmnibusEnvironment.type, graph: OmnibusGraph.
     ]
 
 def _ordered_roots(
-        spec: OmnibusSpec.type) -> [("label", LinkableRootInfo.type, ["label"])]:
+        spec: OmnibusSpec.type) -> [("label", AnnotatedLinkableRoot.type, ["label"])]:
     """
     Return information needed to link the roots nodes in topo-sorted order.
     """
@@ -661,7 +681,7 @@ def _ordered_roots(
     # Calculate all deps each root node needs to link against.
     link_deps = {}
     for label, root in spec.roots.items():
-        link_deps[label] = _link_deps(spec.link_infos, root.deps)
+        link_deps[label] = _link_deps(spec.link_infos, root.root.deps)
 
     # Used the link deps to create the graph of root nodes.
     root_graph = {
@@ -694,21 +714,24 @@ def create_omnibus_libraries(
     root_products = {}
 
     # Link all root nodes against the dummy libomnibus lib.
-    for label, root, link_deps in _ordered_roots(spec):
+    for label, annotated_root, link_deps in _ordered_roots(spec):
         product = _create_root(
             ctx,
             spec,
             root_products,
-            root,
+            annotated_root.root,
             label,
             link_deps,
             dummy_omnibus,
             extra_ldflags,
             prefer_stripped_objects,
         )
-        if root.name != None:
-            libraries[root.name] = product.shared_library
-        root_products[label] = product
+        if annotated_root.root.name != None:
+            libraries[annotated_root.root.name] = product.shared_library
+        root_products[label] = AnnotatedOmnibusRootProduct(
+            product = product,
+            annotation = annotated_root.annotation,
+        )
 
     # If we have body nodes, then link them into the monolithic libomnibus.so.
     if spec.body:

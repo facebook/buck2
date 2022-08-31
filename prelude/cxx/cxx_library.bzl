@@ -44,6 +44,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "AnnotatedLinkableRoot",
     "LinkableRootInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -455,7 +456,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_providers.linkable_graph:
         roots = {}
         if linkable_root != None and impl_params.is_omnibus_root:
-            roots[ctx.label] = linkable_root
+            roots[ctx.label] = AnnotatedLinkableRoot(root = linkable_root)
 
         merged_linkable_graph = create_linkable_graph(
             ctx,
