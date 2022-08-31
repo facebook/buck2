@@ -30,8 +30,9 @@ def _get_fbcode_select_map(prefix):
     """
     Return a map to use to select fbcode C++ based toolchain definitions.
     """
+    supports_aarch64 = prefix != "haskell"
     prefix = "fbcode//buck2/platform:{}-".format(prefix)
-    return {
+    normal = {
         # TODO: Ideally we don't need the `DEFAULT` clause, but `.buckconfig`s
         # set the coarser fbcode platform to work with v1, which leaks into the
         # few rules which don't set a more granular default.
@@ -45,11 +46,6 @@ def _get_fbcode_select_map(prefix):
         "ovr_config//toolchain/fb:platform009-clang12-nosan": prefix + "platform009-clang-12-nosan",
         "ovr_config//toolchain/fb:platform009-clang12-split-dwarf": prefix + "platform009-clang-12-split-dwarf",
         "ovr_config//toolchain/fb:platform009-gcc": prefix + "platform009-gcc",
-        "ovr_config//toolchain/fb:platform010-aarch64-clang": prefix + "platform010-aarch64-clang",
-        "ovr_config//toolchain/fb:platform010-aarch64-clang-nosan": prefix + "platform010-aarch64-clang-nosan",
-        "ovr_config//toolchain/fb:platform010-aarch64-clang-nosan-split-dwarf": prefix + "platform010-aarch64-clang-nosan-split-dwarf",
-        "ovr_config//toolchain/fb:platform010-aarch64-clang-split-dwarf": prefix + "platform010-aarch64-clang-split-dwarf",
-        "ovr_config//toolchain/fb:platform010-aarch64-gcc": prefix + "platform010-aarch64-gcc",
         "ovr_config//toolchain/fb:platform010-clang": prefix + "platform010-clang",
         "ovr_config//toolchain/fb:platform010-clang-nosan": prefix + "platform010-clang-nosan",
         "ovr_config//toolchain/fb:platform010-clang-nosan-split-dwarf": prefix + "platform010-clang-nosan-split-dwarf",
@@ -61,6 +57,14 @@ def _get_fbcode_select_map(prefix):
         "ovr_config//toolchain/fb:platform010-compat-gcc": prefix + "platform010-compat-gcc",
         "ovr_config//toolchain/fb:platform010-gcc": prefix + "platform010-gcc",
     }
+    aarch64 = {} if not supports_aarch64 else {
+        "ovr_config//toolchain/fb:platform010-aarch64-clang": prefix + "platform010-aarch64-clang",
+        "ovr_config//toolchain/fb:platform010-aarch64-clang-nosan": prefix + "platform010-aarch64-clang-nosan",
+        "ovr_config//toolchain/fb:platform010-aarch64-clang-nosan-split-dwarf": prefix + "platform010-aarch64-clang-nosan-split-dwarf",
+        "ovr_config//toolchain/fb:platform010-aarch64-clang-split-dwarf": prefix + "platform010-aarch64-clang-split-dwarf",
+        "ovr_config//toolchain/fb:platform010-aarch64-gcc": prefix + "platform010-aarch64-gcc",
+    }
+    return _merge_dictionaries([normal, aarch64])
 
 def _get_android_cxx_select_map():
     return {
