@@ -8,6 +8,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
@@ -19,16 +20,19 @@ use gazebo::prelude::*;
 pub struct SnapshotCollector {
     re_client_manager: Arc<ReConnectionManager>,
     blocking_executor: Arc<dyn BlockingExecutor>,
+    daemon_start_time: Instant,
 }
 
 impl SnapshotCollector {
     pub fn new(
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
+        daemon_start_time: Instant,
     ) -> SnapshotCollector {
         SnapshotCollector {
             re_client_manager,
             blocking_executor,
+            daemon_start_time,
         }
     }
 
@@ -51,6 +55,7 @@ impl SnapshotCollector {
 
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size = self.blocking_executor.queue_size() as u64;
+        snapshot.daemon_uptime_s = self.daemon_start_time.elapsed().as_secs();
     }
 
     fn add_re_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

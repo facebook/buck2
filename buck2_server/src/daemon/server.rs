@@ -599,6 +599,7 @@ impl DaemonApi for BuckdServer {
                     snapshot::SnapshotCollector::new(
                         data.re_client_manager.dupe(),
                         data.blocking_executor.dupe(),
+                        data.start_time,
                     )
                     .create_snapshot(),
                 )

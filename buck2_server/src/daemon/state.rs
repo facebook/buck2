@@ -12,6 +12,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Context;
 use buck2_build_api::execute::commands::re::client::RemoteExecutionStaticMetadata;
@@ -103,6 +104,8 @@ pub struct DaemonStateData {
 
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
+
+    pub start_time: Instant,
 }
 
 impl DaemonStateData {
@@ -302,6 +305,7 @@ impl DaemonState {
             forkserver,
             event_logging_data,
             hash_all_commands,
+            start_time: std::time::Instant::now(),
         }))
     }
 
@@ -460,6 +464,7 @@ impl DaemonState {
             forkserver: data.forkserver.dupe(),
             hash_all_commands: data.hash_all_commands,
             _drop_guard: drop_guard,
+            daemon_start_time: data.start_time,
         })
     }
 

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -125,6 +126,8 @@ pub struct BaseServerCommandContext {
     pub file_watcher: Arc<dyn FileWatcher>,
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
+    /// Start time to track daemon uptime
+    pub daemon_start_time: Instant,
 }
 
 impl BaseServerCommandContext {

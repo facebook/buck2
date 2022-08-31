@@ -33,6 +33,7 @@ impl HeartbeatGuard {
         let collector = snapshot::SnapshotCollector::new(
             ctx.re_client_manager.dupe(),
             ctx.blocking_executor.dupe(),
+            ctx.daemon_start_time,
         );
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
