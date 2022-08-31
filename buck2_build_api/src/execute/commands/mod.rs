@@ -21,7 +21,6 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::category::Category;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
@@ -32,7 +31,6 @@ use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::directory::insert_entry;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -40,8 +38,8 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::claim::ClaimedRequest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::path::buck_out_path::BuckOutPath;
-use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
 use buck2_node::execute::config::PathSeparatorKind;
 use buck2_node::execute::config::RemoteExecutorUseCase;
@@ -900,36 +898,4 @@ pub trait PreparedCommandExecutor: Send + Sync {
     fn re_use_case(&self) -> RemoteExecutorUseCase;
 
     fn name(&self) -> ExecutorName;
-}
-
-/// Indicates why we are executing a given command.
-#[derive(Copy, Clone, Dupe, Debug)]
-pub struct CommandExecutionTarget<'a> {
-    pub owner: &'a BaseDeferredKey,
-    pub category: &'a Category,
-    pub identifier: Option<&'a str>,
-}
-
-impl<'a> CommandExecutionTarget<'a> {
-    pub fn re_action_key(&self) -> String {
-        self.to_string()
-    }
-
-    pub fn re_affinity_key(&self) -> String {
-        self.owner.to_string()
-    }
-
-    pub fn scratch_dir(&self) -> BuckOutScratchPath {
-        BuckOutScratchPath::new(self.owner.dupe(), self.category, self.identifier).unwrap()
-    }
-}
-
-impl<'a> Display for CommandExecutionTarget<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.owner, self.category)?;
-        if let Some(id) = self.identifier {
-            write!(f, " {}", id)?;
-        }
-        Ok(())
-    }
 }

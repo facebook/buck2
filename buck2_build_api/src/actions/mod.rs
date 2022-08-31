@@ -58,6 +58,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -91,7 +92,6 @@ use crate::deferred::types::ReservedDeferredData;
 use crate::events::proto::ToProtoMessage;
 use crate::execute::commands::CommandExecutionOutput;
 use crate::execute::commands::CommandExecutionRequest;
-use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionOutputs;
 

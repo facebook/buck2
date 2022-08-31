@@ -27,6 +27,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
+use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -62,7 +63,6 @@ use crate::execute::commands::CommandExecutionReport;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionStatus;
-use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::commands::CommandExecutor;
 
 /// This is the result of the action as exposed to other things in the dice computation.
