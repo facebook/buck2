@@ -268,6 +268,53 @@ if fbcode_linux_only():
             "python.emit_omnibus_metadata=true",
         )
 
+    @buck_test(inplace=True)
+    @pytest.mark.parametrize(
+        "tool", ["analyze_sharing", "find_implicit_roots", "find_exclusions"]
+    )
+    async def test_omnibus_tool(buck: Buck, tool: str) -> None:
+        def _check_analyze_sharing(res):
+            assert re.search(r"Reused:.*1", res.stdout)
+
+        def _check_find_implicit_roots(res):
+            out = json.loads(res.stdout)
+            assert len(out) == 1
+            (k, v) = list(out.items())[0]
+            assert "explicit_roots:cpp-lib1" in k
+            assert "explicit_roots:lib" in v
+
+        def _check_find_exclusions(res):
+            pass
+
+        (args, check) = {
+            "analyze_sharing": (
+                [
+                    "--target",
+                    "fbcode//buck2/tests/targets/rules/python/omnibus/root_sharing:bin",
+                ],
+                _check_analyze_sharing,
+            ),
+            "find_implicit_roots": (
+                [
+                    "--targets",
+                    "fbcode//buck2/tests/targets/rules/python/omnibus/explicit_roots:bin",
+                ],
+                _check_find_implicit_roots,
+            ),
+            "find_exclusions": ([], _check_find_exclusions),
+        }[tool]
+
+        res = await buck.bxl(
+            "-c",
+            "python.emit_omnibus_metadata=true",
+            "@fbcode//mode/opt",
+            f"fbcode//buck2/omnibus_tools/{tool}.bxl:{tool}",
+            "--",
+            *args,
+        )
+
+        check(res)
+
 
 if mac_only():
 
