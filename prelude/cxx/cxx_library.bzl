@@ -44,7 +44,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "NativeLinkTargetInfo",
+    "LinkableRootInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -120,7 +120,7 @@ load(
 )
 load(
     ":omnibus.bzl",
-    "create_native_link_target",
+    "create_linkable_root",
 )
 load(":platform.bzl", "cxx_by_platform")
 load(
@@ -194,8 +194,8 @@ _CxxLibraryParameterizedOutput = record(
     # CxxCompilationDbInfo provider, returned separately as we cannot check
     # provider type from providers above
     cxx_compilationdb_info = field([CxxCompilationDbInfo.type, None], None),
-    # NativeLinkTargetInfo provider, same as above.
-    native_link_target = field([NativeLinkTargetInfo.type, None], None),
+    # LinkableRootInfo provider, same as above.
+    linkable_root = field([LinkableRootInfo.type, None], None),
 )
 
 def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
@@ -418,14 +418,14 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         ))
 
     # Omnibus root provider.
-    native_link_target = None
+    linkable_root = None
     if impl_params.generate_providers.omnibus_root:
         if impl_params.use_soname:
             soname = _soname(ctx)
         else:
             soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
-        native_link_target = create_native_link_target(
+        linkable_root = create_linkable_root(
             name = soname,
             link_infos = LinkInfos(
                 default = LinkInfo(
@@ -449,13 +449,13 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             ),
             deps = non_exported_deps + exported_deps,
         )
-        providers.append(native_link_target)
+        providers.append(linkable_root)
 
     # Augment and provide the linkable graph.
     if impl_params.generate_providers.linkable_graph:
         roots = {}
-        if native_link_target != None and impl_params.is_omnibus_root:
-            roots[ctx.label] = native_link_target
+        if linkable_root != None and impl_params.is_omnibus_root:
+            roots[ctx.label] = linkable_root
 
         merged_linkable_graph = create_linkable_graph(
             ctx,
@@ -548,7 +548,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         providers = providers,
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
-        native_link_target = native_link_target,
+        linkable_root = linkable_root,
     )
 
 def get_default_cxx_library_product_name(ctx) -> str.type:

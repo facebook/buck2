@@ -21,7 +21,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",
-    "NativeLinkTargetInfo",
+    "LinkableRootInfo",
     "get_deps_for_link",
     "get_link_info",
     "linkable_deps",
@@ -51,7 +51,7 @@ OmnibusGraph = record(
     nodes = field({"label": LinkableNode.type}),
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": NativeLinkTargetInfo.type}),
+    roots = field({"label": LinkableRootInfo.type}),
     # All nodes that should be excluded from libomnibus.
     excluded = field({"label": None}),
 )
@@ -60,7 +60,7 @@ OmnibusGraph = record(
 OmnibusSpec = record(
     body = field({"label": None}, {}),
     excluded = field({"label": None}, {}),
-    roots = field({"label": NativeLinkTargetInfo.type}, {}),
+    roots = field({"label": LinkableRootInfo.type}, {}),
     exclusion_roots = field(["label"]),
     # All link infos.
     link_infos = field({"label": LinkableNode.type}, {}),
@@ -81,7 +81,7 @@ OmnibusSharedLibraries = record(
     excluded = field(["label"]),
 )
 
-def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": NativeLinkTargetInfo.type}, excluded: {"label": None}) -> OmnibusGraph.type:
+def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": LinkableRootInfo.type}, excluded: {"label": None}) -> OmnibusGraph.type:
     graph_nodes = graph.nodes.traverse()
     nodes = {}
     for node in filter(None, graph_nodes):
@@ -92,11 +92,11 @@ def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": NativeLinkTarg
 
     return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
 
-def get_roots(deps: ["dependency"]) -> {"label": NativeLinkTargetInfo.type}:
+def get_roots(deps: ["dependency"]) -> {"label": LinkableRootInfo.type}:
     roots = {}
     for dep in deps:
-        if dep[NativeLinkTargetInfo]:
-            roots[dep.label] = dep[NativeLinkTargetInfo]
+        if dep[LinkableRootInfo]:
+            roots[dep.label] = dep[LinkableRootInfo]
     return roots
 
 def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
@@ -107,14 +107,14 @@ def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
             excluded_nodes[dep_info.label] = None
     return excluded_nodes
 
-def create_native_link_target(
+def create_linkable_root(
         link_infos: LinkInfos.type,
         name: [str.type, None],
-        deps: ["dependency"]) -> NativeLinkTargetInfo.type:
+        deps: ["dependency"]) -> LinkableRootInfo.type:
     # Only include dependencies that are linkable.
     deps = linkable_deps(deps)
 
-    return NativeLinkTargetInfo(
+    return LinkableRootInfo(
         name = name,
         link_infos = link_infos,
         deps = deps,
@@ -171,7 +171,7 @@ def _create_root(
         ctx: "context",
         spec: OmnibusSpec.type,
         root_products,
-        root: NativeLinkTargetInfo.type,
+        root: LinkableRootInfo.type,
         label: "label",
         link_deps: ["label"],
         omnibus: "artifact",
@@ -653,7 +653,7 @@ def _implicit_exclusion_roots(env: OmnibusEnvironment.type, graph: OmnibusGraph.
     ]
 
 def _ordered_roots(
-        spec: OmnibusSpec.type) -> [("label", NativeLinkTargetInfo.type, ["label"])]:
+        spec: OmnibusSpec.type) -> [("label", LinkableRootInfo.type, ["label"])]:
     """
     Return information needed to link the roots nodes in topo-sorted order.
     """

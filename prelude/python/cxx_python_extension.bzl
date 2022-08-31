@@ -197,7 +197,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         # linkable deps like C++ libraries.
         if dep[PythonLibraryInfo] != None
     ])
-    roots[ctx.label] = cxx_library_info.native_link_target
+    roots[ctx.label] = cxx_library_info.linkable_root
 
     linkable_graph = create_linkable_graph(
         ctx,

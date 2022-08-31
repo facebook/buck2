@@ -70,7 +70,7 @@ load(
 )
 load(
     ":omnibus.bzl",
-    "create_native_link_target",
+    "create_linkable_root",
     "is_known_omnibus_root",
 )
 load(":platform.bzl", "cxx_by_platform")
@@ -384,10 +384,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
     # Omnibus root provider.
     known_omnibus_root = is_known_omnibus_root(ctx)
-    native_link_target = None
+    linkable_root = None
     if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
-        native_link_target = create_native_link_target(
+        linkable_root = create_linkable_root(
             name = soname,
             link_infos = LinkInfos(default = LinkInfo(
                 name = soname,
@@ -403,12 +403,12 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             )),
             deps = first_order_deps,
         )
-        providers.append(native_link_target)
+        providers.append(linkable_root)
 
     roots = {}
 
-    if native_link_target != None and known_omnibus_root:
-        roots[ctx.label] = native_link_target
+    if linkable_root != None and known_omnibus_root:
+        roots[ctx.label] = linkable_root
 
     linkable_graph = create_linkable_graph(
         ctx,

@@ -7,7 +7,7 @@ load(
 )
 load(
     "@prelude//cxx:omnibus.bzl",
-    "create_native_link_target",
+    "create_linkable_root",
     "is_known_omnibus_root",
 )
 load(
@@ -483,7 +483,7 @@ def _native_providers(
     # Omnibus root provider.
     known_omnibus_root = is_known_omnibus_root(ctx)
 
-    native_link_target = create_native_link_target(
+    linkable_root = create_linkable_root(
         name = get_default_shared_library_name(linker_type, ctx.label),
         link_infos = LinkInfos(
             default = LinkInfo(
@@ -492,12 +492,12 @@ def _native_providers(
         ),
         deps = inherited_non_rust_link_deps,
     )
-    providers.append(native_link_target)
+    providers.append(linkable_root)
 
     roots = {}
 
     if known_omnibus_root:
-        roots[ctx.label] = native_link_target
+        roots[ctx.label] = linkable_root
 
     linkable_graph = create_linkable_graph(
         ctx,

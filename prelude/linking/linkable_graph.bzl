@@ -16,7 +16,7 @@ load(
 # A provider with information used to link a rule into a shared library.
 # Potential omnibus roots must provide this so that omnibus can link them
 # here, in the context of the top-level packaging rule.
-NativeLinkTargetInfo = provider(fields = [
+LinkableRootInfo = provider(fields = [
     "link_infos",  # LinkInfos.type
     "name",  # [str.type, None]
     "deps",  # ["label"]
@@ -59,7 +59,7 @@ LinkableGraphNode = record(
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": NativeLinkTargetInfo.type}, {}),
+    roots = field({"label": LinkableRootInfo.type}, {}),
 
     # Exclusions this node adds to the Omnibus graph
     excluded = field({"label": None}, {}),
@@ -104,7 +104,7 @@ def create_linkable_node(
 def create_linkable_graph_node(
         ctx: "context",
         linkable_node: [LinkableNode.type, None] = None,
-        roots: {"label": NativeLinkTargetInfo.type} = {},
+        roots: {"label": LinkableRootInfo.type} = {},
         excluded: {"label": None} = {}) -> LinkableGraphNode.type:
     return LinkableGraphNode(
         label = ctx.label,
