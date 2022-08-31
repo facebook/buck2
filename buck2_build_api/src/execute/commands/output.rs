@@ -19,7 +19,6 @@ use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 pub struct StdStreamPair<T> {
     pub stdout: T,
     pub stderr: T,
-    _private: (),
 }
 
 #[derive(Debug, From, Clone)]
@@ -44,7 +43,6 @@ impl CommandStdStreams {
             Self::Local { stdout, stderr } => StdStreamPair {
                 stdout: String::from_utf8_lossy(stdout).into_owned(),
                 stderr: String::from_utf8_lossy(stderr).into_owned(),
-                _private: (),
             },
             Self::Remote(remote) => {
                 let (stdout, stderr) = future::join(
@@ -52,16 +50,11 @@ impl CommandStdStreams {
                     remote.stderr.to_lossy(&remote.client, remote.use_case),
                 )
                 .await;
-                StdStreamPair {
-                    stdout,
-                    stderr,
-                    _private: (),
-                }
+                StdStreamPair { stdout, stderr }
             }
             Self::Empty => StdStreamPair {
                 stdout: String::new(),
                 stderr: String::new(),
-                _private: (),
             },
         }
     }
@@ -84,27 +77,18 @@ impl CommandStdStreams {
     /// fetch it.
     pub async fn into_bytes(self) -> anyhow::Result<StdStreamPair<Vec<u8>>> {
         match self {
-            Self::Local { stdout, stderr } => Ok(StdStreamPair {
-                stdout,
-                stderr,
-                _private: (),
-            }),
+            Self::Local { stdout, stderr } => Ok(StdStreamPair { stdout, stderr }),
             Self::Remote(remote) => {
                 let (stdout, stderr) = future::try_join(
                     remote.stdout.into_bytes(&remote.client, remote.use_case),
                     remote.stderr.into_bytes(&remote.client, remote.use_case),
                 )
                 .await?;
-                Ok(StdStreamPair {
-                    stdout,
-                    stderr,
-                    _private: (),
-                })
+                Ok(StdStreamPair { stdout, stderr })
             }
             Self::Empty => Ok(StdStreamPair {
                 stdout: Vec::new(),
                 stderr: Vec::new(),
-                _private: (),
             }),
         }
     }
@@ -122,11 +106,7 @@ impl CommandStdStreams {
                 )
                 .await?;
 
-                Ok(StdStreamPair {
-                    stdout,
-                    stderr,
-                    _private: (),
-                })
+                Ok(StdStreamPair { stdout, stderr })
             }
             Self::Remote(remote) => {
                 // TODO (torozco): This assumes that the existing remote outputs we have have the
@@ -143,13 +123,11 @@ impl CommandStdStreams {
                 Ok(StdStreamPair {
                     stdout: remote.stdout,
                     stderr: remote.stderr,
-                    _private: (),
                 })
             }
             Self::Empty => Ok(StdStreamPair {
                 stdout: ReStdStream::None,
                 stderr: ReStdStream::None,
-                _private: (),
             }),
         }
     }
