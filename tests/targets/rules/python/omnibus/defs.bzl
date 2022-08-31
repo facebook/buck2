@@ -9,7 +9,8 @@ def check_omnibus(
         check_no_deps = [],
         check_defined = [],
         check_not_defined = [],
-        check_undefined = []):
+        check_undefined = [],
+        check_symlink = []):
     ext = "dylib" if native.host_info().os.is_macos else "so"
     buck_genrule(
         name = name,
@@ -24,6 +25,7 @@ def check_omnibus(
                 ["--check-defined={}:{}".format(lib.format(ext = ext), s) for lib, s in check_defined] +
                 ["--check-not-defined={}:{}".format(lib.format(ext = ext), s) for lib, s in check_not_defined] +
                 ["--check-undefined={}:{}".format(lib.format(ext = ext), s) for lib, s in check_undefined] +
+                ["--check-symlink={}:{}".format(lib.format(ext = ext), s) for lib, s in check_symlink] +
                 ["$(location {})".format(binary)],
             ),
             "touch $OUT",

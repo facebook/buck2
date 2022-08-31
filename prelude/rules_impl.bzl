@@ -307,6 +307,7 @@ extra_attributes = struct(
     cxx_library = {
         "allow_huge_dwp": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "force_emit_omnibus_shared_root": attrs.bool(default = False),
         "link_group_map": link_group_map_attr(),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),

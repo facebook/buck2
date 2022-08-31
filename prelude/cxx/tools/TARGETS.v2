@@ -22,5 +22,6 @@ omnibus_environment(
     roots = [
     ],
     enable_explicit_roots = read_config("buck2", "enable_omnibus_explicit_roots", "false") in ["true", "True"],
+    prefer_stripped_native_objects = True,
     visibility = ["PUBLIC"],
 )

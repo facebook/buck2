@@ -123,4 +123,7 @@ CxxRuleConstructorParams = record(
     generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
     # Force this library to be a Python Omnibus root.
     is_omnibus_root = field(bool.type, False),
+    # Emit an Omnibus shared root for this node even if it's not an Omnibus
+    # root. This only makes sense to use in tests.
+    force_emit_omnibus_shared_root = field(bool.type, False),
 )

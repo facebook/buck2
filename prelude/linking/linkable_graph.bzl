@@ -20,7 +20,8 @@ LinkableRootInfo = provider(fields = [
     "link_infos",  # LinkInfos.type
     "name",  # [str.type, None]
     "deps",  # ["label"]
-    "shared_root",  # SharedOmnibusRoot.type
+    "shared_root",  # SharedOmnibusRoot.type, either this or no_shared_root_reason is set.
+    "no_shared_root_reason",  # OmnibusPrivateRootProductCause.type
 ])
 
 # This annotation is added on an AnnotatedLinkableRoot to indicate what

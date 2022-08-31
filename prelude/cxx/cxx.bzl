@@ -140,6 +140,7 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
         srcs = get_srcs_with_flags(ctx),
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         is_omnibus_root = is_known_omnibus_root(ctx),
+        force_emit_omnibus_shared_root = ctx.attrs.force_emit_omnibus_shared_root,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -389,6 +390,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
+            ctx,
             name = soname,
             link_infos = LinkInfos(default = LinkInfo(
                 name = soname,
@@ -403,6 +405,8 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                 post_flags = cxx_attr_exported_post_linker_flags(ctx),
             )),
             deps = first_order_deps,
+            graph = deps_linkable_graph,
+            create_shared_root = known_omnibus_root,
         )
         providers.append(linkable_root)
 

@@ -411,13 +411,6 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_sub_targets.headers:
         sub_targets["headers"] = [propagated_preprocessor]
 
-    if impl_params.generate_providers.default:
-        providers.append(DefaultInfo(
-            default_outputs = [default_output.default] if default_output != None else [],
-            other_outputs = default_output.other if default_output != None else [],
-            sub_targets = sub_targets,
-        ))
-
     # Omnibus root provider.
     linkable_root = None
     if impl_params.generate_providers.omnibus_root:
@@ -427,6 +420,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
         linkable_root = create_linkable_root(
+            ctx,
             name = soname,
             link_infos = LinkInfos(
                 default = LinkInfo(
@@ -449,8 +443,15 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 ),
             ),
             deps = non_exported_deps + exported_deps,
+            graph = deps_linkable_graph,
+            create_shared_root = impl_params.is_omnibus_root or impl_params.force_emit_omnibus_shared_root,
         )
         providers.append(linkable_root)
+
+        if linkable_root.shared_root:
+            sub_targets["omnibus-shared-root"] = [DefaultInfo(
+                default_outputs = [linkable_root.shared_root.product.shared_library.output],
+            )]
 
     # Augment and provide the linkable graph.
     if impl_params.generate_providers.linkable_graph:
@@ -541,6 +542,13 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     # TODO(T107163344) this shouldn't be in cxx_library itself, use overlays to remove it.
     if impl_params.generate_providers.android_packageable_info:
         providers.append(merge_android_packageable_info(ctx.label, ctx.actions, non_exported_deps + exported_deps))
+
+    if impl_params.generate_providers.default:
+        providers.append(DefaultInfo(
+            default_outputs = [default_output.default] if default_output != None else [],
+            other_outputs = default_output.other if default_output != None else [],
+            sub_targets = sub_targets,
+        ))
 
     return _CxxLibraryParameterizedOutput(
         default_output = default_output,

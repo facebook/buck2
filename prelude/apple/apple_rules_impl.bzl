@@ -46,6 +46,7 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
@@ -58,6 +59,7 @@ extra_attributes = {
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     "apple_resource": {
         "codesign_on_copy": attrs.bool(default = False),
@@ -88,6 +90,7 @@ extra_attributes = {
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attrs.bool(),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
@@ -125,6 +128,7 @@ extra_attributes = {
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     "scene_kit_assets": {
         "path": attrs.source(allow_directory = True),

@@ -485,6 +485,7 @@ def _native_providers(
     known_omnibus_root = is_known_omnibus_root(ctx)
 
     linkable_root = create_linkable_root(
+        ctx,
         name = get_default_shared_library_name(linker_type, ctx.label),
         link_infos = LinkInfos(
             default = LinkInfo(
@@ -492,6 +493,8 @@ def _native_providers(
             ),
         ),
         deps = inherited_non_rust_link_deps,
+        graph = deps_linkable_graph,
+        create_shared_root = known_omnibus_root,
     )
     providers.append(linkable_root)
 

@@ -65,6 +65,7 @@ def main(argv):
     parser.add_argument("--check-defined", action="append", default=[])
     parser.add_argument("--check-not-defined", action="append", default=[])
     parser.add_argument("--check-undefined", action="append", default=[])
+    parser.add_argument("--check-symlink", action="append", default=[])
     parser.add_argument("binary")
     args = parser.parse_args(argv[1:])
 
@@ -119,6 +120,20 @@ def main(argv):
                 "{} should require symbol {}",
                 lib,
                 sym,
+            )
+
+        for check in args.check_symlink:
+            lib, link = check.split(":", 1)
+            p = os.readlink(_path(root, lib))
+            want = os.path.relpath(p, link_tree)
+            have = os.path.relpath(link, link_tree)
+
+            _expect(
+                want == have,
+                "{} should point to {}, but it pointed to {}",
+                lib,
+                want,
+                have,
             )
 
 
