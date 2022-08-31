@@ -786,10 +786,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
-        dynamic: Vec<StarlarkArtifact>,
-        inputs: Vec<StarlarkArtifact>,
-        outputs: Vec<StarlarkOutputArtifact>,
-        f: Value<'v>,
+        #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
+        #[starlark(require = named)] inputs: Vec<StarlarkArtifact>,
+        #[starlark(require = named)] outputs: Vec<StarlarkOutputArtifact>,
+        #[starlark(require = named)] f: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
