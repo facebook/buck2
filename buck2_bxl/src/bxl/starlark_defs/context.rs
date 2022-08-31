@@ -458,7 +458,7 @@ fn register_context(builder: &mut MethodsBuilder) {
 
     /// Returns the [`BxlFilesystem`] for performing a basic set of filesystem operations within bxl
     #[starlark(attribute)]
-    fn unstable_fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
+    fn fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
         Ok(BxlFilesystem::new(&this.async_ctx))
     }
 }
