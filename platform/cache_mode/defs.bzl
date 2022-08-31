@@ -10,6 +10,7 @@ def _cache_mode_impl(ctx):
             "build_infra_buck2_mac-buck",
             "build_infra_buck2_e2e_linux_buckv2-buck",
         ],
+        False,
     ])
 
     return [
