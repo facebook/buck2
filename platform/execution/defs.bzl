@@ -1,5 +1,6 @@
 load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
+load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 
 MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY = "x86_64-fbsource"
 MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode"
@@ -80,6 +81,7 @@ def _execution_platform_impl(ctx: "context"):
                 use_limited_hybrid = ctx.attrs.use_limited_hybrid,
                 allow_hybrid_fallbacks_on_failure = ctx.attrs.allow_hybrid_fallbacks_on_failure,
                 use_windows_path_separators = ctx.attrs.use_windows_path_separators,
+                allow_cache_uploads = ctx.attrs._cache_mode[CacheModeInfo].allow_cache_uploads,
             ),
         ),
     ]
@@ -96,6 +98,7 @@ execution_platform_rule = rule(
         "remote_execution_use_case": attrs.string(default = "buck2-default"),
         "use_limited_hybrid": attrs.bool(default = read_bool("build", "use_limited_hybrid", True)),
         "use_windows_path_separators": attrs.bool(default = False),
+        "_cache_mode": attrs.dep(default = "fbcode//buck2/platform/cache_mode:cache_mode"),
     },
     impl = _execution_platform_impl,
 )
