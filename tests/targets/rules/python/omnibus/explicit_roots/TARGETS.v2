@@ -60,5 +60,5 @@ fb_native.cxx_library(
         "lib2.cpp",
     ],
     soname = "lib2.so",
-    labels = ["omnibus=ctypes_root"],
+    supports_python_dlopen = True,
 )
