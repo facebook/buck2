@@ -185,6 +185,7 @@ def _cxx_python_extension_attrs():
         "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         # Copied from python_library.
         "_python_toolchain": _python_toolchain(),
     })
@@ -200,6 +201,7 @@ def _python_test_attrs():
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         "_python_toolchain": _python_toolchain(),
         "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
     }
@@ -313,6 +315,7 @@ extra_attributes = struct(
         "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     cxx_binary = _cxx_binary_and_test_attrs(),
     cxx_test = dict(
@@ -354,6 +357,7 @@ extra_attributes = struct(
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
 
     # go
@@ -440,6 +444,7 @@ extra_attributes = struct(
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         "_python_toolchain": _python_toolchain(),
     },
     python_needed_coverage_test = {
@@ -485,6 +490,7 @@ extra_attributes = struct(
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
+        "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         "_rust_toolchain": _rust_toolchain(),
     },
     rust_test = {

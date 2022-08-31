@@ -71,6 +71,7 @@ load(
 load(
     ":omnibus.bzl",
     "create_native_link_target",
+    "is_known_omnibus_root",
 )
 load(":platform.bzl", "cxx_by_platform")
 load(
@@ -137,6 +138,7 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
+        is_omnibus_root = is_known_omnibus_root(ctx),
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -375,25 +377,13 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     ))
 
     # Create, augment and provide the linkable graph.
-    linkable_graph = create_linkable_graph(
+    deps_linkable_graph = create_linkable_graph(
         ctx,
-        node = create_linkable_graph_node(
-            ctx,
-            linkable_node = create_linkable_node(
-                ctx = ctx,
-                preferred_linkage = preferred_linkage,
-                exported_deps = first_order_deps,
-                # If we don't have link input for this link style, we pass in `None` so
-                # that omnibus knows to avoid it.
-                link_infos = libraries,
-                shared_libs = solibs,
-            ),
-            excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
-        ),
         deps = first_order_deps,
     )
 
     # Omnibus root provider.
+    known_omnibus_root = is_known_omnibus_root(ctx)
     native_link_target = None
     if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
@@ -414,6 +404,30 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             deps = first_order_deps,
         )
         providers.append(native_link_target)
+
+    roots = {}
+
+    if native_link_target != None and known_omnibus_root:
+        roots[ctx.label] = native_link_target
+
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                preferred_linkage = preferred_linkage,
+                exported_deps = first_order_deps,
+                # If we don't have link input for this link style, we pass in `None` so
+                # that omnibus knows to avoid it.
+                link_infos = libraries,
+                shared_libs = solibs,
+            ),
+            roots = roots,
+            excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
+        ),
+        children = [deps_linkable_graph],
+    )
 
     providers.append(linkable_graph)
 

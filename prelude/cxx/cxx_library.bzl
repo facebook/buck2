@@ -44,6 +44,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "NativeLinkTargetInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -193,6 +194,8 @@ _CxxLibraryParameterizedOutput = record(
     # CxxCompilationDbInfo provider, returned separately as we cannot check
     # provider type from providers above
     cxx_compilationdb_info = field([CxxCompilationDbInfo.type, None], None),
+    # NativeLinkTargetInfo provider, same as above.
+    native_link_target = field([NativeLinkTargetInfo.type, None], None),
 )
 
 def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
@@ -281,11 +284,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
     linkable_graph_deps = non_exported_deps + exported_deps + link_group_deps
-    linkable_graph = create_linkable_graph(
+    deps_linkable_graph = create_linkable_graph(
         ctx,
         deps = linkable_graph_deps,
     )
-    linkable_graph_node_map_func = get_linkable_graph_node_map_func(linkable_graph)
+    linkable_graph_node_map_func = get_linkable_graph_node_map_func(deps_linkable_graph)
 
     frameworks_linkable = create_frameworks_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(
@@ -414,28 +417,6 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             sub_targets = sub_targets,
         ))
 
-    # Augment and provide the linkable graph.
-    if impl_params.generate_providers.linkable_graph:
-        linkable_graph = create_linkable_graph(
-            ctx,
-            node = create_linkable_graph_node(
-                ctx,
-                linkable_node = create_linkable_node(
-                    ctx = ctx,
-                    preferred_linkage = preferred_linkage,
-                    deps = non_exported_deps,
-                    exported_deps = exported_deps,
-                    # If we don't have link input for this link style, we pass in `None` so
-                    # that omnibus knows to avoid it.
-                    link_infos = library_outputs.libraries,
-                    shared_libs = library_outputs.solibs,
-                ),
-                excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
-            ),
-            deps = linkable_graph_deps,
-        )
-        providers.append(linkable_graph)
-
     # Omnibus root provider.
     native_link_target = None
     if impl_params.generate_providers.omnibus_root:
@@ -469,6 +450,33 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             deps = non_exported_deps + exported_deps,
         )
         providers.append(native_link_target)
+
+    # Augment and provide the linkable graph.
+    if impl_params.generate_providers.linkable_graph:
+        roots = {}
+        if native_link_target != None and impl_params.is_omnibus_root:
+            roots[ctx.label] = native_link_target
+
+        merged_linkable_graph = create_linkable_graph(
+            ctx,
+            node = create_linkable_graph_node(
+                ctx,
+                linkable_node = create_linkable_node(
+                    ctx = ctx,
+                    preferred_linkage = preferred_linkage,
+                    deps = non_exported_deps,
+                    exported_deps = exported_deps,
+                    # If we don't have link input for this link style, we pass in `None` so
+                    # that omnibus knows to avoid it.
+                    link_infos = library_outputs.libraries,
+                    shared_libs = library_outputs.solibs,
+                ),
+                roots = roots,
+                excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
+            ),
+            children = [deps_linkable_graph],
+        )
+        providers.append(merged_linkable_graph)
 
     # C++ resource.
     if impl_params.generate_providers.resources:
@@ -533,7 +541,15 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_providers.android_packageable_info:
         providers.append(merge_android_packageable_info(ctx.label, ctx.actions, non_exported_deps + exported_deps))
 
-    return _CxxLibraryParameterizedOutput(default_output = default_output, all_outputs = library_outputs, sub_targets = sub_targets, providers = providers, xcode_data_info = xcode_data_info, cxx_compilationdb_info = comp_db_info)
+    return _CxxLibraryParameterizedOutput(
+        default_output = default_output,
+        all_outputs = library_outputs,
+        sub_targets = sub_targets,
+        providers = providers,
+        xcode_data_info = xcode_data_info,
+        cxx_compilationdb_info = comp_db_info,
+        native_link_target = native_link_target,
+    )
 
 def get_default_cxx_library_product_name(ctx) -> str.type:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)

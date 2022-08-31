@@ -20,6 +20,7 @@ NativeLinkTargetInfo = provider(fields = [
     "link_infos",  # LinkInfos.type
     "name",  # [str.type, None]
     "deps",  # ["label"]
+    "shared_root",  # SharedOmnibusRoot.type
 ])
 
 ###############################################################################
@@ -112,10 +113,14 @@ def create_linkable_graph_node(
         excluded = excluded,
     )
 
-def create_linkable_graph(ctx: "context", node: [LinkableGraphNode.type, None] = None, deps: ["dependency"] = []) -> LinkableGraph.type:
-    child_nodes = filter(None, map_idx(LinkableGraph, deps))
+def create_linkable_graph(
+        ctx: "context",
+        node: [LinkableGraphNode.type, None] = None,
+        deps: ["dependency"] = [],
+        children: [LinkableGraph.type] = []) -> LinkableGraph.type:
+    all_children_graphs = filter(None, map_idx(LinkableGraph, deps)) + children
     kwargs = {
-        "children": [child_node.nodes for child_node in child_nodes],
+        "children": [child_node.nodes for child_node in all_children_graphs],
     }
     if node:
         kwargs["value"] = node

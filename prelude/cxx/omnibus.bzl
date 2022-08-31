@@ -20,7 +20,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
-    "LinkableNode",  # @unused Used as a type
+    "LinkableNode",
     "NativeLinkTargetInfo",
     "get_deps_for_link",
     "get_link_info",
@@ -42,6 +42,8 @@ load(
     "get_shared_library_name",
 )
 load(":symbols.bzl", "extract_symbol_names")
+
+OmnibusEnvironment = provider(fields = ["dummy_omnibus", "exclusions", "roots", "enable_explicit_roots"])
 
 Disposition = enum("root", "excluded", "body")
 
@@ -118,6 +120,9 @@ def create_native_link_target(
         deps = deps,
     )
 
+def _is_excluded_by_environment(label: "label", env: OmnibusEnvironment.type) -> bool.type:
+    return label.raw_target() in env.exclusions
+
 def _omnibus_soname(ctx):
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     return get_shared_library_name(linker_type, "omnibus")
@@ -148,7 +153,7 @@ def _link_deps(
 
     return breadth_first_traversal_by(link_infos, deps, find_deps)
 
-def _all_deps(
+def all_deps(
         link_infos: {"label": LinkableNode.type},
         roots: ["label"]) -> ["label"]:
     """
@@ -562,20 +567,21 @@ def _create_omnibus(
     )
 
 def _build_omnibus_spec(
-        _ctx: "context",
+        ctx: "context",
         graph: OmnibusGraph.type) -> OmnibusSpec.type:
     """
     Divide transitive deps into excluded, root, and body nodes, which we'll
     use to link the various parts of omnibus.
     """
 
-    exclusion_roots = graph.excluded.keys() + _implicit_exclusion_roots(graph)
+    env = ctx.attrs._omnibus_environment[OmnibusEnvironment]
+    exclusion_roots = graph.excluded.keys() + _implicit_exclusion_roots(env, graph)
 
     # Build up the set of all nodes that we have to exclude from omnibus linking
     # (any node that is excluded will exclude all it's transitive deps).
     excluded = {
         label: None
-        for label in _all_deps(
+        for label in all_deps(
             graph.nodes,
             exclusion_roots,
         )
@@ -606,7 +612,7 @@ def _build_omnibus_spec(
     # need to be put on the link line).
     body = {
         label: None
-        for label in _all_deps(graph.nodes, first_order_root_deps)
+        for label in all_deps(graph.nodes, first_order_root_deps)
         if label not in excluded
     }
 
@@ -639,11 +645,11 @@ def _build_omnibus_spec(
         dispositions = dispositions,
     )
 
-def _implicit_exclusion_roots(graph: OmnibusGraph.type):
+def _implicit_exclusion_roots(env: OmnibusEnvironment.type, graph: OmnibusGraph.type):
     return [
         label
         for label, info in graph.nodes.items()
-        if (label not in graph.roots) and _is_shared_only(info)
+        if _is_excluded_by_environment(label, env) or (_is_shared_only(info) and (label not in graph.roots))
     ]
 
 def _ordered_roots(
@@ -726,3 +732,17 @@ def create_omnibus_libraries(
         exclusion_roots = spec.exclusion_roots,
         excluded = spec.excluded.keys(),
     )
+
+def is_known_omnibus_root(ctx: "context") -> bool.type:
+    env = ctx.attrs._omnibus_environment[OmnibusEnvironment]
+
+    if not env.enable_explicit_roots:
+        return False
+
+    if "omnibus=ctypes_root" in ctx.attrs.labels:
+        return True
+
+    if ctx.label.raw_target() in env.roots:
+        return True
+
+    return False

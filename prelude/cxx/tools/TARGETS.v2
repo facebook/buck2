@@ -1,3 +1,5 @@
+load(":defs.bzl", "omnibus_environment")
+
 prelude = native
 
 prelude.python_bootstrap_binary(
@@ -9,5 +11,16 @@ prelude.python_bootstrap_binary(
 prelude.python_bootstrap_binary(
     name = "makefile_to_dep_file",
     main = "makefile_to_dep_file.py",
+    visibility = ["PUBLIC"],
+)
+
+# This node is injected into CXX toolchains to optimize Omnibus builds with shared hints.
+omnibus_environment(
+    name = "omnibus_environment",
+    exclusions = [
+    ],
+    roots = [
+    ],
+    enable_explicit_roots = read_config("buck2", "enable_omnibus_explicit_roots", "false") in ["true", "True"],
     visibility = ["PUBLIC"],
 )

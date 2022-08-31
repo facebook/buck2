@@ -40,6 +40,8 @@ load(
 load(":source_db.bzl", "create_source_db_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 
+OmnibusMetadataInfo = provider(fields = ["omnibus_libs", "omnibus_graph"])
+
 def _link_strategy(ctx: "context") -> NativeLinkStrategy.type:
     if ctx.attrs.native_link_strategy != None:
         return NativeLinkStrategy(ctx.attrs.native_link_strategy)
@@ -210,6 +212,11 @@ def convert_python_library_to_executable(
         native_libs = omnibus_libs.libraries
 
         if python_toolchain.emit_omnibus_metadata:
+            extra["omnibus"] = [DefaultInfo(), OmnibusMetadataInfo(
+                omnibus_libs = omnibus_libs,
+                omnibus_graph = omnibus_graph,
+            )]
+
             exclusion_roots = ctx.actions.write_json("omnibus/exclusion_roots.json", omnibus_libs.exclusion_roots)
             extra["omnibus-exclusion-roots"] = [DefaultInfo(default_outputs = [exclusion_roots])]
 

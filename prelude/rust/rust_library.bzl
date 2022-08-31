@@ -8,6 +8,7 @@ load(
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_native_link_target",
+    "is_known_omnibus_root",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -474,6 +475,30 @@ def _native_providers(
     ))
 
     # Create, augment and provide the linkable graph.
+    deps_linkable_graph = create_linkable_graph(
+        ctx,
+        deps = inherited_non_rust_link_deps,
+    )
+
+    # Omnibus root provider.
+    known_omnibus_root = is_known_omnibus_root(ctx)
+
+    native_link_target = create_native_link_target(
+        name = get_default_shared_library_name(linker_type, ctx.label),
+        link_infos = LinkInfos(
+            default = LinkInfo(
+                linkables = [ArchiveLinkable(archive = Archive(artifact = libraries[LinkStyle("static_pic")]), linker_type = linker_type, link_whole = True)],
+            ),
+        ),
+        deps = inherited_non_rust_link_deps,
+    )
+    providers.append(native_link_target)
+
+    roots = {}
+
+    if known_omnibus_root:
+        roots[ctx.label] = native_link_target
+
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
@@ -485,21 +510,12 @@ def _native_providers(
                 link_infos = link_infos,
                 shared_libs = solibs,
             ),
+            roots = roots,
         ),
-        deps = inherited_non_rust_link_deps,
+        children = [deps_linkable_graph],
     )
-    providers.append(linkable_graph)
 
-    # Omnibus root provider.
-    providers.append(create_native_link_target(
-        name = get_default_shared_library_name(linker_type, ctx.label),
-        link_infos = LinkInfos(
-            default = LinkInfo(
-                linkables = [ArchiveLinkable(archive = Archive(artifact = libraries[LinkStyle("static_pic")]), linker_type = linker_type, link_whole = True)],
-            ),
-        ),
-        deps = inherited_non_rust_link_deps,
-    ))
+    providers.append(linkable_graph)
 
     return providers
 

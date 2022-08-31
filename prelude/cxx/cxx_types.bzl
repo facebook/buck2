@@ -121,4 +121,6 @@ CxxRuleConstructorParams = record(
     generate_sub_targets = field(CxxRuleSubTargetParams.type, CxxRuleSubTargetParams()),
     # Define which providers to generate.
     generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
+    # Force this library to be a Python Omnibus root.
+    is_omnibus_root = field(bool.type, False),
 )

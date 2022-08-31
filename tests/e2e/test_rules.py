@@ -247,6 +247,8 @@ if fbcode_linux_only():
             "fbcode//buck2/tests/targets/rules/python/...",
             "-c",
             f"python.package_style={package_style}",
+            "-c",
+            "buck2.enable_omnibus_explicit_roots=True",
         )
 
     @buck_test(inplace=True)

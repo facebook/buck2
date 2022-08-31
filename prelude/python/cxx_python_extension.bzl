@@ -22,6 +22,7 @@ load(
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load(
     "@prelude//cxx:omnibus.bzl",
+    "OmnibusEnvironment",
     "get_roots",
 )
 load(
@@ -85,6 +86,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         use_soname = False,
         generate_providers = cxx_providers,
         generate_sub_targets = sub_targets,
+        is_omnibus_root = ctx.attrs._omnibus_environment[OmnibusEnvironment].enable_explicit_roots,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
@@ -185,19 +187,23 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     ))
 
     # Omnibus providers
+
+    # Handle the case where C++ Python extensions depend on other C++ Python
+    # extensions, which should also be treated as roots.
+    roots = get_roots([
+        dep
+        for dep in flatten(raw_deps)
+        # We only want to handle C++ Python extension deps, but not other native
+        # linkable deps like C++ libraries.
+        if dep[PythonLibraryInfo] != None
+    ])
+    roots[ctx.label] = cxx_library_info.native_link_target
+
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
             ctx,
-            # Handle the case where C++ Python extensions depend on other C++ Python
-            # extensions, which should also be treated as roots.
-            roots = get_roots([
-                dep
-                for dep in flatten(raw_deps)
-                # We only want to handle C++ Python extension deps, but not other native
-                # linkable deps like C++ libraries.
-                if dep[PythonLibraryInfo] != None
-            ]),
+            roots = roots,
         ),
         deps = flatten(raw_deps),
     )
