@@ -11,7 +11,6 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::ffi::OsString;
 use std::fmt::Display;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
@@ -40,6 +39,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::claim::ClaimedRequest;
+use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
@@ -53,7 +53,6 @@ use gazebo::variants::UnpackVariants;
 use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use once_cell::sync::OnceCell;
 use remote_execution as RE;
 
 use crate::actions::artifact::fs::ArtifactFs;
@@ -608,58 +607,6 @@ impl ResolvedCommandExecutionOutput {
             OutputCreationBehavior::Create => Some(&self.path),
             OutputCreationBehavior::Parent => self.path.parent(),
         }
-    }
-}
-
-#[derive(Copy, Clone, Dupe, Debug)]
-pub struct EnvironmentInheritance {
-    values: &'static [(&'static str, OsString)],
-}
-
-impl EnvironmentInheritance {
-    pub fn test_allowlist() -> Self {
-        // This is made to be a list of lists in case we want to include lists from different
-        // provenances, like the test_env_allowlist::ENV_LIST_HACKY.
-        let allowlists;
-
-        #[cfg(fbcode_build)]
-        {
-            allowlists = &[test_env_allowlist::LEGACY_TESTPILOT_ALLOW_LIST];
-        }
-
-        #[cfg(not(fbcode_build))]
-        {
-            // NOTE: Not much thought has gone into this, since we don't actually use this
-            // codepath. In theory we should probably omit PATH here, but we're likely to want
-            // to use this for e.g. genrules and that will *not* be practical...
-            allowlists = &[&["PATH", "USER", "LOGNAME", "HOME", "TMPDIR"]];
-        }
-
-        // We create this *once* since getenv is actually not cheap (being O(n) of the environment
-        // size).
-        static TEST_CELL: OnceCell<Vec<(&'static str, OsString)>> = OnceCell::new();
-
-        let values = TEST_CELL.get_or_init(|| {
-            let mut ret = Vec::new();
-            for list in allowlists.iter() {
-                for key in list.iter() {
-                    if let Some(value) = std::env::var_os(key) {
-                        ret.push((*key, value));
-                    }
-                }
-            }
-            ret
-        });
-
-        Self { values: &*values }
-    }
-
-    pub fn empty() -> Self {
-        Self { values: &[] }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&'static str, &'static OsString)> {
-        self.values.iter().map(|(k, v)| (*k, v))
     }
 }
 

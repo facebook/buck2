@@ -66,7 +66,6 @@ rust_library(
         "//buck2/buck2_test_api:buck2_test_api",
         "//buck2/cli_proto:cli_proto",
         "//buck2/dice/dice:dice",
-        "//buck2/facebook/test_env_allowlist:test_env_allowlist",
         "//buck2/forkserver_proto:forkserver_proto",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/host_sharing:host_sharing",
