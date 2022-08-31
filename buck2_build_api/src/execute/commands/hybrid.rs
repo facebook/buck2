@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::execute::claim::ClaimManager;
 use buck2_node::execute::config::HybridExecutionLevel;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
@@ -22,7 +23,6 @@ use remote_execution as RE;
 
 use crate::execute::commands::local::LocalExecutor;
 use crate::execute::commands::re::ReExecutor;
-use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionStatus;

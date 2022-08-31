@@ -26,7 +26,6 @@ use buck2_build_api::execute::commands::local::apply_local_execution_environment
 use buck2_build_api::execute::commands::local::create_output_dirs;
 use buck2_build_api::execute::commands::local::materialize_inputs;
 use buck2_build_api::execute::commands::local::EnvironmentBuilder;
-use buck2_build_api::execute::commands::ClaimManager;
 use buck2_build_api::execute::commands::CommandExecutionInput;
 use buck2_build_api::execute::commands::CommandExecutionManager;
 use buck2_build_api::execute::commands::CommandExecutionReport;
@@ -71,6 +70,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
+use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
 use buck2_interpreter::dice::HasEvents;

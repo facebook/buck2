@@ -15,8 +15,6 @@ use std::ffi::OsString;
 use std::fmt::Display;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -40,6 +38,8 @@ use buck2_execute::directory::insert_entry;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::claim::ClaimManager;
+use buck2_execute::execute::claim::ClaimedRequest;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
@@ -140,25 +140,6 @@ impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
         }
     }
 }
-
-pub trait ClaimManager: Send + Sync + 'static {
-    fn try_claim(&self) -> bool;
-}
-
-impl dyn ClaimManager {
-    pub fn new_simple() -> Arc<dyn ClaimManager> {
-        Arc::new(AtomicBool::new(false))
-    }
-}
-
-impl ClaimManager for AtomicBool {
-    fn try_claim(&self) -> bool {
-        !self.fetch_or(true, Ordering::SeqCst)
-    }
-}
-
-#[derive(Debug)]
-pub struct ClaimedRequest {}
 
 /// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
 pub struct CommandExecutionManager {
