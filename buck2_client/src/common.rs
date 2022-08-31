@@ -24,7 +24,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::config_override::ConfigType;
 use cli_proto::ConfigOverride;
@@ -197,7 +197,7 @@ impl CommonBuildConfigurationOptions {
                 return Ok(arg.to_owned());
             }
 
-            let abs_path = fs::canonicalize(path)?;
+            let abs_path = fs_util::canonicalize(path)?;
             Ok(abs_path.to_string_lossy().into_owned())
         }
 

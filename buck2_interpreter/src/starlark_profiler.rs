@@ -8,12 +8,12 @@
  */
 
 use std::cmp;
-use std::fs;
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_core::fs::fs_util;
 use gazebo::dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
@@ -86,7 +86,8 @@ impl StarlarkProfileData {
 
     fn write(&self, path: &Path, profile_mode: &ProfileMode) -> anyhow::Result<()> {
         let data = self.gen(profile_mode)?;
-        fs::write(path, data).with_context(|| format!("write profile data to `{}`", path.display()))
+        fs_util::write(path, data)
+            .with_context(|| format!("write profile data to `{}`", path.display()))
     }
 }
 

@@ -34,7 +34,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
@@ -121,7 +121,7 @@ async fn get_installer_log_directory(
     let install_log_dir = buck_out_path.join(ForwardRelativePathBuf::unchecked_new(
         "installer".to_owned(),
     ));
-    fs::create_dir_all(&install_log_dir)?;
+    fs_util::create_dir_all(&install_log_dir)?;
     Ok(install_log_dir)
 }
 

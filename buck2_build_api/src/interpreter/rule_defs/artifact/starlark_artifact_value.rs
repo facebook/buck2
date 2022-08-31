@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 use anyhow::Context;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use gazebo::any::ProvidesStaticType;
@@ -99,7 +99,7 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Valu
 fn artifact_value_methods(builder: &mut MethodsBuilder) {
     fn read_string(this: &StarlarkArtifactValue) -> anyhow::Result<String> {
         let path = this.fs.resolve(&this.path);
-        fs::read_to_string(&path)
+        fs_util::read_to_string(&path)
     }
 
     fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

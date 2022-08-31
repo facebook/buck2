@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use std::fs;
 use std::io::Write;
 use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use futures::StreamExt;
@@ -147,7 +147,7 @@ pub async fn http_download(
 ) -> anyhow::Result<TrackedFileDigest> {
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
-        fs::create_dir_all(fs.resolve(dir))?;
+        fs_util::create_dir_all(fs.resolve(dir))?;
     }
 
     let file = std::fs::OpenOptions::new()

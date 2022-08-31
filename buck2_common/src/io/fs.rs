@@ -16,7 +16,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
@@ -69,7 +69,7 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || fs::read_to_string(&path))
+        tokio::task::spawn_blocking(move || fs_util::read_to_string(&path))
             .await
             .unwrap()
     }
@@ -83,7 +83,7 @@ impl IoProvider for FsIoProvider {
 
         let path = self.fs.resolve(&path);
 
-        let dir_entries = tokio::task::spawn_blocking(move || fs::read_dir(&path))
+        let dir_entries = tokio::task::spawn_blocking(move || fs_util::read_dir(&path))
             .await
             .unwrap()
             .context("Error listing directory")?;
@@ -253,7 +253,7 @@ mod tests {
     fn test_read_not_symlink() -> anyhow::Result<()> {
         let t = TempDir::new()?;
 
-        fs::write(t.path().join("x"), "xx")?;
+        fs_util::write(t.path().join("x"), "xx")?;
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?),
@@ -285,7 +285,7 @@ mod tests {
     fn test_read_symlink_in_dir() -> anyhow::Result<()> {
         let t = TempDir::new()?;
 
-        fs::create_dir_all(t.path().join("x/xx"))?;
+        fs_util::create_dir_all(t.path().join("x/xx"))?;
         unix::fs::symlink("../y", t.path().join("x/xx/xxx"))?;
 
         assert_matches!(

@@ -220,14 +220,14 @@ mod tests {
 
     use assert_matches::assert_matches;
 
-    use crate::fs::anyhow::create_dir_all;
-    use crate::fs::anyhow::metadata;
-    use crate::fs::anyhow::read_to_string;
-    use crate::fs::anyhow::remove_dir_all;
-    use crate::fs::anyhow::remove_file;
-    use crate::fs::anyhow::symlink;
-    use crate::fs::anyhow::symlink_metadata;
-    use crate::fs::anyhow::write;
+    use crate::fs::fs_util::create_dir_all;
+    use crate::fs::fs_util::metadata;
+    use crate::fs::fs_util::read_to_string;
+    use crate::fs::fs_util::remove_dir_all;
+    use crate::fs::fs_util::remove_file;
+    use crate::fs::fs_util::symlink;
+    use crate::fs::fs_util::symlink_metadata;
+    use crate::fs::fs_util::write;
 
     #[test]
     fn create_and_remove_symlink_dir() -> anyhow::Result<()> {

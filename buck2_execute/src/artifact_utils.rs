@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::RelativePath;
@@ -166,7 +166,7 @@ where
     if materialize_dirs_and_syms {
         // create the directory where we'll materialize the entry
         if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent)?;
+            fs_util::create_dir_all(parent)?;
         }
     }
     materialize_recursively(entry, &mut dest, materialize_dirs_and_syms, &mut file_src)
@@ -245,7 +245,7 @@ where
     match entry {
         DirectoryEntry::Dir(d) => {
             if materialize_dirs_and_syms {
-                fs::create_dir_all(&dest)?;
+                fs_util::create_dir_all(&dest)?;
             }
             for (name, entry) in d.entries() {
                 dest.push(name);
@@ -256,21 +256,21 @@ where
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) => {
             if let Some(src) = file_src(AbsPath::unchecked_new(&dest)) {
-                if fs::symlink_metadata(&dest).is_err() {
-                    fs::copy(src, dest)?;
+                if fs_util::symlink_metadata(&dest).is_err() {
+                    fs_util::copy(src, dest)?;
                 }
             }
             Ok(())
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
-            if materialize_dirs_and_syms && fs::symlink_metadata(&dest).is_err() {
-                fs::symlink(s.target().as_str(), dest)?;
+            if materialize_dirs_and_syms && fs_util::symlink_metadata(&dest).is_err() {
+                fs_util::symlink(s.target().as_str(), dest)?;
             }
             Ok(())
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
-            if materialize_dirs_and_syms && fs::symlink_metadata(&dest).is_err() {
-                fs::symlink(s.target(), dest)?;
+            if materialize_dirs_and_syms && fs_util::symlink_metadata(&dest).is_err() {
+                fs_util::symlink(s.target(), dest)?;
             }
             Ok(())
         }

@@ -7,6 +7,6 @@
  * of this source tree.
  */
 
-pub mod anyhow;
+pub mod fs_util;
 pub mod paths;
 pub mod project;

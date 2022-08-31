@@ -261,7 +261,7 @@ impl BuckdConnectOptions {
 
     pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
-        buck2_core::fs::anyhow::create_dir_all(&daemon_dir)
+        buck2_core::fs::fs_util::create_dir_all(&daemon_dir)
             .with_context(|| format!("When creating daemon dir: {}", daemon_dir.display()))?;
         let client = self
             .establish_connection(paths)

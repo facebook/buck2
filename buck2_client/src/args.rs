@@ -18,7 +18,7 @@ use anyhow::Context as _;
 use buck2_common::invocation_roots::find_current_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -315,7 +315,7 @@ fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result
         } else {
             let p = Path::new(path_part);
             if !p.is_absolute() {
-                let abs_path = match fs::canonicalize(p) {
+                let abs_path = match fs_util::canonicalize(p) {
                     Ok(abs_path) => Ok(abs_path),
                     Err(original_error) => {
                         let cell_relative_path =
@@ -325,7 +325,7 @@ fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result
                         // doesn't exist, just report the original error back, and
                         // don't tip users off that they can use relative-to-cell paths.
                         // We want to deprecate that.
-                        match fs::canonicalize(cell_relative_path) {
+                        match fs_util::canonicalize(cell_relative_path) {
                             Ok(abs_path) => {
                                 context.log_relative_path_from_cell_root(path_part)?;
                                 Ok(abs_path)
@@ -355,8 +355,7 @@ fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
+    use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::AbsPathBuf;
 
     use crate::args::expand_argfile_contents;
@@ -367,7 +366,7 @@ mod tests {
         let tempdir = tempfile::tempdir().unwrap();
         let mode_file = tempdir.path().join("mode-file");
         // Test skips empty lines.
-        fs::write(&mode_file, "a\n\nb\n").unwrap();
+        fs_util::write(&mode_file, "a\n\nb\n").unwrap();
         let lines = expand_argfile_contents(&ArgFile::Path(
             AbsPathBuf::from(mode_file.to_string_lossy().into_owned()).unwrap(),
         ))

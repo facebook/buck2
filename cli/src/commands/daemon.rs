@@ -28,7 +28,7 @@ use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_server::daemon::daemon_utils::create_listener;
@@ -219,7 +219,7 @@ fn verify_current_daemon(daemon_dir: &Path) -> anyhow::Result<()> {
     let file = daemon_dir.join("buckd.pid");
     let my_pid = process::id();
 
-    let recorded_pid: u32 = fs::read_to_string(&file)?.trim().parse()?;
+    let recorded_pid: u32 = fs_util::read_to_string(&file)?.trim().parse()?;
     if recorded_pid != my_pid {
         return Err(DaemonError::PidFileMismatch(file, my_pid, recorded_pid).into());
     }
@@ -376,7 +376,7 @@ impl DaemonCommand {
         let pid_path = daemon_dir.join(ForwardRelativePath::new("buckd.pid")?);
 
         if !daemon_dir.is_dir() {
-            fs::create_dir_all(daemon_dir)?;
+            fs_util::create_dir_all(daemon_dir)?;
         }
         let stdout = File::create(stdout_path)?;
         let stderr = File::create(stderr_path)?;

@@ -13,8 +13,8 @@ use std::path::Path;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::fs::anyhow::create_dir_all;
-use buck2_core::fs::anyhow::remove_dir_all;
+use buck2_core::fs::fs_util::create_dir_all;
+use buck2_core::fs::fs_util::remove_dir_all;
 use buck2_core::process::async_background_command;
 use buck2_core::process::background_command;
 use buck2_data::RageInvoked;

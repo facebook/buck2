@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::fs::anyhow::remove_dir_all;
+use buck2_core::fs::fs_util::remove_dir_all;
 use cli_proto::CleanRequest;
 use futures::FutureExt;
 

@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 use anyhow::Context as _;
 use buck2_build_api::context::HasBuildContextData;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
@@ -84,7 +84,7 @@ async fn clean(
 
 fn collect_clean_paths(buck_out_path: &AbsPathBuf) -> anyhow::Result<Vec<AbsPathBuf>> {
     let mut clean_paths = vec![];
-    let dir = fs::read_dir(buck_out_path)?;
+    let dir = fs_util::read_dir(buck_out_path)?;
     for entry in dir {
         let entry = entry?;
         let path = entry.path();
@@ -108,7 +108,7 @@ fn clean_buck_out(path: &AbsPathBuf) -> anyhow::Result<()> {
             reverse_dir_paths.push(dir_entry.into_path());
         } else {
             let error = error.dupe();
-            thread_pool.execute(move || match fs::remove_file(dir_entry.path()) {
+            thread_pool.execute(move || match fs_util::remove_file(dir_entry.path()) {
                 Ok(_) => {}
                 Err(e) => {
                     let mut error = error.lock().unwrap();
@@ -127,7 +127,7 @@ fn clean_buck_out(path: &AbsPathBuf) -> anyhow::Result<()> {
 
     // first entry is buck-out root dir and we don't want to remove it
     for path in reverse_dir_paths.iter().skip(1).rev() {
-        fs::remove_dir(path)?;
+        fs_util::remove_dir(path)?;
     }
 
     Ok(())
@@ -172,7 +172,7 @@ async fn try_clean_eden_buck_out(
 
         // eden rm might not delete the buck-out completed.
         if buck_out.exists() {
-            fs::remove_dir(buck_out)?;
+            fs_util::remove_dir(buck_out)?;
         }
     }
 

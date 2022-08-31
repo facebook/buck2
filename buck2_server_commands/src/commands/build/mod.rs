@@ -31,7 +31,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
@@ -363,25 +363,25 @@ fn create_unhashed_link(
             };
 
             if meta.is_file() || meta.is_symlink() {
-                fs::remove_file(prefix)?;
+                fs_util::remove_file(prefix)?;
             }
         }
 
-        fs::create_dir_all(parent)
+        fs_util::create_dir_all(parent)
             .with_context(|| "while creating unhashed directory for symlink")?;
     }
 
-    match fs::symlink_metadata(&abs_unhashed_path) {
+    match fs_util::symlink_metadata(&abs_unhashed_path) {
         Ok(metadata) => {
             if metadata.is_dir() {
-                fs::remove_dir_all(&abs_unhashed_path)?
+                fs_util::remove_dir_all(&abs_unhashed_path)?
             } else {
-                fs::remove_file(&abs_unhashed_path)?
+                fs_util::remove_file(&abs_unhashed_path)?
             }
         }
         Err(_) => {}
     }
-    fs::symlink(original_path, abs_unhashed_path)?;
+    fs_util::symlink(original_path, abs_unhashed_path)?;
     Ok(())
 }
 

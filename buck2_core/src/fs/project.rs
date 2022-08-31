@@ -69,7 +69,7 @@ use gazebo::dupe::Dupe;
 use ref_cast::RefCast;
 use serde::Serialize;
 
-use crate::fs::anyhow as fs;
+use crate::fs::fs_util;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::AbsPath;
 use crate::fs::paths::AbsPathBuf;
@@ -265,7 +265,7 @@ impl ProjectRoot {
     ) -> anyhow::Result<()> {
         let abs_path = path.resolve(self);
         if let Some(parent) = abs_path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
+            fs_util::create_dir_all(parent).with_context(|| {
                 format!(
                     "`write_file` for `{}` creating directory `{}`",
                     abs_path.as_ref(),
@@ -273,7 +273,7 @@ impl ProjectRoot {
                 )
             })?;
         }
-        fs::write(abs_path.as_ref(), contents)
+        fs_util::write(abs_path.as_ref(), contents)
             .with_context(|| format!("`write_file` writing `{}`", abs_path.as_ref()))?;
         if executable {
             self.set_executable(abs_path.as_ref()).with_context(|| {
@@ -287,7 +287,7 @@ impl ProjectRoot {
     pub fn create_file(&self, path: impl PathLike, executable: bool) -> anyhow::Result<File> {
         let abs_path = path.resolve(self);
         if let Some(parent) = abs_path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
+            fs_util::create_dir_all(parent).with_context(|| {
                 format!(
                     "`create_file` for `{}` creating directory `{}`",
                     abs_path.as_ref(),
@@ -310,10 +310,10 @@ impl ProjectRoot {
     pub fn set_executable(&self, path: impl PathLike) -> anyhow::Result<()> {
         use std::os::unix::fs::PermissionsExt;
         // Unix permission bits
-        let mut perms = fs::metadata(path.resolve(self).as_ref())?.permissions();
+        let mut perms = fs_util::metadata(path.resolve(self).as_ref())?.permissions();
         // Add u+x
         perms.set_mode(perms.mode() | 0o100);
-        fs::set_permissions(path.resolve(self).as_ref(), perms)?;
+        fs_util::set_permissions(path.resolve(self).as_ref(), perms)?;
         Ok(())
     }
 
@@ -340,9 +340,9 @@ impl ProjectRoot {
         let dest_abs = self.resolve(dest);
 
         if let Some(parent) = dest_abs.parent() {
-            fs::create_dir_all(parent)?;
+            fs_util::create_dir_all(parent)?;
         }
-        fs::symlink(src, dest_abs)
+        fs_util::symlink(src, dest_abs)
     }
 
     /// Create a relative symlink between two relative paths
@@ -370,9 +370,9 @@ impl ProjectRoot {
 
         let target_relative = Self::find_relative_path(&target_abs, &dest_abs);
         if let Some(parent) = dest_abs.parent() {
-            fs::create_dir_all(parent)?;
+            fs_util::create_dir_all(parent)?;
         }
-        fs::symlink(target_relative, dest_abs)
+        fs_util::symlink(target_relative, dest_abs)
     }
 
     /// Copy from one path to another. This works for both files and directories.
@@ -396,10 +396,10 @@ impl ProjectRoot {
     }
 
     fn copy_resolved(&self, src_abs: &AbsPathBuf, dest_abs: &AbsPathBuf) -> anyhow::Result<()> {
-        let src_type = fs::symlink_metadata(&src_abs)?.file_type();
+        let src_type = fs_util::symlink_metadata(&src_abs)?.file_type();
 
         if let Some(parent) = dest_abs.parent() {
-            fs::create_dir_all(parent)?;
+            fs_util::create_dir_all(parent)?;
         }
         if src_type.is_dir() {
             Self::copy_dir(src_abs, dest_abs)
@@ -426,13 +426,13 @@ impl ProjectRoot {
         if !path.exists() {
             return Ok(());
         }
-        let path_type = fs::metadata(&path)?.file_type();
+        let path_type = fs_util::metadata(&path)?.file_type();
 
         if path_type.is_dir() {
-            fs::remove_dir_all(&path)
+            fs_util::remove_dir_all(&path)
                 .with_context(|| format!("remove_path_recursive({}) on directory", &path))?;
         } else if path_type.is_file() || path_type.is_symlink() {
-            fs::remove_file(&path)
+            fs_util::remove_file(&path)
                 .with_context(|| format!("remove_path_recursive({}) on file", &path))?;
         } else {
             // If we want to handle special files, we'll need to use special traits
@@ -495,7 +495,7 @@ impl ProjectRoot {
 
     /// Creates symbolic link `dest` which points at the same location as symlink `src`.
     fn copy_symlink(src: &AbsPathBuf, dest: &AbsPathBuf) -> anyhow::Result<()> {
-        let mut target = fs::read_link(&src)?;
+        let mut target = fs_util::read_link(&src)?;
         if target.is_relative() {
             // Grab the absolute path, then re-relativize the path to the destination
             let relative_target = if cfg!(windows) {
@@ -509,16 +509,16 @@ impl ProjectRoot {
             );
             target = Self::find_relative_path(&AbsPathBuf::try_from(absolute_target)?, dest);
         }
-        fs::symlink(target, dest)
+        fs_util::symlink(target, dest)
     }
 
     fn copy_file(src: &AbsPathBuf, dst: &AbsPathBuf) -> anyhow::Result<()> {
-        fs::copy(src, dst).map(|_| ())
+        fs_util::copy(src, dst).map(|_| ())
     }
 
     fn copy_dir(src_dir: &AbsPathBuf, dest_dir: &AbsPathBuf) -> anyhow::Result<()> {
-        fs::create_dir_all(&dest_dir)?;
-        for file in fs::read_dir(&src_dir)? {
+        fs_util::create_dir_all(&dest_dir)?;
+        for file in fs_util::read_dir(&src_dir)? {
             let file = file?;
             let filetype = file.file_type()?;
             let src_file = AbsPathBuf::try_from(file.path())?;
@@ -1105,7 +1105,7 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 
-    use crate::fs::anyhow as fs;
+    use crate::fs::fs_util;
     use crate::fs::paths::ForwardRelativePath;
     use crate::fs::project::ProjectRelativePath;
     use crate::fs::project::ProjectRelativePathBuf;
@@ -1185,20 +1185,20 @@ mod tests {
         let file4 = ProjectRelativePath::new("dir1/dir2/dir3/file4")?;
         let out_dir = ProjectRelativePath::new("out")?;
 
-        fs::create_dir_all(&fs.path.resolve(dir1))?;
-        fs::create_dir_all(&fs.path.resolve(dir2))?;
-        fs::create_dir_all(&fs.path.resolve(dir3))?;
-        fs::create_dir_all(&fs.path.resolve(out_dir))?;
+        fs_util::create_dir_all(&fs.path.resolve(dir1))?;
+        fs_util::create_dir_all(&fs.path.resolve(dir2))?;
+        fs_util::create_dir_all(&fs.path.resolve(dir3))?;
+        fs_util::create_dir_all(&fs.path.resolve(out_dir))?;
 
-        fs::write(&fs.path.resolve(file1), "file1 contents")?;
-        fs::write(&fs.path.resolve(file2), "file2 contents")?;
-        fs::write(&fs.path.resolve(file3), "file3 contents")?;
-        fs::write(&fs.path.resolve(file4), "file4 contents")?;
+        fs_util::write(&fs.path.resolve(file1), "file1 contents")?;
+        fs_util::write(&fs.path.resolve(file2), "file2 contents")?;
+        fs_util::write(&fs.path.resolve(file3), "file3 contents")?;
+        fs_util::write(&fs.path.resolve(file4), "file4 contents")?;
         // Absolute path
-        fs::symlink(&fs.path.resolve(dir2), &fs.path.resolve(link_dir2))?;
+        fs_util::symlink(&fs.path.resolve(dir2), &fs.path.resolve(link_dir2))?;
         // Relative path
-        fs::symlink(&Path::new("dir2/dir3"), &fs.path.resolve(link_dir3))?;
-        fs::symlink(&Path::new("dir2/dir3/file3"), &fs.path.resolve(link_file3))?;
+        fs_util::symlink(&Path::new("dir2/dir3"), &fs.path.resolve(link_dir3))?;
+        fs_util::symlink(&Path::new("dir2/dir3/file3"), &fs.path.resolve(link_file3))?;
 
         fs.path
             .copy(
@@ -1239,43 +1239,43 @@ mod tests {
         // Absolute link path
         assert_eq!(
             fs.path.resolve(dir2).as_ref() as &Path,
-            fs::read_link(fs.path.resolve(expected_link_dir2))?.as_path(),
+            fs_util::read_link(fs.path.resolve(expected_link_dir2))?.as_path(),
         );
         // Make sure out/dir1/link_dir3 links to the relative path to dir1/dir2/dir3
-        let link_dir3_target = fs::read_link(fs.path.resolve(expected_link_dir3))?;
+        let link_dir3_target = fs_util::read_link(fs.path.resolve(expected_link_dir3))?;
         assert_eq!(
             Path::new("../../dir1/dir2/dir3"),
             link_dir3_target.as_path(),
         );
 
         // Make sure we can read through; that the relative path actually works
-        fs::write(&fs.path.resolve(file3), "file3 new contents")?;
-        let link_file3_target = fs::read_link(fs.path.resolve(expected_link_file3))?;
+        fs_util::write(&fs.path.resolve(file3), "file3 new contents")?;
+        let link_file3_target = fs_util::read_link(fs.path.resolve(expected_link_file3))?;
         assert_eq!(
             Path::new("../../dir1/dir2/dir3/file3"),
             link_file3_target.as_path(),
         );
         assert_eq!(
             "file3 new contents",
-            fs::read_to_string(&fs.path.resolve(expected_link_file3))?
+            fs_util::read_to_string(&fs.path.resolve(expected_link_file3))?
         );
 
         assert_eq!(
             "file1 contents",
-            fs::read_to_string(&fs.path.resolve(expected_file1))?
+            fs_util::read_to_string(&fs.path.resolve(expected_file1))?
         );
         assert_eq!(
             "file2 contents",
-            fs::read_to_string(&fs.path.resolve(expected_file2))?
+            fs_util::read_to_string(&fs.path.resolve(expected_file2))?
         );
         // Independent copy; no hard links made (previous behavior)
         assert_eq!(
             "file3 contents",
-            fs::read_to_string(&fs.path.resolve(expected_file3))?
+            fs_util::read_to_string(&fs.path.resolve(expected_file3))?
         );
         assert_eq!(
             "file4 contents",
-            fs::read_to_string(&fs.path.resolve(expected_file4))?
+            fs_util::read_to_string(&fs.path.resolve(expected_file4))?
         );
         Ok(())
     }
@@ -1290,8 +1290,14 @@ mod tests {
         fs.path.soft_link_raw(fs.path.resolve(file), symlink1)?;
         fs.path.copy(symlink1, symlink2)?;
 
-        assert_eq!("hello", fs::read_to_string(&fs.path.resolve(symlink1))?);
-        assert_eq!("hello", fs::read_to_string(&fs.path.resolve(symlink2))?);
+        assert_eq!(
+            "hello",
+            fs_util::read_to_string(&fs.path.resolve(symlink1))?
+        );
+        assert_eq!(
+            "hello",
+            fs_util::read_to_string(&fs.path.resolve(symlink2))?
+        );
         Ok(())
     }
 
@@ -1327,21 +1333,21 @@ mod tests {
         let dest4_expected = PathBuf::from("bar");
         let dest5_expected = PathBuf::from("../foo2/bar");
 
-        let dest1_value = fs::read_link(fs.path.resolve(dest1))?;
-        let dest2_value = fs::read_link(fs.path.resolve(dest2))?;
-        let dest3_value = fs::read_link(fs.path.resolve(dest3))?;
-        let dest4_value = fs::read_link(fs.path.resolve(dest4))?;
-        let dest5_value = fs::read_link(fs.path.resolve(dest5))?;
+        let dest1_value = fs_util::read_link(fs.path.resolve(dest1))?;
+        let dest2_value = fs_util::read_link(fs.path.resolve(dest2))?;
+        let dest3_value = fs_util::read_link(fs.path.resolve(dest3))?;
+        let dest4_value = fs_util::read_link(fs.path.resolve(dest4))?;
+        let dest5_value = fs_util::read_link(fs.path.resolve(dest5))?;
 
-        let contents1 = fs::read_to_string(&fs.path.resolve(dest1))?;
-        let contents2 = fs::read_to_string(&fs.path.resolve(dest2))?;
-        let contents3 = fs::read_to_string(&fs.path.resolve(dest3))?;
-        let contents4 = fs::read_to_string(
+        let contents1 = fs_util::read_to_string(&fs.path.resolve(dest1))?;
+        let contents2 = fs_util::read_to_string(&fs.path.resolve(dest2))?;
+        let contents3 = fs_util::read_to_string(&fs.path.resolve(dest3))?;
+        let contents4 = fs_util::read_to_string(
             &fs.path
                 .resolve(dest4)
                 .join(ForwardRelativePath::new("file")?),
         )?;
-        let contents5 = fs::read_to_string(
+        let contents5 = fs_util::read_to_string(
             &fs.path
                 .resolve(dest5)
                 .join(ForwardRelativePath::new("file")?),
@@ -1376,8 +1382,8 @@ mod tests {
         fs.path.soft_link_relativized(source_dir, dest_dir)?;
         fs.path.write_file(new_file1, "new file content", false)?;
 
-        let content = fs::read_to_string(&fs.path.resolve(dest_file))?;
-        let new_content = fs::read_to_string(&fs.path.resolve(new_file2))?;
+        let content = fs_util::read_to_string(&fs.path.resolve(dest_file))?;
+        let new_content = fs_util::read_to_string(&fs.path.resolve(new_file2))?;
 
         assert_eq!("file content", content);
         assert_eq!("new file content", new_content);
@@ -1393,9 +1399,9 @@ mod tests {
         let file = ProjectRelativePath::new("foo/bar/link")?;
         fs.path.write_file(file, "Hello", false)?;
         let real_file = fs.path.resolve(file);
-        let mut perm = fs::metadata(&real_file)?.permissions();
+        let mut perm = fs_util::metadata(&real_file)?.permissions();
         perm.set_readonly(true);
-        fs::set_permissions(&real_file, perm)?;
+        fs_util::set_permissions(&real_file, perm)?;
         fs.path.remove_path_recursive(file)?;
         assert!(!fs.path.resolve(file).exists());
         Ok(())

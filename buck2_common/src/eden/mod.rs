@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_core;
-use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
@@ -64,13 +64,13 @@ impl EdenConnectionManager {
         if !eden_root.exists() {
             return Ok(None);
         }
-        let root = fs::read_link(eden_root.as_path().join("root"))?
+        let root = fs_util::read_link(eden_root.as_path().join("root"))?
             .to_str()
             .context("Eden root is not UTF-8")?
             .to_owned();
         let root = Arc::new(root);
 
-        let socket = fs::read_link(eden_root.as_path().join("socket"))?;
+        let socket = fs_util::read_link(eden_root.as_path().join("socket"))?;
 
         let connector = EdenConnector { fb, root, socket };
 
