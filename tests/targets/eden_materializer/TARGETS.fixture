@@ -1,0 +1,7 @@
+load(":rules.bzl", "proto_genrule")
+
+proto_genrule(
+    name = "simple",
+    out = "output.txt",
+    python = "import os; out = open(os.getenv('OUT'), 'wb'); out.write(os.urandom(50))",
+)

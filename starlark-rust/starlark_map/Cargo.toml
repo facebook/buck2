@@ -1,0 +1,25 @@
+[package]
+name = "starlark_map"
+edition = "2021"
+version = "0.9.0-pre"
+license = "Apache-2.0"
+description = "Map implementation with starlark-rust specific optimizations"
+documentation = "https://docs.rs/starlark_map"
+repository = "https://github.com/facebookexperimental/starlark-rust"
+authors = [
+    "Facebook"
+]
+
+[dependencies]
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+
+fnv = "1.0.7"
+hashbrown = { version = "0.11.2", features = ["raw"] }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

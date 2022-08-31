@@ -1,0 +1,92 @@
+load("@fbcode//buck2/tests/targets/rules/utils:defs.bzl", "test_expect", "test_parse_build_target_pattern_fail")
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_1",
+    pattern = "",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_2",
+    pattern = "path/to:target",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_3",
+    pattern = "//",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_4",
+    pattern = "///",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_5",
+    pattern = "...",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_6",
+    pattern = ":",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_7",
+    pattern = "/",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_8",
+    pattern = "/:",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_9",
+    pattern = "/...",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_10",
+    pattern = "///some/path:target",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_11",
+    pattern = "//path/to...",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_12",
+    pattern = "//path/:...",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_13",
+    pattern = "//a/b//c/d:f",
+)
+
+test_parse_build_target_pattern_fail(
+    name = "build_pattern_test_14",
+    pattern = "//a/b/",
+)
+
+test_expect(
+    name = "test_expect_fail_no_format",
+    fail = True,
+    message = "This message has no format arguments.",
+)
+
+test_expect(
+    name = "test_expect_fail_format_one_arg",
+    fail = True,
+    message = "This message has the following format arguments: {}.",
+    arg_1 = "foo",
+)
+
+test_expect(
+    name = "test_expect_fail_format_two_args",
+    fail = True,
+    message = "This message has the following format arguments: {} followed by {}.",
+    arg_1 = "foo",
+    arg_2 = "bar",
+)

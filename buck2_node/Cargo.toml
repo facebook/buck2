@@ -1,0 +1,38 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_node"
+version = "0.1.0"
+edition = "2021"
+description = "Target graph node"
+
+[dependencies]
+anyhow = { workspace = true }
+derive_more = { workspace = true }
+either = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+static_assertions = { workspace = true }
+thiserror = { workspace = true }
+
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+internment_tweaks = { path = "../shed/internment_tweaks" }
+
+buck2_core = { path = "../buck2_core" }
+buck2_query = { path = "../buck2_query" }
+buck2_query_parser = { path = "../buck2_query_parser" }
+
+[dev-dependencies]
+maplit = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

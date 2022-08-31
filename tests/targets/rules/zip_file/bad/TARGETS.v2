@@ -1,0 +1,31 @@
+native.zip_file(
+    name = "zip1",
+    srcs = [
+        "lemon.txt",
+    ],
+)
+
+buck_genrule(
+    name = "zip2_gen",
+    srcs = [
+        "duplicates/lemon.txt",
+    ],
+    out = "lemon.txt",
+    cmd = "cp duplicates/lemon.txt $OUT",
+)
+
+native.zip_file(
+    name = "zip2",
+    srcs = [
+        ":zip2_gen",
+    ],
+)
+
+native.zip_file(
+    name = "fail_on_duplicates",
+    on_duplicate_entry = "fail",
+    zip_srcs = [
+        ":zip1",
+        ":zip2",
+    ],
+)

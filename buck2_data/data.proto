@@ -1,0 +1,1026 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+package buck.data;
+
+// A single event originating from Buck. Its semantics depend on the `data`
+// member.
+message BuckEvent {
+  reserved 2047;
+
+  // A timestamp for when this event was fired, taken from the system clock.
+  // Required.
+  google.protobuf.Timestamp timestamp = 1;
+  // A globally-unique ID (UUIDv4) of this trace. Required.
+  string trace_id = 2;
+  // A trace-unique 64-bit integer identifying this event's span ID, if this
+  // event begins a new span or belongs to one. Required.
+  uint64 span_id = 3;
+  // A trace-unique 64-bit identifying the span that this event is logically
+  // parented to. Required.
+  uint64 parent_id = 4;
+  // The payload of this event. Required.
+  oneof data {
+    SpanStartEvent span_start = 20;
+    SpanEndEvent span_end = 21;
+    InstantEvent instant = 22;
+    // Not present in daemon -> CLI stream or event-log, sent to Scribe
+    // directly.
+    RecordEvent record = 23;
+  }
+}
+
+// An event that begins a span.
+message SpanStartEvent {
+  // TODO(swgillespie) add fields common to span events
+  // bool suspending = 1;
+  oneof data {
+    CommandStart command = 50;
+    ActionExecutionStart action_execution = 51;
+    AnalysisStart analysis = 52;
+    LoadBuildFileStart load = 53;
+    ExecutorStageStart executor_stage = 54;
+    TestDiscoveryStart test_discovery = 55;
+    TestRunStart test_start = 56;
+    WatchmanStart watchman = 57;
+    MaterializeRequestedArtifactStart final_materialization = 58;
+    AnalysisStageStart analysis_stage = 59;
+    MatchDepFilesStart match_dep_files = 60;
+    LoadPackageStart load_package = 61;
+    SharedTaskStart shared_task = 62;
+    // Used in Buck unit tests.
+    FakeStart fake = 999;
+  }
+}
+
+// An event that ends a span.
+message SpanEndEvent {
+  SpanStats stats = 1;
+  // The total duration of this span, as observed by the client.
+  google.protobuf.Duration duration = 2;
+
+  oneof data {
+    CommandEnd command = 50;
+    ActionExecutionEnd action_execution = 51;
+    AnalysisEnd analysis = 52;
+    LoadBuildFileEnd load = 53;
+    ExecutorStageEnd executor_stage = 54;
+    TestDiscoveryEnd test_discovery = 55;
+    TestRunEnd test_end = 56;
+    SpanCancelled span_cancelled = 57;
+    WatchmanEnd watchman = 58;
+    MaterializeRequestedArtifactEnd final_materialization = 59;
+    AnalysisStageEnd analysis_stage = 60;
+    MatchDepFilesEnd match_dep_files = 61;
+    LoadPackageEnd load_package = 62;
+    SharedTaskEnd shared_task = 63;
+    // Used in Buck unit tests.
+    FakeEnd fake = 999;
+  }
+}
+
+message SpanStats {
+  uint64 max_poll_time_us = 1;
+  uint64 total_poll_time_us = 2;
+}
+
+// An event that represents a single point in time.
+message InstantEvent {
+  oneof data {
+    Panic panic = 1;
+    MercurialInfo hg_info = 2;
+    ConsoleMessage console_message = 3;
+    BuildGraphExecutionInfo build_graph_info = 4;
+    RemoteExecutionSessionCreated re_session = 5;
+    // Test discovery occurs as an instant event because we know when it starts,
+    // but we do not know when it is complete.
+    // Instead, we are informed of individual tests that are discovered.
+    TestDiscovery test_discovery = 6;
+    // Test result is an instant event for similar reasons as TestDiscovery.
+    // It corresponds with the completion of an individual test.
+    TestResult test_result = 7;
+    // Inform tailer that rage was performed on certain command.
+    RageInvoked rage_invoked = 8;
+    RawOutput raw_output = 9;
+    Snapshot snapshot = 10;
+
+    DiceComputationStateSnapshot dice_state_snapshot = 11;
+
+    // Log is an instant event for info/warn/error logs.
+    Log log = 12;
+    // Result of one (of potentially many) starlark LSP requests.
+    LspResult lsp_result = 13;
+
+    // A tag to mark on the scuba tables
+    TagEvent tag_event = 14;
+  }
+}
+
+/// The result of an LSP request. Multiple requests and
+/// responses are handled in a single (bidirectional streaming)
+/// RPC call, so allow these in the middle of a stream.
+message LspResult {
+  // The json that should be sent, unchanged, to LSP clients.
+  string lsp_json = 1;
+}
+
+message DiceComputationStateSnapshot {
+  map<string, DiceKeyState> key_states = 1;
+}
+
+message DiceKeyState {
+  uint32 started = 1;
+  uint32 finished = 2;
+}
+
+message RemoteExecutionSessionCreated {
+  string session_id = 1;
+  string experiment_name = 2;
+}
+
+message Location {
+  string file = 1;
+  uint32 line = 2;
+  uint32 column = 3;
+}
+
+// A panic, or an otherwise fatal error that causes the CLI or daemon to crash.
+message Panic {
+  // A resolved symbol, obtained through symbolicating the stack trace.
+  message Symbol {
+    // The name of the symbol (i.e. the function).
+    string name = 1;
+    // The address of the symbol.
+    string address = 2;
+    // The file containing the symbol.
+    string file = 3;
+    // The line where the symbol is defined.
+    uint32 line = 4;
+    // The column where the symbol is defined.
+    uint32 column = 5;
+  }
+
+  // A stack frame, representing a single frame of execution in a backtrace.
+  message StackFrame {
+    // The instruction pointer at this frame. For terminal frames, this is the
+    // faulting IP.
+    string instruction_pointer = 1;
+    // The address of the symbol associated with this stack frame.
+    string symbol_address = 2;
+    // The base address of the loaded module containing the given symbol
+    // address, for use in symbolication.
+    string module_base_address = 3;
+    // The list of symbols known to resolve to the given symbol address, after
+    // symbolication. A symbol address may resolve to multiple symbols if
+    // inlining or COMDAT folding occurred. A symbol address may also resolve
+    // to zero symbols if no symbols were found while symbolicating.
+    repeated Symbol symbols = 4;
+  }
+
+  // The payload of the panic (the argument to panic!).
+  string payload = 1;
+  // The location of the panic.
+  Location location = 2;
+  // Metadata associated with this panic.
+  map<string, string> metadata = 3;
+  // A backtrace associated with this panic.
+  repeated StackFrame backtrace = 4;
+}
+
+message Log {
+  enum Level {
+    INFO = 0;
+    WARN = 1;
+    ERROR = 2;
+  }
+
+  Level level = 1;
+  string message = 2;
+  Location location = 3;
+}
+
+// An event capturing the input, output, and context during the execution of an
+// audit.
+message MercurialInfo {
+  // hg commit for repo
+  string commit = 1;
+  // hg diff for diff between current repo and mercurial hash as a pastry link
+  string diff = 2;
+}
+
+message CriticalPathEntry {
+  // A pretty-printed action name.
+  string action_name = 1;
+  // The wall time taken by this action.
+  google.protobuf.Duration duration = 2;
+  // The action key (valid only locally within this build), useful for analysis
+  // that wants to identify actions on the critical path.
+  ActionKey action_key = 3;
+}
+
+// Sent once per build.
+message BuildGraphExecutionInfo {
+  // The actions that made up the critical path, in chronological order.
+  repeated CriticalPathEntry critical_path = 1;
+}
+
+// An event capturing information from the test discovery phase.
+// Test discovery includes sending a summary of the current testing session.
+// For a given target, we also report when we discover its tests.
+message TestDiscovery {
+  oneof data {
+    TestSessionInfo session = 1;
+    TestSuite tests = 2;
+  }
+}
+
+// Event indicating buck2 rage has been invoked.
+message RageInvoked {
+  map<string, string> metadata = 1;
+  // the trace id of the command that rage was invoked upon.
+  string recent_command_trace_id = 2;
+}
+
+// A snapshot of current system state, with useful info.
+message Snapshot {
+  // Maximum resident set size in bytes of the buck2 daemon.
+  // Does not include subprocesses (e.g. local actions).
+  uint64 buck2_max_rss = 1;
+  // User CPU time of buck2 daemon, not including subprocesses.
+  uint64 buck2_user_cpu_us = 2;
+  // System CPU time of buck2 daemon, not including subprocesses.
+  uint64 buck2_system_cpu_us = 3;
+  // Queue size of the blocking executor.
+  uint64 blocking_executor_io_queue_size = 4;
+
+  uint64 re_download_bytes = 5;
+  uint64 re_upload_bytes = 6;
+
+  // TODO(jaspercb): Fill this with useful fields - total system usage,
+  // number of DICE nodes, etc.
+}
+
+enum TestStatus {
+  // sibling enum scoping in grpc requires file-wide unique name
+  NOT_SET_TEST_STATUS = 0;
+  PASS = 1;
+  FAIL = 2;
+  SKIP = 3;
+  OMITTED = 4;
+  FATAL = 5;
+  TIMEOUT = 6;
+  UNKNOWN = 7;
+  RERUN = 8;
+  LISTING_SUCCESS = 9;
+  LISTING_FAILED = 10;
+}
+
+message TestResult {
+  message OptionalMsg {
+    string msg = 1; // Required
+  }
+
+  string name = 1; // Required
+  TestStatus status = 2; // Required
+  OptionalMsg msg = 5; // Optional
+  google.protobuf.Duration duration = 7; // Optional
+  string details = 8; // Required
+}
+
+// At the beginning of discovery, the test orchestrator will advertise
+// some information about the session
+message TestSessionInfo {
+  // Usually this contains a test link, like in Tpx
+  string info = 2;
+}
+
+// We report all of the tests for a particular target simultaneously
+message TestSuite {
+  // When the tests for a target are discovered,
+  // we are also given the suite name for the tests.
+  string suite_name = 1;
+  repeated string test_names = 2;
+}
+
+// An event that marks the beginning of a command.
+message CommandStart {
+  // Metadata associated with this build. Values in this map have no particular
+  // semantics and are useful for logging and telemetry only.
+  map<string, string> metadata = 1;
+  oneof data {
+    BuildCommandStart build = 20;
+    TargetsCommandStart targets = 21;
+    QueryCommandStart query = 22;
+    CQueryCommandStart cquery = 23;
+    TestCommandStart test = 24;
+    AuditCommandStart audit = 25;
+    DocsCommandStart docs = 26;
+    CleanCommandStart clean = 27;
+    AqueryCommandStart aquery = 28;
+    InstallCommandStart install = 29;
+    MaterializeCommandStart materialize = 30;
+    ProfileCommandStart profile = 31;
+    BxlCommandStart bxl = 32;
+    LspCommandStart lsp = 33;
+  }
+}
+
+message AuditCommandStart {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message BuildCommandStart {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message BxlCommandStart {
+  // The full bxl label that was run, excluding the arguments to the bxl
+  string bxl_label = 1;
+}
+
+message LspCommandStart {}
+
+message TargetsCommandStart {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message QueryCommandStart {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message AqueryCommandStart {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message CQueryCommandStart {
+  string query = 1;
+  string query_args = 2;
+  string target_universe = 3;
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message TestCommandStart {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message DocsCommandStart {
+  // TODO(nmj) fill this with useful fields
+}
+
+message CleanCommandStart {
+  // TODO fill this with useful fields
+}
+
+message InstallCommandStart {
+  // TODO fill this with useful fields
+}
+
+message MaterializeCommandStart {
+  // TODO fill this with useful fields
+}
+
+message ProfileCommandStart {}
+
+message CommandEnd {
+  // Metadata associated with this build. Values in this map have no particular
+  // semantics and are useful for logging and telemetry only.
+  map<string, string> metadata = 1;
+  oneof data {
+    BuildCommandEnd build = 20;
+    TargetsCommandEnd targets = 21;
+    QueryCommandEnd query = 22;
+    CQueryCommandEnd cquery = 23;
+    TestCommandEnd test = 24;
+    AuditCommandEnd audit = 25;
+    DocsCommandEnd docs = 26;
+    CleanCommandEnd clean = 27;
+    AqueryCommandEnd aquery = 28;
+    InstallCommandEnd install = 29;
+    MaterializeCommandEnd materialize = 30;
+    ProfileCommandEnd profile = 31;
+    BxlCommandEnd bxl = 32;
+    LspCommandEnd lsp = 33;
+  }
+
+  bool is_success = 2;
+  repeated string error_messages = 3;
+}
+
+message AuditCommandEnd {
+  // output status
+  uint64 status = 1;
+  // arguments to command
+  string args = 2;
+  // execution dir
+  string dir = 3;
+}
+
+message BuildCommandEnd {
+  reserved 2;
+
+  // Unambiguous provider patterns that this command is requesting be brought
+  // up-to-date. These patterns are not exactly the same as the patterns
+  // directly provided to the buck2 command-line; rather, these patterns have
+  // been disambiguated using the client's working directory and cell
+  // configuration.
+  repeated TargetPattern target_patterns = 1;
+}
+
+message BxlCommandEnd {
+  // The full bxl label that was run, excluding the arguments to the bxl
+  string bxl_label = 1;
+}
+
+message LspCommandEnd {}
+
+message TargetsCommandEnd {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message QueryCommandEnd {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message CQueryCommandEnd {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message AqueryCommandEnd {
+  // TODO(swgillespie) fill this with useful fields
+}
+
+message TestCommandEnd {
+  // Unambiguous provider patterns that this command is requesting be brought
+  // up-to-date. These patterns are not exactly the same as the patterns
+  // directly provided to the buck2 command-line; rather, these patterns have
+  // been disambiguated using the client's working directory and cell
+  // configuration.
+  repeated TargetPattern target_patterns = 1;
+}
+
+message DocsCommandEnd {
+  // TODO(nmj) fill this with useful fields
+}
+
+message CleanCommandEnd {
+  // TODO fill this with useful fields
+}
+
+message InstallCommandEnd {
+  // Unambiguous provider patterns that this command is requesting be brought
+  // up-to-date. These patterns are not exactly the same as the patterns
+  // directly provided to the buck2 command-line; rather, these patterns have
+  // been disambiguated using the client's working directory and cell
+  // configuration.
+  repeated TargetPattern target_patterns = 1;
+}
+
+message MaterializeCommandEnd {
+  // TODO fill this with useful fields
+}
+
+message ProfileCommandEnd {}
+
+message LoadPackageStart {
+  string path = 1;
+}
+
+message LoadPackageEnd {
+  string path = 1;
+}
+
+message LoadBuildFileStart {
+  string module_id = 1;
+  string cell = 2;
+}
+
+message LoadBuildFileEnd {
+  string module_id = 1;
+  string cell = 2;
+}
+
+message SharedTaskStart {}
+
+message SharedTaskEnd {}
+
+message FakeStart {
+  string caramba = 1;
+}
+
+message FakeEnd {}
+
+// A unique key identifying a particular action.
+message ActionKey {
+  // A deferred ID associated with this action. Opaque to consumers.
+  bytes id = 1;
+
+  // The configured target label that this action contributes to.
+  oneof owner {
+    ConfiguredTargetLabel target_label = 2;
+    BxlFunctionKey bxl_key = 4;
+  }
+
+  // The full deferred key associated with this action. Opaque to consumers.
+  string key = 3;
+}
+
+enum ActionKind {
+  NOT_SET = 0;
+  COPY = 1;
+  DOWNLOAD_FILE = 2;
+  RUN = 3;
+  SYMLINKED_DIR = 4;
+  WRITE = 5;
+  WRITE_MACROS_TO_FILE = 6;
+}
+
+// The kinds of ways an action can be executed by buck2.
+enum ActionExecutionKind {
+  ACTION_EXECUTION_KIND_NOT_SET = 0;
+  // This action was executed locally.
+  ACTION_EXECUTION_KIND_LOCAL = 1;
+  // This action was executed via a remote execution service.
+  ACTION_EXECUTION_KIND_REMOTE = 2;
+  // This action was served via a remote execution service's action cache.
+  ACTION_EXECUTION_KIND_ACTION_CACHE = 3;
+  // This action was served inline within buck2 due to its simplicity (e.g.
+  // write, symlink, etc.
+  ACTION_EXECUTION_KIND_SIMPLE = 4;
+  // This action was skipped entirely because Buck2 determined it was redundant
+  // (e.g. dep files hit).
+  ACTION_EXECUTION_KIND_SKIPPED = 5;
+  // This action was logically executed, but didn't perform all the work.
+  ACTION_EXECUTION_KIND_DEFERRED = 6;
+}
+
+// A name for a particular action, suitable for offline analytics and user
+// display. ActionNames are unique within the execution of a particular target.
+message ActionName {
+  // The category of this action. Categories are families of actions that are
+  // similar but operate on different inputs, such as invocations of a C++
+  // compiler (whose category would be `cxx_compile`).
+  string category = 1;
+
+  // The identifier of this action. Combined with the category, the identifier
+  // describes the action umbiguously within the context of a single target.
+  //
+  // If only one action is expected in a single category, this field may be
+  // empty.
+  string identifier = 2;
+}
+
+// The beginning of execution for a particular action.
+message ActionExecutionStart {
+  reserved 2;
+
+  // A unique key identifying this action within the build.
+  ActionKey key = 1;
+  // The kind of this action.
+  ActionKind kind = 3;
+  // A pair of category and identifier describing this action.
+  ActionName name = 4;
+}
+
+message OmittedLocalCommand {}
+
+message CommandExecutionDetails {
+  reserved 6;
+
+  // The exit code of the command.
+  uint32 exit_code = 1;
+  // The stdout of the command. This may be omitted for successful commands.
+  string stdout = 2;
+  // The stderr of the command.
+  string stderr = 3;
+
+  oneof command {
+    // The command, if it was local.
+    LocalCommand local_command = 7;
+    // The command, if it was remote.
+    RemoteCommand remote_command = 8;
+    // The command, if it was local and omitted from this log record for
+    // brevity.
+    OmittedLocalCommand omitted_local_command = 9;
+  }
+}
+
+message CommandOutputsMissing {
+  // A description of what outputs are missing.
+  string message = 2;
+}
+
+message CommandTimedOut {
+  string message = 2;
+}
+
+// Serialization of CommandExecutionReport
+message CommandExecution {
+  CommandExecutionDetails details = 1;
+
+  message Success {}
+
+  message Failure {}
+
+  message Timeout {
+    google.protobuf.Duration duration = 1;
+  }
+
+  message Error {
+    string stage = 1;
+    string error = 2;
+  }
+
+  message ClaimRejected {}
+
+  // Serialization of CommandExecutionStatus.
+  oneof status {
+    Success success = 2;
+    Failure failure = 3;
+    Timeout timeout = 4;
+    Error error = 5;
+    ClaimRejected claim_rejected = 6;
+  }
+}
+
+// NOTE: This is an empty message. When this is returned as an error, the
+// relevant execution details are in the reports field.
+message CommandExecutionError {}
+
+message ActionOutput {
+  string tiny_digest = 1;
+}
+
+message ActionExecutionEnd {
+  reserved 2, 20;
+
+  // A unique key identifying this action within the build.
+  ActionKey key = 1;
+  // The kind of this action.
+  ActionKind kind = 4;
+  // A pair of category and identifier describing this action.
+  ActionName name = 5;
+  // Whether or not this action failed. The default value of this field is
+  // "false", indicating that an action was successful. This polarity was chosen
+  // deliberately; our hypothesis is that a large majority of actions are
+  // successful and, when a boolean is sent over the wire as its default value
+  // (false), it is not serialized at all.
+  bool failed = 6;
+  // If this action failed, contains an object that represents the nature of the
+  // error. Can be just a string, in which case it is `unknown`, or may be a
+  // richer object depending on the error.
+  oneof error {
+    // An error message whose nature is unknown. This often comes from cases
+    // where action execution fails for reasons other than the command failing.
+    // This should not be preferred, and should be an error type of last resort.
+    // TODO (torozco): Remove
+    string unknown = 7;
+
+    // Command executed successfully but did not produce the desired outputs.
+    CommandOutputsMissing missing_outputs = 9;
+
+    // TODO (torozco): Rename to command_failed.
+    CommandExecutionError command_execution_error = 11;
+  };
+  // If not-empty, the stderr for the process. This may contain ANSI control
+  // characters, so consumers should sanitize it before displaying it to users.
+  // If it is empty, the stderr contents are available elsewhere, e.g. in an
+  // error message for failed actions.
+  // Whether, in the normal case, stderr should be printed for successful
+  // actions. It *may* still be presented to users if they request it
+  // specifically.
+  bool always_print_stderr = 21;
+  // The kind of execution used to service this action.
+  // TODO (torozco): Remove the command variants? This should probably just be
+  // "Command" if there was a command and then we should look at the command
+  // reports to tell if it was RE or Local.
+  ActionExecutionKind execution_kind = 22;
+  /// How long this build waited for this action to complete. Omits queue time.
+  google.protobuf.Duration wall_time = 23;
+  // the total size of the outputs of this action.
+  uint64 output_size = 24;
+  // The commands executed by this action. These are in the order they were
+  // attempted. If a command was executed, the one that should be shown to the
+  // user wil always be last.
+  repeated CommandExecution commands = 25;
+  // The outputs produced by this action
+  repeated ActionOutput outputs = 26;
+}
+
+// The beginning of materialization for the output of a target requested,
+// inclusive of all dependent artifacts it might recursively request to
+// materialize.
+message MaterializeRequestedArtifactStart {
+  BuildArtifact artifact = 1;
+}
+
+message MaterializeRequestedArtifactEnd {
+  BuildArtifact artifact = 1;
+}
+
+message AnalysisProfile {
+  message StarlarkTotalMemoryEntry {
+    string kind = 1;
+    uint64 count = 2;
+    uint64 total_bytes = 3;
+  }
+
+  message StarlarkTotalMemory {
+    repeated StarlarkTotalMemoryEntry entries = 1;
+  }
+
+  uint64 starlark_allocated_bytes = 1;
+  uint64 starlark_available_bytes = 2;
+  StarlarkTotalMemory starlark_total = 3;
+}
+
+message AnalysisStart {
+  ConfiguredTargetLabel target = 1;
+  string rule = 2;
+}
+
+message AnalysisEnd {
+  ConfiguredTargetLabel target = 1;
+  string rule = 3;
+  AnalysisProfile profile = 2;
+}
+
+message AnalysisStageStart {
+  oneof stage {
+    google.protobuf.Empty resolve_queries = 1;
+    google.protobuf.Empty evaluate_rule = 2;
+  }
+}
+
+message AnalysisStageEnd {}
+
+message ExecutorStageStart {
+  oneof stage {
+    ReStage re = 20;
+    LocalStage local = 21;
+    CacheQuery cache_query = 22;
+    CacheHit cache_hit = 23;
+    PrepareAction prepare = 24;
+  }
+}
+
+message PrepareAction {}
+
+message CacheQuery {
+  string action_digest = 1;
+}
+
+message CacheHit {
+  string action_digest = 1;
+}
+
+message ReStage {
+  reserved 1, 2, 4;
+
+  oneof stage {
+    ReUpload upload = 3;
+    ReExecute execute = 5;
+    ReDownload download = 6;
+    ReQueue queue = 7;
+    ReWorkerDownload worker_download = 8;
+    ReWorkerUpload worker_upload = 9;
+    ReUnknown unknown = 10;
+  }
+}
+
+message ReUpload {}
+
+message ReExecute {
+  string action_digest = 1;
+}
+
+message ReDownload {}
+
+message ReQueue {
+  string action_digest = 1;
+}
+
+message ReWorkerDownload {
+  string action_digest = 1;
+}
+
+message ReWorkerUpload {
+  string action_digest = 1;
+}
+
+message ReUnknown {
+  string action_digest = 1;
+}
+
+message LocalStage {
+  oneof stage {
+    LocalQueued queued = 1;
+    LocalExecute execute = 2;
+    LocalMaterializeInputs materialize_inputs = 3;
+    LocalPrepareOutputDirs prepare_outputs = 4;
+  }
+}
+
+message LocalQueued {}
+
+message LocalExecute {
+  LocalCommand command = 1;
+}
+
+message LocalMaterializeInputs {}
+
+message LocalPrepareOutputDirs {}
+
+message ExecutorStageEnd {}
+
+// For most tests, tpx calls the test orchestrator's `execute` method.
+// The `execute` method calls a test binary.
+// We instrument the span associated specifically with the execution of this
+// binary, ignoring time spent resolving deps, etc.
+//
+// `Execute` is called in two different ways:
+// - Discovery: `tpx` is trying to figure out what tests to run for a suite.
+// - SuiteRun: `tpx` wants to run one or more tests for a suite.
+// These different ways are tracked using the span events below.
+
+message TestDiscoveryStart {
+  // Trying to find the test suite(s) associated with this binary.
+  string suite_name = 1;
+}
+
+message TestDiscoveryEnd {}
+
+message TestRunStart {
+  TestSuite suite = 1;
+}
+
+message TestRunEnd {}
+
+message WatchmanStart {}
+
+// Stats for a Watchman update. We ignore events that are outside of the cells
+// we care about, which is why events_total and events_processed might differ.
+message WatchmanStats {
+  bool fresh_instance = 1;
+  uint64 events_total = 2;
+  uint64 events_processed = 3;
+  string branched_from_revision = 4;
+}
+
+message WatchmanEnd {
+  WatchmanStats stats = 1;
+}
+
+message MatchDepFilesStart {}
+
+message MatchDepFilesEnd {}
+
+// Returned when a Span is dropped before terminating.
+message SpanCancelled {}
+
+// A configured target label, which is a target label plus a configuration.
+message ConfiguredTargetLabel {
+  TargetLabel label = 1;
+  Configuration configuration = 2;
+}
+
+// A bxl function key, which is a bxl function and its args
+message BxlFunctionKey {
+  BxlFunctionLabel label = 1;
+  repeated string args = 2;
+}
+
+// A bxl function label, which is its defining file and the function name
+message BxlFunctionLabel {
+  string bxl_path = 1;
+  string name = 2;
+}
+
+// A configuration, identified by its full name.
+message Configuration {
+  string full_name = 2;
+}
+
+// A target label, consisting of a package and a name.
+message TargetLabel {
+  string package = 1;
+  string name = 2;
+}
+
+message BuildArtifact {
+  ActionKey key = 1;
+  string path = 2;
+}
+
+// A target pattern, representing a set of targets. See
+// `<https://buck.build/concept/build_target_pattern.html#content>` for Buck's
+// documentation on target patterns.
+message TargetPattern {
+  string value = 1;
+}
+
+/// A message that should be printed to the user, generally via stderr
+///
+/// The formatting used is up to the user, and may have things like ANSI
+/// control characters removed.
+///
+/// Generally, one should rely on properly typed events, rather than raw
+/// console events if additional formatting is required.
+message ConsoleMessage {
+  string message = 1;
+}
+
+/// A message that is printed out to client's stdout verbatim
+message RawOutput {
+  string raw_output = 1;
+}
+
+/// A representation of a command that we executed locally.
+message LocalCommand {
+  message EnvironmentEntry {
+    // The environment key.
+    string key = 1;
+    // The environment value.
+    string value = 2;
+  }
+
+  repeated string argv = 1;
+  repeated EnvironmentEntry env = 2;
+}
+
+// A representation of a command we executed remotely.
+message RemoteCommand {
+  string action_digest = 1;
+  bool cache_hit = 2;
+}
+
+// A representation of an invocation
+message Invocation {
+  repeated string command_line_args = 1;
+  string working_dir = 2;
+}
+
+message RecordEvent {
+  oneof data {
+    InvocationRecord invocation_record = 1;
+  }
+}
+
+// An arbitrary tag on the command. Usually used to mark A/B experiments
+message TagEvent {
+  repeated string tags = 1;
+}
+
+message TypedMetadata {
+  map<string, int64> ints = 1;
+}
+
+message InvocationRecord {
+  // Optional - present if ever sent to client.
+  CommandStart command_start = 1;
+  // Optional - present if ever sent to client.
+  // Will be missing on a cancelled build.
+  CommandEnd command_end = 2;
+  // Optional - present if event-log had RemoteExecutionSessionCreated.
+  string re_session_id = 3;
+  repeated string cli_args = 4;
+  // Optional - present if CommandEnd sent to client.
+  google.protobuf.Duration command_duration = 5;
+  // Required. The walltime as measured by the client.
+  google.protobuf.Duration client_walltime = 6;
+  // Optional - present if BuildGraphExecutionInfo sent to client.
+  google.protobuf.Duration critical_path_duration = 7;
+  // Optional - any contents are copied directly to scuba buck2_builds.
+  TypedMetadata client_metadata = 8;
+  // Tags for this command
+  repeated string tags = 9;
+  // Count of actions that were executed locally
+  uint64 run_local_count = 10;
+  // Count of actions that were executed remotely
+  uint64 run_remote_count = 11;
+  // Count of actions that downloaded action cache
+  uint64 run_action_cache_count = 12;
+  // Count of actions that were skipped. Actions are usually skipped due to a
+  // dep-files hit.
+  uint64 run_skipped_count = 13;
+  // Optional - the first snapshot sent.
+  Snapshot first_snapshot = 20;
+  // Optional - the last snapshot sent.
+  Snapshot last_snapshot = 21;
+  // Optional - the merge base revision that the build ran on
+  string branched_from_revision = 22;
+  // If any, the name of the RE experiment config that was used by the RE
+  // client in this build.
+  string re_experiment_name = 23;
+}

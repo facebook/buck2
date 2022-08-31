@@ -1,0 +1,33 @@
+load("@fbcode_macros//build_defs:ocaml_binary.bzl", "ocaml_binary")
+load("@fbcode_macros//build_defs:ocaml_library.bzl", "ocaml_library")
+
+# Binary 'test' has a transitive dependency (through library 'foo') on
+# library 'bar'. If this set of targets is give to buck1, compilation
+# of main.ml will fail with the error:
+#
+#   Error (warning 58 [no-cmx-file]): no cmx file was found in path
+#   for module Bar, and its interface was not compiled with -opaque
+#
+# This is because the compile command for main.ml does not include -I
+# path/to/dir/where/bar.cmx.
+#
+# buck2 avoids this by ensuring there is a -I that reaches each .cmx
+# in every dependent library, including those that are only indirectly
+# depended upon.
+
+ocaml_binary(
+    name = "test",
+    srcs = ["main.ml"],
+    deps = [":foo"],
+)
+
+ocaml_library(
+    name = "foo",
+    srcs = ["foo.ml"],
+    deps = [":bar"],
+)
+
+ocaml_library(
+    name = "bar",
+    srcs = ["bar.ml"],
+)

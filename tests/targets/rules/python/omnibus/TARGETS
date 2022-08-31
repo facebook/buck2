@@ -1,0 +1,10 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+python_binary(
+    name = "check_omnibus",
+    srcs = [
+        "check_omnibus.py",
+    ],
+    base_module = "",
+    main_module = "check_omnibus",
+)

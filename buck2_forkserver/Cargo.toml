@@ -1,0 +1,44 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_forkserver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+futures = { workspace = true }
+libc = { workspace = true }
+nix = { workspace = true }
+pin-project = { workspace = true }
+take_mut = { workspace = true }
+tokio-util = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo.version = "0.8.0"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_grpc = { path = "../buck2_grpc" }
+forkserver_proto = { path = "../forkserver_proto" }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+bytes = { workspace = true }
+tempfile = { workspace = true }
+tokio-stream = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

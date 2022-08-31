@@ -1,0 +1,2 @@
+int one();
+int two();

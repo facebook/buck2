@@ -1,0 +1,28 @@
+_targets = targets(["//lib:lib1", "//lib:lib2", "//lib:lib3"])
+print("_targets = `%s`" % _targets)
+
+expr = nattrfilter("description", "this is lib2", _targets)
+expected = targets(["//lib:lib1", "//lib:lib3"])
+if expr != expected:
+    fail("expected `nattrfilter(\"description\", \"this is lib2\", _targets) == %s`, got `%s`" % (expected, expr))
+
+expr = nattrfilter("cmd", "this is lib2", _targets)
+if expr != expected:
+    fail("expected `nattrfilter(\"cmd\", \"this is lib2\", _targets) == %s`, got `%s`" % (expected, expr))
+
+# test an attr with select
+expr = nattrfilter("cmd", "this is lib3", _targets)
+expected = targets(["//lib:lib1", "//lib:lib2"])
+if expr != expected:
+    fail("expected `nattrfilter(\"cmd\", \"this is lib3\", _targets) == %s`, got `%s`" % (expected, expr))
+
+
+# and test the two select cases. both should match
+expr = nattrfilter("cmd", "this is lib3 too, case 1", _targets)
+if expr != expected:
+    fail("expected `nattrfilter(\"cmd\", \"this is lib3 too, case 1\", _targets) == %s`, got `%s`" % (expected, expr))
+
+
+expr = nattrfilter("cmd", "this is lib3 too, case 2", _targets)
+if expr != expected:
+    fail("expected `nattrfilter(\"cmd\", \"this is lib3 too, case 2\", _targets) == %s`, got `%s`" % (expected, expr))

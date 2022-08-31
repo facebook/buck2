@@ -1,0 +1,22 @@
+{
+    "assetsDirPath": "BUCK_OUT_REDACTED/js/js_bundle/__fruit_salad__/transform-profile-default/assets_dir",
+    "bundlePath": "BUCK_OUT_REDACTED/js/fruit_salad.js",
+    "command": "bundle",
+    "entryPoints": [
+        "apple"
+    ],
+    "extraData": {
+        "location_macro": "BUCK_OUT_REDACTED/js/js_bundle/__exported_file__/exported_file",
+        "some_int": 5
+    },
+    "flavors": [
+        "android"
+    ],
+    "libraries": [
+        "BUCK_OUT_REDACTED/js/js_library/__fruit__/transform-profile-default.jslib"
+    ],
+    "miscDirPath": "BUCK_OUT_REDACTED/js/js_bundle/__fruit_salad__/transform-profile-default/misc_dir_path",
+    "platform": "android",
+    "release": false,
+    "sourceMapPath": "BUCK_OUT_REDACTED/js/js_bundle/__fruit_salad__/transform-profile-default/source_map"
+}

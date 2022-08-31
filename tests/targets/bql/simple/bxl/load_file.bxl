@@ -1,0 +1,3 @@
+load("@root//bxl:root.bxl", "root_test")
+
+load_test = root_test

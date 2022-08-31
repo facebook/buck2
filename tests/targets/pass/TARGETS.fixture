@@ -1,0 +1,63 @@
+load(":defs.bzl", "printing_binary")
+
+export_file(
+    name = "abc",
+    src = "TARGETS.fixture",
+)
+
+printing_binary(
+    name = "print_stderr_simple_notty",
+)
+
+printing_binary(
+    name = "print_stderr_simple_tty",
+)
+
+printing_binary(
+    name = "print_stderr_super",
+)
+
+printing_binary(
+    name = "v_print_stderr_simple_notty",
+    always_print = False,
+)
+
+printing_binary(
+    name = "v_print_stderr_simple_tty",
+    always_print = False,
+)
+
+printing_binary(
+    name = "v_print_stderr_super",
+    always_print = False,
+)
+
+printing_binary(
+    name = "always_print_stderr_simple_notty",
+    always_print = True,
+)
+
+printing_binary(
+    name = "always_print_stderr_simple_tty",
+    always_print = True,
+)
+
+printing_binary(
+    name = "always_print_stderr_super",
+    always_print = True,
+)
+
+printing_binary(
+    name = "v_always_print_stderr_simple_notty",
+    always_print = True,
+)
+
+printing_binary(
+    name = "v_always_print_stderr_simple_tty",
+    always_print = True,
+)
+
+printing_binary(
+    name = "v_always_print_stderr_super",
+    always_print = True,
+)

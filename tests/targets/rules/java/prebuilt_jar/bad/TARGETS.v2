@@ -1,0 +1,22 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+buck_genrule(
+    name = "create_jar",
+    out = "tiny_generated.jar",
+    bash = "echo 'hello jar' > $OUT",
+)
+
+buck_genrule(
+    name = "genjar_without_jar_extension",
+    srcs = [
+        ":create_jar",
+    ],
+    out = "tiny_generated_jar_bin",
+    bash = "cp $SRCDIR/tiny_generated.jar $OUT",
+)
+
+# Should fail because `binary_jar` doesn't have .jar extension
+native.prebuilt_jar(
+    name = "jar_from_genrule_without_jar_extension",
+    binary_jar = ":genjar_without_jar_extension",
+)

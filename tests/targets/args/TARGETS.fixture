@@ -1,0 +1,16 @@
+load(":defs.bzl", "foo_toolchain", "foo_library", "foo_binary")
+
+foo_toolchain(name = "toolchain")
+
+foo_library(name = "lib1", flags = ["this", "is", "lib1"])
+
+foo_library(name = "lib2", flags = ["this", "is", "lib2"])
+
+foo_binary(
+    name = "bin",
+    flags = [
+        "$(FOO) -- $(FOO_FLAGS)",
+        "$(NAME :lib1) -- $(LIB_FLAGS :lib1)",
+        "$(NAME :lib2) -- $(LIB_FLAGS :lib2)",
+    ]
+)

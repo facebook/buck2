@@ -1,0 +1,11 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "downward_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }

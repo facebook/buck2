@@ -1,0 +1,10 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+
+cpp_binary(
+    name = "bin",
+    srcs = [(
+        "main.cpp",
+        ["-Wno-shadow"],
+    )],
+    compiler_flags = ["-Wshadow"],
+)

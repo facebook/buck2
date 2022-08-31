@@ -1,0 +1,104 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_build_api"
+version = "0.1.0"
+edition = "2021"
+description = "Build related interpreter defs, coercion logic, some build rule impelementations, and handing actions off to DICE for caching and execution. A large chunk of the 'build' part of BuckV2"
+
+[dependencies]
+dashmap = { workspace = true }
+anyhow = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+blake3 = { workspace = true }
+derive_more = { workspace = true }
+derivative = { workspace = true }
+faccess = { workspace = true }
+hashbrown = { workspace = true }
+once_cell = { workspace = true }
+indoc = { workspace = true }
+inventory = { workspace = true }
+fancy-regex = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+internment = { workspace = true }
+itertools = { workspace = true }
+owning_ref = { workspace = true }
+slog = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+regex = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+ref-cast = { workspace = true }
+shlex = { workspace = true }
+static_assertions = { workspace = true }
+structopt = { workspace = true }
+take_mut = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+glob = { workspace = true }
+indexmap = { workspace = true }
+either = { workspace = true }
+maplit = { workspace = true }
+reqwest = { workspace = true }
+sha-1 = { workspace = true }
+hex = { workspace = true }
+smallvec = { workspace = true }
+assert_matches = { workspace = true }
+crossbeam-epoch = { workspace = true }
+http = { workspace = true }
+parking_lot = { workspace = true }
+zstd = { workspace = true }
+
+dice = { path = "../dice/dice" }
+fbinit.version = "0.1"
+# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+host_sharing = { path = "../host_sharing" }
+more_futures = { path = "../shed/more_futures" }
+remote_execution = { workspace = true }
+starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+
+buck2_build_api_derive = { path = "../buck2_build_api_derive" }
+buck2_core = { path = "../buck2_core" }
+buck2_common = { path = "../buck2_common" }
+buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
+buck2_execute = { path = "../buck2_execute" }
+buck2_forkserver = { path = "../buck2_forkserver" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
+buck2_node = { path = "../buck2_node" }
+buck2_query = { path = "../buck2_query" }
+buck2_query_parser = { path = "../buck2_query_parser" }
+buck2_test_api = { path = "../buck2_test_api" }
+cli_proto = { path = "../cli_proto" }
+forkserver_proto = { path = "../forkserver_proto" }
+
+[target.'cfg(unix)'.dependencies]
+jemallocator = { workspace = true }
+
+[[bin]]
+name = "interpret"
+path = "bin/interpret.rs"
+
+[[bin]]
+name = "macroparse"
+path = "bin/utilities/macro_parse.rs"
+
+[features]
+# @oss-disable: default = ["gazebo_lint", "eden_materializer"]
+# @oss-disable: eden_materializer = ["buck2_execute/eden_materializer"]
+eden_materializer = [] # @oss-enable

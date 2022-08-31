@@ -1,0 +1,7 @@
+load("@root//:rules.bzl", "file", "cp")
+
+file(name = "small", file_size = 1 * 1024)
+file(name = "big", file_size = 2 * 1024 * 1024)
+
+cp(name = "cp_small", file = ":small")
+cp(name = "cp_big", file = ":big")

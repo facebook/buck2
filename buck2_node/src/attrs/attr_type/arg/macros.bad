@@ -1,0 +1,6 @@
+unfinished $(macro
+bad name $()
+bad name $(xyz%;)
+bad args $(abc xyz
+args finished, macro not $(abc xyz 
+unfinished quoted arg $(abc "xyz )

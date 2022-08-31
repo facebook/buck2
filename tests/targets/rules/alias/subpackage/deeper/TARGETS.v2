@@ -1,0 +1,8 @@
+# To silence the linter warnings about native
+prelude = native
+
+prelude.sh_binary(
+    name = "with_env.sh",
+    main = "with_env.sh",
+    visibility = ["PUBLIC"],
+)

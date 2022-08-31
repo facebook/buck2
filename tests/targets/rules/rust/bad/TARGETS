@@ -1,0 +1,8 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.rust_library(
+    name = "lib_with_error",
+    srcs = [
+        "lib_with_error.rs",
+    ],
+)

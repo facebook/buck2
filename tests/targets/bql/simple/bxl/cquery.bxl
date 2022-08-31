@@ -1,0 +1,71 @@
+def _owner_impl(ctx):
+    owner = ctx.cquery().owner("bin/TARGETS.fixture")
+    ctx.output.print(owner)
+
+owner_test = bxl(
+    impl = _owner_impl,
+    cli_args = {},
+)
+
+def _kind_impl(ctx):
+    kind = ctx.cquery().kind(".*1", "bin/kind/...")
+    ctx.output.print(kind)
+
+kind_test = bxl(
+    impl = _kind_impl,
+    cli_args = {},
+)
+
+def _attrregexfilter_impl(ctx):
+    filtered = ctx.cquery().attrregexfilter("foo", "he.lo", "bin/kind/...")
+    ctx.output.print(filtered)
+
+attrregexfilter_test = bxl(
+    impl = _attrregexfilter_impl,
+    cli_args = {},
+)
+
+def _rdeps_impl(ctx):
+    result = ctx.cquery().rdeps("root//bin:the_binary", "//lib:file1", 100)
+    ctx.output.print(result)
+
+rdeps_test = bxl(
+    impl = _rdeps_impl,
+    cli_args = {},
+)
+
+def _deps_impl(ctx):
+    result = ctx.cquery().deps("root//bin:the_binary", 1)
+    ctx.output.print(result)
+
+deps_test = bxl(
+    impl = _deps_impl,
+    cli_args = {},
+)
+
+def _inputs_impl(ctx):
+    result = ctx.cquery().inputs("root//bin:the_binary")
+    ctx.output.print(result)
+
+inputs_test = bxl(
+    impl = _inputs_impl,
+    cli_args = {},
+)
+
+def _filter_impl(ctx):
+    result = ctx.cquery().filter(".*the_binary", "root//...")
+    ctx.output.print(result)
+
+filter_test = bxl(
+    impl = _filter_impl,
+    cli_args = {},
+)
+
+def _eval_query(ctx):
+    result = ctx.cquery().eval("inputs(root//bin:the_binary)")
+    ctx.output.print(result)
+
+eval_query_test = bxl(
+    impl = _eval_query,
+    cli_args = {},
+)

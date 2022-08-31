@@ -1,0 +1,25 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_grpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+futures = { workspace = true }
+http = { workspace = true }
+pin-project = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tower = { workspace = true }
+
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

@@ -1,0 +1,35 @@
+def _impl(ctx):
+    ctx.output.print("bool_arg: " + repr(ctx.cli_args.bool_arg))
+    ctx.output.print("string_arg: " + repr(ctx.cli_args.string_arg))
+    ctx.output.print("int_arg: " + repr(ctx.cli_args.int_arg))
+    ctx.output.print("float_arg: " + repr(ctx.cli_args.float_arg))
+    ctx.output.print("optional: " + repr(ctx.cli_args.optional))
+    ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
+    ctx.output.print("target: " + repr(ctx.cli_args.target))
+    ctx.output.print("sub_target: " + repr(ctx.cli_args.sub_target))
+    ctx.output.print("list: " + repr(ctx.cli_args.list_type))
+
+cli_test = bxl(
+    impl = _impl,
+    cli_args = {
+        "bool_arg": cli_args.bool(),
+        "enum_type": cli_args.enum(["a", "b"]),
+        "float_arg": cli_args.float(),
+        "int_arg": cli_args.int(),
+        "list_type": cli_args.list(cli_args.int()),
+        "optional": cli_args.option(cli_args.string()),
+        "string_arg": cli_args.string("default"),
+        "sub_target": cli_args.sub_target(),
+        "target": cli_args.target_label(),
+    },
+)
+
+def _target_expr_impl(ctx):
+    ctx.output.print(repr(ctx.cli_args.targets))
+
+target_expr_test = bxl(
+    impl = _target_expr_impl,
+    cli_args = {
+        "targets": cli_args.target_expr(),
+    },
+)

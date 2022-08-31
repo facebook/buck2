@@ -1,0 +1,79 @@
+native.export_file(
+    name = "print_arg.sh",
+    src = "print_arg.sh",
+)
+
+native.command_alias(
+    name = "linux",
+    exe = ":print_arg.sh",
+    args = ["some_linux_arg", "some_other_linux_arg"],
+)
+
+native.command_alias(
+    name = "mac",
+    exe = ":print_arg.sh",
+    args = ["some_mac_arg", "some_other_mac_arg"],
+)
+
+# Test to verify that we construct the command correctly when it has multiple args.
+native.command_alias(
+    name = "platform_multiple_args",
+    platform_exe = {
+        "linux": ":linux",
+        "macos": ":mac",
+    },
+)
+
+native.genrule(
+    name = "check_platform_multiple_args",
+    out = "out.txt",
+    cmd = '"$(exe :platform_multiple_args)" | grep "arg" && touch "$OUT"',
+)
+
+# Test to verify we handle quoting arguments properly
+native.command_alias(
+    name = "quote",
+    args = ["sh", "-c", "echo $1", "--", "foo bar"],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+native.genrule(
+    name = "check_quote",
+    out = "out.txt",
+    cmd = '$(exe :quote) | grep "bar" && touch "$OUT"',
+)
+
+# Test to verify that we handle env
+native.command_alias(
+    name = "env",
+    args = ["sh", "-c", "echo $TEST_VAR"],
+    env = {"TEST_VAR": "foo"},
+)
+
+native.genrule(
+    name = "check_env",
+    out = "out.txt",
+    cmd = '$(exe :env) | grep "foo" && touch "$OUT"',
+)
+
+# Test to verify that relative paths in args actually work
+native.export_file(
+    name = "relative_path_test_file",
+    src = "test_file",
+)
+
+native.command_alias(
+    name = "relative_path",
+    args = ["sh", "-c", "cat $1", "--", "$(location :relative_path_test_file)"],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+native.genrule(
+    name = "check_relative_path",
+    out = "out.txt",
+    cmd = '$(exe :relative_path) | grep "foo" && touch "$OUT"',
+)

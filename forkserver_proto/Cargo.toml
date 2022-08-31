@@ -1,0 +1,15 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "forkserver_proto"
+
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }

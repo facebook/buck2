@@ -1,0 +1,57 @@
+load(":defs.bzl", "test")
+
+test(name = "default", artifact = "artifact", script = "default.sh")
+
+test(
+    name = "run_from_project_root",
+    artifact = "artifact",
+    script = "run_from_project_root.sh",
+    run_from_project_root = True,
+)
+
+test(
+    name = "use_project_relative_paths",
+    artifact = "artifact",
+    script = "use_project_relative_paths.sh",
+    use_project_relative_paths = True,
+)
+
+test(
+    name = "use_project_relative_paths_and_run_from_project_root",
+    artifact = "artifact",
+    script = "use_project_relative_paths_and_run_from_project_root.sh",
+    run_from_project_root = True,
+    use_project_relative_paths = True,
+)
+
+test(
+    name = "require_re_via_override",
+    artifact = "artifact",
+    script = "require_re.sh",
+    run_from_project_root = True,
+    use_project_relative_paths = True,
+    # It says DO_NOT_USE, this is reserved for e2e tests of Buck2, which is
+    # this is.
+    labels = ["tpx:DO_NOT_USE:buck2-executor-override:re-linux"],
+)
+
+test(
+    name = "require_re_via_default_executor",
+    artifact = "artifact",
+    script = "require_re.sh",
+    run_from_project_root = True,
+    use_project_relative_paths = True,
+    set_default_executor = True,
+)
+
+# This test doesn't run from the project root and uses absolute paths, so it
+# cannot actually run on RE, but it still requires it. This should be a runtime
+# error from Buck2 reporting that the executor isn't compatible.
+test(
+    name = "invalid_test",
+    artifact = "artifact",
+    script = "require_re.sh",
+    run_from_project_root = False,
+    use_project_relative_paths = False,
+    set_default_executor = True,
+) if read_config("external_runner_test_info", "declare_invalid_test", None) else None

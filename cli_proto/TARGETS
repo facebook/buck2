@@ -1,0 +1,17 @@
+load("//buck2:proto_defs.bzl", "rust_protobuf_library")
+
+rust_protobuf_library(
+    name = "cli_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_env = {
+        "BUCK_HACK_PROTOC_INCLUDE": "$(location //buck2/buck2_data:data.proto)",
+    },
+    build_script = "build.rs",
+    spec = "daemon.proto",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:thiserror",
+        "//buck2/buck2_data:buck2_data",
+    ],
+)

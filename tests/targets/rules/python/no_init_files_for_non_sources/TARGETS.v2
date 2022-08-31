@@ -1,0 +1,23 @@
+prelude = native
+
+prelude.genrule(
+    name = "check",
+    cmd = "$(exe :bin) > \"$OUT\"",
+    out = "out.txt",
+)
+
+prelude.python_library(
+    name = "lib",
+    base_module = "",
+    srcs = [
+        "bin.py",
+        "mod.py",
+        "mod/resource.txt",
+    ],
+)
+
+prelude.python_binary(
+    name = "bin",
+    main_module = "bin",
+    deps = [":lib"],
+)

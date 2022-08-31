@@ -1,0 +1,112 @@
+load(":defs.bzl", "select_tester")
+
+prelude = native
+
+prelude.constraint_setting(
+    name = "constraint",
+)
+
+prelude.constraint_value(
+    name = "value1",
+    constraint_setting = ":constraint",
+)
+
+prelude.constraint_value(
+    name = "value2",
+    constraint_setting = ":constraint",
+)
+
+prelude.constraint_value(
+    name = "transition1_value",
+    constraint_setting = ":constraint",
+)
+
+prelude.constraint_setting(
+    name = "other_constraint",
+)
+
+prelude.constraint_value(
+    name = "other_value1",
+    constraint_setting = ":other_constraint",
+)
+
+prelude.constraint_value(
+    name = "other_value2",
+    constraint_setting = ":other_constraint",
+)
+
+prelude.constraint_value(
+    name = "transition2_value",
+    constraint_setting = ":other_constraint",
+)
+
+prelude.platform(
+    name = "platform1",
+    constraint_values = [
+        ":value1",
+        ":other_value1",
+    ],
+)
+
+prelude.platform(
+    name = "platform2",
+    constraint_values = [
+        ":value2",
+        ":other_value2",
+    ],
+)
+
+select_tester(
+    name = "select_tester",
+    default_target_platform = ":platform1",
+    values = {
+        "constraint1": select({
+            ":transition1_value": "got_transition1_value",
+            ":value1": "got_value1",
+            ":value2": "got_value2",
+            "DEFAULT": "got_default",
+        }),
+        "constraint2": select({
+            ":other_value1": "got_other_value1",
+            ":other_value2": "got_other_value2",
+            ":transition2_value": "got_transition2_value",
+            "DEFAULT": "got_default",
+        }),
+    },
+)
+
+prelude.alias(
+    name = "select_tester2",
+    default_target_platform = ":platform2",
+    actual = ":select_tester",
+)
+
+prelude.alias(
+    name = "compatible_with_pass",
+    target_compatible_with = [":value1"],
+    default_target_platform = ":platform1",
+    actual = ":select_tester",
+)
+
+prelude.alias(
+    name = "compatible_with_fail",
+    target_compatible_with = [":value2"],
+    default_target_platform = ":platform1",
+    actual = ":select_tester",
+)
+
+prelude.alias(
+    name = "compatible_with_fail2",
+    # value1 should match, but not other_value2. target_compatible_with requires that all match
+    target_compatible_with = [":value1", ":other_value2"],
+    default_target_platform = ":platform1",
+    actual = ":select_tester",
+)
+
+prelude.alias(
+    name = "compatible_with_pass2",
+    # value1 should match, and compatible_with (unlike target_compatible_with) only requires one match
+    compatible_with = [":value1", ":other_value2"],
+    default_target_platform = ":platform1",
+    actual = ":select_tester",
+)

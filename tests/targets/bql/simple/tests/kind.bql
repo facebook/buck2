@@ -1,0 +1,29 @@
+_targets = deps("//bin:the_binary")
+print("_targets=`%s`" % _targets)
+
+expected = targets(["root//:foo_toolchain", "root//:genrule_binary", "root//lib:file3", "root//lib:file2", "root//lib:file1", "root//:data"])
+expr = kind("foo_gen.*", _targets)
+if expr != expected:
+    fail("expected kind(\"foo_gen.*\", _targets) == `%s`. got `%s`" % (expected, expr))
+
+expected = targets(["root//bin:the_binary", "root//:bin"])
+expr = kind("foo_binary", _targets)
+if expr != expected:
+    fail("expected kind(\"foo_binary\", _targets) == `%s`. got `%s`" % (expected, expr))
+
+expected = targets(["root//bin:the_binary", "root//:bin"])
+# Use _foo_binary because the macro layer for this test defines it as
+# foo_binary (macro) forwarding to _foo_binary (rule).
+expr = kind("^_foo_binary$", _targets)
+if expr != expected:
+    fail("expected kind(\"^_foo_binary$\", _targets) == `%s`. got `%s`" % (expected, expr))
+
+expected = targets(["root//:foo_toolchain", "root//:genrule_binary", "root//bin:the_binary", "root//lib:file3", "root//lib:file2", "root//lib:file1", "root//:data", "root//:bin"])
+expr = kind("foo_genrule|foo_binary", _targets)
+if expr != expected:
+    fail("expected kind(\"foo_genrule|foo_binary\", _targets) == `%s`. got `%s`" % (expected, expr))
+
+_targets = targets("//:")
+expr = kind(".*", _targets)
+if expr != _targets:
+    fail("expected `kind(\".*\", _targets) == _targets`. was `%s` (_targets=`%s`)" % (expr, _targets))

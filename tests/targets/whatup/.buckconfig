@@ -1,0 +1,9 @@
+[buildfile]
+name=TARGETS.v2
+
+[repositories]
+root = .
+fbcode = fbcode
+fbsource = fbsource
+toolchains = toolchains
+buck = buck

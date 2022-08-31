@@ -1,0 +1,21 @@
+native.worker_tool(
+    name = "js_worker_tool",
+    exe = ":js_worker_tool_executor",
+    visibility = ["PUBLIC"],
+)
+
+native.python_binary(
+    name = "js_worker_tool_executor",
+    main_module = "buck2.tests.targets.rules.js.js_worker_tool",
+    deps = [
+        ":js_worker_tool_lib",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+native.python_library(
+    name = "js_worker_tool_lib",
+    srcs = [
+        "js_worker_tool.py",
+    ],
+)

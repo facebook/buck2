@@ -1,0 +1,75 @@
+load(":defs.bzl", "toolchain_alias")
+
+toolchain_alias(
+    name = "cxx",
+    alias = "fbcode//buck2/platform/toolchain:cxx",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "python",
+    alias = "fbcode//buck2/platform/toolchain:python",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "python_bootstrap",
+    alias = "fbcode//buck2/platform/toolchain:python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "haskell",
+    alias = "fbcode//buck2/platform/toolchain:haskell",
+    visibility = ["PUBLIC"],
+)
+
+# FIXME(ndmitchell): Temporarily comment out as the target got removed
+#
+# toolchain_alias(
+#     name = "ocaml",
+#     alias = "fbcode//buck2/platform/toolchain:ocaml",
+#     visibility = ["PUBLIC"],
+# )
+
+toolchain_alias(
+    name = "rust",
+    alias = "fbcode//buck2/platform/toolchain:rust",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "android",
+    alias = "fbcode//buck2/platform/toolchain:android",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "dex_for_android",
+    alias = "fbcode//buck2/platform/toolchain:dex_for_android",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "java_for_android",
+    alias = "fbcode//buck2/platform/toolchain:java_for_android",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "kotlin",
+    alias = "fbcode//buck2/platform/toolchain:kotlin",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "apple-default",
+    alias = "fbcode//buck2/platform/toolchain:apple-default",
+    visibility = ["PUBLIC"],
+)
+
+toolchain_alias(
+    name = "apple-resources",
+    alias = "fbcode//buck2/platform/toolchain:apple-resources",
+    visibility = ["PUBLIC"],
+)

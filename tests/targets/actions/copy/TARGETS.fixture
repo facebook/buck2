@@ -1,0 +1,34 @@
+load(":defs.bzl", "copy_file")
+
+copy_file(
+    name = "fails_on_invalid_src",
+    src = "foo/bar/baz/file.txt",
+    out = "out",
+)
+
+copy_file(
+    name = "fails_on_invalid_dest",
+    src = "foo/bar/baz/file.txt",
+    out = "out",
+)
+
+copy_file(
+    name = "file_uses_declared_output",
+    src = "foo/bar/baz/file.txt",
+    out = "baz/file.txt",
+    test = "uses_declared_output",
+)
+
+copy_file(
+    name = "file_uses_declared_output_as_output",
+    src = "foo/bar/baz/file.txt",
+    out = "baz/file.txt",
+    test = "uses_declared_output_as_output",
+)
+
+copy_file(
+    name = "file_declares_output",
+    src = "foo/bar/baz/file.txt",
+    out = "baz/file.txt",
+    test = "declares_output",
+)
