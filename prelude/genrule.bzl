@@ -1,6 +1,8 @@
 # Implementation of the `genrule` build rule.
 
+load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
+load("@prelude//utils:utils.bzl", "value_or")
 
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual
@@ -84,6 +86,11 @@ def process_genrule(
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 
     local_only = _requires_local(ctx)
+
+    # NOTE: Eventually we shouldn't require local_only here, since we should be
+    # fine with caching local fallbacks if necessary (or maybe that should be
+    # disallowed as a matter of policy), but for now let's be safe.
+    cacheable = value_or(ctx.attrs.cacheable, True) and local_only
 
     handle_whole_out_dir_is_output = False
     default_out_map = {}
@@ -182,6 +189,10 @@ def process_genrule(
     if local_only:
         env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
 
+    # For now, when uploads are enabled, be safe and avoid sharing cache hits.
+    if cacheable and ctx.attrs._cache_mode[CacheModeInfo].allow_cache_uploads:
+        env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = cmd_args("")
+
     if _requires_no_srcs_environment(ctx):
         env_vars.pop("SRCS")
 
@@ -241,6 +252,7 @@ def process_genrule(
         cmd_args(script_args).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
         env = env_vars,
         local_only = local_only,
+        allow_cache_upload = cacheable,
         category = category,
         identifier = identifier,
     )

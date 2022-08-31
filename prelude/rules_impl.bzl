@@ -251,6 +251,9 @@ def _target_os_type() -> "attribute":
         "ovr_config//os:windows": "windows",
     }))
 
+def _cache_mode() -> "attribute":
+    return attrs.dep(default = "fbcode//buck2/platform/cache_mode:cache_mode")
+
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")
 
@@ -260,6 +263,7 @@ extra_attributes = struct(
     },
     genrule = {
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
+        "_cache_mode": _cache_mode(),
         "_target_os_type": _target_os_type(),
     },
     # The 'actual' attribute of configured_alias is a configured_label, which is
@@ -294,6 +298,7 @@ extra_attributes = struct(
 
     #c++
     cxx_genrule = {
+        "_cache_mode": _cache_mode(),
         "_cxx_toolchain": _cxx_toolchain(),
         "_target_os_type": _target_os_type(),
     },
