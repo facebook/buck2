@@ -191,10 +191,10 @@ def _get_native_libs_and_assets(
         module = ROOT_MODULE,
     ) if prebuilt_native_library_dir_assets_for_primary_apk else None
     native_lib_module_assets_map = {}
-    for module, native_lib_assets in prebuilt_native_library_dir_module_assets_map.items():
+    for module, native_lib_dir in prebuilt_native_library_dir_module_assets_map.items():
         native_lib_module_assets_map[module] = [_filter_prebuilt_native_library_dir(
             ctx,
-            native_lib_assets,
+            native_lib_dir,
             "native_lib_assets_for_module_{}".format(module),
             package_as_assets = True,
             module = module,
