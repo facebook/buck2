@@ -547,6 +547,7 @@ omnibus_environment(
         "fbsource//third-party/ucx:uct",
     ],
     roots = [
+        "fbcode//third-party-buck/platform010/build/re2:re2",
     ],
     enable_explicit_roots = read_config("buck2", "enable_omnibus_explicit_roots", "false") in ["true", "True"],
     prefer_stripped_native_objects = True,
