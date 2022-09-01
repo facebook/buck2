@@ -211,9 +211,7 @@ impl ReExecutor {
                 //   this will allow tpx to correctly retrieve the output of
                 //   failing tests running on RE. See D34344489 for context.
                 IndexMap::new(),
-                CommandStdStreams::Remote(
-                    box response.std_streams(&self.re_client, self.re_use_case),
-                ),
+                CommandStdStreams::Remote(response.std_streams(&self.re_client, self.re_use_case)),
                 Some(action_result.exit_code),
             ));
         }

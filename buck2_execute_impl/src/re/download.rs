@@ -91,7 +91,7 @@ pub async fn download_action_results<'a>(
         claim,
         response.execution_kind(action_digest.dupe()),
         outputs,
-        CommandStdStreams::Remote(box std_streams),
+        CommandStdStreams::Remote(std_streams),
         response.timing(),
     )
 }

@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fmt::Debug;
 
-use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
@@ -9,6 +8,7 @@ use futures::future;
 use crate::digest::FileDigestFromReExt;
 use crate::digest::ReDigest;
 use crate::re::manager::ManagedRemoteExecutionClient;
+use crate::re::streams::RemoteCommandStdStreams;
 
 /// A pair of streams.
 #[allow(clippy::manual_non_exhaustive)]
@@ -16,16 +16,6 @@ use crate::re::manager::ManagedRemoteExecutionClient;
 pub struct StdStreamPair<T> {
     pub stdout: T,
     pub stderr: T,
-}
-
-#[async_trait]
-pub trait RemoteCommandStdStreamsDyn: Debug + Send + Sync + 'static {
-    fn clone(&self) -> Box<dyn RemoteCommandStdStreamsDyn>;
-    async fn to_lossy_stdout(&self) -> String;
-    async fn to_lossy_stderr(&self) -> String;
-    async fn into_stdout_stderr_bytes(self: Box<Self>) -> anyhow::Result<(Vec<u8>, Vec<u8>)>;
-    fn use_case(&self) -> RemoteExecutorUseCase;
-    fn into_stdout_stderr(self: Box<Self>) -> (ReStdStream, ReStdStream);
 }
 
 #[derive(Clone)]
@@ -86,28 +76,13 @@ impl fmt::Debug for ReStdStream {
     }
 }
 
-#[derive(Debug, derive_more::From)]
+#[derive(Debug, derive_more::From, Clone)]
 pub enum CommandStdStreams {
     Local { stdout: Vec<u8>, stderr: Vec<u8> },
 
-    Remote(Box<dyn RemoteCommandStdStreamsDyn>),
+    Remote(RemoteCommandStdStreams),
 
     Empty,
-}
-
-impl Clone for CommandStdStreams {
-    fn clone(&self) -> Self {
-        match self {
-            CommandStdStreams::Local { stdout, stderr } => CommandStdStreams::Local {
-                stdout: stdout.clone(),
-                stderr: stderr.clone(),
-            },
-            CommandStdStreams::Remote(remote) => {
-                CommandStdStreams::Remote(RemoteCommandStdStreamsDyn::clone(&**remote))
-            }
-            CommandStdStreams::Empty => CommandStdStreams::Empty,
-        }
-    }
 }
 
 impl Default for CommandStdStreams {

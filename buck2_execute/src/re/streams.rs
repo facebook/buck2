@@ -9,7 +9,6 @@ use remote_execution::TActionResult2;
 
 use crate::digest::FileDigestFromReExt;
 use crate::execute::output::ReStdStream;
-use crate::execute::output::RemoteCommandStdStreamsDyn;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[derive(Derivative, Clone)]
@@ -52,23 +51,16 @@ impl RemoteCommandStdStreams {
             .await;
         self
     }
-}
 
-#[async_trait]
-impl RemoteCommandStdStreamsDyn for RemoteCommandStdStreams {
-    fn clone(&self) -> Box<dyn RemoteCommandStdStreamsDyn> {
-        box Clone::clone(self)
-    }
-
-    async fn to_lossy_stdout(&self) -> String {
+    pub(crate) async fn to_lossy_stdout(&self) -> String {
         self.stdout.to_lossy(&self.client, self.use_case).await
     }
 
-    async fn to_lossy_stderr(&self) -> String {
+    pub(crate) async fn to_lossy_stderr(&self) -> String {
         self.stderr.to_lossy(&self.client, self.use_case).await
     }
 
-    async fn into_stdout_stderr_bytes(self: Box<Self>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
+    pub(crate) async fn into_stdout_stderr_bytes(self) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
         future::try_join(
             self.stdout.into_bytes(&self.client, self.use_case),
             self.stderr.into_bytes(&self.client, self.use_case),
@@ -76,11 +68,11 @@ impl RemoteCommandStdStreamsDyn for RemoteCommandStdStreams {
         .await
     }
 
-    fn use_case(&self) -> RemoteExecutorUseCase {
+    pub(crate) fn use_case(&self) -> RemoteExecutorUseCase {
         self.use_case
     }
 
-    fn into_stdout_stderr(self: Box<Self>) -> (ReStdStream, ReStdStream) {
+    pub(crate) fn into_stdout_stderr(self) -> (ReStdStream, ReStdStream) {
         (self.stdout, self.stderr)
     }
 }
