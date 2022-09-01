@@ -154,6 +154,7 @@ impl<'v> AnalysisRegistry<'v> {
             let output_value = eval.heap().alloc(StarlarkDeclaredArtifact::new(
                 eval.call_stack_top_location(),
                 artifact,
+                Default::default(),
             ));
 
             Ok((output_value, output_artifact))
@@ -162,6 +163,7 @@ impl<'v> AnalysisRegistry<'v> {
             let output_value = eval.heap().alloc(StarlarkDeclaredArtifact::new(
                 eval.call_stack_top_location(),
                 (*output_artifact).dupe(),
+                Default::default(),
             ));
             Ok((output_value, output_artifact))
         } else if let Some(a) = value.as_artifact() {

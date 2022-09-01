@@ -151,7 +151,11 @@ pub mod testing {
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
             )?;
-            Ok(StarlarkDeclaredArtifact::new(None, artifact))
+            Ok(StarlarkDeclaredArtifact::new(
+                None,
+                artifact,
+                Default::default(),
+            ))
         }
 
         fn declared_bound_artifact(
@@ -182,7 +186,11 @@ pub mod testing {
                     None,
                 ),
             )?;
-            Ok(StarlarkDeclaredArtifact::new(None, artifact))
+            Ok(StarlarkDeclaredArtifact::new(
+                None,
+                artifact,
+                Default::default(),
+            ))
         }
 
         fn stringify_for_cli<'v>(artifact: Value<'v>) -> anyhow::Result<String> {

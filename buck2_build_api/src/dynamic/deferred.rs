@@ -217,7 +217,11 @@ impl Deferred for DynamicLambda {
             let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
             let declared = registry.declare_dynamic_output(x.get_path().dupe());
             declared_outputs.insert(declared.dupe());
-            let v = heap.alloc(StarlarkDeclaredArtifact::new(None, declared));
+            let v = heap.alloc(StarlarkDeclaredArtifact::new(
+                None,
+                declared,
+                Default::default(),
+            ));
             outputs.insert_hashed(k.get_hashed()?, v);
         }
 

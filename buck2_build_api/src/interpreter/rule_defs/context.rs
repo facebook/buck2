@@ -396,6 +396,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(StarlarkDeclaredArtifact::new(
             eval.call_stack_top_location(),
             artifact,
+            Default::default(),
         ))
     }
 
@@ -535,7 +536,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()
-                .map(|a| StarlarkDeclaredArtifact::new(None, a))
+                .map(|a| StarlarkDeclaredArtifact::new(None, a, Default::default()))
                 .collect();
             Ok(eval.heap().alloc((output_value, macro_files)))
         } else {

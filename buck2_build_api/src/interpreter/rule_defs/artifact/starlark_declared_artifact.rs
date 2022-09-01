@@ -89,11 +89,12 @@ impl StarlarkDeclaredArtifact {
     pub fn new(
         declaration_location: Option<FileSpan>,
         artifact: artifact::DeclaredArtifact,
+        associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
     ) -> Self {
         StarlarkDeclaredArtifact {
             declaration_location,
             artifact,
-            associated_artifacts: Default::default(),
+            associated_artifacts,
         }
     }
 }
