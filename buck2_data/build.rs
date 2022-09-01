@@ -12,6 +12,8 @@ use std::io;
 fn main() -> io::Result<()> {
     let proto_files = &["data.proto"];
 
+    // Tonic build uses PROTOC to determine the protoc path.
+    println!("cargo:rerun-if-env-changed=PROTOC");
     tonic_build::configure()
         .type_attribute(
             "buck.data.BuckEvent.data",
