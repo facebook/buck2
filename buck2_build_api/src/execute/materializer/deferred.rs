@@ -51,6 +51,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::materializers::immediate;
 use buck2_execute_impl::materializers::io::MaterializeTreeStructure;
 use derive_more::Display;
 use futures::future::BoxFuture;
@@ -412,7 +413,7 @@ impl Materializer for DeferredMaterializer {
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
-            return super::immediate::write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await;
+            return immediate::write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await;
         }
 
         let contents = gen()?;
