@@ -13,5 +13,6 @@ pub mod knobs;
 pub mod manager;
 pub mod metadata;
 pub mod re_get_session_id;
+pub mod remote_action_result;
 pub mod streams;
 pub mod uploader;

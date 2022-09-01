@@ -9,8 +9,6 @@
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -28,32 +26,24 @@ use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
-use buck2_execute::re::streams::RemoteCommandStdStreams;
+use buck2_execute::re::remote_action_result::RemoteActionResult;
+use buck2_execute_impl::re::download::download_action_results;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
-use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
-use remote_execution::TDirectory2;
-use remote_execution::TExecutedActionMetadata;
-use remote_execution::TFile;
-use remote_execution::TTimestamp;
 use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-use crate::execute::commands::re::download::download_action_results;
-
 pub mod caching_executor;
-pub mod download;
 
 // temporary platform like thing to build apple. We probably eventually want to replace this with
 // the action/target/execution group platform.
@@ -290,103 +280,6 @@ impl PreparedCommandExecutor for ReExecutor {
 
     fn name(&self) -> ExecutorName {
         ExecutorName("remote")
-    }
-}
-
-pub trait RemoteActionResult: Send + Sync {
-    fn output_files(&self) -> &[TFile];
-    fn output_directories(&self) -> &[TDirectory2];
-
-    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind;
-
-    fn timing(&self) -> CommandExecutionTimingData;
-
-    fn std_streams(
-        &self,
-        client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
-    ) -> RemoteCommandStdStreams;
-
-    /// The TTL given by RE for the outputs for this action.
-    fn ttl(&self) -> i64;
-}
-
-impl RemoteActionResult for ExecuteResponse {
-    fn output_files(&self) -> &[TFile] {
-        &self.action_result.output_files
-    }
-
-    fn output_directories(&self) -> &[TDirectory2] {
-        &self.action_result.output_directories
-    }
-
-    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind {
-        CommandExecutionKind::Remote { digest }
-    }
-
-    fn timing(&self) -> CommandExecutionTimingData {
-        timing_from_re_metadata(&self.action_result.execution_metadata)
-    }
-
-    fn std_streams(
-        &self,
-        client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
-    ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client, use_case)
-    }
-
-    fn ttl(&self) -> i64 {
-        self.action_result_ttl
-    }
-}
-
-impl RemoteActionResult for ActionResultResponse {
-    fn output_files(&self) -> &[TFile] {
-        &self.action_result.output_files
-    }
-
-    fn output_directories(&self) -> &[TDirectory2] {
-        &self.action_result.output_directories
-    }
-
-    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind {
-        CommandExecutionKind::ActionCache { digest }
-    }
-
-    fn timing(&self) -> CommandExecutionTimingData {
-        let mut timing = timing_from_re_metadata(&self.action_result.execution_metadata);
-        timing.wall_time = Duration::ZERO; // This was a cache hit so we didn't wait.
-        timing
-    }
-
-    fn std_streams(
-        &self,
-        client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
-    ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client, use_case)
-    }
-
-    fn ttl(&self) -> i64 {
-        self.ttl
-    }
-}
-
-fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTimingData {
-    let execution_time = meta
-        .execution_completed_timestamp
-        .saturating_duration_since(&meta.execution_start_timestamp);
-
-    let start_time = SystemTime::UNIX_EPOCH
-        + meta
-            .execution_start_timestamp
-            .saturating_duration_since(&TTimestamp::unix_epoch());
-
-    CommandExecutionTimingData {
-        wall_time: execution_time,
-        execution_time,
-        start_time,
     }
 }
 

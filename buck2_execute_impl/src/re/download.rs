@@ -34,13 +34,12 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use thiserror::Error;
-
-use crate::execute::commands::re::RemoteActionResult;
 
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
