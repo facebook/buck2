@@ -7,26 +7,22 @@
  * of this source tree.
  */
 
-use std::ops::Deref;
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::starlark_type;
 use starlark::values::none::NoneType;
-use starlark::values::NoSerialize;
-use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use thiserror::Error;
@@ -99,24 +95,6 @@ impl AttributeExt for Attribute {
             }
         }
         Ok(())
-    }
-}
-
-#[derive(derive_more::Display, Debug, ProvidesStaticType, NoSerialize)]
-#[display(fmt = "{}", .0)]
-pub(crate) struct AttributeAsStarlarkValue(pub(crate) Attribute);
-
-starlark_simple_value!(AttributeAsStarlarkValue);
-
-impl<'v> StarlarkValue<'v> for AttributeAsStarlarkValue {
-    starlark_type!("attribute");
-}
-
-impl Deref for AttributeAsStarlarkValue {
-    type Target = Attribute;
-
-    fn deref(&self) -> &Attribute {
-        &self.0
     }
 }
 

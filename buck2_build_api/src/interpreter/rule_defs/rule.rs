@@ -16,6 +16,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
 use buck2_interpreter_for_build::nodes::unconfigured::TargetNodeExt;
@@ -48,7 +49,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 
-use crate::interpreter::rule_defs::attr::AttributeAsStarlarkValue;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
