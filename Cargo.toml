@@ -27,6 +27,7 @@ members = [
     "buck2_protoc_dev",
     "buck2_node",
     "buck2_execute",
+    "buck2_execute_impl",
     "buck2_server",
     "buck2_server_commands",
     "buck2_server_ctx",

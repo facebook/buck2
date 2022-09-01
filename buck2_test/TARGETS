@@ -24,6 +24,7 @@ rust_library(
         "//buck2/buck2_data:buck2_data",
         "//buck2/buck2_events:buck2_events",
         "//buck2/buck2_execute:buck2_execute",
+        "//buck2/buck2_execute_impl:buck2_execute_impl",
         "//buck2/buck2_grpc:buck2_grpc",
         "//buck2/buck2_interpreter:buck2_interpreter",
         "//buck2/buck2_interpreter_for_build:buck2_interpreter_for_build",

@@ -19,6 +19,7 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_node::execute::config::HybridExecutionLevel;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
@@ -28,7 +29,6 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution as RE;
 
-use crate::execute::commands::local::LocalExecutor;
 use crate::execute::commands::re::ReExecutor;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate

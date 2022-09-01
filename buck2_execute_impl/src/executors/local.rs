@@ -38,6 +38,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::name::ExecutorName;
@@ -67,8 +68,6 @@ use remote_execution as RE;
 use thiserror::Error;
 use tokio::process::Command;
 use tracing::info;
-
-use crate::execute::commands::inputs_directory;
 
 #[derive(Debug, Error)]
 enum LocalExecutionError {
@@ -655,6 +654,8 @@ impl EnvironmentBuilder for Command {
 mod unix {
     use std::os::unix::ffi::OsStrExt;
 
+    use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+
     use super::*;
 
     pub async fn exec_via_forkserver(
@@ -716,6 +717,7 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
@@ -858,6 +860,8 @@ mod tests {
     #[cfg(unix)] // TODO: something similar on Windows: T123279320
     #[tokio::test]
     async fn test_exec_cmd_environment_filtering() -> anyhow::Result<()> {
+        use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+
         let (executor, _root, _tmpdir) = test_executor()?;
 
         let (status, stdout, _) = executor

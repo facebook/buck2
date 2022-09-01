@@ -20,8 +20,8 @@ use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::directory::insert_entry;
-use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::prepared::ActionPaths;
@@ -45,7 +45,6 @@ pub mod dice_data;
 #[cfg(test)]
 pub mod dry_run;
 pub mod hybrid;
-pub mod local;
 pub mod output;
 pub mod re;
 
@@ -55,31 +54,6 @@ impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
             wall_time: command.wall_time,
         }
     }
-}
-
-pub(crate) fn inputs_directory(
-    inputs: &[CommandExecutionInput],
-    fs: &ArtifactFs,
-) -> anyhow::Result<ActionDirectoryBuilder> {
-    let mut builder = ActionDirectoryBuilder::empty();
-    for input in inputs {
-        match input {
-            CommandExecutionInput::Artifact(group) => {
-                group.add_to_directory(&mut builder, fs)?;
-            }
-            CommandExecutionInput::ActionMetadata(metadata) => {
-                let path = fs.buck_out_path_resolver().resolve_gen(&metadata.path);
-                builder.insert(
-                    &path,
-                    DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                        digest: metadata.digest.dupe(),
-                        is_executable: false,
-                    })),
-                )?;
-            }
-        };
-    }
-    Ok(builder)
 }
 
 #[derive(Clone, Dupe)]

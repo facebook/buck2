@@ -1,0 +1,34 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_execute_impl"
+version = "0.1.0"
+edition = "2021"
+description = "Implementations of executors and materializers"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+faccess = { workspace = true }
+futures = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+gazebo = { path = "../gazebo/gazebo" }
+host_sharing = { path = "../host_sharing" }
+more_futures = { path = "../shed/more_futures" }
+remote_execution = { workspace = true }
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_node = { path = "../buck2_node" }
+buck2_execute = { path = "../buck2_execute" }
+buck2_forkserver = { path = "../buck2_forkserver" }
+forkserver_proto = { path = "../forkserver_proto" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -1,0 +1,34 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "buck2_execute_impl",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    test_deps = [
+        "fbsource//third-party/rust:tempfile",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:faccess",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_execute:buck2_execute",
+        "//buck2/buck2_forkserver:buck2_forkserver",
+        "//buck2/buck2_node:buck2_node",
+        "//buck2/forkserver_proto:forkserver_proto",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/host_sharing:host_sharing",
+        "//buck2/remote_execution/internal:remote_execution",
+        "//buck2/shed/more_futures:more_futures",
+    ],
+)

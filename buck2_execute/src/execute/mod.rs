@@ -4,6 +4,7 @@ pub mod blocking;
 pub mod claim;
 pub mod clean_output_paths;
 pub mod environment_inheritance;
+pub mod inputs_directory;
 pub mod kind;
 pub mod manager;
 pub mod name;
