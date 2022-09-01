@@ -19,6 +19,7 @@ tracing = { workspace = true }
 
 gazebo = { path = "../gazebo/gazebo" }
 host_sharing = { path = "../host_sharing" }
+# @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
 more_futures = { path = "../shed/more_futures" }
 remote_execution = { workspace = true }
 

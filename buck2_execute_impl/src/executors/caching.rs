@@ -34,7 +34,6 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
-use buck2_execute_impl::re::download::download_action_results;
 use buck2_node::execute::config::CacheUploadBehavior;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
@@ -51,6 +50,8 @@ use remote_execution::TFile;
 use remote_execution::TStatus;
 use remote_execution::TTimestamp;
 use tracing::info;
+
+use crate::re::download::download_action_results;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");

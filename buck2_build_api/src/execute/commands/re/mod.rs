@@ -43,8 +43,6 @@ use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-pub mod caching_executor;
-
 // temporary platform like thing to build apple. We probably eventually want to replace this with
 // the action/target/execution group platform.
 #[derive(Clone)]
