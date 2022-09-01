@@ -10,6 +10,7 @@
 pub mod action_identity;
 pub mod client;
 pub mod knobs;
+pub mod manager;
 pub mod metadata;
 pub mod re_get_session_id;
 pub mod uploader;

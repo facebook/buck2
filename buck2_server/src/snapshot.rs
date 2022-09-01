@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
-use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
 
 /// Stores state handles necessary to produce snapshots.

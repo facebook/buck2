@@ -35,6 +35,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
+use buck2_execute::re::manager::ReConnectionManager;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::stream;
 use futures::stream::BoxStream;
@@ -43,7 +44,6 @@ use gazebo::prelude::*;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 
-use crate::execute::commands::re::manager::ReConnectionManager;
 use crate::execute::materializer::immediate::ImmediateMaterializer;
 
 pub struct EdenMaterializer {

@@ -22,16 +22,6 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_execute::directory::ActionImmutableDirectory;
-use buck2_execute::execute::action_digest::ActionDigest;
-use buck2_execute::execute::blobs::ActionBlobs;
-use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::materialize::materializer::Materializer;
-use buck2_execute::re::action_identity::ReActionIdentity;
-use buck2_execute::re::client::RemoteExecutionClient;
-use buck2_execute::re::client::RemoteExecutionStaticMetadata;
-use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
-use buck2_execute::re::re_get_session_id::ReGetSessionId;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
@@ -44,6 +34,17 @@ use remote_execution::NamedDigestWithPermissions;
 use remote_execution::NetworkStatisticsResponse;
 use remote_execution::TActionResult2;
 use remote_execution::TDigest;
+
+use crate::directory::ActionImmutableDirectory;
+use crate::execute::action_digest::ActionDigest;
+use crate::execute::blobs::ActionBlobs;
+use crate::execute::manager::CommandExecutionManager;
+use crate::materialize::materializer::Materializer;
+use crate::re::action_identity::ReActionIdentity;
+use crate::re::client::RemoteExecutionClient;
+use crate::re::client::RemoteExecutionStaticMetadata;
+use crate::re::knobs::ReExecutorGlobalKnobs;
+use crate::re::re_get_session_id::ReGetSessionId;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
 ///

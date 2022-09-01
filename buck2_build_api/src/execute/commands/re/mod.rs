@@ -33,6 +33,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
+use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -50,11 +51,9 @@ use tracing::info;
 
 use crate::execute::commands::output::RemoteCommandStdStreams;
 use crate::execute::commands::re::download::download_action_results;
-use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 
 pub mod caching_executor;
 pub mod download;
-pub mod manager;
 
 // temporary platform like thing to build apple. We probably eventually want to replace this with
 // the action/target/execution group platform.

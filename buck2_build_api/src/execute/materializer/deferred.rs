@@ -50,6 +50,7 @@ use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::re::manager::ReConnectionManager;
 use derive_more::Display;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -71,7 +72,6 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
-use crate::execute::commands::re::manager::ReConnectionManager;
 use crate::execute::materializer::filetree::DataTreeIntoIterator;
 use crate::execute::materializer::filetree::DataTreeIterator;
 use crate::execute::materializer::filetree::FileTree;

@@ -6,13 +6,12 @@ use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::output::ReStdStream;
 use buck2_execute::execute::output::RemoteCommandStdStreamsDyn;
 use buck2_execute::execute::output::StdStreamPair;
+use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use derivative::Derivative;
 use futures::future;
 use gazebo::prelude::*;
 use remote_execution::TActionResult2;
-
-use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 
 #[async_trait]
 pub(crate) trait ReStdStreamExt {
