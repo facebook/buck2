@@ -212,10 +212,22 @@ def convert_python_library_to_executable(
         native_libs = omnibus_libs.libraries
 
         if python_toolchain.emit_omnibus_metadata:
-            extra["omnibus"] = [DefaultInfo(), OmnibusMetadataInfo(
-                omnibus_libs = omnibus_libs,
-                omnibus_graph = omnibus_graph,
-            )]
+            omnibus_linked_obj = omnibus_libs.omnibus
+            omnibus_info = DefaultInfo()
+            if omnibus_linked_obj:
+                omnibus_info = DefaultInfo(
+                    default_outputs = [omnibus_linked_obj.output],
+                    sub_targets = {
+                        "dwp": [DefaultInfo(default_outputs = [omnibus_linked_obj.dwp] if omnibus_linked_obj.dwp else [])],
+                    },
+                )
+            extra["omnibus"] = [
+                omnibus_info,
+                OmnibusMetadataInfo(
+                    omnibus_libs = omnibus_libs,
+                    omnibus_graph = omnibus_graph,
+                ),
+            ]
 
             exclusion_roots = ctx.actions.write_json("omnibus/exclusion_roots.json", omnibus_libs.exclusion_roots)
             extra["omnibus-exclusion-roots"] = [DefaultInfo(default_outputs = [exclusion_roots])]

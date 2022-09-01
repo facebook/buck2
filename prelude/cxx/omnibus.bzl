@@ -107,6 +107,7 @@ SharedOmnibusRoot = record(
 
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
+    omnibus = field([LinkedObject.type, None], None),
     libraries = field({str.type: LinkedObject.type}, {}),
     roots = field({"label": AnnotatedOmnibusRootProduct.type}, {}),
     exclusion_roots = field(["label"]),
@@ -932,6 +933,7 @@ def create_omnibus_libraries(
         )
 
     # If we have body nodes, then link them into the monolithic libomnibus.so.
+    omnibus = None
     if spec.body:
         omnibus = _create_omnibus(
             ctx,
@@ -948,6 +950,7 @@ def create_omnibus_libraries(
             libraries[name] = lib
 
     return OmnibusSharedLibraries(
+        omnibus = omnibus,
         libraries = libraries,
         roots = root_products,
         exclusion_roots = spec.exclusion_roots,
