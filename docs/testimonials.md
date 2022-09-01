@@ -76,6 +76,10 @@ Shoaib used Buck2 for [upgrading Android native code to a new compiler version](
 
 > Buck1 took 12 minutes to build that; Buck2 only took 6.5 🙂 It's super awesome to see how far we've come with Buck2 for Android and be able to reap the build speed benefits;
 
+[AI Infra migrated 28% of the buck builds](https://fb.workplace.com/groups/1455586898129582/permalink/1762555647432704/) to buck2 (under Max Stepin's reporting)
+
+> This brings us at 36.81 Eng Halves Saved in 2 years / ~1500 Eng Build Hours Saved each month.
+
 ## Good UX
 
 [Lucian prefers the experience](https://fb.workplace.com/groups/503973410692177/posts/595893258166858/) for a large variety of reasons:
