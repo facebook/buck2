@@ -12,8 +12,7 @@ async-trait = { workspace = true }
 tracing = { workspace = true }
 
 dice = { path = "../dice/dice" }
-gazebo.version = "0.8.0"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_common = { path = "../buck2_common" }

@@ -22,8 +22,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 dice = { path = "../dice/dice" }
-gazebo.version = "0.8.0"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 
 buck2_build_api = { path = "../buck2_build_api" }
 # Dependency on `buck2_client` is OK because it does not depend on `buck2_build_api`,

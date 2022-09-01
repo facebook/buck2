@@ -46,8 +46,7 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 
 dice = { path = "../dice/dice" }
-gazebo.version = "0.8.0"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
 # @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps", optional = true }

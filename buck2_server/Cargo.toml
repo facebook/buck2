@@ -35,9 +35,7 @@ tracing = { workspace = true }
 
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
-gazebo.version = "0.8.0"
-gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
 more_futures = { path = "../shed/more_futures" }
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }

@@ -30,9 +30,7 @@ assert_matches = { workspace = true }
 tracing = { workspace = true }
 rand = { workspace = true }
 
-gazebo.version = "0.8.0"
-gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"

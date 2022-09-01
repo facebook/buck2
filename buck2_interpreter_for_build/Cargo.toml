@@ -21,8 +21,7 @@ tracing = { workspace = true }
 twox-hash = { workspace = true }
 
 dice = { path = "../dice/dice" }
-gazebo.version = "0.8.0"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
 

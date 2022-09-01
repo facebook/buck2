@@ -13,9 +13,7 @@ prost-types = { workspace = true }
 serde = { workspace = true }
 tonic = { workspace = true }
 
-gazebo.version = "0.8.0"
-gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 
 [build-dependencies]
 buck2_protoc_dev = { path = "../buck2_protoc_dev" }

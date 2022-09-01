@@ -35,8 +35,7 @@ dice = { path = "../dice/dice" }
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
 # @oss-disable: fb303_core = { package = "fb303_core", path = "../../fb303/thrift", optional = true }
-gazebo.version = "0.8.0"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"

@@ -35,8 +35,7 @@ tracing-subscriber = { workspace = true }
 walkdir = { workspace = true }
 
 dice = { path = "../dice/dice" }
-gazebo.version = "0.8.0"
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo = { workspace = true }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }

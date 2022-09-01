@@ -186,6 +186,9 @@ xattr = "0.2.2"
 zip = "0.5"
 zstd = "0.11.1"
 
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "gazebo/gazebo"
 remote_execution = { path = "remote_execution/stub" }
 
 [profile.release]

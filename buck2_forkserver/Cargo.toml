@@ -19,9 +19,7 @@ tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 
-gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../gazebo/gazebo"
-gazebo.version = "0.8.0"
+gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 gazebo_lint.version = "0.1"
