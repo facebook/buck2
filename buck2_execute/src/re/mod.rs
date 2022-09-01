@@ -13,4 +13,5 @@ pub mod knobs;
 pub mod manager;
 pub mod metadata;
 pub mod re_get_session_id;
+pub mod streams;
 pub mod uploader;

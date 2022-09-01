@@ -34,6 +34,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::streams::RemoteCommandStdStreams;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -49,7 +50,6 @@ use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-use crate::execute::commands::output::RemoteCommandStdStreams;
 use crate::execute::commands::re::download::download_action_results;
 
 pub mod caching_executor;
