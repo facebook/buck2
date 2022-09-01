@@ -24,6 +24,7 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -33,7 +34,6 @@ mod tests {
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_interpreter::common::BxlFilePath;
-    use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::dupe::Dupe;

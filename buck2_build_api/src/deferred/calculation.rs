@@ -318,6 +318,7 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
@@ -328,7 +329,6 @@ mod tests {
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_node::compatibility::MaybeCompatible;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
-    use buck2_node::execute::config::CommandExecutorConfig;
     use buck2_node::nodes::configured::ConfiguredTargetNode;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;

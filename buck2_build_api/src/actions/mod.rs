@@ -37,6 +37,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
@@ -49,7 +50,6 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_node::execute::config::CommandExecutorConfig;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::dupe::Dupe;

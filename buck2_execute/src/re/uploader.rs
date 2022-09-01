@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
@@ -21,7 +22,6 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;

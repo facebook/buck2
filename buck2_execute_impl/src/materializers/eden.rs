@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -36,7 +37,6 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ReConnectionManager;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;

@@ -11,8 +11,8 @@
 
 use std::sync::Arc;
 
+use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_node::execute::config::CommandExecutorConfig;
 use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;

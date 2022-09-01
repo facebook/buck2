@@ -19,10 +19,10 @@ use std::sync::Weak;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use remote_execution as RE;

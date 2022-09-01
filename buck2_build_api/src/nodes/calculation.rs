@@ -814,6 +814,7 @@ impl NodeCalculation for DiceComputations {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
@@ -839,7 +840,6 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
-    use buck2_node::execute::config::CommandExecutorConfig;
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
     use buck2_node::nodes::unconfigured::TargetNode;

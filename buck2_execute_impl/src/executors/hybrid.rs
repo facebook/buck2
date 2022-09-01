@@ -10,6 +10,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::executor_config::HybridExecutionLevel;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -19,8 +21,6 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
-use buck2_node::execute::config::HybridExecutionLevel;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 use futures::future::Either;
 use futures::future::Future;

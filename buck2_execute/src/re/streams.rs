@@ -1,4 +1,4 @@
-use buck2_node::execute::config::RemoteExecutorUseCase;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use derivative::Derivative;
 use futures::future;
 use gazebo::dupe::Dupe;

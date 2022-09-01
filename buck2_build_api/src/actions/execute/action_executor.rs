@@ -13,6 +13,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_events::dispatch::EventDispatcher;
@@ -39,7 +40,6 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::dice::HasEvents;
-use buck2_node::execute::config::CommandExecutorConfig;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -427,6 +427,8 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
+    use buck2_common::executor_config::CommandExecutorConfig;
+    use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -460,8 +462,6 @@ mod tests {
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
-    use buck2_node::execute::config::CommandExecutorConfig;
-    use buck2_node::execute::config::PathSeparatorKind;
     use gazebo::prelude::*;
     use indexmap::indexset;
     use indexmap::IndexSet;

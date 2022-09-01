@@ -1,6 +1,6 @@
 use async_trait::async_trait;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use remote_execution as RE;
 
 use crate::directory::ActionImmutableDirectory;

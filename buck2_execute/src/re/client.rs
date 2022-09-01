@@ -12,11 +12,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use either::Either;
 use fbinit::FacebookInit;
 use futures::stream::BoxStream;

@@ -248,6 +248,7 @@ mod tests {
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
+    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_core::category::Category;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
@@ -260,7 +261,6 @@ mod tests {
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_node::configuration::execution::ExecutionPlatform;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
-    use buck2_node::execute::config::CommandExecutorConfig;
     use gazebo::prelude::*;
     use indexmap::indexset;
 

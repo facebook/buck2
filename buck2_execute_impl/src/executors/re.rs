@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -32,7 +33,6 @@ use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;

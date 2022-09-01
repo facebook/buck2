@@ -436,6 +436,7 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
@@ -466,7 +467,6 @@ mod tests {
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
-    use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;

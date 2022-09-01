@@ -19,6 +19,7 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -56,7 +57,6 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
 use buck2_forkserver::run::GatherOutputStatus;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::From;
 use faccess::PathExt;
 use futures::future;

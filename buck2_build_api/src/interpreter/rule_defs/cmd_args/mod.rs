@@ -156,6 +156,7 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 pub mod tester {
+    use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
@@ -163,7 +164,6 @@ pub mod tester {
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
-    use buck2_node::execute::config::PathSeparatorKind;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 

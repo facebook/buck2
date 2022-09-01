@@ -26,8 +26,8 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
-internment_tweaks = { path = "../shed/internment_tweaks" }
 
+buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }
 buck2_query_parser = { path = "../buck2_query_parser" }

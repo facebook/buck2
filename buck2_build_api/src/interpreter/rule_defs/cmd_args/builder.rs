@@ -159,6 +159,7 @@ impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
@@ -169,7 +170,6 @@ mod tests {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
-    use buck2_node::execute::config::PathSeparatorKind;
 
     use super::*;
     use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;

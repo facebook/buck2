@@ -48,6 +48,7 @@ enum ArtifactError {
 pub mod testing {
     use std::sync::Arc;
 
+    use buck2_common::executor_config::PathSeparatorKind;
     use buck2_common::sorted_index_set::SortedIndexSet;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
@@ -71,7 +72,6 @@ pub mod testing {
     use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_interpreter::extra::BuildContext;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
-    use buck2_node::execute::config::PathSeparatorKind;
     use gazebo::prelude::*;
     use indexmap::indexset;
     use indexmap::IndexSet;

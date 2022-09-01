@@ -13,12 +13,12 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_node::execute::config::PathSeparatorKind;
 use gazebo::prelude::*;
 
 use crate::artifact::fs::ArtifactFs;

@@ -10,6 +10,13 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_common::executor_config::CacheUploadBehavior;
+use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::executor_config::CommandExecutorKind;
+use buck2_common::executor_config::HybridExecutionLevel;
+use buck2_common::executor_config::LocalExecutorOptions;
+use buck2_common::executor_config::PathSeparatorKind;
+use buck2_common::executor_config::RemoteExecutorOptions;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -26,13 +33,6 @@ use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutionPlatform;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_node::execute::config::CacheUploadBehavior;
-use buck2_node::execute::config::CommandExecutorConfig;
-use buck2_node::execute::config::CommandExecutorKind;
-use buck2_node::execute::config::HybridExecutionLevel;
-use buck2_node::execute::config::LocalExecutorOptions;
-use buck2_node::execute::config::PathSeparatorKind;
-use buck2_node::execute::config::RemoteExecutorOptions;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use gazebo::prelude::*;

@@ -47,7 +47,6 @@ buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
 buck2_events = { path = "../buck2_events" }
 buck2_interpreter = { path = "../buck2_interpreter" }
-buck2_node = { path = "../buck2_node" }
 
 [dev-dependencies]
 regex = { workspace = true }

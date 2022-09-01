@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::configuration::Configuration;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
@@ -18,7 +19,6 @@ use thiserror::Error;
 
 use crate::compatibility::IncompatiblePlatformReason;
 use crate::compatibility::IncompatiblePlatformReasonCause;
-use crate::execute::config::CommandExecutorConfig;
 
 /// An execution platform is used for the execution deps of a target, those dependencies that
 /// need to be invoked as part of a build action or otherwise need to be configured against the

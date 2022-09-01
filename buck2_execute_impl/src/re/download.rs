@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -35,7 +36,6 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;

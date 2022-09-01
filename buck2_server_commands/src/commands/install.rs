@@ -30,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::In
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
@@ -49,7 +50,6 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
-use buck2_node::execute::config::PathSeparatorKind;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;

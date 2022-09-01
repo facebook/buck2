@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-use buck2_node::execute::config::RemoteExecutorUseCase;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
 use remote_execution::TDirectory2;

@@ -13,12 +13,12 @@ use std::fmt::Display;
 use std::ptr;
 
 use anyhow::Context as _;
+use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_node::execute::config::PathSeparatorKind;
 use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
 

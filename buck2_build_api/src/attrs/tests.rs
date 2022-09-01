@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -29,7 +30,6 @@ use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
 use buck2_node::attrs::testing::configuration_ctx;
-use buck2_node::execute::config::PathSeparatorKind;
 use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;

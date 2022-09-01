@@ -13,6 +13,8 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::executor_config::CacheUploadBehavior;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -34,8 +36,6 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
-use buck2_node::execute::config::CacheUploadBehavior;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 use futures::future::FutureExt;
 use gazebo::prelude::*;

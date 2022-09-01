@@ -53,7 +53,6 @@ buck2_execute_impl = { path = "../buck2_execute_impl" }
 buck2_forkserver = { path = "../buck2_forkserver" }
 buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
-buck2_node = { path = "../buck2_node" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
 cli_proto = { path = "../cli_proto" }
 buck2_events = { path = "../buck2_events" }

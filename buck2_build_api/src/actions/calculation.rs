@@ -396,6 +396,7 @@ mod tests {
     use buck2_common::dice::cells::HasCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
+    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::external_symlink::ExternalSymlink;
     use buck2_common::file_ops::testing::TestFileOps;
     use buck2_common::file_ops::FileDigest;
@@ -442,7 +443,6 @@ mod tests {
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::materializer::SetMaterializer;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
-    use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::DiceTransaction;
     use dice::UserComputationData;

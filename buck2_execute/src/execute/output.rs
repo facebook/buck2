@@ -2,8 +2,8 @@ use std::fmt;
 use std::fmt::Debug;
 
 use anyhow::Context;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
-use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 
 use crate::digest::FileDigestFromReExt;

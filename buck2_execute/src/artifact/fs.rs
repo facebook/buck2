@@ -1,7 +1,7 @@
+use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_node::execute::config::PathSeparatorKind;
 use either::Either;
 
 use crate::artifact::source_artifact::SourceArtifact;
