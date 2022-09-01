@@ -8,19 +8,16 @@
  */
 
 use buck2_interpreter::extra::BuildContext;
-use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::functions::host_info::register_host_info;
 use buck2_interpreter::functions::read_config::register_read_config;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
+use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
 use either::Either;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::docs::DocString;
 use starlark::values::docs::DocStringKind;
-use starlark::values::none::NoneType;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
@@ -29,42 +26,8 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionKind;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionSpec;
 
-#[derive(Debug, Error)]
-enum OncallErrors {
-    #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
-    OncallAfterTargets,
-    #[error("Called `oncall` more than once in the file.")]
-    DuplicateOncall,
-}
-
 #[starlark_module]
 fn natives(builder: &mut GlobalsBuilder) {
-    /// This should be called "target exists", not "rule exists"
-    /// (if this should exist at all).
-    fn rule_exists(name: &str, eval: &mut Evaluator) -> anyhow::Result<bool> {
-        Ok(ModuleInternals::from_context(eval)?.target_exists(name))
-    }
-
-    /// Called in a TARGETS/BUCK file to declare the oncall contact details for
-    /// all the targets defined. Must be called at most once, before any targets
-    /// have been declared. Errors if called from a `.bzl` file.
-    fn oncall(
-        #[starlark(require = pos)] _name: &str,
-        eval: &mut Evaluator,
-    ) -> anyhow::Result<NoneType> {
-        let internals = ModuleInternals::from_context(eval)?;
-        if !internals.recorder().is_empty() {
-            // We require oncall to be first both so users can find it,
-            // and so we can propagate it to all targets more easily.
-            Err(OncallErrors::OncallAfterTargets.into())
-        } else if internals.has_seen_oncall() {
-            Err(OncallErrors::DuplicateOncall.into())
-        } else {
-            internals.set_seen_oncall();
-            Ok(NoneType)
-        }
-    }
-
     fn provider(
         #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,
@@ -155,25 +118,11 @@ fn natives(builder: &mut GlobalsBuilder) {
             },
         ))
     }
-
-    fn implicit_package_symbol<'v>(
-        name: &str,
-        default: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        let internals = ModuleInternals::from_context(eval)?;
-        match internals.get_package_implicit(name) {
-            None => Ok(default.unwrap_or_else(Value::new_none)),
-            Some(v) => {
-                // FIXME(ndmitchell): Document why this is safe
-                Ok(unsafe { v.unchecked_frozen_value().to_value() })
-            }
-        }
-    }
 }
 
 pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     natives(builder);
+    register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
 }
