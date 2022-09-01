@@ -15,6 +15,7 @@ use std::sync::Arc;
 use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
+use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -83,6 +84,14 @@ pub trait StarlarkArtifactLike: Display {
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn get_artifact_path(&self) -> ArtifactPath<'_>;
+
+    /// Allocate and return a new Starlark Value that contains a StarlarkArtifactLike that is
+    /// identical to this artifact, except with its associated_artifacts unioned with the ones passed in
+    fn allocate_artifact_with_extended_associated_artifacts<'v>(
+        &self,
+        heap: &'v Heap,
+        associated_artifacts: &SortedIndexSet<ArtifactGroup>,
+    ) -> Value<'v>;
 }
 
 pub trait ValueAsArtifactLike<'v> {

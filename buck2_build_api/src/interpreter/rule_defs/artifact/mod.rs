@@ -46,6 +46,9 @@ enum ArtifactError {
 
 #[cfg(test)]
 pub mod testing {
+    use std::sync::Arc;
+
+    use buck2_common::sorted_index_set::SortedIndexSet;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
@@ -81,6 +84,8 @@ pub mod testing {
     use crate::actions::artifact::Artifact;
     use crate::actions::registry::ActionsRegistry;
     use crate::actions::testings::SimpleUnregisteredAction;
+    use crate::analysis::registry::AnalysisRegistry;
+    use crate::artifact_groups::ArtifactGroup;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::DeferredId;
@@ -215,6 +220,58 @@ pub mod testing {
             let cli = builder.build();
             assert_eq!(1, cli.len());
             Ok(cli.get(0).unwrap().to_owned())
+        }
+
+        // Mainly tests get_or_declare_output function that can transfer associated artifacts
+        // artifact parameter can be either string or artifact
+        fn declared_bound_artifact_with_associated_artifacts<'v>(
+            artifact: Value<'v>,
+            associated_artifacts: Vec<StarlarkArtifact>,
+            eval: &mut Evaluator<'v, '_>,
+        ) -> anyhow::Result<Value<'v>> {
+            let target_label = get_label(eval, "//foo:bar")?;
+            let mut analysis_registry = AnalysisRegistry::new_from_owner(
+                BaseDeferredKey::TargetLabel(target_label.dupe()),
+                ExecutionPlatformResolution::unspecified(),
+            );
+            let mut actions_registry = ActionsRegistry::new(
+                BaseDeferredKey::TargetLabel(target_label.dupe()),
+                ExecutionPlatformResolution::unspecified(),
+            );
+            let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(
+                target_label.dupe(),
+            )));
+
+            let associated_artifacts: IndexSet<ArtifactGroup> = associated_artifacts
+                .iter()
+                .map(|a| ArtifactGroup::Artifact(a.artifact()))
+                .collect();
+            let (value, output_artifact) = analysis_registry.get_or_declare_output(
+                eval,
+                artifact,
+                "param_name",
+                Arc::new(SortedIndexSet::new(associated_artifacts)),
+            )?;
+
+            actions_registry.register(
+                &mut deferred,
+                IndexSet::new(),
+                indexset![output_artifact],
+                SimpleUnregisteredAction::new(
+                    vec![],
+                    Category::try_from("fake_action").unwrap(),
+                    None,
+                ),
+            )?;
+            Ok(value)
+        }
+
+        fn get_associated_artifacts_as_string<'v>(artifact: Value<'v>) -> anyhow::Result<String> {
+            let artifact = artifact.as_artifact().unwrap();
+            let (_, associated_artifacts) =
+                artifact.get_bound_artifact_and_associated_artifacts()?;
+            let s: String = associated_artifacts.iter().map(|a| a.to_string()).collect();
+            Ok(s)
         }
     }
 }
@@ -525,6 +582,40 @@ mod tests {
                 assert_eq("foo/bar/baz/file1", stringify_for_cli(a2))
                 assert_eq_ignore_hash("buck-out/v2/gen/root/<HASH>/foo/__bar__/baz/quz.cpp", stringify_for_cli(a3))
                 assert_eq("foo/bar/baz/file2", stringify_for_cli(a4))
+            "#
+        ))
+    }
+
+    #[test]
+    fn bound_artifact_with_associated_artifacts() -> SharedResult<()> {
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(|x| {
+            crate::interpreter::rule_defs::register_rule_defs(x);
+            artifactory(x)
+        });
+        tester.run_starlark_bzl_test(indoc!(
+            r#"
+            def test():
+                # declare an artifact (a2) with string and add an associated artifact (a1)
+                a1 = source_artifact("foo/bar", "baz/file1")
+                a2 = declared_bound_artifact_with_associated_artifacts("baz/quz.h", [a1])
+                assert_eq(a2.short_path, "baz/quz.h")
+                assert_eq(get_associated_artifacts_as_string(a1), "")
+                assert_eq(get_associated_artifacts_as_string(a2), "root//foo/bar/baz/file1")
+
+                # use a predeclared artifact (a3) and add an associated artifact (a4)
+                a3 = declared_artifact("wom/bat.h")
+                a4 = source_artifact("foo/bar", "baz/file2")
+                a5 = declared_bound_artifact_with_associated_artifacts(a3, [a4])
+                assert_eq(a3.short_path, "wom/bat.h")
+                assert_eq(a5.short_path, "wom/bat.h")
+                assert_eq(get_associated_artifacts_as_string(a3), "")
+                assert_eq(get_associated_artifacts_as_string(a5), "root//foo/bar/baz/file2")
+
+                # use a predeclared artifact (a3) with no associated artifacts
+                a6 = declared_bound_artifact_with_associated_artifacts(a3, [])
+                assert_eq(a6.short_path, "wom/bat.h")
+                assert_eq(get_associated_artifacts_as_string(a6), "")
             "#
         ))
     }

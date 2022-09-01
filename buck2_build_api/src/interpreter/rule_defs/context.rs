@@ -351,7 +351,8 @@ fn create_dir_tree<'v>(
     let inputs = action.inputs();
 
     let mut this = this.state();
-    let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+    let (output_value, output_artifact) =
+        this.get_or_declare_output(eval, output, "output", Default::default())?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
     Ok(output_value)
@@ -369,7 +370,8 @@ fn copy_file<'v>(
         .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("src".to_owned()))?;
 
     let mut this = this.state();
-    let (output_value, output_artifact) = this.get_or_declare_output(eval, dest, "dest")?;
+    let (output_value, output_artifact) =
+        this.get_or_declare_output(eval, dest, "dest", Default::default())?;
 
     this.register_action(
         indexset![ArtifactGroup::Artifact(src.get_bound_deprecated()?)],
@@ -408,7 +410,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let (output_value, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", Default::default())?;
 
         UnregisteredWriteJsonAction::validate(content)?;
         this.register_action(
@@ -481,7 +484,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             };
 
         let mut this = this.state();
-        let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let (output_value, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", Default::default())?;
 
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
@@ -748,7 +752,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let (output_value, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", Default::default())?;
 
         let checksum = match (
             sha1.into_option().map(Arc::from),

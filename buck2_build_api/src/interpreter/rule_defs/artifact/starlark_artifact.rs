@@ -18,6 +18,7 @@ use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::collections::StarlarkHasher;
@@ -174,6 +175,22 @@ impl StarlarkArtifactLike for StarlarkArtifact {
             path: self.artifact.get_path(),
             associated_artifacts: &self.associated_artifacts,
         }
+    }
+
+    fn allocate_artifact_with_extended_associated_artifacts<'v>(
+        &self,
+        heap: &'v Heap,
+        associated_artifacts: &SortedIndexSet<ArtifactGroup>,
+    ) -> Value<'v> {
+        let merged: IndexSet<ArtifactGroup> = self
+            .associated_artifacts
+            .union(associated_artifacts)
+            .map(|a| a.dupe())
+            .collect();
+        heap.alloc(StarlarkArtifact {
+            artifact: self.artifact.dupe(),
+            associated_artifacts: Arc::new(SortedIndexSet::new(merged)),
+        })
     }
 }
 

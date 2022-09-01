@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -131,6 +132,8 @@ impl<'v> AnalysisRegistry<'v> {
     }
 
     /// Takes a string or artifact/output artifact and converts it into an output artifact
+    /// Additionally, associated_artifacts represents any associated artifacts that should
+    /// be attached to the StarlarkArtifact / StarlarkDeclaredArtifact returned by this function
     ///
     /// This is handy for functions like `ctx.actions.write` where it's nice to just let
     /// the user give us a string if they want as the output name.
@@ -147,6 +150,7 @@ impl<'v> AnalysisRegistry<'v> {
         eval: &Evaluator<'v2, '_>,
         value: Value<'v2>,
         param_name: &str,
+        associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
     ) -> anyhow::Result<(Value<'v2>, OutputArtifact)> {
         if let Some(dest_str) = value.unpack_str() {
             let artifact = self.declare_output(None, dest_str)?;
@@ -154,7 +158,7 @@ impl<'v> AnalysisRegistry<'v> {
             let output_value = eval.heap().alloc(StarlarkDeclaredArtifact::new(
                 eval.call_stack_top_location(),
                 artifact,
-                Default::default(),
+                associated_artifacts,
             ));
 
             Ok((output_value, output_artifact))
@@ -163,10 +167,18 @@ impl<'v> AnalysisRegistry<'v> {
             let output_value = eval.heap().alloc(StarlarkDeclaredArtifact::new(
                 eval.call_stack_top_location(),
                 (*output_artifact).dupe(),
-                Default::default(),
+                associated_artifacts,
             ));
             Ok((output_value, output_artifact))
         } else if let Some(a) = value.as_artifact() {
+            let value = if associated_artifacts.is_empty() {
+                value
+            } else {
+                a.allocate_artifact_with_extended_associated_artifacts(
+                    eval.heap(),
+                    &associated_artifacts,
+                )
+            };
             Ok((value, a.output_artifact()?))
         } else {
             Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into())
