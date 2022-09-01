@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
 
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::arg::parser;
 use buck2_node::attrs::attr_type::arg::parser::parse_macros;
@@ -46,32 +45,11 @@ static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
     Lazy::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
 
 #[derive(Debug, Error)]
-pub enum MacroError {
+enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),
-    #[error("Can't expand unrecognized macros (`{0}`).")]
-    UnrecognizedMacroUnimplemented(String),
-    #[error("Expected a RunInfo provider from target `{0}`.")]
-    ExpectedRunInfo(String),
-
-    #[error("There was no TemplatePlaceholderInfo for {0}.")]
-    KeyedPlaceholderInfoMissing(ConfiguredProvidersLabel),
-    #[error("There was no mapping for {0} in the TemplatePlaceholderInfo for {1}.")]
-    KeyedPlaceholderMappingMissing(String, ConfiguredProvidersLabel),
-    #[error(
-        "The mapping for {0} in the TemplatePlaceholderInfo for {1} was not a dictionary (required because requested arg `{2}`)."
-    )]
-    KeyedPlaceholderMappingNotADict(String, ConfiguredProvidersLabel, String),
-    #[error(
-        "The mapping for {0} in the TemplatePlaceholderInfo for {1} had no mapping for arg `{2}`."
-    )]
-    KeyedPlaceholderArgMissing(String, ConfiguredProvidersLabel, String),
-
     #[error("Incorrent number of args to macro `{0}` (had {1} args)")]
     InvalidNumberOfArgs(String, usize),
-
-    #[error("There was no mapping for {0}.")]
-    UnkeyedPlaceholderUnresolved(String),
 }
 
 impl AttrTypeCoerce for ArgAttrType {

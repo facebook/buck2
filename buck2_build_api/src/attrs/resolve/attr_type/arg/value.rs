@@ -16,8 +16,8 @@ use std::fmt::Display;
 use anyhow::Context;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_interpreter_for_build::attrs::coerce::attr_type::arg::MacroError;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
@@ -100,6 +100,29 @@ fn add_outputs_to_arg(
     Ok(())
 }
 
+#[derive(Debug, thiserror::Error)]
+enum ResolvedMacroError {
+    #[error("Can't expand unrecognized macros (`{0}`).")]
+    UnrecognizedMacroUnimplemented(String),
+    #[error("Expected a RunInfo provider from target `{0}`.")]
+    ExpectedRunInfo(String),
+
+    #[error("There was no TemplatePlaceholderInfo for {0}.")]
+    KeyedPlaceholderInfoMissing(ConfiguredProvidersLabel),
+    #[error("There was no mapping for {0} in the TemplatePlaceholderInfo for {1}.")]
+    KeyedPlaceholderMappingMissing(String, ConfiguredProvidersLabel),
+    #[error(
+        "The mapping for {0} in the TemplatePlaceholderInfo for {1} was not a dictionary (required because requested arg `{2}`)."
+    )]
+    KeyedPlaceholderMappingNotADict(String, ConfiguredProvidersLabel, String),
+    #[error(
+        "The mapping for {0} in the TemplatePlaceholderInfo for {1} had no mapping for arg `{2}`."
+    )]
+    KeyedPlaceholderArgMissing(String, ConfiguredProvidersLabel, String),
+    #[error("There was no mapping for {0}.")]
+    UnkeyedPlaceholderUnresolved(String),
+}
+
 impl ResolvedMacro {
     fn resolved(
         configured_macro: &ConfiguredMacro,
@@ -117,7 +140,9 @@ impl ResolvedMacro {
                 let providers = providers_value.provider_collection();
                 let run_info = match providers.get_provider(RunInfoCallable::provider_id_t()) {
                     Some(value) => value,
-                    None => return Err(MacroError::ExpectedRunInfo(label.to_string()).into()),
+                    None => {
+                        return Err(ResolvedMacroError::ExpectedRunInfo(label.to_string()).into());
+                    }
                 };
                 // A RunInfo is an arg-like value.
                 Ok(ResolvedMacro::ArgLike(
@@ -125,26 +150,31 @@ impl ResolvedMacro {
                 ))
             }
             ConfiguredMacro::UserUnkeyedPlaceholder(name) => {
-                let provider = ctx
-                    .resolve_unkeyed_placeholder(name)
-                    .ok_or_else(|| MacroError::UnkeyedPlaceholderUnresolved(name.to_owned()))?;
+                let provider = ctx.resolve_unkeyed_placeholder(name).ok_or_else(|| {
+                    ResolvedMacroError::UnkeyedPlaceholderUnresolved(name.to_owned())
+                })?;
                 Ok(ResolvedMacro::ArgLike(provider))
             }
             ConfiguredMacro::UserKeyedPlaceholder(name, label, arg) => {
                 let providers = ctx.get_dep(label)?;
                 let placeholder_info =
                     FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
-                        .ok_or_else(|| MacroError::KeyedPlaceholderInfoMissing(label.clone()))?;
+                        .ok_or_else(|| {
+                            ResolvedMacroError::KeyedPlaceholderInfoMissing(label.clone())
+                        })?;
                 let keyed_variables = placeholder_info.keyed_variables();
                 let either_cmd_or_mapping =
                     keyed_variables.get(name.as_str()).ok_or_else(|| {
-                        MacroError::KeyedPlaceholderMappingMissing(name.clone(), label.clone())
+                        ResolvedMacroError::KeyedPlaceholderMappingMissing(
+                            name.clone(),
+                            label.clone(),
+                        )
                     })?;
 
                 let value = match (arg, either_cmd_or_mapping) {
                     (None, Either::Left(mapping)) => mapping,
                     (Some(arg), Either::Left(_)) => {
-                        return Err(MacroError::KeyedPlaceholderMappingNotADict(
+                        return Err(ResolvedMacroError::KeyedPlaceholderMappingNotADict(
                             name.clone(),
                             label.clone(),
                             arg.clone(),
@@ -154,7 +184,7 @@ impl ResolvedMacro {
                     (arg, Either::Right(mapping)) => {
                         let arg = arg.as_deref().unwrap_or("DEFAULT");
                         mapping.get(arg).ok_or_else(|| {
-                            MacroError::KeyedPlaceholderArgMissing(
+                            ResolvedMacroError::KeyedPlaceholderArgMissing(
                                 name.clone(),
                                 label.clone(),
                                 arg.to_owned(),
@@ -167,7 +197,7 @@ impl ResolvedMacro {
             }
             ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
             ConfiguredMacro::UnrecognizedMacro(name, _args) => Err(anyhow::anyhow!(
-                MacroError::UnrecognizedMacroUnimplemented(name.clone())
+                ResolvedMacroError::UnrecognizedMacroUnimplemented(name.clone())
             )),
         }
     }
