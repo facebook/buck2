@@ -31,7 +31,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_type;
-use starlark::values::dict::Dict;
 use starlark::values::docs::DocItem;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
@@ -165,8 +164,6 @@ pub struct AnalysisContext<'v> {
     attributes: Value<'v>, // A struct
     actions: Value<'v>,    // AnalysisActions
     label: Option<ValueTyped<'v, Label<'v>>>,
-    artifacts: Value<'v>, // SmallMap of artifact to artifact value
-    outputs: Value<'v>,   // SmallMap of outputs to unbound output
 }
 
 /// Simple holder for documetnation from AnalysisContext
@@ -185,14 +182,7 @@ impl<'v> AnalysisContext<'v> {
         label: Option<ValueTyped<'v, Label<'v>>>,
         registry: AnalysisRegistry<'v>,
     ) -> Self {
-        Self::new_dynamic(
-            heap,
-            attributes,
-            label,
-            registry,
-            Dict::default(),
-            Dict::default(),
-        )
+        Self::new_dynamic(heap, attributes, label, registry)
     }
 
     pub(crate) fn new_dynamic(
@@ -200,8 +190,6 @@ impl<'v> AnalysisContext<'v> {
         attributes: Value<'v>,
         label: Option<ValueTyped<'v, Label<'v>>>,
         registry: AnalysisRegistry<'v>,
-        artifacts: Dict<'v>,
-        outputs: Dict<'v>,
     ) -> Self {
         // Check the types match what the user expects. None is allowed for bxl
         assert!(Struct::from_value(attributes).is_some() || attributes.is_none());
@@ -213,8 +201,6 @@ impl<'v> AnalysisContext<'v> {
                 attributes,
             }),
             label,
-            artifacts: heap.alloc(artifacts),
-            outputs: heap.alloc(outputs),
         }
     }
 
@@ -296,16 +282,6 @@ fn register_context(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
         Ok(this.0.label.map_or(Value::new_none(), |v| v.to_value()))
-    }
-
-    #[starlark(attribute)]
-    fn outputs<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
-        Ok(this.0.outputs)
-    }
-
-    #[starlark(attribute)]
-    fn artifacts<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
-        Ok(this.0.artifacts)
     }
 }
 
@@ -868,10 +844,10 @@ mod tests {
             .build();
         let prelude = indoc!(
             r#"
-            def assert_eq(a, b):
-                if a != b:
-                    fail("Expected {}, got {}".format(a, b))
-            "#
+             def assert_eq(a, b):
+                 if a != b:
+                     fail("Expected {}, got {}".format(a, b))
+             "#
         );
         let full_content = format!("{}\n{}", prelude, content);
 
@@ -922,12 +898,12 @@ mod tests {
     fn ctx_instantiates() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(ctx):
-                assert_eq("foo/bar", ctx.label.package)
-                assert_eq("some_name", ctx.label.name)
-                assert_eq(None, ctx.label.sub_target)
-                return ctx.attrs.name
-            "#
+             def test(ctx):
+                 assert_eq("foo/bar", ctx.label.package)
+                 assert_eq("some_name", ctx.label.name)
+                 assert_eq(None, ctx.label.sub_target)
+                 return ctx.attrs.name
+             "#
         );
         run_ctx_test(content, |ret| {
             assert_eq!("some_name", ret.unwrap().unpack_str().unwrap());
@@ -939,10 +915,10 @@ mod tests {
     fn declare_output_declares_outputs() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                out = c.actions.declare_output("foo/bar.cpp")
-                return (out.basename, out.short_path)
-            "#
+             def test(c):
+                 out = c.actions.declare_output("foo/bar.cpp")
+                 return (out.basename, out.short_path)
+             "#
         );
 
         run_ctx_test(content, |ret| {
@@ -957,10 +933,10 @@ mod tests {
     fn declare_output_with_prefix() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                out = c.actions.declare_output("out/test", "foo/bar.cpp")
-                return (out.basename, out.short_path)
-            "#
+             def test(c):
+                 out = c.actions.declare_output("out/test", "foo/bar.cpp")
+                 return (out.basename, out.short_path)
+             "#
         );
 
         run_ctx_test(content, |ret| {
@@ -975,9 +951,9 @@ mod tests {
     fn declare_output_dot() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                return c.actions.declare_output("magic", ".")
-            "#
+             def test(c):
+                 return c.actions.declare_output("magic", ".")
+             "#
         );
 
         let expect = "artifact with an empty filename component";
@@ -994,9 +970,9 @@ mod tests {
     fn declare_output_dot_bad() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                return c.actions.declare_output("..")
-            "#
+             def test(c):
+                 return c.actions.declare_output("..")
+             "#
         );
 
         let expect = "expected a normalized path";
@@ -1012,9 +988,9 @@ mod tests {
     fn declare_output_dotdot() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                return c.actions.declare_output("foo/..")
-            "#
+             def test(c):
+                 return c.actions.declare_output("foo/..")
+             "#
         );
 
         let expect = "expected a normalized path";
@@ -1031,11 +1007,11 @@ mod tests {
     fn declare_output_require_bound() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                a = c.actions.declare_output("a")
-                b = c.actions.declare_output("b")
-                c.actions.run([a, b.as_output()], category = "test_category")
-            "#
+             def test(c):
+                 a = c.actions.declare_output("a")
+                 b = c.actions.declare_output("b")
+                 c.actions.run([a, b.as_output()], category = "test_category")
+             "#
         );
 
         let expect = "should be bound by now";

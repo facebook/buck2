@@ -242,8 +242,6 @@ impl Deferred for DynamicLambda {
                 BaseDeferredKey::BxlLabel(_) => None,
             },
             registry,
-            Dict::new(SmallMap::new()),
-            Dict::new(SmallMap::new()),
         ));
 
         eval.eval_function(
