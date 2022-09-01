@@ -7,7 +7,7 @@ jobs:
       - image: cimg/rust:1.49.0
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev
+      - run: sudo apt-get install libssl-dev cmake
       - checkout
       - rust/clippy:
           with_cache: false
