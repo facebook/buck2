@@ -35,3 +35,8 @@ forkserver_proto = { path = "../forkserver_proto" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+
+[features]
+# @oss-disable: default = ["eden_materializer"]
+# @oss-disable: eden_materializer = []
+eden_materializer = [] # @oss-enable

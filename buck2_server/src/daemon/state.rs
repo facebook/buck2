@@ -345,8 +345,8 @@ impl DaemonState {
             MaterializationMethod::Eden => {
                 #[cfg(all(unix, feature = "eden_materializer"))]
                 {
-                    use buck2_build_api::execute::materializer::eden::EdenMaterializer;
                     use buck2_execute::materialize::eden_api::EdenBuckOut;
+                    use buck2_execute_impl::materializers::eden::EdenMaterializer;
 
                     let buck_out_mount = fs.root().join(&buck_out_path);
 

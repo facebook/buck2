@@ -8,6 +8,4 @@
  */
 
 pub mod deferred;
-#[cfg(all(unix, feature = "eden_materializer"))]
-pub mod eden;
 pub mod filetree;
