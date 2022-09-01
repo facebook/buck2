@@ -11,34 +11,47 @@
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_execute::directory::insert_entry;
-use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::execute::inputs_directory::inputs_directory;
-use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::name::ExecutorName;
-use buck2_execute::execute::prepared::ActionPaths;
-use buck2_execute::execute::prepared::PreparedAction;
-use buck2_execute::execute::prepared::PreparedCommand;
-use buck2_execute::execute::prepared::PreparedCommandExecutor;
-use buck2_execute::execute::request::CommandExecutionInput;
-use buck2_execute::execute::request::CommandExecutionOutputRef;
-use buck2_execute::execute::request::CommandExecutionRequest;
-use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::result::CommandExecutionTimingData;
-use buck2_execute::execute::target::CommandExecutionTarget;
-use buck2_execute::re::client::re_create_action;
 use buck2_node::execute::config::PathSeparatorKind;
 use gazebo::prelude::*;
 
-use crate::execute::ActionExecutionTimingData;
+use crate::artifact::fs::ArtifactFs;
+use crate::artifact::fs::ExecutorFs;
+use crate::directory::insert_entry;
+use crate::directory::ActionDirectoryMember;
+use crate::execute::inputs_directory::inputs_directory;
+use crate::execute::manager::CommandExecutionManager;
+use crate::execute::name::ExecutorName;
+use crate::execute::prepared::ActionPaths;
+use crate::execute::prepared::PreparedAction;
+use crate::execute::prepared::PreparedCommand;
+use crate::execute::prepared::PreparedCommandExecutor;
+use crate::execute::request::CommandExecutionInput;
+use crate::execute::request::CommandExecutionOutputRef;
+use crate::execute::request::CommandExecutionRequest;
+use crate::execute::result::CommandExecutionResult;
+use crate::execute::result::CommandExecutionTimingData;
+use crate::execute::target::CommandExecutionTarget;
+use crate::re::client::re_create_action;
+
+#[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
+pub struct ActionExecutionTimingData {
+    pub wall_time: Duration,
+}
+
+impl Default for ActionExecutionTimingData {
+    fn default() -> Self {
+        Self {
+            wall_time: Duration::ZERO,
+        }
+    }
+}
 
 impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
     fn from(command: CommandExecutionTimingData) -> Self {

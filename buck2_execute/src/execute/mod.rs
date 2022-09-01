@@ -3,6 +3,7 @@ pub mod blobs;
 pub mod blocking;
 pub mod claim;
 pub mod clean_output_paths;
+pub mod command_executor;
 pub mod dice_data;
 pub mod environment_inheritance;
 pub mod inputs_directory;

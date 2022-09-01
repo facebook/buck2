@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-pub mod commands;
 pub(crate) mod error;
 pub mod materializer;
 
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -29,6 +27,8 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
+use buck2_execute::execute::command_executor::ActionExecutionTimingData;
+use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -63,7 +63,6 @@ use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::calculation::Calculation;
-use crate::execute::commands::CommandExecutor;
 
 /// This is the result of the action as exposed to other things in the dice computation.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq)]
@@ -73,19 +72,6 @@ pub struct ActionOutputs(Arc<ActionOutputsData>);
 #[derivative(PartialEq, Eq)]
 struct ActionOutputsData {
     outputs: IndexMap<BuckOutPath, ArtifactValue>,
-}
-
-#[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
-pub struct ActionExecutionTimingData {
-    pub wall_time: Duration,
-}
-
-impl Default for ActionExecutionTimingData {
-    fn default() -> Self {
-        Self {
-            wall_time: Duration::ZERO,
-        }
-    }
 }
 
 /// Metadata associated with the execution of this action.
@@ -469,6 +455,8 @@ mod tests {
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
+    use buck2_execute::execute::command_executor::ActionExecutionTimingData;
+    use buck2_execute::execute::command_executor::CommandExecutor;
     use buck2_execute::execute::request::CommandExecutionInput;
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
@@ -498,10 +486,8 @@ mod tests {
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;
-    use crate::execute::commands::CommandExecutor;
     use crate::execute::ActionExecutionKind;
     use crate::execute::ActionExecutionMetadata;
-    use crate::execute::ActionExecutionTimingData;
     use crate::execute::ActionExecutor;
     use crate::execute::ActionOutputs;
     use crate::execute::BuckActionExecutor;

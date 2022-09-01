@@ -17,6 +17,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
@@ -38,7 +39,6 @@ use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::execute::ActionExecutionKind;
 use crate::execute::ActionExecutionMetadata;
-use crate::execute::ActionExecutionTimingData;
 use crate::execute::ActionOutputs;
 
 #[derive(Debug, Error)]

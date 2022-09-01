@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
+use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -29,7 +30,6 @@ use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::execute::ActionExecutionKind;
 use crate::execute::ActionExecutionMetadata;
-use crate::execute::ActionExecutionTimingData;
 use crate::execute::ActionOutputs;
 
 #[derive(Debug, Error)]
