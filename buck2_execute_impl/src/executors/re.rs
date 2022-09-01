@@ -32,16 +32,17 @@ use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
-use buck2_execute_impl::re::download::download_action_results;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
-use starlark::collections::SmallMap;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 use tracing::info;
+
+use crate::re::download::download_action_results;
 
 // temporary platform like thing to build apple. We probably eventually want to replace this with
 // the action/target/execution group platform.

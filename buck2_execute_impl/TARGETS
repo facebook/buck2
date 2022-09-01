@@ -30,6 +30,7 @@ rust_library(
         "//buck2/host_sharing:host_sharing",
         "//buck2/remote_execution/internal:remote_execution",
         "//buck2/shed/more_futures:more_futures",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/hostname:hostname",
     ],
 )
