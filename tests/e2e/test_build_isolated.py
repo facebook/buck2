@@ -1215,6 +1215,52 @@ async def test_upload_all_actions(buck: Buck) -> None:
     subprocess.check_call([os.environ["RECLI"], "cas", "download-action", digest])
 
 
+@buck_test(inplace=False, data_dir="symlinks")
+async def test_symlinks_redirection(buck: Buck) -> None:
+    shutil.rmtree(buck.cwd / "src/link")
+    os.symlink("../dir", buck.cwd / "src/link")
+
+    await buck.build("//:cp")
+    await expect_exec_count(buck, 1)
+
+    await buck.build("//:cp")
+    await expect_exec_count(buck, 0)
+
+    # We change the symlink which should invalidate all files depending on it
+    os.remove(buck.cwd / "src/link")
+    os.symlink("../dir2", buck.cwd / "src/link")
+
+    await buck.build("//:cp")
+    await expect_exec_count(buck, 1)
+
+
+@buck_test(inplace=False, data_dir="symlinks")
+async def test_symlinks_external(buck: Buck) -> None:
+    shutil.rmtree(buck.cwd / "ext/link")
+    top_level = tempfile.mkdtemp()
+
+    os.mkdir(os.path.join(top_level, "nested1"))
+    os.mkdir(os.path.join(top_level, "nested2"))
+    with open(os.path.join(top_level, "nested1", "file"), "w") as f:
+        f.write("HELLO")
+    with open(os.path.join(top_level, "nested2", "file"), "w") as f:
+        f.write("GOODBYE")
+
+    os.symlink(os.path.join(top_level, "nested1"), buck.cwd / "ext/link")
+
+    await buck.build("//:ext")
+    await expect_exec_count(buck, 1)
+
+    await buck.build("//:ext")
+    await expect_exec_count(buck, 0)
+
+    os.remove(buck.cwd / "ext/link")
+    os.symlink(os.path.join(top_level, "nested2"), buck.cwd / "ext/link")
+
+    await buck.build("//:ext")
+    await expect_exec_count(buck, 1)
+
+
 async def expect_exec_count(buck: Buck, n: int) -> None:
     out = await read_what_ran(buck)
     assert len(out) == n, "unexpected actions: %s" % (out,)
