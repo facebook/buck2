@@ -22,6 +22,7 @@ fn main() -> io::Result<()> {
 
     // Tonic build uses PROTOC to determine the protoc path.
     println!("cargo:rerun-if-env-changed=PROTOC");
+    buck2_protoc_dev::maybe_setup_protoc("../../..");
     tonic_build::configure()
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)] #[serde(rename_all = \"snake_case\")]")
         .field_attribute("start_time", "#[serde(with = \"serialize_timestamp\")]")

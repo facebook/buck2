@@ -24,6 +24,7 @@ members = [
     "buck2_interpreter",
     "buck2_interpreter_for_build",
     "buck2_forkserver",
+    "buck2_protoc_dev",
     "buck2_node",
     "buck2_execute",
     "buck2_server",

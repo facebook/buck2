@@ -18,4 +18,5 @@ gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 
 [build-dependencies]
+buck2_protoc_dev = { path = "../buck2_protoc_dev" }
 tonic-build = { workspace = true }
