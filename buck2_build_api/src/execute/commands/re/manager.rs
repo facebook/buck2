@@ -27,6 +27,9 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::action_identity::ReActionIdentity;
+use buck2_execute::re::client::RemoteExecutionClient;
+use buck2_execute::re::client::RemoteExecutionStaticMetadata;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::re_get_session_id::ReGetSessionId;
 use buck2_node::execute::config::RemoteExecutorUseCase;
@@ -41,10 +44,6 @@ use remote_execution::NamedDigestWithPermissions;
 use remote_execution::NetworkStatisticsResponse;
 use remote_execution::TActionResult2;
 use remote_execution::TDigest;
-
-use crate::execute::commands::re::client::RemoteExecutionClient;
-use crate::execute::commands::re::client::RemoteExecutionStaticMetadata;
-use crate::execute::commands::re::ReActionIdentity;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
 ///

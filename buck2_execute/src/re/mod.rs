@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+pub mod action_identity;
+pub mod client;
 pub mod knobs;
 pub mod metadata;
 pub mod re_get_session_id;

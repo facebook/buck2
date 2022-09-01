@@ -20,10 +20,12 @@ itertools = { workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 prost = { workspace = true }
+prost-types = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 sha-1 = { workspace = true }
 sha2 = { workspace = true }
+slog = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }

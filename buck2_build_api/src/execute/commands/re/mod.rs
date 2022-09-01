@@ -31,6 +31,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
@@ -52,7 +53,6 @@ use crate::execute::commands::re::download::download_action_results;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 
 pub mod caching_executor;
-pub mod client;
 pub mod download;
 pub mod manager;
 
@@ -388,41 +388,6 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTi
         wall_time: execution_time,
         execution_time,
         start_time,
-    }
-}
-
-pub struct ReActionIdentity<'a, 'b> {
-    /// This is currently unused, but historically it has been useful to add logging in the RE
-    /// client, so it's worth keeping around.
-    _target: &'a CommandExecutionTarget<'b>,
-
-    /// Actions with the same action key share e.g. memory requirements learnt by RE.
-    action_key: String,
-
-    /// Actions with the same affinity key get scheduled on similar hosts.
-    affinity_key: String,
-
-    /// Details about the action collected while uploading
-    action_paths: &'a ActionPaths,
-}
-
-impl<'a, 'b> ReActionIdentity<'a, 'b> {
-    fn new(
-        target: &'a CommandExecutionTarget<'b>,
-        executor_action_key: Option<&str>,
-        action_paths: &'a ActionPaths,
-    ) -> Self {
-        let mut action_key = target.re_action_key();
-        if let Some(executor_action_key) = executor_action_key {
-            action_key = format!("{} {}", executor_action_key, action_key);
-        }
-
-        Self {
-            _target: target,
-            action_key,
-            affinity_key: target.re_affinity_key(),
-            action_paths,
-        }
     }
 }
 

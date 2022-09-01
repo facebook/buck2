@@ -35,10 +35,10 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
+use buck2_execute::re::client::re_create_action;
 use buck2_node::execute::config::PathSeparatorKind;
 use gazebo::prelude::*;
 
-use crate::execute::commands::re::client::re_create_action;
 use crate::execute::ActionExecutionTimingData;
 
 pub mod dice_data;

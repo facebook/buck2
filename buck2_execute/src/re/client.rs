@@ -16,16 +16,6 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_execute::digest::FileDigestToReExt;
-use buck2_execute::directory::ActionImmutableDirectory;
-use buck2_execute::execute::action_digest::ActionDigest;
-use buck2_execute::execute::blobs::ActionBlobs;
-use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::prepared::PreparedAction;
-use buck2_execute::materialize::materializer::Materializer;
-use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
-use buck2_execute::re::metadata::RemoteExecutionMetadataExt;
-use buck2_execute::re::uploader::Uploader;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use either::Either;
 use fbinit::FacebookInit;
@@ -65,7 +55,17 @@ use remote_execution::WriteActionResultRequest;
 use tokio::sync::Semaphore;
 use tracing::warn;
 
-use crate::execute::commands::re::ReActionIdentity;
+use crate::digest::FileDigestToReExt;
+use crate::directory::ActionImmutableDirectory;
+use crate::execute::action_digest::ActionDigest;
+use crate::execute::blobs::ActionBlobs;
+use crate::execute::manager::CommandExecutionManager;
+use crate::execute::prepared::PreparedAction;
+use crate::materialize::materializer::Materializer;
+use crate::re::action_identity::ReActionIdentity;
+use crate::re::knobs::ReExecutorGlobalKnobs;
+use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::uploader::Uploader;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 

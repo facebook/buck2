@@ -24,9 +24,7 @@ futures-util = { workspace = true }
 internment = { workspace = true }
 itertools = { workspace = true }
 owning_ref = { workspace = true }
-slog = { workspace = true }
 prost = { workspace = true }
-prost-types = { workspace = true }
 regex = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
