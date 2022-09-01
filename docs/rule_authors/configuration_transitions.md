@@ -169,4 +169,33 @@ cxx_binary(
 
 It might be useful for transition function to be able to query rule attributes
 (for example, to perform transition to different configurations depending on
-`java_version` attribute). This is not implemented.
+`java_version` attribute).
+
+Both incoming (per rule) and outgoing (per dependency) transitions can access rule attributes. For outgoing transitions,
+transition rule implementation accesses the attributes of the target which has dependencies with transitions,
+not attributes of dependency targets.
+
+```
+def _tr(platform, refs, attrs):
+    # NB: There are some restrictions on what attrs can be made accessible:
+    # - Only primitive values for now (providers are not resolved)
+    # - Only unconfigured attributes for now
+    attrs.my_list_attribute # == [12345, 67890]
+
+tr = transition(
+  _tr,
+  refs = {},
+  attrs = {
+    "my_list_attribute": attr.list(...),
+  },
+)
+
+
+my_rule = rule(..., cfg=tr)
+
+
+my_rule(
+  ...,
+  my_list_attribute = [12345, 67890],
+)
+```
