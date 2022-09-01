@@ -1,0 +1,20 @@
+load(":defs.bzl", "define_targets_based_on_config_value", "foo_library", "get_deps_based_on_config_value")
+
+export_file(
+    name = "exported",
+    src = "exported.txt",
+)
+
+export_file(
+    name = "dynamic",
+    src = "dynamic.txt",
+)
+
+foo_library(
+    name = "lib",
+    deps = [
+        ":exported",
+    ] + get_deps_based_on_config_value(),
+)
+
+define_targets_based_on_config_value()

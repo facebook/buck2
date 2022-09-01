@@ -1,0 +1,12 @@
+data1 = deps("//:data")
+data2 = deps("//:data")
+bin = deps("//:bin")
+
+if data1 != data1:
+    fail("self-equality failed for `%s`" % data1)
+
+if data1 != data2:
+    fail("expected `%s` to be equal to `%s`" % (data1, data2))
+
+if data1 == bin:
+    fail("expected `%s` to **not be equal** to `%s`" % (data1, bin))

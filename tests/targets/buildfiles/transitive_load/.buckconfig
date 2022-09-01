@@ -1,0 +1,6 @@
+[buildfile]
+name=TARGETS
+
+[repositories]
+root = .
+buck = buck

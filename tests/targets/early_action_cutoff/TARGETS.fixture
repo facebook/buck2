@@ -1,0 +1,12 @@
+load(":defs.bzl", "not_hermetic_action", "rerun_action")
+
+rerun_action(
+    name = "rerun_action",
+    src = "src"
+)
+
+not_hermetic_action(
+    name = "check",
+    dep = ":rerun_action",
+    sentinel = "sentinel"
+)

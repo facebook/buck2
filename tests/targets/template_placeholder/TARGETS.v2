@@ -1,0 +1,61 @@
+""" Sets up some targets for testing the classpath() query function
+
+Especially tests handling around tsets. The combiner rule basically allows
+us to construct tsets w/ value and children and then we have tester() which
+has an expected result and a query_deps attr.
+"""
+
+load(":defs.bzl", "combiner", "tester")
+
+combiner(
+    name = "a",
+)
+
+combiner(
+    name = "b",
+)
+
+combiner(
+    name = "c",
+    children = [":a", ":b"],
+)
+
+combiner(
+    name = "mixed",
+    extra_value = ":mixed-c",
+    children = [":c"],
+)
+
+combiner(
+    name = "mixed-a",
+)
+
+combiner(
+    name = "mixed-b",
+)
+
+combiner(
+    name = "mixed-c",
+    extra_value = ":mixed-a",
+    children = [":mixed-b"],
+)
+
+tester(
+    name = "simple",
+    expected = [":a", ":b", ":c"],
+    query = "classpath(:c)",
+)
+
+tester(
+    name = "complex",
+    expected = [
+        ":a",
+        ":b",
+        ":c",
+        ":mixed-a",
+        ":mixed-b",
+        ":mixed-c",
+        ":mixed",
+    ],
+    query = "classpath(:mixed)",
+)

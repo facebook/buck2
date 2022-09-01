@@ -1,0 +1,15 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+fbcode = fbcode
+fbsource = fbsource
+buck = buck
+toolchains = toolchains
+special = special
+cell = cell
+prelude = prelude

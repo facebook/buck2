@@ -1,0 +1,39 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_test_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+tonic = { workspace = true }
+tower-layer = { workspace = true }
+tower-service = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+prost-types = { workspace = true }
+
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+host_sharing = { path = "../host_sharing" }
+
+buck2_core = { path = "../buck2_core" }
+buck2_events = { path = "../buck2_events" }
+buck2_grpc = { path = "../buck2_grpc" }
+buck2_test_proto = { path = "../buck2_test_proto" }
+downward_api = { path = "../downward_api" }
+downward_api_proto = { path = "../downward_api_proto" }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

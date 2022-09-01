@@ -1,0 +1,65 @@
+prelude = native
+
+prelude.constraint_setting(
+    name = "cpu",
+)
+
+prelude.constraint_value(
+    name = "x86",
+    constraint_setting = ":cpu",
+)
+
+prelude.constraint_value(
+    name = "arm64",
+    constraint_setting = ":cpu",
+)
+
+prelude.platform(
+    name = "os-arm64",
+    constraint_values = [
+        ":arm64",
+    ],
+)
+
+prelude.platform(
+    name = "os-x86",
+    constraint_values = [
+        ":x86",
+    ],
+)
+
+prelude.genrule(
+    name = "arch-output",
+    out = "arch-output.txt",
+    cmd = select({
+        ":arm64": "echo arm64 > $OUT",
+        ":x86": "echo x86 > $OUT",
+        "DEFAULT": "echo DEFAULT > $OUT",
+    }),
+)
+
+prelude.configured_alias(
+    name = "x86-arch-output",
+    actual = ":arch-output",
+    platform = ":os-x86",
+    visibility = ["PUBLIC"],
+)
+
+prelude.configured_alias(
+    name = "arm64-arch-output",
+    actual = ":arch-output",
+    platform = ":os-arm64",
+    visibility = ["PUBLIC"],
+)
+
+prelude.genrule(
+    name = "verify-x86",
+    out = "verify-x86.txt",
+    cmd = "diff <(cat $(location :x86-arch-output)) <(echo x86) > $OUT",
+)
+
+prelude.genrule(
+    name = "verify-arm64",
+    out = "verify-arm64.txt",
+    cmd = "diff <(cat $(location :arm64-arch-output)) <(echo arm64) > $OUT",
+)

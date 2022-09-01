@@ -1,0 +1,9 @@
+prelude = native
+
+prelude.python_bootstrap_library(
+    name = "lib",
+    srcs = [
+        "lib.py",
+    ],
+    visibility = ["//buck2/tests/targets/rules/python_bootstrap/..."],
+)

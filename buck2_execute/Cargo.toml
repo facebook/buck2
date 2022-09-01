@@ -1,0 +1,51 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+description = "Remote-execution support for Buck"
+edition = "2021"
+name = "buck2_execute"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+crossbeam-channel = { workspace = true }
+derivative = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+itertools = { workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+prost = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+sha-1 = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+
+dice = { path = "../dice/dice" }
+# @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
+fbinit.version = "0.1"
+# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+gazebo = { path = "../gazebo/gazebo" }
+more_futures = { path = "../shed/more_futures" }
+remote_execution = { workspace = true }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_node = { path = "../buck2_node" }
+
+[dev-dependencies]
+regex = { workspace = true }
+
+[features]
+# @oss-disable: default = ["eden_materializer"]
+# @oss-disable: eden_materializer = ["edenfs"]
+eden_materializer = [] # @oss-enable

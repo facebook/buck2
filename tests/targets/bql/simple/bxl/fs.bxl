@@ -1,0 +1,107 @@
+# exist() test rules
+def _impl_exists_absolute_path(ctx):
+    ctx.output.print(ctx.fs.exists(ctx.cli_args.root_path + "/bin"))
+
+def _impl_exists_relative_path(ctx):
+    ctx.output.print(ctx.fs.exists("bin"))
+
+def _impl_not_exists(ctx):
+    ctx.output.print(ctx.fs.exists("does_not_exist"))
+
+def _impl_exists_source_artifact(ctx):
+    node = ctx.configured_targets("root//bin:the_binary")
+    ctx.output.print(ctx.fs.exists(node.sources()[0]))
+
+def _impl_exists_file_node(ctx):
+    result = ctx.cquery().inputs("root//bin:the_binary")
+    ctx.output.print(ctx.fs.exists(result[0]))
+
+exists_absolute_path = bxl(
+    impl = _impl_exists_absolute_path,
+    cli_args = {
+        "root_path": cli_args.string(),
+    },
+)
+
+exists_relative_path = bxl(
+    impl = _impl_exists_relative_path,
+    cli_args = {
+    },
+)
+
+not_exists = bxl(
+    impl = _impl_not_exists,
+    cli_args = {
+    },
+)
+
+exists_source_artifact = bxl(
+    impl = _impl_exists_source_artifact,
+    cli_args = {
+    },
+)
+
+exists_file_node = bxl(
+    impl = _impl_exists_file_node,
+    cli_args = {
+    },
+)
+
+# list() test rules
+def _impl_list_absolute_path(ctx):
+    list_results = ctx.fs.list(ctx.cli_args.root_path + "/bin")
+    for result in list_results:
+        ctx.output.print(result)
+
+def _impl_list_relative_path(ctx):
+    list_results = ctx.fs.list("bin")
+    for result in list_results:
+        ctx.output.print(result)
+
+def _impl_list_source_artifact(ctx):
+    source_artifact = ctx.configured_targets("root//bin:the_binary_with_dir_srcs").sources()[0]
+    list_results = ctx.fs.list(source_artifact)
+    for result in list_results:
+        ctx.output.print(result)
+
+def _impl_list_file_node(ctx):
+    file_node = ctx.cquery().inputs("root//bin:the_binary_with_dir_srcs")[0]
+    list_results = ctx.fs.list(file_node)
+    for result in list_results:
+        ctx.output.print(result)
+
+def _impl_list_include_ignored(ctx):
+    results = ctx.fs.list("bin", include_ignored = True)
+    for result in results:
+        ctx.output.print(result)
+
+list_absolute_path = bxl(
+    impl = _impl_list_absolute_path,
+    cli_args = {
+        "root_path": cli_args.string(),
+    },
+)
+
+list_relative_path = bxl(
+    impl = _impl_list_relative_path,
+    cli_args = {
+    },
+)
+
+list_source_artifact = bxl(
+    impl = _impl_list_source_artifact,
+    cli_args = {
+    },
+)
+
+list_file_node = bxl(
+    impl = _impl_list_file_node,
+    cli_args = {
+    },
+)
+
+list_include_ignored = bxl(
+    impl = _impl_list_include_ignored,
+    cli_args = {
+    },
+)

@@ -1,0 +1,151 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+# This corresponds to the following graph:
+#              root
+#        /   /      \    \
+#       /   /        \    \
+#  shared shared2 static any
+#     \     /
+#     static
+
+buck_genrule(
+    name = "run_root",
+    out = "out.txt",
+    cmd = "$(exe :root) > $OUT",
+)
+
+cpp_binary(
+    name = "root",
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [
+        ":any",
+        ":shared",
+        ":shared2",
+        ":static",
+    ],
+)
+
+cpp_library(
+    name = "static",
+    srcs = [
+        "static.cpp",
+    ],
+    headers = [
+        "static.h",
+    ],
+    preferred_linkage = "static",
+)
+
+cpp_library(
+    name = "shared",
+    srcs = [
+        "shared.cpp",
+    ],
+    headers = [
+        "shared.h",
+    ],
+    preferred_linkage = "shared",
+    exported_deps = [
+        ":static",
+    ],
+)
+
+cpp_library(
+    name = "shared2",
+    srcs = [
+        "shared2.cpp",
+    ],
+    headers = [
+        "shared2.h",
+    ],
+    preferred_linkage = "shared",
+    exported_deps = [
+        ":static",
+    ],
+)
+
+cpp_library(
+    name = "any",
+    srcs = [
+        "any.cpp",
+    ],
+    headers = [
+        "any.h",
+    ],
+    preferred_linkage = "any",
+)
+
+###########
+# Test for link_whole
+
+buck_genrule(
+    name = "run_link_whole",
+    out = "out.txt",
+    cmd = "$(exe :link_whole) > $OUT",
+)
+
+# NOTE(agallagher): fbcode macros don't allow passing `link_style`, so use
+# raw rules for this test.  We also use `fb_native` instead of `native`, as
+# buckv1 parses these TARGETS via fbcode's TD and raw `cxx_binary` rules are
+# missing some default settings allowing them to parse.
+fb_native.cxx_binary(
+    name = "link_whole",
+    srcs = [
+        "weak.c",
+    ],
+    link_style = "static",
+    deps = [
+        ":strong",
+    ],
+)
+
+cpp_library(
+    name = "strong",
+    srcs = ["strong.c"],
+    link_whole = True,
+)
+
+###########
+# Test for same dep on via `deps` and `exported_deps`
+
+cpp_library(
+    name = "double_dep",
+    srcs = [
+        "double_dep.cpp",
+    ],
+    preferred_linkage = "shared",
+    deps = [
+        ":double_dep2",
+    ],
+    exported_deps = [
+        ":double_dep2",
+    ],
+)
+
+cpp_library(
+    name = "double_dep2",
+    srcs = [
+        "double_dep2.cpp",
+    ],
+    link_whole = True,
+    preferred_linkage = "static",
+)
+
+###########
+# Test for [linker-map] subrule.
+
+bzl_native.sh_test(
+    name = "test_linker_map",
+    args = [
+        "$(location :root[linker-map])",
+    ],
+    test = "check-file-exists.sh",
+)

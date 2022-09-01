@@ -1,0 +1,18 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+
+prelude = native
+
+cpp_binary(
+    name = "main",
+    srcs = ["main.c"],
+    deps = [":lib[headers]"],
+)
+
+prelude.cxx_library(
+    name = "lib",
+    exported_linker_flags = ["-Wl,-does-not-work"],
+    exported_headers = {
+        "./lib.h": "lib.h",
+        "lib.h": "lib.h",
+    },
+)

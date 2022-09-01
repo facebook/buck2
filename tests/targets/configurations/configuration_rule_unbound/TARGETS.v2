@@ -1,0 +1,11 @@
+prelude = native
+
+prelude.platform(
+    name = "p",
+    constraint_values = [],
+)
+
+prelude.config_setting(
+    name = "the-test",
+    constraint_values = [],
+)

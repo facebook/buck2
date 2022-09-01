@@ -1,0 +1,9 @@
+prelude = native
+
+prelude.prebuilt_cxx_library_group(
+    name = "no_shared_lib",
+    static_libs = ["liba.a"],
+    static_link = ["$(lib 0)"],
+    static_pic_libs = ["liba.a"],
+    static_pic_link = ["$(lib 0)"],
+)

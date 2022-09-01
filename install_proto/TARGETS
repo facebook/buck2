@@ -1,0 +1,33 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
+
+rust_protobuf_library(
+    name = "install_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    spec = "install.proto",
+)
+
+python_binary(
+    # @autodeps-skip
+    name = "installer",
+    srcs = [
+        "main.py",
+    ],
+    base_module = "",
+    main_module = "main",
+    deps = [
+        ":install-py",
+    ],
+)
+
+grpc_library(
+    name = "install",
+    srcs = [
+        "install.proto",
+    ],
+    languages = [
+        "py",
+    ],
+)

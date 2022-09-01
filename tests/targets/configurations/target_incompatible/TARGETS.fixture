@@ -1,0 +1,21 @@
+prelude = native
+
+platform(
+    name = "platform",
+)
+
+constraint_setting(
+    name = "constraint",
+)
+
+constraint_value(
+    name = "disable",
+    constraint_setting = ":constraint",
+)
+
+genrule(
+    name = "incompatible",
+    cmd = "false",
+    default_target_platform = ":platform",
+    target_compatible_with = ["//:disable"],
+)

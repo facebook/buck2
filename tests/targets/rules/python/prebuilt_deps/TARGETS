@@ -1,0 +1,32 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+buck_genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :bin) > $OUT",
+)
+
+python_binary(
+    name = "bin",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    cpp_deps = [
+        ":lib",
+    ],
+    main_module = "bin",
+)
+
+bzl_native.prebuilt_python_library(
+    name = "lib",
+    binary_src = "lib.zip",
+    deps = [":dep"],
+)
+
+bzl_native.prebuilt_python_library(
+    name = "dep",
+    binary_src = "dep.zip",
+)

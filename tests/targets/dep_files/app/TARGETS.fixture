@@ -1,0 +1,5 @@
+c_binary(
+  name = "app",
+  main = "app.c",
+  headers = ["app.h", "other.h"]
+)

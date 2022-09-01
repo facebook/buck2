@@ -1,0 +1,79 @@
+load("@fbcode//buck2/tests/targets/rules/python/omnibus:defs.bzl", "check_omnibus")
+load("@fbcode_macros//build_defs:cpp_python_extension.bzl", "cpp_python_extension")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+check_omnibus(
+    name = "check_bin",
+    binary = ":bin",
+    check_defined = [
+        ("libomnibus.{ext}", "lib_func"),
+    ],
+    check_deps = [
+        ("extension.so", "libomnibus.{ext}"),
+        ("extension2.so", "libomnibus.{ext}"),
+    ],
+    check_libs = [
+        "libomnibus.{ext}",
+        "extension.so",
+        "extension2.so",
+    ],
+    check_no_deps = [
+        ("libomnibus.{ext}", "extension.so"),
+        ("libomnibus.{ext}", "extension2.so"),
+    ],
+    check_no_libs = [
+        "lib2.{ext}",
+    ],
+)
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    main_module = "bin",
+    native_link_strategy = "merged",
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    deps = [
+        ":extension",
+        ":extension2",
+    ],
+)
+
+cpp_python_extension(
+    name = "extension",
+    srcs = [
+        "ext.cpp",
+    ],
+    base_module = "",
+)
+
+cpp_python_extension(
+    # @autodeps-skip
+    name = "extension2",
+    srcs = [
+        "ext2.cpp",
+    ],
+    base_module = "",
+    deps = [
+        ":lib-cpp",
+    ],
+)
+
+fb_native.cxx_library(
+    name = "lib-cpp",
+    srcs = [
+        "lib.cpp",
+    ],
+    soname = "lib.$(ext)",
+)

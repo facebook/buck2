@@ -1,0 +1,20 @@
+buck_genrule(
+    name = "check",
+    cmd = "$(exe_target :wrapper) | grep 'hello world' > $OUT",
+    out = "out.txt",
+)
+
+go_binary(
+    name = "hello_world",
+    srcs = [
+        "main.go",
+    ],
+)
+
+go_binary(
+    name = "wrapper",
+    srcs = [
+        "wrapper.go",
+    ],
+    resources = [":hello_world"],
+)

@@ -1,0 +1,15 @@
+load(":rules.bzl", "touch_file")
+
+touch_file(
+    name = "rule1",
+    out = "out.txt"
+)
+
+touch_file(
+    name = "rule2",
+    outs = {
+        "out1": "out1.txt",
+        "out2": "out2.txt"
+    },
+    default_outs = [ "out1.txt" ]
+)

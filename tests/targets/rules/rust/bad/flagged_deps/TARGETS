@@ -1,0 +1,15 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+# Build should fail without "extern crate lib"
+bzl_native.rust_binary(
+    name = "with_flagged_dep_fail",
+    srcs = [
+        "with_flagged_dep_fail.rs",
+    ],
+    flagged_deps = [
+        (
+            "//buck2/tests/targets/rules/rust:lib",
+            ["noprelude"],
+        ),
+    ],
+)

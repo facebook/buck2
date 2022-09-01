@@ -1,0 +1,18 @@
+_targets = deps("//bin:the_binary")
+print("_targets=`%s`" % _targets)
+
+expected = targets(["root//lib:file3", "root//lib:file2", "root//lib:file1"])
+expr = filter_name("file", _targets)
+if expr != expected:
+    fail("filter_name(\".*file.*\", _targets) == `%s`. got `%s`" % (expected, expr))
+
+expected = targets(["root//lib:file3"])
+expr = filter_name("file3", _targets)
+if expr != expected:
+    fail("filter_name(\"file3\", _targets) == `%s`. got `%s`" % (expected, expr))
+
+
+expected = targets([])
+expr = filter_name("xxxxxx", _targets)
+if expr != expected:
+    fail("filter_name(\"xxxxxx\", _targets) == `%s`. got `%s`" % (expected, expr))

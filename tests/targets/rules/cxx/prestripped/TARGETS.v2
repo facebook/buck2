@@ -1,0 +1,28 @@
+prelude = native
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "objdump --dwarf $(location :bin) | (! grep 'lib.cpp') > $OUT",
+)
+
+prelude.cxx_binary(
+    name = "bin",
+    link_style = "static",
+    srcs = [
+        "bin.cpp",
+    ],
+    prefer_stripped_objects = True,
+    linker_flags = ["-lstdc++", "-lc"],
+    deps = [
+        ":lib",
+    ],
+)
+
+prelude.cxx_library(
+    name = "lib",
+    compiler_flags = ["-g"],
+    srcs = [
+        "lib.cpp",
+    ],
+)

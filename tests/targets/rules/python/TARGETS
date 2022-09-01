@@ -1,0 +1,111 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.python_binary(
+    name = "hello",
+    main = "hello.py",
+    deps = [
+        ":my_print",
+    ],
+)
+
+bzl_native.python_binary(
+    name = "hello_with_main_module",
+    main_module = "buck2.tests.targets.rules.python.my_print",
+    deps = [
+        ":my_print",
+    ],
+)
+
+bzl_native.python_library(
+    name = "my_print",
+    srcs = [
+        "my_print.py",
+    ],
+    deps = [
+        ":my_strings",
+    ],
+)
+
+bzl_native.python_library(
+    name = "my_strings",
+    srcs = [
+        "my_strings.py",
+    ],
+)
+
+# adding a genrule to actually run the binary
+bzl_native.genrule(
+    name = "run_hello",
+    out = "hello.txt",
+    bash = "$(exe :hello) > $OUT",
+)
+
+bzl_native.genrule(
+    name = "run_hello_with_main_module",
+    out = "hello.txt",
+    bash = "$(exe :hello_with_main_module) > $OUT",
+)
+
+bzl_native.python_binary(
+    name = "with_dependency",
+    default_host_platform = "ovr_config//platform/linux:x86_64-fbcode",
+    main = "with_dependency.py",
+    deps = [
+        "fbsource//third-party/pypi/click:click",
+    ],
+)
+
+bzl_native.genrule(
+    name = "run_with_dependency",
+    out = "hello.txt",
+    bash = "$(exe :with_dependency) > $OUT",
+)
+
+python_binary(
+    name = "fbcode_hello",
+    srcs = ["fbcode_hello.py"],
+    base_module = "",
+    main_module = "fbcode_hello",
+)
+
+buck_genrule(
+    name = "fbcode_hello_run",
+    out = "hello.txt",
+    bash = "$(exe :fbcode_hello) > $OUT",
+)
+
+python_binary(
+    name = "fbcode_import",
+    srcs = ["fbcode_import.py"],
+    base_module = "",
+    main_module = "fbcode_import",
+    deps = [
+        "fbcode//libfb/py:memoize",
+    ],
+)
+
+buck_genrule(
+    name = "fbcode_import_run",
+    out = "hello.txt",
+    bash = "$(exe :fbcode_import) > $OUT",
+)
+
+python_binary(
+    name = "fbcode_cimport",
+    srcs = ["fbcode_cimport.py"],
+    base_module = "",
+    main_module = "fbcode_cimport",
+    deps = [
+        "fbcode//common/concurrency:thread_safe_fork_guard",
+    ],
+)
+
+buck_genrule(
+    name = "fbcode_cimport_run",
+    out = "hello.txt",
+    bash = "$(exe :fbcode_cimport) > $OUT",
+)

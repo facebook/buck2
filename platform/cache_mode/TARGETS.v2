@@ -1,0 +1,10 @@
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read")
+load(":defs.bzl", "cache_mode")
+
+cache_mode(
+    name = "cache_mode",
+    sandcastle_alias = read("remoteexecution", "re_session_label"),
+    cache_mode = read("cache", "http_mode"),
+    schedule_type = read("cache", "schedule_type"),
+    visibility = ["PUBLIC"],
+)

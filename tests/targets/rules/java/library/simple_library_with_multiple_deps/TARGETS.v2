@@ -1,0 +1,66 @@
+native.java_library(
+    name = "util_1",
+    srcs = ["package2/Util1.java"],
+    target = "11",
+)
+
+native.java_library(
+    name = "util_2",
+    srcs = ["package2/Util2.java"],
+    source = "1.7",
+)
+
+native.java_library(
+    name = "util_3",
+    srcs = ["package2/Util3.java"],
+    target = "11",
+)
+
+native.java_library(
+    name = "util_4",
+    srcs = ["package2/Util4.java"],
+    source = "11",
+    target = "11",
+)
+
+native.java_library(
+    name = "util_5",
+    srcs = ["package2/Util5.java"],
+    java_version = "11",
+)
+
+native.java_library(
+    name = "lib",
+    srcs = ["package1/MainLibrary.java"],
+    deps = [
+        ":util_1",
+        ":util_2",
+        ":util_3",
+        ":util_4",
+        ":util_5",
+    ],
+    source = "11",
+    target = "11",
+    extra_arguments = ["-g", "-Werror"],
+    javac = ":custom_javac",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.export_file(
+    name = "custom_javac",
+    src = "custom_javac.sh",
+    out = "javac_script.sh",
+)
+
+native.java_library(
+    name = "lib_2",
+    srcs = [],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":lib",
+    ],
+)

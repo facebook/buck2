@@ -1,0 +1,42 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_audit"
+version = "0.1.0"
+edition = "2021"
+description = "`buck2 audit` command implementation, both client and server"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+indent_write = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+maplit = { workspace = true }
+ref-cast = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+dice = { path = "../dice/dice" }
+gazebo.version = "0.8.0"
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+
+buck2_build_api = { path = "../buck2_build_api" }
+# Dependency on `buck2_client` is OK because it does not depend on `buck2_build_api`,
+# so this dependency does not increase critical path length.
+buck2_client = { path = "../buck2_client" }
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
+buck2_execute = { path = "../buck2_execute" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
+buck2_node = { path = "../buck2_node" }
+buck2_query = { path = "../buck2_query" }
+buck2_server_ctx = { path = "../buck2_server_ctx" }
+cli_proto = { path = "../cli_proto" }

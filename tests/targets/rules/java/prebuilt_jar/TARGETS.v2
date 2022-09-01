@@ -1,0 +1,163 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("//buck2/tests/targets/rules/java:test.bzl", "assert_compiling_deps", "assert_packaging_deps")
+
+native.prebuilt_jar(
+    name = "jar",
+    binary_jar = "tiny.jar",
+)
+
+buck_genrule(
+    name = "genjar",
+    srcs = [
+        "tiny.jar",
+    ],
+    out = "tiny_copy.jar",
+    bash = "cp tiny.jar $OUT",
+    cmd_exe = "copy tiny.jar %OUT%",
+)
+
+native.prebuilt_jar(
+    name = "jar_from_genrule",
+    binary_jar = ":genjar",
+    visibility = ["PUBLIC"],
+)
+
+# Expect 2 jars with .jar extension
+buck_genrule(
+    name = "test",
+    srcs = [":jar", ":jar_from_genrule"],
+    out = "out.txt",
+    bash = "find $SRCDIR -name '*.jar'  | wc -l | xargs -I % test % -eq 2 > $OUT",
+)
+
+buck_genrule(
+    name = "create_jar",
+    out = "tiny_generated.jar",
+    bash = "echo 'hello jar' > $TMP/hellojar.txt && $(exe fbsource//third-party/toolchains/jdk:jar) -cfM $OUT $TMP/hellojar.txt",
+)
+
+native.prebuilt_jar(
+    name = "jar_with_deps",
+    binary_jar = ":create_jar",
+    deps = [":jar", ":jar_from_genrule"],
+)
+
+buck_genrule(
+    name = "genjar_foo",
+    out = "tiny_foo.jar",
+    bash = "echo 'hello foo jar' > $TMP/hellofoojar.txt && $(exe fbsource//third-party/toolchains/jdk:jar) -cfM $OUT $TMP/hellofoojar.txt",
+)
+
+native.prebuilt_jar(
+    name = "jar_with_deps_foo",
+    binary_jar = ":genjar_foo",
+    deps = [":jar_with_deps", ":jar_from_genrule"],
+    visibility = ["PUBLIC"],
+)
+
+# expected that actual_target would provide 3 packaging dependencies
+assert_packaging_deps(
+    name = "jar_with_packaging_deps_assert",
+    actual_target = ":jar_with_deps",
+    expected_deps = [":jar_with_deps", ":jar", ":jar_from_genrule"],
+)
+
+native.prebuilt_jar(
+    name = "jar_with_deps_and_duplicates",
+    binary_jar = ":create_jar",
+    deps = [":jar", ":jar", ":jar", ":jar_from_genrule"],
+)
+
+# expected that actual_target would provide 3 packaging dependencies/ no duplicates
+assert_packaging_deps(
+    name = "jar_with_deps_and_duplicates_assert",
+    actual_target = ":jar_with_deps_and_duplicates",
+    expected_deps = [":jar_with_deps_and_duplicates", ":jar", ":jar_from_genrule"],
+)
+
+assert_compiling_deps(
+    name = "jar_with_compiling_deps_assert",
+    actual_target = ":jar_with_deps",
+    expected_deps = [":jar_with_deps", ":jar", ":jar_from_genrule"],
+)
+
+buck_genrule(
+    name = "create_jar_2",
+    out = "tiny_generated_2.jar",
+    bash = "echo 'hello jar' > $OUT",
+)
+
+native.prebuilt_jar(
+    name = "jar_with_no_deps",
+    binary_jar = ":create_jar",
+    deps = [],
+)
+
+native.java_library(
+    name = "empty_java_library",
+)
+
+native.java_library(
+    name = "empty_java_library_with_one_dep",
+    deps = [":empty_java_library"],
+)
+
+native.prebuilt_jar(
+    name = "simple_prebuilt_jar",
+    binary_jar = ":create_jar_2",
+    deps = [":jar_with_no_deps", ":empty_java_library_with_one_dep"],
+)
+
+# should not include ":empty_java_library" that is transitive from ":empty_java_library_with_one_dep"
+assert_compiling_deps(
+    name = "simple_prebuilt_jar_compiling_deps_assert",
+    actual_target = ":simple_prebuilt_jar",
+    expected_deps = [":simple_prebuilt_jar", ":jar_with_no_deps", ":empty_java_library_with_one_dep"],
+)
+
+##### generate_abi cases #####
+
+buck_genrule(
+    name = "create_temp_jar",
+    out = "temp_temp.jar",
+    bash = "echo 'hello jar' > $TMP/temp_temp.txt && $(exe fbsource//third-party/toolchains/jdk:jar) -cfM $OUT $TMP/temp_temp.txt",
+)
+
+native.prebuilt_jar(
+    name = "create_temp_jar_without_abi",
+    binary_jar = ":create_temp_jar",
+    generate_abi = False,
+)
+
+assert_compiling_deps(
+    name = "assert_create_temp_jar_without_abi",
+    actual_target = ":create_temp_jar_without_abi",
+    expected_deps = [":create_temp_jar_without_abi"],
+    expected_suffix = "temp_symlink.jar",
+)
+
+native.prebuilt_jar(
+    name = "create_temp_jar_with_abi",
+    binary_jar = ":create_temp_jar",
+    generate_abi = True,
+)
+
+assert_compiling_deps(
+    name = "assert_create_temp_jar_with_abi",
+    actual_target = ":create_temp_jar_with_abi",
+    expected_deps = [":create_temp_jar_with_abi"],
+    expected_suffix = "temp_symlink.jar-class-abi.jar",
+)
+
+# generate_abi = True by default
+native.prebuilt_jar(
+    name = "create_temp_jar_with_abi_by_default",
+    binary_jar = ":create_temp_jar",
+)
+
+assert_compiling_deps(
+    name = "assert_create_temp_jar_with_abi_by_default",
+    actual_target = ":create_temp_jar_with_abi_by_default",
+    expected_deps = [":create_temp_jar_with_abi_by_default"],
+    expected_suffix = "temp_symlink.jar-class-abi.jar",
+)

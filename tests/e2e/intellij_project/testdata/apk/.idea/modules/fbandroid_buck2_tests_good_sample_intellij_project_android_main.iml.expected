@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib" scope="COMPILE" />
+    <orderEntry type="module-library" scope="COMPILE" >
+      <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/android_prebuilt_aar:aar">
+        <CLASSES>
+                <root url="jar://$MODULE_DIR$/buck-out/buck-out-hash/fbandroid/buck2/tests/good/sample_intellij_project/android_prebuilt_aar/__aar__/classes.jar!/" />
+                <root url="file://$MODULE_DIR$/buck-out/buck-out-hash/fbandroid/buck2/tests/good/sample_intellij_project/android_prebuilt_aar/__aar__/unpack_dir/res" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library" scope="COMPILE" >
+      <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources:prebuilt_no_sources">
+        <CLASSES>
+                <root url="jar://$MODULE_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources/prebuilt_no_sources.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="library" name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt" scope="COMPILE" level="project" />
+  </component>
+</module>
