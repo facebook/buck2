@@ -172,6 +172,7 @@ impl TargetNode {
             .iter()
             .chain(deps_cache.transition_deps.iter().map(|(dep, _tr)| dep))
             .chain(deps_cache.exec_deps.iter())
+            .chain(deps_cache.toolchain_deps.iter())
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
