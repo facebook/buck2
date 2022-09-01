@@ -856,6 +856,16 @@ async def test_toolchain_deps(buck: Buck) -> None:
 
     await buck.build("root//...", "--target-platforms=root//config:platform_windows")
 
+    # Check we get the toolchain dependencies in uquery and cquery
+    result = await buck.uquery("deps(//toolchains:python)")
+    assert "//toolchains:compile_python_release_linux\n" in result.stdout
+    assert "//toolchains:python_debug\n" in result.stdout
+    result = await buck.cquery(
+        "deps(//toolchains:python)", "--target-platforms=root//config:platform_linux"
+    )
+    assert "//toolchains:compile_python_release_linux " in result.stdout
+    assert "//toolchains:python_debug " not in result.stdout
+
 
 @buck_test(inplace=False, data_dir="prelude_import")
 async def test_prelude_imported_once(buck: Buck) -> None:
