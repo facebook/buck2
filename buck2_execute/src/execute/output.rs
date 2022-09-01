@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fmt::Debug;
 
+use anyhow::Context;
 use buck2_common::file_ops::FileDigest;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
@@ -48,6 +49,75 @@ impl ReStdStream {
             Self::Raw(raw) => (Some(raw), None),
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => (None, Some(digest)),
             Self::None => (None, None),
+        }
+    }
+
+    pub(crate) async fn to_lossy(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+    ) -> String {
+        // 4MBs seems like a reasonably large volume of output. There is no research or science behind
+        // this number.
+        const MAX_STREAM_DOWNLOAD_SIZE: i64 = 4 * 1024 * 1024;
+
+        match self {
+            Self::Raw(raw) => String::from_utf8_lossy(raw).into_owned(),
+            Self::Digest(digest) if digest.size_in_bytes <= MAX_STREAM_DOWNLOAD_SIZE => {
+                match client.download_blob(digest, use_case).await {
+                    Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
+                    Err(e) => {
+                        tracing::warn!("Failed to download action stderr: {:#}", e);
+                        format!(
+                            "Result could not be downloaded - to view type `frecli cas download-blob {}`",
+                            FileDigest::from_re(digest),
+                        )
+                    }
+                }
+            }
+            Self::PrefetchedLossy { data, .. } => data.clone(),
+            Self::Digest(digest) => {
+                format!(
+                    "Result too large to display - to view type `frecli cas download-blob {}`",
+                    FileDigest::from_re(digest),
+                )
+            }
+            Self::None => String::new(),
+        }
+    }
+
+    pub(crate) async fn into_bytes(
+        self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Raw(raw) => Ok(raw),
+            Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
+                let bytes = client
+                    .download_blob(&digest, use_case)
+                    .await
+                    .with_context(|| {
+                        format!("Error downloading from {}", FileDigest::from_re(&digest))
+                    })?;
+                Ok(bytes)
+            }
+            Self::None => Ok(Vec::new()),
+        }
+    }
+
+    /// Prefetch the output, if relevant.
+    pub(crate) async fn prefetch_lossy(
+        &mut self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+    ) {
+        if let Self::Digest(digest) = &self {
+            let data = self.to_lossy(client, use_case).await;
+            *self = Self::PrefetchedLossy {
+                data,
+                digest: digest.clone(),
+            };
         }
     }
 }
