@@ -15,19 +15,12 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
 use gazebo::prelude::*;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum CellResolverKeyError {
-    #[error("No cell resolver key was injected into the DICE cache")]
-    NoCellResolverKeyFound,
-}
 
 #[async_trait]
 pub trait HasCellResolver {
     async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver>;
 
-    async fn try_get_cell_resolver(&self) -> anyhow::Result<Option<CellResolver>>;
+    async fn is_cell_resolver_key_set(&self) -> anyhow::Result<bool>;
 
     fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()>;
 
@@ -53,13 +46,13 @@ impl InjectedKey for CellResolverKey {
 #[async_trait]
 impl HasCellResolver for DiceComputations {
     async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver> {
-        self.compute(&CellResolverKey)
-            .await?
-            .ok_or_else(|| CellResolverKeyError::NoCellResolverKeyFound.into())
+        self.compute(&CellResolverKey).await?.ok_or_else(|| {
+            panic!("Tried to retrieve CellResolverKey from the graph, but key has None value")
+        })
     }
 
-    async fn try_get_cell_resolver(&self) -> anyhow::Result<Option<CellResolver>> {
-        Ok(self.compute(&CellResolverKey).await?)
+    async fn is_cell_resolver_key_set(&self) -> anyhow::Result<bool> {
+        Ok(self.compute(&CellResolverKey).await?.is_some())
     }
 
     fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()> {
