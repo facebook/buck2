@@ -52,8 +52,6 @@ use remote_execution::TStatus;
 use remote_execution::TTimestamp;
 use tracing::info;
 
-use crate::execute::commands::output::CommandStdStreamsExt;
-
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
 

@@ -43,7 +43,6 @@ use crate::execute::ActionExecutionTimingData;
 
 pub mod dice_data;
 pub mod hybrid;
-pub mod output;
 pub mod re;
 
 impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
