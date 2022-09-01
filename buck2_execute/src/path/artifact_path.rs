@@ -17,20 +17,21 @@ use anyhow::Context;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_execute::path::buck_out_path::BuckOutPath;
 use either::Either;
 use gazebo::cell::ARef;
 use gazebo::cmp_chain;
 use gazebo::eq_chain;
 
+use crate::path::buck_out_path::BuckOutPath;
+
 #[derive(Debug)]
 pub struct ArtifactPath<'a> {
-    pub(crate) base_path: Either<ARef<'a, BuckOutPath>, &'a BuckPath>,
-    pub(crate) projected_path: Option<&'a ForwardRelativePath>,
+    pub base_path: Either<ARef<'a, BuckOutPath>, &'a BuckPath>,
+    pub projected_path: Option<&'a ForwardRelativePath>,
 }
 
 impl<'a> ArtifactPath<'a> {
-    pub(crate) fn with_filename<F, T>(&self, f: F) -> T
+    pub fn with_filename<F, T>(&self, f: F) -> T
     where
         for<'b> F: FnOnce(anyhow::Result<&'b FileName>) -> T,
     {
@@ -47,7 +48,7 @@ impl<'a> ArtifactPath<'a> {
         f(file_name)
     }
 
-    pub(crate) fn with_short_path<F, T>(&self, f: F) -> T
+    pub fn with_short_path<F, T>(&self, f: F) -> T
     where
         for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
     {
@@ -64,7 +65,7 @@ impl<'a> ArtifactPath<'a> {
         f(&path)
     }
 
-    pub(crate) fn with_full_path<F, T>(&self, f: F) -> T
+    pub fn with_full_path<F, T>(&self, f: F) -> T
     where
         for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
     {

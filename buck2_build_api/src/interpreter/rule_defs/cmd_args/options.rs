@@ -15,6 +15,7 @@ use std::marker::PhantomData;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use derive_more::Display;
 use gazebo::prelude::*;
@@ -25,7 +26,6 @@ use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;

@@ -16,6 +16,7 @@ use std::fmt::Display;
 use anyhow::Context;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::arg::MacroError;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
@@ -28,7 +29,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::resolve::attr_type::arg::query::ResolvedQueryMacro;
 use crate::attrs::resolve::attr_type::arg::ArgBuilder;

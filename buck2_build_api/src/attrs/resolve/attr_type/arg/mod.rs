@@ -9,11 +9,11 @@
 
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use starlark::values::Value;
 use value::ResolvedStringWithMacros;
 
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
@@ -87,8 +87,8 @@ pub trait ArgBuilder: CommandLineBuilderContext {
 mod tests {
     use buck2_core::fs::paths::RelativePathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_execute::artifact::fs::ExecutorFs;
 
-    use crate::actions::artifact::fs::ExecutorFs;
     use crate::attrs::resolve::attr_type::arg::ArgBuilder;
     use crate::attrs::resolve::attr_type::arg::SpaceSeparatedCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;

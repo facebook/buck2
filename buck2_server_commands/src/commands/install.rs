@@ -16,8 +16,6 @@ use std::net::TcpListener;
 use std::process::Stdio;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::fs::ArtifactFs;
-use buck2_build_api::actions::artifact::fs::ExecutorFs;
 use buck2_build_api::actions::artifact::materializer::ArtifactMaterializer;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
@@ -46,6 +44,8 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_events::dispatch::span_async;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;

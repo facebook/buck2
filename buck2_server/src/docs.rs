@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -28,6 +27,7 @@ use buck2_core::cells::CellName;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_events::dispatch::span_async;
+use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
 use buck2_interpreter::dice::HasCalculationDelegate;

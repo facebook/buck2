@@ -16,8 +16,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::fs::ArtifactFs;
-use buck2_build_api::actions::artifact::fs::ExecutorFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::execute::commands;
@@ -65,6 +63,8 @@ use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
@@ -674,7 +674,7 @@ impl BuckTestOrchestrator {
             // hence we don't actually need to spawn these in parallel
             // TODO (T102328660): Does CommandExecutionRequest need this artifact?
             inputs.push(CommandExecutionInput::Artifact(
-                self.dice.ensure_artifact_group(input).await?,
+                box self.dice.ensure_artifact_group(input).await?,
             ));
         }
 

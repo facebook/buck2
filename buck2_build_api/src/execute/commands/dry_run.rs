@@ -12,13 +12,13 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
 use crate::execute::commands::CommandExecutionResult;

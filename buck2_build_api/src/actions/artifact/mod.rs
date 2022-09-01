@@ -29,6 +29,7 @@ use std::sync::Arc;
 
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
+pub use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derive_more::Display;
@@ -40,17 +41,14 @@ use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::path::ArtifactPath;
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
-use crate::actions::artifact::source_artifact::SourceArtifact;
 use crate::actions::key::ActionKey;
 
 pub(crate) mod build_artifact;
-pub mod fs;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::path::artifact_path::ArtifactPath;
 pub mod materializer;
-pub(crate) mod path;
 pub(crate) mod projected_artifact;
-pub mod source_artifact;
 
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -131,6 +129,16 @@ impl Artifact {
             base_path,
             projected_path,
         }
+    }
+}
+
+impl ArtifactDyn for Artifact {
+    fn get_path(&self) -> ArtifactPath {
+        self.get_path()
+    }
+
+    fn is_source(&self) -> bool {
+        self.is_source()
     }
 }
 
@@ -495,6 +503,8 @@ mod tests {
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
+    use buck2_execute::artifact::fs::ArtifactFs;
+    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
@@ -502,8 +512,6 @@ mod tests {
     use gazebo::prelude::*;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::fs::ArtifactFs;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
     use crate::actions::artifact::DeclaredArtifact;

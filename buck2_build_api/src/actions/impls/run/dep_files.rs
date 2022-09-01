@@ -20,6 +20,7 @@ use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -40,7 +41,6 @@ use parking_lot::MutexGuard;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
 use crate::actions::impls::run::expanded_command_line::ExpandedCommandLineDigest;

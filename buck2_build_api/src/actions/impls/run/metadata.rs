@@ -15,12 +15,12 @@ use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::artifact_groups::ArtifactGroupValues;
 
 fn stringify<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>

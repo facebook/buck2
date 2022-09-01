@@ -16,6 +16,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
@@ -32,7 +33,6 @@ use itertools::Either;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::calculation::ActionCalculation;
 use crate::actions::key::ActionKey;
 use crate::artifact_groups::ArtifactGroup;

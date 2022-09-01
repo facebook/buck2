@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
@@ -18,6 +17,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_execute::artifact::source_artifact::SourceArtifact;
 use derive_more::Display;
 use either::Either;
 use gazebo::dupe::Dupe;

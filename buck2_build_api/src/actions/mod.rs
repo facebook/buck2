@@ -35,12 +35,12 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use artifact::fs::ArtifactFs;
-use artifact::fs::ExecutorFs;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::BlockingExecutor;

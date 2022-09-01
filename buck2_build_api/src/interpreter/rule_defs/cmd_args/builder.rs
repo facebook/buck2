@@ -11,10 +11,10 @@ use std::fmt::Debug;
 
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_execute::artifact::fs::ExecutorFs;
 use indexmap::IndexSet;
 use thiserror::Error;
 
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::Artifact;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
@@ -166,12 +166,12 @@ mod tests {
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_node::execute::config::PathSeparatorKind;
 
     use super::*;
-    use crate::actions::artifact::fs::ArtifactFs;
     use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 

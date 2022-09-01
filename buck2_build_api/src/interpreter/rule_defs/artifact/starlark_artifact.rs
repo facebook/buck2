@@ -14,6 +14,7 @@ use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
@@ -32,7 +33,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::actions::artifact::path::ArtifactPath;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::BaseArtifactKind;
 use crate::actions::artifact::OutputArtifact;

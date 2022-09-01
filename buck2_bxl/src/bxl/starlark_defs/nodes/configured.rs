@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -22,6 +21,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;

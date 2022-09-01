@@ -14,7 +14,6 @@ use std::cell::RefCell;
 use std::io::Write;
 use std::sync::Arc;
 
-use buck2_build_api::actions::artifact::fs::ArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
@@ -30,6 +29,7 @@ use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::TargetLabel;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;

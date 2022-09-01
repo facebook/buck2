@@ -300,6 +300,7 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
+    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
@@ -308,7 +309,6 @@ mod tests {
     use starlark::values::OwnedFrozenValue;
 
     use super::*;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::Artifact;
     use crate::artifact_groups::deferred::DeferredTransitiveSetData;
     use crate::context::SetBuildContextData;

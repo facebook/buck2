@@ -26,6 +26,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
 use buck2_execute::path::buck_out_path::BuckPathResolver;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -46,7 +47,6 @@ use owning_ref::ArcRef;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::calculation as action_calculation;
 use crate::actions::key::ActionKey;
 use crate::analysis::calculation as analysis_calculation;

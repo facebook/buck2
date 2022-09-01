@@ -30,6 +30,9 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::insert_entry;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -53,9 +56,6 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use remote_execution as RE;
 
-use crate::actions::artifact::fs::ArtifactFs;
-use crate::actions::artifact::fs::ExecutorFs;
-use crate::artifact_groups::ArtifactGroupValues;
 use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::re::client::re_create_action;
 use crate::execute::commands::re::client::PreparedAction;
@@ -520,7 +520,7 @@ pub struct ActionMetadataBlob {
 }
 
 pub enum CommandExecutionInput {
-    Artifact(ArtifactGroupValues),
+    Artifact(Box<dyn ArtifactGroupValuesDyn>),
     ActionMetadata(ActionMetadataBlob),
 }
 

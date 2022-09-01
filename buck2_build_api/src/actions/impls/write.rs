@@ -13,6 +13,7 @@ use std::time::Instant;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::category::Category;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::materialize::materializer::WriteRequest;
 use gazebo::dupe::Dupe;
 use indexmap::indexmap;
@@ -24,7 +25,6 @@ use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::Artifact;
 use crate::actions::Action;
 use crate::actions::ActionExecutable;

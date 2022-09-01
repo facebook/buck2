@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest::FileDigestToReExt;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -41,7 +42,6 @@ use remote_execution::TStatus;
 use remote_execution::TTimestamp;
 use tracing::info;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::execute::commands::re::download::download_action_results;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 use crate::execute::commands::re::ActionPaths;

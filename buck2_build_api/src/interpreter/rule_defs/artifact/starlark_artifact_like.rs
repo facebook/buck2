@@ -13,11 +13,11 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use buck2_common::sorted_index_set::SortedIndexSet;
+use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact::path::ArtifactPath;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;

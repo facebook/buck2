@@ -1,14 +1,14 @@
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_execute::path::buck_out_path::BuckOutPath;
-use buck2_execute::path::buck_out_path::BuckOutPathResolver;
-use buck2_execute::path::buck_out_path::BuckPathResolver;
 use buck2_node::execute::config::PathSeparatorKind;
 use either::Either;
 
-use crate::actions::artifact::path::ArtifactPath;
-use crate::actions::artifact::source_artifact::SourceArtifact;
+use crate::artifact::source_artifact::SourceArtifact;
+use crate::path::artifact_path::ArtifactPath;
+use crate::path::buck_out_path::BuckOutPath;
+use crate::path::buck_out_path::BuckOutPathResolver;
+use crate::path::buck_out_path::BuckPathResolver;
 
 #[derive(Clone)]
 pub struct ArtifactFs {

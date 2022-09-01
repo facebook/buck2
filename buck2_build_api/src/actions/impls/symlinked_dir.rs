@@ -229,9 +229,9 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
+    use buck2_execute::artifact::source_artifact::SourceArtifact;
 
     use super::*;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::Artifact;
     use crate::actions::ArtifactGroup;
 

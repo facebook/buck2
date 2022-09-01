@@ -21,6 +21,8 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -46,8 +48,6 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::fs::ArtifactFs;
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::impls::run::knobs::HasRunActionKnobs;
 use crate::actions::impls::run::knobs::RunActionKnobs;
 use crate::actions::ActionExecutable;
@@ -463,6 +463,8 @@ mod tests {
     use buck2_core::target::TargetName;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_execute::artifact::fs::ArtifactFs;
+    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
@@ -478,8 +480,6 @@ mod tests {
     use once_cell::sync::Lazy;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::fs::ArtifactFs;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
     use crate::actions::key::ActionKey;
@@ -584,7 +584,7 @@ mod tests {
                     self.inputs
                         .iter()
                         .map(|x| {
-                            CommandExecutionInput::Artifact(ArtifactGroupValues::from_artifact(
+                            CommandExecutionInput::Artifact(box ArtifactGroupValues::from_artifact(
                                 x.unpack_artifact().unwrap().dupe(),
                                 ArtifactValue::empty_file(),
                             ))

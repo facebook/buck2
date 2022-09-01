@@ -13,6 +13,9 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_core::directory::Directory;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -22,7 +25,6 @@ use gazebo::prelude::*;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::actions::artifact::Artifact;
 
 /// The [`ArtifactValue`]s for an [`crate::artifact_groups::ArtifactGroup`].
@@ -211,6 +213,22 @@ where
             self.values = next.values();
             self.enqueue_children(next.children());
         }
+    }
+}
+
+impl ArtifactGroupValuesDyn for ArtifactGroupValues {
+    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn ArtifactDyn, &ArtifactValue)> + '_> {
+        box self
+            .iter()
+            .map(|(artifact, value)| (artifact as &dyn ArtifactDyn, value))
+    }
+
+    fn add_to_directory(
+        &self,
+        builder: &mut ActionDirectoryBuilder,
+        artifact_fs: &ArtifactFs,
+    ) -> anyhow::Result<()> {
+        self.add_to_directory(builder, artifact_fs)
     }
 }
 

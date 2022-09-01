@@ -16,6 +16,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
@@ -35,8 +37,6 @@ use internment::ArcIntern;
 use ref_cast::RefCast;
 use serde::Serialize;
 
-use crate::actions::artifact::fs::ArtifactFs;
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::TransitiveSetProjectionKey;

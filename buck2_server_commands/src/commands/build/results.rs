@@ -33,11 +33,11 @@ impl BuildResultCollector for Vec<&mut dyn BuildResultCollector> {
 }
 
 pub mod result_report {
-    use buck2_build_api::actions::artifact::fs::ArtifactFs;
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_common::result::SharedError;
     use buck2_core::configuration::Configuration;
+    use buck2_execute::artifact::fs::ArtifactFs;
     use cli_proto::build_target::build_output::BuildOutputProviders;
     use cli_proto::build_target::BuildOutput;
     use cli_proto::BuildTarget;
@@ -181,7 +181,6 @@ pub mod result_report {
 pub mod build_report {
     use std::collections::HashMap;
 
-    use buck2_build_api::actions::artifact::fs::ArtifactFs;
     use buck2_build_api::build::BuildProviderType;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::AbsPathBuf;
@@ -190,6 +189,7 @@ pub mod build_report {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetLabel;
     use buck2_events::TraceId;
+    use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::bxl::types::BxlFunctionLabel;
     use derivative::Derivative;
     use gazebo::prelude::*;

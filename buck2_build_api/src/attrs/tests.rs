@@ -16,6 +16,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
 use buck2_execute::path::buck_out_path::BuckPathResolver;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
@@ -35,8 +37,6 @@ use starlark::environment::Module;
 use starlark::values::Heap;
 use starlark::values::Value;
 
-use crate::actions::artifact::fs::ArtifactFs;
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::attrs::resolve::testing::resolution_ctx;
 use crate::attrs::resolve::testing::resolution_ctx_with_providers;

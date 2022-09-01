@@ -7,18 +7,9 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
-#![feature(never_type)]
-#![feature(trait_alias)]
+use crate::path::artifact_path::ArtifactPath;
 
-pub mod artifact;
-pub mod artifact_utils;
-pub mod artifact_value;
-pub mod base_deferred_key;
-pub mod bxl;
-pub mod digest;
-pub mod directory;
-pub mod execute;
-pub mod materialize;
-pub mod path;
-pub mod re;
+pub trait ArtifactDyn: Send + Sync + 'static {
+    fn get_path(&self) -> ArtifactPath;
+    fn is_source(&self) -> bool;
+}

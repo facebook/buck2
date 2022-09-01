@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_events::dispatch::span_async;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
@@ -29,7 +30,6 @@ use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
@@ -353,7 +353,7 @@ impl IncrementalActionExecutable for RunAction {
             .collect();
 
         let mut inputs: Vec<CommandExecutionInput> =
-            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(i.dupe()));
+            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(box i.dupe()));
 
         // Handle case when user requested file with action metadata to be generated.
         // Generate content and output path for the file. It will be either passed

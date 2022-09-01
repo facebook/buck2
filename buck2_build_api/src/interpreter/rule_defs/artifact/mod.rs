@@ -60,6 +60,9 @@ pub mod testing {
     use buck2_core::pattern::TargetPattern;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetLabel;
+    use buck2_execute::artifact::fs::ArtifactFs;
+    use buck2_execute::artifact::fs::ExecutorFs;
+    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -74,9 +77,6 @@ pub mod testing {
     use starlark::values::Value;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::fs::ArtifactFs;
-    use crate::actions::artifact::fs::ExecutorFs;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
     use crate::actions::registry::ActionsRegistry;

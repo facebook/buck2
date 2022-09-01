@@ -12,12 +12,12 @@
 use std::sync::Arc;
 
 use buck2_core::fs::project::ProjectRoot;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_node::execute::config::CommandExecutorConfig;
 use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::execute::commands::PreparedCommandExecutor;
 
 pub trait SetCommandExecutor {

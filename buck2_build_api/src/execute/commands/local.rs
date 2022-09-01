@@ -27,6 +27,7 @@ use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::process::async_background_command;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_entry;
@@ -56,7 +57,6 @@ use thiserror::Error;
 use tokio::process::Command;
 use tracing::info;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::execute::commands::inputs_directory;
 use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::CommandExecutionInput;

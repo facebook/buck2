@@ -16,7 +16,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::actions::artifact::fs::ArtifactFs;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildProviderType;
@@ -42,6 +41,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_events::dispatch::span_async;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
 use buck2_server_ctx::command_end::command_end;

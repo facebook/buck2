@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
@@ -38,7 +39,6 @@ use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-use crate::actions::artifact::fs::ArtifactFs;
 use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::output::RemoteCommandStdStreams;
 use crate::execute::commands::re::client::PreparedAction;

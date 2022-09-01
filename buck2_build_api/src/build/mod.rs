@@ -6,6 +6,7 @@ use anyhow::Context;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::execute::config::PathSeparatorKind;
 use cli_proto::build_request::Materializations;
@@ -16,7 +17,6 @@ use futures::future;
 use gazebo::dupe::Dupe;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::fs::ExecutorFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::actions::artifact::BaseArtifactKind;
 use crate::artifact_groups::ArtifactGroup;

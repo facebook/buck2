@@ -18,6 +18,7 @@ use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
@@ -41,7 +42,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::actions::artifact;
-use crate::actions::artifact::path::ArtifactPath;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;

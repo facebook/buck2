@@ -9,6 +9,7 @@
 
 use std::fmt::Debug;
 
+use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::LabelGen;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -28,7 +29,6 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
-use crate::actions::artifact::source_artifact::SourceArtifact;
 use crate::actions::artifact::Artifact;
 use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::resolve::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;

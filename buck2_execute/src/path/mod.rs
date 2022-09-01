@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub mod artifact_path;
 pub mod buck_out_path;
