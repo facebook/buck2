@@ -51,6 +51,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::materializers::io::MaterializeTreeStructure;
 use derive_more::Display;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -75,7 +76,6 @@ use tracing::instrument;
 use crate::execute::materializer::filetree::DataTreeIntoIterator;
 use crate::execute::materializer::filetree::DataTreeIterator;
 use crate::execute::materializer::filetree::FileTree;
-use crate::execute::materializer::io::MaterializeTreeStructure;
 
 /// Materializer implementation that defers materialization of declared
 /// artifacts until they are needed (i.e. `ensure_materialized` is called).

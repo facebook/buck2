@@ -7,8 +7,4 @@
  * of this source tree.
  */
 
-pub mod deferred;
-#[cfg(all(unix, feature = "eden_materializer"))]
-pub mod eden;
-pub mod filetree;
-pub mod immediate;
+pub mod io;

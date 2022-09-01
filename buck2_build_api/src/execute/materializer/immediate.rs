@@ -34,14 +34,13 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::materializers::io::MaterializeTreeStructure;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
-
-use crate::execute::materializer::io::MaterializeTreeStructure;
 
 /// Materializer that materializes everything immediately on declare.
 pub struct ImmediateMaterializer {
