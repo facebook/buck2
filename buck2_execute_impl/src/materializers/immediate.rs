@@ -18,7 +18,6 @@ use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_execute::artifact_utils::materialize_files;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::FileDigestToReExt;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -41,6 +40,7 @@ use gazebo::prelude::*;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 
+use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
 
 /// Materializer that materializes everything immediately on declare.

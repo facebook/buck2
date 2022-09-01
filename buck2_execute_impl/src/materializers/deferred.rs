@@ -31,7 +31,6 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_execute::artifact_utils::materialize_files;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::FileDigestFromReExt;
 use buck2_execute::digest::FileDigestToReExt;
@@ -76,6 +75,7 @@ use crate::materializers::filetree::DataTreeIntoIterator;
 use crate::materializers::filetree::DataTreeIterator;
 use crate::materializers::filetree::FileTree;
 use crate::materializers::immediate;
+use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
 
 /// Materializer implementation that defers materialization of declared
