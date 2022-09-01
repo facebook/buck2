@@ -102,6 +102,9 @@ pub trait HasLegacyConfigs {
     /// Consider using `get_legacy_config_property` instead.
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs>;
 
+    /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
+    async fn is_legacy_configs_key_set(&self) -> anyhow::Result<bool>;
+
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
     ///
@@ -129,6 +132,8 @@ pub trait HasLegacyConfigs {
         T: Send + Sync + 'static;
 
     fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
+
+    fn set_none_legacy_configs(&self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
@@ -136,10 +141,14 @@ pub trait HasLegacyConfigs {
 struct LegacyBuckConfigKey;
 
 impl InjectedKey for LegacyBuckConfigKey {
-    type Value = LegacyBuckConfigs;
+    type Value = Option<LegacyBuckConfigs>;
 
     fn compare(x: &Self::Value, y: &Self::Value) -> bool {
-        x.compare(y)
+        match (x, y) {
+            (Some(x), Some(y)) => x.compare(y),
+            (None, None) => true,
+            (_, _) => false,
+        }
     }
 }
 
@@ -235,10 +244,19 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 
     fn compute(
         &self,
-        configs: &LegacyBuckConfigs,
+        configs: &Option<LegacyBuckConfigs>,
         _ctx: &DiceProjectionComputations,
     ) -> Arc<Vec<CellName>> {
-        let cell_names: Vec<_> = configs.iter().map(|(k, _)| k.clone()).collect();
+        let cell_names: Vec<_> = configs
+            .as_ref()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value"
+                )
+            })
+            .iter()
+            .map(|(k, _)| k.clone())
+            .collect();
         assert!(
             cell_names.is_sorted(),
             "configs.iter() must return a sorted iterator"
@@ -276,7 +294,13 @@ impl HasLegacyConfigs for DiceComputations {
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
-        Ok(self.compute(&LegacyBuckConfigKey).await?.dupe())
+        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
+            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
+        })
+    }
+
+    async fn is_legacy_configs_key_set(&self) -> anyhow::Result<bool> {
+        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
     }
 
     async fn get_legacy_config_for_cell(
@@ -324,7 +348,11 @@ impl HasLegacyConfigs for DiceComputations {
     }
 
     fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()> {
-        Ok(self.changed_to(vec![(LegacyBuckConfigKey, legacy_configs)])?)
+        Ok(self.changed_to(vec![(LegacyBuckConfigKey, Some(legacy_configs))])?)
+    }
+
+    fn set_none_legacy_configs(&self) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LegacyBuckConfigKey, None)])?)
     }
 }
 
@@ -346,7 +374,7 @@ mod tests {
         let path = &AbsPathBuf::from("/test".to_owned())?;
         #[cfg(windows)]
         let path = &AbsPathBuf::from("C:/test".to_owned())?;
-        let config1 = LegacyBuckConfigs::new(hashmap![
+        let config1 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::unchecked_new("cell1".to_owned())
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
@@ -365,9 +393,9 @@ mod tests {
                     &[],
                 )?
             }
-        ]);
+        ]));
 
-        let config2 = LegacyBuckConfigs::new(hashmap![
+        let config2 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::unchecked_new("cell1".to_owned())
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
@@ -377,9 +405,9 @@ mod tests {
                     &[LegacyConfigCmdArg::Flag("sec1.a=c".to_owned())],
                 )?
             },
-        ]);
+        ]));
 
-        let config3 = LegacyBuckConfigs::new(hashmap![
+        let config3 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::unchecked_new("cell1".to_owned())
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=c\n[sec2]\nx=y")])?;
@@ -389,9 +417,9 @@ mod tests {
                     &[],
                 )?
             },
-        ]);
+        ]));
 
-        let config4 = LegacyBuckConfigs::new(hashmap![
+        let config4 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::unchecked_new("cell1".to_owned())
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
@@ -401,7 +429,10 @@ mod tests {
                     &[LegacyConfigCmdArg::Flag("sec1.d=e".to_owned())],
                 )?
             },
-        ]);
+        ]));
+
+        let config5: Option<LegacyBuckConfigs> = None;
+        let config6: Option<LegacyBuckConfigs> = None;
 
         assert_eq!(LegacyBuckConfigKey::compare(&config1, &config1), true);
         assert_eq!(LegacyBuckConfigKey::compare(&config2, &config2), true);
@@ -413,6 +444,8 @@ mod tests {
         assert_eq!(LegacyBuckConfigKey::compare(&config2, &config3), true);
         assert_eq!(LegacyBuckConfigKey::compare(&config2, &config4), false);
         assert_eq!(LegacyBuckConfigKey::compare(&config3, &config4), false);
+        assert_eq!(LegacyBuckConfigKey::compare(&config5, &config1), false);
+        assert_eq!(LegacyBuckConfigKey::compare(&config5, &config6), true);
 
         Ok(())
     }
