@@ -51,8 +51,6 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
-use buck2_execute_impl::materializers::immediate;
-use buck2_execute_impl::materializers::io::MaterializeTreeStructure;
 use derive_more::Display;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -74,9 +72,11 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
-use crate::execute::materializer::filetree::DataTreeIntoIterator;
-use crate::execute::materializer::filetree::DataTreeIterator;
-use crate::execute::materializer::filetree::FileTree;
+use crate::materializers::filetree::DataTreeIntoIterator;
+use crate::materializers::filetree::DataTreeIterator;
+use crate::materializers::filetree::FileTree;
+use crate::materializers::immediate;
+use crate::materializers::io::MaterializeTreeStructure;
 
 /// Materializer implementation that defers materialization of declared
 /// artifacts until they are needed (i.e. `ensure_materialized` is called).

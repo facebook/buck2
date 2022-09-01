@@ -15,8 +15,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context;
-use buck2_build_api::execute::materializer::deferred::DeferredMaterializer;
-use buck2_build_api::execute::materializer::deferred::DeferredMaterializerConfigs;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -40,6 +38,8 @@ use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::client::RemoteExecutionStaticMetadata;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
+use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_forkserver::client::ForkserverClient;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;

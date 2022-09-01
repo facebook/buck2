@@ -8,7 +8,6 @@
  */
 
 pub(crate) mod error;
-pub mod materializer;
 
 use std::fmt::Debug;
 use std::sync::Arc;

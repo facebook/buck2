@@ -36,7 +36,7 @@ pub type FileTree<V> = DataTree<FileNameBuf, V>;
 /// # Example
 /// ```
 /// use buck2_core::fs::paths::{FileNameBuf, ForwardRelativePathBuf};
-/// use buck2_build_api::execute::materializer::filetree::DataTree;
+/// use buck2_execute_impl::materializers::filetree::DataTree;
 ///
 /// let path = ForwardRelativePathBuf::unchecked_new("foo/bar".to_owned());
 /// let contents = "contents_of_foobar".to_owned();

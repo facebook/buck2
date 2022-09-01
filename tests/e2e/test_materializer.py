@@ -54,7 +54,7 @@ async def test_modify_dep_materialization(buck: Buck) -> None:
 @buck_test(
     inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
 )
-@env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_matching_artifact_optimization(buck: Buck) -> None:
     target = "root//:copy"
     result = await buck.build(target)

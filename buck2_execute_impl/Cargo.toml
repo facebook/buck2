@@ -13,9 +13,11 @@ derive_more = { workspace = true }
 faccess = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }
+once_cell = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+zstd = { workspace = true }
 
 gazebo = { path = "../gazebo/gazebo" }
 host_sharing = { path = "../host_sharing" }
@@ -35,6 +37,7 @@ forkserver_proto = { path = "../forkserver_proto" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+assert_matches = { workspace = true }
 
 [features]
 # @oss-disable: default = ["eden_materializer"]
