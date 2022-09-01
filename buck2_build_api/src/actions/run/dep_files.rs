@@ -44,7 +44,7 @@ use tracing::instrument;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
 use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::impls::run::expanded_command_line::ExpandedCommandLineDigest;
+use crate::actions::run::expanded_command_line::ExpandedCommandLineDigest;
 use crate::actions::ActionExecutionCtx;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;

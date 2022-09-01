@@ -48,6 +48,7 @@ use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::calculation as action_calculation;
+use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::key::ActionKey;
 use crate::analysis::calculation as analysis_calculation;
 use crate::artifact_groups::calculation as artifact_group_calculation;
@@ -58,7 +59,6 @@ use crate::context::HasBuildContextData;
 use crate::deferred::calculation as deferred_calculation;
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::DeferredData;
-use crate::execute::ActionOutputs;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::calculation as node_calculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;

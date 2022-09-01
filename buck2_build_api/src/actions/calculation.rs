@@ -31,14 +31,14 @@ use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::build_listener::ActionExecutionSignal;
 use crate::actions::build_listener::ActionRedirectionSignal;
 use crate::actions::build_listener::HasBuildSignals;
+use crate::actions::execute::action_executor::ActionOutputs;
+use crate::actions::execute::action_executor::HasActionExecutor;
+use crate::actions::execute::error::ExecuteError;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::events::proto::ToProtoMessage;
-use crate::execute::error::ExecuteError;
-use crate::execute::ActionOutputs;
-use crate::execute::HasActionExecutor;
 use crate::keep_going;
 
 #[async_trait]

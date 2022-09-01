@@ -22,15 +22,15 @@ use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::execute::action_executor::ActionExecutionKind;
+use crate::actions::execute::action_executor::ActionExecutionMetadata;
+use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::Action;
 use crate::actions::ActionExecutable;
 use crate::actions::ActionExecutionCtx;
 use crate::actions::PristineActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
-use crate::execute::ActionExecutionKind;
-use crate::execute::ActionExecutionMetadata;
-use crate::execute::ActionOutputs;
 
 #[derive(Debug, Error)]
 enum CopyActionValidationError {

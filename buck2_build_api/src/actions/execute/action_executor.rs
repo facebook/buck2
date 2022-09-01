@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod error;
-
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -45,8 +43,6 @@ use buck2_node::execute::config::CommandExecutorConfig;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use error::CommandExecutionErrorMarker;
-use error::ExecuteError;
 use gazebo::prelude::*;
 use indexmap::indexmap;
 use indexmap::IndexMap;
@@ -54,6 +50,8 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::execute::error::CommandExecutionErrorMarker;
+use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run::knobs::HasRunActionKnobs;
 use crate::actions::impls::run::knobs::RunActionKnobs;
 use crate::actions::ActionExecutable;
@@ -472,6 +470,11 @@ mod tests {
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
+    use crate::actions::execute::action_executor::ActionExecutionKind;
+    use crate::actions::execute::action_executor::ActionExecutionMetadata;
+    use crate::actions::execute::action_executor::ActionExecutor;
+    use crate::actions::execute::action_executor::ActionOutputs;
+    use crate::actions::execute::action_executor::BuckActionExecutor;
     use crate::actions::key::ActionKey;
     use crate::actions::Action;
     use crate::actions::ActionExecutable;
@@ -485,11 +488,6 @@ mod tests {
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;
-    use crate::execute::ActionExecutionKind;
-    use crate::execute::ActionExecutionMetadata;
-    use crate::execute::ActionExecutor;
-    use crate::execute::ActionOutputs;
-    use crate::execute::BuckActionExecutor;
 
     #[tokio::test]
     async fn can_execute_some_action() {

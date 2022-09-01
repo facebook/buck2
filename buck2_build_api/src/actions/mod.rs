@@ -26,6 +26,7 @@
 pub mod artifact;
 pub mod build_listener;
 pub mod calculation;
+pub mod execute;
 pub mod impls;
 pub(crate) mod key;
 pub(crate) mod registry;
@@ -63,14 +64,14 @@ use static_assertions::_core::ops::Deref;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::execute::action_executor::ActionExecutionMetadata;
+use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::deferred::types::Deferred;
 use crate::deferred::types::DeferredCtx;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredValue;
-use crate::execute::ActionExecutionMetadata;
-use crate::execute::ActionOutputs;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
@@ -349,14 +350,14 @@ pub(crate) mod testings {
     use starlark::values::OwnedFrozenValue;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
+    use crate::actions::execute::action_executor::ActionExecutionMetadata;
+    use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::Action;
     use crate::actions::ActionExecutable;
     use crate::actions::ActionExecutionCtx;
     use crate::actions::PristineActionExecutable;
     use crate::actions::UnregisteredAction;
     use crate::artifact_groups::ArtifactGroup;
-    use crate::execute::ActionExecutionMetadata;
-    use crate::execute::ActionOutputs;
 
     /// A simple unregistered action that will eventually be resolved into an action that runs the
     /// given cmd as the action execution command. Used for testing
