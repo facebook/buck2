@@ -25,6 +25,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::re_get_session_id::ReGetSessionId;
@@ -44,7 +45,6 @@ use remote_execution::TDigest;
 use crate::execute::commands::re::client::RemoteExecutionClient;
 use crate::execute::commands::re::client::RemoteExecutionStaticMetadata;
 use crate::execute::commands::re::ReActionIdentity;
-use crate::execute::commands::CommandExecutionManager;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
 ///

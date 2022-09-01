@@ -10,6 +10,7 @@
 #![feature(box_syntax)]
 #![feature(never_type)]
 #![feature(trait_alias)]
+#![feature(try_trait_v2)]
 
 pub mod artifact;
 pub mod artifact_utils;

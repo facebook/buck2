@@ -17,6 +17,8 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_events::dispatch::span_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::result::CommandExecutionReport;
+use buck2_execute::execute::result::CommandExecutionStatus;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -34,8 +36,6 @@ use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::events::proto::ToProtoMessage;
-use crate::execute::commands::CommandExecutionReport;
-use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::error::ExecuteError;
 use crate::execute::ActionOutputs;
 use crate::execute::HasActionExecutor;
@@ -430,6 +430,11 @@ mod tests {
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::blocking::SetBlockingExecutor;
     use buck2_execute::execute::kind::CommandExecutionKind;
+    use buck2_execute::execute::name::ExecutorName;
+    use buck2_execute::execute::output::CommandStdStreams;
+    use buck2_execute::execute::prepared::PreparedCommandExecutor;
+    use buck2_execute::execute::result::CommandExecutionReport;
+    use buck2_execute::execute::result::CommandExecutionStatus;
     use buck2_execute::materialize::materializer::SetMaterializer;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_node::execute::config::CommandExecutorConfig;
@@ -463,11 +468,6 @@ mod tests {
     use crate::execute::commands::dice_data::SetCommandExecutor;
     use crate::execute::commands::dry_run::DryRunEntry;
     use crate::execute::commands::dry_run::DryRunExecutor;
-    use crate::execute::commands::output::CommandStdStreams;
-    use crate::execute::commands::CommandExecutionReport;
-    use crate::execute::commands::CommandExecutionStatus;
-    use crate::execute::commands::ExecutorName;
-    use crate::execute::commands::PreparedCommandExecutor;
     use crate::spawner::BuckSpawner;
 
     fn create_test_build_artifact(

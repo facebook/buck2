@@ -44,6 +44,8 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::request::CommandExecutionOutput;
+use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_node::execute::config::CommandExecutorConfig;
@@ -67,8 +69,6 @@ use crate::deferred::types::Deferred;
 use crate::deferred::types::DeferredCtx;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredValue;
-use crate::execute::commands::CommandExecutionOutput;
-use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionOutputs;
 
@@ -341,6 +341,7 @@ pub(crate) mod testings {
 
     use async_trait::async_trait;
     use buck2_core::category::Category;
+    use buck2_execute::execute::request::CommandExecutionRequest;
     use derivative::Derivative;
     use gazebo::dupe::Dupe;
     use indexmap::IndexSet;
@@ -354,7 +355,6 @@ pub(crate) mod testings {
     use crate::actions::PristineActionExecutable;
     use crate::actions::UnregisteredAction;
     use crate::artifact_groups::ArtifactGroup;
-    use crate::execute::commands::CommandExecutionRequest;
     use crate::execute::ActionExecutionMetadata;
     use crate::execute::ActionOutputs;
 

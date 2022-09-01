@@ -18,21 +18,12 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::execute::commands;
 use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
 use buck2_build_api::execute::commands::local::apply_local_execution_environment;
 use buck2_build_api::execute::commands::local::create_output_dirs;
 use buck2_build_api::execute::commands::local::materialize_inputs;
 use buck2_build_api::execute::commands::local::EnvironmentBuilder;
-use buck2_build_api::execute::commands::CommandExecutionInput;
-use buck2_build_api::execute::commands::CommandExecutionManager;
-use buck2_build_api::execute::commands::CommandExecutionReport;
-use buck2_build_api::execute::commands::CommandExecutionRequest;
-use buck2_build_api::execute::commands::CommandExecutionResult;
-use buck2_build_api::execute::commands::CommandExecutionTimingData;
 use buck2_build_api::execute::commands::CommandExecutor;
-use buck2_build_api::execute::commands::ExecutorPreference;
-use buck2_build_api::execute::commands::OutputCreationBehavior;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -70,6 +61,16 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::request::CommandExecutionInput;
+use buck2_execute::execute::request::CommandExecutionOutput;
+use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::OutputCreationBehavior;
+use buck2_execute::execute::result::CommandExecutionReport;
+use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
@@ -101,7 +102,6 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use uuid::Uuid;
 
-use crate::orchestrator::commands::CommandExecutionOutput;
 use crate::session::TestSession;
 use crate::translations;
 
@@ -475,7 +475,7 @@ impl BuckTestOrchestrator {
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
         Ok(match status {
-            commands::CommandExecutionStatus::Success { .. } => (
+            CommandExecutionStatus::Success { .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
@@ -484,7 +484,7 @@ impl BuckTestOrchestrator {
                 timing,
                 outputs,
             ),
-            commands::CommandExecutionStatus::Failure { .. } => (
+            CommandExecutionStatus::Failure { .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
@@ -493,14 +493,14 @@ impl BuckTestOrchestrator {
                 timing,
                 outputs,
             ),
-            commands::CommandExecutionStatus::TimedOut { duration, .. } => (
+            CommandExecutionStatus::TimedOut { duration, .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::TimedOut { duration },
                 timing,
                 outputs,
             ),
-            commands::CommandExecutionStatus::Error { stage: _, error } => (
+            CommandExecutionStatus::Error { stage: _, error } => (
                 ExecutionStream::Inline(Default::default()),
                 ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
                 ExecutionStatus::Finished {
@@ -509,7 +509,7 @@ impl BuckTestOrchestrator {
                 timing,
                 outputs,
             ),
-            commands::CommandExecutionStatus::ClaimRejected => {
+            CommandExecutionStatus::ClaimRejected => {
                 panic!("should be impossible for the executor to finish with a rejected claim")
             }
         })

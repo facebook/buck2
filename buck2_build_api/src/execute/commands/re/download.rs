@@ -24,6 +24,13 @@ use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::claim::ClaimedRequest;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::output::CommandStdStreams;
+use buck2_execute::execute::prepared::ActionPaths;
+use buck2_execute::execute::request::CommandExecutionOutput;
+use buck2_execute::execute::request::CommandExecutionOutputRef;
+use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_node::execute::config::RemoteExecutorUseCase;
@@ -32,15 +39,8 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use thiserror::Error;
 
-use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
-use crate::execute::commands::re::ActionPaths;
 use crate::execute::commands::re::RemoteActionResult;
-use crate::execute::commands::CommandExecutionManager;
-use crate::execute::commands::CommandExecutionOutput;
-use crate::execute::commands::CommandExecutionOutputRef;
-use crate::execute::commands::CommandExecutionRequest;
-use crate::execute::commands::CommandExecutionResult;
 
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,

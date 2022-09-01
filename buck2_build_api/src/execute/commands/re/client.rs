@@ -20,6 +20,8 @@ use buck2_execute::digest::FileDigestToReExt;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::metadata::RemoteExecutionMetadataExt;
@@ -64,7 +66,6 @@ use tokio::sync::Semaphore;
 use tracing::warn;
 
 use crate::execute::commands::re::ReActionIdentity;
-use crate::execute::commands::CommandExecutionManager;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 
@@ -388,13 +389,6 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
         }),
         ..Default::default()
     }
-}
-
-pub struct PreparedAction {
-    pub action: ActionDigest,
-    // The encoded action and other messages referenced from it by digest (e.g. RE::Command).
-    // Does not include the files referenced in inputs.
-    pub blobs: ActionBlobs,
 }
 
 pub fn re_create_action(

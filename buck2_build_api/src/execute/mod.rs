@@ -30,6 +30,12 @@ use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::request::CommandExecutionOutput;
+use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionReport;
+use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
@@ -57,12 +63,6 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::calculation::Calculation;
 use crate::execute::commands::dice_data::HasCommandExecutor;
-use crate::execute::commands::CommandExecutionManager;
-use crate::execute::commands::CommandExecutionOutput;
-use crate::execute::commands::CommandExecutionReport;
-use crate::execute::commands::CommandExecutionRequest;
-use crate::execute::commands::CommandExecutionResult;
-use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::commands::CommandExecutor;
 
 /// This is the result of the action as exposed to other things in the dice computation.
@@ -469,6 +469,8 @@ mod tests {
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
+    use buck2_execute::execute::request::CommandExecutionInput;
+    use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -496,8 +498,6 @@ mod tests {
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;
     use crate::execute::commands::dry_run::DryRunExecutor;
-    use crate::execute::commands::CommandExecutionInput;
-    use crate::execute::commands::CommandExecutionRequest;
     use crate::execute::commands::CommandExecutor;
     use crate::execute::ActionExecutionKind;
     use crate::execute::ActionExecutionMetadata;

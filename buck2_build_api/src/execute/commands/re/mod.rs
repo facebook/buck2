@@ -14,13 +14,21 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::name::ExecutorName;
+use buck2_execute::execute::output::CommandStdStreams;
+use buck2_execute::execute::prepared::ActionPaths;
+use buck2_execute::execute::prepared::PreparedAction;
+use buck2_execute::execute::prepared::PreparedCommand;
+use buck2_execute::execute::prepared::PreparedCommandExecutor;
+use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
@@ -39,18 +47,9 @@ use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::output::RemoteCommandStdStreams;
-use crate::execute::commands::re::client::PreparedAction;
 use crate::execute::commands::re::download::download_action_results;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
-use crate::execute::commands::CommandExecutionManager;
-use crate::execute::commands::CommandExecutionRequest;
-use crate::execute::commands::CommandExecutionResult;
-use crate::execute::commands::CommandExecutionTimingData;
-use crate::execute::commands::ExecutorName;
-use crate::execute::commands::PreparedCommand;
-use crate::execute::commands::PreparedCommandExecutor;
 
 pub mod caching_executor;
 pub mod client;
@@ -91,14 +90,6 @@ impl ReExecutionPlatform {
 
         map
     }
-}
-
-pub struct ActionPaths {
-    pub inputs: ActionImmutableDirectory,
-    pub outputs: Vec<ProjectRelativePathBuf>,
-
-    /// Total size of input files.
-    pub input_files_bytes: u64,
 }
 
 pub struct ReExecutor {

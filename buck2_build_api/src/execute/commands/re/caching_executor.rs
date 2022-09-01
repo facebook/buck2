@@ -23,6 +23,14 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::name::ExecutorName;
+use buck2_execute::execute::prepared::ActionPaths;
+use buck2_execute::execute::prepared::PreparedCommand;
+use buck2_execute::execute::prepared::PreparedCommandExecutor;
+use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_node::execute::config::CacheUploadBehavior;
@@ -42,16 +50,9 @@ use remote_execution::TStatus;
 use remote_execution::TTimestamp;
 use tracing::info;
 
+use crate::execute::commands::output::CommandStdStreamsExt;
 use crate::execute::commands::re::download::download_action_results;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
-use crate::execute::commands::re::ActionPaths;
-use crate::execute::commands::CommandExecutionManager;
-use crate::execute::commands::CommandExecutionRequest;
-use crate::execute::commands::CommandExecutionResult;
-use crate::execute::commands::CommandExecutionStatus;
-use crate::execute::commands::ExecutorName;
-use crate::execute::commands::PreparedCommand;
-use crate::execute::commands::PreparedCommandExecutor;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
