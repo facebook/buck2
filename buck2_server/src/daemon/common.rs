@@ -10,11 +10,11 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::materialize::materializer::Materializer;

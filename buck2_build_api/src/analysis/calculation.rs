@@ -457,6 +457,7 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
     use buck2_interpreter::dice::testing::EvalImportKey;
@@ -477,7 +478,6 @@ mod tests {
     use crate::analysis::calculation::RuleAnalysisCalculation;
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::deferred::types::testing::DeferredAnalysisResultExt;
-    use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;

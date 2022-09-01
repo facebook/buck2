@@ -429,6 +429,9 @@ mod tests {
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::blocking::SetBlockingExecutor;
+    use buck2_execute::execute::dice_data::set_fallback_executor_config;
+    use buck2_execute::execute::dice_data::HasCommandExecutor;
+    use buck2_execute::execute::dice_data::SetCommandExecutor;
     use buck2_execute::execute::kind::CommandExecutionKind;
     use buck2_execute::execute::name::ExecutorName;
     use buck2_execute::execute::output::CommandStdStreams;
@@ -465,9 +468,6 @@ mod tests {
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::AnyValue;
     use crate::deferred::types::DeferredId;
-    use crate::execute::commands::dice_data::set_fallback_executor_config;
-    use crate::execute::commands::dice_data::HasCommandExecutor;
-    use crate::execute::commands::dice_data::SetCommandExecutor;
     use crate::spawner::BuckSpawner;
 
     fn create_test_build_artifact(

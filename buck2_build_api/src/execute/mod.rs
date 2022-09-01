@@ -29,6 +29,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
+use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -62,7 +63,6 @@ use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::calculation::Calculation;
-use crate::execute::commands::dice_data::HasCommandExecutor;
 use crate::execute::commands::CommandExecutor;
 
 /// This is the result of the action as exposed to other things in the dice computation.

@@ -23,7 +23,6 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredRegistry;
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
-    use buck2_build_api::execute::commands::dice_data::set_fallback_executor_config;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
@@ -31,6 +30,7 @@ mod tests {
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::bxl::types::BxlFunctionLabel;
     use buck2_execute::bxl::types::BxlKey;
+    use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_interpreter::common::BxlFilePath;
     use buck2_node::execute::config::CommandExecutorConfig;

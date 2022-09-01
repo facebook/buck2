@@ -40,8 +40,6 @@ use gazebo::prelude::*;
 
 use crate::execute::ActionExecutionTimingData;
 
-pub mod dice_data;
-
 impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
     fn from(command: CommandExecutionTimingData) -> Self {
         Self {
