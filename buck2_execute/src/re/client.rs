@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -60,7 +58,6 @@ use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
-use crate::execute::prepared::PreparedAction;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::knobs::ReExecutorGlobalKnobs;
@@ -388,57 +385,6 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
             ..Default::default()
         }),
         ..Default::default()
-    }
-}
-
-pub fn re_create_action(
-    args: Vec<String>,
-    output_files: Vec<String>,
-    output_directories: Vec<String>,
-    workdir: Option<String>,
-    environment: &HashMap<String, String>,
-    input_digest: &TrackedFileDigest,
-    blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
-    timeout: Option<&Duration>,
-    platform: Option<RE::Platform>,
-    do_not_cache: bool,
-) -> PreparedAction {
-    // A rust HashMap is in an arbitrary order, so sort first to get a better cache hit rate
-    let mut environment = environment.iter().collect::<Vec<_>>();
-    environment.sort_by_key(|(k, _)| *k);
-
-    let command = RE::Command {
-        arguments: args,
-        output_files,
-        output_directories,
-        platform,
-        working_directory: workdir.unwrap_or_default(),
-        environment_variables: environment.map(|(k, v)| RE::EnvironmentVariable {
-            name: (*k).clone(),
-            value: (*v).clone(),
-        }),
-    };
-
-    let timeout = timeout.map(|t| prost_types::Duration {
-        seconds: t.as_secs() as i64,
-        nanos: t.subsec_nanos() as i32,
-    });
-
-    let mut prepared_blobs = ActionBlobs::new();
-    for (data, digest) in blobs {
-        prepared_blobs.add_blob(digest, data);
-    }
-    let action = RE::Action {
-        input_root_digest: Some(input_digest.to_grpc()),
-        command_digest: Some(prepared_blobs.add_protobuf_message(&command).to_grpc()),
-        timeout,
-        do_not_cache,
-    };
-
-    let action = ActionDigest(prepared_blobs.add_protobuf_message(&action));
-    PreparedAction {
-        action,
-        blobs: prepared_blobs,
     }
 }
 

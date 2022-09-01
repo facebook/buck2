@@ -9,22 +9,28 @@
 
 #![allow(clippy::borrow_deref_ref)] // FIXME?
 
+use std::collections::HashMap;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::ForwardRelativePath;
 use gazebo::prelude::*;
+use remote_execution as RE;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact::fs::ExecutorFs;
+use crate::digest::FileDigestToReExt;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
+use crate::execute::action_digest::ActionDigest;
+use crate::execute::blobs::ActionBlobs;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::name::ExecutorName;
@@ -38,7 +44,6 @@ use crate::execute::request::CommandExecutionRequest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::result::CommandExecutionTimingData;
 use crate::execute::target::CommandExecutionTarget;
-use crate::re::client::re_create_action;
 
 #[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
 pub struct ActionExecutionTimingData {
@@ -202,5 +207,56 @@ impl CommandExecutor {
             outputs: output_paths,
             input_files_bytes,
         })
+    }
+}
+
+fn re_create_action(
+    args: Vec<String>,
+    output_files: Vec<String>,
+    output_directories: Vec<String>,
+    workdir: Option<String>,
+    environment: &HashMap<String, String>,
+    input_digest: &TrackedFileDigest,
+    blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
+    timeout: Option<&Duration>,
+    platform: Option<RE::Platform>,
+    do_not_cache: bool,
+) -> PreparedAction {
+    // A rust HashMap is in an arbitrary order, so sort first to get a better cache hit rate
+    let mut environment = environment.iter().collect::<Vec<_>>();
+    environment.sort_by_key(|(k, _)| *k);
+
+    let command = RE::Command {
+        arguments: args,
+        output_files,
+        output_directories,
+        platform,
+        working_directory: workdir.unwrap_or_default(),
+        environment_variables: environment.map(|(k, v)| RE::EnvironmentVariable {
+            name: (*k).clone(),
+            value: (*v).clone(),
+        }),
+    };
+
+    let timeout = timeout.map(|t| prost_types::Duration {
+        seconds: t.as_secs() as i64,
+        nanos: t.subsec_nanos() as i32,
+    });
+
+    let mut prepared_blobs = ActionBlobs::new();
+    for (data, digest) in blobs {
+        prepared_blobs.add_blob(digest, data);
+    }
+    let action = RE::Action {
+        input_root_digest: Some(input_digest.to_grpc()),
+        command_digest: Some(prepared_blobs.add_protobuf_message(&command).to_grpc()),
+        timeout,
+        do_not_cache,
+    };
+
+    let action = ActionDigest(prepared_blobs.add_protobuf_message(&action));
+    PreparedAction {
+        action,
+        blobs: prepared_blobs,
     }
 }
