@@ -19,8 +19,6 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
-use buck2_execute_impl::executors::local::LocalExecutor;
-use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_node::execute::config::HybridExecutionLevel;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
@@ -29,6 +27,9 @@ use futures::future::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution as RE;
+
+use crate::executors::local::LocalExecutor;
+use crate::executors::re::ReExecutor;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
 /// executor, unless the CommandExecutionRequest expresses a preference. That will allow them to
@@ -133,15 +134,16 @@ impl PreparedCommandExecutor for HybridExecutor {
             match &r.report.status {
                 // This doesn't really matter sicne we only ever pass this with statuses known /
                 // expected to not be ClaimRejected.
-                super::CommandExecutionStatus::ClaimRejected => false,
+                CommandExecutionStatus::ClaimRejected => false,
                 // If the execution is successful, use the result.
-                super::CommandExecutionStatus::Success { .. } => false,
+                CommandExecutionStatus::Success { .. } => false,
                 // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
-                super::CommandExecutionStatus::Failure { .. } => fallback_on_failure,
+                CommandExecutionStatus::Failure { .. } => fallback_on_failure,
                 // Errors are infra errors and are always retried because that is the point of
                 // falling back.
-                super::CommandExecutionStatus::Error { .. }
-                | super::CommandExecutionStatus::TimedOut { .. } => true,
+                CommandExecutionStatus::Error { .. } | CommandExecutionStatus::TimedOut { .. } => {
+                    true
+                }
             }
         };
 

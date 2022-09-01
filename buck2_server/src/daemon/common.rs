@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
-use buck2_build_api::execute::commands::hybrid::HybridExecutor;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -22,6 +21,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute_impl::executors::caching::CachingExecutor;
+use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutionPlatform;
 use buck2_execute_impl::executors::re::ReExecutor;

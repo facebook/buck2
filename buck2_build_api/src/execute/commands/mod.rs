@@ -32,7 +32,6 @@ use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutputRef;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::re::client::re_create_action;
@@ -42,7 +41,6 @@ use gazebo::prelude::*;
 use crate::execute::ActionExecutionTimingData;
 
 pub mod dice_data;
-pub mod hybrid;
 
 impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
     fn from(command: CommandExecutionTimingData) -> Self {

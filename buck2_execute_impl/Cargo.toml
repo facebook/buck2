@@ -27,6 +27,7 @@ starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
 buck2_node = { path = "../buck2_node" }
 buck2_execute = { path = "../buck2_execute" }
 buck2_forkserver = { path = "../buck2_forkserver" }
