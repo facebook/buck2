@@ -135,8 +135,7 @@ asic_devinfra_xtensa_platform = execution_platform(
     local_enabled = False,
     remote_enabled = True,
     remote_execution_properties = {
-        "platform": "asic",
-        "testing": "xtensa",
+        "platform": "asic-grid",
     },
     remote_execution_use_case = "buck2-asic-devinfra",
     remote_execution_action_key_providers = remote_execution_action_key_providers,
