@@ -217,7 +217,7 @@ Note that builds only trigger on diffs in fbcode/buck2.
 
 ### Building Buck 2 manually
 
-If Sandcastle cannot build Buck 2, you might have to do it yourself. On a devserver, run `buck2/scripts/buck2_upload.sh`.
+If Sandcastle cannot build Buck 2, you might have to do it yourself. On a devserver, run `buck2/scripts/buck2_upload.py`.
 
 On a laptop, you have some set up to do:
 
