@@ -475,7 +475,10 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
             default_executor = re_executor,
             # We implicitly make this test via the project root, instead of
             # the cell root (e.g. fbcode root).
-            run_from_project_root = re_executor != None,
+            run_from_project_root = any([
+                "buck2_run_from_project_root" in (ctx.attrs.labels or []),
+                re_executor != None,
+            ]),
             use_project_relative_paths = re_executor != None,
         ),
         comp_db_info,
