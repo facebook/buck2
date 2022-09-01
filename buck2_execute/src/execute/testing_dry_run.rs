@@ -12,37 +12,38 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::execute::kind::CommandExecutionKind;
-use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::name::ExecutorName;
-use buck2_execute::execute::prepared::PreparedCommand;
-use buck2_execute::execute::prepared::PreparedCommandExecutor;
-use buck2_execute::execute::request::CommandExecutionOutput;
-use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_node::execute::config::RemoteExecutorUseCase;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
+use crate::artifact::fs::ArtifactFs;
+use crate::artifact_value::ArtifactValue;
+use crate::execute::kind::CommandExecutionKind;
+use crate::execute::manager::CommandExecutionManager;
+use crate::execute::name::ExecutorName;
+use crate::execute::prepared::PreparedCommand;
+use crate::execute::prepared::PreparedCommandExecutor;
+use crate::execute::request::CommandExecutionOutput;
+use crate::execute::result::CommandExecutionResult;
+use crate::execute::result::CommandExecutionTimingData;
+
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct DryRunEntry {
-    pub(crate) args: Vec<String>,
-    pub(crate) outputs: Vec<CommandExecutionOutput>,
-    pub(crate) env: HashMap<String, String>,
+pub struct DryRunEntry {
+    pub args: Vec<String>,
+    pub outputs: Vec<CommandExecutionOutput>,
+    pub env: HashMap<String, String>,
 }
 
 /// Records executed commands into the provided tracker and returns a successful result for all commands.
 /// If the filesystem is supplied, the dry run executor will write the executed command as contents
 /// to the output file.
-pub(crate) struct DryRunExecutor {
+pub struct DryRunExecutor {
     tracker: Arc<Mutex<Vec<DryRunEntry>>>,
     fs: Option<ArtifactFs>,
 }
 
 impl DryRunExecutor {
-    pub(crate) fn new(tracker: Arc<Mutex<Vec<DryRunEntry>>>, fs: Option<ArtifactFs>) -> Self {
+    pub fn new(tracker: Arc<Mutex<Vec<DryRunEntry>>>, fs: Option<ArtifactFs>) -> Self {
         Self { tracker, fs }
     }
 }

@@ -42,8 +42,6 @@ use crate::execute::commands::re::client::re_create_action;
 use crate::execute::ActionExecutionTimingData;
 
 pub mod dice_data;
-#[cfg(test)]
-pub mod dry_run;
 pub mod hybrid;
 pub mod output;
 pub mod re;

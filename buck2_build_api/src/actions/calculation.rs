@@ -435,6 +435,8 @@ mod tests {
     use buck2_execute::execute::prepared::PreparedCommandExecutor;
     use buck2_execute::execute::result::CommandExecutionReport;
     use buck2_execute::execute::result::CommandExecutionStatus;
+    use buck2_execute::execute::testing_dry_run::DryRunEntry;
+    use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::materializer::SetMaterializer;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_node::execute::config::CommandExecutorConfig;
@@ -466,8 +468,6 @@ mod tests {
     use crate::execute::commands::dice_data::set_fallback_executor_config;
     use crate::execute::commands::dice_data::HasCommandExecutor;
     use crate::execute::commands::dice_data::SetCommandExecutor;
-    use crate::execute::commands::dry_run::DryRunEntry;
-    use crate::execute::commands::dry_run::DryRunExecutor;
     use crate::spawner::BuckSpawner;
 
     fn create_test_build_artifact(

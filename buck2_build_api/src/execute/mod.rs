@@ -471,6 +471,7 @@ mod tests {
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_execute::execute::request::CommandExecutionInput;
     use buck2_execute::execute::request::CommandExecutionRequest;
+    use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -497,7 +498,6 @@ mod tests {
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;
-    use crate::execute::commands::dry_run::DryRunExecutor;
     use crate::execute::commands::CommandExecutor;
     use crate::execute::ActionExecutionKind;
     use crate::execute::ActionExecutionMetadata;
