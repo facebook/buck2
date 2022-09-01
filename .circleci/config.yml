@@ -5,6 +5,7 @@ jobs:
   build:
     docker:
       - image: cimg/rust:1.49.0
+    resource_class: xlarge
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install libssl-dev cmake
