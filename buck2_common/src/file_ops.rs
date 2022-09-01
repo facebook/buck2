@@ -394,6 +394,19 @@ pub enum PathMetadata {
     Directory,
 }
 
+#[derive(Debug, PartialEq, Dupe, Eq, Clone)]
+pub enum RawPathMetadata<T = Arc<CellPath>> {
+    Symlink { at: T, to: RawSymlink<T> },
+    File(FileMetadata),
+    Directory,
+}
+
+#[derive(Debug, Dupe, PartialEq, Eq, Clone)]
+pub enum RawSymlink<T> {
+    Relative(T),
+    External(Arc<ExternalSymlink>),
+}
+
 /// Stores the relevant metadata for a path.
 #[derive(Debug, Dupe, PartialEq, Eq, Clone)]
 pub enum PathMetadataOrRedirection<T = Arc<CellPath>> {
@@ -402,10 +415,61 @@ pub enum PathMetadataOrRedirection<T = Arc<CellPath>> {
 }
 
 impl<T> PathMetadataOrRedirection<T> {
-    pub fn map<O>(self, f: impl FnOnce(T) -> O) -> PathMetadataOrRedirection<O> {
+    pub fn map<O>(self, f: impl Fn(T) -> O) -> PathMetadataOrRedirection<O> {
         match self {
             Self::PathMetadata(meta) => PathMetadataOrRedirection::PathMetadata(meta),
             Self::Redirection(r) => PathMetadataOrRedirection::Redirection(f(r)),
+        }
+    }
+}
+
+impl<T> From<RawPathMetadata<T>> for PathMetadataOrRedirection<T> {
+    fn from(meta: RawPathMetadata<T>) -> Self {
+        match meta {
+            RawPathMetadata::Directory => {
+                PathMetadataOrRedirection::PathMetadata(PathMetadata::Directory)
+            }
+            RawPathMetadata::File(file) => {
+                PathMetadataOrRedirection::PathMetadata(PathMetadata::File(file))
+            }
+            RawPathMetadata::Symlink {
+                at: _,
+                to: RawSymlink::Relative(r),
+            } => PathMetadataOrRedirection::Redirection(r),
+            RawPathMetadata::Symlink {
+                at: _,
+                to: RawSymlink::External(e),
+            } => PathMetadataOrRedirection::PathMetadata(PathMetadata::ExternalSymlink(e)),
+        }
+    }
+}
+
+impl<T> RawPathMetadata<T> {
+    pub fn map<O>(self, f: impl Fn(T) -> O) -> RawPathMetadata<O> {
+        match Self::try_map::<O, RawPathMetadata<O>>(self, |v| Ok(f(v))) {
+            Ok(out) => out,
+            Err(e) => e,
+        }
+    }
+
+    pub fn try_map<O, E>(self, f: impl Fn(T) -> Result<O, E>) -> Result<RawPathMetadata<O>, E> {
+        match self {
+            Self::Directory => Ok(RawPathMetadata::Directory),
+            Self::File(file) => Ok(RawPathMetadata::File(file)),
+            Self::Symlink {
+                at,
+                to: RawSymlink::Relative(dest),
+            } => Ok(RawPathMetadata::Symlink {
+                at: f(at)?,
+                to: RawSymlink::Relative(f(dest)?),
+            }),
+            Self::Symlink {
+                at,
+                to: RawSymlink::External(e),
+            } => Ok(RawPathMetadata::Symlink {
+                at: f(at)?,
+                to: RawSymlink::External(e),
+            }),
         }
     }
 }
@@ -430,7 +494,7 @@ pub trait FileOps: Send + Sync {
         Ok(self.read_path_metadata_if_exists(path).await?.is_some())
     }
 
-    async fn read_path_metadata(&self, path: &CellPath) -> SharedResult<PathMetadataOrRedirection> {
+    async fn read_path_metadata(&self, path: &CellPath) -> SharedResult<RawPathMetadata> {
         self.read_path_metadata_if_exists(path)
             .await?
             .ok_or_else(|| anyhow::anyhow!("file `{}` not found", path).into())
@@ -439,7 +503,7 @@ pub trait FileOps: Send + Sync {
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
-    ) -> SharedResult<Option<PathMetadataOrRedirection>>;
+    ) -> SharedResult<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
 }
@@ -523,7 +587,7 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
-    ) -> SharedResult<Option<PathMetadataOrRedirection>> {
+    ) -> SharedResult<Option<RawPathMetadata>> {
         let project_path = self.resolve(path)?;
 
         let res = self
@@ -531,16 +595,8 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
             .read_path_metadata_if_exists(project_path)
             .await
             .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
-
-        Ok(match res {
-            Some(PathMetadataOrRedirection::PathMetadata(m)) => {
-                Some(PathMetadataOrRedirection::PathMetadata(m))
-            }
-            Some(PathMetadataOrRedirection::Redirection(r)) => Some(
-                PathMetadataOrRedirection::Redirection(Arc::new(self.get_cell_path(&r)?)),
-            ),
-            None => None,
-        })
+        res.map(|meta| meta.try_map(|path| Ok(Arc::new(self.get_cell_path(&path)?))))
+            .transpose()
     }
 
     async fn is_ignored(&self, path: &CellPath) -> anyhow::Result<bool> {
@@ -751,8 +807,8 @@ pub mod testing {
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
     use crate::file_ops::FileType;
-    use crate::file_ops::PathMetadata;
-    use crate::file_ops::PathMetadataOrRedirection;
+    use crate::file_ops::RawPathMetadata;
+    use crate::file_ops::RawSymlink;
     use crate::file_ops::ReadDirOutput;
     use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
@@ -889,17 +945,18 @@ pub mod testing {
         async fn read_path_metadata_if_exists(
             &self,
             path: &CellPath,
-        ) -> SharedResult<Option<PathMetadataOrRedirection>> {
+        ) -> SharedResult<Option<RawPathMetadata>> {
             self.entries
                 .get(path)
                 .map_or(Ok(None), |e| {
                     match e {
                         TestFileOpsEntry::File(_data, metadata) => {
-                            Ok(PathMetadata::File(metadata.dupe()).into())
+                            Ok(RawPathMetadata::File(metadata.dupe()))
                         }
-                        TestFileOpsEntry::ExternalSymlink(sym) => {
-                            Ok(PathMetadata::ExternalSymlink(sym.dupe()).into())
-                        }
+                        TestFileOpsEntry::ExternalSymlink(sym) => Ok(RawPathMetadata::Symlink {
+                            at: Arc::new(path.clone()),
+                            to: RawSymlink::External(sym.dupe()),
+                        }),
                         _ => Err(anyhow::anyhow!("couldn't get metadata for {:?}", path)),
                     }
                     .map(Some)

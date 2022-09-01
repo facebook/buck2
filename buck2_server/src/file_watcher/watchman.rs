@@ -103,19 +103,17 @@ impl WatchmanQueryProcessor {
                     (WatchmanKind::Directory, WatchmanEventType::Delete) => {
                         handler.dir_removed(cell_path);
                     }
-                    (WatchmanKind::Symlink, typ) => {
-                        // We don't really support symlinks in the source, but better than a panic.
-                        // Just pretend they are a file, so invalidate directory listing and contents.
-                        warn!(
-                            "Symlink change detected (source symlinks are not supported): {}",
-                            cell_path
-                        );
-                        match typ {
-                            WatchmanEventType::Modify => handler.file_changed(cell_path),
-                            WatchmanEventType::Create => handler.file_added(cell_path),
-                            WatchmanEventType::Delete => handler.file_removed(cell_path),
+                    (WatchmanKind::Symlink, typ) => match typ {
+                        WatchmanEventType::Modify => handler.file_changed(cell_path),
+                        WatchmanEventType::Create => {
+                            warn!(
+                                "New symlink detected (source symlinks are not supported): {}",
+                                cell_path
+                            );
+                            handler.file_added(cell_path)
                         }
-                    }
+                        WatchmanEventType::Delete => handler.file_removed(cell_path),
+                    },
                 }
             }
         }

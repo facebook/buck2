@@ -34,7 +34,7 @@ use crate::file_ops::DefaultFileOpsDelegate;
 use crate::file_ops::FileIgnoreResult;
 use crate::file_ops::FileIgnores;
 use crate::file_ops::FileOps;
-use crate::file_ops::PathMetadataOrRedirection;
+use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
 use crate::io::IoProvider;
@@ -212,7 +212,8 @@ impl FileChangeTracker {
     }
 
     fn file_contents_modify(&mut self, path: CellPath) {
-        self.files_to_dirty.insert(ReadFileKey(path.clone()));
+        self.files_to_dirty
+            .insert(ReadFileKey(Arc::new(path.clone())));
         self.paths_to_dirty.insert(PathMetadataKey(path));
     }
 
@@ -257,15 +258,15 @@ impl FileChangeHandler for FileChangeTracker {
     }
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
 #[display(fmt = "ReadFile({})", _0)]
-struct ReadFileKey(CellPath);
+struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
 impl Key for ReadFileKey {
     type Value = FileToken;
     async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
-        FileToken(Arc::new(self.0.clone()))
+        FileToken(self.0.dupe())
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -305,12 +306,24 @@ struct PathMetadataKey(CellPath);
 
 #[async_trait]
 impl Key for PathMetadataKey {
-    type Value = SharedResult<Option<PathMetadataOrRedirection>>;
+    type Value = SharedResult<Option<RawPathMetadata>>;
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        get_default_file_ops(ctx)
+        let res = get_default_file_ops(ctx)
             .await?
             .read_path_metadata_if_exists(&self.0)
-            .await
+            .await?;
+
+        match res {
+            Some(RawPathMetadata::Symlink {
+                at: ref path,
+                to: _,
+            }) => {
+                ctx.compute(&ReadFileKey(path.dupe())).await?;
+            }
+            _ => (),
+        };
+
+        Ok(res)
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -331,7 +344,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
         let file_ops = get_default_file_ops(self.0).await?;
 
         self.0
-            .compute(&ReadFileKey(path.to_owned()))
+            .compute(&ReadFileKey(Arc::new(path.to_owned())))
             .await?
             .read(&*file_ops)
             .await
@@ -348,7 +361,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
-    ) -> SharedResult<Option<PathMetadataOrRedirection>> {
+    ) -> SharedResult<Option<RawPathMetadata>> {
         self.0.compute(&PathMetadataKey(path.clone())).await?
     }
 

@@ -123,7 +123,7 @@ impl FileHasher for PathsAndContentsHasher {
         ) -> anyhow::Result<()> {
             let info = file_ops.read_path_metadata(cell_path).await?;
             // Important that the different branches can never clash, so add a prefix byte to them
-            match info {
+            match PathMetadataOrRedirection::from(info) {
                 PathMetadataOrRedirection::PathMetadata(meta) => match meta {
                     PathMetadata::File(m) => {
                         res.reserve(1 + m.digest.sha1().len());
@@ -153,9 +153,9 @@ impl FileHasher for PathsAndContentsHasher {
                         }
                     }
                 },
-                PathMetadataOrRedirection::Redirection(redirection) => {
+                PathMetadataOrRedirection::Redirection(r) => {
                     // TODO (T126181780): This should have a limit on recursion.
-                    hash_item(file_ops, redirection.as_ref(), res).await?;
+                    hash_item(file_ops, r.as_ref(), res).await?;
                 }
             }
             Ok(())

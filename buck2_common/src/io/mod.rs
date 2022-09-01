@@ -13,7 +13,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use gazebo::cmp::PartialEqAny;
 
-use crate::file_ops::PathMetadataOrRedirection;
+use crate::file_ops::RawPathMetadata;
 use crate::file_ops::SimpleDirEntry;
 use crate::legacy_configs::LegacyBuckConfig;
 
@@ -26,7 +26,7 @@ pub trait IoProvider: Send + Sync {
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>>;
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>>;
 
     /// Request that this I/O provider be up to date with whatever I/O operations the user might
     /// have done until this point.

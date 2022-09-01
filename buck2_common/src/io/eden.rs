@@ -34,8 +34,7 @@ use crate::eden::EdenError;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
 use crate::file_ops::FileType;
-use crate::file_ops::PathMetadata;
-use crate::file_ops::PathMetadataOrRedirection;
+use crate::file_ops::RawPathMetadata;
 use crate::file_ops::SimpleDirEntry;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::fs::FsIoProvider;
@@ -164,7 +163,7 @@ impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>> {
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         let requested_attributes = i64::from(
             i32::from(FileAttributes::SHA1_HASH)
                 | i32::from(FileAttributes::FILE_SIZE)
@@ -220,11 +219,11 @@ impl IoProvider for EdenIoProvider {
                     is_executable,
                 };
 
-                Ok(Some(PathMetadata::File(meta).into()))
+                Ok(Some(RawPathMetadata::File(meta)))
             }
             Err(EdenError::PosixError { code, .. }) if code == nix::errno::Errno::EISDIR => {
                 tracing::debug!("getAttributesFromFiles({}): EISDIR", path);
-                Ok(Some(PathMetadata::Directory.into()))
+                Ok(Some(RawPathMetadata::Directory))
             }
             Err(EdenError::PosixError { code, .. }) if code == nix::errno::Errno::ENOENT => {
                 tracing::debug!("getAttributesFromFiles({}): ENOENT", path);

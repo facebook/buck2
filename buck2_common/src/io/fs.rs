@@ -32,8 +32,8 @@ use tokio::sync::Semaphore;
 use crate::external_symlink::ExternalSymlink;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
-use crate::file_ops::PathMetadata;
-use crate::file_ops::PathMetadataOrRedirection;
+use crate::file_ops::RawPathMetadata;
+use crate::file_ops::RawSymlink;
 use crate::file_ops::SimpleDirEntry;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::IoProvider;
@@ -108,13 +108,14 @@ impl IoProvider for FsIoProvider {
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>> {
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            let meta = read_path_metadata(fs.root(), &path)?
-                .map(|meta_or_redirection| meta_or_redirection.map(ProjectRelativePathBuf::from));
+            let meta = read_path_metadata(fs.root(), &path)?.map(|raw_meta_or_redirection| {
+                raw_meta_or_redirection.map(ProjectRelativePathBuf::from)
+            });
 
             Ok(meta)
         })
@@ -141,7 +142,7 @@ impl IoProvider for FsIoProvider {
 fn read_path_metadata<P: AsRef<AbsPath>>(
     root: P,
     relpath: &ForwardRelativePath,
-) -> anyhow::Result<Option<PathMetadataOrRedirection<ForwardRelativePathBuf>>> {
+) -> anyhow::Result<Option<RawPathMetadata<ForwardRelativePathBuf>>> {
     let root = root.as_ref().as_path();
 
     let mut relpath_components = relpath.iter();
@@ -169,8 +170,10 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
                     let rest = relpath_components.collect();
 
                     let out = if dest.is_absolute() {
-                        PathMetadata::ExternalSymlink(Arc::new(ExternalSymlink::new(dest, rest)))
-                            .into()
+                        RawPathMetadata::Symlink {
+                            at: curr_path,
+                            to: RawSymlink::External(Arc::new(ExternalSymlink::new(dest, rest))),
+                        }
                     } else {
                         // Remove the symlink name.
                         let mut link_path = curr_path
@@ -184,8 +187,10 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
                         if let Some(rest) = rest {
                             link_path.push(&rest);
                         }
-
-                        PathMetadataOrRedirection::Redirection(link_path)
+                        RawPathMetadata::Symlink {
+                            at: curr_path,
+                            to: RawSymlink::Relative(link_path),
+                        }
                     };
 
                     return Ok(Some(out));
@@ -207,12 +212,12 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
     let meta = meta.context("Attempted to access empty path")?;
 
     let meta = if meta.is_dir() {
-        PathMetadata::Directory
+        RawPathMetadata::Directory
     } else {
         let digest = FileDigest::from_file(&curr_abspath)
             .with_context(|| format!("Error collecting file digest for `{}`", curr_path))?;
         let digest = TrackedFileDigest::new(digest);
-        PathMetadata::File(FileMetadata {
+        RawPathMetadata::File(FileMetadata {
             digest,
             is_executable: is_executable(&meta),
         })
@@ -224,7 +229,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
         assert!(curr_path.as_str().len() <= curr_path_capacity);
     }
 
-    Ok(Some(meta.into()))
+    Ok(Some(meta))
 }
 
 #[cfg(unix)]
@@ -257,9 +262,7 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?),
-            Ok(Some(PathMetadataOrRedirection::PathMetadata(
-                PathMetadata::File(..)
-            )))
+            Ok(Some(RawPathMetadata::File(..)))
         );
 
         Ok(())
@@ -273,7 +276,7 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?),
-            Ok(Some(PathMetadataOrRedirection::Redirection(r))) => {
+            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "y/z");
             }
         );
@@ -290,7 +293,7 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?),
-            Ok(Some(PathMetadataOrRedirection::Redirection(r))) => {
+            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "x/y");
             }
         );
@@ -306,7 +309,7 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?),
-            Ok(Some(PathMetadataOrRedirection::Redirection(r))) => {
+            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "y/z/zz");
             }
         );

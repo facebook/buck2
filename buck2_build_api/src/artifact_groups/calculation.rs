@@ -85,7 +85,8 @@ async fn path_artifact_value(
     file_ops: &dyn FileOps,
     cell_path: &CellPath,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    match file_ops.read_path_metadata(cell_path).await? {
+    let raw = file_ops.read_path_metadata(cell_path).await?;
+    match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
                 ActionDirectoryMember::ExternalSymlink(symlink),
@@ -105,9 +106,9 @@ async fn path_artifact_value(
                 Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
             }
         },
-        PathMetadataOrRedirection::Redirection(redirection) => {
+        PathMetadataOrRedirection::Redirection(r) => {
             // TODO (T126181780): This should have a limit on recursion.
-            path_artifact_value(file_ops, redirection.as_ref()).await
+            path_artifact_value(file_ops, r.as_ref()).await
         }
     }
 }
