@@ -25,7 +25,7 @@ use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::package::Package;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
+use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;

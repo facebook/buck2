@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:static_assertions",
+        "fbsource//third-party/rust:strsim",
         "fbsource//third-party/rust:thiserror",
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_query:buck2_query",

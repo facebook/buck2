@@ -827,7 +827,6 @@ mod tests {
     use buck2_interpreter_for_build::attrs::coerce::testing::CoercedAttrExt;
     use buck2_interpreter_for_build::attrs::coerce::testing::ConfiguredAttrExt;
     use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
-    use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
     use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
@@ -840,6 +839,7 @@ mod tests {
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::execute::config::CommandExecutorConfig;
+    use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
     use buck2_node::nodes::unconfigured::TargetNode;
     use buck2_node::rule_type::RuleType;

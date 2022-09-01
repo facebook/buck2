@@ -16,7 +16,6 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
 once_cell = { workspace = true }
-strsim = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 twox-hash = { workspace = true }

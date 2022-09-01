@@ -16,6 +16,7 @@ once_cell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 static_assertions = { workspace = true }
+strsim = { workspace = true }
 thiserror = { workspace = true }
 
 gazebo.version = "0.8.0"

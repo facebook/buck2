@@ -43,8 +43,8 @@ pub mod testing {
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
     use buck2_interpreter_for_build::interpreter::configuror::AdditionalGlobalsFn;
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
-    use buck2_interpreter_for_build::interpreter::module_internals::EvaluationResult;
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
+    use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::TargetsMap;
     use gazebo::prelude::*;
     use indoc::indoc;
