@@ -369,12 +369,13 @@ fn copy_file<'v>(
         .as_artifact()
         .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("src".to_owned()))?;
 
+    let (artifact, associated_artifacts) = src.get_bound_artifact_and_associated_artifacts()?;
     let mut this = this.state();
     let (output_value, output_artifact) =
-        this.get_or_declare_output(eval, dest, "dest", Default::default())?;
+        this.get_or_declare_output(eval, dest, "dest", associated_artifacts.dupe())?;
 
     this.register_action(
-        indexset![ArtifactGroup::Artifact(src.get_bound_deprecated()?)],
+        indexset![ArtifactGroup::Artifact(artifact)],
         indexset![output_artifact],
         UnregisteredCopyAction::new(copy),
         None,
