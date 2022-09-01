@@ -1,5 +1,7 @@
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaClasspathEntry",
+    "JavaCompilingDepsTSet",
     "JavaLibraryInfo",
     "create_abi",
     "derive_compiling_deps",
@@ -196,8 +198,18 @@ def create_jar_artifact_javacd(
 
         qualified_name = get_qualified_name(target_type)
 
-        compiling_classpath = [] + additional_classpath_entries
         compiling_deps_tset = derive_compiling_deps(actions, None, deps)
+        if additional_classpath_entries:
+            children = [compiling_deps_tset] if compiling_deps_tset else []
+            for entry in additional_classpath_entries:
+                children.append(actions.tset(JavaCompilingDepsTSet, value = JavaClasspathEntry(
+                    full_library = entry,
+                    abi = entry,
+                    required_for_source_only_abi = True,
+                )))
+            compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = children)
+
+        compiling_classpath = []
         if compiling_deps_tset:
             if target_type == TargetType("source_only_abi"):
                 source_only_abi_deps_filter = {}
@@ -211,13 +223,9 @@ def create_jar_artifact_javacd(
                 def filter_compiling_deps(dep):
                     return dep in source_only_abi_deps_filter or dep.required_for_source_only_abi
 
-                compiling_classpath.extend(
-                    [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)],
-                )
+                compiling_classpath = [encode_path(compiling_dep.abi) for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
             else:
-                compiling_classpath.extend(
-                    [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse())],
-                )
+                compiling_classpath = compiling_deps_tset.project_as_json("javacd_json")
 
         # buck1 oddly only inspects annotation processors, not plugins for
         # abi/source-only abi related things, even though the plugin rules
@@ -263,7 +271,7 @@ def create_jar_artifact_javacd(
 
         return struct(
             outputPathsValue = encode_output_paths(output_paths, target_type),
-            compileTimeClasspathPaths = [encode_path(p) for p in compiling_classpath],
+            compileTimeClasspathPaths = compiling_classpath,
             javaSrcs = [encode_path(s) for s in srcs],
             # TODO(cjhopman): populate jar infos. I think these are only used for unused dependencies (and appear to be broken in buck1 w/javacd anyway).
             fullJarInfos = [],

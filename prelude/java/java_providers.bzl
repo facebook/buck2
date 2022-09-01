@@ -92,10 +92,16 @@ def _args_for_ast_dumper(entry: JavaClasspathEntry.type):
 def _args_for_compiling(entry: JavaClasspathEntry.type):
     return entry.abi
 
+def _javacd_json(v):
+    return struct(path = v.abi)
+
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
         "args_for_ast_dumper": _args_for_ast_dumper,
         "args_for_compiling": _args_for_compiling,
+    },
+    json_projections = {
+        "javacd_json": _javacd_json,
     },
 )
 
