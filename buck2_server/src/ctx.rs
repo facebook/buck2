@@ -60,6 +60,7 @@ use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
+use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::raw_output::RawOuputGuard;
@@ -439,7 +440,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
+    async fn dice_ctx(&self, _private: PrivateStruct) -> SharedResult<DiceTransaction> {
         self.dice
             .get_or_init(self.construct_dice_ctx())
             .await

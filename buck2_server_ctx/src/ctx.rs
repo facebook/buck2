@@ -25,7 +25,8 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
 
     fn project_root(&self) -> &ProjectRoot;
 
-    async fn dice_ctx(&self) -> SharedResult<DiceTransaction>;
+    /// exposes the dice for scoped access, but isn't intended to be callable by anyone
+    async fn dice_ctx(&self, private: PrivateStruct) -> SharedResult<DiceTransaction>;
 
     fn events(&self) -> &EventDispatcher;
 
@@ -38,6 +39,8 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
         patterns: &[buck2_data::TargetPattern],
     ) -> anyhow::Result<Vec<buck2_data::TargetPattern>>;
 }
+
+pub struct PrivateStruct(());
 
 #[async_trait]
 pub trait ServerCommandDiceContext {
@@ -55,7 +58,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
         F: FnOnce(Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = R> + Send,
     {
-        let dice = self.dice_ctx().await?;
+        let dice = self.dice_ctx(PrivateStruct(())).await?;
         Ok(exec(self, dice).await)
     }
 }
