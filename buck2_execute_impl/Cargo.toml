@@ -19,7 +19,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 zstd = { workspace = true }
 
-gazebo = { path = "../gazebo/gazebo" }
+gazebo = { workspace = true }
 host_sharing = { path = "../host_sharing" }
 # @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
 more_futures = { path = "../shed/more_futures" }
