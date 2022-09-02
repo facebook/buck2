@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::future::Future;
 
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::EventDispatcher;
@@ -26,7 +25,7 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
     fn project_root(&self) -> &ProjectRoot;
 
     /// exposes the dice for scoped access, but isn't intended to be callable by anyone
-    async fn dice_ctx(&self, private: PrivateStruct) -> SharedResult<DiceTransaction>;
+    async fn dice_ctx(&self, private: PrivateStruct) -> anyhow::Result<DiceTransaction>;
 
     fn events(&self) -> &EventDispatcher;
 
@@ -44,7 +43,7 @@ pub struct PrivateStruct(());
 
 #[async_trait]
 pub trait ServerCommandDiceContext {
-    async fn with_dice_ctx<F, Fut, R>(self, exec: F) -> SharedResult<R>
+    async fn with_dice_ctx<F, Fut, R>(self, exec: F) -> anyhow::Result<R>
     where
         F: FnOnce(Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = R> + Send;
@@ -53,7 +52,7 @@ pub trait ServerCommandDiceContext {
 #[async_trait]
 impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
     /// Allows running a section of code that uses the shared DiceTransaction
-    async fn with_dice_ctx<F, Fut, R>(self, exec: F) -> SharedResult<R>
+    async fn with_dice_ctx<F, Fut, R>(self, exec: F) -> anyhow::Result<R>
     where
         F: FnOnce(Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = R> + Send,

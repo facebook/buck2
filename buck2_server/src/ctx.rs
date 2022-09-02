@@ -440,11 +440,12 @@ impl ServerCommandContextTrait for ServerCommandContext {
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    async fn dice_ctx(&self, _private: PrivateStruct) -> SharedResult<DiceTransaction> {
-        self.dice
+    async fn dice_ctx(&self, _private: PrivateStruct) -> anyhow::Result<DiceTransaction> {
+        Ok(self
+            .dice
             .get_or_init(self.construct_dice_ctx())
             .await
-            .dupe()
+            .dupe()?)
     }
 
     fn events(&self) -> &EventDispatcher {
