@@ -46,7 +46,7 @@ pub trait ServerCommandDiceContext {
     async fn with_dice_ctx<F, Fut, R>(self, exec: F) -> anyhow::Result<R>
     where
         F: FnOnce(Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = R> + Send;
+        Fut: Future<Output = anyhow::Result<R>> + Send;
 }
 
 #[async_trait]
@@ -55,9 +55,9 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
     async fn with_dice_ctx<F, Fut, R>(self, exec: F) -> anyhow::Result<R>
     where
         F: FnOnce(Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = R> + Send,
+        Fut: Future<Output = anyhow::Result<R>> + Send,
     {
         let dice = self.dice_ctx(PrivateStruct(())).await?;
-        Ok(exec(self, dice).await)
+        exec(self, dice).await
     }
 }

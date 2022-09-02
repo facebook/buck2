@@ -124,6 +124,6 @@ impl StarlarkPackageDepsCommand {
 
                 Ok(())
             })
-            .await?
+            .await
     }
 }

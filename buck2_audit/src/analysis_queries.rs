@@ -125,7 +125,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
 
                 Ok(())
             })
-            .await?
+            .await
     }
 
     fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {

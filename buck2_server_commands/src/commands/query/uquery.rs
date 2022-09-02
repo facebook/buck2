@@ -109,5 +109,5 @@ async fn uquery(
 
             Ok(UqueryResponse { error_messages })
         })
-        .await?
+        .await
 }

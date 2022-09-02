@@ -648,7 +648,7 @@ async fn run_lsp_server(
         let _ignored = server_thread.join();
         res
     })
-    .await?
+    .await
 }
 
 /// Receive messages from the LSP's channel, and pass them to the client after encapsulating them.

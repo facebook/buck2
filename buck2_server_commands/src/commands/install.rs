@@ -260,7 +260,7 @@ async fn install(
 
             Ok(InstallResponse {})
         })
-        .await?
+        .await
 }
 
 fn get_random_tcp_port() -> anyhow::Result<u16> {

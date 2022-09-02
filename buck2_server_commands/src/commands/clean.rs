@@ -79,7 +79,7 @@ async fn clean(
             .await
             .context("Failed to spawn clean")?
         })
-        .await?
+        .await
 }
 
 fn collect_clean_paths(buck_out_path: &AbsPathBuf) -> anyhow::Result<Vec<AbsPathBuf>> {

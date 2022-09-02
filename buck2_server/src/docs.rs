@@ -362,5 +362,5 @@ async fn docs(
 
             Ok(UnstableDocsResponse { docs })
         })
-        .await?
+        .await
 }

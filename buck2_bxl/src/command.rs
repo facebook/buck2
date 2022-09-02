@@ -156,7 +156,7 @@ async fn bxl(
                 }
             }
         })
-        .await?
+        .await
 }
 
 async fn copy_output<W: Write>(

@@ -274,7 +274,7 @@ async fn test(
             )
             .await
         })
-        .await??;
+        .await?;
 
     // TODO(bobyf) remap exit code for buck reserved exit code
     let exit_code = test_outcome.exit_code().context("No exit code available")?;

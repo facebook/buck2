@@ -137,7 +137,7 @@ impl AuditSubcommand for AuditCellCommand {
 
                 Ok(())
             })
-            .await?
+            .await
     }
 
     fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {

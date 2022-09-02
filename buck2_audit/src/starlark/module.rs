@@ -74,6 +74,6 @@ impl StarlarkModuleCommand {
                 write!(stdout, "{}", loaded_module.env().dump_debug())?;
                 Ok(())
             })
-            .await?
+            .await
     }
 }

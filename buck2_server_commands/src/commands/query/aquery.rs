@@ -96,5 +96,5 @@ async fn aquery(
             };
             Ok(AqueryResponse { error_messages })
         })
-        .await?
+        .await
 }

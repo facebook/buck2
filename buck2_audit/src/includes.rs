@@ -320,7 +320,7 @@ impl AuditSubcommand for AuditIncludesCommand {
 
                 Ok(())
             })
-            .await?
+            .await
     }
 
     fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {

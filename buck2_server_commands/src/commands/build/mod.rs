@@ -273,7 +273,7 @@ async fn build(
                 error_messages,
             })
         })
-        .await?
+        .await
 }
 
 fn create_unhashed_outputs(

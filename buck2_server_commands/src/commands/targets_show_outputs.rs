@@ -112,7 +112,7 @@ async fn targets_show_outputs(
 
             Ok(TargetsShowOutputsResponse { targets_paths })
         })
-        .await?
+        .await
 }
 
 async fn retrieve_targets_artifacts_from_patterns(

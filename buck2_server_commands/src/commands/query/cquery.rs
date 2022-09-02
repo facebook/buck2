@@ -148,7 +148,7 @@ async fn cquery(
 
             Ok(CqueryResponse { error_messages })
         })
-        .await?
+        .await
 }
 
 #[async_trait]

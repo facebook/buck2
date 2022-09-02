@@ -168,7 +168,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
                 AuditVisibilityCommand::verify_visibility(ctx, nodes).await?;
                 Ok(())
             })
-            .await?
+            .await
     }
 
     fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {

@@ -288,7 +288,7 @@ impl AuditSubcommand for AuditConfigCommand {
 
                 Ok(())
             })
-            .await?
+            .await
     }
 
     fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {

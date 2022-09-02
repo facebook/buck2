@@ -366,7 +366,7 @@ async fn targets(
                 serialized_targets_output: results_to_print,
             })
         })
-        .await?
+        .await
 }
 
 async fn parse_and_get_results(

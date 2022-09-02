@@ -195,7 +195,7 @@ async fn generate_profile(
                 Action::Loading => generate_profile_loading(ctx, package, spec, profile_mode).await,
             }
         })
-        .await?
+        .await
 }
 
 fn one<T>(it: impl IntoIterator<Item = T>) -> anyhow::Result<T> {
