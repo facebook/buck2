@@ -17,13 +17,11 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
-use buck2_core::pattern::PackageSpec;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
-use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
@@ -35,6 +33,7 @@ use gazebo::prelude::*;
 
 use crate::query::analysis::evaluator::eval_query;
 use crate::query::cquery::environment::CqueryEnvironment;
+use crate::query::cquery::universe::CqueryUniverse;
 use crate::query::dice::get_dice_query_delegate;
 use crate::query::dice::DiceQueryDelegate;
 use crate::query::uquery::environment::PreresolvedQueryLiterals;
@@ -153,7 +152,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
         targets: BTreeMap::new(),
     };
     env.dfs_postorder(&universe_resolved, &mut delegate).await?;
-    let universe = delegate.targets;
+    let universe = CqueryUniverse::new(delegate.targets);
     // capture a reference so the ref can be moved into the future below.
     let universe = &universe;
 
@@ -166,30 +165,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
             let lit = lit.as_ref();
             let result: anyhow::Result<_> = try {
                 let resolved_pattern = dice_query_delegate.resolve_target_patterns(&[lit]).await?;
-                let mut targets = TargetSet::new();
-                for (package, spec) in resolved_pattern.specs {
-                    if let Some(package_universe) = universe.get(&package) {
-                        match spec {
-                            PackageSpec::Targets(names) => {
-                                for name in names {
-                                    if let Some(nodelist) = package_universe.get(&name) {
-                                        for node in nodelist {
-                                            targets.insert(node.0.dupe());
-                                        }
-                                    }
-                                }
-                            }
-                            PackageSpec::All => {
-                                for nodelist in package_universe.values() {
-                                    for node in nodelist {
-                                        targets.insert(node.0.dupe());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                targets
+                universe.get(&resolved_pattern)
             };
 
             (lit.to_owned(), result.shared_error())

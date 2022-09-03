@@ -9,3 +9,4 @@
 
 pub mod environment;
 pub mod evaluator;
+pub(crate) mod universe;
