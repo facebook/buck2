@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::fmt::Write;
 use std::path::Path;
 
+use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
@@ -22,15 +23,14 @@ use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
-use buck2_events::dispatch::span_async;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::targets_request::TargetHashFileMode;
 use cli_proto::targets_request::TargetHashGraphType;
 use cli_proto::TargetsRequest;
@@ -247,25 +247,32 @@ pub async fn targets_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::TargetsCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| targets(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
-        (result, end_event)
-    })
-    .await
+    run_server_command(TargetsServerCommand { req }, ctx).await
+}
+
+struct TargetsServerCommand {
+    req: TargetsRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for TargetsServerCommand {
+    type StartEvent = buck2_data::TargetsCommandStart;
+    type EndEvent = buck2_data::TargetsCommandEnd;
+    type Response = TargetsResponse;
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        targets(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn targets(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: TargetsRequest,
+    request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
     //            instead return structured data, and return *that* to the CLI. The CLI should

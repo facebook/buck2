@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
+use async_trait::async_trait;
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_events::dispatch::span_async;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::AqueryRequest;
 use cli_proto::AqueryResponse;
 use dice::DiceTransaction;
@@ -26,25 +26,32 @@ pub async fn aquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::AqueryRequest,
 ) -> anyhow::Result<cli_proto::AqueryResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::AqueryCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| aquery(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(metadata, &result, buck2_data::AqueryCommandEnd {});
-        (result, end_event)
-    })
-    .await
+    run_server_command(AqueryServerCommand { req }, ctx).await
+}
+
+struct AqueryServerCommand {
+    req: cli_proto::AqueryRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for AqueryServerCommand {
+    type StartEvent = buck2_data::AqueryCommandStart;
+    type EndEvent = buck2_data::AqueryCommandEnd;
+    type Response = cli_proto::AqueryResponse;
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        aquery(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn aquery(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: AqueryRequest,
+    request: &AqueryRequest,
 ) -> anyhow::Result<AqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
 
@@ -76,7 +83,7 @@ async fn aquery(
     )
     .await?;
 
-    let query_result = evaluator.eval_query(&query, &query_args).await?;
+    let query_result = evaluator.eval_query(query, query_args).await?;
 
     let mut stdout = server_ctx.stdout()?;
 

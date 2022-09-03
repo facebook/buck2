@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -26,7 +27,6 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::Package;
-use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
@@ -36,9 +36,9 @@ use buck2_interpreter::interpreter::GlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::unstable_docs_response;
 use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
@@ -289,25 +289,32 @@ pub async fn docs_command(
     context: Box<dyn ServerCommandContextTrait>,
     req: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
-    let metadata = context.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::DocsCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result = context
-            .with_dice_ctx(|server_ctx, ctx| docs(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(metadata, &result, buck2_data::DocsCommandEnd {});
-        (result, end_event)
-    })
-    .await
+    run_server_command(DocsServerCommand { req }, context).await
+}
+
+struct DocsServerCommand {
+    req: UnstableDocsRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for DocsServerCommand {
+    type StartEvent = buck2_data::DocsCommandStart;
+    type EndEvent = buck2_data::DocsCommandEnd;
+    type Response = UnstableDocsResponse;
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        docs(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn docs(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     dice_ctx: DiceTransaction,
-    request: UnstableDocsRequest,
+    request: &UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;

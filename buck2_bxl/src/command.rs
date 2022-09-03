@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::ConvertMaterializationContext;
@@ -19,7 +19,6 @@ use buck2_common::result::SharedError;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::Package;
-use buck2_events::dispatch::span_async;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::common::BxlFilePath;
@@ -27,9 +26,9 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
 use cli_proto::BxlResponse;
@@ -52,43 +51,49 @@ pub async fn bxl_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: BxlRequest,
 ) -> anyhow::Result<BxlResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(
-            buck2_data::BxlCommandStart {
-                bxl_label: req.bxl_label.clone(),
-            }
-            .into(),
-        ),
-    };
-    span_async(start_event, bxl_command_inner(metadata, ctx, req)).await
-}
+    let project_root = ctx.project_root().to_string();
 
-async fn bxl_command_inner(
-    metadata: HashMap<String, String>,
-    server_ctx: Box<dyn ServerCommandContextTrait>,
-    req: BxlRequest,
-) -> (anyhow::Result<BxlResponse>, buck2_data::CommandEnd) {
-    let project_root = server_ctx.project_root().to_string();
-    let bxl_label = req.bxl_label.clone();
-    let result = server_ctx
-        .with_dice_ctx(|server_ctx, ctx| bxl(server_ctx, ctx, req))
-        .await;
-    let end_event = command_end(metadata, &result, buck2_data::BxlCommandEnd { bxl_label });
+    let result = run_server_command(BxlServerCommand { req }, ctx).await;
 
-    let resp = result.map(|result| BxlResponse {
+    result.map(|result| BxlResponse {
         project_root,
         error_messages: result.error_messages,
-    });
+    })
+}
 
-    (resp, end_event)
+struct BxlServerCommand {
+    req: BxlRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for BxlServerCommand {
+    type StartEvent = buck2_data::BxlCommandStart;
+    type EndEvent = buck2_data::BxlCommandEnd;
+    type Response = BxlResult;
+
+    fn start_event(&self) -> Self::StartEvent {
+        let bxl_label = self.req.bxl_label.clone();
+        buck2_data::BxlCommandStart { bxl_label }
+    }
+
+    fn end_event(&self) -> Self::EndEvent {
+        let bxl_label = self.req.bxl_label.clone();
+        buck2_data::BxlCommandEnd { bxl_label }
+    }
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        bxl(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn bxl(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: BxlRequest,
+    request: &BxlRequest,
 ) -> anyhow::Result<BxlResult> {
     let cwd = server_ctx.working_dir();
 
@@ -126,8 +131,15 @@ async fn bxl(
         dice: &ctx,
     };
 
-    let bxl_args =
-        Arc::new(resolve_cli_args(&bxl_label, &cli_ctx, request.bxl_args, &frozen_callable).await?);
+    let bxl_args = Arc::new(
+        resolve_cli_args(
+            &bxl_label,
+            &cli_ctx,
+            request.bxl_args.clone(),
+            &frozen_callable,
+        )
+        .await?,
+    );
 
     let result = ctx
         .eval_bxl(BxlKey::new(bxl_label.clone(), bxl_args))

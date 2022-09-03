@@ -11,13 +11,13 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context as _;
+use async_trait::async_trait;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_events::dispatch::span_async;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::CleanRequest;
 use cli_proto::CleanResponse;
 use dice::DiceTransaction;
@@ -29,25 +29,32 @@ pub async fn clean_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::CleanRequest,
 ) -> anyhow::Result<cli_proto::CleanResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::CleanCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| clean(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(metadata, &result, buck2_data::CleanCommandEnd {});
-        (result, end_event)
-    })
-    .await
+    run_server_command(CleanServerCommand { req }, ctx).await
+}
+
+struct CleanServerCommand {
+    req: cli_proto::CleanRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for CleanServerCommand {
+    type StartEvent = buck2_data::CleanCommandStart;
+    type EndEvent = buck2_data::CleanCommandEnd;
+    type Response = cli_proto::CleanResponse;
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        clean(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn clean(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     dice_ctx: DiceTransaction,
-    request: CleanRequest,
+    request: &CleanRequest,
 ) -> anyhow::Result<CleanResponse> {
     let out_path = dice_ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.project_root();
@@ -62,6 +69,7 @@ async fn clean(
         return Ok(CleanResponse { clean_paths });
     }
 
+    let dry_run = request.dry_run;
     tokio::task::spawn_blocking(move || {
         if !buck_out_path.exists() {
             return Ok(CleanResponse {
@@ -71,7 +79,7 @@ async fn clean(
 
         let clean_paths =
             collect_clean_paths(&buck_out_path)?.map(|path| path.display().to_string());
-        if !request.dry_run {
+        if !dry_run {
             clean_buck_out(&buck_out_path)?;
         }
         Ok(CleanResponse { clean_paths })

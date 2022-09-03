@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
@@ -25,15 +26,14 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_events::dispatch::span_async;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::targets_show_outputs_response::TargetPaths;
 use cli_proto::TargetsRequest;
 use cli_proto::TargetsShowOutputsResponse;
@@ -54,25 +54,32 @@ pub async fn targets_show_outputs_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::TargetsCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| targets_show_outputs(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
-        (result, end_event)
-    })
-    .await
+    run_server_command(TargetsShowOutputsServerCommand { req }, ctx).await
+}
+
+struct TargetsShowOutputsServerCommand {
+    req: TargetsRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
+    type StartEvent = buck2_data::TargetsCommandStart;
+    type EndEvent = buck2_data::TargetsCommandEnd;
+    type Response = cli_proto::TargetsShowOutputsResponse;
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        targets_show_outputs(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn targets_show_outputs(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: TargetsRequest,
+    request: &TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
     let cwd = server_ctx.working_dir();
 

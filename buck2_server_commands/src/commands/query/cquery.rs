@@ -16,14 +16,13 @@ use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::truncate::truncate;
-use buck2_events::dispatch::span_async;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::CqueryRequest;
 use cli_proto::CqueryResponse;
 use dice::DiceComputations;
@@ -38,32 +37,40 @@ pub async fn cquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(
-            buck2_data::CQueryCommandStart {
-                query: truncate(&req.query, 50000),
-                query_args: truncate(&req.query_args.join(","), 1000),
-                target_universe: truncate(&req.target_universe.join(","), 1000),
-            }
-            .into(),
-        ),
-    };
-    span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| cquery(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(metadata, &result, buck2_data::CQueryCommandEnd {});
-        (result, end_event)
-    })
-    .await
+    run_server_command(CqueryServerCommand { req }, ctx).await
+}
+
+struct CqueryServerCommand {
+    req: CqueryRequest,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for CqueryServerCommand {
+    type StartEvent = buck2_data::CQueryCommandStart;
+    type EndEvent = buck2_data::CQueryCommandEnd;
+    type Response = CqueryResponse;
+
+    fn start_event(&self) -> buck2_data::CQueryCommandStart {
+        buck2_data::CQueryCommandStart {
+            query: truncate(&self.req.query, 50000),
+            query_args: truncate(&self.req.query_args.join(","), 1000),
+            target_universe: truncate(&self.req.target_universe.join(","), 1000),
+        }
+    }
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        cquery(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn cquery(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: CqueryRequest,
+    request: &CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
@@ -105,16 +112,12 @@ async fn cquery(
     let evaluator = &evaluator;
 
     let query_result = evaluator
-        .eval_query(
-            &query,
-            &query_args,
-            target_universe.as_ref().map(|v| &v[..]),
-        )
+        .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
         .await?;
 
     let mut stdout = server_ctx.stdout()?;
 
-    let should_print_providers = if show_providers {
+    let should_print_providers = if *show_providers {
         ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
     } else {
         ShouldPrintProviders::No
@@ -126,7 +129,7 @@ async fn cquery(
                 .print_single_output(
                     &mut stdout,
                     targets,
-                    target_call_stacks,
+                    *target_call_stacks,
                     should_print_providers,
                 )
                 .await
@@ -136,7 +139,7 @@ async fn cquery(
                 .print_multi_output(
                     &mut stdout,
                     results,
-                    target_call_stacks,
+                    *target_call_stacks,
                     should_print_providers,
                 )
                 .await

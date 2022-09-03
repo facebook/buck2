@@ -16,6 +16,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use async_trait::async_trait;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildProviderType;
@@ -40,16 +41,15 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;
@@ -86,28 +86,17 @@ pub async fn build_command(
     req: cli_proto::BuildRequest,
 ) -> anyhow::Result<cli_proto::BuildResponse> {
     let project_root = ctx.project_root().to_string();
-    let metadata = ctx.request_metadata()?;
     let patterns_for_logging = ctx
         .canonicalize_patterns_for_logging(&req.target_patterns)
         .await?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::BuildCommandStart {}.into()),
-    };
-    let result = span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| build(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(
-            metadata,
-            &result,
-            buck2_data::BuildCommandEnd {
-                target_patterns: patterns_for_logging,
-            },
-        );
 
-        (result, end_event)
-    })
+    let result = run_server_command(
+        BuildServerCommand {
+            req,
+            patterns_for_logging,
+        },
+        ctx,
+    )
     .await?;
 
     Ok(cli_proto::BuildResponse {
@@ -118,16 +107,45 @@ pub async fn build_command(
     })
 }
 
+struct BuildServerCommand {
+    req: cli_proto::BuildRequest,
+    patterns_for_logging: Vec<buck2_data::TargetPattern>,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for BuildServerCommand {
+    type StartEvent = buck2_data::BuildCommandStart;
+    type EndEvent = buck2_data::BuildCommandEnd;
+    type Response = BuildResult;
+
+    fn end_event(&self) -> Self::EndEvent {
+        buck2_data::BuildCommandEnd {
+            target_patterns: self.patterns_for_logging.clone(),
+        }
+    }
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        build(server_ctx, ctx, &self.req).await
+    }
+}
+
 async fn build(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: BuildRequest,
+    request: &BuildRequest,
 ) -> anyhow::Result<BuildResult> {
     // TODO(nmj): Move build report printing logic out of here.
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
 
-    let build_opts = request.build_opts.expect("should have build options");
+    let build_opts = request
+        .build_opts
+        .as_ref()
+        .expect("should have build options");
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
@@ -149,8 +167,8 @@ async fn build(
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
     let artifact_fs = ctx.get_artifact_fs().await?;
-    let build_providers = Arc::new(request.build_providers.unwrap());
-    let response_options = request.response_options.unwrap_or_default();
+    let build_providers = Arc::new(request.build_providers.clone().unwrap());
+    let response_options = request.response_options.clone().unwrap_or_default();
 
     let mut result_collector = ResultReporter::new(
         &artifact_fs,
@@ -239,7 +257,7 @@ async fn build(
             let file = File::create(
                 fs.resolve(cwd)
                     .as_path()
-                    .join(build_opts.unstable_build_report_filename),
+                    .join(&build_opts.unstable_build_report_filename),
             )?;
             serde_json::to_writer_pretty(&file, &report)?
         } else {

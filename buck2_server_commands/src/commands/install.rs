@@ -16,6 +16,7 @@ use std::net::TcpListener;
 use std::process::Stdio;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_build_api::actions::artifact::materializer::ArtifactMaterializer;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
@@ -44,18 +45,17 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use chrono::DateTime;
 use chrono::NaiveDateTime;
 use chrono::Utc;
@@ -130,34 +130,49 @@ pub async fn install_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
-    let metadata = ctx.request_metadata()?;
     let patterns_for_logging = ctx
         .canonicalize_patterns_for_logging(&req.target_patterns)
         .await?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::InstallCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| install(server_ctx, ctx, req))
-            .await;
-        let end_event = command_end(
-            metadata,
-            &result,
-            buck2_data::InstallCommandEnd {
-                target_patterns: patterns_for_logging,
-            },
-        );
-        (result, end_event)
-    })
+    run_server_command(
+        InstallServerCommand {
+            req,
+            patterns_for_logging,
+        },
+        ctx,
+    )
     .await
+}
+
+struct InstallServerCommand {
+    req: InstallRequest,
+    patterns_for_logging: Vec<buck2_data::TargetPattern>,
+}
+
+#[async_trait]
+impl ServerCommandTemplate for InstallServerCommand {
+    type StartEvent = buck2_data::InstallCommandStart;
+    type EndEvent = buck2_data::InstallCommandEnd;
+    type Response = InstallResponse;
+
+    fn end_event(&self) -> Self::EndEvent {
+        buck2_data::InstallCommandEnd {
+            target_patterns: self.patterns_for_logging.clone(),
+        }
+    }
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        install(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn install(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    request: InstallRequest,
+    request: &InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
     let cwd = server_ctx.working_dir();
 

@@ -11,3 +11,4 @@ pub mod command_end;
 pub mod ctx;
 pub mod pattern;
 pub mod raw_output;
+pub mod template;
