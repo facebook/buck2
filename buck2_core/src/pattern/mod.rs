@@ -712,7 +712,10 @@ where
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum PackageSpec<T> {
+    /// Given targets in a package.
     Targets(Vec<T>),
+    /// All targets in a package, without subpackages.
+    /// Syntax for this variant is `foo:`.
     All,
 }
 
