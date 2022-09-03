@@ -62,6 +62,7 @@ use chrono::Utc;
 use cli_proto::InstallRequest;
 use cli_proto::InstallResponse;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream::StreamExt;
@@ -138,7 +139,9 @@ pub async fn install_command(
         data: Some(buck2_data::InstallCommandStart {}.into()),
     };
     span_async(start_event, async {
-        let result = install(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| install(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(
             metadata,
             &result,
@@ -153,114 +156,111 @@ pub async fn install_command(
 
 async fn install(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, ctx| {
-            let cwd = server_ctx.working_dir();
+    let cwd = server_ctx.working_dir();
 
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let global_target_platform = target_platform_from_client_context(
-                request.context.as_ref(),
-                &cell_resolver,
-                server_ctx.working_dir(),
-            )
-            .await?;
+    let global_target_platform = target_platform_from_client_context(
+        request.context.as_ref(),
+        &cell_resolver,
+        server_ctx.working_dir(),
+    )
+    .await?;
 
-            // Note <TargetName> does not return the providers
-            let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
-                &request.target_patterns,
-                &cell_resolver,
-                &ctx.get_legacy_configs().await?,
-                cwd,
-            )?;
-            let resolved_pattern =
-                resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
+    // Note <TargetName> does not return the providers
+    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )?;
+    let resolved_pattern =
+        resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-            let mut installer_to_files_map = HashMap::new();
-            for (package, spec) in resolved_pattern.specs {
-                let ctx = &ctx;
-                let targets: anyhow::Result<Vec<ProvidersPattern>> = match spec {
-                    buck2_core::pattern::PackageSpec::Targets(targets) => Ok(targets),
-                    buck2_core::pattern::PackageSpec::All => {
-                        let interpreter_results = ctx.get_interpreter_results(&package).await?;
-                        let targets = interpreter_results
-                            .targets()
-                            .keys()
-                            .duped()
-                            .map(|t| (t, ProvidersName::Default))
-                            .collect();
-                        Ok(targets)
-                    }
-                };
-                let targets = targets?;
-                for (target_name, providers_name) in targets {
-                    let label = ProvidersLabel::new(
-                        TargetLabel::new(package.dupe(), target_name.dupe()),
-                        providers_name,
-                    );
-                    let providers_label = ctx
-                        .get_configured_target(&label, global_target_platform.dupe().as_ref())
-                        .await?;
-                    let frozen_providers = ctx
-                        .get_providers(&providers_label)
-                        .await?
-                        .require_compatible()?;
-                    let providers = frozen_providers.provider_collection();
-                    match providers.get_provider(InstallInfoCallable::provider_id_t()) {
-                        Some(install_info) => {
-                            let install_id = format!("{}", providers_label.target());
-                            let installer_label = install_info.get_installer()?;
-                            installer_to_files_map
-                                .entry(installer_label)
-                                .or_insert_with(Vec::new)
-                                .push((install_id, install_info));
-                        }
-                        None => {
-                            return Err(InstallError::NoInstallProvider(
-                                target_name.dupe(),
-                                package.dupe(),
-                            )
-                            .into());
-                        }
-                    };
-                }
+    let mut installer_to_files_map = HashMap::new();
+    for (package, spec) in resolved_pattern.specs {
+        let ctx = &ctx;
+        let targets: anyhow::Result<Vec<ProvidersPattern>> = match spec {
+            buck2_core::pattern::PackageSpec::Targets(targets) => Ok(targets),
+            buck2_core::pattern::PackageSpec::All => {
+                let interpreter_results = ctx.get_interpreter_results(&package).await?;
+                let targets = interpreter_results
+                    .targets()
+                    .keys()
+                    .duped()
+                    .map(|t| (t, ProvidersName::Default))
+                    .collect();
+                Ok(targets)
             }
-
-            let install_log_dir = &get_installer_log_directory(&*server_ctx, &ctx).await?;
-
-            let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
-            for (installer_label, install_info_vector) in &installer_to_files_map {
-                let ctx = &ctx;
-                let installer_run_args = &request.installer_run_args;
-
-                let mut install_files_vector = Vec::new();
-                for (install_id, install_info) in install_info_vector {
-                    let install_files = install_info.get_files()?;
-                    install_files_vector.push((install_id, install_files));
+        };
+        let targets = targets?;
+        for (target_name, providers_name) in targets {
+            let label = ProvidersLabel::new(
+                TargetLabel::new(package.dupe(), target_name.dupe()),
+                providers_name,
+            );
+            let providers_label = ctx
+                .get_configured_target(&label, global_target_platform.dupe().as_ref())
+                .await?;
+            let frozen_providers = ctx
+                .get_providers(&providers_label)
+                .await?
+                .require_compatible()?;
+            let providers = frozen_providers.provider_collection();
+            match providers.get_provider(InstallInfoCallable::provider_id_t()) {
+                Some(install_info) => {
+                    let install_id = format!("{}", providers_label.target());
+                    let installer_label = install_info.get_installer()?;
+                    installer_to_files_map
+                        .entry(installer_label)
+                        .or_insert_with(Vec::new)
+                        .push((install_id, install_info));
                 }
-
-                let handle_install_request_future = async move {
-                    handle_install_request(
-                        ctx,
-                        install_log_dir,
-                        &install_files_vector,
-                        installer_label,
-                        installer_run_args,
+                None => {
+                    return Err(InstallError::NoInstallProvider(
+                        target_name.dupe(),
+                        package.dupe(),
                     )
-                    .await
-                };
-                install_requests.push(handle_install_request_future);
-            }
+                    .into());
+                }
+            };
+        }
+    }
 
-            try_join_all(install_requests)
-                .await
-                .context("Interaction with installer failed.")?;
+    let install_log_dir = &get_installer_log_directory(&*server_ctx, &ctx).await?;
 
-            Ok(InstallResponse {})
-        })
+    let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
+    for (installer_label, install_info_vector) in &installer_to_files_map {
+        let ctx = &ctx;
+        let installer_run_args = &request.installer_run_args;
+
+        let mut install_files_vector = Vec::new();
+        for (install_id, install_info) in install_info_vector {
+            let install_files = install_info.get_files()?;
+            install_files_vector.push((install_id, install_files));
+        }
+
+        let handle_install_request_future = async move {
+            handle_install_request(
+                ctx,
+                install_log_dir,
+                &install_files_vector,
+                installer_label,
+                installer_run_args,
+            )
+            .await
+        };
+        install_requests.push(handle_install_request_future);
+    }
+
+    try_join_all(install_requests)
         .await
+        .context("Interaction with installer failed.")?;
+
+    Ok(InstallResponse {})
 }
 
 fn get_random_tcp_port() -> anyhow::Result<u16> {

@@ -38,6 +38,7 @@ use cli_proto::targets_show_outputs_response::TargetPaths;
 use cli_proto::TargetsRequest;
 use cli_proto::TargetsShowOutputsResponse;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use futures::stream::FuturesUnordered;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::IterDuped;
@@ -59,7 +60,9 @@ pub async fn targets_show_outputs_command(
         data: Some(buck2_data::TargetsCommandStart {}.into()),
     };
     span_async(start_event, async {
-        let result = targets_show_outputs(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| targets_show_outputs(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
         (result, end_event)
     })
@@ -68,51 +71,47 @@ pub async fn targets_show_outputs_command(
 
 async fn targets_show_outputs(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, ctx| {
-            let cwd = server_ctx.working_dir();
+    let cwd = server_ctx.working_dir();
 
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let target_platform =
-                target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
-                    .await?;
+    let target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-            let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
-                &request.target_patterns,
-                &cell_resolver,
-                &ctx.get_legacy_configs().await?,
-                cwd,
-            )?;
+    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )?;
 
-            let artifact_fs = ctx.get_artifact_fs().await?;
+    let artifact_fs = ctx.get_artifact_fs().await?;
 
-            let mut targets_paths = Vec::new();
+    let mut targets_paths = Vec::new();
 
-            for targets_artifacts in retrieve_targets_artifacts_from_patterns(
-                &ctx,
-                &target_platform,
-                &parsed_patterns,
-                &cell_resolver,
-            )
-            .await?
-            {
-                let mut paths = Vec::new();
-                for artifact in targets_artifacts.artifacts {
-                    let path = artifact_fs.resolve(artifact.get_path())?;
-                    paths.push(path.to_string());
-                }
-                targets_paths.push(TargetPaths {
-                    target: targets_artifacts.providers_label.unconfigured().to_string(),
-                    paths,
-                })
-            }
-
-            Ok(TargetsShowOutputsResponse { targets_paths })
+    for targets_artifacts in retrieve_targets_artifacts_from_patterns(
+        &ctx,
+        &target_platform,
+        &parsed_patterns,
+        &cell_resolver,
+    )
+    .await?
+    {
+        let mut paths = Vec::new();
+        for artifact in targets_artifacts.artifacts {
+            let path = artifact_fs.resolve(artifact.get_path())?;
+            paths.push(path.to_string());
+        }
+        targets_paths.push(TargetPaths {
+            target: targets_artifacts.providers_label.unconfigured().to_string(),
+            paths,
         })
-        .await
+    }
+
+    Ok(TargetsShowOutputsResponse { targets_paths })
 }
 
 async fn retrieve_targets_artifacts_from_patterns(

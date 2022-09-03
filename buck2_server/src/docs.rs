@@ -295,7 +295,9 @@ pub async fn docs_command(
         data: Some(buck2_data::DocsCommandStart {}.into()),
     };
     span_async(start_event, async {
-        let result = docs(context, req).await;
+        let result = context
+            .with_dice_ctx(|server_ctx, ctx| docs(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::DocsCommandEnd {});
         (result, end_event)
     })
@@ -304,63 +306,57 @@ pub async fn docs_command(
 
 async fn docs(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    dice_ctx: DiceTransaction,
     request: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, dice_ctx| {
-            let cell_resolver = dice_ctx.get_cell_resolver().await?;
-            let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
-            let current_cell = BuildFileCell::new(current_cell_path.cell().clone());
+    let cell_resolver = dice_ctx.get_cell_resolver().await?;
+    let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
+    let current_cell = BuildFileCell::new(current_cell_path.cell().clone());
 
-            let cell_alias_resolver = cell_resolver
-                .get(current_cell_path.cell())?
-                .cell_alias_resolver();
+    let cell_alias_resolver = cell_resolver
+        .get(current_cell_path.cell())?
+        .cell_alias_resolver();
 
-            let lookups = parse_import_paths(
-                cell_alias_resolver,
-                &current_cell_path,
-                &current_cell,
-                &request.symbol_patterns,
-            )?;
+    let lookups = parse_import_paths(
+        cell_alias_resolver,
+        &current_cell_path,
+        &current_cell,
+        &request.symbol_patterns,
+    )?;
 
-            let mut docs = if request.retrieve_builtins {
-                get_builtin_docs(
-                    cell_alias_resolver.dupe(),
-                    dice_ctx.get_global_interpreter_state().await?.dupe(),
-                )?
-            } else {
-                vec![]
-            };
+    let mut docs = if request.retrieve_builtins {
+        get_builtin_docs(
+            cell_alias_resolver.dupe(),
+            dice_ctx.get_global_interpreter_state().await?.dupe(),
+        )?
+    } else {
+        vec![]
+    };
 
-            if request.retrieve_prelude {
-                let builtin_names = docs.iter().map(|d| d.id.name.as_str()).collect();
-                let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
-                docs.extend(prelude_docs);
-            }
+    if request.retrieve_prelude {
+        let builtin_names = docs.iter().map(|d| d.id.name.as_str()).collect();
+        let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
+        docs.extend(prelude_docs);
+    }
 
-            let module_calcs: Vec<_> = lookups
-                .into_iter()
-                .map(|import_path| async {
-                    let interpreter_calc = dice_ctx
-                        .get_interpreter_calculator(
-                            import_path.cell(),
-                            import_path.build_file_cell(),
-                        )
-                        .await?;
-                    get_docs_from_module(&interpreter_calc, import_path).await
-                })
-                .collect();
-
-            let modules_docs = futures::future::try_join_all(module_calcs).await?;
-            docs.extend(modules_docs.into_iter().flatten());
-
-            let docs = docs.into_try_map(|doc| {
-                anyhow::Ok(unstable_docs_response::DocItem {
-                    json: serde_json::to_string(&doc)?,
-                })
-            })?;
-
-            Ok(UnstableDocsResponse { docs })
+    let module_calcs: Vec<_> = lookups
+        .into_iter()
+        .map(|import_path| async {
+            let interpreter_calc = dice_ctx
+                .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
+                .await?;
+            get_docs_from_module(&interpreter_calc, import_path).await
         })
-        .await
+        .collect();
+
+    let modules_docs = futures::future::try_join_all(module_calcs).await?;
+    docs.extend(modules_docs.into_iter().flatten());
+
+    let docs = docs.into_try_map(|doc| {
+        anyhow::Ok(unstable_docs_response::DocItem {
+            json: serde_json::to_string(&doc)?,
+        })
+    })?;
+
+    Ok(UnstableDocsResponse { docs })
 }

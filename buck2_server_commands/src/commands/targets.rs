@@ -253,7 +253,9 @@ pub async fn targets_command(
         data: Some(buck2_data::TargetsCommandStart {}.into()),
     };
     span_async(start_event, async {
-        let result = targets(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| targets(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::TargetsCommandEnd {});
         (result, end_event)
     })
@@ -262,6 +264,7 @@ pub async fn targets_command(
 
 async fn targets(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
@@ -301,72 +304,61 @@ async fn targets(
         }
     };
 
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, ctx| {
-            let fs = server_ctx.project_root();
-            let cwd = server_ctx.working_dir();
+    let fs = server_ctx.project_root();
+    let cwd = server_ctx.working_dir();
 
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let target_platform =
-                target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
-                    .await?;
+    let target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-            let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPattern>(
-                &request.target_patterns,
-                &cell_resolver,
-                &ctx.get_legacy_configs().await?,
-                cwd,
-            )?;
+    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )?;
 
-            // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
-            // print them out. This expects the aliases to resolve to individual targets.
-            if request.unstable_resolve_aliases {
-                let mut output = String::new();
+    // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
+    // print them out. This expects the aliases to resolve to individual targets.
+    if request.unstable_resolve_aliases {
+        let mut output = String::new();
 
-                for (alias, pattern) in
-                    std::iter::zip(&request.target_patterns, parsed_target_patterns)
-                {
-                    let (package, target_name) = pattern.as_literal(&alias.value)?;
+        for (alias, pattern) in std::iter::zip(&request.target_patterns, parsed_target_patterns) {
+            let (package, target_name) = pattern.as_literal(&alias.value)?;
 
-                    writeln!(output, "{}", TargetLabel::new(package, target_name),)?;
-                }
+            writeln!(output, "{}", TargetLabel::new(package, target_name),)?;
+        }
 
-                return Ok(TargetsResponse {
-                    serialized_targets_output: output,
-                });
-            }
+        return Ok(TargetsResponse {
+            serialized_targets_output: output,
+        });
+    }
 
-            let target_hash_modified_paths = request
-                .target_hash_modified_paths
-                .iter()
-                .map(|path| {
-                    cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd)
-                })
-                .collect::<anyhow::Result<_>>()?;
+    let target_hash_modified_paths = request
+        .target_hash_modified_paths
+        .iter()
+        .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
+        .collect::<anyhow::Result<_>>()?;
 
-            let results_to_print = parse_and_get_results(
-                ctx,
-                &mut *printer,
-                parsed_target_patterns,
-                target_platform,
-                TargetsOptions {
-                    target_hash_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
-                        .expect("buck cli should send valid target hash file mode"),
-                    target_hash_modified_paths,
-                    use_fast_hash: request.target_hash_use_fast_hash,
-                    target_hash_graph_type: TargetHashGraphType::from_i32(
-                        request.target_hash_graph_type,
-                    )
-                    .expect("buck cli should send valid target hash graph type"),
-                },
-            )
-            .await?;
-            Ok(TargetsResponse {
-                serialized_targets_output: results_to_print,
-            })
-        })
-        .await
+    let results_to_print = parse_and_get_results(
+        ctx,
+        &mut *printer,
+        parsed_target_patterns,
+        target_platform,
+        TargetsOptions {
+            target_hash_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
+                .expect("buck cli should send valid target hash file mode"),
+            target_hash_modified_paths,
+            use_fast_hash: request.target_hash_use_fast_hash,
+            target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+                .expect("buck cli should send valid target hash graph type"),
+        },
+    )
+    .await?;
+    Ok(TargetsResponse {
+        serialized_targets_output: results_to_print,
+    })
 }
 
 async fn parse_and_get_results(

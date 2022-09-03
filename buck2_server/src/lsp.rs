@@ -556,7 +556,9 @@ pub(crate) async fn run_lsp_server_command(
         data: Some(buck2_data::LspCommandStart {}.into()),
     };
     span_async(start_event, async move {
-        let result = run_lsp_server(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| run_lsp_server(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
         (result, end_event)
     })
@@ -566,89 +568,87 @@ pub(crate) async fn run_lsp_server_command(
 /// Run an LSP server for a given client.
 async fn run_lsp_server(
     ctx: Box<dyn ServerCommandContextTrait>,
+    dice_ctx: DiceTransaction,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {
-    ctx.with_dice_ctx(async move |ctx, dice_ctx| {
-        let cell_resolver: CellResolver = dice_ctx.get_cell_resolver().await?;
-        let fs = ctx.project_root().clone();
+    let cell_resolver: CellResolver = dice_ctx.get_cell_resolver().await?;
+    let fs = ctx.project_root().clone();
 
-        // This gets a bit messy because the various frameworks don't quite work the same way.
-        // - tonic has async streams (which we pull from with .message().await)
-        // - The LSP server uses crossbeam channels, which are synchronous, so we need to run
-        //   recv from that channel it its own thread.
-        // - We then need an async aware channel that takes from the LSP recv thread, and sends
-        //   to the client. It needs to be async aware so that we can use select! and process
-        //   client and server communication at the same time
-        //
-        // We also start up a thread to run the actual LSP, and make sure that we close those
-        // threads down when we either fail to send/recv on the client channel or the server one.
-        //
-        // tl;dr; This creates two threads, and a few plumbing channels to get the client sending
-        //        receiving to/from the LSP server.
+    // This gets a bit messy because the various frameworks don't quite work the same way.
+    // - tonic has async streams (which we pull from with .message().await)
+    // - The LSP server uses crossbeam channels, which are synchronous, so we need to run
+    //   recv from that channel it its own thread.
+    // - We then need an async aware channel that takes from the LSP recv thread, and sends
+    //   to the client. It needs to be async aware so that we can use select! and process
+    //   client and server communication at the same time
+    //
+    // We also start up a thread to run the actual LSP, and make sure that we close those
+    // threads down when we either fail to send/recv on the client channel or the server one.
+    //
+    // tl;dr; This creates two threads, and a few plumbing channels to get the client sending
+    //        receiving to/from the LSP server.
 
-        let (send_to_server, server_receiver) = crossbeam_channel::unbounded();
-        let (send_to_client, client_receiver) = crossbeam_channel::unbounded();
-        let (events_from_server, mut events_to_client) = futures::channel::mpsc::unbounded();
+    let (send_to_server, server_receiver) = crossbeam_channel::unbounded();
+    let (send_to_client, client_receiver) = crossbeam_channel::unbounded();
+    let (events_from_server, mut events_to_client) = futures::channel::mpsc::unbounded();
 
-        let connection = Connection {
-            sender: send_to_client,
-            receiver: server_receiver,
-        };
+    let connection = Connection {
+        sender: send_to_client,
+        receiver: server_receiver,
+    };
 
-        let interpreter_state = dice_ctx.get_global_interpreter_state().await?.dupe();
-        let mut builtin_docs = get_builtin_docs(
-            cell_resolver.root_cell_cell_alias_resolver().dupe(),
-            interpreter_state,
-        )?;
-        let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
-        let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
-        builtin_docs.extend(prelude_docs);
+    let interpreter_state = dice_ctx.get_global_interpreter_state().await?.dupe();
+    let mut builtin_docs = get_builtin_docs(
+        cell_resolver.root_cell_cell_alias_resolver().dupe(),
+        interpreter_state,
+    )?;
+    let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
+    let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
+    builtin_docs.extend(prelude_docs);
 
-        let docs_cache = DocsCache::new(&builtin_docs, &dice_ctx, &fs, &cell_resolver).await?;
+    let docs_cache = DocsCache::new(&builtin_docs, &dice_ctx, &fs, &cell_resolver).await?;
 
-        let recv_thread = std::thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .build()
-                .unwrap();
-            runtime.block_on(recv_from_lsp(client_receiver, events_from_server))
-        });
+    let recv_thread = std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        runtime.block_on(recv_from_lsp(client_receiver, events_from_server))
+    });
 
-        let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
-        let server_thread = std::thread::spawn(with_dispatcher(dispatcher, || {
-            move || {
-                server_with_connection(
-                    connection,
-                    BuckLspContext {
-                        dice_ctx,
-                        fs,
-                        cell_resolver,
-                        docs_cache,
-                    },
-                )
-            }
-        }));
-
-        let res = loop {
-            let message_handler_res = tokio::select! {
-                m = req.message().fuse() => {
-                    handle_incoming_lsp_message(&send_to_server, m)
+    let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
+    let server_thread = std::thread::spawn(with_dispatcher(dispatcher, || {
+        move || {
+            server_with_connection(
+                connection,
+                BuckLspContext {
+                    dice_ctx,
+                    fs,
+                    cell_resolver,
+                    docs_cache,
                 },
-                m = events_to_client.next() => {
-                    Ok(handle_outgoing_lsp_message(m))
-                },
-            };
-            match message_handler_res {
-                Ok(Some(res)) => break Ok(res),
-                Ok(None) => {}
-                Err(e) => break Err(e),
-            };
-        };
+            )
+        }
+    }));
 
-        let _ignored = recv_thread.join();
-        let _ignored = server_thread.join();
-        res
-    })
-    .await
+    let res = loop {
+        let message_handler_res = tokio::select! {
+            m = req.message().fuse() => {
+                handle_incoming_lsp_message(&send_to_server, m)
+            },
+            m = events_to_client.next() => {
+                Ok(handle_outgoing_lsp_message(m))
+            },
+        };
+        match message_handler_res {
+            Ok(Some(res)) => break Ok(res),
+            Ok(None) => {}
+            Err(e) => break Err(e),
+        };
+    };
+
+    let _ignored = recv_thread.join();
+    let _ignored = server_thread.join();
+    res
 }
 
 /// Receive messages from the LSP's channel, and pass them to the client after encapsulating them.

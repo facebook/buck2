@@ -17,6 +17,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::UqueryRequest;
 use cli_proto::UqueryResponse;
+use dice::DiceTransaction;
 
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
@@ -31,7 +32,9 @@ pub async fn uquery_command(
         data: Some(buck2_data::QueryCommandStart {}.into()),
     };
     span_async(start_event, async {
-        let result = uquery(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| uquery(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::QueryCommandEnd {});
         (result, end_event)
     })
@@ -39,75 +42,72 @@ pub async fn uquery_command(
 }
 
 async fn uquery(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    mut server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {
-    server_ctx
-        .with_dice_ctx(async move |mut server_ctx, ctx| {
-            let cell_resolver = ctx.get_cell_resolver().await?;
-            let output_configuration = QueryResultPrinter::from_request_options(
-                &cell_resolver,
-                &request.output_attributes,
-                request.unstable_output_format,
-            )?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let output_configuration = QueryResultPrinter::from_request_options(
+        &cell_resolver,
+        &request.output_attributes,
+        request.unstable_output_format,
+    )?;
 
-            let UqueryRequest {
-                query,
-                query_args,
-                context,
-                target_call_stacks,
-                ..
-            } = request;
+    let UqueryRequest {
+        query,
+        query_args,
+        context,
+        target_call_stacks,
+        ..
+    } = request;
 
-            let global_target_platform = target_platform_from_client_context(
-                context.as_ref(),
-                &cell_resolver,
-                server_ctx.working_dir(),
-            )
-            .await?;
+    let global_target_platform = target_platform_from_client_context(
+        context.as_ref(),
+        &cell_resolver,
+        server_ctx.working_dir(),
+    )
+    .await?;
 
-            let evaluator = get_uquery_evaluator(
-                &ctx,
-                server_ctx.working_dir(),
-                server_ctx.project_root().clone(),
-                global_target_platform,
-            )
-            .await?;
-            let evaluator = &evaluator;
+    let evaluator = get_uquery_evaluator(
+        &ctx,
+        server_ctx.working_dir(),
+        server_ctx.project_root().clone(),
+        global_target_platform,
+    )
+    .await?;
+    let evaluator = &evaluator;
 
-            let query_result = evaluator.eval_query(&query, &query_args).await?;
+    let query_result = evaluator.eval_query(&query, &query_args).await?;
 
-            let mut stdout = server_ctx.stdout()?;
+    let mut stdout = server_ctx.stdout()?;
 
-            let result = match query_result {
-                QueryEvaluationResult::Single(targets) => {
-                    output_configuration
-                        .print_single_output(
-                            &mut stdout,
-                            targets,
-                            target_call_stacks,
-                            ShouldPrintProviders::No,
-                        )
-                        .await
-                }
-                QueryEvaluationResult::Multiple(results) => {
-                    output_configuration
-                        .print_multi_output(
-                            &mut stdout,
-                            results,
-                            target_call_stacks,
-                            ShouldPrintProviders::No,
-                        )
-                        .await
-                }
-            };
+    let result = match query_result {
+        QueryEvaluationResult::Single(targets) => {
+            output_configuration
+                .print_single_output(
+                    &mut stdout,
+                    targets,
+                    target_call_stacks,
+                    ShouldPrintProviders::No,
+                )
+                .await
+        }
+        QueryEvaluationResult::Multiple(results) => {
+            output_configuration
+                .print_multi_output(
+                    &mut stdout,
+                    results,
+                    target_call_stacks,
+                    ShouldPrintProviders::No,
+                )
+                .await
+        }
+    };
 
-            let error_messages = match result {
-                Ok(_) => vec![],
-                Err(e) => vec![format!("{:#}", e)],
-            };
+    let error_messages = match result {
+        Ok(_) => vec![],
+        Err(e) => vec![format!("{:#}", e)],
+    };
 
-            Ok(UqueryResponse { error_messages })
-        })
-        .await
+    Ok(UqueryResponse { error_messages })
 }

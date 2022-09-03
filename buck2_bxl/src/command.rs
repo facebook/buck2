@@ -34,6 +34,7 @@ use cli_proto::build_request::Materializations;
 use cli_proto::BxlRequest;
 use cli_proto::BxlResponse;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -71,7 +72,9 @@ async fn bxl_command_inner(
 ) -> (anyhow::Result<BxlResponse>, buck2_data::CommandEnd) {
     let project_root = server_ctx.project_root().to_string();
     let bxl_label = req.bxl_label.clone();
-    let result = bxl(server_ctx, req).await;
+    let result = server_ctx
+        .with_dice_ctx(|server_ctx, ctx| bxl(server_ctx, ctx, req))
+        .await;
     let end_event = command_end(metadata, &result, buck2_data::BxlCommandEnd { bxl_label });
 
     let resp = result.map(|result| BxlResponse {
@@ -83,80 +86,75 @@ async fn bxl_command_inner(
 }
 
 async fn bxl(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    mut server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: BxlRequest,
 ) -> anyhow::Result<BxlResult> {
-    server_ctx
-        .with_dice_ctx(async move |mut server_ctx, ctx| {
-            let cwd = server_ctx.working_dir();
+    let cwd = server_ctx.working_dir();
 
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
+    let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
 
-            let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
-            let cell_name = cell_resolver.find(&cwd)?;
+    let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
+    let cell_name = cell_resolver.find(&cwd)?;
 
-            // Targets with cell aliases should be resolved against the cell mapping
-            // as defined the cell derived from the cwd.
-            let cell = cell_resolver
-                .get(cell_name)
-                .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
-                .dupe();
+    // Targets with cell aliases should be resolved against the cell mapping
+    // as defined the cell derived from the cwd.
+    let cell = cell_resolver
+        .get(cell_name)
+        .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
+        .dupe();
 
-            // The same goes for target aliases.
-            let config = ctx
-                .get_legacy_config_for_cell(cell_name)
-                .await
-                .with_context(|| format!("No configuration for cell: `{}`", cell_name))?;
-
-            let target_alias_resolver = config.target_alias_resolver();
-
-            let bxl_module = ctx
-                .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
-                .await?;
-
-            let frozen_callable = get_bxl_callable(&bxl_label, &bxl_module)?;
-            let cli_ctx = CliResolutionCtx {
-                target_alias_resolver,
-                cell_resolver: cell.cell_alias_resolver().dupe(),
-                relative_dir: cur_package,
-                dice: &ctx,
-            };
-
-            let bxl_args = Arc::new(
-                resolve_cli_args(&bxl_label, &cli_ctx, request.bxl_args, &frozen_callable).await?,
-            );
-
-            let result = ctx
-                .eval_bxl(BxlKey::new(bxl_label.clone(), bxl_args))
-                .await?;
-
-            let final_artifact_materializations =
-                Materializations::from_i32(request.final_artifact_materializations)
-                    .with_context(|| "Invalid final_artifact_materializations")
-                    .unwrap();
-            let materialization_context =
-                ConvertMaterializationContext::from(final_artifact_materializations);
-
-            let build_result = ensure_artifacts(&ctx, &materialization_context, &*result).await;
-            copy_output(server_ctx.stdout()?, &ctx, &*result).await?;
-
-            match build_result {
-                Ok(_) => Ok(BxlResult {
-                    error_messages: vec![],
-                }),
-                Err(errors) => {
-                    let error_strings =
-                        errors.iter().map(|e| format!("{:#}", e)).unique().collect();
-
-                    Ok(BxlResult {
-                        error_messages: error_strings,
-                    })
-                }
-            }
-        })
+    // The same goes for target aliases.
+    let config = ctx
+        .get_legacy_config_for_cell(cell_name)
         .await
+        .with_context(|| format!("No configuration for cell: `{}`", cell_name))?;
+
+    let target_alias_resolver = config.target_alias_resolver();
+
+    let bxl_module = ctx
+        .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
+        .await?;
+
+    let frozen_callable = get_bxl_callable(&bxl_label, &bxl_module)?;
+    let cli_ctx = CliResolutionCtx {
+        target_alias_resolver,
+        cell_resolver: cell.cell_alias_resolver().dupe(),
+        relative_dir: cur_package,
+        dice: &ctx,
+    };
+
+    let bxl_args =
+        Arc::new(resolve_cli_args(&bxl_label, &cli_ctx, request.bxl_args, &frozen_callable).await?);
+
+    let result = ctx
+        .eval_bxl(BxlKey::new(bxl_label.clone(), bxl_args))
+        .await?;
+
+    let final_artifact_materializations =
+        Materializations::from_i32(request.final_artifact_materializations)
+            .with_context(|| "Invalid final_artifact_materializations")
+            .unwrap();
+    let materialization_context =
+        ConvertMaterializationContext::from(final_artifact_materializations);
+
+    let build_result = ensure_artifacts(&ctx, &materialization_context, &*result).await;
+    copy_output(server_ctx.stdout()?, &ctx, &*result).await?;
+
+    match build_result {
+        Ok(_) => Ok(BxlResult {
+            error_messages: vec![],
+        }),
+        Err(errors) => {
+            let error_strings = errors.iter().map(|e| format!("{:#}", e)).unique().collect();
+
+            Ok(BxlResult {
+                error_messages: error_strings,
+            })
+        }
+    }
 }
 
 async fn copy_output<W: Write>(

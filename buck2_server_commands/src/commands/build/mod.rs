@@ -56,6 +56,7 @@ use cli_proto::build_request::Materializations;
 use cli_proto::BuildRequest;
 use cli_proto::BuildTarget;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -94,7 +95,9 @@ pub async fn build_command(
         data: Some(buck2_data::BuildCommandStart {}.into()),
     };
     let result = span_async(start_event, async {
-        let result = build(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| build(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(
             metadata,
             &result,
@@ -117,163 +120,155 @@ pub async fn build_command(
 
 async fn build(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: BuildRequest,
 ) -> anyhow::Result<BuildResult> {
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, ctx| {
-            // TODO(nmj): Move build report printing logic out of here.
-            let fs = server_ctx.project_root();
-            let cwd = server_ctx.working_dir();
+    // TODO(nmj): Move build report printing logic out of here.
+    let fs = server_ctx.project_root();
+    let cwd = server_ctx.working_dir();
 
-            let build_opts = request.build_opts.expect("should have build options");
+    let build_opts = request.build_opts.expect("should have build options");
 
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let global_target_platform =
-                target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
-                    .await?;
+    let global_target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-            let should_create_unhashed_links = ctx
-                .parse_legacy_config_property(
-                    cell_resolver.root_cell(),
-                    "buck2",
-                    "create_unhashed_links",
-                )
-                .await?;
+    let should_create_unhashed_links = ctx
+        .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
+        .await?;
 
-            let parsed_patterns = parse_patterns_from_cli_args(
-                &request.target_patterns,
-                &cell_resolver,
-                &ctx.get_legacy_configs().await?,
-                cwd,
-            )?;
+    let parsed_patterns = parse_patterns_from_cli_args(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )?;
 
-            let resolved_pattern =
-                resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
+    let resolved_pattern =
+        resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-            let artifact_fs = ctx.get_artifact_fs().await?;
-            let build_providers = Arc::new(request.build_providers.unwrap());
-            let response_options = request.response_options.unwrap_or_default();
+    let artifact_fs = ctx.get_artifact_fs().await?;
+    let build_providers = Arc::new(request.build_providers.unwrap());
+    let response_options = request.response_options.unwrap_or_default();
 
-            let mut result_collector = ResultReporter::new(
-                &artifact_fs,
-                ResultReporterOptions {
-                    return_outputs: response_options.return_outputs,
-                    return_default_other_outputs: response_options.return_default_other_outputs,
-                },
-            );
+    let mut result_collector = ResultReporter::new(
+        &artifact_fs,
+        ResultReporterOptions {
+            return_outputs: response_options.return_outputs,
+            return_default_other_outputs: response_options.return_default_other_outputs,
+        },
+    );
 
-            let mut build_report_collector = if build_opts.unstable_print_build_report {
-                Some(BuildReportCollector::new(
-                    server_ctx.events().trace_id(),
-                    &artifact_fs,
-                    server_ctx.project_root(),
-                    ctx.parse_legacy_config_property(
-                        cell_resolver.root_cell(),
-                        "build_report",
-                        "print_unconfigured_section",
-                    )
-                    .await?
-                    .unwrap_or(true),
-                    ctx.parse_legacy_config_property(
-                        cell_resolver.root_cell(),
-                        "build_report",
-                        "unstable_include_other_outputs",
-                    )
-                    .await?
-                    .unwrap_or(false),
-                ))
-            } else {
-                None
-            };
-
-            let mut providers_printer = if request.unstable_print_providers {
-                Some(ProvidersPrinter)
-            } else {
-                None
-            };
-
-            let mut result_collectors = vec![
-                Some(&mut result_collector as &mut dyn BuildResultCollector),
-                build_report_collector
-                    .as_mut()
-                    .map(|v| v as &mut dyn BuildResultCollector),
-                providers_printer
-                    .as_mut()
-                    .map(|v| v as &mut dyn BuildResultCollector),
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&mut dyn BuildResultCollector>>();
-
-            let final_artifact_materializations =
-                Materializations::from_i32(request.final_artifact_materializations)
-                    .with_context(|| "Invalid final_artifact_materializations")
-                    .unwrap();
-            let materialization_context =
-                ConvertMaterializationContext::from(final_artifact_materializations);
-
-            let mut provider_artifacts = Vec::new();
-            for (k, v) in build_targets(
-                &ctx,
-                resolved_pattern,
-                global_target_platform,
-                build_providers,
-                &materialization_context,
+    let mut build_report_collector = if build_opts.unstable_print_build_report {
+        Some(BuildReportCollector::new(
+            server_ctx.events().trace_id(),
+            &artifact_fs,
+            server_ctx.project_root(),
+            ctx.parse_legacy_config_property(
+                cell_resolver.root_cell(),
+                "build_report",
+                "print_unconfigured_section",
             )
             .await?
-            {
-                result_collectors.collect_result(&BuildOwner::Target(&k), &v);
-                let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
-                    Ok(output) => Some(output),
-                    _ => None,
-                });
-                provider_artifacts.extend(&mut outputs);
-            }
+            .unwrap_or(true),
+            ctx.parse_legacy_config_property(
+                cell_resolver.root_cell(),
+                "build_report",
+                "unstable_include_other_outputs",
+            )
+            .await?
+            .unwrap_or(false),
+        ))
+    } else {
+        None
+    };
 
-            if should_create_unhashed_links.unwrap_or(false) {
-                create_unhashed_outputs(provider_artifacts, &artifact_fs, fs)?;
-            }
+    let mut providers_printer = if request.unstable_print_providers {
+        Some(ProvidersPrinter)
+    } else {
+        None
+    };
 
-            let mut serialized_build_report = None;
-            if let Some(build_report_collector) = build_report_collector {
-                let report = build_report_collector.into_report();
-                if !build_opts.unstable_build_report_filename.is_empty() {
-                    let file = File::create(
-                        fs.resolve(cwd)
-                            .as_path()
-                            .join(build_opts.unstable_build_report_filename),
-                    )?;
-                    serde_json::to_writer_pretty(&file, &report)?
-                } else {
-                    serialized_build_report = Some(serde_json::to_string(&report)?);
-                };
-            }
+    let mut result_collectors = vec![
+        Some(&mut result_collector as &mut dyn BuildResultCollector),
+        build_report_collector
+            .as_mut()
+            .map(|v| v as &mut dyn BuildResultCollector),
+        providers_printer
+            .as_mut()
+            .map(|v| v as &mut dyn BuildResultCollector),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<&mut dyn BuildResultCollector>>();
 
-            // TODO(nmj): The BuildResult / BuildResponse will eventually return all of the
-            //            data back to the CLI client, and all build report generation will happen there.
-            //            For now, we're going to be a little hacky to remove some stdout printing that
-            //            used to exist here.
-            let (build_targets, error_messages) = match result_collector.results() {
-                Ok(targets) => (targets, Vec::new()),
-                Err(errors) => {
-                    let error_strings = errors
-                        .errors
-                        .iter()
-                        .map(|e| format!("{:#}", e))
-                        .unique()
-                        .collect();
-                    (vec![], error_strings)
-                }
-            };
+    let final_artifact_materializations =
+        Materializations::from_i32(request.final_artifact_materializations)
+            .with_context(|| "Invalid final_artifact_materializations")
+            .unwrap();
+    let materialization_context =
+        ConvertMaterializationContext::from(final_artifact_materializations);
 
-            Ok(BuildResult {
-                build_targets,
-                serialized_build_report,
-                error_messages,
-            })
-        })
-        .await
+    let mut provider_artifacts = Vec::new();
+    for (k, v) in build_targets(
+        &ctx,
+        resolved_pattern,
+        global_target_platform,
+        build_providers,
+        &materialization_context,
+    )
+    .await?
+    {
+        result_collectors.collect_result(&BuildOwner::Target(&k), &v);
+        let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
+            Ok(output) => Some(output),
+            _ => None,
+        });
+        provider_artifacts.extend(&mut outputs);
+    }
+
+    if should_create_unhashed_links.unwrap_or(false) {
+        create_unhashed_outputs(provider_artifacts, &artifact_fs, fs)?;
+    }
+
+    let mut serialized_build_report = None;
+    if let Some(build_report_collector) = build_report_collector {
+        let report = build_report_collector.into_report();
+        if !build_opts.unstable_build_report_filename.is_empty() {
+            let file = File::create(
+                fs.resolve(cwd)
+                    .as_path()
+                    .join(build_opts.unstable_build_report_filename),
+            )?;
+            serde_json::to_writer_pretty(&file, &report)?
+        } else {
+            serialized_build_report = Some(serde_json::to_string(&report)?);
+        };
+    }
+
+    // TODO(nmj): The BuildResult / BuildResponse will eventually return all of the
+    //            data back to the CLI client, and all build report generation will happen there.
+    //            For now, we're going to be a little hacky to remove some stdout printing that
+    //            used to exist here.
+    let (build_targets, error_messages) = match result_collector.results() {
+        Ok(targets) => (targets, Vec::new()),
+        Err(errors) => {
+            let error_strings = errors
+                .errors
+                .iter()
+                .map(|e| format!("{:#}", e))
+                .unique()
+                .collect();
+            (vec![], error_strings)
+        }
+    };
+
+    Ok(BuildResult {
+        build_targets,
+        serialized_build_report,
+        error_messages,
+    })
 }
 
 fn create_unhashed_outputs(

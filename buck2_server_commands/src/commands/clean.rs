@@ -20,6 +20,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use cli_proto::CleanRequest;
 use cli_proto::CleanResponse;
+use dice::DiceTransaction;
 use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
@@ -34,7 +35,9 @@ pub async fn clean_command(
         data: Some(buck2_data::CleanCommandStart {}.into()),
     };
     span_async(start_event, async {
-        let result = clean(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| clean(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::CleanCommandEnd {});
         (result, end_event)
     })
@@ -43,43 +46,38 @@ pub async fn clean_command(
 
 async fn clean(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    dice_ctx: DiceTransaction,
     request: CleanRequest,
 ) -> anyhow::Result<CleanResponse> {
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, dice_ctx| {
-            let out_path = dice_ctx.get_buck_out_path().await?;
-            let filesystem = server_ctx.project_root();
-            let buck_out_path = out_path
-                .as_forward_relative_path()
-                .resolve(filesystem.root());
+    let out_path = dice_ctx.get_buck_out_path().await?;
+    let filesystem = server_ctx.project_root();
+    let buck_out_path = out_path
+        .as_forward_relative_path()
+        .resolve(filesystem.root());
 
-            // Try to clean EdenFS based buck-out first. For EdenFS based buck-out, "eden rm"
-            // is effecient. Notice eden rm will remove the buck-out root direcotry,
-            // but for the native fs, the buck-out root directory is kept.
-            if let Some(clean_paths) =
-                try_clean_eden_buck_out(&buck_out_path, request.dry_run).await?
-            {
-                return Ok(CleanResponse { clean_paths });
-            }
+    // Try to clean EdenFS based buck-out first. For EdenFS based buck-out, "eden rm"
+    // is effecient. Notice eden rm will remove the buck-out root direcotry,
+    // but for the native fs, the buck-out root directory is kept.
+    if let Some(clean_paths) = try_clean_eden_buck_out(&buck_out_path, request.dry_run).await? {
+        return Ok(CleanResponse { clean_paths });
+    }
 
-            tokio::task::spawn_blocking(move || {
-                if !buck_out_path.exists() {
-                    return Ok(CleanResponse {
-                        clean_paths: vec![],
-                    });
-                }
+    tokio::task::spawn_blocking(move || {
+        if !buck_out_path.exists() {
+            return Ok(CleanResponse {
+                clean_paths: vec![],
+            });
+        }
 
-                let clean_paths =
-                    collect_clean_paths(&buck_out_path)?.map(|path| path.display().to_string());
-                if !request.dry_run {
-                    clean_buck_out(&buck_out_path)?;
-                }
-                Ok(CleanResponse { clean_paths })
-            })
-            .await
-            .context("Failed to spawn clean")?
-        })
-        .await
+        let clean_paths =
+            collect_clean_paths(&buck_out_path)?.map(|path| path.display().to_string());
+        if !request.dry_run {
+            clean_buck_out(&buck_out_path)?;
+        }
+        Ok(CleanResponse { clean_paths })
+    })
+    .await
+    .context("Failed to spawn clean")?
 }
 
 fn collect_clean_paths(buck_out_path: &AbsPathBuf) -> anyhow::Result<Vec<AbsPathBuf>> {

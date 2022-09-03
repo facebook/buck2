@@ -27,6 +27,7 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::CqueryRequest;
 use cli_proto::CqueryResponse;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use gazebo::prelude::*;
 
 use crate::commands::query::printer::ProviderLookUp;
@@ -50,7 +51,9 @@ pub async fn cquery_command(
         ),
     };
     span_async(start_event, async {
-        let result = cquery(ctx, req).await;
+        let result = ctx
+            .with_dice_ctx(|server_ctx, ctx| cquery(server_ctx, ctx, req))
+            .await;
         let end_event = command_end(metadata, &result, buck2_data::CQueryCommandEnd {});
         (result, end_event)
     })
@@ -58,97 +61,94 @@ pub async fn cquery_command(
 }
 
 async fn cquery(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    mut server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     request: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
-    server_ctx
-        .with_dice_ctx(async move |mut server_ctx, ctx| {
-            let cell_resolver = ctx.get_cell_resolver().await?;
-            let output_configuration = QueryResultPrinter::from_request_options(
-                &cell_resolver,
-                &request.output_attributes,
-                request.unstable_output_format,
-            )?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let output_configuration = QueryResultPrinter::from_request_options(
+        &cell_resolver,
+        &request.output_attributes,
+        request.unstable_output_format,
+    )?;
 
-            let CqueryRequest {
-                query,
-                query_args,
-                target_universe,
-                context,
-                target_call_stacks,
-                show_providers,
-                ..
-            } = request;
-            // The request will always have a universe value, an empty one indicates the user didn't provide a universe.
-            let target_universe = if target_universe.is_empty() {
-                None
-            } else {
-                Some(target_universe)
-            };
-            let global_target_platform = target_platform_from_client_context(
-                context.as_ref(),
-                &cell_resolver,
-                server_ctx.working_dir(),
-            )
-            .await?;
+    let CqueryRequest {
+        query,
+        query_args,
+        target_universe,
+        context,
+        target_call_stacks,
+        show_providers,
+        ..
+    } = request;
+    // The request will always have a universe value, an empty one indicates the user didn't provide a universe.
+    let target_universe = if target_universe.is_empty() {
+        None
+    } else {
+        Some(target_universe)
+    };
+    let global_target_platform = target_platform_from_client_context(
+        context.as_ref(),
+        &cell_resolver,
+        server_ctx.working_dir(),
+    )
+    .await?;
 
-            let evaluator = get_cquery_evaluator(
-                &ctx,
-                server_ctx.working_dir(),
-                server_ctx.project_root().clone(),
-                global_target_platform,
-            )
-            .await?;
+    let evaluator = get_cquery_evaluator(
+        &ctx,
+        server_ctx.working_dir(),
+        server_ctx.project_root().clone(),
+        global_target_platform,
+    )
+    .await?;
 
-            let evaluator = &evaluator;
+    let evaluator = &evaluator;
 
-            let query_result = evaluator
-                .eval_query(
-                    &query,
-                    &query_args,
-                    target_universe.as_ref().map(|v| &v[..]),
+    let query_result = evaluator
+        .eval_query(
+            &query,
+            &query_args,
+            target_universe.as_ref().map(|v| &v[..]),
+        )
+        .await?;
+
+    let mut stdout = server_ctx.stdout()?;
+
+    let should_print_providers = if show_providers {
+        ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
+    } else {
+        ShouldPrintProviders::No
+    };
+
+    let result = match query_result {
+        QueryEvaluationResult::Single(targets) => {
+            output_configuration
+                .print_single_output(
+                    &mut stdout,
+                    targets,
+                    target_call_stacks,
+                    should_print_providers,
                 )
-                .await?;
+                .await
+        }
+        QueryEvaluationResult::Multiple(results) => {
+            output_configuration
+                .print_multi_output(
+                    &mut stdout,
+                    results,
+                    target_call_stacks,
+                    should_print_providers,
+                )
+                .await
+        }
+    };
 
-            let mut stdout = server_ctx.stdout()?;
+    let error_messages = match result {
+        Ok(_) => vec![],
+        Err(e) => vec![format!("{:#}", e)],
+    };
 
-            let should_print_providers = if show_providers {
-                ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
-            } else {
-                ShouldPrintProviders::No
-            };
-
-            let result = match query_result {
-                QueryEvaluationResult::Single(targets) => {
-                    output_configuration
-                        .print_single_output(
-                            &mut stdout,
-                            targets,
-                            target_call_stacks,
-                            should_print_providers,
-                        )
-                        .await
-                }
-                QueryEvaluationResult::Multiple(results) => {
-                    output_configuration
-                        .print_multi_output(
-                            &mut stdout,
-                            results,
-                            target_call_stacks,
-                            should_print_providers,
-                        )
-                        .await
-                }
-            };
-
-            let error_messages = match result {
-                Ok(_) => vec![],
-                Err(e) => vec![format!("{:#}", e)],
-            };
-
-            Ok(CqueryResponse { error_messages })
-        })
-        .await
+    Ok(CqueryResponse { error_messages })
 }
 
 #[async_trait]

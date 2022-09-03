@@ -127,14 +127,21 @@ pub(crate) async fn profile_command(
             let action = cli_proto::profile_request::Action::from_i32(req.action)
                 .context("Invalid action")?;
 
-            let profile_data = generate_profile(
-                box ctx,
-                req.context.context("Missing client context")?,
-                req.target_pattern.context("Missing target pattern")?,
-                action,
-                &profile_mode,
-            )
-            .await?;
+            let context = req.context.context("Missing client context")?;
+            let target_pattern = req.target_pattern.context("Missing target pattern")?;
+            let ctx: Box<dyn ServerCommandContextTrait> = box ctx;
+            let profile_data = ctx
+                .with_dice_ctx(|ctx, dice_ctx| {
+                    generate_profile(
+                        ctx,
+                        dice_ctx,
+                        context,
+                        target_pattern,
+                        action,
+                        &profile_mode,
+                    )
+                })
+                .await?;
 
             profile_data.write(&output)?;
 
@@ -152,50 +159,37 @@ pub(crate) async fn profile_command(
 
 async fn generate_profile(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: DiceTransaction,
     client_ctx: ClientContext,
     pattern: buck2_data::TargetPattern,
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
-    server_ctx
-        .with_dice_ctx(async move |server_ctx, ctx| {
-            let cells = ctx.get_cell_resolver().await?;
+    let cells = ctx.get_cell_resolver().await?;
 
-            let global_target_platform = target_platform_from_client_context(
-                Some(&client_ctx),
-                &cells,
-                server_ctx.working_dir(),
-            )
+    let global_target_platform =
+        target_platform_from_client_context(Some(&client_ctx), &cells, server_ctx.working_dir())
             .await?;
 
-            let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
-                &[pattern],
-                &cells,
-                &ctx.get_legacy_configs().await?,
-                server_ctx.working_dir(),
-            )?;
+    let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+        &[pattern],
+        &cells,
+        &ctx.get_legacy_configs().await?,
+        server_ctx.working_dir(),
+    )?;
 
-            let resolved_pattern =
-                resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
+    let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
 
-            let (package, spec) =
-                one(resolved_pattern.specs).context("Did not find exactly one pattern")?;
+    let (package, spec) =
+        one(resolved_pattern.specs).context("Did not find exactly one pattern")?;
 
-            match action {
-                Action::Analysis => {
-                    generate_profile_analysis(
-                        ctx,
-                        package,
-                        spec,
-                        global_target_platform,
-                        profile_mode,
-                    )
-                    .await
-                }
-                Action::Loading => generate_profile_loading(ctx, package, spec, profile_mode).await,
-            }
-        })
-        .await
+    match action {
+        Action::Analysis => {
+            generate_profile_analysis(ctx, package, spec, global_target_platform, profile_mode)
+                .await
+        }
+        Action::Loading => generate_profile_loading(ctx, package, spec, profile_mode).await,
+    }
 }
 
 fn one<T>(it: impl IntoIterator<Item = T>) -> anyhow::Result<T> {
