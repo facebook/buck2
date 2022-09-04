@@ -422,9 +422,9 @@ impl TestServer {
 
         let initialization_options = settings.map(|v| serde_json::to_value(v).unwrap());
 
+        #[allow(deprecated)]
         let init = InitializeParams {
             process_id: None,
-            #[allow(deprecated)]
             root_path: None,
             root_uri: None,
             initialization_options,
