@@ -813,6 +813,7 @@ mod tests {
             .context("No frame was emitted")?;
 
         // Verify we have the right output on intermediate frames
+        crate::eprint!("TEMPORARY DEBUGGING: {:?}", frame);
         if cfg!(fbcode_build) {
             assert!(frame_contains(&frame, "Buck UI:".as_bytes()));
         } else {
