@@ -1724,7 +1724,7 @@ mod tests {
                 // concurrently running
                 let _c_guard = cg.read().await;
                 s.wait().await;
-                g.lock().await;
+                let _g_guard = g.lock().await;
 
                 // DICE only can guarantee cancels at await points, so add an await point to
                 // ensure that the task has been canceled before hitting the code below.
@@ -1776,7 +1776,7 @@ mod tests {
             // drop the guard
             drop(guard_locked);
 
-            check_guard.write().await;
+            let _c_guard = check_guard.write().await;
 
             assert!(!ran_counter.load(Ordering::SeqCst));
         })
