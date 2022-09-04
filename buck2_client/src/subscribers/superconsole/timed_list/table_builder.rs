@@ -72,13 +72,13 @@ impl Component for Table<'_> {
             .map(|(mut label, mut time)| {
                 let time_len = time.len();
                 let padding = 1;
-                let maximum_label_width = x - time_len - padding;
+                let maximum_label_width = x.saturating_sub(time_len + padding);
                 let original_label_len = label.len();
                 let will_be_truncated = original_label_len > maximum_label_width;
                 if will_be_truncated {
                     // make space for ellipses
                     let styling = label.0.last().unwrap().stylization;
-                    label.truncate_line(maximum_label_width - 3);
+                    label.truncate_line(maximum_label_width.saturating_sub(3));
                     label.0.push(match styling {
                         Some(style) => {
                             Span::new_styled_lossy(StyledContent::new(style, "...".to_owned()))
