@@ -49,7 +49,7 @@ httparse = { workspace = true }
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
 fbinit = { workspace = true }
-# @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps", optional = true }
+# @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps" }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 
 # Please do not add dependency on `buck2_build_api`.
@@ -70,8 +70,3 @@ winapi = { workspace = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
-
-[features]
-# @oss-disable: default = ["extra_logging"]
-# @oss-disable: extra_logging = ["hostcaps"]
-extra_logging = [] # @oss-enable

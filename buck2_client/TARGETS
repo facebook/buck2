@@ -4,7 +4,6 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 rust_library(
     name = "buck2_client",
     srcs = glob(["src/**/*.rs"]),
-    features = ["extra_logging"],
     os_deps = [
         (
             "linux",
