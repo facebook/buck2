@@ -28,9 +28,8 @@ async_std_ext = { path = "../shed/async_std_ext" }
 gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
 buck2_events = { path = "../buck2_events" }
-# For `SmallMap`
-starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
-starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+starlark = { workspace = true }
+starlark_map = { workspace = true }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }

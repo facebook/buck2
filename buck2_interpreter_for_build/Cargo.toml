@@ -22,8 +22,8 @@ twox-hash = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
-starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
-starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+starlark = { workspace = true }
+starlark_map = { workspace = true }
 
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }

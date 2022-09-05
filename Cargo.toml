@@ -194,6 +194,8 @@ gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"
 remote_execution = { path = "remote_execution/stub" }
+starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
+starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }
 
 [profile.release]
 incremental = true

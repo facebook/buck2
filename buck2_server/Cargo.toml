@@ -37,7 +37,7 @@ fbinit = { workspace = true }
 gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
 more_futures = { path = "../shed/more_futures" }
-starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
+starlark = { workspace = true }
 watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
 

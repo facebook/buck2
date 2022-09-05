@@ -59,8 +59,8 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 host_sharing = { path = "../host_sharing" }
 more_futures = { path = "../shed/more_futures" }
-starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
-starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+starlark = { workspace = true }
+starlark_map = { workspace = true }
 
 buck2_build_api_derive = { path = "../buck2_build_api_derive" }
 buck2_core = { path = "../buck2_core" }
