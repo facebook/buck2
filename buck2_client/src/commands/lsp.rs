@@ -11,11 +11,10 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use bytes::BytesMut;
 use cli_proto::LspRequest;
-use futures::future::BoxFuture;
 use futures::future::Either;
+use futures::future::Future;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use futures::FutureExt;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
 use tokio::sync::mpsc;
@@ -69,8 +68,8 @@ impl StreamingCommand for LspCommand {
             })
         });
 
-        reborrow_stream_for_static(stream, |stream| {
-            async move { buckd.with_flushing().lsp(client_context, stream).await }.boxed()
+        reborrow_stream_for_static(stream, |stream| async move {
+            buckd.with_flushing().lsp(client_context, stream).await
         })
         .await??;
 
@@ -143,11 +142,12 @@ impl Decoder for LspMessageDecoder {
 /// borrow stdin statically (though in practice that doesn't really matter because the way the
 /// command ends is when stdin is empty). So, what we do instead is that we forward stdin only
 /// while the command is ongoing.
-async fn reborrow_stream_for_static<'a, T, R>(
+async fn reborrow_stream_for_static<'a, T, R, F>(
     stream: impl Stream<Item = T> + 'a,
-    f: impl FnOnce(ReceiverStream<T>) -> BoxFuture<'a, R>,
+    f: impl FnOnce(ReceiverStream<T>) -> F,
 ) -> R
 where
+    F: Future<Output = R> + 'a,
     T: 'static,
 {
     let (tx, rx) = mpsc::channel(1);
