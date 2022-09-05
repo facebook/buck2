@@ -65,7 +65,17 @@ def make_pex(
 
     modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
 
-    bootstrap_args = _pex_bootstrap_args(ctx, python_toolchain.interpreter, None, python_toolchain.host_interpreter, main_module, output, shared_libraries, symlink_tree_path)
+    bootstrap_args = _pex_bootstrap_args(
+        ctx,
+        python_toolchain.interpreter,
+        None,
+        python_toolchain.host_interpreter,
+        main_module,
+        output,
+        shared_libraries,
+        symlink_tree_path,
+        package_style,
+    )
     bootstrap_args.add(build_args)
 
     if package_style == PackageStyle("standalone") or bundled_runtime:
@@ -108,7 +118,8 @@ def _pex_bootstrap_args(
         main_module: str.type,
         output: "artifact",
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
-        symlink_tree_path: [None, "artifact"]) -> "cmd_args":
+        symlink_tree_path: [None, "artifact"],
+        package_style: PackageStyle.type) -> "cmd_args":
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
@@ -132,7 +143,9 @@ def _pex_bootstrap_args(
         cmd.add("--python-interpreter-flags", python_interpreter_flags)
     if symlink_tree_path != None:
         cmd.add(cmd_args(["--modules-dir", symlink_tree_path]).ignore_artifacts())
-    if len(shared_libraries) == 0:
+    if package_style == PackageStyle("inplace_lite"):
+        if shared_libraries:
+            fail("Package style `inplace_lite` cannot be used with shared libraries")
         cmd.add("--use-lite")
     cmd.add(output.as_output())
 
