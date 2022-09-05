@@ -14,7 +14,6 @@ use std::time::Instant;
 use anyhow::Context;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
-pub use connect::BuckdConnectOptions;
 use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;

@@ -16,8 +16,8 @@ use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::ConsoleType;
+use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::client::BuckdConnectOptions;
 use crate::exit_result::ExitResult;
 
 #[derive(Debug, clap::Parser)]

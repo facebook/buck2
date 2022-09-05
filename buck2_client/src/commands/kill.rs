@@ -8,7 +8,7 @@
  */
 
 use crate::client_ctx::ClientCommandContext;
-use crate::daemon::client::BuckdConnectOptions;
+use crate::daemon::client::connect::BuckdConnectOptions;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill the buck daemon")]
