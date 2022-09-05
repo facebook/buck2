@@ -8,5 +8,6 @@
  */
 
 pub mod configured;
+pub mod configured_ref;
 pub mod eval_result;
 pub mod unconfigured;
