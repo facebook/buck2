@@ -163,7 +163,7 @@ pub(crate) async fn profile_command(
         let result: anyhow::Result<_> = try {
             let output: PathBuf = req.destination_path.clone().into();
 
-            let profile_mode = ctx.starlark_profiler_instrumentation_override.dupe();
+            let profile_mode = starlark_profiler_configuration_from_request(&req)?;
 
             let action = cli_proto::profile_request::Action::from_i32(req.action)
                 .context("Invalid action")?;
