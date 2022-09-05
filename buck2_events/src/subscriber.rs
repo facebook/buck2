@@ -103,6 +103,9 @@ pub trait EventSubscriber: Send {
     async fn handle_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
         Ok(())
     }
+    async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
+        Ok(())
+    }
     async fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         self.handle_inner_event(event).await
     }

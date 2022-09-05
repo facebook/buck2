@@ -28,6 +28,9 @@ use tokio::time::MissedTickBehavior;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::command_outcome::CommandOutcome;
+use crate::console_interaction_stream::ConsoleInteraction;
+use crate::console_interaction_stream::ConsoleInteractionStream;
+use crate::console_interaction_stream::NoopConsoleInteraction;
 use crate::file_tailer::FileTailer;
 use crate::stream_value::StreamValue;
 
@@ -157,7 +160,14 @@ impl EventsCtx {
         &mut self,
         stream: S,
         tailers: &mut Option<FileTailers>,
+        mut console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandOutcome<R>> {
+        let mut noop_console_interaction = NoopConsoleInteraction;
+        let console_interaction: &mut dyn ConsoleInteraction = match &mut console_interaction {
+            Some(i) => i as _,
+            None => &mut noop_console_interaction as _,
+        };
+
         let command_result: anyhow::Result<CommandResult> = try {
             let mut stream = stream.fuse();
             // TODO(cjhopman): This is fragile. We are handling stdout/stderr here but we also want to stop
@@ -195,6 +205,9 @@ impl EventsCtx {
                             Some(stderr) = tailers.streams.stderr.next() => {
                                 self.handle_stderr(stderr.trim_end()).await?;
                             }
+                            c = console_interaction.char() => {
+                                self.handle_console_interaction(c?).await?;
+                            }
                             tick = self.ticker.tick() => {
                                 self.tick(&tick).await?;
                             }
@@ -224,6 +237,9 @@ impl EventsCtx {
                                     break res
                                 }
                             };
+                        }
+                        c = console_interaction.char() => {
+                            self.handle_console_interaction(c?).await?;
                         }
                         tick = self.ticker.tick() => {
                             self.tick(&tick).await?;
@@ -362,6 +378,11 @@ impl EventSubscriber for EventsCtx {
 
     async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
         self.handle_subscribers(|subscriber| subscriber.handle_stderr(stderr))
+            .await
+    }
+
+    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
+        self.handle_subscribers(|subscriber| subscriber.handle_console_interaction(c))
             .await
     }
 

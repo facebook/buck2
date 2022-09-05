@@ -159,7 +159,7 @@ impl BuckdClient {
             Result<tonic::Response<tonic::Streaming<CommandProgress>>, Status>,
         >,
         request: T,
-        _console_interaction: Option<ConsoleInteractionStream<'i>>,
+        console_interaction: Option<ConsoleInteractionStream<'i>>,
     ) -> anyhow::Result<CommandOutcome<R>> {
         let Self {
             client, events_ctx, ..
@@ -171,10 +171,14 @@ impl BuckdClient {
                     .context("Error dispatching request");
                 let stream = grpc_to_stream(response);
                 pin_mut!(stream);
-                events_ctx.unpack_stream(stream, &mut self.tailers).await
+                events_ctx
+                    .unpack_stream(stream, &mut self.tailers, console_interaction)
+                    .await
             }
             ClientKind::Replayer(ref mut replayer) => {
-                events_ctx.unpack_stream(replayer, &mut self.tailers).await
+                events_ctx
+                    .unpack_stream(replayer, &mut self.tailers, console_interaction)
+                    .await
             }
         }
     }
