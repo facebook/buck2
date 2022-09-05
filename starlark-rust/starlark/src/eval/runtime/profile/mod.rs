@@ -47,6 +47,8 @@ pub enum ProfileMode {
     HeapFlameRetained,
     /// The statement profile mode provides information about time spent in each statement.
     Statement,
+    /// Code coverage.
+    Coverage,
     /// The bytecode profile mode provides information about bytecode instructions.
     Bytecode,
     /// The bytecode profile mode provides information about bytecode instruction pairs.
@@ -72,6 +74,7 @@ impl ProfileMode {
             ProfileMode::HeapFlameAllocated => "heap-flame-allocated",
             ProfileMode::HeapFlameRetained => "heap-flame-retained",
             ProfileMode::Statement => "statement",
+            ProfileMode::Coverage => "coverage",
             ProfileMode::Bytecode => "bytecode",
             ProfileMode::BytecodePairs => "bytecode-pairs",
             ProfileMode::TimeFlame => "time-flame",
@@ -90,6 +93,7 @@ impl FromStr for ProfileMode {
             ProfileMode::HeapFlameAllocated,
             ProfileMode::HeapFlameRetained,
             ProfileMode::Statement,
+            ProfileMode::Coverage,
             ProfileMode::Bytecode,
             ProfileMode::BytecodePairs,
             ProfileMode::TimeFlame,

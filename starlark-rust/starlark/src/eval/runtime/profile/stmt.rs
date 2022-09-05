@@ -232,7 +232,7 @@ xx(*[2])
             &Dialect::Extended,
         )
         .unwrap();
-        eval.enable_profile(&ProfileMode::Statement).unwrap();
+        eval.enable_profile(&ProfileMode::Coverage).unwrap();
         let mut globals = GlobalsBuilder::standard();
         test_functions(&mut globals);
         eval.eval_module(module, &globals.build()).unwrap();

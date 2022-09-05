@@ -92,6 +92,12 @@ pub(crate) enum EvaluatorError {
     TopSecondFrameNotDef,
     #[error("Top frame is not native (internal error)")]
     TopFrameNotNative,
+    #[error(
+        "Coverage profile generation not implemented (but can be obtained with `.coverage()` function)"
+    )]
+    CoverageNotImplemented,
+    #[error("Coverage not enabled")]
+    CoverageNotEnabled,
 }
 
 /// Number of bytes to allocate between GC's.
@@ -239,7 +245,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 // to store a complete list of what happened in linear order.
                 self.disable_gc = true;
             }
-            ProfileMode::Statement => {
+            ProfileMode::Statement | ProfileMode::Coverage => {
                 self.stmt_profile.enable();
                 self.before_stmt(&|span, eval| eval.stmt_profile.before_stmt(span));
             }
@@ -276,7 +282,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
                 self.bc_profile.enable_1();
             }
-            ProfileMode::Statement => {
+            ProfileMode::Statement | ProfileMode::Coverage => {
                 self.before_stmt.instrument = true;
             }
             ProfileMode::HeapSummaryAllocated
@@ -324,6 +330,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 Err(EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator.into())
             }
             ProfileMode::Statement => self.stmt_profile.gen(),
+            ProfileMode::Coverage => Err(EvaluatorError::CoverageNotImplemented.into()),
             ProfileMode::Bytecode => self.bc_profile.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.bc_profile.gen_bc_pairs_profile(),
             ProfileMode::TimeFlame => self.flame_profile.gen(),
@@ -339,7 +346,13 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// * some optimizer transformations may create incorrect spans
     /// * some optimizer transformations may remove statements
     pub fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
-        self.stmt_profile.coverage()
+        match self.profile_or_instrumentation_mode {
+            // TODO(nga): patch users to enable `Coverage` and remove `Statement` from here.
+            ProfileOrInstrumentationMode::Profile(
+                ProfileMode::Coverage | ProfileMode::Statement,
+            ) => self.stmt_profile.coverage(),
+            _ => Err(EvaluatorError::CoverageNotEnabled.into()),
+        }
     }
 
     /// Enable interactive `breakpoint()`. When enabled, `breakpoint()`
