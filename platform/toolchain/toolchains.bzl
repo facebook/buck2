@@ -84,7 +84,7 @@ def _get_apple_rust_select_map():
     }
 
 def _get_infer_select_map():
-    return {"ovr_config//toolchain/fb:platform009-infer": "fbcode//buck2/platform:buck2-infer"}
+    return {"ovr_config//toolchain/fb:platform010-infer": "fbcode//buck2/platform:buck2-infer"}
 
 def _get_lionhead_select_map():
     return {

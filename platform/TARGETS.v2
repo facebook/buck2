@@ -115,7 +115,7 @@ lionhead_libfuzzer_flags = [
 
 cxx_toolchain_override(
     name = "buck2-infer",
-    base = ":platform009-clang",
+    base = ":platform010-clang",
     cxx_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
     c_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
     linker = "fbsource//xplat/tools/infer:infer-fbcode-linux-linker",
