@@ -6,11 +6,13 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::calculation::Calculation;
@@ -31,23 +33,23 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_server_ctx::command_end::command_end_ext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
 use cli_proto::TestRequest;
 use cli_proto::TestResponse;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use futures::channel::mpsc;
 use futures::future;
 use futures::future::BoxFuture;
@@ -174,107 +176,111 @@ pub async fn test_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TestRequest,
 ) -> anyhow::Result<TestResponse> {
-    let metadata = ctx.request_metadata()?;
     let patterns_for_logging = ctx
         .canonicalize_patterns_for_logging(&req.target_patterns)
         .await?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::TestCommandStart {}.into()),
-    };
-
-    span_async(
-        start_event,
-        test_command_inner(metadata, patterns_for_logging, ctx, req),
+    run_server_command(
+        TestServerCommand {
+            req,
+            patterns_for_logging,
+        },
+        ctx,
     )
     .await
 }
 
-async fn test_command_inner(
-    metadata: HashMap<String, String>,
+struct TestServerCommand {
+    req: cli_proto::TestRequest,
     patterns_for_logging: Vec<buck2_data::TargetPattern>,
-    context: Box<dyn ServerCommandContextTrait>,
-    req: TestRequest,
-) -> (anyhow::Result<TestResponse>, buck2_data::CommandEnd) {
-    let result = test(context, req).await;
-    let end_event = command_end_ext(
-        metadata,
-        &result,
-        buck2_data::TestCommandEnd {
-            target_patterns: patterns_for_logging,
-        },
-        |test_response| test_response.exit_code == 0,
-    );
+}
 
-    (result, end_event)
+#[async_trait]
+impl ServerCommandTemplate for TestServerCommand {
+    type StartEvent = buck2_data::TestCommandStart;
+    type EndEvent = buck2_data::TestCommandEnd;
+    type Response = cli_proto::TestResponse;
+
+    fn is_success(&self, response: &Self::Response) -> bool {
+        response.exit_code == 0
+    }
+
+    fn end_event(&self) -> buck2_data::TestCommandEnd {
+        buck2_data::TestCommandEnd {
+            target_patterns: self.patterns_for_logging.clone(),
+        }
+    }
+
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        test(server_ctx, ctx, &self.req).await
+    }
 }
 
 async fn test(
     server_ctx: Box<dyn ServerCommandContextTrait>,
-    request: TestRequest,
+    ctx: DiceTransaction,
+    request: &TestRequest,
 ) -> anyhow::Result<TestResponse> {
-    let test_outcome = server_ctx
-        .with_dice_ctx(async move |server_ctx, ctx| {
-            let cwd = server_ctx.working_dir();
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let cwd = server_ctx.working_dir();
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let global_target_platform =
-                target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
-                    .await?;
+    let global_target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-            // Get the test runner from the config. Note that we use a different key from v1 since the API
-            // is completely different, so there is not expectation that the same binary works for both.
-            let test_executor = ctx
-                .get_legacy_config_property(cell_resolver.root_cell(), "test", "v2_test_executor")
-                .await?
-                .context("test.v2_test_executor must be set in configuration")?
-                .as_ref()
-                .to_owned();
+    // Get the test runner from the config. Note that we use a different key from v1 since the API
+    // is completely different, so there is not expectation that the same binary works for both.
+    let test_executor = ctx
+        .get_legacy_config_property(cell_resolver.root_cell(), "test", "v2_test_executor")
+        .await?
+        .context("test.v2_test_executor must be set in configuration")?
+        .as_ref()
+        .to_owned();
 
-            let parsed_patterns = parse_patterns_from_cli_args(
-                &request.target_patterns,
-                &cell_resolver,
-                &ctx.get_legacy_configs().await?,
-                cwd,
-            )?;
+    let parsed_patterns = parse_patterns_from_cli_args(
+        &request.target_patterns,
+        &cell_resolver,
+        &ctx.get_legacy_configs().await?,
+        cwd,
+    )?;
 
-            let resolved_pattern =
-                resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
+    let resolved_pattern =
+        resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-            let launcher: Box<dyn ExecutorLauncher> = box OutOfProcessTestExecutor {
-                name: test_executor,
-                dispatcher: ctx.per_transaction_data().get_dispatcher().dupe(),
-            };
+    let launcher: Box<dyn ExecutorLauncher> = box OutOfProcessTestExecutor {
+        name: test_executor,
+        dispatcher: ctx.per_transaction_data().get_dispatcher().dupe(),
+    };
 
-            let options = request
-                .session_options
-                .as_ref()
-                .context("Missing `options`")?;
+    let options = request
+        .session_options
+        .as_ref()
+        .context("Missing `options`")?;
 
-            let session = TestSession::new(TestSessionOptions {
-                allow_re: options.allow_re,
-                force_use_project_relative_paths: options.force_use_project_relative_paths,
-                force_run_from_project_root: options.force_run_from_project_root,
-            });
+    let session = TestSession::new(TestSessionOptions {
+        allow_re: options.allow_re,
+        force_use_project_relative_paths: options.force_use_project_relative_paths,
+        force_run_from_project_root: options.force_run_from_project_root,
+    });
 
-            test_targets(
-                &ctx,
-                resolved_pattern,
-                global_target_platform,
-                request.test_executor_args,
-                Arc::new(TestLabelFiltering::new(
-                    request.included_labels,
-                    request.excluded_labels,
-                    request.always_exclude,
-                    request.build_filtered_targets,
-                )),
-                &*launcher,
-                session,
-                cell_resolver,
-            )
-            .await
-        })
-        .await?;
+    let test_outcome = test_targets(
+        &ctx,
+        resolved_pattern,
+        global_target_platform,
+        request.test_executor_args.clone(),
+        Arc::new(TestLabelFiltering::new(
+            request.included_labels.clone(),
+            request.excluded_labels.clone(),
+            request.always_exclude,
+            request.build_filtered_targets,
+        )),
+        &*launcher,
+        session,
+        cell_resolver,
+    )
+    .await?;
 
     // TODO(bobyf) remap exit code for buck reserved exit code
     let exit_code = test_outcome.exit_code().context("No exit code available")?;

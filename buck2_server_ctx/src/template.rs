@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransaction;
 
-use crate::command_end::command_end;
+use crate::command_end::command_end_ext;
 use crate::ctx::ServerCommandContextTrait;
 use crate::ctx::ServerCommandDiceContext;
 
@@ -33,6 +33,14 @@ pub trait ServerCommandTemplate: Send + Sync {
     /// Create end event. Called after command is invoked.
     fn end_event(&self) -> Self::EndEvent {
         Self::EndEvent::default()
+    }
+
+    /// Set `buck2_data::CommandEnd::is_success` to
+    /// * `command` returns `Ok`
+    /// * and this function returns `true`
+    fn is_success(&self, response: &Self::Response) -> bool {
+        let _ = response;
+        true
     }
 
     /// Command implementation.
@@ -57,7 +65,9 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
         let result = server_ctx
             .with_dice_ctx(|server_ctx, ctx| command.command(server_ctx, ctx))
             .await;
-        let end_event = command_end(metadata, &result, command.end_event());
+        let end_event = command_end_ext(metadata, &result, command.end_event(), |result| {
+            command.is_success(result)
+        });
         (result, end_event)
     })
     .await
