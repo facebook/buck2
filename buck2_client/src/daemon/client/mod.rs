@@ -524,32 +524,32 @@ impl BuckdClient {
         ))
     }
 
-    /// Create a stream that is sent over as a parameter via GRPC to the daemon.
-    ///
-    /// Ensures that we send a proper ClientContext message, and that the inner type is wrapped
-    /// properly into a [`StreamingRequest`]
-    fn create_client_stream<
-        T: Into<StreamingRequest>,
-        InStream: Stream<Item = T> + Send + Sync + 'static,
-    >(
-        context: ClientContext,
-        requests: InStream,
-    ) -> impl Stream<Item = StreamingRequest> + Send + Sync + 'static {
-        let init_req = StreamingRequest {
-            request: Some(streaming_request::Request::Context(context)),
-        };
-        stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
-    }
-
     pub async fn lsp(
         &mut self,
         context: ClientContext,
         requests: impl Stream<Item = LspRequest> + Send + Sync + 'static,
     ) -> anyhow::Result<CommandOutcome<LspResponse>> {
-        let req = Self::create_client_stream(context, requests);
+        let req = create_client_stream(context, requests);
         self.stream(|d, r| Box::pin(DaemonApiClient::lsp(d, r)), req)
             .await
     }
+}
+
+/// Create a stream that is sent over as a parameter via GRPC to the daemon.
+///
+/// Ensures that we send a proper ClientContext message, and that the inner type is wrapped
+/// properly into a [`StreamingRequest`]
+fn create_client_stream<
+    T: Into<StreamingRequest>,
+    InStream: Stream<Item = T> + Send + Sync + 'static,
+>(
+    context: ClientContext,
+    requests: InStream,
+) -> impl Stream<Item = StreamingRequest> + Send + Sync + 'static {
+    let init_req = StreamingRequest {
+        request: Some(streaming_request::Request::Context(context)),
+    };
+    stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
 }
 
 #[cfg(test)]
