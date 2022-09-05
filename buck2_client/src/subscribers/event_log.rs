@@ -629,13 +629,12 @@ impl EventSubscriber for EventLog {
 
 /// Return the place to upload logs, or None to not upload logs at all
 pub fn log_upload_url() -> Option<&'static str> {
-    // @oss-enable: #[cfg(off)]
+    #[cfg(off)]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
     } else {
         Some("https://manifold.c2p.facebook.net")
     }
-    #[cfg(off)] // @oss-disable
     {
         #[cfg(fbcode_build)]
         compile_error!("this code is not meant to be compiled in fbcode");
