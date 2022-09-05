@@ -7,6 +7,18 @@ rust_library(
     features = ["extra_logging"],
     os_deps = [
         (
+            "linux",
+            [
+                "fbsource//third-party/rust:termios",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:termios",
+            ],
+        ),
+        (
             "windows",
             [
                 "fbsource//third-party/rust:winapi",

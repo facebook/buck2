@@ -61,6 +61,9 @@ buck2_events = { path = "../buck2_events" }
 buck2_test_api = { path = "../buck2_test_api" }
 cli_proto = { path = "../cli_proto" }
 
+[target.'cfg(unix)'.dependencies]
+termios = { workspace = true }
+
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true }
 
