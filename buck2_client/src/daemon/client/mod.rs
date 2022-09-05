@@ -338,6 +338,7 @@ impl BuckdClient {
     }
 }
 
+/// Implement a streaming method with full event reporting.
 macro_rules! stream_method {
     ($method: ident, $req: ty, $res: ty) => {
         stream_method!($method, $method, $req, $res);
@@ -347,6 +348,41 @@ macro_rules! stream_method {
         pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
             self.stream(|d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)), req)
                 .await
+        }
+    };
+}
+
+/// Implement a oneshot method with full event reporting.
+macro_rules! oneshot_method {
+    ($method: ident, $req: ty, $res: ty) => {
+        oneshot_method!($method, $method, $req, $res);
+    };
+
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
+        pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
+            self.events_ctx
+                .unpack_oneshot(&mut self.tailers, || {
+                    self.client.daemon_only_mut().$method(Request::new(req))
+                })
+                .await
+        }
+    };
+}
+
+/// Implement a method that does not produce a CommandResult and does not produce any events.
+macro_rules! debug_method {
+    ($method: ident, $req: ty, $res: ty) => {
+        debug_method!($method, $method, $req, $res);
+    };
+
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
+        pub async fn $method(&mut self, req: $req) -> anyhow::Result<$res> {
+            let resp = self
+                .client
+                .daemon_only_mut()
+                .$method(Request::new(req))
+                .await?;
+            Ok(resp.into_inner())
         }
     };
 }
@@ -371,75 +407,25 @@ impl BuckdClient {
     stream_method!(unstable_docs, UnstableDocsRequest, UnstableDocsResponse);
     stream_method!(profile, profile2, ProfileRequest, ProfileResponse);
 
-    pub async fn unstable_crash(
-        &mut self,
-        req: UnstableCrashRequest,
-    ) -> anyhow::Result<UnstableCrashResponse> {
-        let resp = self
-            .client
-            .daemon_only_mut()
-            .unstable_crash(Request::new(req))
-            .await?;
-        Ok(resp.into_inner())
-    }
+    oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 
-    pub async fn segfault(&mut self, req: SegfaultRequest) -> anyhow::Result<SegfaultResponse> {
-        let resp = self
-            .client
-            .daemon_only_mut()
-            .segfault(Request::new(req))
-            .await?;
-        Ok(resp.into_inner())
-    }
-
-    pub async fn unstable_heap_dump(
-        &mut self,
-        req: UnstableHeapDumpRequest,
-    ) -> anyhow::Result<UnstableHeapDumpResponse> {
-        let resp = self
-            .client
-            .daemon_only_mut()
-            .unstable_heap_dump(Request::new(req))
-            .await?;
-        Ok(resp.into_inner())
-    }
-
-    pub async fn unstable_allocator_stats(
-        &mut self,
-        req: UnstableAllocatorStatsRequest,
-    ) -> anyhow::Result<UnstableAllocatorStatsResponse> {
-        let resp = self
-            .client
-            .daemon_only_mut()
-            .unstable_allocator_stats(Request::new(req))
-            .await?;
-        Ok(resp.into_inner())
-    }
-
-    pub async fn unstable_dice_dump(
-        &mut self,
-        req: UnstableDiceDumpRequest,
-    ) -> anyhow::Result<UnstableDiceDumpResponse> {
-        let resp = self
-            .client
-            .daemon_only_mut()
-            .unstable_dice_dump(Request::new(req))
-            .await?;
-        Ok(resp.into_inner())
-    }
-
-    pub async fn flush_dep_files(
-        &mut self,
-        req: FlushDepFilesRequest,
-    ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
-        self.events_ctx
-            .unpack_oneshot(&mut self.tailers, || {
-                self.client
-                    .daemon_only_mut()
-                    .flush_dep_files(Request::new(req))
-            })
-            .await
-    }
+    debug_method!(unstable_crash, UnstableCrashRequest, UnstableCrashResponse);
+    debug_method!(segfault, SegfaultRequest, SegfaultResponse);
+    debug_method!(
+        unstable_heap_dump,
+        UnstableHeapDumpRequest,
+        UnstableHeapDumpResponse
+    );
+    debug_method!(
+        unstable_allocator_stats,
+        UnstableAllocatorStatsRequest,
+        UnstableAllocatorStatsResponse
+    );
+    debug_method!(
+        unstable_dice_dump,
+        UnstableDiceDumpRequest,
+        UnstableDiceDumpResponse
+    );
 
     pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
         let status = self.status(false).await?;
