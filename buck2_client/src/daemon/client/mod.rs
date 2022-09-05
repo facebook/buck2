@@ -352,6 +352,25 @@ macro_rules! stream_method {
     };
 }
 
+/// Implement a bi-directional streaming method with full event reporting.
+macro_rules! bidirectional_stream_method {
+    ($method: ident, $req: ty, $res: ty) => {
+        bidirectional_stream_method!($method, $method, $req, $res);
+    };
+
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
+        pub async fn $method(
+            &mut self,
+            context: ClientContext,
+            requests: impl Stream<Item = $req> + Send + Sync + 'static,
+        ) -> anyhow::Result<CommandOutcome<$res>> {
+            let req = create_client_stream(context, requests);
+            self.stream(|d, r| Box::pin(DaemonApiClient::$method(d, r)), req)
+                .await
+        }
+    };
+}
+
 /// Implement a oneshot method with full event reporting.
 macro_rules! oneshot_method {
     ($method: ident, $req: ty, $res: ty) => {
@@ -407,6 +426,8 @@ impl BuckdClient {
     stream_method!(unstable_docs, UnstableDocsRequest, UnstableDocsResponse);
     stream_method!(profile, profile2, ProfileRequest, ProfileResponse);
 
+    bidirectional_stream_method!(lsp, LspRequest, LspResponse);
+
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 
     debug_method!(unstable_crash, UnstableCrashRequest, UnstableCrashResponse);
@@ -433,16 +454,6 @@ impl BuckdClient {
             BuckVersion::get_unique_id().to_owned(),
             status.process_info.unwrap().version,
         ))
-    }
-
-    pub async fn lsp(
-        &mut self,
-        context: ClientContext,
-        requests: impl Stream<Item = LspRequest> + Send + Sync + 'static,
-    ) -> anyhow::Result<CommandOutcome<LspResponse>> {
-        let req = create_client_stream(context, requests);
-        self.stream(|d, r| Box::pin(DaemonApiClient::lsp(d, r)), req)
-            .await
     }
 }
 
