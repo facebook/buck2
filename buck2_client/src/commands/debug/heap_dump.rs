@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::UnstableHeapDumpRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -46,14 +45,11 @@ impl StreamingCommand for HeapDumpCommand {
         _ctx: ClientCommandContext,
     ) -> ExitResult {
         buckd
-            .with_flushing(|client| {
-                client
-                    .unstable_heap_dump(UnstableHeapDumpRequest {
-                        destination_path: self.path,
-                    })
-                    .boxed()
+            .with_flushing()
+            .unstable_heap_dump(UnstableHeapDumpRequest {
+                destination_path: self.path,
             })
-            .await??;
+            .await?;
         ExitResult::success()
     }
 

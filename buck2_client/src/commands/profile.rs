@@ -16,7 +16,6 @@ use cli_proto::profile_request::Action;
 use cli_proto::profile_request::Profiler;
 use cli_proto::ProfileRequest;
 use cli_proto::ProfileResponse;
-use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
@@ -153,21 +152,18 @@ impl StreamingCommand for ProfileSubcommand {
             .ok_or(PathCannotBeConvertedToUtf8)?;
 
         let response = buckd
-            .with_flushing(|client| {
-                client
-                    .profile(ProfileRequest {
-                        context: Some(context),
-                        target_pattern: Some(buck2_data::TargetPattern {
-                            value: self.opts.target_pattern,
-                        }),
-                        destination_path,
-                        profiler: profile_mode_to_profile(profile_mode).into(),
-                        action: self.action.into(),
-                        recursive: self.opts.recursive,
-                    })
-                    .boxed()
+            .with_flushing()
+            .profile(ProfileRequest {
+                context: Some(context),
+                target_pattern: Some(buck2_data::TargetPattern {
+                    value: self.opts.target_pattern,
+                }),
+                destination_path,
+                profiler: profile_mode_to_profile(profile_mode).into(),
+                action: self.action.into(),
+                recursive: self.opts.recursive,
             })
-            .await???;
+            .await??;
         let ProfileResponse {
             elapsed,
             total_retained_bytes,

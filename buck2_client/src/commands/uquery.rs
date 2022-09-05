@@ -10,7 +10,6 @@
 use async_trait::async_trait;
 use cli_proto::QueryOutputFormat;
 use cli_proto::UqueryRequest;
-use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
@@ -218,19 +217,16 @@ impl StreamingCommand for UqueryCommand {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
-            .with_flushing(|client| {
-                client
-                    .uquery(UqueryRequest {
-                        query,
-                        query_args,
-                        context: Some(ctx),
-                        output_attributes,
-                        unstable_output_format,
-                        target_call_stacks: self.query_common.target_call_stacks,
-                    })
-                    .boxed()
+            .with_flushing()
+            .uquery(UqueryRequest {
+                query,
+                query_args,
+                context: Some(ctx),
+                output_attributes,
+                unstable_output_format,
+                target_call_stacks: self.query_common.target_call_stacks,
             })
-            .await???;
+            .await??;
 
         for message in &response.error_messages {
             crate::eprintln!("{}", message)?;

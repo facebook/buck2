@@ -69,12 +69,10 @@ impl StreamingCommand for LspCommand {
             })
         });
 
-        reborrow_stream_for_static(stream, |s| {
-            buckd
-                .with_flushing(|client| client.lsp(client_context, s).boxed())
-                .boxed()
+        reborrow_stream_for_static(stream, |stream| {
+            async move { buckd.with_flushing().lsp(client_context, stream).await }.boxed()
         })
-        .await???;
+        .await??;
 
         ExitResult::success()
     }

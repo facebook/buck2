@@ -77,18 +77,10 @@ pub struct BuckdClientConnector {
 }
 
 impl BuckdClientConnector {
-    pub async fn with_flushing<Fun, R: 'static>(&mut self, command: Fun) -> anyhow::Result<R>
-    where
-        for<'a> Fun: FnOnce(&'a mut BuckdClient) -> BoxFuture<'a, R>,
-    {
-        self.client.open_tailers()?;
-        let result = command(&mut self.client).await;
-
-        self.client
-            .events_ctx
-            .flush(&mut self.client.tailers)
-            .await?;
-        Ok(result)
+    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_> {
+        FlushingBuckdClient {
+            inner: &mut self.client,
+        }
     }
 }
 
@@ -336,6 +328,31 @@ impl BuckdClient {
             }
         }
     }
+
+    pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
+        let status = self.status(false).await?;
+        Ok(VersionCheckResult::from(
+            BuckVersion::get_unique_id().to_owned(),
+            status.process_info.unwrap().version,
+        ))
+    }
+}
+
+pub struct FlushingBuckdClient<'a> {
+    inner: &'a mut BuckdClient,
+}
+
+impl<'a> FlushingBuckdClient<'a> {
+    fn enter(&mut self) -> anyhow::Result<()> {
+        self.inner.open_tailers()?;
+        Ok(())
+    }
+
+    async fn exit(&mut self) -> anyhow::Result<()> {
+        self.inner.events_ctx.flush(&mut self.inner.tailers).await?;
+
+        Ok(())
+    }
 }
 
 /// Implement a streaming method with full event reporting.
@@ -346,8 +363,13 @@ macro_rules! stream_method {
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
         pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
-            self.stream(|d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)), req)
-                .await
+            self.enter()?;
+            let res = self
+                .inner
+                .stream(|d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)), req)
+                .await;
+            self.exit().await?;
+            res
         }
     };
 }
@@ -364,9 +386,14 @@ macro_rules! bidirectional_stream_method {
             context: ClientContext,
             requests: impl Stream<Item = $req> + Send + Sync + 'static,
         ) -> anyhow::Result<CommandOutcome<$res>> {
+            self.enter()?;
             let req = create_client_stream(context, requests);
-            self.stream(|d, r| Box::pin(DaemonApiClient::$method(d, r)), req)
-                .await
+            let res = self
+                .inner
+                .stream(|d, r| Box::pin(DaemonApiClient::$method(d, r)), req)
+                .await;
+            self.exit().await?;
+            res
         }
     };
 }
@@ -379,11 +406,19 @@ macro_rules! oneshot_method {
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
         pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
-            self.events_ctx
-                .unpack_oneshot(&mut self.tailers, || {
-                    self.client.daemon_only_mut().$method(Request::new(req))
+            self.enter()?;
+            let res = self
+                .inner
+                .events_ctx
+                .unpack_oneshot(&mut self.inner.tailers, || {
+                    self.inner
+                        .client
+                        .daemon_only_mut()
+                        .$method(Request::new(req))
                 })
-                .await
+                .await;
+            self.exit().await?;
+            res
         }
     };
 }
@@ -396,17 +431,35 @@ macro_rules! debug_method {
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
         pub async fn $method(&mut self, req: $req) -> anyhow::Result<$res> {
-            let resp = self
+            self.enter()?;
+            let out = self
+                .inner
                 .client
                 .daemon_only_mut()
                 .$method(Request::new(req))
-                .await?;
-            Ok(resp.into_inner())
+                .await;
+            self.exit().await?;
+            Ok(out?.into_inner())
         }
     };
 }
 
-impl BuckdClient {
+/// Wrap a method that exists on the BuckdClient, with flushing.
+macro_rules! wrap_method {
+    ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
+        pub async fn $method(&mut self, $($param: $param_type)*) -> anyhow::Result<$res> {
+            self.enter()?;
+            let out = self
+                .inner
+                .$method($($param)*)
+                .await;
+            self.exit().await?;
+            out
+        }
+    };
+}
+
+impl<'a> FlushingBuckdClient<'a> {
     stream_method!(clean, CleanRequest, CleanResponse);
     stream_method!(aquery, AqueryRequest, AqueryResponse);
     stream_method!(cquery, CqueryRequest, CqueryResponse);
@@ -448,13 +501,9 @@ impl BuckdClient {
         UnstableDiceDumpResponse
     );
 
-    pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
-        let status = self.status(false).await?;
-        Ok(VersionCheckResult::from(
-            BuckVersion::get_unique_id().to_owned(),
-            status.process_info.unwrap().version,
-        ))
-    }
+    wrap_method!(kill(reason: &str), ());
+    wrap_method!(status(snapshot: bool), StatusResponse);
+    wrap_method!(check_version(), VersionCheckResult);
 }
 
 /// Create a stream that is sent over as a parameter via GRPC to the daemon.

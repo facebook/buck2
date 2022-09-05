@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::InstallRequest;
-use futures::FutureExt;
 use gazebo::prelude::*;
 
 use crate::client_ctx::ClientCommandContext;
@@ -59,19 +58,16 @@ impl StreamingCommand for InstallCommand {
     ) -> ExitResult {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         let response = buckd
-            .with_flushing(|client| {
-                client
-                    .install(InstallRequest {
-                        context: Some(ctx),
-                        target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
-                            value: pat.to_owned(),
-                        }),
-                        build_opts: Some(self.build_opts.to_proto()),
-                        installer_run_args: self.extra_run_args,
-                    })
-                    .boxed()
+            .with_flushing()
+            .install(InstallRequest {
+                context: Some(ctx),
+                target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
+                    value: pat.to_owned(),
+                }),
+                build_opts: Some(self.build_opts.to_proto()),
+                installer_run_args: self.extra_run_args,
             })
-            .await?;
+            .await;
         let console = self.console_opts.final_console();
 
         match response {

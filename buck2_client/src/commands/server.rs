@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use clap::ArgMatches;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -34,9 +33,7 @@ impl StreamingCommand for ServerCommand {
         _matches: &ArgMatches,
         _ctx: ClientCommandContext,
     ) -> ExitResult {
-        let status = buckd
-            .with_flushing(|client| client.status(false).boxed())
-            .await??;
+        let status = buckd.with_flushing().status(false).await?;
         crate::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
         ExitResult::success()
     }

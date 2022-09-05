@@ -26,7 +26,6 @@ use chrono::DateTime;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
 use futures::stream::FuturesOrdered;
-use futures::FutureExt;
 use futures::TryStreamExt;
 use thiserror::Error;
 
@@ -129,15 +128,12 @@ impl StreamingCommand for RageCommand {
         crate::eprintln!("Dumping Buck2 internal state...")?;
 
         buckd
-            .with_flushing(|client| {
-                client
-                    .unstable_dice_dump(UnstableDiceDumpRequest {
-                        destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
-                        format: DiceDumpFormat::Tsv.into(),
-                    })
-                    .boxed()
+            .with_flushing()
+            .unstable_dice_dump(UnstableDiceDumpRequest {
+                destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
+                format: DiceDumpFormat::Tsv.into(),
             })
-            .await?
+            .await
             .with_context(|| {
                 format!(
                     "Dice Dump at {:?} failed to complete",

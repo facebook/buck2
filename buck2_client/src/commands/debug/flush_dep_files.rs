@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::FlushDepFilesRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -42,8 +41,9 @@ impl StreamingCommand for FlushDepFilesCommand {
         _ctx: crate::client_ctx::ClientCommandContext,
     ) -> crate::exit_result::ExitResult {
         buckd
-            .with_flushing(|client| client.flush_dep_files(FlushDepFilesRequest {}).boxed())
-            .await???;
+            .with_flushing()
+            .flush_dep_files(FlushDepFilesRequest {})
+            .await??;
         ExitResult::success()
     }
 

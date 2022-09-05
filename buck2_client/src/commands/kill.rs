@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use futures::FutureExt;
-
 use crate::client_ctx::ClientCommandContext;
 use crate::daemon::client::BuckdConnectOptions;
 
@@ -32,9 +30,7 @@ impl KillCommand {
                 }
                 Ok(mut client) => {
                     crate::eprintln!("killing buckd server")?;
-                    client
-                        .with_flushing(|client| client.kill("`buck kill` invoked").boxed())
-                        .await??;
+                    client.with_flushing().kill("`buck kill` invoked").await?;
                 }
             }
             Ok(())

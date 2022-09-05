@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::UnstableCrashRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -42,8 +41,9 @@ impl StreamingCommand for CrashCommand {
         _ctx: ClientCommandContext,
     ) -> ExitResult {
         let _err = buckd
-            .with_flushing(|client| client.unstable_crash(UnstableCrashRequest {}).boxed())
-            .await?;
+            .with_flushing()
+            .unstable_crash(UnstableCrashRequest {})
+            .await;
         ExitResult::success()
     }
 

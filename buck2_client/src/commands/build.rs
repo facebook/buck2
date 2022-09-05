@@ -21,7 +21,6 @@ use cli_proto::build_request::ResponseOptions;
 use cli_proto::build_target::BuildOutput;
 use cli_proto::BuildRequest;
 use cli_proto::BuildTarget;
-use futures::FutureExt;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
 use multimap::MultiMap;
@@ -222,33 +221,30 @@ impl StreamingCommand for BuildCommand {
         let show_default_other_outputs = false;
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
-            .with_flushing(|client| {
-                client
-                    .build(BuildRequest {
-                        context: Some(ctx),
-                        target_patterns: self
-                            .patterns
-                            .map(|p| buck2_data::TargetPattern { value: p.clone() }),
-                        unstable_print_providers: self.print_providers,
-                        build_providers: Some(BuildProviders {
-                            default_info: self.default_info() as i32,
-                            run_info: self.run_info() as i32,
-                            test_info: self.test_info() as i32,
-                        }),
-                        response_options: Some(ResponseOptions {
-                            return_outputs: self.show_output
-                                || self.show_full_output
-                                || self.show_json_output
-                                || self.show_full_json_output
-                                || self.output_path.is_some(),
-                            return_default_other_outputs: show_default_other_outputs,
-                        }),
-                        build_opts: Some(self.build_opts.to_proto()),
-                        final_artifact_materializations: self.materializations.to_proto() as i32,
-                    })
-                    .boxed()
+            .with_flushing()
+            .build(BuildRequest {
+                context: Some(ctx),
+                target_patterns: self
+                    .patterns
+                    .map(|p| buck2_data::TargetPattern { value: p.clone() }),
+                unstable_print_providers: self.print_providers,
+                build_providers: Some(BuildProviders {
+                    default_info: self.default_info() as i32,
+                    run_info: self.run_info() as i32,
+                    test_info: self.test_info() as i32,
+                }),
+                response_options: Some(ResponseOptions {
+                    return_outputs: self.show_output
+                        || self.show_full_output
+                        || self.show_json_output
+                        || self.show_full_json_output
+                        || self.output_path.is_some(),
+                    return_default_other_outputs: show_default_other_outputs,
+                }),
+                build_opts: Some(self.build_opts.to_proto()),
+                final_artifact_materializations: self.materializations.to_proto() as i32,
             })
-            .await?;
+            .await;
         let success = match &result {
             Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),
             Ok(CommandOutcome::Failure(_)) => false,

@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use chrono::NaiveDateTime;
 use clap::ArgMatches;
-use futures::FutureExt;
 use humantime::format_duration;
 
 use crate::client_ctx::ClientCommandContext;
@@ -37,9 +36,7 @@ impl StatusCommand {
                     Ok(())
                 }
                 Ok(mut client) => {
-                    let status = client
-                        .with_flushing(|client| client.status(self.snapshot).boxed())
-                        .await??;
+                    let status = client.with_flushing().status(self.snapshot).await?;
                     let timestamp = match status.start_time {
                         None => "unknown".to_owned(),
                         Some(timestamp) => {

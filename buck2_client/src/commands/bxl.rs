@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use cli_proto::BxlRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::command_outcome::CommandOutcome;
@@ -64,20 +63,17 @@ impl StreamingCommand for BxlCommand {
     ) -> ExitResult {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
-            .with_flushing(|client| {
-                client
-                    .bxl(BxlRequest {
-                        context: Some(ctx),
-                        bxl_label: self.bxl_label,
-                        bxl_args: self.bxl_args,
-                        build_opts: Some(self.build_opts.to_proto()),
-                        final_artifact_materializations: self.materializations.to_proto() as i32,
-                    })
-                    .boxed()
+            .with_flushing()
+            .bxl(BxlRequest {
+                context: Some(ctx),
+                bxl_label: self.bxl_label,
+                bxl_args: self.bxl_args,
+                build_opts: Some(self.build_opts.to_proto()),
+                final_artifact_materializations: self.materializations.to_proto() as i32,
             })
             .await;
         let success = match &result {
-            Ok(Ok(CommandOutcome::Success(response))) => response.error_messages.is_empty(),
+            Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),
             _ => false,
         };
 
@@ -91,7 +87,7 @@ impl StreamingCommand for BxlCommand {
 
         // Action errors will have already been printed, but any other type
         // of error will be printed below the FAILED line here.
-        let response = result???;
+        let response = result??;
 
         print_build_result(&console, &response.error_messages)?;
 

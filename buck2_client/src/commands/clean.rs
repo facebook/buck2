@@ -10,7 +10,6 @@
 use async_trait::async_trait;
 use buck2_core::fs::fs_util::remove_dir_all;
 use cli_proto::CleanRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::command_outcome::CommandOutcome;
@@ -52,23 +51,19 @@ impl StreamingCommand for CleanCommand {
     ) -> ExitResult {
         let client_ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
-            .with_flushing(|client| {
-                client
-                    .clean(CleanRequest {
-                        context: Some(client_ctx),
-                        dry_run: self.dry_run,
-                    })
-                    .boxed()
+            .with_flushing()
+            .clean(CleanRequest {
+                context: Some(client_ctx),
+                dry_run: self.dry_run,
             })
             .await?;
 
         let success = match &result {
-            Ok(CommandOutcome::Success(_)) => true,
-            Ok(CommandOutcome::Failure(_)) => false,
-            Err(_) => false,
+            CommandOutcome::Success(_) => true,
+            CommandOutcome::Failure(_) => false,
         };
 
-        let response = result??;
+        let response = result?;
         let console = self.console_opts.final_console();
 
         let daemon_dir = ctx.paths()?.daemon_dir()?;

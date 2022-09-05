@@ -22,7 +22,6 @@ use buck2_client::exit_result::ExitResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
 use cli_proto::GenericRequest;
-use futures::FutureExt;
 
 use crate::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::cell::AuditCellCommand;
@@ -142,15 +141,12 @@ impl StreamingCommand for AuditCommand {
         };
 
         buckd
-            .with_flushing(|client| {
-                client
-                    .audit(GenericRequest {
-                        context: Some(context),
-                        serialized_opts: serialized,
-                    })
-                    .boxed()
+            .with_flushing()
+            .audit(GenericRequest {
+                context: Some(context),
+                serialized_opts: serialized,
             })
-            .await???;
+            .await??;
         ExitResult::success()
     }
 

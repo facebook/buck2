@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::UnstableAllocatorStatsRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -48,14 +47,11 @@ impl StreamingCommand for AllocatorStatsCommand {
         _ctx: ClientCommandContext,
     ) -> ExitResult {
         let res = buckd
-            .with_flushing(|client| {
-                client
-                    .unstable_allocator_stats(UnstableAllocatorStatsRequest {
-                        options: self.options,
-                    })
-                    .boxed()
+            .with_flushing()
+            .unstable_allocator_stats(UnstableAllocatorStatsRequest {
+                options: self.options,
             })
-            .await??;
+            .await?;
 
         crate::print!("{}", res.response)?;
 

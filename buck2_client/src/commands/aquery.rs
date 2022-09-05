@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::AqueryRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -71,18 +70,15 @@ impl StreamingCommand for AqueryCommand {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
-            .with_flushing(|client| {
-                client
-                    .aquery(AqueryRequest {
-                        query,
-                        query_args,
-                        context: Some(ctx),
-                        output_attributes,
-                        unstable_output_format,
-                    })
-                    .boxed()
+            .with_flushing()
+            .aquery(AqueryRequest {
+                query,
+                query_args,
+                context: Some(ctx),
+                output_attributes,
+                unstable_output_format,
             })
-            .await???;
+            .await??;
 
         for message in &response.error_messages {
             crate::eprintln!("{}", message)?;

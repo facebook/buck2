@@ -26,7 +26,6 @@ use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
 use fs2::FileExt;
 use futures::future::try_join3;
-use futures::FutureExt;
 use gazebo::prelude::StrExt;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
@@ -339,24 +338,15 @@ impl BuckdConnectOptions {
         // Even if we didn't connect before, it's possible that we just raced with another invocation
         // starting the server, so we try to connect again while holding the lock.
         if let Ok(mut client) = self.try_connect_existing(paths).await {
-            if self.existing_only
-                || client
-                    .0
-                    .with_flushing(|client| client.check_version().boxed())
-                    .await??
-                    .is_match()
-            {
+            if self.existing_only || client.0.with_flushing().check_version().await?.is_match() {
                 // either the version matches or we don't care about the version, return the client.
                 return Ok(client);
             }
             client
                 .0
-                .with_flushing(|client| {
-                    client
-                        .kill("client expected different buck version")
-                        .boxed()
-                })
-                .await??;
+                .with_flushing()
+                .kill("client expected different buck version")
+                .await?;
         }
         // Now there's definitely no server that can be connected to
         // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
@@ -380,11 +370,7 @@ impl BuckdConnectOptions {
             return Ok(client);
         }
 
-        match client
-            .0
-            .with_flushing(|client| client.check_version().boxed())
-            .await??
-        {
+        match client.0.with_flushing().check_version().await? {
             VersionCheckResult::Match => Ok(client),
             VersionCheckResult::Mismatch { expected, actual } => {
                 Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())

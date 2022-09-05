@@ -10,7 +10,6 @@
 use async_trait::async_trait;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -54,15 +53,12 @@ impl StreamingCommand for DiceDumpCommand {
             DiceDumpFormat::Tsv
         };
         buckd
-            .with_flushing(|client| {
-                client
-                    .unstable_dice_dump(UnstableDiceDumpRequest {
-                        destination_path: self.path,
-                        format: format.into(),
-                    })
-                    .boxed()
+            .with_flushing()
+            .unstable_dice_dump(UnstableDiceDumpRequest {
+                destination_path: self.path,
+                format: format.into(),
             })
-            .await??;
+            .await?;
         ExitResult::success()
     }
 

@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::MaterializeRequest;
-use futures::FutureExt;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -55,15 +54,12 @@ impl StreamingCommand for MaterializeCommand {
     ) -> ExitResult {
         let ctx = ctx.client_context(&self.config_opts, matches)?;
         buckd
-            .with_flushing(|client| {
-                client
-                    .materialize(MaterializeRequest {
-                        context: Some(ctx),
-                        paths: self.paths,
-                    })
-                    .boxed()
+            .with_flushing()
+            .materialize(MaterializeRequest {
+                context: Some(ctx),
+                paths: self.paths,
             })
-            .await???;
+            .await??;
 
         ExitResult::success()
     }

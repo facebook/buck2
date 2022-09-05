@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::fs::paths::AbsPath;
 use cli_proto::targets_request;
 use cli_proto::TargetsRequest;
-use futures::future::FutureExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -253,8 +252,9 @@ async fn targets_show_outputs(
     root_path: Option<&AbsPath>,
 ) -> ExitResult {
     let response = buckd
-        .with_flushing(|client| client.targets_show_outputs(target_request).boxed())
-        .await???;
+        .with_flushing()
+        .targets_show_outputs(target_request)
+        .await??;
     for target_paths in response.targets_paths {
         for path in target_paths.paths {
             let path = if cfg!(windows) {
@@ -278,9 +278,7 @@ async fn targets_show_outputs(
 }
 
 async fn targets(mut buckd: BuckdClientConnector, target_request: TargetsRequest) -> ExitResult {
-    let response = buckd
-        .with_flushing(|client| client.targets(target_request).boxed())
-        .await???;
+    let response = buckd.with_flushing().targets(target_request).await??;
     if !response.serialized_targets_output.is_empty() {
         crate::print!("{}", response.serialized_targets_output)?;
     }

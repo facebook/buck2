@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use cli_proto::SegfaultRequest;
-use futures::FutureExt;
 
 use crate::commands::streaming::StreamingCommand;
 use crate::common::CommonBuildConfigurationOptions;
@@ -31,9 +30,7 @@ impl StreamingCommand for SegfaultCommand {
         _matches: &clap::ArgMatches,
         _ctx: crate::client_ctx::ClientCommandContext,
     ) -> crate::exit_result::ExitResult {
-        let _err = buckd
-            .with_flushing(|client| client.segfault(SegfaultRequest {}).boxed())
-            .await?;
+        let _err = buckd.with_flushing().segfault(SegfaultRequest {}).await;
         ExitResult::success()
     }
 

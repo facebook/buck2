@@ -9,7 +9,6 @@ use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use cli_proto::UnstableDocsRequest;
-use futures::FutureExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::values::docs::Doc;
@@ -82,17 +81,14 @@ impl StreamingCommand for DocsStarlarkCommand {
         let client_context = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
-            .with_flushing(|client| {
-                client
-                    .unstable_docs(UnstableDocsRequest {
-                        context: Some(client_context),
-                        symbol_patterns: self.patterns.clone(),
-                        retrieve_builtins: self.builtins,
-                        retrieve_prelude: self.prelude,
-                    })
-                    .boxed()
+            .with_flushing()
+            .unstable_docs(UnstableDocsRequest {
+                context: Some(client_context),
+                symbol_patterns: self.patterns.clone(),
+                retrieve_builtins: self.builtins,
+                retrieve_prelude: self.prelude,
             })
-            .await???;
+            .await??;
 
         let docs: Vec<Doc> = response
             .docs
