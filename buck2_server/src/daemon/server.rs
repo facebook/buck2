@@ -910,7 +910,7 @@ impl DaemonApi for BuckdServer {
         }
 
         self.run_streaming(req, ProfileCommandOptions, |ctx, req| {
-            profile_command(ctx, req)
+            profile_command(box ctx, req)
         })
         .await
     }

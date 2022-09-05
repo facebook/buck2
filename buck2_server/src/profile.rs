@@ -42,8 +42,6 @@ use dice::DiceTransaction;
 use gazebo::prelude::*;
 use starlark::eval::ProfileMode;
 
-use crate::ctx::ServerCommandContext;
-
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
     package: Package,
@@ -151,7 +149,7 @@ pub(crate) fn starlark_profiler_configuration_from_request(
 }
 
 pub(crate) async fn profile_command(
-    ctx: ServerCommandContext,
+    ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::ProfileRequest,
 ) -> anyhow::Result<cli_proto::ProfileResponse> {
     let metadata = ctx.request_metadata()?;
@@ -170,7 +168,6 @@ pub(crate) async fn profile_command(
 
             let context = req.context.context("Missing client context")?;
             let target_pattern = req.target_pattern.context("Missing target pattern")?;
-            let ctx: Box<dyn ServerCommandContextTrait> = box ctx;
             let profile_data = ctx
                 .with_dice_ctx(|ctx, dice_ctx| {
                     generate_profile(
