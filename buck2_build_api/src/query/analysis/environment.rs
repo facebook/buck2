@@ -469,13 +469,16 @@ impl std::hash::Hash for ConfiguredGraphNodeRef {
 
 impl NodeLabel for ConfiguredGraphNodeRef {}
 
-impl QueryTarget for ConfiguredGraphNodeRef {
+impl LabeledNode for ConfiguredGraphNodeRef {
     type NodeRef = ConfiguredGraphNodeRef;
-    type Attr = ConfiguredAttr;
 
     fn node_ref(&self) -> &Self::NodeRef {
         self
     }
+}
+
+impl QueryTarget for ConfiguredGraphNodeRef {
+    type Attr = ConfiguredAttr;
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Borrowed(self.0.rule_type().name())

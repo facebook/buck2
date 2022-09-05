@@ -10,6 +10,7 @@
 use std::fmt;
 use std::fmt::Display;
 
+use buck2_query::query::environment::LabeledNode;
 use fancy_regex::Regex;
 use gazebo::display::display_container;
 use indexmap::IndexSet;

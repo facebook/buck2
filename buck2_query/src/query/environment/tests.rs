@@ -34,13 +34,16 @@ impl fmt::Debug for TestTarget {
     }
 }
 
-impl QueryTarget for TestTarget {
+impl LabeledNode for TestTarget {
     type NodeRef = TestTargetId;
-    type Attr = TestTargetAttr;
 
     fn node_ref(&self) -> &Self::NodeRef {
         &self.id
     }
+}
+
+impl QueryTarget for TestTarget {
+    type Attr = TestTargetAttr;
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, _func: F) -> Result<(), E> {
         unimplemented!()
@@ -128,7 +131,7 @@ impl QueryEnvironment for TestEnv {
 
     async fn get_node(
         &self,
-        node_ref: &<Self::Target as QueryTarget>::NodeRef,
+        node_ref: &<Self::Target as LabeledNode>::NodeRef,
     ) -> anyhow::Result<Self::Target> {
         <Self as NodeLookup<TestTarget>>::get(self, node_ref)
     }

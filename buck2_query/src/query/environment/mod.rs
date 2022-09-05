@@ -81,11 +81,8 @@ impl QueryTargets {
     }
 }
 
-pub trait QueryTarget: Dupe + Send + Sync + 'static {
-    type NodeRef: NodeLabel;
+pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     type Attr: ?Sized + Display + Debug + Serialize;
-
-    fn node_ref(&self) -> &Self::NodeRef;
 
     /// Returns the input files for this node.
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, func: F) -> Result<(), E>;
@@ -128,14 +125,6 @@ pub trait QueryTarget: Dupe + Send + Sync + 'static {
     fn call_stack(&self) -> Option<String>;
 }
 
-impl<T: QueryTarget> LabeledNode for T {
-    type NodeRef = T::NodeRef;
-
-    fn node_ref(&self) -> &Self::NodeRef {
-        QueryTarget::node_ref(self)
-    }
-}
-
 #[async_trait]
 pub trait TraversalFilter<T: QueryTarget>: Send + Sync {
     /// Returns a the children that pass this filter.
@@ -150,7 +139,7 @@ pub trait QueryEnvironment: Send + Sync {
 
     async fn get_node(
         &self,
-        node_ref: &<Self::Target as QueryTarget>::NodeRef,
+        node_ref: &<Self::Target as LabeledNode>::NodeRef,
     ) -> anyhow::Result<Self::Target>;
 
     /// Evaluates a literal target pattern. See buck2_common::pattern
@@ -354,7 +343,7 @@ pub trait QueryEnvironment: Send + Sync {
                     let test = self.get_node(&test).await.with_context(|| {
                         format!(
                             "Error getting test of target {}",
-                            QueryTarget::node_ref(target),
+                            LabeledNode::node_ref(target),
                         )
                     })?;
                     anyhow::Ok(test)

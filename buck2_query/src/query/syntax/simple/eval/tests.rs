@@ -16,6 +16,7 @@ use std::borrow::Cow;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_query::query::environment::LabeledNode;
 use buck2_query_parser::parse_expr;
 use derive_more::Display;
 use gazebo::prelude::*;
@@ -40,13 +41,17 @@ struct TargetAttr(String);
 
 #[derive(Debug, Clone, Dupe, Eq, PartialEq)]
 struct Target {}
-impl QueryTarget for Target {
+
+impl LabeledNode for Target {
     type NodeRef = TargetRef;
-    type Attr = TargetAttr;
 
     fn node_ref(&self) -> &Self::NodeRef {
         unimplemented!()
     }
+}
+
+impl QueryTarget for Target {
+    type Attr = TargetAttr;
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, _func: F) -> Result<(), E> {
         unimplemented!()

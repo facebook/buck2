@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::TargetLabel;
+use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
 use gazebo::dupe::Dupe;
 
@@ -19,13 +20,16 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 
-impl QueryTarget for TargetNode {
+impl LabeledNode for TargetNode {
     type NodeRef = TargetLabel;
-    type Attr = CoercedAttr;
 
     fn node_ref(&self) -> &Self::NodeRef {
         TargetNode::label(self)
     }
+}
+
+impl QueryTarget for TargetNode {
+    type Attr = CoercedAttr;
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Borrowed(TargetNode::rule_type(self).name())

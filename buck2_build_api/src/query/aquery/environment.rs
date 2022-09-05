@@ -18,6 +18,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
@@ -119,13 +120,16 @@ impl ActionQueryNode {
     }
 }
 
-impl QueryTarget for ActionQueryNode {
+impl LabeledNode for ActionQueryNode {
     type NodeRef = ActionKey;
-    type Attr = ActionAttr;
 
     fn node_ref(&self) -> &Self::NodeRef {
         self.action.key()
     }
+}
+
+impl QueryTarget for ActionQueryNode {
+    type Attr = ActionAttr;
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Owned(self.action.kind().variant_name().to_ascii_lowercase())

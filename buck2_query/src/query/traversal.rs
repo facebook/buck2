@@ -355,13 +355,17 @@ mod tests {
 
     impl NodeLabel for Ref {}
 
-    impl QueryTarget for Node {
+    impl LabeledNode for Node {
         type NodeRef = Ref;
-        type Attr = Attr;
 
         fn node_ref(&self) -> &Self::NodeRef {
             &self.0
         }
+    }
+
+    impl QueryTarget for Node {
+        type Attr = Attr;
+
         fn rule_type(&self) -> Cow<str> {
             unimplemented!()
         }
