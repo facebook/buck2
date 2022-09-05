@@ -94,16 +94,10 @@ async fn bxl(
 
     // Targets with cell aliases should be resolved against the cell mapping
     // as defined the cell derived from the cwd.
-    let cell = cell_resolver
-        .get(cell_name)
-        .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
-        .dupe();
+    let cell = cell_resolver.get(cell_name)?.dupe();
 
     // The same goes for target aliases.
-    let config = ctx
-        .get_legacy_config_for_cell(cell_name)
-        .await
-        .with_context(|| format!("No configuration for cell: `{}`", cell_name))?;
+    let config = ctx.get_legacy_config_for_cell(cell_name).await?;
 
     let target_alias_resolver = config.target_alias_resolver();
 
