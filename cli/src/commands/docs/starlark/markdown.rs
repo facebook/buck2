@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_core::fs::fs_util;
 // TODO(nga): `output_subdir_for_doc` is the only function which prevents
 //   moving `docs` command to `buck2_client`. Possible solution is to generate docs
 //   (or maybe even write to the filesystem) on the server side.
@@ -38,9 +39,9 @@ impl MarkdownOutput {
             contents.push('\n');
         }
         if let Some(p) = path.parent() {
-            std::fs::create_dir_all(p)?;
+            fs_util::create_dir_all(p)?;
         }
-        std::fs::write(path, &contents)?;
+        fs_util::write(path, &contents)?;
 
         Ok(contents)
     }
@@ -263,11 +264,11 @@ mod tests {
         };
 
         generate_markdown_files(&opts, docs)?;
-        let native = std::fs::read_to_string(temp.path().join("native/native.md"))?;
-        let native_subdir = std::fs::read_to_string(temp.path().join("native/subdir/native.md"))?;
+        let native = fs_util::read_to_string(temp.path().join("native/native.md"))?;
+        let native_subdir = fs_util::read_to_string(temp.path().join("native/subdir/native.md"))?;
         let native_builtin_subdir =
-            std::fs::read_to_string(temp.path().join("native/builtin_subdir/native.md"))?;
-        let starlark = std::fs::read_to_string(temp.path().join("starlark/foo.bzl.md"))?;
+            fs_util::read_to_string(temp.path().join("native/builtin_subdir/native.md"))?;
+        let starlark = fs_util::read_to_string(temp.path().join("starlark/foo.bzl.md"))?;
 
         assert_eq!(expected_native, native);
         assert_eq!(expected_native_subdir, native_subdir);

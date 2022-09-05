@@ -20,6 +20,7 @@ use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_trait::async_trait;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_data::buck_event;
@@ -542,7 +543,7 @@ async fn remove_old_logs(logdir: &Path) {
 
 /// List logs in logdir, ordered from oldest to newest.
 pub fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
-    let dir = std::fs::read_dir(logdir)?;
+    let dir = fs_util::read_dir(logdir)?;
     let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
     logfiles.sort_by_cached_key(|file| {
         // Return Unix epoch if unable to get creation time.
