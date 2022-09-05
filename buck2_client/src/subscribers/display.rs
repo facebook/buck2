@@ -148,10 +148,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                         Some(name) => format!("{} {}", name.category, name.identifier),
                         _ => "unknown".to_owned(),
                     };
-                    Ok(format!(
-                        "{} -- running action ({})",
-                        string, action_descriptor
-                    ))
+                    Ok(format!("{} -- action ({})", string, action_descriptor))
                 }
                 None => Err(ParseEventError::MissingActionKey.into()),
             },

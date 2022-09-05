@@ -618,11 +618,11 @@ mod tests {
             superconsole::line![Span::sanitized("-".repeat(80))],
             superconsole::line![
                 Span::new_styled(
-                    "pkg:target -- running action (category identifier) [prepare 5.0s]"
+                    "pkg:target -- action (category identifier) [prepare 5.0s]"
                         .to_owned()
                         .dark_red()
                 )?,
-                Span::padding(10),
+                Span::padding(18),
                 Span::new_styled("10.0s".to_owned().dark_red())?,
             ],
         ];
@@ -676,11 +676,11 @@ mod tests {
             superconsole::line![Span::sanitized("-".repeat(80))],
             superconsole::line![
                 Span::new_styled(
-                    "pkg:target -- running action (category identifier)"
+                    "pkg:target -- action (category identifier)"
                         .to_owned()
                         .dark_red()
                 )?,
-                Span::padding(25),
+                Span::padding(33),
                 Span::new_styled("10.0s".to_owned().dark_red())?,
             ],
             superconsole::line![
