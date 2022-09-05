@@ -492,6 +492,7 @@ mod tests {
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::Configuration;
+    use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRelativePath;
@@ -630,11 +631,11 @@ mod tests {
 
         fs.write_file(artifact1.get_path(), "artifact1", false)?;
 
-        assert_eq!("artifact1", std::fs::read_to_string(&expected_path1)?);
+        assert_eq!("artifact1", fs_util::read_to_string(&expected_path1)?);
 
         fs.write_file(artifact2.get_path(), "artifact2", true)?;
 
-        assert_eq!("artifact2", std::fs::read_to_string(&expected_path2)?);
+        assert_eq!("artifact2", fs_util::read_to_string(&expected_path2)?);
 
         fs.write_file(artifact3.get_path(), "artifact3", false)
             .expect_err("should fail because bar.cpp is a file");
@@ -645,9 +646,9 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             // Unix permission bits
             let artifact1_executable =
-                std::fs::metadata(expected_path1)?.permissions().mode() & 0o100 != 0;
+                fs_util::metadata(expected_path1)?.permissions().mode() & 0o100 != 0;
             let artifact2_executable =
-                std::fs::metadata(expected_path2)?.permissions().mode() & 0o100 != 0;
+                fs_util::metadata(expected_path2)?.permissions().mode() & 0o100 != 0;
 
             assert_eq!(false, artifact1_executable);
             assert_eq!(true, artifact2_executable);

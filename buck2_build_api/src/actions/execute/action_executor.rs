@@ -420,7 +420,6 @@ impl ActionExecutor for BuckActionExecutor {
 mod tests {
     use std::borrow::Cow;
     use std::collections::HashMap;
-    use std::fs;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -437,6 +436,7 @@ mod tests {
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::Configuration;
+    use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -653,7 +653,7 @@ mod tests {
     fn test_cleanup_path_missing() -> anyhow::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
-        fs::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
+        fs_util::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux/xx"))?;
         assert!(
             fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux"))
@@ -666,7 +666,7 @@ mod tests {
     fn test_cleanup_path_present() -> anyhow::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
-        fs::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
+        fs_util::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
         cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
         assert!(
             !fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux"))
