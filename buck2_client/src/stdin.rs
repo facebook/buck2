@@ -4,6 +4,7 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
+use buck2_core::env_helper::EnvHelper;
 use bytes::Bytes;
 use futures::stream::Fuse;
 use futures::stream::StreamExt;
@@ -31,27 +32,32 @@ impl AsyncRead for Stdin {
 }
 
 impl Stdin {
-    pub fn new() -> Self {
-        // Small buffer, this isn't bytes we're buffering.
+    pub fn new() -> anyhow::Result<Self> {
+        static STDIN_BUFFER_SIZE: EnvHelper<usize> = EnvHelper::new("BUCK2_TEST_STDIN_BUFFER_SIZE");
+        let buffer_size = STDIN_BUFFER_SIZE.get()?.copied().unwrap_or(8192);
+
+        // Small buffer, this isn't bytes we're buffering, just buffers of bytes. That said, sicne
+        // we're on separate threads, give ourselves a bit of buffering.
         let (mut tx, rx) = mpsc::channel(4);
 
         std::thread::spawn(move || {
             // NOTE: We ignore send errors since there is no point in reading without a receiver.
             let stdin = std::io::stdin().lock();
-            let _ignored = read_and_forward(stdin, &mut tx);
+            let _ignored = read_and_forward(stdin, &mut tx, buffer_size);
         });
 
-        Self {
+        Ok(Self {
             stream: StreamReader::new(ReceiverStream::new(rx).fuse()),
-        }
+        })
     }
 }
 
 fn read_and_forward(
     mut io: impl Read,
     tx: &mut mpsc::Sender<io::Result<Bytes>>,
+    buffer_size: usize,
 ) -> Result<(), mpsc::error::SendError<io::Result<Bytes>>> {
-    let mut buff = vec![0; 8192];
+    let mut buff = vec![0; buffer_size];
 
     loop {
         match io.read(&mut buff) {

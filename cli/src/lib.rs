@@ -207,7 +207,7 @@ impl CommandKind {
             return cmd.exec(init, paths?, common_opts.detect_cycles).into();
         }
 
-        let stdin = Stdin::new();
+        let stdin = Stdin::new()?;
 
         let guard = AsyncCleanupContextGuard::new();
         let async_cleanup_context = guard.ctx().dupe();
