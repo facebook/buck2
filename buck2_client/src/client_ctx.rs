@@ -16,7 +16,6 @@ use buck2_common::result::SharedResult;
 use buck2_events::TraceId;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
-use dice::cycles::DetectCycles;
 use gazebo::dupe::Dupe;
 use tokio::runtime::Builder;
 
@@ -31,7 +30,6 @@ use crate::verbosity::Verbosity;
 pub struct ClientCommandContext {
     pub init: fbinit::FacebookInit,
     pub paths: SharedResult<InvocationPaths>,
-    pub detect_cycles: Option<DetectCycles>,
     pub replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     pub verbosity: Verbosity,
     pub replay_speed: Option<f64>,

@@ -23,7 +23,6 @@ use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
-use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
@@ -368,12 +367,13 @@ impl DaemonCommand {
     }
 
     pub(crate) fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        &self,
+        init: fbinit::FacebookInit,
+        paths: InvocationPaths,
+        detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<()> {
-        let project_root = ctx.paths()?.project_root();
-        let daemon_dir = ctx.paths()?.daemon_dir()?;
+        let project_root = paths.project_root();
+        let daemon_dir = paths.daemon_dir()?;
         let stdout_path = daemon_dir.join(ForwardRelativePath::new("buckd.stdout")?);
         let stderr_path = daemon_dir.join(ForwardRelativePath::new("buckd.stderr")?);
         let pid_path = daemon_dir.join(ForwardRelativePath::new("buckd.pid")?);
@@ -400,7 +400,7 @@ impl DaemonCommand {
 
         maybe_schedule_termination()?;
 
-        self.run(ctx.fbinit(), ctx.paths?, ctx.detect_cycles)?;
+        self.run(init, paths, detect_cycles)?;
         Ok(())
     }
 

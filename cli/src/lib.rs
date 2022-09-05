@@ -27,7 +27,6 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::args::expand_argfiles;
-use buck2_client::cleanup_ctx::AsyncCleanupContext;
 use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::client_ctx::ClientCommandContext;
 use buck2_client::commands::aquery::AqueryCommand;
@@ -126,20 +125,14 @@ impl Opt {
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
         replayer: Option<Replayer>,
-        async_cleanup_context: AsyncCleanupContext,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        self.cmd.exec(
-            subcommand_matches,
-            self.common_opts,
-            init,
-            replayer,
-            async_cleanup_context,
-        )
+        self.cmd
+            .exec(subcommand_matches, self.common_opts, init, replayer)
     }
 }
 
@@ -149,15 +142,12 @@ pub fn exec(
     init: fbinit::FacebookInit,
     replayer: Option<Replayer>,
 ) -> ExitResult {
-    let guard = AsyncCleanupContextGuard::new();
-    let async_cleanup_context = guard.ctx().dupe();
-
     let expanded_args = expand_argfiles(args, &cwd).context("Error expanding argsfiles")?;
 
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
-    opt.exec(&matches, init, replayer, async_cleanup_context)
+    opt.exec(&matches, init, replayer)
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -201,26 +191,36 @@ impl CommandKind {
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
         replayer: Option<Replayer>,
-        async_cleanup_context: AsyncCleanupContext,
     ) -> ExitResult {
         let roots = invocation_roots::find_current_invocation_roots();
+        let paths = roots
+            .map(|r| InvocationPaths {
+                roots: r,
+                isolation: common_opts.isolation_dir,
+            })
+            .shared_error();
+
+        // Handle the daemon command earlier: it wants to fork, but the things we do below might
+        // want to create threads.
+        if let CommandKind::Daemon(cmd) = &self {
+            return cmd.exec(init, paths?, common_opts.detect_cycles).into();
+        }
+
+        let guard = AsyncCleanupContextGuard::new();
+        let async_cleanup_context = guard.ctx().dupe();
+
         let replay_speed = replayer.as_ref().map(|r| r.speed());
         let command_ctx = ClientCommandContext {
             init,
-            paths: roots
-                .map(|r| InvocationPaths {
-                    roots: r,
-                    isolation: common_opts.isolation_dir,
-                })
-                .shared_error(),
-            detect_cycles: common_opts.detect_cycles,
+            paths,
             replayer: replayer.map(sync_wrapper::SyncWrapper::new),
             replay_speed,
             verbosity: common_opts.verbosity,
             async_cleanup_context,
         };
+
         match self {
-            CommandKind::Daemon(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Daemon(..) => unreachable!("Checked earlier"),
             CommandKind::Forkserver(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
