@@ -60,7 +60,7 @@ impl StreamingCommand for MaterializeCommand {
                     context: Some(context),
                     paths: self.paths,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
 

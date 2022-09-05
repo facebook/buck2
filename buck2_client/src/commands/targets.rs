@@ -225,18 +225,18 @@ impl StreamingCommand for TargetsCommand {
         };
 
         if self.show_output {
-            targets_show_outputs(&mut ctx.stdin, buckd, target_request, None).await
+            targets_show_outputs(ctx.stdin(), buckd, target_request, None).await
         } else if self.show_full_output {
-            let project_root = ctx.paths?.roots.project_root;
+            let project_root = ctx.paths()?.roots.project_root.clone();
             targets_show_outputs(
-                &mut ctx.stdin,
+                ctx.stdin(),
                 buckd,
                 target_request,
                 Some(project_root.root()),
             )
             .await
         } else {
-            targets(&mut ctx.stdin, buckd, target_request).await
+            targets(ctx.stdin(), buckd, target_request).await
         }
     }
 

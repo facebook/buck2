@@ -147,7 +147,7 @@ impl StreamingCommand for AuditCommand {
                     context: Some(context),
                     serialized_opts: serialized,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
         ExitResult::success()

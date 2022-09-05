@@ -82,6 +82,11 @@ impl ReplayCommand {
         // add --no-event-log to prevent recursion
         args.push(NO_EVENT_LOG.to_owned());
 
-        exec(args, working_dir, ctx.init, Some(replayer))
+        exec(
+            args,
+            working_dir,
+            ctx.init,
+            Some((ctx.process_context, replayer)),
+        )
     }
 }

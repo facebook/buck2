@@ -68,7 +68,7 @@ impl StreamingCommand for InstallCommand {
                     build_opts: Some(self.build_opts.to_proto()),
                     installer_run_args: self.extra_run_args,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await;
         let console = self.console_opts.final_console();

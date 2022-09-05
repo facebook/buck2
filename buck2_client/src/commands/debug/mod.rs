@@ -20,6 +20,7 @@ use materialize::MaterializeCommand;
 use replay::ReplayCommand;
 
 use crate::client_ctx::ClientCommandContext;
+use crate::client_ctx::ProcessContext;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
@@ -74,7 +75,12 @@ pub enum DebugCommand {
 }
 
 /// `cli::exec` function.
-pub type ExecFn = fn(Vec<String>, PathBuf, fbinit::FacebookInit, Option<Replayer>) -> ExitResult;
+pub type ExecFn = fn(
+    Vec<String>,
+    PathBuf,
+    fbinit::FacebookInit,
+    Option<(ProcessContext, Replayer)>,
+) -> ExitResult;
 
 impl DebugCommand {
     pub fn exec(

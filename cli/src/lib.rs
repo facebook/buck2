@@ -27,8 +27,8 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::args::expand_argfiles;
-use buck2_client::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client::client_ctx::ClientCommandContext;
+use buck2_client::client_ctx::ProcessContext;
 use buck2_client::commands::aquery::AqueryCommand;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
@@ -51,7 +51,6 @@ use buck2_client::commands::test::TestCommand;
 use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
-use buck2_client::stdin::Stdin;
 use buck2_client::verbosity::Verbosity;
 use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -61,7 +60,6 @@ use buck2_core::fs::paths::FileNameBuf;
 use clap::AppSettings;
 use clap::Parser;
 use dice::cycles::DetectCycles;
-use gazebo::dupe::Dupe;
 
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
@@ -125,7 +123,7 @@ impl Opt {
         self,
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
-        replayer: Option<Replayer>,
+        replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -133,7 +131,7 @@ impl Opt {
         };
 
         self.cmd
-            .exec(subcommand_matches, self.common_opts, init, replayer)
+            .exec(subcommand_matches, self.common_opts, init, replay)
     }
 }
 
@@ -141,14 +139,14 @@ pub fn exec(
     args: Vec<String>,
     cwd: PathBuf,
     init: fbinit::FacebookInit,
-    replayer: Option<Replayer>,
+    replay: Option<(ProcessContext, Replayer)>,
 ) -> ExitResult {
     let expanded_args = expand_argfiles(args, &cwd).context("Error expanding argsfiles")?;
 
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
-    opt.exec(&matches, init, replayer)
+    opt.exec(&matches, init, replay)
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -191,7 +189,7 @@ impl CommandKind {
         matches: &clap::ArgMatches,
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
-        replayer: Option<Replayer>,
+        replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
         let roots = invocation_roots::find_current_invocation_roots();
         let paths = roots
@@ -207,20 +205,23 @@ impl CommandKind {
             return cmd.exec(init, paths?, common_opts.detect_cycles).into();
         }
 
-        let stdin = Stdin::new()?;
+        let replay_speed = replay.as_ref().map(|(_, r)| r.speed());
 
-        let guard = AsyncCleanupContextGuard::new();
-        let async_cleanup_context = guard.ctx().dupe();
+        let (process_context, _cleanup_drop_guard, replayer) = match replay {
+            Some((pctx, replayer)) => (pctx, None, Some(sync_wrapper::SyncWrapper::new(replayer))),
+            None => {
+                let (pctx, drop_guard) = ProcessContext::initialize()?;
+                (pctx, Some(drop_guard), None)
+            }
+        };
 
-        let replay_speed = replayer.as_ref().map(|r| r.speed());
         let command_ctx = ClientCommandContext {
             init,
             paths,
-            replayer: replayer.map(sync_wrapper::SyncWrapper::new),
+            replayer,
             replay_speed,
             verbosity: common_opts.verbosity,
-            async_cleanup_context,
-            stdin,
+            process_context,
         };
 
         match self {

@@ -89,7 +89,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                     retrieve_builtins: self.builtins,
                     retrieve_prelude: self.prelude,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
 

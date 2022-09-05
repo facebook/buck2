@@ -20,6 +20,7 @@ use gazebo::dupe::Dupe;
 use tokio::runtime::Builder;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::cleanup_ctx::AsyncCleanupContextGuard;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::BuckdClientConnector;
@@ -28,14 +29,36 @@ use crate::replayer::Replayer;
 use crate::stdin::Stdin;
 use crate::verbosity::Verbosity;
 
+/// Contains fields that should only created once per proess and not once per command. We don't put
+/// them directly in ClientCommandContext to support Replay.
+pub struct ProcessContext {
+    async_cleanup: AsyncCleanupContext,
+    stdin: Stdin,
+}
+
+impl ProcessContext {
+    /// NOTE: This returns the AsyncCleanupContextGuard separately since we pass the ProcessContext
+    /// down but want to keep the AsyncCleanupContextGuard at the top of the stack.
+    pub fn initialize() -> anyhow::Result<(Self, AsyncCleanupContextGuard)> {
+        let async_cleanup = AsyncCleanupContextGuard::new();
+
+        Ok((
+            Self {
+                async_cleanup: async_cleanup.ctx().dupe(),
+                stdin: Stdin::new()?,
+            },
+            async_cleanup,
+        ))
+    }
+}
+
 pub struct ClientCommandContext {
     pub init: fbinit::FacebookInit,
     pub paths: SharedResult<InvocationPaths>,
     pub replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     pub verbosity: Verbosity,
     pub replay_speed: Option<f64>,
-    pub async_cleanup_context: AsyncCleanupContext,
-    pub stdin: Stdin,
+    pub process_context: ProcessContext,
 }
 
 impl ClientCommandContext {
@@ -59,6 +82,10 @@ impl ClientCommandContext {
             .build()
             .expect("Should be able to start a runtime");
         runtime.block_on(func(self))
+    }
+
+    pub fn stdin(&mut self) -> &mut Stdin {
+        &mut self.process_context.stdin
     }
 
     pub async fn connect_buckd(
@@ -122,6 +149,6 @@ impl ClientCommandContext {
     }
 
     pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
-        &self.async_cleanup_context
+        &self.process_context.async_cleanup
     }
 }

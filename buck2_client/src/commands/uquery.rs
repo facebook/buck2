@@ -227,7 +227,7 @@ impl StreamingCommand for UqueryCommand {
                     unstable_output_format,
                     target_call_stacks: self.query_common.target_call_stacks,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
 

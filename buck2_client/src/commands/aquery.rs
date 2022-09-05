@@ -79,7 +79,7 @@ impl StreamingCommand for AqueryCommand {
                     output_attributes,
                     unstable_output_format,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
 

@@ -57,7 +57,7 @@ impl StreamingCommand for CleanCommand {
                     context: Some(client_ctx),
                     dry_run: self.dry_run,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await?;
 

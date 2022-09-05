@@ -164,7 +164,7 @@ impl StreamingCommand for ProfileSubcommand {
                     action: self.action.into(),
                     recursive: self.opts.recursive,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
         let ProfileResponse {

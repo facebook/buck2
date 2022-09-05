@@ -53,7 +53,7 @@ impl StreamingCommand for LspCommand {
     ) -> ExitResult {
         let client_context = ctx.client_context(&self.config_opts, matches)?;
 
-        let stream = FramedRead::new(&mut ctx.stdin, LspMessageDecoder).filter_map(|m| {
+        let stream = FramedRead::new(ctx.stdin(), LspMessageDecoder).filter_map(|m| {
             let m = m.and_then(|m| {
                 let lsp_json = serde_json::to_string(&m)?;
                 Ok(LspRequest { lsp_json })

@@ -162,7 +162,7 @@ impl StreamingCommand for TestCommand {
                         force_run_from_project_root: self.unstable_force_tests_on_re,
                     }),
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await??;
 

@@ -72,7 +72,7 @@ impl StreamingCommand for BxlCommand {
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
                 },
-                ctx.stdin.console_interaction_stream(),
+                ctx.stdin().console_interaction_stream(),
             )
             .await;
         let success = match &result {
