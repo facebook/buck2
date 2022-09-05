@@ -14,6 +14,7 @@ use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
 use either::Either;
 use fbinit::FacebookInit;
@@ -486,7 +487,7 @@ impl RemoteExecutionClientImpl {
                 CASDaemonClientCfg::embedded_config(embedded_cas_daemon_config);
             if let Some(logs_dir_path) = maybe_logs_dir_path {
                 // make sure that the log dir exists as glog is expecting that :(
-                std::fs::create_dir_all(logs_dir_path)?;
+                fs_util::create_dir_all(logs_dir_path)?;
                 re_client_config.log_file_location = Some(logs_dir_path.to_owned());
                 // keep last 10 sessions (similar to a number of buck builds)
                 re_client_config.log_rollup_window_size = 10;

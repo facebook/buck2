@@ -9,7 +9,6 @@
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,6 +23,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -227,7 +227,7 @@ impl LocalExecutor {
                     if request.custom_tmpdir {
                         let project_fs = self.artifact_fs.fs();
                         project_fs.remove_path_recursive(&scratch_dir)?;
-                        fs::create_dir_all(&*project_fs.resolve(&scratch_dir))?;
+                        fs_util::create_dir_all(&*project_fs.resolve(&scratch_dir))?;
                     }
 
                     create_output_dirs(
@@ -384,7 +384,7 @@ impl LocalExecutor {
         fn build_dir_from_disk(disk_path: &mut PathBuf) -> anyhow::Result<ActionDirectoryBuilder> {
             let mut builder = ActionDirectoryBuilder::empty();
 
-            for file in fs::read_dir(&disk_path)? {
+            for file in fs_util::read_dir(&disk_path)? {
                 let file = file?;
                 let filetype = file.file_type()?;
                 let filename = file.file_name();
@@ -402,7 +402,7 @@ impl LocalExecutor {
                 } else if filetype.is_symlink() {
                     builder.insert(
                         filename,
-                        DirectoryEntry::Leaf(new_symlink(fs::read_link(&disk_path)?)),
+                        DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&disk_path)?)),
                     )?;
                 } else if filetype.is_file() {
                     let metadata = FileMetadata {
@@ -421,14 +421,14 @@ impl LocalExecutor {
         }
 
         // Get file metadata. If the file is missing, ignore it.
-        let m = match fs::symlink_metadata(&path) {
+        let m = match std::fs::symlink_metadata(&path) {
             Ok(m) => m,
             Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(err) => return Err(err.into()),
         };
 
         let value = if m.file_type().is_symlink() {
-            DirectoryEntry::Leaf(new_symlink(fs::read_link(&path)?))
+            DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?))
         } else if m.is_file() {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
                 digest: TrackedFileDigest::new(FileDigest::from_file(&path)?),
@@ -602,7 +602,7 @@ pub async fn create_output_dirs(
     let project_fs = artifact_fs.fs();
     for output in outputs {
         if let Some(path) = output.path_to_create() {
-            fs::create_dir_all(project_fs.resolve(path))?;
+            fs_util::create_dir_all(project_fs.resolve(path))?;
         }
     }
 
