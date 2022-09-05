@@ -12,11 +12,6 @@ use std::collections::HashMap;
 use std::env;
 
 use buck2_core::facebook_only;
-use once_cell::sync::Lazy;
-
-use crate::TraceId;
-
-static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
 pub fn collect() -> HashMap<String, String> {
@@ -31,6 +26,14 @@ pub fn collect() -> HashMap<String, String> {
 
     #[cfg(feature = "extra_logging")]
     {
+        use once_cell::sync::Lazy;
+
+        use crate::TraceId;
+
+        // Global trace ID
+        static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
+        map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
+
         map.insert(
             "hostname".to_owned(),
             hostname::get_hostname().unwrap_or_else(|_| "".to_owned()),
@@ -49,8 +52,6 @@ pub fn collect() -> HashMap<String, String> {
             "buck2_build_time".to_owned(),
             build_info::BuildInfo::get_time_iso8601().to_owned(),
         );
-        // Global trace ID
-        map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
         // The operating system - "linux" "darwin" "windows" etc.
         if let Ok(os_type) = sys_info::os_type() {
             map.insert("os".to_owned(), os_type.to_lowercase());
