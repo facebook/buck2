@@ -18,6 +18,10 @@ impl DiceState {
         }
     }
 
+    pub(crate) fn toggle(&mut self) {
+        self.enabled = !self.enabled
+    }
+
     pub(crate) fn update(&mut self, update: &DiceComputationStateSnapshot) {
         for (k, v) in &update.key_states {
             self.key_states.insert(k.clone(), v.clone());

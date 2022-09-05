@@ -304,6 +304,23 @@ impl EventSubscriber for StatefulSuperConsole {
         self.state.simple_console.handle_output(raw_output).await
     }
 
+    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
+        if c == 'd' {
+            self.state.dice_state.toggle();
+            self.handle_stderr("You toggled the DICE component, press `d` to revert")
+                .await?;
+        } else if c == 'e' {
+            self.state.debug_events.toggle();
+            self.handle_stderr("You toggled the debug events component, press `e` to revert")
+                .await?;
+        } else if c == '?' || c == 'h' {
+            self.handle_stderr("Help: `d` = toggle DICE, `e` = toggle debug events")
+                .await?;
+        }
+
+        Ok(())
+    }
+
     async fn handle_command_start(
         &mut self,
         _command: &buck2_data::CommandStart,

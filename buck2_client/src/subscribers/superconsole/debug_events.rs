@@ -53,6 +53,10 @@ impl DebugEventsState {
         }
     }
 
+    pub(crate) fn toggle(&mut self) {
+        self.enabled = !self.enabled
+    }
+
     pub(crate) fn handle_event(
         &mut self,
         start_time: Instant,
