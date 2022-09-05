@@ -8,9 +8,11 @@
  */
 
 use std::path::PathBuf;
+use std::slice;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::profile_analysis;
 use buck2_build_api::analysis::calculation::profile_analysis_recursively;
 use buck2_build_api::calculation::Calculation;
@@ -22,19 +24,18 @@ use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
-use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
-use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use cli_proto::profile_request::Action;
 use cli_proto::profile_request::Profiler;
 use cli_proto::ClientContext;
@@ -152,65 +153,76 @@ pub(crate) async fn profile_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::ProfileRequest,
 ) -> anyhow::Result<cli_proto::ProfileResponse> {
-    let metadata = ctx.request_metadata()?;
-    let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
-        data: Some(buck2_data::ProfileCommandStart {}.into()),
-    };
-    span_async(start_event, async {
-        let result: anyhow::Result<_> = try {
-            let output: PathBuf = req.destination_path.clone().into();
+    run_server_command(ProfileServerCommand { req }, ctx).await
+}
 
-            let profile_mode = starlark_profiler_configuration_from_request(&req)?;
+struct ProfileServerCommand {
+    req: cli_proto::ProfileRequest,
+}
 
-            let action = cli_proto::profile_request::Action::from_i32(req.action)
-                .context("Invalid action")?;
+#[async_trait]
+impl ServerCommandTemplate for ProfileServerCommand {
+    type StartEvent = buck2_data::ProfileCommandStart;
+    type EndEvent = buck2_data::ProfileCommandEnd;
+    type Response = cli_proto::ProfileResponse;
 
-            let context = req.context.context("Missing client context")?;
-            let target_pattern = req.target_pattern.context("Missing target pattern")?;
-            let profile_data = ctx
-                .with_dice_ctx(|ctx, dice_ctx| {
-                    generate_profile(
-                        ctx,
-                        dice_ctx,
-                        context,
-                        target_pattern,
-                        action,
-                        &profile_mode,
-                    )
-                })
-                .await?;
+    async fn command(
+        &self,
+        server_ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        let output: PathBuf = self.req.destination_path.clone().into();
 
-            profile_data.write(&output)?;
+        let profile_mode = starlark_profiler_configuration_from_request(&self.req)?;
 
-            cli_proto::ProfileResponse {
-                elapsed: Some(profile_data.elapsed().into()),
-                total_retained_bytes: profile_data.total_retained_bytes() as u64,
-            }
-        };
+        let action = cli_proto::profile_request::Action::from_i32(self.req.action)
+            .context("Invalid action")?;
 
-        let end_event = command_end(metadata, &result, buck2_data::ProfileCommandEnd {});
-        (result, end_event)
-    })
-    .await
+        let context = self
+            .req
+            .context
+            .as_ref()
+            .context("Missing client context")?;
+        let target_pattern = self
+            .req
+            .target_pattern
+            .as_ref()
+            .context("Missing target pattern")?;
+        let profile_data = generate_profile(
+            server_ctx,
+            ctx,
+            context,
+            target_pattern,
+            action,
+            &profile_mode,
+        )
+        .await?;
+
+        profile_data.write(&output)?;
+
+        Ok(cli_proto::ProfileResponse {
+            elapsed: Some(profile_data.elapsed().into()),
+            total_retained_bytes: profile_data.total_retained_bytes() as u64,
+        })
+    }
 }
 
 async fn generate_profile(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
-    client_ctx: ClientContext,
-    pattern: buck2_data::TargetPattern,
+    client_ctx: &ClientContext,
+    pattern: &buck2_data::TargetPattern,
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let cells = ctx.get_cell_resolver().await?;
 
     let global_target_platform =
-        target_platform_from_client_context(Some(&client_ctx), &cells, server_ctx.working_dir())
+        target_platform_from_client_context(Some(client_ctx), &cells, server_ctx.working_dir())
             .await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
-        &[pattern],
+        slice::from_ref(pattern),
         &cells,
         &ctx.get_legacy_configs().await?,
         server_ctx.working_dir(),
