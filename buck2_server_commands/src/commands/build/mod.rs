@@ -54,7 +54,6 @@ use cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;
 use cli_proto::BuildRequest;
-use cli_proto::BuildTarget;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use futures::stream::futures_unordered::FuturesUnordered;
@@ -72,39 +71,24 @@ use crate::commands::build::results::result_report::ResultReporterOptions;
 use crate::commands::build::results::BuildOwner;
 use crate::commands::build::results::BuildResultCollector;
 
-pub mod results;
-
-#[derive(Debug)]
-struct BuildResult {
-    pub build_targets: Vec<BuildTarget>,
-    pub serialized_build_report: Option<String>,
-    pub error_messages: Vec<String>,
-}
+mod results;
 
 pub async fn build_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::BuildRequest,
 ) -> anyhow::Result<cli_proto::BuildResponse> {
-    let project_root = ctx.project_root().to_string();
     let patterns_for_logging = ctx
         .canonicalize_patterns_for_logging(&req.target_patterns)
         .await?;
 
-    let result = run_server_command(
+    run_server_command(
         BuildServerCommand {
             req,
             patterns_for_logging,
         },
         ctx,
     )
-    .await?;
-
-    Ok(cli_proto::BuildResponse {
-        build_targets: result.build_targets,
-        project_root,
-        serialized_build_report: result.serialized_build_report.unwrap_or_default(),
-        error_messages: result.error_messages,
-    })
+    .await
 }
 
 struct BuildServerCommand {
@@ -116,7 +100,7 @@ struct BuildServerCommand {
 impl ServerCommandTemplate for BuildServerCommand {
     type StartEvent = buck2_data::BuildCommandStart;
     type EndEvent = buck2_data::BuildCommandEnd;
-    type Response = BuildResult;
+    type Response = cli_proto::BuildResponse;
 
     fn end_event(&self) -> Self::EndEvent {
         buck2_data::BuildCommandEnd {
@@ -137,7 +121,7 @@ async fn build(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
     request: &BuildRequest,
-) -> anyhow::Result<BuildResult> {
+) -> anyhow::Result<cli_proto::BuildResponse> {
     // TODO(nmj): Move build report printing logic out of here.
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
@@ -282,9 +266,12 @@ async fn build(
         }
     };
 
-    Ok(BuildResult {
+    let project_root = server_ctx.project_root().to_string();
+
+    Ok(cli_proto::BuildResponse {
         build_targets,
-        serialized_build_report,
+        project_root,
+        serialized_build_report: serialized_build_report.unwrap_or_default(),
         error_messages,
     })
 }
