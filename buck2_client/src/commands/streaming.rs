@@ -52,6 +52,7 @@ fn default_subscribers<T: StreamingCommand>(
         show_waiting_message,
         ctx.replay_speed,
         root,
+        console_opts.superconsole_config(),
     )? {
         subscribers.push(v)
     }

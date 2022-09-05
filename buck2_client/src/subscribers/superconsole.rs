@@ -134,12 +134,8 @@ impl StatefulSuperConsole {
         if let Some(sandwiched) = config.sandwiched {
             components.push(sandwiched);
         }
-        if config.enable_debug_events {
-            components.push(box DebugEventsComponent);
-        }
-        if config.enable_dice {
-            components.push(box DiceComponent);
-        }
+        components.push(box DebugEventsComponent);
+        components.push(box DiceComponent);
         components.push(box TimedList::new(MAX_EVENTS, CUTOFFS, header));
         let root = box Split::new(components, Direction::Vertical, SplitKind::Adaptive);
         // bound all components to our recommended grapheme-width
@@ -152,6 +148,7 @@ impl StatefulSuperConsole {
         show_waiting_message: bool,
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
+        config: SuperConsoleConfig,
     ) -> anyhow::Result<Self> {
         let default_size = ::superconsole::Dimensions { x: 100, y: 40 };
         let mut builder = Self::console_builder();
@@ -163,6 +160,7 @@ impl StatefulSuperConsole {
             verbosity,
             show_waiting_message,
             replay_speed,
+            config,
         )
     }
 
@@ -171,6 +169,7 @@ impl StatefulSuperConsole {
         verbosity: Verbosity,
         show_waiting_message: bool,
         replay_speed: Option<f64>,
+        config: SuperConsoleConfig,
     ) -> anyhow::Result<Option<Self>> {
         match Self::console_builder().build(root)? {
             None => Ok(None),
@@ -179,6 +178,7 @@ impl StatefulSuperConsole {
                 verbosity,
                 show_waiting_message,
                 replay_speed,
+                config,
             )?)),
         }
     }
@@ -188,6 +188,7 @@ impl StatefulSuperConsole {
         verbosity: Verbosity,
         show_waiting_message: bool,
         replay_speed: Option<f64>,
+        config: SuperConsoleConfig,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: SuperConsoleState {
@@ -196,8 +197,8 @@ impl StatefulSuperConsole {
                 session_info: SessionInfo::default(),
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(verbosity, show_waiting_message),
-                dice_state: DiceState::new(),
-                debug_events: DebugEventsState::new(),
+                dice_state: DiceState::new(config.enable_dice),
+                debug_events: DebugEventsState::new(config.enable_debug_events),
             },
             super_console: Some(super_console),
             verbosity,
@@ -679,6 +680,7 @@ mod tests {
             true,
             None,
             None,
+            Default::default(),
         )
         .unwrap();
 
@@ -742,6 +744,7 @@ mod tests {
             )),
             Verbosity::Default,
             true,
+            Default::default(),
             Default::default(),
         )?;
 

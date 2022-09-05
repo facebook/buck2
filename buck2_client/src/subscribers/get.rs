@@ -18,6 +18,7 @@ use crate::subscribers::build_id_writer::BuildIdWriter;
 pub use crate::subscribers::event_log::EventLog;
 pub use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::superconsole::StatefulSuperConsole;
+use crate::subscribers::superconsole::SuperConsoleConfig;
 use crate::verbosity::Verbosity;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
@@ -27,6 +28,7 @@ pub fn get_console_with_root(
     show_waiting_message: bool,
     replay_speed: Option<f64>,
     root: Box<dyn Component>,
+    config: SuperConsoleConfig,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     match console_type {
         ConsoleType::Simple => Ok(Some(box SimpleConsole::autodetect(
@@ -47,6 +49,7 @@ pub fn get_console_with_root(
             show_waiting_message,
             replay_speed,
             None,
+            config,
         )?)),
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
@@ -54,6 +57,7 @@ pub fn get_console_with_root(
                 verbosity,
                 show_waiting_message,
                 replay_speed,
+                config,
             )? {
                 Some(super_console) => Ok(Some(box super_console)),
                 None => Ok(Some(box SimpleConsole::autodetect(

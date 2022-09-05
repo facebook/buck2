@@ -29,6 +29,7 @@ struct InstantData {
 }
 
 pub(crate) struct DebugEventsState {
+    enabled: bool,
     event_count: u64,
     spans: BTreeMap<String, SpanData>,
     instants: BTreeMap<String, InstantData>,
@@ -40,8 +41,9 @@ pub(crate) struct DebugEventsState {
 }
 
 impl DebugEventsState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(enabled: bool) -> Self {
         Self {
+            enabled,
             event_count: 0,
             spans: BTreeMap::new(),
             instants: BTreeMap::new(),
@@ -148,6 +150,10 @@ impl Component for DebugEventsComponent {
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
         let state = state.get::<DebugEventsState>()?;
+
+        if !state.enabled {
+            return Ok(vec![]);
+        }
 
         let mut lines: Vec<String> = Vec::new();
         lines.push(format!(

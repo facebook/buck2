@@ -6,12 +6,14 @@ use gazebo::prelude::*;
 use superconsole::Component;
 
 pub(crate) struct DiceState {
+    enabled: bool,
     key_states: BTreeMap<String, DiceKeyState>,
 }
 
 impl DiceState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(enabled: bool) -> Self {
         Self {
+            enabled,
             key_states: BTreeMap::new(),
         }
     }
@@ -34,6 +36,10 @@ impl Component for DiceComponent {
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
         let state = state.get::<DiceState>()?;
+
+        if !state.enabled {
+            return Ok(vec![]);
+        }
 
         let mut lines = vec!["Dice Key States".to_owned()];
 

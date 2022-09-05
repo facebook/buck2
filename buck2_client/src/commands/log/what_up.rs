@@ -94,6 +94,7 @@ impl WhatUpCommand {
                 true,
                 None,
                 Some(Box::new(io::stdout())),
+                Default::default(),
             )?;
             let mut first_timestamp = None;
             let mut should_render = true;
