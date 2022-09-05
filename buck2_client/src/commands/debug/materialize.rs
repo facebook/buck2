@@ -50,15 +50,18 @@ impl StreamingCommand for MaterializeCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
         buckd
             .with_flushing()
-            .materialize(MaterializeRequest {
-                context: Some(ctx),
-                paths: self.paths,
-            })
+            .materialize(
+                MaterializeRequest {
+                    context: Some(context),
+                    paths: self.paths,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await??;
 
         ExitResult::success()

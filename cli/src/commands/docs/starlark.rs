@@ -76,18 +76,21 @@ impl StreamingCommand for DocsStarlarkCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let client_context = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
             .with_flushing()
-            .unstable_docs(UnstableDocsRequest {
-                context: Some(client_context),
-                symbol_patterns: self.patterns.clone(),
-                retrieve_builtins: self.builtins,
-                retrieve_prelude: self.prelude,
-            })
+            .unstable_docs(
+                UnstableDocsRequest {
+                    context: Some(client_context),
+                    symbol_patterns: self.patterns.clone(),
+                    retrieve_builtins: self.builtins,
+                    retrieve_prelude: self.prelude,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await??;
 
         let docs: Vec<Doc> = response

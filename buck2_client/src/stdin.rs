@@ -15,6 +15,8 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
 
+use crate::console_interaction_stream::ConsoleInteractionStream;
+
 #[pin_project]
 pub struct Stdin {
     #[pin]
@@ -49,6 +51,10 @@ impl Stdin {
         Ok(Self {
             stream: StreamReader::new(ReceiverStream::new(rx).fuse()),
         })
+    }
+
+    pub fn console_interaction_stream(&mut self) -> ConsoleInteractionStream<'_> {
+        ConsoleInteractionStream::new(self)
     }
 }
 

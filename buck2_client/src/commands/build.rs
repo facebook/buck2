@@ -216,34 +216,37 @@ impl StreamingCommand for BuildCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let show_default_other_outputs = false;
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
             .with_flushing()
-            .build(BuildRequest {
-                context: Some(ctx),
-                target_patterns: self
-                    .patterns
-                    .map(|p| buck2_data::TargetPattern { value: p.clone() }),
-                unstable_print_providers: self.print_providers,
-                build_providers: Some(BuildProviders {
-                    default_info: self.default_info() as i32,
-                    run_info: self.run_info() as i32,
-                    test_info: self.test_info() as i32,
-                }),
-                response_options: Some(ResponseOptions {
-                    return_outputs: self.show_output
-                        || self.show_full_output
-                        || self.show_json_output
-                        || self.show_full_json_output
-                        || self.output_path.is_some(),
-                    return_default_other_outputs: show_default_other_outputs,
-                }),
-                build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: self.materializations.to_proto() as i32,
-            })
+            .build(
+                BuildRequest {
+                    context: Some(context),
+                    target_patterns: self
+                        .patterns
+                        .map(|p| buck2_data::TargetPattern { value: p.clone() }),
+                    unstable_print_providers: self.print_providers,
+                    build_providers: Some(BuildProviders {
+                        default_info: self.default_info() as i32,
+                        run_info: self.run_info() as i32,
+                        test_info: self.test_info() as i32,
+                    }),
+                    response_options: Some(ResponseOptions {
+                        return_outputs: self.show_output
+                            || self.show_full_output
+                            || self.show_json_output
+                            || self.show_full_json_output
+                            || self.output_path.is_some(),
+                        return_default_other_outputs: show_default_other_outputs,
+                    }),
+                    build_opts: Some(self.build_opts.to_proto()),
+                    final_artifact_materializations: self.materializations.to_proto() as i32,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await;
         let success = match &result {
             Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),

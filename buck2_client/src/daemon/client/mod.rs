@@ -25,6 +25,7 @@ use tonic::Request;
 use tonic::Status;
 
 use crate::command_outcome::CommandOutcome;
+use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
 use crate::stream_value::StreamValue;
@@ -148,7 +149,7 @@ impl BuckdClient {
     /// For these commands, we want to be able to manipulate CLI state.
     ///
     /// This command also does the heavy lifting to substitute the `Replayer` for an actual connection.
-    async fn stream<T, R: TryFrom<command_result::Result, Error = command_result::Result>>(
+    async fn stream<'i, T, R: TryFrom<command_result::Result, Error = command_result::Result>>(
         &mut self,
         command: impl for<'a> FnOnce(
             &'a mut DaemonApiClient<Channel>,
@@ -158,6 +159,7 @@ impl BuckdClient {
             Result<tonic::Response<tonic::Streaming<CommandProgress>>, Status>,
         >,
         request: T,
+        _console_interaction: Option<ConsoleInteractionStream<'i>>,
     ) -> anyhow::Result<CommandOutcome<R>> {
         let Self {
             client, events_ctx, ..
@@ -362,11 +364,19 @@ macro_rules! stream_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
+        pub async fn $method(
+            &mut self,
+            req: $req,
+            console_interaction: ConsoleInteractionStream<'_>,
+        ) -> anyhow::Result<CommandOutcome<$res>> {
             self.enter()?;
             let res = self
                 .inner
-                .stream(|d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)), req)
+                .stream(
+                    |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
+                    req,
+                    Some(console_interaction),
+                )
                 .await;
             self.exit().await?;
             res
@@ -390,7 +400,7 @@ macro_rules! bidirectional_stream_method {
             let req = create_client_stream(context, requests);
             let res = self
                 .inner
-                .stream(|d, r| Box::pin(DaemonApiClient::$method(d, r)), req)
+                .stream(|d, r| Box::pin(DaemonApiClient::$method(d, r)), req, None)
                 .await;
             self.exit().await?;
             res

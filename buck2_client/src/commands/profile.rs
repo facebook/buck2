@@ -131,7 +131,7 @@ impl StreamingCommand for ProfileSubcommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let context = ctx.client_context(&self.opts.config_opts, matches)?;
 
@@ -153,16 +153,19 @@ impl StreamingCommand for ProfileSubcommand {
 
         let response = buckd
             .with_flushing()
-            .profile(ProfileRequest {
-                context: Some(context),
-                target_pattern: Some(buck2_data::TargetPattern {
-                    value: self.opts.target_pattern,
-                }),
-                destination_path,
-                profiler: profile_mode_to_profile(profile_mode).into(),
-                action: self.action.into(),
-                recursive: self.opts.recursive,
-            })
+            .profile(
+                ProfileRequest {
+                    context: Some(context),
+                    target_pattern: Some(buck2_data::TargetPattern {
+                        value: self.opts.target_pattern,
+                    }),
+                    destination_path,
+                    profiler: profile_mode_to_profile(profile_mode).into(),
+                    action: self.action.into(),
+                    recursive: self.opts.recursive,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await??;
         let ProfileResponse {
             elapsed,

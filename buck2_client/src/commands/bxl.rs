@@ -59,18 +59,21 @@ impl StreamingCommand for BxlCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
             .with_flushing()
-            .bxl(BxlRequest {
-                context: Some(ctx),
-                bxl_label: self.bxl_label,
-                bxl_args: self.bxl_args,
-                build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: self.materializations.to_proto() as i32,
-            })
+            .bxl(
+                BxlRequest {
+                    context: Some(context),
+                    bxl_label: self.bxl_label,
+                    bxl_args: self.bxl_args,
+                    build_opts: Some(self.build_opts.to_proto()),
+                    final_artifact_materializations: self.materializations.to_proto() as i32,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await;
         let success = match &result {
             Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),

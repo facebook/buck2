@@ -84,27 +84,30 @@ impl StreamingCommand for RunCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
         let response = buckd
             .with_flushing()
-            .build(BuildRequest {
-                context: Some(ctx),
-                target_patterns: vec![buck2_data::TargetPattern {
-                    value: self.target.clone(),
-                }],
-                unstable_print_providers: self.print_providers,
-                build_providers: Some(BuildProviders {
-                    default_info: build_providers::Action::Skip as i32,
-                    run_info: build_providers::Action::Build as i32,
-                    test_info: build_providers::Action::Skip as i32,
-                }),
-                response_options: None,
-                build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: Materializations::Materialize as i32,
-            })
+            .build(
+                BuildRequest {
+                    context: Some(context),
+                    target_patterns: vec![buck2_data::TargetPattern {
+                        value: self.target.clone(),
+                    }],
+                    unstable_print_providers: self.print_providers,
+                    build_providers: Some(BuildProviders {
+                        default_info: build_providers::Action::Skip as i32,
+                        run_info: build_providers::Action::Build as i32,
+                        test_info: build_providers::Action::Skip as i32,
+                    }),
+                    response_options: None,
+                    build_opts: Some(self.build_opts.to_proto()),
+                    final_artifact_materializations: Materializations::Materialize as i32,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await;
 
         let console = self.console_opts.final_console();

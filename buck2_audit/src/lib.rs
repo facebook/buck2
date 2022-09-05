@@ -124,7 +124,7 @@ impl StreamingCommand for AuditCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        server_ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
@@ -136,16 +136,19 @@ impl StreamingCommand for AuditCommand {
         };
 
         let context = match config_opts {
-            Some(opts) => server_ctx.client_context(opts, submatches)?,
-            _ => server_ctx.empty_client_context()?,
+            Some(opts) => ctx.client_context(opts, submatches)?,
+            _ => ctx.empty_client_context()?,
         };
 
         buckd
             .with_flushing()
-            .audit(GenericRequest {
-                context: Some(context),
-                serialized_opts: serialized,
-            })
+            .audit(
+                GenericRequest {
+                    context: Some(context),
+                    serialized_opts: serialized,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await??;
         ExitResult::success()
     }

@@ -136,30 +136,34 @@ impl StreamingCommand for TestCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
         let response = buckd
             .with_flushing()
-            .test(TestRequest {
-                context: Some(ctx),
-                target_patterns: self
-                    .patterns
-                    .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-                test_executor_args: self.test_executor_args,
-                excluded_labels: self.exclude,
-                included_labels: self.include,
-                always_exclude: self.always_exclude,
-                build_filtered_targets: self.build_filtered_targets,
-                // we don't currently have a different flag for this, so just use the build one.
-                concurrency: self.build_opts.num_threads.unwrap_or(0),
-                build_opts: Some(self.build_opts.to_proto()),
-                session_options: Some(TestSessionOptions {
-                    allow_re: self.unstable_allow_tests_on_re || self.unstable_force_tests_on_re,
-                    force_use_project_relative_paths: self.unstable_force_tests_on_re,
-                    force_run_from_project_root: self.unstable_force_tests_on_re,
-                }),
-            })
+            .test(
+                TestRequest {
+                    context: Some(context),
+                    target_patterns: self
+                        .patterns
+                        .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                    test_executor_args: self.test_executor_args,
+                    excluded_labels: self.exclude,
+                    included_labels: self.include,
+                    always_exclude: self.always_exclude,
+                    build_filtered_targets: self.build_filtered_targets,
+                    // we don't currently have a different flag for this, so just use the build one.
+                    concurrency: self.build_opts.num_threads.unwrap_or(0),
+                    build_opts: Some(self.build_opts.to_proto()),
+                    session_options: Some(TestSessionOptions {
+                        allow_re: self.unstable_allow_tests_on_re
+                            || self.unstable_force_tests_on_re,
+                        force_use_project_relative_paths: self.unstable_force_tests_on_re,
+                        force_run_from_project_root: self.unstable_force_tests_on_re,
+                    }),
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await??;
 
         let statuses = response

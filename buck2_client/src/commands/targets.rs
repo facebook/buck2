@@ -21,6 +21,7 @@ use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
+use crate::stdin::Stdin;
 
 // Use non-camel case so the possible values match buck1's
 #[allow(non_camel_case_types)]
@@ -161,7 +162,7 @@ impl StreamingCommand for TargetsCommand {
         mut self,
         buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let target_hash_use_fast_hash = match self.target_hash_function {
             TargetHashFunction::Sha1 | TargetHashFunction::Sha256 => {
@@ -224,12 +225,18 @@ impl StreamingCommand for TargetsCommand {
         };
 
         if self.show_output {
-            targets_show_outputs(buckd, target_request, None).await
+            targets_show_outputs(&mut ctx.stdin, buckd, target_request, None).await
         } else if self.show_full_output {
             let project_root = ctx.paths?.roots.project_root;
-            targets_show_outputs(buckd, target_request, Some(project_root.root())).await
+            targets_show_outputs(
+                &mut ctx.stdin,
+                buckd,
+                target_request,
+                Some(project_root.root()),
+            )
+            .await
         } else {
-            targets(buckd, target_request).await
+            targets(&mut ctx.stdin, buckd, target_request).await
         }
     }
 
@@ -247,13 +254,14 @@ impl StreamingCommand for TargetsCommand {
 }
 
 async fn targets_show_outputs(
+    stdin: &mut Stdin,
     mut buckd: BuckdClientConnector,
     target_request: TargetsRequest,
     root_path: Option<&AbsPath>,
 ) -> ExitResult {
     let response = buckd
         .with_flushing()
-        .targets_show_outputs(target_request)
+        .targets_show_outputs(target_request, stdin.console_interaction_stream())
         .await??;
     for target_paths in response.targets_paths {
         for path in target_paths.paths {
@@ -277,8 +285,15 @@ async fn targets_show_outputs(
     ExitResult::success()
 }
 
-async fn targets(mut buckd: BuckdClientConnector, target_request: TargetsRequest) -> ExitResult {
-    let response = buckd.with_flushing().targets(target_request).await??;
+async fn targets(
+    stdin: &mut Stdin,
+    mut buckd: BuckdClientConnector,
+    target_request: TargetsRequest,
+) -> ExitResult {
+    let response = buckd
+        .with_flushing()
+        .targets(target_request, stdin.console_interaction_stream())
+        .await??;
     if !response.serialized_targets_output.is_empty() {
         crate::print!("{}", response.serialized_targets_output)?;
     }

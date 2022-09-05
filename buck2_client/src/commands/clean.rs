@@ -47,15 +47,18 @@ impl StreamingCommand for CleanCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let client_ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
             .with_flushing()
-            .clean(CleanRequest {
-                context: Some(client_ctx),
-                dry_run: self.dry_run,
-            })
+            .clean(
+                CleanRequest {
+                    context: Some(client_ctx),
+                    dry_run: self.dry_run,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await?;
 
         let success = match &result {

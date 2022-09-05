@@ -54,19 +54,22 @@ impl StreamingCommand for InstallCommand {
         self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
         let response = buckd
             .with_flushing()
-            .install(InstallRequest {
-                context: Some(ctx),
-                target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
-                    value: pat.to_owned(),
-                }),
-                build_opts: Some(self.build_opts.to_proto()),
-                installer_run_args: self.extra_run_args,
-            })
+            .install(
+                InstallRequest {
+                    context: Some(context),
+                    target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
+                        value: pat.to_owned(),
+                    }),
+                    build_opts: Some(self.build_opts.to_proto()),
+                    installer_run_args: self.extra_run_args,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await;
         let console = self.console_opts.final_console();
 

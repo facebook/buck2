@@ -209,23 +209,26 @@ impl StreamingCommand for UqueryCommand {
         mut self,
         mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
         let output_attributes = self.query_common.output_attributes().to_vec();
-        let ctx = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
             .with_flushing()
-            .uquery(UqueryRequest {
-                query,
-                query_args,
-                context: Some(ctx),
-                output_attributes,
-                unstable_output_format,
-                target_call_stacks: self.query_common.target_call_stacks,
-            })
+            .uquery(
+                UqueryRequest {
+                    query,
+                    query_args,
+                    context: Some(context),
+                    output_attributes,
+                    unstable_output_format,
+                    target_call_stacks: self.query_common.target_call_stacks,
+                },
+                ctx.stdin.console_interaction_stream(),
+            )
             .await??;
 
         for message in &response.error_messages {
