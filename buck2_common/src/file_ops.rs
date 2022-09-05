@@ -162,7 +162,8 @@ impl FileDigest {
     fn from_file_attr(file: &Path) -> Option<Self> {
         use std::borrow::Cow;
         use std::collections::HashSet;
-        use std::fs;
+
+        use buck2_core::fs::fs_util;
 
         let mut file = Cow::Borrowed(file);
         let mut meta;
@@ -172,12 +173,12 @@ impl FileDigest {
         // on MacOS, it seems), and instead we end up with the hash of the symlink destination as a
         // string.
         loop {
-            meta = fs::symlink_metadata(&file).ok()?;
+            meta = fs_util::symlink_metadata(&file).ok()?;
             if !meta.is_symlink() {
                 break;
             }
 
-            let dest = fs::read_link(&file).ok()?;
+            let dest = fs_util::read_link(&file).ok()?;
             let dest = if dest.is_absolute() {
                 dest
             } else {
@@ -1064,8 +1065,9 @@ mod tests {
 
     #[cfg(unix)]
     mod unix {
-        use std::fs;
         use std::os::unix::fs::symlink;
+
+        use buck2_core::fs::fs_util;
 
         use super::*;
 
@@ -1074,7 +1076,7 @@ mod tests {
             let tempdir = tempfile::tempdir()?;
 
             let file = tempdir.path().join("dest");
-            fs::write(&file, "foo")?;
+            fs_util::write(&file, "foo")?;
             xattr::set(
                 &file,
                 "user.sha1",

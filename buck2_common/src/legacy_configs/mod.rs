@@ -1751,6 +1751,8 @@ mod tests {
     }
 
     mod test_push_all_files_from_a_directory {
+        use buck2_core::fs::fs_util;
+
         use super::*;
 
         #[test]
@@ -1758,7 +1760,7 @@ mod tests {
             let mut v = vec![];
             let dir = tempfile::tempdir()?;
             let file = dir.path().join("foo");
-            std::fs::write(&file, "")?;
+            fs_util::write(&file, "")?;
 
             let file = AbsPath::new(&file)?;
             let dir = AbsPath::new(&dir)?;
@@ -1804,7 +1806,7 @@ mod tests {
         fn dir_in_dir() -> anyhow::Result<()> {
             let mut v = vec![];
             let dir = tempfile::tempdir()?;
-            std::fs::create_dir(&dir.path().join("bad"))?;
+            fs_util::create_dir_all(&dir.path().join("bad"))?;
             let dir = AbsPath::new(&dir)?;
 
             push_all_files_from_a_directory(&mut v, dir, false)?;
