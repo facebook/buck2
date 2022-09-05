@@ -42,23 +42,11 @@ use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::CliResolutionCtx;
 
-#[derive(Debug)]
-struct BxlResult {
-    pub error_messages: Vec<String>,
-}
-
 pub async fn bxl_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: BxlRequest,
 ) -> anyhow::Result<BxlResponse> {
-    let project_root = ctx.project_root().to_string();
-
-    let result = run_server_command(BxlServerCommand { req }, ctx).await;
-
-    result.map(|result| BxlResponse {
-        project_root,
-        error_messages: result.error_messages,
-    })
+    run_server_command(BxlServerCommand { req }, ctx).await
 }
 
 struct BxlServerCommand {
@@ -69,7 +57,7 @@ struct BxlServerCommand {
 impl ServerCommandTemplate for BxlServerCommand {
     type StartEvent = buck2_data::BxlCommandStart;
     type EndEvent = buck2_data::BxlCommandEnd;
-    type Response = BxlResult;
+    type Response = cli_proto::BxlResponse;
 
     fn start_event(&self) -> Self::StartEvent {
         let bxl_label = self.req.bxl_label.clone();
@@ -94,7 +82,7 @@ async fn bxl(
     mut server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
     request: &BxlRequest,
-) -> anyhow::Result<BxlResult> {
+) -> anyhow::Result<cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
 
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -155,18 +143,16 @@ async fn bxl(
     let build_result = ensure_artifacts(&ctx, &materialization_context, &*result).await;
     copy_output(server_ctx.stdout()?, &ctx, &*result).await?;
 
-    match build_result {
-        Ok(_) => Ok(BxlResult {
-            error_messages: vec![],
-        }),
-        Err(errors) => {
-            let error_strings = errors.iter().map(|e| format!("{:#}", e)).unique().collect();
+    let project_root = server_ctx.project_root().to_string();
 
-            Ok(BxlResult {
-                error_messages: error_strings,
-            })
-        }
-    }
+    let error_messages = match build_result {
+        Ok(_) => vec![],
+        Err(errors) => errors.iter().map(|e| format!("{:#}", e)).unique().collect(),
+    };
+    Ok(BxlResponse {
+        project_root,
+        error_messages,
+    })
 }
 
 async fn copy_output<W: Write>(
