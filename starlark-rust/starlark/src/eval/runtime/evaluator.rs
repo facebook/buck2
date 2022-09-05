@@ -347,10 +347,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// * some optimizer transformations may remove statements
     pub fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
         match self.profile_or_instrumentation_mode {
-            // TODO(nga): patch users to enable `Coverage` and remove `Statement` from here.
-            ProfileOrInstrumentationMode::Profile(
-                ProfileMode::Coverage | ProfileMode::Statement,
-            ) => self.stmt_profile.coverage(),
+            ProfileOrInstrumentationMode::Profile(ProfileMode::Coverage) => {
+                self.stmt_profile.coverage()
+            }
             _ => Err(EvaluatorError::CoverageNotEnabled.into()),
         }
     }
