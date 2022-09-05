@@ -36,9 +36,11 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::profile_request::Action;
+use cli_proto::profile_request::Profiler;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
+use starlark::eval::ProfileMode;
 
 use crate::ctx::ServerCommandContext;
 
@@ -107,6 +109,45 @@ async fn generate_profile_loading(
         .await?;
 
     profiler.finish().map(Arc::new)
+}
+
+pub(crate) fn starlark_profiler_configuration_from_request(
+    req: &cli_proto::ProfileRequest,
+) -> anyhow::Result<StarlarkProfilerConfiguration> {
+    let profiler_proto =
+        cli_proto::profile_request::Profiler::from_i32(req.profiler).context("Invalid profiler")?;
+
+    let profile_mode = match profiler_proto {
+        Profiler::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
+        Profiler::HeapFlameRetained => ProfileMode::HeapFlameRetained,
+        Profiler::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
+        Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
+        Profiler::TimeFlame => ProfileMode::TimeFlame,
+        Profiler::Statement => ProfileMode::Statement,
+        Profiler::Bytecode => ProfileMode::Bytecode,
+        Profiler::BytecodePairs => ProfileMode::BytecodePairs,
+        Profiler::Typecheck => ProfileMode::Typecheck,
+    };
+
+    let action =
+        cli_proto::profile_request::Action::from_i32(req.action).context("Invalid action")?;
+
+    Ok(match (action, req.recursive) {
+        (cli_proto::profile_request::Action::Loading, false) => {
+            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
+        }
+        (cli_proto::profile_request::Action::Loading, true) => {
+            return Err(anyhow::anyhow!(
+                "Recursive profiling is not supported for loading profiling"
+            ));
+        }
+        (cli_proto::profile_request::Action::Analysis, false) => {
+            StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
+        }
+        (cli_proto::profile_request::Action::Analysis, true) => {
+            StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode)
+        }
+    })
 }
 
 pub(crate) async fn profile_command(

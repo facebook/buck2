@@ -38,7 +38,6 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::daemon_api_server::*;
-use cli_proto::profile_request::Profiler;
 use cli_proto::*;
 use dice::cycles::DetectCycles;
 use dice::Dice;
@@ -51,7 +50,6 @@ use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::environment::GlobalsBuilder;
-use starlark::eval::ProfileMode;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::server::Connected;
@@ -69,6 +67,7 @@ use crate::jemalloc_stats::jemalloc_stats;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::profile::profile_command;
+use crate::profile::starlark_profiler_configuration_from_request;
 use crate::snapshot;
 use crate::streaming_request_handler::StreamingRequestHandler;
 
@@ -906,40 +905,7 @@ impl DaemonApi for BuckdServer {
                 &self,
                 req: &ProfileRequest,
             ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-                let profiler_proto = cli_proto::profile_request::Profiler::from_i32(req.profiler)
-                    .context("Invalid profiler")?;
-
-                let profile_mode = match profiler_proto {
-                    Profiler::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
-                    Profiler::HeapFlameRetained => ProfileMode::HeapFlameRetained,
-                    Profiler::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
-                    Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
-                    Profiler::TimeFlame => ProfileMode::TimeFlame,
-                    Profiler::Statement => ProfileMode::Statement,
-                    Profiler::Bytecode => ProfileMode::Bytecode,
-                    Profiler::BytecodePairs => ProfileMode::BytecodePairs,
-                    Profiler::Typecheck => ProfileMode::Typecheck,
-                };
-
-                let action = cli_proto::profile_request::Action::from_i32(req.action)
-                    .context("Invalid action")?;
-
-                Ok(match (action, req.recursive) {
-                    (cli_proto::profile_request::Action::Loading, false) => {
-                        StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
-                    }
-                    (cli_proto::profile_request::Action::Loading, true) => {
-                        return Err(anyhow::anyhow!(
-                            "Recursive profiling is not supported for loading profiling"
-                        ));
-                    }
-                    (cli_proto::profile_request::Action::Analysis, false) => {
-                        StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
-                    }
-                    (cli_proto::profile_request::Action::Analysis, true) => {
-                        StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode)
-                    }
-                })
+                starlark_profiler_configuration_from_request(req)
             }
         }
 
