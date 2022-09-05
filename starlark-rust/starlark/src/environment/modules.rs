@@ -242,16 +242,6 @@ impl FrozenModule {
             .as_ref()
             .ok_or_else(|| ModuleError::RetainedMemoryProfileNotEnabled.into())
     }
-
-    /// Write heap flame profile of retained memory if heap profiling enabled.
-    pub fn gen_heap_flame_profile(&self) -> anyhow::Result<String> {
-        Ok(self.aggregated_heap_profile_info()?.gen_flame_graph())
-    }
-
-    /// Write heap summary profile of retained memory if heap profiling enabled.
-    pub fn gen_heap_summary_profile(&self) -> anyhow::Result<String> {
-        Ok(self.aggregated_heap_profile_info()?.gen_summary_csv())
-    }
 }
 
 impl FrozenModuleData {
@@ -532,7 +522,10 @@ x = f(1)
         )
         .unwrap();
         let module = module.freeze().unwrap();
-        let heap_summary = module.gen_heap_summary_profile().unwrap();
+        let heap_summary = module
+            .aggregated_heap_profile_info()
+            .unwrap()
+            .gen_summary_csv();
         // Smoke test.
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
     }
