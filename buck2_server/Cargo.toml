@@ -33,8 +33,7 @@ tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+fbinit = { workspace = true }
 gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
 more_futures = { path = "../shed/more_futures" }

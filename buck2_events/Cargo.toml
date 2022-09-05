@@ -26,8 +26,7 @@ crossbeam-channel = { workspace = true }
 crossbeam-epoch = { workspace = true }
 
 # @oss-disable: build_info = { path = "../../common/rust/build_info", optional = true }
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+fbinit = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

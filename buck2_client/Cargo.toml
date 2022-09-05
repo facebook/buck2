@@ -48,8 +48,7 @@ httparse = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+fbinit = { workspace = true }
 # @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps", optional = true }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 

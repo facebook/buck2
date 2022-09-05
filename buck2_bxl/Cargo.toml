@@ -22,8 +22,7 @@ structopt = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+fbinit = { workspace = true }
 
 async_std_ext = { path = "../shed/async_std_ext" }
 gazebo = { workspace = true }

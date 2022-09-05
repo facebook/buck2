@@ -26,8 +26,7 @@ tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 dice = { path = "../dice/dice" }
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+fbinit = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

@@ -188,6 +188,8 @@ xattr = "0.2.2"
 zip = "0.5"
 zstd = "0.11.1"
 
+fbinit.version = "0.1"
+# @oss-disable: fbinit.path = "../common/rust/shed/fbinit"
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"

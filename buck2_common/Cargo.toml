@@ -32,8 +32,7 @@ parking_lot = { workspace = true }
 
 dice = { path = "../dice/dice" }
 # @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
-fbinit.version = "0.1"
-# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+fbinit = { workspace = true }
 # @oss-disable: fb303_core = { package = "fb303_core", path = "../../fb303/thrift", optional = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
