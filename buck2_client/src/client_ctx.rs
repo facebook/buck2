@@ -25,6 +25,7 @@ use crate::common::HostPlatformOverride;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::replayer::Replayer;
+use crate::stdin::Stdin;
 use crate::verbosity::Verbosity;
 
 pub struct ClientCommandContext {
@@ -34,6 +35,7 @@ pub struct ClientCommandContext {
     pub verbosity: Verbosity,
     pub replay_speed: Option<f64>,
     pub async_cleanup_context: AsyncCleanupContext,
+    pub stdin: Stdin,
 }
 
 impl ClientCommandContext {

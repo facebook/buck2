@@ -106,6 +106,7 @@ globset = "0.4.7"
 hashbrown = { version = "0.11.2", features = ["raw"] }
 hex = "0.4.3"
 http = "0.2"
+httparse = "1.7.1"
 humantime = "2.0.1"
 indent_write = "2.2.0"
 indexmap = { version = "1.6", features = ["serde-1"] }

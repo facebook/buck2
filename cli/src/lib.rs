@@ -51,6 +51,7 @@ use buck2_client::commands::test::TestCommand;
 use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client::exit_result::ExitResult;
 use buck2_client::replayer::Replayer;
+use buck2_client::stdin::Stdin;
 use buck2_client::verbosity::Verbosity;
 use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -206,6 +207,8 @@ impl CommandKind {
             return cmd.exec(init, paths?, common_opts.detect_cycles).into();
         }
 
+        let stdin = Stdin::new();
+
         let guard = AsyncCleanupContextGuard::new();
         let async_cleanup_context = guard.ctx().dupe();
 
@@ -217,6 +220,7 @@ impl CommandKind {
             replay_speed,
             verbosity: common_opts.verbosity,
             async_cleanup_context,
+            stdin,
         };
 
         match self {

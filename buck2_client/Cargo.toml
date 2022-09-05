@@ -44,6 +44,7 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+httparse = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
