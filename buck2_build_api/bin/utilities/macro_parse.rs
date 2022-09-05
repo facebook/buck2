@@ -13,8 +13,6 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::io::BufRead;
-
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
@@ -37,15 +35,13 @@ pub struct Opt {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let opt = Opt::from_args();
-    let f = std::fs::File::open(opt.file).unwrap();
-    let file = std::io::BufReader::new(&f);
-    let lines: Vec<_> = file.lines().map(|l| l.unwrap()).collect();
+    let file = std::fs::read_to_string(opt.file)?;
 
-    for line in lines {
+    for line in file.lines() {
         println!(
             "line: `{}`\n result: `{:?}`",
             line,
-            buck2_node::attrs::attr_type::arg::parser::parse_macros(&line)
+            buck2_node::attrs::attr_type::arg::parser::parse_macros(line)
         );
     }
 
