@@ -336,107 +336,40 @@ impl BuckdClient {
             }
         }
     }
+}
 
-    pub async fn clean(
-        &mut self,
-        req: CleanRequest,
-    ) -> anyhow::Result<CommandOutcome<CleanResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::clean(d, r)), req)
-            .await
-    }
+macro_rules! stream_method {
+    ($method: ident, $req: ty, $res: ty) => {
+        stream_method!($method, $method, $req, $res);
+    };
 
-    pub async fn aquery(
-        &mut self,
-        req: AqueryRequest,
-    ) -> anyhow::Result<CommandOutcome<AqueryResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::aquery(d, r)), req)
-            .await
-    }
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
+        pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
+            self.stream(|d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)), req)
+                .await
+        }
+    };
+}
 
-    pub async fn cquery(
-        &mut self,
-        req: CqueryRequest,
-    ) -> anyhow::Result<CommandOutcome<CqueryResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::cquery(d, r)), req)
-            .await
-    }
-
-    pub async fn uquery(
-        &mut self,
-        req: UqueryRequest,
-    ) -> anyhow::Result<CommandOutcome<UqueryResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::uquery(d, r)), req)
-            .await
-    }
-
-    pub async fn targets(
-        &mut self,
-        req: TargetsRequest,
-    ) -> anyhow::Result<CommandOutcome<TargetsResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::targets(d, r)), req)
-            .await
-    }
-
-    pub async fn targets_show_outputs(
-        &mut self,
-        req: TargetsRequest,
-    ) -> anyhow::Result<CommandOutcome<TargetsShowOutputsResponse>> {
-        self.stream(
-            |d, r| Box::pin(DaemonApiClient::targets_show_outputs(d, r)),
-            req,
-        )
-        .await
-    }
-
-    pub async fn build(
-        &mut self,
-        req: BuildRequest,
-    ) -> anyhow::Result<CommandOutcome<BuildResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::build(d, r)), req)
-            .await
-    }
-
-    pub async fn bxl(&mut self, req: BxlRequest) -> anyhow::Result<CommandOutcome<BxlResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::bxl(d, r)), req)
-            .await
-    }
-
-    pub async fn test(&mut self, req: TestRequest) -> anyhow::Result<CommandOutcome<TestResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::test(d, r)), req)
-            .await
-    }
-
-    pub async fn install(
-        &mut self,
-        req: InstallRequest,
-    ) -> anyhow::Result<CommandOutcome<InstallResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::install(d, r)), req)
-            .await
-    }
-
-    pub async fn audit(
-        &mut self,
-        req: GenericRequest,
-    ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::audit(d, r)), req)
-            .await
-    }
-
-    pub async fn materialize(
-        &mut self,
-        req: MaterializeRequest,
-    ) -> anyhow::Result<CommandOutcome<MaterializeResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::materialize(d, r)), req)
-            .await
-    }
-
-    pub async fn unstable_docs(
-        &mut self,
-        req: UnstableDocsRequest,
-    ) -> anyhow::Result<CommandOutcome<UnstableDocsResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::unstable_docs(d, r)), req)
-            .await
-    }
+impl BuckdClient {
+    stream_method!(clean, CleanRequest, CleanResponse);
+    stream_method!(aquery, AqueryRequest, AqueryResponse);
+    stream_method!(cquery, CqueryRequest, CqueryResponse);
+    stream_method!(uquery, UqueryRequest, UqueryResponse);
+    stream_method!(targets, TargetsRequest, TargetsResponse);
+    stream_method!(
+        targets_show_outputs,
+        TargetsRequest,
+        TargetsShowOutputsResponse
+    );
+    stream_method!(build, BuildRequest, BuildResponse);
+    stream_method!(bxl, BxlRequest, BxlResponse);
+    stream_method!(test, TestRequest, TestResponse);
+    stream_method!(install, InstallRequest, InstallResponse);
+    stream_method!(audit, GenericRequest, GenericResponse);
+    stream_method!(materialize, MaterializeRequest, MaterializeResponse);
+    stream_method!(unstable_docs, UnstableDocsRequest, UnstableDocsResponse);
+    stream_method!(profile, profile2, ProfileRequest, ProfileResponse);
 
     pub async fn unstable_crash(
         &mut self,
@@ -493,14 +426,6 @@ impl BuckdClient {
             .unstable_dice_dump(Request::new(req))
             .await?;
         Ok(resp.into_inner())
-    }
-
-    pub async fn profile(
-        &mut self,
-        req: ProfileRequest,
-    ) -> anyhow::Result<CommandOutcome<ProfileResponse>> {
-        self.stream(|d, r| Box::pin(DaemonApiClient::profile2(d, r)), req)
-            .await
     }
 
     pub async fn flush_dep_files(
