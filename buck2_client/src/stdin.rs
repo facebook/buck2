@@ -45,6 +45,12 @@ impl Stdin {
         std::thread::spawn(move || {
             // NOTE: We ignore send errors since there is no point in reading without a receiver.
             let stdin = std::io::stdin().lock();
+
+            // Disable buffering, since we don't do small reads anyway (we have a 8KB buffer
+            // already). We probably need something similar on Windows here.
+            #[cfg(unix)]
+            let stdin = raw_reader::RawReader::new(stdin);
+
             let _ignored = read_and_forward(stdin, &mut tx, buffer_size);
         });
 
@@ -86,4 +92,39 @@ fn read_and_forward(
     }
 
     Ok(())
+}
+
+#[cfg(unix)]
+mod raw_reader {
+    use std::io;
+    use std::io::Read;
+    use std::os::unix::io::AsRawFd;
+    use std::os::unix::io::RawFd;
+
+    use nix::unistd;
+
+    pub struct RawReader<R> {
+        fd: RawFd,
+        // Keep this alive for as long as we use it, on the assumption that dropping it releases
+        // the FD.
+        _owner: R,
+    }
+
+    impl<R> RawReader<R>
+    where
+        R: AsRawFd,
+    {
+        pub fn new(reader: R) -> Self {
+            Self {
+                fd: reader.as_raw_fd(),
+                _owner: reader,
+            }
+        }
+    }
+
+    impl<R> Read for RawReader<R> {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            unistd::read(self.fd, buf).map_err(io::Error::from)
+        }
+    }
 }
