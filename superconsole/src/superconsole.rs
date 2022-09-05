@@ -133,6 +133,7 @@ impl SuperConsole {
     }
 
     fn size(&self) -> anyhow::Result<Dimensions> {
+        eprint!("{:?} vs {:?}", terminal::size(), self.default_size);
         match terminal::size() {
             Ok(size) => Ok(size.into()),
             Err(e) => match self.default_size {
