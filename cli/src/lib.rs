@@ -81,7 +81,6 @@ pub(crate) struct CommonOptions {
         parse(try_from_str = parse_isolation_dir),
         env("BUCK_ISOLATION_DIR"),
         long,
-        hidden(true),
         default_value="v2"
     )]
     isolation_dir: FileNameBuf,
