@@ -71,7 +71,5 @@ name = "buck2"
 path = "bin/buck2.rs"
 
 [features]
-# @oss-disable: default = ["gazebo_lint", "eden_materializer", "extra_logging"]
+# @oss-disable: default = ["gazebo_lint", "eden_materializer"]
 eden_materializer = ["buck2_build_api/eden_materializer", "buck2_server/eden_materializer", "buck2_server_commands/eden_materializer"]
-# @oss-disable: extra_logging = []
-extra_logging = [] # @oss-enable
