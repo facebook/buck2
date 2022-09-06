@@ -37,7 +37,7 @@ impl<T: QueryTarget> MultiQueryResult<T> {
                 (
                     QueryEvaluationValue::TargetSet(value),
                     QueryEvaluationValue::TargetSet(results),
-                ) => results.insert_all(&value),
+                ) => results.extend(&value),
                 (QueryEvaluationValue::FileSet(value), QueryEvaluationValue::FileSet(results)) => {
                     results.insert_all(&value)
                 }

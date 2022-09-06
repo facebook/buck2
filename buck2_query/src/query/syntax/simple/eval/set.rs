@@ -37,7 +37,7 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.insert(value)
     }
 
-    pub fn insert_all(&mut self, other: &TargetSet<T>) {
+    pub fn extend(&mut self, other: &TargetSet<T>) {
         for v in other.iter() {
             self.insert(v.dupe());
         }
