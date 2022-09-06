@@ -30,6 +30,7 @@ use buck2_execute::directory::INTERNER;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use futures::future;
 use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;
 use smallvec::SmallVec;
@@ -96,13 +97,17 @@ async fn path_artifact_value(
             )),
             PathMetadata::Directory => {
                 let files = file_ops.read_dir(cell_path).await?;
-                let mut entries = Vec::with_capacity(files.len());
-                for x in &*files {
+
+                let entries = files.iter().map(|x| async {
                     let value =
                         path_artifact_value(file_ops, &cell_path.join(&x.file_name)).await?;
-                    entries.push((x.file_name.clone(), value));
-                }
-                let d: DirectoryData<_, _, _> = DirectoryData::new(entries.into_iter().collect());
+                    anyhow::Ok((x.file_name.clone(), value))
+                });
+
+                let entries = future::try_join_all(entries).await?;
+                let entries = entries.into_iter().collect();
+
+                let d: DirectoryData<_, _, _> = DirectoryData::new(entries);
                 Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
             }
         },
