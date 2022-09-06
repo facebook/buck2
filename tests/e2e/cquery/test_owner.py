@@ -38,3 +38,52 @@ async def test_owner_skips_incompatible_targets(buck: Buck) -> None:
     )
     assert "No owner" in result.stderr
     assert "Skipping target incompatible node" in result.stderr
+
+
+@buck_test(inplace=True)
+async def test_owner_without_universe_deprecated(buck: Buck) -> None:
+    result = await buck.cquery(
+        "--deprecated-owner",
+        "owner(buck2/tests/e2e/cquery/test_owner_data/deprecated_correct/bin.sh)",
+    )
+    lines = result.stdout.splitlines()
+    # Drop configuration.
+    targets = [t.split()[0] for t in lines]
+    assert [
+        "fbcode//buck2/tests/e2e/cquery/test_owner_data/deprecated_correct:bin"
+    ] == targets
+
+
+@buck_test(inplace=True)
+async def test_owner_without_universe_correct(buck: Buck) -> None:
+    # TODO(nga): there should be a warning.
+    result = await buck.cquery(
+        "--correct-owner",
+        "owner(buck2/tests/e2e/cquery/test_owner_data/deprecated_correct/bin.sh)",
+    )
+    assert "" == result.stdout
+
+
+@buck_test(inplace=True)
+async def test_owner_with_auto_universe_deprecated(buck: Buck) -> None:
+    result = await buck.cquery(
+        "--deprecated-owner",
+        "deps(fbcode//buck2/tests/e2e/cquery/test_owner_data/deprecated_correct:test) intersect"
+        " owner(buck2/tests/e2e/cquery/test_owner_data/deprecated_correct/bin.sh)",
+    )
+    # `owner()` returns the target outside of the universe.
+    assert "" == result.stdout
+
+
+@buck_test(inplace=True)
+async def test_owner_with_auto_universe_correct(buck: Buck) -> None:
+    result = await buck.cquery(
+        "--correct-owner",
+        "deps(fbcode//buck2/tests/e2e/cquery/test_owner_data/deprecated_correct:test) intersect owner(buck2/tests/e2e/cquery/test_owner_data/deprecated_correct/bin.sh)",
+    )
+    lines = result.stdout.splitlines()
+    # Drop configuration.
+    targets = [t.split()[0] for t in lines]
+    assert [
+        "fbcode//buck2/tests/e2e/cquery/test_owner_data/deprecated_correct:bin"
+    ] == targets
