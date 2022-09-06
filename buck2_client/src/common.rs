@@ -367,6 +367,9 @@ pub struct CommonConsoleOptions {
     ///
     ///   dice - shows information about evaluated dice nodes
     ///   debugevents - shows information about the flow of events from buckd
+    ///
+    /// These components can be turned on/off interactively.
+    /// Press 'h' for help when superconsole is active.
     #[clap(
         long = "--ui",
         ignore_case = true,
