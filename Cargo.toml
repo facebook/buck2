@@ -189,6 +189,9 @@ zstd = "0.11.1"
 
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../common/rust/shed/fbinit"
+sorted_vector_map.version = "0.1"
+# @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
+
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"
