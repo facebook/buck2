@@ -20,7 +20,6 @@ indoc = { workspace = true }
 inventory = { workspace = true }
 fancy-regex = { workspace = true }
 futures = { workspace = true }
-futures-util = { workspace = true }
 internment = { workspace = true }
 itertools = { workspace = true }
 owning_ref = { workspace = true }
