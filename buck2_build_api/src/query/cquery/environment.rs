@@ -35,6 +35,12 @@ use crate::query::uquery::environment::rbuildfiles;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
 
+#[derive(Debug, thiserror::Error)]
+enum CqueryError {
+    #[error("Correct `owner()` function is not implemented yet")]
+    CorrectOwnerNotImplemented,
+}
+
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
 pub trait CqueryDelegate: Send + Sync {
@@ -56,12 +62,20 @@ pub trait CqueryDelegate: Send + Sync {
     ) -> SharedResult<ConfiguredTargetLabel>;
 }
 
+/// [Context](https://fburl.com/adiagq2f).
+#[derive(Copy, Clone, Dupe)]
+pub enum CqueryOwnerBehavior {
+    Deprecated,
+    Correct,
+}
+
 pub struct CqueryEnvironment<'c> {
     delegate: Arc<dyn CqueryDelegate + 'c>,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
     // TODO(nga): use it.
     _universe: Option<CqueryUniverse>,
+    owner_behavior: CqueryOwnerBehavior,
 }
 
 impl<'c> CqueryEnvironment<'c> {
@@ -69,11 +83,13 @@ impl<'c> CqueryEnvironment<'c> {
         delegate: Arc<dyn CqueryDelegate + 'c>,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
         universe: Option<CqueryUniverse>,
+        owner_behavior: CqueryOwnerBehavior,
     ) -> Self {
         Self {
             delegate,
             literals,
             _universe: universe,
+            owner_behavior,
         }
     }
 
@@ -156,6 +172,12 @@ impl<'c> CqueryEnvironment<'c> {
         };
         Ok(owners)
     }
+
+    fn owner_correct(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
+        let _ = path;
+        // TODO(nga): implement this.
+        Err(CqueryError::CorrectOwnerNotImplemented.into())
+    }
 }
 
 #[async_trait]
@@ -206,7 +228,10 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         let mut result = TargetSet::new();
 
         for path in paths.iter() {
-            let owners = self.owner_deprecated(path).await?;
+            let owners = match &self.owner_behavior {
+                CqueryOwnerBehavior::Deprecated => self.owner_deprecated(path).await?,
+                CqueryOwnerBehavior::Correct => self.owner_correct(path)?,
+            };
             if owners.is_empty() {
                 warn!("No owner was found for {}", path);
             }

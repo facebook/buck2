@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
+use buck2_build_api::query::cquery::environment::CqueryOwnerBehavior;
 use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -108,6 +109,7 @@ pub(crate) async fn get_cquery_env<'v>(
         cquery_delegate,
         // TODO(nga): add universe.
         None,
+        CqueryOwnerBehavior::Deprecated,
     ))
 }
 
@@ -457,6 +459,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .path(),
                 ctx.global_data().get_io_provider().fs().dupe(),
                 this.target_platform.dupe(),
+                CqueryOwnerBehavior::Deprecated,
             )
             .await
             {

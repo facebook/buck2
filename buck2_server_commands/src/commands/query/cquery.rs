@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::query::cquery::environment::CqueryOwnerBehavior;
 use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::result::ToUnsharedResultExt;
@@ -106,6 +107,7 @@ async fn cquery(
         server_ctx.working_dir(),
         server_ctx.project_root().clone(),
         global_target_platform,
+        CqueryOwnerBehavior::Deprecated,
     )
     .await?;
 

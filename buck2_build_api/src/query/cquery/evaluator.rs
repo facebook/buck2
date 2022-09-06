@@ -25,6 +25,7 @@ use gazebo::prelude::*;
 
 use crate::query::analysis::evaluator::eval_query;
 use crate::query::cquery::environment::CqueryEnvironment;
+use crate::query::cquery::environment::CqueryOwnerBehavior;
 use crate::query::cquery::universe::CqueryUniverse;
 use crate::query::dice::get_dice_query_delegate;
 use crate::query::dice::DiceQueryDelegate;
@@ -35,6 +36,7 @@ use crate::query::uquery::environment::UqueryDelegate;
 pub struct CqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceQueryDelegate<'c>>,
     functions: DefaultQueryFunctionsModule<CqueryEnvironment<'c>>,
+    owner_behavior: CqueryOwnerBehavior,
 }
 
 impl CqueryEvaluator<'_> {
@@ -64,6 +66,7 @@ impl CqueryEvaluator<'_> {
                 self.dice_query_delegate.dupe(),
                 Arc::new(resolved_literals),
                 Some(universe),
+                self.owner_behavior,
             ))
         })
         .await
@@ -77,6 +80,7 @@ pub async fn get_cquery_evaluator<'a, 'c: 'a>(
     working_dir: &'a ProjectRelativePath,
     project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
+    owner_behavior: CqueryOwnerBehavior,
 ) -> anyhow::Result<CqueryEvaluator<'c>> {
     let dice_query_delegate = Arc::new(
         get_dice_query_delegate(ctx, working_dir, project_root, global_target_platform).await?,
@@ -85,6 +89,7 @@ pub async fn get_cquery_evaluator<'a, 'c: 'a>(
     Ok(CqueryEvaluator {
         dice_query_delegate,
         functions,
+        owner_behavior,
     })
 }
 
