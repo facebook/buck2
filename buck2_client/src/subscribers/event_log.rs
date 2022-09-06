@@ -390,10 +390,10 @@ impl EventLog {
         // The event-log is going to be written to file containing the build uuid.
         // But we don't know the build uuid until we've gotten the CommandStart event.
         // So we'll just create it when we know where to put it.
-        let mut log_mode = LogMode::Json;
-        static PROTOBUF_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_PROTOBUF_LOG");
-        if PROTOBUF_LOG.get_copied()?.unwrap_or(false) {
-            log_mode = LogMode::Protobuf;
+        let mut log_mode = LogMode::Protobuf;
+        static JSON_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_JSON_LOG");
+        if JSON_LOG.get_copied()?.unwrap_or(false) {
+            log_mode = LogMode::Json;
         }
 
         // Open our log fie, gzip encoded.
