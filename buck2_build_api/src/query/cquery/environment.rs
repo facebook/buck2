@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
@@ -89,6 +90,72 @@ impl<'c> CqueryEnvironment<'c> {
     ) -> anyhow::Result<ConfiguredTargetNode> {
         Ok(self.delegate.get_node_for_configured_target(label).await?)
     }
+
+    /// Deprecated `owner` function implementation.
+    /// See [this post](https://fburl.com/0xv7u4bz) for details.
+    async fn owner_deprecated(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
+        // need to explicitly track this rather than checking for changes to result set since the owner might
+        // already be in the set.
+        let mut owners = Vec::new();
+        match self
+            .delegate
+            .uquery_delegate()
+            .get_enclosing_packages(path)
+            .await
+        {
+            Ok(packages) => {
+                let package_futs = packages.iter().map(|package| async move {
+                    let mut result: Vec<ConfiguredTargetNode> = Vec::new();
+
+                    // TODO(cjhopman): We should make sure that the file exists.
+                    let targets = self
+                        .delegate
+                        .uquery_delegate()
+                        .eval_build_file(package)
+                        .await?;
+
+                    for node in targets.targets().values() {
+                        match self.delegate.get_node_for_target(node.label()).await? {
+                            MaybeCompatible::Compatible(node) => {
+                                for input in node.inputs() {
+                                    if &input == path {
+                                        result.push(node.dupe());
+                                        // this intentionally only breaks out of the inner loop. We don't need to look at the
+                                        // other inputs of this target, but it's possible for a single file to be owned by
+                                        // multiple targets.
+                                        break;
+                                    }
+                                }
+                            }
+                            MaybeCompatible::Incompatible(reason) => {
+                                // TODO(scottcao): Change all skipping messages from eprintln to warn
+                                // TODO(scottcao): Add event for incompatible target skipping
+                                eprintln!(
+                                    "{}",
+                                    reason.skipping_message(
+                                        &self.delegate.get_configured_target(node.label()).await?,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+
+                    anyhow::Ok(result)
+                });
+
+                for nodes in futures::future::join_all(package_futs).await.into_iter() {
+                    for node in nodes?.into_iter() {
+                        owners.push(node);
+                    }
+                }
+            }
+            Err(_) => {
+                // we don't consider this an error, it's usually the case that the user
+                // just wants to know the target owning the file if it exists.
+            }
+        };
+        Ok(owners)
+    }
 }
 
 #[async_trait]
@@ -139,73 +206,11 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         let mut result = TargetSet::new();
 
         for path in paths.iter() {
-            // need to explicitly track this rather than checking for changes to result set since the owner might
-            // already be in the set.
-            let mut found_owner = false;
-            match self
-                .delegate
-                .uquery_delegate()
-                .get_enclosing_packages(path)
-                .await
-            {
-                Ok(packages) => {
-                    let package_futs = packages.iter().map(|package| async move {
-                        let mut result: Vec<Self::Target> = Vec::new();
-
-                        // TODO(cjhopman): We should make sure that the file exists.
-                        let targets = self
-                            .delegate
-                            .uquery_delegate()
-                            .eval_build_file(package)
-                            .await?;
-
-                        for node in targets.targets().values() {
-                            match self.delegate.get_node_for_target(node.label()).await? {
-                                MaybeCompatible::Compatible(node) => {
-                                    for input in node.inputs() {
-                                        if &input == path {
-                                            result.push(node.dupe());
-                                            // this intentionally only breaks out of the inner loop. We don't need to look at the
-                                            // other inputs of this target, but it's possible for a single file to be owned by
-                                            // multiple targets.
-                                            break;
-                                        }
-                                    }
-                                }
-                                MaybeCompatible::Incompatible(reason) => {
-                                    // TODO(scottcao): Change all skipping messages from eprintln to warn
-                                    // TODO(scottcao): Add event for incompatible target skipping
-                                    eprintln!(
-                                        "{}",
-                                        reason.skipping_message(
-                                            &self
-                                                .delegate
-                                                .get_configured_target(node.label())
-                                                .await?,
-                                        ),
-                                    );
-                                }
-                            }
-                        }
-
-                        anyhow::Ok(result)
-                    });
-
-                    for nodes in futures::future::join_all(package_futs).await.into_iter() {
-                        for node in nodes?.into_iter() {
-                            found_owner = true;
-                            result.insert(node);
-                        }
-                    }
-                }
-                Err(_) => {
-                    // we don't consider this an error, it's usually the case that the user
-                    // just wants to know the target owning the file if it exists.
-                }
-            };
-            if !found_owner {
+            let owners = self.owner_deprecated(path).await?;
+            if owners.is_empty() {
                 warn!("No owner was found for {}", path);
             }
+            result.extend(owners);
         }
         Ok(result)
     }
