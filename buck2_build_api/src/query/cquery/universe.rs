@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::target::TargetName;
@@ -20,6 +21,7 @@ use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::IterDuped;
+use itertools::Itertools;
 
 /// Subset of targets `cquery` command works with.
 ///
@@ -96,5 +98,32 @@ impl CqueryUniverse {
             }
         }
         targets
+    }
+
+    pub(crate) fn owners(&self, path: &CellPath) -> Vec<ConfiguredTargetNode> {
+        let mut nodes = Vec::new();
+
+        // We lookup in all ancestors because we still have package boundary violations.
+        // But we ignore symlinks: path may be a symlink target
+        // for a target living in another directory.
+        // This is another reason to not support symlinks in buck.
+        for package in path.ancestors() {
+            // Here we allocate package for possibly non-existent package,
+            // violating `Package` assumptions.
+            // This does not leave this function, so we are probably fine.
+            // We do it because the map is by `Package`,
+            // and `BTreeMap` does not allow lookup by equivalent key.
+            let package = Package::from_cell_path(&package);
+            let package_data = match self.targets.get(&package) {
+                None => continue,
+                Some(package_data) => package_data,
+            };
+            for node in package_data.values().flatten() {
+                if node.0.inputs().contains(path) {
+                    nodes.push(node.0.dupe());
+                }
+            }
+        }
+        nodes
     }
 }

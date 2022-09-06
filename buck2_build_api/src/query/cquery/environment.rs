@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::cell_path::CellPath;
@@ -37,8 +38,8 @@ use crate::query::uquery::environment::UqueryDelegate;
 
 #[derive(Debug, thiserror::Error)]
 enum CqueryError {
-    #[error("Correct `owner()` function is not implemented yet")]
-    CorrectOwnerNotImplemented,
+    #[error("Target universe not specified (internal error)")]
+    NoUniverse,
 }
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
@@ -74,7 +75,7 @@ pub struct CqueryEnvironment<'c> {
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
     // TODO(nga): use it.
-    _universe: Option<CqueryUniverse>,
+    universe: Option<CqueryUniverse>,
     owner_behavior: CqueryOwnerBehavior,
 }
 
@@ -88,7 +89,7 @@ impl<'c> CqueryEnvironment<'c> {
         Self {
             delegate,
             literals,
-            _universe: universe,
+            universe,
             owner_behavior,
         }
     }
@@ -174,9 +175,8 @@ impl<'c> CqueryEnvironment<'c> {
     }
 
     fn owner_correct(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
-        let _ = path;
-        // TODO(nga): implement this.
-        Err(CqueryError::CorrectOwnerNotImplemented.into())
+        let universe = self.universe.as_ref().context(CqueryError::NoUniverse)?;
+        Ok(universe.owners(path))
     }
 }
 
