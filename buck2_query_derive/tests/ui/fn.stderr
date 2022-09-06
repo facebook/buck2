@@ -1,0 +1,5 @@
+error: `#[query_module(..)]` can only be used on impls
+ --> tests/ui/fn.rs:4:1
+  |
+4 | fn foo(env: ()) {}
+  | ^^^^^^^^^^^^^^^^^^

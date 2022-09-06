@@ -1,0 +1,49 @@
+# To silence the linter warnings about native
+prelude = native
+
+url = "https://interncache-all.fbcdn.net/manifold/buck_build_test/tree/buck2_test/http_archive/test.tgz"
+sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
+sha256 = "ede1fc5fa032399c318faff891af698d55a30090fda4a07947911572790e3ab9"
+
+prelude.remote_file(
+    name = "invalid_sha1",
+    out = "protoc",
+    url = url,
+    sha1 = "0000000000000000000000000000000000000000",
+)
+
+prelude.remote_file(
+    name = "invalid_sha256",
+    out = "protoc",
+    url = url,
+    sha256 = "0000000000000000000000000000000000000000000000000000000000000000",
+)
+
+prelude.remote_file(
+    name = "valid_sha1_invalid_sha256",
+    out = "protoc",
+    url = url,
+    sha1 = sha1,
+    sha256 = "0000000000000000000000000000000000000000000000000000000000000000",
+)
+
+prelude.remote_file(
+    name = "no_sha1",
+    out = "protoc",
+    url = url,
+)
+
+prelude.remote_file(
+    name = "http_error",
+    out = "protoc",
+    url = "https://interncache-all.fbcdn.net/manifold/buck_cli/tree/buck_test_artifact_does_not_exist",
+    # Actually the hash of the error message, but we should fail before we get there.
+    sha1 = "015285d5326466b9db4c4054e200f249d0a973b0",
+)
+
+prelude.remote_file(
+    name = "transfer_error",
+    out = "protoc",
+    url = "http://localhost:9998",
+    sha1 = "015285d5326466b9db4c4054e200f249d0a973b0",
+)

@@ -1,0 +1,10 @@
+prelude = native
+
+prelude.python_bootstrap_binary(
+    name = "colliding_deps",
+    main = "bad.py",
+    deps = [
+        "//buck2/tests/targets/rules/python_bootstrap:lib",
+        "//buck2/tests/targets/rules/python_bootstrap/dir:lib",
+    ],
+)

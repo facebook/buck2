@@ -1,0 +1,59 @@
+# To silence the linter warnings about native
+prelude = native
+
+# This URL is just the `./expected` directory that's next to this file,
+# packaged up as a tar.gz.
+url = "https://interncache-all.fbcdn.net/manifold/buck_build_test/tree/buck2_test/http_archive/test.tgz"
+sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
+sha256 = "ede1fc5fa032399c318faff891af698d55a30090fda4a07947911572790e3ab9"
+
+prelude.http_archive(
+    name = "test",
+    urls = [url],
+    sha256 = sha256,
+)
+
+prelude.filegroup(
+    name = "expected",
+    srcs = glob(["expected/**"]),
+)
+
+native.genrule(
+    name = "check",
+    cmd = 'diff $(location :expected)/expected $(location :test) && touch "$OUT"',
+    out = "check",
+)
+
+prelude.http_archive(
+    name = "test_exclude",
+    urls = [url],
+    sha256 = sha256,
+    excludes = ["foo/.*"],
+)
+
+native.genrule(
+    name = "check_exclude",
+    cmd = 'test -f $(location :test_exclude)/foo/bar/qux || touch "$OUT"',
+    out = "check",
+)
+
+# Test hash validation as well
+
+prelude.http_archive(
+    name = "test_sha1",
+    sha1 = sha1,
+    urls = [url],
+)
+
+prelude.http_archive(
+    name = "test_sha256",
+    sha256 = sha256,
+    urls = [url],
+)
+
+prelude.http_archive(
+    name = "test_sha_both",
+    sha1 = sha1,
+    sha256 = sha256,
+    urls = [url],
+)

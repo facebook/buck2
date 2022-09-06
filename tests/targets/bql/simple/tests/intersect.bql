@@ -1,0 +1,13 @@
+lib1 = "root//lib:lib1"
+lib2 = "root//lib:lib2"
+lib3 = "root//lib:lib3"
+
+left = targets([lib1, lib2])
+right = targets([lib2, lib3])
+
+if targets([]) != intersect(left, []):
+    fail("`intersect([], left) != []]` (left = `%s`)" % left)
+
+mid = targets([lib2])
+if intersect(left, right) != mid:
+    fail("intersect(left, right) != mid (left=`%s`, right=`%s`, mid=`%s`)" % (left, right, mid))

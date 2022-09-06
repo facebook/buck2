@@ -1,0 +1,72 @@
+# The test here sets up a os-specific binary ("hostos") that will just assert
+# that it's running on the right host and then print the host platform.
+# We then wrap that into a "fat binary" that uses the fat_platform_transition to
+# depend on the multiple hostos binaries and select the appropriate one at runtime.
+# Finally, the test_fat_binary rule just uses that binary and has actions
+# that use it both locally and remotely and concat the results.
+#
+# That's all put together with a fat platform that is mac+linux and uses whichever RE
+# does not match the host (so that we force it to run on each os).
+
+load("@fbcode//buck2/platform/execution:defs.bzl", "execution_platform", "execution_platforms")
+load("@fbcode//buck2/platform/execution:util.bzl", "fat_platform_incompatible")
+load(":defs.bzl", "fat_binary", "test_fat_binary")
+
+prelude = native
+host_is_mac = host_info().os.is_macos
+
+prelude.sh_binary(
+    name = "hostos",
+    main = select({
+        "ovr_config//os/constraints:linux": "linux.py",
+        "ovr_config//os/constraints:macos": "mac.py",
+    }),
+    target_compatible_with = fat_platform_incompatible(),
+)
+
+# This simply does a (fat_platform_transition) split transition on `bin` to get
+# versions of it for each platform and then `main` selects the appropriate one at runtime.
+fat_binary(
+    name = "fat_hostos",
+    bin = ":hostos",
+    main = "fat.py",
+    target_compatible_with = [
+        "fbcode//buck2/platform/execution:fat_platform_enabled",
+    ],
+)
+
+# This will create two actions, one with `local_only=True` using the fat
+# binary. It then cats the outputs of the two actions together. If the
+# non-local_only action runs remotely, we should end up with a file that has
+# the two different platforms printed in it.
+test_fat_binary(
+    name = "example_use",
+    fat_bin = ":fat_hostos",
+    cat_main = "cat.py",
+)
+
+# We can't reuse the normal fat platform because we want to use mac-RE on a
+# linux host (the normal fat platform always uses linux RE).
+fat_platform = execution_platform(
+    name = "fat_platform",
+    base_platform = "fbcode//buck2/platform/execution:fat_platform_posix_platform010",
+    local_enabled = True,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "linux-remote-execution",
+    } if host_is_mac else {
+        "platform": "mac",
+        "subplatform": "xcode-13.4",
+    },
+    remote_execution_action_key_providers = [],
+    remote_execution_max_input_files_mebibytes = 1000,
+    make_dash_only_platforms = False,
+)
+
+execution_platforms(
+    name = "platforms",
+    platforms = fat_platform + [
+        "fbcode//buck2/platform/execution:linux-x86_64-remote-only",
+        "fbcode//buck2/platform/execution:macos-remote-only",
+    ],
+)

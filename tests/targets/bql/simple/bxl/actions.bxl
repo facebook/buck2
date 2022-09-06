@@ -1,0 +1,27 @@
+def _artifact_test_impl(ctx):
+    owner = ctx.cquery().owner("bin/TARGETS.fixture")[0]
+
+    ctx.output.print(owner.sources())
+
+    ctx.output.print(owner.get_source("bin/TARGETS.fixture", ctx))
+
+artifact_test = bxl(
+    impl = _artifact_test_impl,
+    cli_args = {
+    },
+)
+
+def _build_actions_impl(ctx):
+    actions = ctx.bxl_actions.action_factory()
+
+    output = actions.write("my_output", ctx.cli_args.content)
+
+    ensured = ctx.output.ensure(output)
+    ctx.output.print(ensured)
+
+build_actions_test = bxl(
+    impl = _build_actions_impl,
+    cli_args = {
+        "content": cli_args.string(),
+    },
+)

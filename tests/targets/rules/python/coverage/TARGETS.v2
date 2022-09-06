@@ -1,0 +1,16 @@
+python_unittest(
+    name = "test",
+    srcs = [
+        "test.py",
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+python_library(
+    name = "lib",
+    srcs = [
+        "lib.py",
+    ],
+)

@@ -1,0 +1,15 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+prelude = prelude
+
+[build]
+  execution_platforms = root//platforms:platforms
+
+[buildfile]
+  buck2_default_visibility_to_public = true

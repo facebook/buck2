@@ -1,0 +1,11 @@
+load("//rules:rules.bzl", "foo_platform")
+
+foo_platform(
+    name = "platform1",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_platform(
+    name = "platform2",
+    visibility = [ "PUBLIC" ],
+)

@@ -1,0 +1,57 @@
+load("@fbcode//buck2/tests/targets/rules/python/omnibus:defs.bzl", "check_omnibus")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+check_omnibus(
+    name = "check_bin",
+    binary = ":bin",
+    check_defined = [
+        ("libomnibus.so", "global_func"),
+        ("libomnibus.so", "local_exported"),
+    ],
+    check_not_defined = [
+        ("libomnibus.so", "local"),
+    ],
+)
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    main_module = "bin",
+    native_link_strategy = "merged",
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    deps = [
+        ":root",
+    ],
+)
+
+fb_native.cxx_library(
+    name = "root",
+    srcs = [
+        "root.c",
+    ],
+    deps = [
+        ":body",
+    ],
+)
+
+fb_native.cxx_library(
+    name = "body",
+    srcs = [
+        "body.c",
+    ],
+    exported_linker_flags = [
+        "-Wl,--export-dynamic-symbol=local_exported",
+    ],
+)

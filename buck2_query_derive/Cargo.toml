@@ -1,0 +1,31 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+authors = ["Facebook"]
+description = "Proc macros for Buck's buck_query crate"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+name = "buck2_query_derive"
+version = "0.4.1"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+# TODO(nga): figure out how to use `= { workspace = true }` here
+#   when using, `cargo test -p buck2_query_derive --test ui` fails.
+itertools = "0.10.0"
+proc-macro2 = "1.0"
+syn = {version = "1.0.27", features = ["extra-traits", "full"]}
+quote = "1.0.3"
+textwrap = "0.14.2"
+
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+
+[dev-dependencies]
+trybuild = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

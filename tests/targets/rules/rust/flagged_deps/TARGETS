@@ -1,0 +1,14 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.rust_binary(
+    name = "with_flagged_dep",
+    srcs = [
+        "with_flagged_dep.rs",
+    ],
+    flagged_deps = [
+        (
+            "//buck2/tests/targets/rules/rust:lib",
+            ["noprelude"],
+        ),
+    ],
+)

@@ -1,0 +1,35 @@
+# Test that the use of env vars don't make `$(exe ...)` expand to multiple args.
+# Even though this is technically fine, a lot of use-cases expect expansions to
+# a single arg.
+
+native.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = '"$(exe :foo)" | grep hello-world && touch "$OUT"',
+)
+
+native.export_file(
+    name = "foo.sh",
+    src = "foo.sh",
+)
+
+native.command_alias(
+    name = "foo",
+    env = {"FOO": "hello-world"},
+    exe = ":foo.sh",
+)
+
+native.command_alias(
+    name = "foo_with_platform",
+    env = {"FOO": "hello-world"},
+    platform_exe = {
+        "linux": ":foo.sh",
+        "macos": ":foo.sh",
+    },
+)
+
+native.genrule(
+    name = "check_foo_with_platform",
+    out = "out.txt",
+    cmd = '"$(exe :foo_with_platform)" | grep hello-world && touch "$OUT"',
+)

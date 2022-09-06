@@ -1,0 +1,5 @@
+[buildfile]
+name=BUILD
+
+[repositories]
+root = .

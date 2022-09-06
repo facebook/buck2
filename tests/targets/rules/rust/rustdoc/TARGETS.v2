@@ -1,0 +1,25 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "self_contained",
+    srcs = [
+        "lib.rs",
+    ],
+)
+
+rust_library(
+    name = "with_deps",
+    srcs = [
+        "with_deps.rs",
+        "dep.rs",
+    ],
+    deps = [
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)
+
+rust_binary(
+    name = "self_contained_binary",
+    srcs = ["lib.rs"],
+    crate_root = "lib.rs",
+)

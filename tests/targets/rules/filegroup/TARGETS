@@ -1,0 +1,26 @@
+load("@fbsource//tools/build_defs:glob_defs.bzl", "subdir_glob")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.filegroup(
+    name = "dep",
+    srcs = [
+        "subdir/foo.txt",
+        "subdir/foo/bar.txt",
+    ],
+)
+
+bzl_native.filegroup(
+    name = "all_files",
+    srcs = [
+        "foo.txt",
+        "foo/bar.txt",
+        ":dep",
+    ],
+)
+
+bzl_native.filegroup(
+    name = "subdir_glob_dep",
+    srcs = subdir_glob([
+        ("subdir", "**/*"),
+    ]),
+)

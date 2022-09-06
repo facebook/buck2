@@ -1,0 +1,7 @@
+load(":rules.bzl", "write_string")
+
+write_string(
+    name = "simple",
+    content = read_config("override", "value", "default"),
+    out = "out.txt"
+)

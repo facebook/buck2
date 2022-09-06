@@ -1,0 +1,28 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.rust_library(
+    name = "proc_macro_lib",
+    srcs = ["lib.rs"],
+    proc_macro = True,
+    # This dep pulls in a `main` that will conflict with the top-level binary
+    # iff Buck incorrectly propagates this to the link of proc-macro users.
+    deps = [
+        ":native_dep_with_main",
+    ],
+)
+
+bzl_native.cxx_library(
+    name = "native_dep_with_main",
+    srcs = [
+        "main.cpp",
+    ],
+    link_whole = True,
+)
+
+bzl_native.rust_binary(
+    name = "proc_macro_main",
+    srcs = ["main.rs"],
+    deps = [
+        ":proc_macro_lib",
+    ],
+)

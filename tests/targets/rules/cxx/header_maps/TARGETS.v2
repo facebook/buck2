@@ -1,0 +1,15 @@
+prelude = native
+
+prelude.cxx_library(
+    name = "lib",
+    header_namespace = "",
+    compiler_flags = [
+        "-Wno-nonportable-include-path",
+    ],
+    headers = [
+        "lib.h",
+    ],
+    srcs = [
+        "lib.cpp",
+    ],
+)

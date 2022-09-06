@@ -1,0 +1,26 @@
+digraph result_graph {
+  "root//bin:the_binary" [style=filled,color="#DFECDF"];
+  "root//bin:the_binary" -> "root//platforms:platform1";
+  "root//bin:the_binary" -> "root//:data";
+  "root//bin:the_binary" -> "root//lib:lib1";
+  "root//bin:the_binary" -> "root//lib:lib2";
+  "root//bin:the_binary" -> "root//lib:lib3";
+  "root//platforms:platform1" [style=filled,color="#DFECDF"];
+  "root//:data" [style=filled,color="#DFECDF"];
+  "root//:data" -> "root//platforms:platform1";
+  "root//lib:lib1" [style=filled,color="#DFECDF"];
+  "root//lib:lib1" -> "root//platforms:platform1";
+  "root//lib:lib1" -> "root//lib:file1";
+  "root//lib:lib2" [style=filled,color="#DFECDF"];
+  "root//lib:lib2" -> "root//platforms:platform1";
+  "root//lib:lib2" -> "root//lib:file2";
+  "root//lib:lib3" [style=filled,color="#DFECDF"];
+  "root//lib:lib3" -> "root//platforms:platform1";
+  "root//lib:lib3" -> "root//lib:file3";
+  "root//lib:file1" [style=filled,color="#DFECDF"];
+  "root//lib:file1" -> "root//platforms:platform1";
+  "root//lib:file2" [style=filled,color="#DFECDF"];
+  "root//lib:file2" -> "root//platforms:platform1";
+  "root//lib:file3" [style=filled,color="#DFECDF"];
+  "root//lib:file3" -> "root//platforms:platform1";
+}

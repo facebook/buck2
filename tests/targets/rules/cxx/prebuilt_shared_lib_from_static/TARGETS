@@ -1,0 +1,27 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.cxx_genrule(
+    name = "static-lib",
+    srcs = ["lib.cpp"],
+    out = "lib.o",
+    cmd = "$(cxx) -c -fPIC -o $OUT $SRCS",
+)
+
+bzl_native.prebuilt_cxx_library(
+    name = "lib",
+    static_lib = ":static-lib",
+)
+
+cpp_binary(
+    # @autodeps-skip
+    name = "bin",
+    srcs = ["bin.cpp"],
+    deps = [":lib"],
+)
+
+bzl_native.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :bin) > $OUT",
+)

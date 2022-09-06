@@ -1,0 +1,33 @@
+cargo-features = ["workspace-inheritance"]
+
+[package]
+name = "buck2_interpreter_for_build"
+version = "0.1.0"
+edition = "2021"
+description = "Interpreter setup to BUCK files"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bumpalo = { workspace = true }
+derive_more = { workspace = true }
+hashbrown = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+maplit = { workspace = true }
+once_cell = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+twox-hash = { workspace = true }
+
+dice = { path = "../dice/dice" }
+gazebo = { workspace = true }
+starlark = { workspace = true }
+starlark_map = { workspace = true }
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_node = { path = "../buck2_node" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_query = { path = "../buck2_query" }
+buck2_query_parser = { path = "../buck2_query_parser" }

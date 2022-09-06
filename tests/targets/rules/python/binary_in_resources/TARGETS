@@ -1,0 +1,48 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+
+buck_genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :outer) | grep HELLO > $OUT",
+)
+
+python_binary(
+    name = "outer",
+    srcs = [
+        "outer.py",
+    ],
+    base_module = "",
+    main_module = "outer",
+    resources = {
+        ":inner": "inner.par",
+    },
+    deps = [
+        "//libfb/py:parutil",
+    ],
+)
+
+buck_genrule(
+    name = "check-test",
+    out = "out.txt",
+    cmd = "$(exe :test) | grep HELLO > $OUT",
+)
+
+python_unittest(
+    name = "test",
+    srcs = ["test.py"],
+    resources = {":outer": "outer.par"},
+    deps = [
+        "//libfb/py:parutil",
+    ],
+)
+
+python_binary(
+    name = "inner",
+    srcs = [
+        "inner.py",
+    ],
+    base_module = "",
+    main_module = "inner",
+)

@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="http://prebuilt_jar_javadoc.url" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

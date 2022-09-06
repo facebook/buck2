@@ -1,0 +1,1 @@
+test(name = "test", seed = read_config("test", "seed"))

@@ -1,0 +1,114 @@
+load(":defs.bzl", "test_expect", "test_label_matches_build_target_pattern", "test_parse_build_target_pattern")
+
+test_parse_build_target_pattern(
+    name = "test_build_target_pattern_parsing",
+    patterns = {
+        "//...": {
+            "cell": None,
+            "kind": "recursive",
+            "name": None,
+            "path": "",
+        },
+        "//:": {
+            "cell": None,
+            "kind": "package",
+            "name": None,
+            "path": "",
+        },
+        "//:target": {
+            "cell": None,
+            "kind": "single",
+            "name": "target",
+            "path": "",
+        },
+        "//a": {
+            "cell": None,
+            "kind": "single",
+            "name": "a",
+            "path": "a",
+        },
+        "//path/to": {
+            "cell": None,
+            "kind": "single",
+            "name": "to",
+            "path": "path/to",
+        },
+        "//path/to:": {
+            "cell": None,
+            "kind": "package",
+            "name": None,
+            "path": "path/to",
+        },
+        "//path/to:target": {
+            "cell": None,
+            "kind": "single",
+            "name": "target",
+            "path": "path/to",
+        },
+        "//root": {
+            "cell": None,
+            "kind": "single",
+            "name": "root",
+            "path": "root",
+        },
+        "a//b": {
+            "cell": "a",
+            "kind": "single",
+            "name": "b",
+            "path": "b",
+        },
+        "a//b:c": {
+            "cell": "a",
+            "kind": "single",
+            "name": "c",
+            "path": "b",
+        },
+        "cell//...": {
+            "cell": "cell",
+            "kind": "recursive",
+            "name": None,
+            "path": "",
+        },
+        "cell//path/to": {
+            "cell": "cell",
+            "kind": "single",
+            "name": "to",
+            "path": "path/to",
+        },
+        "cell//path/to/...": {
+            "cell": "cell",
+            "kind": "recursive",
+            "name": None,
+            "path": "path/to",
+        },
+        "cell//path/to:target": {
+            "cell": "cell",
+            "kind": "single",
+            "name": "target",
+            "path": "path/to",
+        },
+    },
+)
+
+test_label_matches_build_target_pattern(
+    name = "build_target_pattern_matching",
+    patterns = {
+        "//buck2/tests/targets/rules/utils:": True,
+        "//buck2/tests/targets/rules/utils:build_target_pattern_matching": True,
+        "fbcode//buck2/tests/...": True,
+        "fbcode//buck2/tests/targets/bad/...": False,
+        "fbcode//buck2/tests/targets/rules/utils/...": True,
+        "fbcode//buck2/tests/targets/rules/utils:": True,
+        "fbcode//buck2/tests/targets/rules/utils:build_target_pattern_matching": True,
+        "fbcode//buck2/tests/targets/rules/utils:test_build_target_pattern_parsing": False,
+        "fbcode//buck2/tests:": False,
+        "fbsource//buck2/tests/targets/rules/utils/...": False,
+        "fbsource//buck2/tests/targets/rules/utils:": False,
+        "fbsource//buck2/tests/targets/rules/utils:build_target_pattern_matching": False,
+    },
+)
+
+test_expect(
+    name = "test_expect_pass",
+    fail = False,
+)

@@ -1,0 +1,44 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+buck_genrule(
+    name = "test_custom",
+    out = "out.txt",
+    cmd = "$(exe :root) libtest_custom_soname.so > $OUT",
+)
+
+buck_genrule(
+    name = "test_default",
+    out = "out.txt",
+    cmd = "$(exe :root) libbuck2_tests_targets_rules_cxx_soname_default.so > $OUT",
+)
+
+cpp_binary(
+    # @autodeps-skip
+    name = "root",
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [
+        ":custom",
+        ":default",
+    ],
+)
+
+cpp_library(
+    name = "custom",
+    srcs = [
+        "shared.cpp",
+    ],
+    preferred_linkage = "shared",
+    soname = "libtest_custom_soname.so",
+)
+
+cpp_library(
+    name = "default",
+    srcs = [
+        "shared.cpp",
+    ],
+    preferred_linkage = "shared",
+)

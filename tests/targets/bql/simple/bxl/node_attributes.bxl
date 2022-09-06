@@ -1,0 +1,17 @@
+def _impl(ctx):
+    node = ctx.cquery().owner("bin/TARGETS.fixture")[0]
+    attrs = node.attrs()
+
+    ctx.output.print(attrs.name.type)
+    ctx.output.print(attrs.name.value())
+
+    ctx.output.print(attrs.deps.type)
+    ctx.output.print(attrs.deps.value())
+
+    ctx.output.print(attrs.cmd.type)
+    ctx.output.print(attrs.cmd.value())
+
+attrs_test = bxl(
+    impl = _impl,
+    cli_args = {},
+)
