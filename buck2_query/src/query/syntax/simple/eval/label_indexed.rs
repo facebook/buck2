@@ -10,6 +10,7 @@
 use std::hash::Hash;
 
 use gazebo::prelude::*;
+use starlark_map::small_set;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
 
@@ -93,8 +94,10 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.take(&LabelIndexer(value)).map(|e| e.0)
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &T> + Clone {
-        self.nodes.iter().map(|e| &e.0)
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            iter: self.nodes.iter(),
+        }
     }
 
     #[allow(clippy::should_implement_trait)] // the std trait requires concrete or boxed iterator type
@@ -120,6 +123,38 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
 
     pub fn last(&self) -> Option<&T> {
         self.nodes.last().map(|e| &e.0)
+    }
+}
+
+#[derive(Clone_)]
+pub struct Iter<'a, T: LabeledNode> {
+    iter: small_set::Iter<'a, LabelIndexed<T>>,
+}
+
+impl<'a, T: LabeledNode> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|e| &e.0)
+    }
+}
+
+impl<'a, T: LabeledNode> ExactSizeIterator for Iter<'a, T> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, T: LabeledNode> Dupe for Iter<'a, T> {}
+
+impl<'a, T: LabeledNode> IntoIterator for &'a LabelIndexedSet<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter {
+            iter: self.nodes.iter(),
+        }
     }
 }
 
