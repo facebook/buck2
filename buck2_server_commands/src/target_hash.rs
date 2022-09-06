@@ -202,10 +202,7 @@ impl TargetHashingTargetNode for TargetNode {
     ) -> anyhow::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
         for (_package, result) in loaded_targets {
-            let targets = result?;
-            for target in targets {
-                target_set.insert(target);
-            }
+            target_set.extend(result?);
         }
         Ok(target_set)
     }

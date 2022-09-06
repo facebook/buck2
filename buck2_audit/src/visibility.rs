@@ -155,9 +155,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
                 for (_package, result) in parsed_target_patterns.iter() {
                     match result {
                         Ok(res) => {
-                            for node in res.values() {
-                                nodes.insert(node.dupe());
-                            }
+                            nodes.extend(res.values());
                         }
                         Err(e) => {
                             return SharedResult::unshared_error(Err(e.dupe()));

@@ -132,9 +132,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     pub fn literals(&self) -> anyhow::Result<TargetSet<T>> {
         let mut literals = TargetSet::new();
         for result in self.resolved_literals.values() {
-            for literal in result.as_ref().map_err(|e| e.dupe())?.iter() {
-                literals.insert(literal.dupe());
-            }
+            literals.extend(result.as_ref().map_err(|e| e.dupe())?);
         }
         Ok(literals)
     }
@@ -153,9 +151,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
                 Ok(v) => v,
                 Err(e) => return Err(e.dupe().into()),
             };
-            for target in resolved.iter() {
-                targets.insert(target.dupe());
-            }
+            targets.extend(resolved);
         }
         Ok(targets)
     }

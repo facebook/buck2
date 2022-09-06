@@ -253,9 +253,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                     let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
                     let mut target_set = TargetSet::new();
                     for (_package, results) in loaded_patterns.into_iter() {
-                        for (_, node) in results?.into_iter() {
-                            target_set.insert(node);
-                        }
+                        target_set.extend(results?.into_iter().map(|(_, n)| n));
                     }
                     Ok(Some(Self::TargetSet(Cow::Owned(target_set))))
                 }

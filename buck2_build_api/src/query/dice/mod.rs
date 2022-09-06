@@ -358,9 +358,7 @@ impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
         let loaded_patterns = load_patterns(self.ctx, parsed_patterns).await?;
         let mut target_set = TargetSet::new();
         for (_package, results) in loaded_patterns.into_iter() {
-            for (_, node) in results?.into_iter() {
-                target_set.insert(node);
-            }
+            target_set.extend(results?.into_iter().map(|(_, n)| n));
         }
         Ok(target_set)
     }
