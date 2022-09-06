@@ -19,6 +19,7 @@ use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileNode;
 use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::label_indexed;
 use crate::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -99,7 +100,7 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.iter().map(|e| e.node_ref())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
+    pub fn iter(&self) -> Iter<T> {
         self.targets.iter()
     }
 
@@ -126,6 +127,17 @@ impl<T: QueryTarget> TargetSet<T> {
 
     pub fn last(&self) -> Option<&T> {
         self.targets.last()
+    }
+}
+
+pub type Iter<'a, T> = label_indexed::Iter<'a, T>;
+
+impl<'a, T: QueryTarget> IntoIterator for &'a TargetSet<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.targets.iter()
     }
 }
 
