@@ -39,7 +39,6 @@ use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use once_cell::sync::OnceCell;
 use starlark::eval::ProfileMode;
 
 use crate::analysis::calculation::keys::AnalysisKey;
@@ -305,36 +304,11 @@ async fn get_analysis_result(
 }
 
 fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
-    static CELL: OnceCell<bool> = OnceCell::new();
-
-    let detailed: bool =
-        *CELL.get_or_init(|| std::env::var_os("BUCK2_ANALYSIS_BREAKDOWN").is_some());
-
     let heap = res.providers().value().owner();
-
-    let starlark_total = if detailed {
-        let entries = heap
-            .allocated_summary()
-            .summary()
-            .iter()
-            .map(
-                |(kind, (count, bytes))| buck2_data::analysis_profile::StarlarkTotalMemoryEntry {
-                    kind: kind.into(),
-                    count: *count as u64,
-                    total_bytes: *bytes as u64,
-                },
-            )
-            .collect();
-
-        Some(buck2_data::analysis_profile::StarlarkTotalMemory { entries })
-    } else {
-        None
-    };
 
     buck2_data::AnalysisProfile {
         starlark_allocated_bytes: heap.allocated_bytes() as u64,
         starlark_available_bytes: heap.available_bytes() as u64,
-        starlark_total,
     }
 }
 

@@ -732,19 +732,8 @@ message MaterializeRequestedArtifactEnd {
 }
 
 message AnalysisProfile {
-  message StarlarkTotalMemoryEntry {
-    string kind = 1;
-    uint64 count = 2;
-    uint64 total_bytes = 3;
-  }
-
-  message StarlarkTotalMemory {
-    repeated StarlarkTotalMemoryEntry entries = 1;
-  }
-
   uint64 starlark_allocated_bytes = 1;
   uint64 starlark_available_bytes = 2;
-  StarlarkTotalMemory starlark_total = 3;
 }
 
 message AnalysisStart {
