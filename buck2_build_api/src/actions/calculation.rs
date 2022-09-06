@@ -53,6 +53,160 @@ pub(crate) trait ActionCalculation {
     async fn build_artifact(&self, artifact: &BuildArtifact) -> SharedResult<ActionOutputs>;
 }
 
+async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedResult<ActionOutputs> {
+    // Compute is only called if we have cache miss
+    debug!("compute {}", key);
+
+    let action = ctx.get_action(key).await?;
+
+    let build_signals = ctx.per_transaction_data().get_build_signals();
+
+    if action.key() != key {
+        // The action key we start with is on the DICE graph, and thus cached
+        // and properly deduplicated. But if the underlying has a different key,
+        // e.g. due to dynamic_output, then we might have two different action keys
+        // pointing at the same underlying action. We need to make sure that
+        // underlying action only gets called once, so call build_action once
+        // again with the new key to get DICE deduplication.
+        let res = ctx.build_action(action.key()).await;
+
+        if let Some(signals) = build_signals {
+            // Notify our critical path tracking that *this action* is secretly that
+            // other action we just jumped to.
+            signals.signal(ActionRedirectionSignal {
+                key: key.dupe(),
+                dest: action.key().dupe(),
+            });
+        }
+
+        return res;
+    }
+
+    let materialized_inputs = tokio::task::unconstrained(keep_going::try_join_all(
+        action
+            .inputs()?
+            .iter()
+            .map(|a| {
+                let a = a.dupe();
+                async move {
+                    let val = ctx.ensure_artifact_group(&a).await?;
+                    SharedResult::Ok((a, val))
+                }
+            })
+            .collect::<FuturesUnordered<_>>(),
+    ))
+    .await?;
+
+    // TODO check input based cache and compute keys
+    let start_event = buck2_data::ActionExecutionStart {
+        key: Some(action.key().as_proto()),
+        kind: action.kind().into(),
+        name: Some(buck2_data::ActionName {
+            category: action.category().as_str().to_owned(),
+            identifier: action.identifier().unwrap_or("").to_owned(),
+        }),
+    };
+
+    let executor = ctx
+        .get_action_executor(action.execution_config())
+        .await
+        .context(format!("for action `{}`", action))?;
+
+    // this can be RE
+    span_async(start_event, async move {
+        let (execute_result, command_reports) =
+            executor.execute(materialized_inputs, &action).await;
+
+        let allow_omit_details = execute_result.is_ok();
+
+        let commands = future::join_all(
+            command_reports
+                .iter()
+                .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
+        )
+        .await;
+
+        let action_result;
+        let execution_kind;
+        let wall_time;
+        let error;
+        let output_size;
+
+        match execute_result {
+            Ok((outputs, meta)) => {
+                if let Some(signals) = build_signals {
+                    signals.signal(ActionExecutionSignal {
+                        action: action.dupe(),
+                        duration: meta.timing.wall_time,
+                    });
+                }
+
+                output_size = outputs.calc_output_bytes();
+                action_result = Ok(outputs);
+                execution_kind = Some(meta.execution_kind.as_enum());
+                wall_time = Some(meta.timing.wall_time);
+                error = None;
+            }
+            Err(e) => {
+                // Because we already are sending the error message in the
+                // ActionExecutionEnd event, we slim the error down in the result.
+                // We can then unconditionally print the error message for compute(),
+                // including ones near the beginning of this method, and also not
+                // duplicate any error messages.
+                action_result = Err(anyhow::anyhow!(
+                    "Failed to build artifact(s) for '{}'",
+                    action.owner()
+                )
+                .into());
+                // TODO (torozco): Remove (see protobuf file)?
+                execution_kind = command_reports
+                    .last()
+                    .and_then(|r| r.status.execution_kind())
+                    .map(|e| e.as_enum());
+                wall_time = None;
+                error = Some(error_to_proto(&e));
+                output_size = 0;
+            }
+        };
+
+        let outputs = action_result
+            .as_ref()
+            .map(|outputs| {
+                outputs
+                    .iter()
+                    .filter_map(|(_artifact, value)| {
+                        Some(buck2_data::ActionOutput {
+                            tiny_digest: value.digest()?.tiny_digest().to_string(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        (
+            action_result,
+            buck2_data::ActionExecutionEnd {
+                key: Some(action.key().as_proto()),
+                kind: action.kind().into(),
+                name: Some(buck2_data::ActionName {
+                    category: action.category().as_str().to_owned(),
+                    identifier: action.identifier().unwrap_or("").to_owned(),
+                }),
+                failed: error.is_some(),
+                error,
+                always_print_stderr: action.always_print_stderr(),
+                wall_time: wall_time.map(Into::into),
+                execution_kind: execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet)
+                    as i32,
+                output_size,
+                commands,
+                outputs,
+            },
+        )
+    })
+    .await
+}
+
 #[async_trait]
 impl ActionCalculation for DiceComputations {
     async fn get_action(&self, action_key: &ActionKey) -> SharedResult<Arc<RegisteredAction>> {
@@ -78,158 +232,7 @@ impl ActionCalculation for DiceComputations {
             type Value = SharedResult<ActionOutputs>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                // Compute is only called if we have cache miss
-                debug!("compute {}", self.0);
-
-                let action = ctx.get_action(&self.0).await?;
-
-                let build_signals = ctx.per_transaction_data().get_build_signals();
-
-                if action.key() != &self.0 {
-                    // The action key we start with is on the DICE graph, and thus cached
-                    // and properly deduplicated. But if the underlying has a different key,
-                    // e.g. due to dynamic_output, then we might have two different action keys
-                    // pointing at the same underlying action. We need to make sure that
-                    // underlying action only gets called once, so call build_action once
-                    // again with the new key to get DICE deduplication.
-                    let res = ctx.build_action(action.key()).await;
-
-                    if let Some(signals) = build_signals {
-                        // Notify our criticla path tracking that *this action* is secretely that
-                        // other action we just jumped to.
-                        signals.signal(ActionRedirectionSignal {
-                            key: self.0.dupe(),
-                            dest: action.key().dupe(),
-                        });
-                    }
-
-                    return res;
-                }
-
-                let materialized_inputs = tokio::task::unconstrained(keep_going::try_join_all(
-                    action
-                        .inputs()?
-                        .iter()
-                        .map(|a| {
-                            let a = a.dupe();
-                            async move {
-                                let val = ctx.ensure_artifact_group(&a).await?;
-                                SharedResult::Ok((a, val))
-                            }
-                        })
-                        .collect::<FuturesUnordered<_>>(),
-                ))
-                .await?;
-
-                // TODO check input based cache and compute keys
-                let start_event = buck2_data::ActionExecutionStart {
-                    key: Some(action.key().as_proto()),
-                    kind: action.kind().into(),
-                    name: Some(buck2_data::ActionName {
-                        category: action.category().as_str().to_owned(),
-                        identifier: action.identifier().unwrap_or("").to_owned(),
-                    }),
-                };
-
-                let executor = ctx
-                    .get_action_executor(action.execution_config())
-                    .await
-                    .context(format!("for action `{}`", action))?;
-
-                // this can be RE
-                span_async(start_event, async move {
-                    let (execute_result, command_reports) =
-                        executor.execute(materialized_inputs, &action).await;
-
-                    let allow_omit_details = execute_result.is_ok();
-
-                    let commands = future::join_all(
-                        command_reports
-                            .iter()
-                            .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
-                    )
-                    .await;
-
-                    let action_result;
-                    let execution_kind;
-                    let wall_time;
-                    let error;
-                    let output_size;
-
-                    match execute_result {
-                        Ok((outputs, meta)) => {
-                            if let Some(signals) = build_signals {
-                                signals.signal(ActionExecutionSignal {
-                                    action: action.dupe(),
-                                    duration: meta.timing.wall_time,
-                                });
-                            }
-
-                            output_size = outputs.calc_output_bytes();
-                            action_result = Ok(outputs);
-                            execution_kind = Some(meta.execution_kind.as_enum());
-                            wall_time = Some(meta.timing.wall_time);
-                            error = None;
-                        }
-                        Err(e) => {
-                            // Because we already are sending the error message in the
-                            // ActionExecutionEnd event, we slim the error down in the result.
-                            // We can then unconditionally print the error message for compute(),
-                            // including ones near the beginning of this method, and also not
-                            // duplicate any error messages.
-                            action_result = Err(anyhow::anyhow!(
-                                "Failed to build artifact(s) for '{}'",
-                                action.owner()
-                            )
-                            .into());
-                            // TODO (torozco): Remove (see protobuf file)?
-                            execution_kind = command_reports
-                                .last()
-                                .and_then(|r| r.status.execution_kind())
-                                .map(|e| e.as_enum());
-                            wall_time = None;
-                            error = Some(error_to_proto(&e));
-                            output_size = 0;
-                        }
-                    };
-
-                    let outputs = action_result
-                        .as_ref()
-                        .map(|outputs| {
-                            outputs
-                                .iter()
-                                .filter_map(|(_artifact, value)| {
-                                    Some(buck2_data::ActionOutput {
-                                        tiny_digest: value.digest()?.tiny_digest().to_string(),
-                                    })
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    (
-                        action_result,
-                        buck2_data::ActionExecutionEnd {
-                            key: Some(action.key().as_proto()),
-                            kind: action.kind().into(),
-                            name: Some(buck2_data::ActionName {
-                                category: action.category().as_str().to_owned(),
-                                identifier: action.identifier().unwrap_or("").to_owned(),
-                            }),
-                            failed: error.is_some(),
-                            error,
-                            always_print_stderr: action.always_print_stderr(),
-                            wall_time: wall_time.map(Into::into),
-                            execution_kind: execution_kind
-                                .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
-                                as i32,
-                            output_size,
-                            commands,
-                            outputs,
-                        },
-                    )
-                })
-                .await
+                build_action_impl(ctx, &self.0).await
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
