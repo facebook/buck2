@@ -87,6 +87,7 @@ async fn cquery(
         context,
         target_call_stacks,
         show_providers,
+        correct_owner,
         ..
     } = request;
     // The request will always have a universe value, an empty one indicates the user didn't provide a universe.
@@ -102,12 +103,17 @@ async fn cquery(
     )
     .await?;
 
+    let owner_behavior = match correct_owner {
+        true => CqueryOwnerBehavior::Correct,
+        false => CqueryOwnerBehavior::Deprecated,
+    };
+
     let evaluator = get_cquery_evaluator(
         &ctx,
         server_ctx.working_dir(),
         server_ctx.project_root().clone(),
         global_target_platform,
-        CqueryOwnerBehavior::Deprecated,
+        owner_behavior,
     )
     .await?;
 

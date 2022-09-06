@@ -180,6 +180,9 @@ message CqueryRequest {
 
   bool show_providers = 7;
 
+  // Correct or deprecated owner? https://fburl.com/1mf2d2xj
+  bool correct_owner = 8;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them).
   QueryOutputFormat unstable_output_format = 4242000;

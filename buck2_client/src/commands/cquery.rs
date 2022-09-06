@@ -72,6 +72,20 @@ pub struct CqueryCommand {
         help = "Show the providers of the query result instead of the attributes and labels"
     )]
     show_providers: bool,
+
+    #[allow(rustdoc::bare_urls)]
+    /// Enable deprecated `owner()` function behavior.
+    ///
+    /// See this post https://fburl.com/1mf2d2xj for details.
+    #[clap(long)]
+    deprecated_owner: bool,
+
+    #[allow(rustdoc::bare_urls)]
+    /// Enable correct `owner()` function behavior.
+    ///
+    /// See this post https://fburl.com/1mf2d2xj for details.
+    #[clap(long)]
+    correct_owner: bool,
 }
 
 #[async_trait]
@@ -89,6 +103,20 @@ impl StreamingCommand for CqueryCommand {
         let output_attributes = self.query_common.output_attributes().to_vec();
         let context = ctx.client_context(&self.config_opts, matches)?;
 
+        let correct_owner = match (self.correct_owner, self.deprecated_owner) {
+            (true, false) => true,
+            (false, true) => false,
+            (false, false) => {
+                // TODO(nga): make it correct by default,
+                false
+            }
+            (true, true) => {
+                return ExitResult::bail(
+                    "Cannot specify both --correct-owner and --deprecated-owner",
+                );
+            }
+        };
+
         let response = buckd
             .with_flushing()
             .cquery(
@@ -101,6 +129,7 @@ impl StreamingCommand for CqueryCommand {
                     show_providers: self.show_providers,
                     unstable_output_format,
                     target_call_stacks: self.query_common.target_call_stacks,
+                    correct_owner,
                 },
                 ctx.stdin().console_interaction_stream(),
             )
