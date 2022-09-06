@@ -59,8 +59,6 @@ async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedRes
 
     let action = ctx.get_action(key).await?;
 
-    let build_signals = ctx.per_transaction_data().get_build_signals();
-
     if action.key() != key {
         // The action key we start with is on the DICE graph, and thus cached
         // and properly deduplicated. But if the underlying has a different key,
@@ -70,7 +68,7 @@ async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedRes
         // again with the new key to get DICE deduplication.
         let res = ctx.build_action(action.key()).await;
 
-        if let Some(signals) = build_signals {
+        if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
             // Notify our critical path tracking that *this action* is secretly that
             // other action we just jumped to.
             signals.signal(ActionRedirectionSignal {
@@ -82,6 +80,13 @@ async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedRes
         return res;
     }
 
+    build_action_no_redirect(ctx, action).await
+}
+
+async fn build_action_no_redirect(
+    ctx: &DiceComputations,
+    action: Arc<RegisteredAction>,
+) -> SharedResult<ActionOutputs> {
     let materialized_inputs = tokio::task::unconstrained(keep_going::try_join_all(
         action
             .inputs()?
@@ -134,7 +139,7 @@ async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedRes
 
         match execute_result {
             Ok((outputs, meta)) => {
-                if let Some(signals) = build_signals {
+                if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
                     signals.signal(ActionExecutionSignal {
                         action: action.dupe(),
                         duration: meta.timing.wall_time,
