@@ -13,6 +13,7 @@ use std::fmt::Display;
 use buck2_query::query::environment::LabeledNode;
 use fancy_regex::Regex;
 use gazebo::display::display_container;
+use gazebo::prelude::*;
 use indexmap::IndexSet;
 
 use crate::query::environment::QueryTarget;
@@ -36,12 +37,6 @@ impl<T: QueryTarget> TargetSet<T> {
 
     pub fn insert(&mut self, value: T) -> bool {
         self.targets.insert(value)
-    }
-
-    pub fn extend(&mut self, other: &TargetSet<T>) {
-        for v in other.iter() {
-            self.insert(v.dupe());
-        }
     }
 
     pub fn len(&self) -> usize {
@@ -138,6 +133,20 @@ impl<'a, T: QueryTarget> IntoIterator for &'a TargetSet<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.targets.iter()
+    }
+}
+
+impl<T: QueryTarget> Extend<T> for TargetSet<T> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for target in iter {
+            self.targets.insert(target);
+        }
+    }
+}
+
+impl<'a, T: QueryTarget> Extend<&'a T> for TargetSet<T> {
+    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
+        self.extend(iter.into_iter().duped())
     }
 }
 
