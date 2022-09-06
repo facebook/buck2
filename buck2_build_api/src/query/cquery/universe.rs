@@ -24,7 +24,7 @@ use gazebo::prelude::IterDuped;
 /// Subset of targets `cquery` command works with.
 ///
 /// Targets are resolved in the universe, and file owners are also resolved in the universe.
-pub(crate) struct CqueryUniverse {
+pub struct CqueryUniverse {
     targets: BTreeMap<Package, BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>>,
 }
 

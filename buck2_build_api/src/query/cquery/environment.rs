@@ -28,6 +28,7 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use gazebo::dupe::Dupe;
 use tracing::warn;
 
+use crate::query::cquery::universe::CqueryUniverse;
 use crate::query::uquery::environment::allbuildfiles;
 use crate::query::uquery::environment::rbuildfiles;
 use crate::query::uquery::environment::QueryLiterals;
@@ -57,14 +58,22 @@ pub trait CqueryDelegate: Send + Sync {
 pub struct CqueryEnvironment<'c> {
     delegate: Arc<dyn CqueryDelegate + 'c>,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
+    // TODO(nga): BXL `cquery` function does not provides us the universe.
+    // TODO(nga): use it.
+    _universe: Option<CqueryUniverse>,
 }
 
 impl<'c> CqueryEnvironment<'c> {
     pub fn new(
         delegate: Arc<dyn CqueryDelegate + 'c>,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
+        universe: Option<CqueryUniverse>,
     ) -> Self {
-        Self { delegate, literals }
+        Self {
+            delegate,
+            literals,
+            _universe: universe,
+        }
     }
 
     pub fn describe() -> QueryEnvironmentDescription {

@@ -45,10 +45,15 @@ impl CqueryEvaluator<'_> {
         target_universe: Option<&[U]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
         eval_query(&self.functions, query, query_args, async move |literals| {
-            let resolved_literals = match target_universe {
+            let (universe, resolved_literals) = match target_universe {
                 None => {
-                    PreresolvedQueryLiterals::pre_resolve(&*self.dice_query_delegate, &literals)
-                        .await
+                    let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+                        &*self.dice_query_delegate,
+                        &literals,
+                    )
+                    .await;
+                    let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
+                    (universe, resolved_literals)
                 }
                 Some(universe) => {
                     resolve_literals_in_universe(&self.dice_query_delegate, &literals, universe)
@@ -58,6 +63,7 @@ impl CqueryEvaluator<'_> {
             Ok(CqueryEnvironment::new(
                 self.dice_query_delegate.dupe(),
                 Arc::new(resolved_literals),
+                Some(universe),
             ))
         })
         .await
@@ -88,7 +94,10 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     dice_query_delegate: &DiceQueryDelegate<'_>,
     literals: &[L],
     universe: &[U],
-) -> anyhow::Result<PreresolvedQueryLiterals<ConfiguredTargetNode>> {
+) -> anyhow::Result<(
+    CqueryUniverse,
+    PreresolvedQueryLiterals<ConfiguredTargetNode>,
+)> {
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
     let refs: Vec<_> = universe.map(|v| v.as_ref());
@@ -97,7 +106,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     let universe = CqueryUniverse::build(&universe_resolved).await?;
 
     // capture a reference so the ref can be moved into the future below.
-    let universe = &universe;
+    let universe_ref = &universe;
 
     // TODO(cjhopman): Using the default resolution for recursive literals is inefficient.
     // If we can have a package-trie or cellpath-trie we can do the resolution directly
@@ -108,7 +117,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
             let lit = lit.as_ref();
             let result: anyhow::Result<_> = try {
                 let resolved_pattern = dice_query_delegate.resolve_target_patterns(&[lit]).await?;
-                universe.get(&resolved_pattern)
+                universe_ref.get(&resolved_pattern)
             };
 
             (lit.to_owned(), result.shared_error())
@@ -116,5 +125,5 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
         .collect();
 
     let resolved = resolution_futs.collect().await;
-    Ok(PreresolvedQueryLiterals::new(resolved))
+    Ok((universe, PreresolvedQueryLiterals::new(resolved)))
 }

@@ -106,6 +106,8 @@ pub(crate) async fn get_cquery_env<'v>(
     Ok(CqueryEnvironment::new(
         cquery_delegate.dupe(),
         cquery_delegate,
+        // TODO(nga): add universe.
+        None,
     ))
 }
 

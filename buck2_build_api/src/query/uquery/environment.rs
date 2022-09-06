@@ -127,6 +127,17 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
         }
         Self { resolved_literals }
     }
+
+    /// All the literals, or error if resolution of any failed.
+    pub fn literals(&self) -> anyhow::Result<TargetSet<T>> {
+        let mut literals = TargetSet::new();
+        for result in self.resolved_literals.values() {
+            for literal in result.as_ref().map_err(|e| e.dupe())?.iter() {
+                literals.insert(literal.dupe());
+            }
+        }
+        Ok(literals)
+    }
 }
 
 #[async_trait]
