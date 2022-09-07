@@ -6,6 +6,7 @@ load(
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
+load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "expect")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
@@ -129,7 +130,7 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
     #
     # Context: D36669131
     dwo_dir = None
-    if cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
+    if cxx_toolchain_info.linker_info.lto_mode != LtoMode("none") and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
         links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
 
     for link in links:
