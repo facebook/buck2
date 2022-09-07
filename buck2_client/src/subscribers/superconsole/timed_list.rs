@@ -35,6 +35,7 @@ use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
 use crate::subscribers::superconsole::timed_list::table_builder::Row;
 use crate::subscribers::superconsole::TimeSpeed;
+use crate::subscribers::superconsole::TimedListState;
 
 mod table_builder;
 
@@ -133,13 +134,16 @@ impl TimedListBodyInner {
 
     fn draw_root(&self, root: &SpanHandle, state: &State) -> anyhow::Result<Vec<Row>> {
         let time_speed = state.get::<TimeSpeed>()?;
+        let two_lines = state.get::<TimedListState>()?.two_lines;
         let info = root.info();
 
         let mut it = root.children();
         let (first, second) = (it.next(), it.next());
 
         match (first, second) {
-            (Some(first), None) => Ok(vec![self.draw_root_single_child(state, root, first)?]),
+            (Some(first), None) if !two_lines => {
+                Ok(vec![self.draw_root_single_child(state, root, first)?])
+            }
             (first, second) => {
                 let mut rows = Vec::new();
                 rows.push(Row::span(0, info, time_speed.speed(), &self.cutoffs)?);
@@ -422,8 +426,10 @@ mod tests {
             cached_actions: 1,
         };
 
+        let timed_list_state = TimedListState::default();
+
         let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats),
+            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
             Dimensions {
                 width: 40,
                 height: 10,
@@ -511,8 +517,10 @@ mod tests {
             cached_actions: 1,
         };
 
+        let timed_list_state = TimedListState::default();
+
         let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats),
+            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
             Dimensions {
                 width: 40,
                 height: 10,
@@ -623,8 +631,10 @@ mod tests {
             cached_actions: 1,
         };
 
+        let timed_list_state = TimedListState::default();
+
         let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats),
+            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
             Dimensions {
                 width: 80,
                 height: 10,
@@ -685,7 +695,7 @@ mod tests {
             .unwrap();
 
         let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats),
+            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
             Dimensions {
                 width: 80,
                 height: 10,

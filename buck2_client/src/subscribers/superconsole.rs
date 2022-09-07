@@ -107,6 +107,12 @@ impl TimeSpeed {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct TimedListState {
+    /// Two lines for root events with single child event.
+    pub(crate) two_lines: bool,
+}
+
 pub struct SuperConsoleState {
     test_state: TestState,
     current_tick: Tick,
@@ -116,6 +122,7 @@ pub struct SuperConsoleState {
     debug_events: DebugEventsState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole,
+    timed_list: TimedListState,
 }
 
 #[derive(Default)]
@@ -202,6 +209,7 @@ impl StatefulSuperConsole {
                 simple_console: SimpleConsole::with_tty(verbosity, show_waiting_message),
                 dice_state: DiceState::new(config.enable_dice),
                 debug_events: DebugEventsState::new(config.enable_debug_events),
+                timed_list: TimedListState::default(),
             },
             super_console: Some(super_console),
             verbosity,
@@ -247,6 +255,7 @@ impl SuperConsoleState {
             &self.dice_state,
             self.simple_console.re_state(),
             &self.debug_events,
+            &self.timed_list,
         ]
     }
 }
@@ -317,9 +326,15 @@ impl EventSubscriber for StatefulSuperConsole {
             self.state.debug_events.toggle();
             self.handle_stderr("You toggled the debug events component, press `e` to revert")
                 .await?;
-        } else if c == '?' || c == 'h' {
-            self.handle_stderr("Help: `d` = toggle DICE, `e` = toggle debug events")
+        } else if c == '2' {
+            self.state.timed_list.two_lines = !self.state.timed_list.two_lines;
+            self.handle_stderr("You toggled the two lines mode, press `2` to revert")
                 .await?;
+        } else if c == '?' || c == 'h' {
+            self.handle_stderr(
+                "Help: `d` = toggle DICE, `e` = toggle debug events, `2` = toggle two lines mode",
+            )
+            .await?;
         }
 
         Ok(())
