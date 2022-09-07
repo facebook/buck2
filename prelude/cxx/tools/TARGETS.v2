@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs/lib:python_common.bzl", "get_ldflags", "get_strip_mode")
 load(":defs.bzl", "omnibus_environment")
 
 prelude = native
@@ -553,4 +554,13 @@ omnibus_environment(
     prefer_stripped_native_objects = True,
     visibility = ["PUBLIC"],
     default_target_platform = "ovr_config//platform/linux:x86_64-fbcode-platform010-clang",
+    # We override the binary-level ldflags with library level ldfalgs for
+    # shared roots. We include 2 important things: stripping binaries, and not
+    # discarding GPU code.
+    shared_root_ld_flags = get_ldflags("", "", "omnibus_root", get_strip_mode("", ""), "") + [
+        "-Wl,--no-discard-section=.nv_fatbin",
+        "-Wl,--no-discard-section=.nvFatBinSegment",
+        # Reorder nv_fatbin after the bss section to avoid overflow
+        "$(location fbcode//tools/build:move_gpu_sections_implicit_linker_script.txt)",
+    ],
 )

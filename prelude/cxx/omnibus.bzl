@@ -51,6 +51,7 @@ OmnibusEnvironment = provider(fields = [
     "roots",
     "enable_explicit_roots",
     "prefer_stripped_objects",
+    "shared_root_ld_flags",
 ])
 
 Disposition = enum("root", "excluded", "body")
@@ -241,7 +242,7 @@ def create_linkable_root(
             ctx,
             output,
             name = name,
-            links = [LinkArgs(infos = inputs)],
+            links = [LinkArgs(flags = env.shared_root_ld_flags), LinkArgs(infos = inputs)],
             category_suffix = "omnibus_root",
             identifier = name or output.short_path,
         )
@@ -346,11 +347,11 @@ def _create_root(
 
     if spec.body:
         if root.shared_root != None:
+            # NOTE: This ignores ldflags. We rely on env.shared_root_ld_flags instead.
             private = _requires_private_root(
                 root.shared_root,
                 linker_type,
                 prefer_stripped_objects,
-                extra_ldflags,
                 spec,
             )
             if private == None:
@@ -457,24 +458,12 @@ def _requires_private_root(
         candidate: SharedOmnibusRoot.type,
         linker_type: str.type,
         prefer_stripped_objects: bool.type,
-        extra_ldflags: [""],
         spec: OmnibusSpec.type) -> [OmnibusPrivateRootProductCause.type, None]:
     if candidate.linker_type != linker_type:
         return OmnibusPrivateRootProductCause(category = "linker_type")
 
     if candidate.prefer_stripped_objects != prefer_stripped_objects:
         return OmnibusPrivateRootProductCause(category = "prefer_stripped_objects")
-
-    if extra_ldflags:
-        # NOTE: For now we are ignoring this. In practice this doesn't seem to
-        # exist in Buck1: it seems to be relied on for the libomnibus.so link,
-        # not the individual libs. In fbcode this is is currently getting set
-        # to provide -fuse-ld, which is already in the linker flags,
-        # build-id=xxhpadded, which is to speed things up (but is a lot faster
-        # if we reuse), -S (which is handled by prefer_stripped_objects), and
-        # --as-needed, which we override above...
-        # return OmnibusPrivateRootProductCause(category = "extra_ldflags")
-        pass
 
     for required_body in candidate.required_body:
         if not (required_body in spec.body and required_body not in spec.roots):
