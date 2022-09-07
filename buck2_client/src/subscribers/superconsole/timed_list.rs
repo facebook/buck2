@@ -33,6 +33,7 @@ use crate::subscribers::span_tracker::SpanHandle;
 use crate::subscribers::span_tracker::SpanTracker;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
+use crate::subscribers::superconsole::timed_list::table_builder::Row;
 use crate::subscribers::superconsole::TimeSpeed;
 
 mod table_builder;
@@ -122,11 +123,14 @@ impl TimedListBodyInner {
             builder
         };
 
-        builder.push().text(
+        builder.rows.push(Row::text(
+            0,
             event_string,
             display::duration_as_secs_elapsed(info.start.elapsed(), time_speed.speed()),
             info.start.elapsed(),
-        )
+            &self.cutoffs,
+        )?);
+        Ok(())
     }
 }
 
@@ -143,7 +147,7 @@ impl Component for TimedListBodyInner {
 
         let mut roots = spans.iter_roots();
 
-        let mut builder = Table::new(&self.cutoffs);
+        let mut builder = Table::new();
 
         let mut first_not_rendered = None;
 
@@ -171,13 +175,17 @@ impl Component for TimedListBodyInner {
                     self.draw_root_single_child(state, &root, first, &mut builder)?
                 }
                 (first, second) => {
-                    builder.push().span(info, time_speed.speed())?;
+                    builder
+                        .rows
+                        .push(Row::span(0, info, time_speed.speed(), &self.cutoffs)?);
 
                     for child in first.into_iter().chain(second.into_iter()).chain(it) {
-                        builder
-                            .push()
-                            .pad(2)
-                            .span(child.info(), time_speed.speed())?;
+                        builder.rows.push(Row::span(
+                            2,
+                            child.info(),
+                            time_speed.speed(),
+                            &self.cutoffs,
+                        )?);
                     }
                 }
             }
@@ -190,11 +198,13 @@ impl Component for TimedListBodyInner {
             let formatted_count =
                 display::duration_as_secs_elapsed(longest_count, time_speed.speed());
 
-            builder.push().styled(
+            builder.rows.push(Row::styled(
+                0,
                 remaining_msg.italic(),
                 formatted_count.italic(),
                 longest_count,
-            )?;
+                &self.cutoffs,
+            )?);
         }
 
         builder.draw(&superconsole::state![], dimensions, mode)

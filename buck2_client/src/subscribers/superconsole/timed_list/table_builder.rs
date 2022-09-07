@@ -25,42 +25,22 @@ use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::span_tracker::SpanInfo;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 
-#[derive(Debug, Clone)]
-pub(crate) struct Row {
-    event: Line,
-    time: Line,
-}
-
 #[derive(Debug)]
-pub(crate) struct Table<'a> {
-    rows: Vec<Row>,
-    cutoffs: &'a Cutoffs,
+pub(crate) struct Table {
+    pub(crate) rows: Vec<Row>,
 }
 
-impl<'a> Table<'a> {
-    pub(crate) fn new(cutoffs: &'a Cutoffs) -> Self {
-        Self {
-            rows: Vec::new(),
-            cutoffs,
-        }
+impl Table {
+    pub(crate) fn new() -> Self {
+        Self { rows: Vec::new() }
     }
 
     pub(crate) fn len(&self) -> usize {
         self.rows.len()
     }
-
-    pub(crate) fn push<'b>(&'b mut self) -> Push<'a, 'b>
-    where
-        'a: 'b,
-    {
-        Push {
-            builder: self,
-            padding: 0,
-        }
-    }
 }
 
-impl Component for Table<'_> {
+impl Component for Table {
     /// Zips together each time and label lines, but gives the times preferential treatment.
     fn draw_unchecked(
         &self,
@@ -104,52 +84,52 @@ impl Component for Table<'_> {
     }
 }
 
-pub(crate) struct Push<'a, 'b> {
-    builder: &'b mut Table<'a>,
-    padding: usize,
+#[derive(Debug, Clone)]
+pub(crate) struct Row {
+    event: Line,
+    time: Line,
 }
 
-impl<'a, 'b> Push<'a, 'b> {
-    pub(crate) fn pad(mut self, padding: usize) -> Self {
-        self.padding = padding;
-        self
+impl Row {
+    pub(crate) fn span(
+        padding: usize,
+        span: &SpanInfo,
+        time_speed: f64,
+        cutoffs: &Cutoffs,
+    ) -> anyhow::Result<Row> {
+        let event = display::display_event(&span.event, TargetDisplayOptions::for_console())?;
+        let time = display::duration_as_secs_elapsed(span.start.elapsed(), time_speed);
+        let age = span.start.elapsed();
+        Row::text(padding, event, time, age, cutoffs)
     }
 
-    pub(crate) fn span(self, span: &SpanInfo, time_speed: f64) -> anyhow::Result<()> {
-        self.text(
-            display::display_event(&span.event, TargetDisplayOptions::for_console())?,
-            display::duration_as_secs_elapsed(span.start.elapsed(), time_speed),
-            span.start.elapsed(),
-        )
-    }
-
-    pub(crate) fn text(self, event: String, time: String, age: Duration) -> anyhow::Result<()> {
-        self.styled(style(event), style(time), age)
+    pub(crate) fn text(
+        padding: usize,
+        event: String,
+        time: String,
+        age: Duration,
+        cutoffs: &Cutoffs,
+    ) -> anyhow::Result<Row> {
+        Row::styled(padding, style(event), style(time), age, cutoffs)
     }
 
     pub(crate) fn styled(
-        self,
+        padding: usize,
         event: StyledContent<String>,
         time: StyledContent<String>,
         age: Duration,
-    ) -> anyhow::Result<()> {
-        let event = Span::new_styled(styled_for_delay(event, age, self.builder.cutoffs))?;
+        cutoffs: &Cutoffs,
+    ) -> anyhow::Result<Row> {
+        let event = Span::new_styled(styled_for_delay(event, age, cutoffs))?;
 
-        let line = if self.padding > 0 {
-            superconsole::line![Span::padding(self.padding), event]
+        let line = if padding > 0 {
+            superconsole::line![Span::padding(padding), event]
         } else {
             superconsole::line![event]
         };
 
-        self.builder.rows.push(Row {
-            event: line,
-            time: superconsole::line![Span::new_styled(styled_for_delay(
-                time,
-                age,
-                self.builder.cutoffs
-            ))?],
-        });
-        Ok(())
+        let time = superconsole::line![Span::new_styled(styled_for_delay(time, age, cutoffs))?];
+        Ok(Row { event: line, time })
     }
 }
 
