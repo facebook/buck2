@@ -127,7 +127,7 @@ impl ReDirectorySerializer {
                 DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
                     symlinks.push(RE::SymlinkNode {
                         name,
-                        target: s.to_path_buf().to_string_lossy().into_owned(),
+                        target: s.target_str().to_owned(),
                     });
                 }
             }
@@ -208,17 +208,16 @@ impl Symlink {
     }
 }
 
-pub fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
+pub fn new_symlink<T: AsRef<Path>>(target: T) -> anyhow::Result<ActionDirectoryMember> {
     let target = target.as_ref();
     if target.is_absolute() {
-        ActionDirectoryMember::ExternalSymlink(Arc::new(ExternalSymlink::new(
-            target.to_path_buf(),
-            None,
+        Ok(ActionDirectoryMember::ExternalSymlink(Arc::new(
+            ExternalSymlink::new(target.to_path_buf(), None)?,
         )))
     } else {
-        ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
+        Ok(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
             RelativePathBuf::from_path(target).unwrap(),
-        )))
+        ))))
     }
 }
 
@@ -280,7 +279,7 @@ pub fn re_tree_to_directory(
                 FileNameBuf::try_from(node.name.clone()).map_err(|_| {
                     DirectoryReConversionError::IncorrectFileName(node.name.clone())
                 })?,
-                DirectoryEntry::Leaf(node.into()),
+                DirectoryEntry::Leaf(node.try_into()?),
             )?;
         }
         for dir_node in &re_dir.directories {
@@ -347,18 +346,21 @@ pub enum DirectoryReConversionError {
     IncorrectFileName(String),
 }
 
-impl<'a> From<&'a RE::SymlinkNode> for ActionDirectoryMember {
-    fn from(node: &'a RE::SymlinkNode) -> ActionDirectoryMember {
-        if node.target.starts_with('/') {
+impl<'a> TryFrom<&'a RE::SymlinkNode> for ActionDirectoryMember {
+    type Error = anyhow::Error;
+
+    fn try_from(node: &'a RE::SymlinkNode) -> Result<Self, Self::Error> {
+        let symlink = if node.target.starts_with('/') {
             ActionDirectoryMember::ExternalSymlink(Arc::new(ExternalSymlink::new(
                 PathBuf::from(node.target.as_str()),
                 None,
-            )))
+            )?))
         } else {
             ActionDirectoryMember::Symlink(Arc::new(Symlink(RelativePathBuf::from(
                 node.target.clone(),
             ))))
-        }
+        };
+        Ok(symlink)
     }
 }
 

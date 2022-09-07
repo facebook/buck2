@@ -383,10 +383,11 @@ mod tests {
         let symlink = ExternalSymlink::new(
             PathBuf::from("/mnt/gvfs"),
             Some(ForwardRelativePathBuf::unchecked_new("include".to_owned())),
-        );
+        )
+        .unwrap();
         assert_eq!(
             "re-symlink:/mnt/gvfs/include",
-            get_symlink_object_id(Arc::new(symlink).to_path_buf().to_str().unwrap())
+            get_symlink_object_id(&Arc::new(symlink).to_path_buf().to_string_lossy())
         );
         Ok(())
     }
@@ -434,10 +435,13 @@ mod tests {
 
     #[test]
     fn test_get_object_id_and_type_external_symlink() -> anyhow::Result<()> {
-        let symlink = Arc::new(ExternalSymlink::new(
-            PathBuf::from("/mnt/gvfs"),
-            Some(ForwardRelativePathBuf::unchecked_new("include".to_owned())),
-        ));
+        let symlink = Arc::new(
+            ExternalSymlink::new(
+                PathBuf::from("/mnt/gvfs"),
+                Some(ForwardRelativePathBuf::unchecked_new("include".to_owned())),
+            )
+            .unwrap(),
+        );
 
         let value = ArtifactValue::from(DirectoryEntry::Leaf(
             ActionDirectoryMember::ExternalSymlink(symlink),

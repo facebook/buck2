@@ -172,7 +172,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
                     let out = if dest.is_absolute() {
                         RawPathMetadata::Symlink {
                             at: curr_path,
-                            to: RawSymlink::External(Arc::new(ExternalSymlink::new(dest, rest))),
+                            to: RawSymlink::External(Arc::new(ExternalSymlink::new(dest, rest)?)),
                         }
                     } else {
                         // Remove the symlink name.

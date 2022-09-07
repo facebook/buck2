@@ -72,7 +72,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         dest: &ProjectRelativePath,
     ) -> anyhow::Result<()> {
         insert_artifact(&mut self.builder, src.as_ref(), src_value)?;
-        let entry = DirectoryEntry::Leaf(new_symlink(&self.project_fs.relative_path(src, dest)));
+        let entry = DirectoryEntry::Leaf(new_symlink(&self.project_fs.relative_path(src, dest))?);
         self.builder.insert(dest, entry)?;
         Ok(())
     }
@@ -110,7 +110,9 @@ impl<'a> ArtifactValueBuilder<'a> {
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(s)))
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
-                DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s.with_full_target()))
+                DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(
+                    s.with_full_target()?,
+                ))
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f.dupe()))

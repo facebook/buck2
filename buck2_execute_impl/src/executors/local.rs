@@ -402,7 +402,7 @@ impl LocalExecutor {
                 } else if filetype.is_symlink() {
                     builder.insert(
                         filename,
-                        DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&disk_path)?)),
+                        DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&disk_path)?)?),
                     )?;
                 } else if filetype.is_file() {
                     let metadata = FileMetadata {
@@ -428,7 +428,7 @@ impl LocalExecutor {
         };
 
         let value = if m.file_type().is_symlink() {
-            DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?))
+            DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?)
         } else if m.is_file() {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
                 digest: TrackedFileDigest::new(FileDigest::from_file(&path)?),

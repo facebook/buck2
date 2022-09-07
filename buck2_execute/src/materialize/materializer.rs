@@ -265,7 +265,7 @@ impl dyn Materializer {
                     Some(_) => {
                         return Err(anyhow::anyhow!(
                             "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
-                            external_symlink.dupe().to_path_buf().to_string_lossy()
+                            external_symlink.dupe().to_path_buf().display()
                         ));
                     }
                     None => {}

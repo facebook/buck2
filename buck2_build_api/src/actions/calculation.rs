@@ -801,10 +801,13 @@ mod tests {
             CellRelativePathBuf::unchecked_new("proj/to_gvfs/include".to_owned()),
         );
         let source_artifact = create_test_source_artifact("cell", "proj/to_gvfs", "include");
-        let symlink = Arc::new(ExternalSymlink::new(
-            PathBuf::from("/mnt/gvfs"),
-            Some(ForwardRelativePathBuf::unchecked_new("include".to_owned())),
-        ));
+        let symlink = Arc::new(
+            ExternalSymlink::new(
+                PathBuf::from("/mnt/gvfs"),
+                Some(ForwardRelativePathBuf::unchecked_new("include".to_owned())),
+            )
+            .unwrap(),
+        );
 
         let dice_builder = DiceBuilder::new();
         let dice_computations = dice_builder
