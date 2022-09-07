@@ -260,6 +260,24 @@ impl SuperConsoleState {
     }
 }
 
+impl StatefulSuperConsole {
+    async fn toggle(
+        &mut self,
+        what: &str,
+        key: char,
+        var: impl FnOnce(&mut Self) -> &mut bool,
+    ) -> anyhow::Result<()> {
+        let var = var(self);
+        *var = !*var;
+        let on_off = match *var {
+            true => "on",
+            false => "off",
+        };
+        self.handle_stderr(&format!("{what}: {on_off}, press `{key}` to revert"))
+            .await
+    }
+}
+
 // TODO(brasselsprouts): after deprecating filetailers, simplify these code paths
 #[async_trait]
 impl EventSubscriber for StatefulSuperConsole {
@@ -319,16 +337,15 @@ impl EventSubscriber for StatefulSuperConsole {
 
     async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
         if c == 'd' {
-            self.state.dice_state.toggle();
-            self.handle_stderr("You toggled the DICE component, press `d` to revert")
+            self.toggle("DICE component", 'd', |s| &mut s.state.dice_state.enabled)
                 .await?;
         } else if c == 'e' {
-            self.state.debug_events.toggle();
-            self.handle_stderr("You toggled the debug events component, press `e` to revert")
-                .await?;
+            self.toggle("Debug events component", 'e', |s| {
+                &mut s.state.debug_events.enabled
+            })
+            .await?;
         } else if c == '2' {
-            self.state.timed_list.two_lines = !self.state.timed_list.two_lines;
-            self.handle_stderr("You toggled the two lines mode, press `2` to revert")
+            self.toggle("Two lines mode", '2', |s| &mut s.state.timed_list.two_lines)
                 .await?;
         } else if c == '?' || c == 'h' {
             self.handle_stderr(

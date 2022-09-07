@@ -6,7 +6,7 @@ use gazebo::prelude::*;
 use superconsole::Component;
 
 pub(crate) struct DiceState {
-    enabled: bool,
+    pub(crate) enabled: bool,
     key_states: BTreeMap<String, DiceKeyState>,
 }
 
@@ -16,10 +16,6 @@ impl DiceState {
             enabled,
             key_states: BTreeMap::new(),
         }
-    }
-
-    pub(crate) fn toggle(&mut self) {
-        self.enabled = !self.enabled
     }
 
     pub(crate) fn update(&mut self, update: &DiceComputationStateSnapshot) {

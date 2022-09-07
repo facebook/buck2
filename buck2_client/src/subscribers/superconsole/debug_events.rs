@@ -29,7 +29,7 @@ struct InstantData {
 }
 
 pub(crate) struct DebugEventsState {
-    enabled: bool,
+    pub(crate) enabled: bool,
     event_count: u64,
     spans: BTreeMap<String, SpanData>,
     instants: BTreeMap<String, InstantData>,
@@ -51,10 +51,6 @@ impl DebugEventsState {
             recent_delays: VecDeque::new(),
             max_delay: Duration::ZERO,
         }
-    }
-
-    pub(crate) fn toggle(&mut self) {
-        self.enabled = !self.enabled
     }
 
     pub(crate) fn handle_event(
