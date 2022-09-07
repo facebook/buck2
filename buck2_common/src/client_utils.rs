@@ -115,7 +115,11 @@ pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut
             Ok(Ok(val)) => return Ok(val),
             Ok(Err(e)) => {
                 last_error = Some(e);
-                tokio::time::sleep_until(cmp::min(deadline, Instant::now() + wait)).await;
+                let now = Instant::now();
+                if now >= deadline {
+                    return Err(make_error(tries, last_error, timeout));
+                }
+                tokio::time::sleep_until(cmp::min(deadline, now + wait)).await;
                 wait = cmp::min(max_delay, wait * 2);
             }
             Err(_) => return Err(make_error(tries, last_error, timeout)),
@@ -141,5 +145,26 @@ pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use crate::client_utils::retrying;
+
+    #[tokio::test]
+    async fn test_retrying_error_forever() {
+        // Testing against real timer is not good,
+        // but setting up proper mock timer is too much boilerplate.
+        let future = retrying(
+            Duration::from_millis(1),
+            Duration::from_millis(1),
+            Duration::from_millis(1),
+            || async { Err(anyhow::anyhow!("test")) },
+        );
+        let result: anyhow::Result<()> = future.await;
+        assert!(result.is_err());
     }
 }
