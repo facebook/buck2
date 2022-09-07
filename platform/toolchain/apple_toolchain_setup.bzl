@@ -190,42 +190,46 @@ def _get_apple_xcode_suffix(rule_type: AppleToolchainRuleType.type) -> str.type:
     else:
         fail("Unknown toolchain type: {}".format(rule_type))
 
-def _get_apple_watch_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type, xcode_version: str.type) -> "selector":
+def _get_apple_xcode_toolchain_target(rule_type: AppleToolchainRuleType.type, sdk: str.type, arch: str.type, xcode_version: str.type):
     suffix = _get_apple_xcode_suffix(rule_type)
+    return "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-{}-{}".format(xcode_version, sdk, arch) + suffix
+
+def _get_apple_watch_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type, xcode_version: str.type) -> "selector":
+    sdk = "watchsimulator"
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-watchsimulator-".format(xcode_version) + default_arch + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-watchsimulator-arm64".format(xcode_version) + suffix,
-        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-watchsimulator-x86_64".format(xcode_version) + suffix,
+        "DEFAULT": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = default_arch, xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:arm64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64", xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:x86_64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "x86_64", xcode_version = xcode_version),
     })
 
 def _get_apple_macosx_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type, xcode_version: str.type) -> "selector":
-    suffix = _get_apple_xcode_suffix(rule_type)
+    sdk = "macosx"
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-macosx-".format(xcode_version) + default_arch + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-macosx-arm64".format(xcode_version) + suffix,
-        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-macosx-x86_64".format(xcode_version) + suffix,
+        "DEFAULT": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = default_arch, xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:arm64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64", xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:x86_64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "x86_64", xcode_version = xcode_version),
     })
 
 def _get_apple_iphone_simulator_arch_select(rule_type: AppleToolchainRuleType.type, default_arch: str.type, xcode_version: str.type) -> "selector":
-    suffix = _get_apple_xcode_suffix(rule_type)
+    sdk = "iphonesimulator"
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-iphonesimulator-".format(xcode_version) + default_arch + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-iphonesimulator-arm64".format(xcode_version) + suffix,
-        "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-iphonesimulator-x86_64".format(xcode_version) + suffix,
+        "DEFAULT": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = default_arch, xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:arm64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64", xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:x86_64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "x86_64", xcode_version = xcode_version),
     })
 
 def _get_apple_iphone_device_arch_select(rule_type: AppleToolchainRuleType.type, xcode_version: str.type) -> "selector":
-    suffix = _get_apple_xcode_suffix(rule_type)
+    sdk = "iphoneos"
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-iphoneos-arm64".format(xcode_version) + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-iphoneos-arm64".format(xcode_version) + suffix,
+        "DEFAULT": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64", xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:arm64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64", xcode_version = xcode_version),
     })
 
 def _get_apple_watchos_device_arch_select(rule_type: AppleToolchainRuleType.type, xcode_version: str.type) -> "selector":
-    suffix = _get_apple_xcode_suffix(rule_type)
+    sdk = "watchos"
     return select({
-        "DEFAULT": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-watchos-arm64_32".format(xcode_version) + suffix,
-        "ovr_config//cpu/constraints:arm64": "fbsource//xplat/buck2/platform/apple:buck2-apple-xcode-{}-watchos-arm64_32".format(xcode_version) + suffix,
+        "DEFAULT": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64_32", xcode_version = xcode_version),
+        "ovr_config//cpu/constraints:arm64": _get_apple_xcode_toolchain_target(rule_type = rule_type, sdk = sdk, arch = "arm64_32", xcode_version = xcode_version),
     })
 
 # Meta Pika
