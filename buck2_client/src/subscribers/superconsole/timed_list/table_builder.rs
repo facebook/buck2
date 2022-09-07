@@ -25,24 +25,28 @@ use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::span_tracker::SpanInfo;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 
+#[derive(Debug, Clone)]
+pub(crate) struct Row {
+    event: Line,
+    time: Line,
+}
+
 #[derive(Debug)]
 pub(crate) struct Table<'a> {
-    events: Vec<Line>,
-    times: Vec<Line>,
+    rows: Vec<Row>,
     cutoffs: &'a Cutoffs,
 }
 
 impl<'a> Table<'a> {
     pub(crate) fn new(cutoffs: &'a Cutoffs) -> Self {
         Self {
-            events: Default::default(),
-            times: Default::default(),
+            rows: Vec::new(),
             cutoffs,
         }
     }
 
     pub(crate) fn len(&self) -> usize {
-        self.events.len()
+        self.rows.len()
     }
 
     pub(crate) fn push<'b>(&'b mut self) -> Push<'a, 'b>
@@ -65,11 +69,12 @@ impl Component for Table<'_> {
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         let combined = self
-            .events
-            .clone()
-            .into_iter()
-            .zip(self.times.clone().into_iter())
-            .map(|(mut label, mut time)| {
+            .rows
+            .iter()
+            .cloned()
+            .map(|row| {
+                let mut label = row.event;
+                let mut time = row.time;
                 let time_len = time.len();
                 let padding = 1;
                 let maximum_label_width = width.saturating_sub(time_len + padding);
@@ -136,16 +141,14 @@ impl<'a, 'b> Push<'a, 'b> {
             superconsole::line![event]
         };
 
-        self.builder.events.push(line);
-
-        self.builder
-            .times
-            .push(superconsole::line![Span::new_styled(styled_for_delay(
+        self.builder.rows.push(Row {
+            event: line,
+            time: superconsole::line![Span::new_styled(styled_for_delay(
                 time,
                 age,
                 self.builder.cutoffs
-            ))?]);
-
+            ))?],
+        });
         Ok(())
     }
 }
