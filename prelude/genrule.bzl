@@ -149,9 +149,16 @@ def process_genrule(
         cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
         if cmd == None:
             fail("One of `cmd` or `bash` should be set.")
+    cmd = cmd_args(cmd)
+
+    # For backwards compatibility with Buck1.
+    if is_windows:
+        cmd.replace_regex("\\$OUT\\b", "%OUT%")
+        cmd.replace_regex("\\$SRCDIR\\b", "%SRCDIR%")
+        cmd.replace_regex("\\$SRCS\\b", "%SRCS%")
 
     if _ignore_artifacts(ctx):
-        cmd = cmd_args(cmd).ignore_artifacts()
+        cmd = cmd.ignore_artifacts()
 
     if type(ctx.attrs.srcs) == type([]):
         # FIXME: We should always use the short_path, but currently that is sometimes blank.
@@ -214,7 +221,7 @@ def process_genrule(
         script_extension = "sh"
 
     # Actually define the operation, relative to where we changed to
-    script.append(cmd_args(cmd))
+    script.append(cmd)
 
     # Some rules need to run from the build root, but for everything else, `cd`
     # into the sandboxed source dir and relative all paths to that.
