@@ -157,7 +157,7 @@ impl TargetNode {
     }
 
     pub fn buildfile_path(&self) -> &BuildFilePath {
-        &*self.0.buildfile_path
+        &self.0.buildfile_path
     }
 
     fn deps_cache(&self) -> &CoercedDepsCollector {

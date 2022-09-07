@@ -826,7 +826,7 @@ impl ConfigResolver {
 
     fn regex() -> &'static Regex {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\(config ([^)]*)\)").unwrap());
-        &*RE
+        &RE
     }
 
     fn resolve_item<'a>(

@@ -44,7 +44,7 @@ impl Deferred for DeferredTransitiveSet {
 
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
-        &*INPUTS
+        &INPUTS
     }
 
     fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>> {

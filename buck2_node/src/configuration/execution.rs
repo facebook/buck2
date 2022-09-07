@@ -188,7 +188,7 @@ impl ExecutionPlatformResolution {
     }
 
     pub fn skipped(&self) -> &[(String, ExecutionPlatformIncompatibleReason)] {
-        &*self.skipped_platforms
+        &self.skipped_platforms
     }
 
     pub fn executor_config(&self) -> anyhow::Result<&CommandExecutorConfig> {

@@ -163,7 +163,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         positional: &[Value<'v>],
         named: &[(&str, Value<'v>)],
     ) -> anyhow::Result<Value<'v>> {
-        let names = named.map(|(s, _)| (Symbol::new(*s), self.heap().alloc_str(*s)));
+        let names = named.map(|(s, _)| (Symbol::new(s), self.heap().alloc_str(s)));
         let named = named.map(|x| x.1);
         let params = Arguments(ArgumentsFull {
             pos: positional,

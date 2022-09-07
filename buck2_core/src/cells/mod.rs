@@ -492,7 +492,7 @@ pub struct CellsAggregator {
 }
 
 fn default_buildfiles() -> Vec<FileNameBuf> {
-    (&["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
+    (["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
 }
 
 #[derive(Default, Debug)]

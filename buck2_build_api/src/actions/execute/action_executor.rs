@@ -257,7 +257,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {
-        &*self.executor.blocking_executor
+        self.executor.blocking_executor.as_ref()
     }
 
     fn run_action_knobs(&self) -> RunActionKnobs {

@@ -116,13 +116,13 @@ impl<T: ?Sized + Send> Deref for GuardedStrongRc<T> {
 
 impl<T: ?Sized + Send> borrow::Borrow<T> for GuardedStrongRc<T> {
     fn borrow(&self) -> &T {
-        &**self
+        self
     }
 }
 
 impl<T: ?Sized + Send> AsRef<T> for GuardedStrongRc<T> {
     fn as_ref(&self) -> &T {
-        &**self
+        self
     }
 }
 

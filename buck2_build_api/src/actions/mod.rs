@@ -260,7 +260,7 @@ impl RegisteredAction {
     }
 
     pub fn action(&self) -> &dyn Action {
-        &*self.action
+        self.action.as_ref()
     }
 
     /// Gets the target label to the rule that created this action.
@@ -289,7 +289,7 @@ impl Deref for RegisteredAction {
     type Target = dyn Action;
 
     fn deref(&self) -> &Self::Target {
-        &*self.action
+        self.action.as_ref()
     }
 }
 
@@ -301,7 +301,7 @@ impl Deferred for RegisteredActionData {
 
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
-        &*INPUTS
+        &INPUTS
     }
 
     fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>> {

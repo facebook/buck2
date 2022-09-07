@@ -238,10 +238,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     }
 
     async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
-        let content = self
-            .get_file_ops()
-            .read_file(&*starlark_path.path())
-            .await?;
+        let content = self.get_file_ops().read_file(&starlark_path.path()).await?;
         self.parse_file_with_content(starlark_path, content).await
     }
 
@@ -273,7 +270,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         starlark_file: StarlarkPath<'_>,
     ) -> SharedResult<(AstModule, ModuleDeps)> {
         let ParseResult(ast, imports) = self.parse_file(starlark_file).await?;
-        let deps = self.eval_deps(&*imports).await?;
+        let deps = self.eval_deps(&imports).await?;
         Ok((ast, deps))
     }
 

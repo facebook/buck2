@@ -118,11 +118,8 @@ fn get_builtin_build_docs(
     {
         DocItem::Object(mut b_o) => {
             let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
-            b_o.members = b_o
-                .members
-                .into_iter()
-                .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
-                .collect();
+            b_o.members
+                .retain(|(name, _)| !global_symbols.contains(&name.as_str()));
             DocItem::Object(b_o)
         }
         item => item,

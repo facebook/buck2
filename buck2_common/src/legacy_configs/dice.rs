@@ -343,7 +343,7 @@ impl HasLegacyConfigs for DiceComputations {
             .await?;
         match v {
             None => Ok(None),
-            Some(v) => Ok(Some(LegacyBuckConfig::parse_impl(section, key, &*v)?)),
+            Some(v) => Ok(Some(LegacyBuckConfig::parse_impl(section, key, &v)?)),
         }
     }
 

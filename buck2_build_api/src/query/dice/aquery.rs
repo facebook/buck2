@@ -158,7 +158,7 @@ fn compute_tset_node(
             .as_transitive_set()?
             .get_projection_sub_inputs(key.projection)?;
 
-        let inputs = convert_inputs(&*ctx, node_cache, sub_inputs.iter()).await?;
+        let inputs = convert_inputs(&ctx, node_cache, sub_inputs.iter()).await?;
 
         let (direct, children) = inputs.into_iter().partition_map(|v| match v {
             ActionInput::ActionKey(action_key) => Either::Left(action_key),
@@ -192,7 +192,7 @@ fn compute_action_node(
 ) -> BoxFuture<'static, SharedResult<ActionQueryNode>> {
     async move {
         let action = ctx.get_action(&key).await?;
-        let deps = convert_inputs(&*ctx, node_cache, action.inputs()?.iter()).await?;
+        let deps = convert_inputs(&ctx, node_cache, action.inputs()?.iter()).await?;
         Ok(ActionQueryNode::new(action, deps, fs))
     }
     .boxed()

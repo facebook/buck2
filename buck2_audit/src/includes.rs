@@ -98,8 +98,7 @@ async fn get_transitive_includes(
 
     impl Node {
         fn import_path(&self) -> &ImportPath {
-            *self
-                .0
+            self.0
                 .path()
                 .unpack_load_file()
                 .expect("only visit imports so only bzl files are expected")

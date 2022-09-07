@@ -114,7 +114,7 @@ impl ActionQueryNode {
 
     pub fn attrs(&self) -> IndexMap<String, String> {
         self.action.action().aquery_attributes(&ExecutorFs::new(
-            &*self.fs,
+            &self.fs,
             self.action.execution_config().path_separator,
         ))
     }

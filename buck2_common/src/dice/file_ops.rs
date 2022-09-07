@@ -155,7 +155,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                 let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
 
                 let cell_ignores =
-                    FileIgnores::new_for_interpreter(ignore_spec, &*cell_paths, this_path)?;
+                    FileIgnores::new_for_interpreter(ignore_spec, &cell_paths, this_path)?;
                 ignores.insert(cell_name.clone(), cell_ignores);
             }
 

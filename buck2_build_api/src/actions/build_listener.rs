@@ -111,7 +111,7 @@ fn extract_critical_path<TKey: Hash + Eq, TValue>(
         }
         let key = maybe_key.unwrap();
         let next = predecessors.get(key);
-        *maybe_key = next.and_then(|q| (&q.prev).as_ref());
+        *maybe_key = next.and_then(|q| (q.prev).as_ref());
         next.map(|x| (key, &x.value, x.duration))
     })
     .collect::<Vec<_>>();

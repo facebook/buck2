@@ -33,6 +33,6 @@ impl<'v> StarlarkValue<'v> for LabelRelativePath {
 #[starlark_module]
 fn label_relative_path_methods(builder: &mut MethodsBuilder) {
     fn add(this: &LabelRelativePath, arg: &str) -> anyhow::Result<LabelRelativePath> {
-        Ok(LabelRelativePath((*this).0.join_normalized(arg)?))
+        Ok(LabelRelativePath((this).0.join_normalized(arg)?))
     }
 }

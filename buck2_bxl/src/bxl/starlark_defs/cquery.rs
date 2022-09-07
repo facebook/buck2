@@ -286,7 +286,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .async_ctx
             .via(|| async {
                 this.functions
-                    .owner(&this.env, &*(files.get(&this.env).await?))
+                    .owner(&this.env, (files.get(&this.env).await?).as_ref())
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -304,7 +304,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .via(|| async {
                 let filter = filter
                     .into_option()
-                    .try_map(|v| buck2_query_parser::parse_expr(*v))?;
+                    .try_map(|v| buck2_query_parser::parse_expr(v))?;
 
                 this.functions
                     .deps(

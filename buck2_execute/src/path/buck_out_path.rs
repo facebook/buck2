@@ -110,7 +110,7 @@ impl BuckOutPath {
     }
 
     pub fn path(&self) -> &ForwardRelativePath {
-        &*self.0.path
+        &self.0.path
     }
 
     // The suffix of `path` that is usually relevant to user rules.

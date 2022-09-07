@@ -209,7 +209,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
                     &get_attr_coercion_context(eval)?,
                     default,
                 ) {
-                    Ok(coerced_default) => (Some(coerced_default)),
+                    Ok(coerced_default) => Some(coerced_default),
                     Err(_) => return Err(ValueError::IncorrectParameterType.into()),
                 }
             }
@@ -254,7 +254,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
                     &get_attr_coercion_context(eval)?,
                     default,
                 ) {
-                    Ok(coerced_default) => (Some(coerced_default)),
+                    Ok(coerced_default) => Some(coerced_default),
                     Err(_) => return Err(ValueError::IncorrectParameterType.into()),
                 }
             }

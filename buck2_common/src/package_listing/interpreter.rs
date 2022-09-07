@@ -146,13 +146,13 @@ impl<'c> InterpreterPackageListingResolver<'c> {
             Ok(())
         };
 
-        process_entries(&mut work, &mut files, root.as_cell_path(), &*root_entries)?;
+        process_entries(&mut work, &mut files, root.as_cell_path(), &root_entries)?;
 
         while let Some((path, entries_result)) = work.next().await {
             let entries = entries_result?;
-            if find_buildfile(buildfile_candidates, &*entries).is_none() {
+            if find_buildfile(buildfile_candidates, &entries).is_none() {
                 dirs.push(path.clone());
-                process_entries(&mut work, &mut files, &path, &*entries)?;
+                process_entries(&mut work, &mut files, &path, &entries)?;
             } else {
                 subpackages.push(path);
             }

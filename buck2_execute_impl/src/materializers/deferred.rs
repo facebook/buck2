@@ -1216,7 +1216,7 @@ impl<V: 'static> FileTree<V> {
             Some(tree) => box tree
                 .into_iter()
                 .with_paths()
-                .map(move |(k, v)| ((&path).join(k), v)),
+                .map(move |(k, v)| ((path).join(k), v)),
             None => box std::iter::empty(),
         }
     }

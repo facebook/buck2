@@ -54,7 +54,7 @@ impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
                 Ok(Cow::Owned(set))
             }
             TargetExpr::Label(label) => {
-                let node = env.get_node(&*label).await?;
+                let node = env.get_node(&label).await?;
                 let mut set = TargetSet::new();
                 set.insert(node);
                 Ok(Cow::Owned(set))
@@ -64,7 +64,7 @@ impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
                 let futs = val.into_iter().map(|node_or_ref| async {
                     match node_or_ref {
                         Either::Left(node) => Ok(node),
-                        Either::Right(node_ref) => env.get_node(&*node_ref).await,
+                        Either::Right(node_ref) => env.get_node(&node_ref).await,
                     }
                 });
 

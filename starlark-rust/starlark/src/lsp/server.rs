@@ -324,7 +324,7 @@ struct Backend<T: LspContext> {
 /// The logic implementations of stuff
 impl<T: LspContext> Backend<T> {
     fn server_capabilities(settings: LspServerSettings) -> ServerCapabilities {
-        let definition_provider = settings.enable_goto_definition.then(|| {
+        let definition_provider = settings.enable_goto_definition.then_some({
             OneOf::Right(DefinitionOptions {
                 work_done_progress_options: WorkDoneProgressOptions {
                     work_done_progress: None,

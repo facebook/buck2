@@ -134,8 +134,8 @@ async fn bxl(
     let materialization_context =
         ConvertMaterializationContext::from(final_artifact_materializations);
 
-    let build_result = ensure_artifacts(&ctx, &materialization_context, &*result).await;
-    copy_output(server_ctx.stdout()?, &ctx, &*result).await?;
+    let build_result = ensure_artifacts(&ctx, &materialization_context, &result).await;
+    copy_output(server_ctx.stdout()?, &ctx, &result).await?;
 
     let project_root = server_ctx.project_root().to_string();
 

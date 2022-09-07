@@ -671,7 +671,7 @@ async fn test_target(
     // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
     let frozen_providers = ctx.get_providers(&target).await?.require_compatible()?;
 
-    let fut = match build_artifacts(ctx, &frozen_providers, &*label_filtering).await? {
+    let fut = match build_artifacts(ctx, &frozen_providers, &label_filtering).await? {
         Some(_built) => {
             let providers = frozen_providers.provider_collection();
 

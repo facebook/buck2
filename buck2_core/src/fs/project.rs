@@ -134,7 +134,7 @@ impl ProjectRoot {
     }
 
     pub fn root(&self) -> &AbsPath {
-        &*self.root
+        &self.root
     }
 
     ///

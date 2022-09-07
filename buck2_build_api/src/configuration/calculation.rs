@@ -89,7 +89,7 @@ async fn get_target_platform_detector(
                     .await?
                 {
                     None => TargetPlatformDetector::empty(),
-                    Some(spec) => TargetPlatformDetector::parse_spec(cell_alias_resolver, &*spec)?,
+                    Some(spec) => TargetPlatformDetector::parse_spec(cell_alias_resolver, &spec)?,
                 },
             ))
         }
@@ -118,7 +118,7 @@ async fn get_execution_platforms(
     let execution_platforms_target = match execution_platforms_target {
         Some(v) => {
             let root_cell = cells.root_cell_instance();
-            ParsedPattern::parse_precise(root_cell.cell_alias_resolver(), &*v)?.as_literal(&*v)?
+            ParsedPattern::parse_precise(root_cell.cell_alias_resolver(), &v)?.as_literal(&v)?
         }
         None => {
             return Ok(None);
