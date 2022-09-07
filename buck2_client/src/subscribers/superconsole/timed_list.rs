@@ -29,6 +29,7 @@ use self::table_builder::Table;
 use crate::subscribers::display;
 use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::simpleconsole::ActionStats;
+use crate::subscribers::span_tracker::SpanHandle;
 use crate::subscribers::span_tracker::SpanTracker;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
@@ -83,6 +84,52 @@ impl Component for TimedListBody {
     }
 }
 
+impl TimedListBodyInner {
+    // Special-case when we have exactly one child by collapsing.
+    fn draw_root_single_child(
+        &self,
+        state: &State,
+        root: &SpanHandle,
+        single_child: SpanHandle,
+        builder: &mut Table,
+    ) -> anyhow::Result<()> {
+        let time_speed = state.get::<TimeSpeed>()?;
+        let info = root.info();
+        let child_info = single_child.info();
+
+        let event_string = {
+            // always display the event and subaction
+            let mut builder = format!(
+                "{} [{}",
+                display::display_event(&info.event, TargetDisplayOptions::for_console())?,
+                display::display_event(&child_info.event, TargetDisplayOptions::for_console())?
+            );
+
+            let subaction_ratio =
+                child_info.start.elapsed().as_secs_f64() / info.start.elapsed().as_secs_f64();
+
+            // but only display the time of the subaction if it differs significantly.
+            if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
+                let subaction_time = display::duration_as_secs_elapsed(
+                    child_info.start.elapsed(),
+                    time_speed.speed(),
+                );
+                builder.push(' ');
+                builder.push_str(&subaction_time);
+            }
+
+            builder.push(']');
+            builder
+        };
+
+        builder.push().text(
+            event_string,
+            display::duration_as_secs_elapsed(info.start.elapsed(), time_speed.speed()),
+            info.start.elapsed(),
+        )
+    }
+}
+
 impl Component for TimedListBodyInner {
     fn draw_unchecked(
         &self,
@@ -121,45 +168,7 @@ impl Component for TimedListBodyInner {
 
             match (first, second) {
                 (Some(first), None) => {
-                    // Special-case when we have exactly one child by collapsing.
-                    let child_info = first.info();
-
-                    let event_string = {
-                        // always display the event and subaction
-                        let mut builder = format!(
-                            "{} [{}",
-                            display::display_event(
-                                &info.event,
-                                TargetDisplayOptions::for_console()
-                            )?,
-                            display::display_event(
-                                &child_info.event,
-                                TargetDisplayOptions::for_console()
-                            )?
-                        );
-
-                        let subaction_ratio = child_info.start.elapsed().as_secs_f64()
-                            / info.start.elapsed().as_secs_f64();
-
-                        // but only display the time of the subaction if it differs significantly.
-                        if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
-                            let subaction_time = display::duration_as_secs_elapsed(
-                                child_info.start.elapsed(),
-                                time_speed.speed(),
-                            );
-                            builder.push(' ');
-                            builder.push_str(&subaction_time);
-                        }
-
-                        builder.push(']');
-                        builder
-                    };
-
-                    builder.push().text(
-                        event_string,
-                        display::duration_as_secs_elapsed(info.start.elapsed(), time_speed.speed()),
-                        info.start.elapsed(),
-                    )?;
+                    self.draw_root_single_child(state, &root, first, &mut builder)?
                 }
                 (first, second) => {
                     builder.push().span(info, time_speed.speed())?;
