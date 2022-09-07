@@ -24,6 +24,12 @@ pub struct StatusCommand {
 }
 
 impl StatusCommand {
+    fn timestamp_to_string(seconds: u64, nanos: u32) -> String {
+        NaiveDateTime::from_timestamp(seconds as i64, nanos)
+            .format("%Y-%m-%dT%H:%M:%SZ")
+            .to_string()
+    }
+
     pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
@@ -39,11 +45,10 @@ impl StatusCommand {
                     let status = client.with_flushing().status(self.snapshot).await?;
                     let timestamp = match status.start_time {
                         None => "unknown".to_owned(),
-                        Some(timestamp) => {
-                            NaiveDateTime::from_timestamp(timestamp.seconds, timestamp.nanos as u32)
-                                .format("%Y-%m-%d %H:%M:%S")
-                                .to_string()
-                        }
+                        Some(timestamp) => Self::timestamp_to_string(
+                            timestamp.seconds as u64,
+                            timestamp.nanos as u32,
+                        ),
                     };
                     let uptime = match status.uptime {
                         None => "unknown".to_owned(),
@@ -66,5 +71,19 @@ impl StatusCommand {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commands::status::StatusCommand;
+
+    #[test]
+    fn test_timestamp_to_string() {
+        // Check with `TZ=UTC date -r 1662516832 -Iseconds`.
+        assert_eq!(
+            "2022-09-07T02:13:52Z",
+            StatusCommand::timestamp_to_string(1662516832, 123)
+        );
     }
 }
