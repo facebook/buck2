@@ -14,7 +14,7 @@ def check_platform(name, target_platform, version):
 
     prelude.python_binary(
         name = name + "-bin",
-        main_module = "buck2.tests.targets.rules.python.versions.ext_test",
+        main_module = "buck2.tests.targets.rules.python_cxx.versions.ext_test",
         default_target_platform = target_platform,
         deps = [
             ":lib",

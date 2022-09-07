@@ -20,5 +20,5 @@ python_binary(
 buck_genrule(
     name = "compile_run",
     out = "out",
-    bash = "$(exe_target :compile) | grep hello && touch $OUT",
+    bash = "$(exe :compile) | grep hello && touch $OUT",
 )

@@ -17,7 +17,7 @@ def check_omnibus(
         cmd = " && ".join([
             "$(exe {})".format(binary),
             " ".join(
-                ["$(exe fbcode//buck2/tests/targets/rules/python/omnibus:check_omnibus)"] +
+                ["$(exe fbcode//buck2/tests/targets/rules/python_cxx/omnibus:check_omnibus)"] +
                 ["--check-lib={}".format(lib.format(ext = ext)) for lib in check_libs] +
                 ["--check-no-lib={}".format(lib.format(ext = ext)) for lib in check_no_libs] +
                 ["--check-dep={}:{}".format(lib.format(ext = ext), d.format(ext = ext)) for lib, d in check_deps] +

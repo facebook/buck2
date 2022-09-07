@@ -246,13 +246,26 @@ async def test_configured_alias(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/configured_alias:")
 
 
+@buck_test(inplace=True)
+@pytest.mark.parametrize("package_style", ["standalone", "inplace"])
+async def test_python(buck: Buck, package_style: str) -> None:
+    args = [
+        "fbcode//buck2/tests/targets/rules/python/...",
+        "-c",
+        f"python.package_style={package_style}",
+    ]
+    if sys.platform == "darwin":
+        args.append("@fbcode//mode/mac")
+    await buck.build(*args)
+
+
 if fbcode_linux_only():
 
     @buck_test(inplace=True)
     @pytest.mark.parametrize("package_style", ["standalone", "inplace"])
-    async def test_python(buck: Buck, package_style: str) -> None:
+    async def test_python_cxx(buck: Buck, package_style: str) -> None:
         await buck.build(
-            "fbcode//buck2/tests/targets/rules/python/...",
+            "fbcode//buck2/tests/targets/rules/python_cxx/...",
             "-c",
             f"python.package_style={package_style}",
             "-c",
@@ -271,7 +284,7 @@ if fbcode_linux_only():
     )
     async def test_omnibus_metadata(buck: Buck, sub_target: str) -> None:
         await buck.build(
-            f"fbcode//buck2/tests/targets/rules/python/omnibus/cxx_lib_root:bin[{sub_target}]",
+            f"fbcode//buck2/tests/targets/rules/python_cxx/omnibus/cxx_lib_root:bin[{sub_target}]",
             "-c",
             "python.emit_omnibus_metadata=true",
         )
@@ -298,14 +311,14 @@ if fbcode_linux_only():
             "analyze_sharing": (
                 [
                     "--target",
-                    "fbcode//buck2/tests/targets/rules/python/omnibus/root_sharing:bin",
+                    "fbcode//buck2/tests/targets/rules/python_cxx/omnibus/root_sharing:bin",
                 ],
                 _check_analyze_sharing,
             ),
             "find_implicit_roots": (
                 [
                     "--targets",
-                    "fbcode//buck2/tests/targets/rules/python/omnibus/explicit_roots:bin",
+                    "fbcode//buck2/tests/targets/rules/python_cxx/omnibus/explicit_roots:bin",
                 ],
                 _check_find_implicit_roots,
             ),
@@ -337,7 +350,7 @@ if mac_only():
     async def test_python_mac(buck: Buck) -> None:
         await buck.build(
             "@fbcode//mode/mac",
-            "fbcode//buck2/tests/targets/rules/python/omnibus/mult_cpp_ext_roots:check_bin",
+            "fbcode//buck2/tests/targets/rules/python_cxx/omnibus/mult_cpp_ext_roots:check_bin",
         )
 
 

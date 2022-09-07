@@ -1,4 +1,4 @@
-load("@fbcode//buck2/tests/targets/rules/python/omnibus:defs.bzl", "check_omnibus")
+load("@fbcode//buck2/tests/targets/rules/python_cxx/omnibus:defs.bzl", "check_omnibus")
 load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
@@ -6,9 +6,12 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 check_omnibus(
     name = "check_bin",
     binary = ":bin",
-    check_libs = [
-        "lib1.so",
-        "libomnibus.so",
+    check_defined = [
+        ("libomnibus.so", "global_func"),
+        ("libomnibus.so", "local_exported"),
+    ],
+    check_not_defined = [
+        ("libomnibus.so", "local"),
     ],
 )
 
@@ -17,7 +20,6 @@ fb_python_binary(
     base_module = "",
     main_module = "bin",
     native_link_strategy = "merged",
-    prefer_stripped_native_objects = True,
     deps = [
         ":lib",
     ],
@@ -30,37 +32,26 @@ bzl_native.python_library(
     ],
     base_module = "",
     deps = [
-        ":cpp-lib1",
-        ":cpp-lib2",
+        ":root",
     ],
 )
 
 fb_native.cxx_library(
-    name = "cpp-lib1",
+    name = "root",
     srcs = [
-        "lib1.cpp",
+        "root.c",
     ],
-    soname = "lib1.so",
     deps = [
-        ":cpp-lib2",
-        ":cpp-lib3",
+        ":body",
     ],
-    supports_python_dlopen = True,
 )
 
 fb_native.cxx_library(
-    name = "cpp-lib2",
+    name = "body",
     srcs = [
-        "lib2.cpp",
+        "body.c",
     ],
-    deps = [":cpp-lib3"],
-    force_emit_omnibus_shared_root = True,
-)
-
-fb_native.cxx_library(
-    name = "cpp-lib3",
-    srcs = [
-        "lib3.cpp",
+    exported_linker_flags = [
+        "-Wl,--export-dynamic-symbol=local_exported",
     ],
-    force_emit_omnibus_shared_root = True,
 )
