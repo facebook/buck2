@@ -12,6 +12,7 @@ AppleToolchainType = enum(
     "meta-pika-13.3-macos",
     "meta-pika-14-linux",
     "meta-pika-14-macos",
+    "meta-pika-14-fat",
     "meta-xcode-macos",
 )
 
@@ -29,6 +30,7 @@ _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-linux"
 _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-macos")
 _META_PIKA_14_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-14-linux")
 _META_PIKA_14_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-14-macos")
+_META_PIKA_14_FAT_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-14-fat")
 _META_XCODE_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-xcode-macos")
 
 _GENERIC_USAGE_TYPE = AppleToolchainUsageType("generic")
@@ -55,6 +57,7 @@ def default_apple_xctoolchain():
         _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE: "pika-13.3",
         _META_PIKA_14_LINUX_TOOLCHAIN_TYPE: "pika-14",
         _META_PIKA_14_MACOS_TOOLCHAIN_TYPE: "pika-14",
+        _META_PIKA_14_FAT_TOOLCHAIN_TYPE: "pika-14",
     }
 
     for (toolchain_type, toolchain_name) in toolchain_type_to_name_map.items():
@@ -261,7 +264,7 @@ _APPLE_TOOLCHAINS = {
             "xcode_version": "14.0",
         },
     ),
-    # Pika
+    # Pika (thin)
     _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE: struct(
         sdks = ["iphoneos", "iphonesimulator", "macosx"],
         selector = _get_pika_arch_select,
@@ -291,6 +294,15 @@ _APPLE_TOOLCHAINS = {
         selector = _get_pika_arch_select,
         selector_args = {
             "host": "macos",
+            "toolchain_name": "pika-14",
+        },
+    ),
+    # Pika (fat)
+    _META_PIKA_14_FAT_TOOLCHAIN_TYPE: struct(
+        sdks = ["iphoneos", "iphonesimulator", "macosx"],
+        selector = _get_pika_arch_select,
+        selector_args = {
+            "host": "macos",  # TODO(naris): Change `macos` -> `fat`
             "toolchain_name": "pika-14",
         },
     ),
