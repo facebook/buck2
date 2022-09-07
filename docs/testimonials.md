@@ -80,6 +80,10 @@ Shoaib used Buck2 for [upgrading Android native code to a new compiler version](
 
 > This brings us at 36.81 Eng Halves Saved in 2 years / ~1500 Eng Build Hours Saved each month.
 
+[Mobile toolchains moved](https://fb.workplace.com/groups/buck2users/posts/3230854887170870) their non-fbsource repo to Buck2 and found:
+
+> Buck2 is faster than Buck1 (from empirical measurements), but when paired with RE caching, it's insanely fast.
+
 ## Good UX
 
 [Lucian prefers the experience](https://fb.workplace.com/groups/503973410692177/posts/595893258166858/) for a large variety of reasons:
