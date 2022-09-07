@@ -59,7 +59,7 @@ def _find_exclusions_impl(ctx):
     omnibus_graph = get_omnibus_graph(linkable_graph, {}, excluded)
 
     for label, node in omnibus_graph.nodes.items():
-        if node.preferred_linkage == Linkage("shared"):
+        if node.preferred_linkage == Linkage("shared") and label not in omnibus_graph.roots:
             omnibus_graph.excluded[label] = True
 
     transitive_excluded = all_deps(omnibus_graph.nodes, omnibus_graph.excluded.keys())
