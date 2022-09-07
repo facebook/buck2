@@ -176,20 +176,13 @@ impl Component for TimedListBodyInner {
         let mut first_not_rendered = None;
 
         for root in &mut roots {
-            // We need to estimate how many rows this will require to draw before deciding whether
-            // or not to render it. See below for the logic that controls the actual rendering of
-            // children.
-            let rows = match root.children_count() {
-                1 => 1,
-                n => n + 1,
-            };
+            let rows = self.draw_root(&root, state)?;
 
-            if builder.len() + rows >= self.max_size {
+            if builder.len() + rows.len() >= self.max_size {
                 first_not_rendered = Some(root);
                 break;
             }
 
-            let rows = self.draw_root(&root, state)?;
             builder.rows.extend(rows);
         }
 
