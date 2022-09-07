@@ -244,17 +244,17 @@ def _get_pika_toolchain_suffix(rule_type: AppleToolchainRuleType.type) -> str.ty
     else:
         fail("Unknown toolchain type: {}".format(rule_type))
 
-def _get_pika_toolchain_target(rule_type: AppleToolchainRuleType.type, toolchain_name: str.type, host: str.type, sdk_name: str.type, arch: str.type) -> str.type:
+def _get_pika_toolchain_target(rule_type: AppleToolchainRuleType.type, toolchain_name: str.type, host: str.type, sdk: str.type, arch: str.type) -> str.type:
     suffix = _get_pika_toolchain_suffix(rule_type)
     xbat = (toolchain_name == "xcode")
     if xbat:
         if host != "macos":
             fail("Xcode-backed toolchains are always macOS based")
-        return "fbsource//xplat/toolchains/apple:{}-{}-{}".format(toolchain_name, sdk_name, arch) + suffix
+        return "fbsource//xplat/toolchains/apple:{}-{}-{}".format(toolchain_name, sdk, arch) + suffix
     else:
-        return "fbsource//xplat/toolchains/jackalope:{}-{}-{}-{}".format(toolchain_name, host, sdk_name, arch) + suffix
+        return "fbsource//xplat/toolchains/jackalope:{}-{}-{}-{}".format(toolchain_name, host, sdk, arch) + suffix
 
-def _get_pika_arch_select(rule_type: AppleToolchainRuleType.type, toolchain_name: str.type, host: str.type, sdk: str.type) -> "selector":
+def _get_generic_arch_select(rule_type: AppleToolchainRuleType.type, sdk: str.type, generator: "function", **kwargs) -> "selector":
     default_arch = _get_default_arch_for_macos_and_simulator_targets()
     sdk_constraint_map = {
         "iphoneos": struct(
@@ -294,10 +294,13 @@ def _get_pika_arch_select(rule_type: AppleToolchainRuleType.type, toolchain_name
 
     sdk_info = sdk_constraint_map[sdk]
     sdk_constraint_map = {
-        "DEFAULT": _get_pika_toolchain_target(rule_type, toolchain_name, host, sdk, sdk_info.default_arch),
+        "DEFAULT": generator(rule_type = rule_type, sdk = sdk, arch = sdk_info.default_arch, **kwargs),
     }
 
     for (constraint_target, arch) in sdk_info.constraint_arch_map.items():
-        sdk_constraint_map[constraint_target] = _get_pika_toolchain_target(rule_type, toolchain_name, host, sdk, arch)
+        sdk_constraint_map[constraint_target] = generator(rule_type = rule_type, sdk = sdk, arch = arch, **kwargs)
 
     return select(sdk_constraint_map)
+
+def _get_pika_arch_select(rule_type: AppleToolchainRuleType.type, toolchain_name: str.type, host: str.type, sdk: str.type) -> "selector":
+    return _get_generic_arch_select(rule_type = rule_type, sdk = sdk, generator = _get_pika_toolchain_target, toolchain_name = toolchain_name, host = host)
