@@ -30,6 +30,11 @@ impl StatusCommand {
             .to_string()
     }
 
+    fn duration_to_string(duration: Duration) -> String {
+        let duration = Duration::from_secs(duration.as_secs());
+        format_duration(duration).to_string()
+    }
+
     pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
@@ -54,7 +59,7 @@ impl StatusCommand {
                         None => "unknown".to_owned(),
                         Some(uptime) => {
                             let uptime = Duration::new(uptime.seconds as u64, uptime.nanos as u32);
-                            format_duration(uptime).to_string()
+                            Self::duration_to_string(uptime)
                         }
                     };
                     let json_status = serde_json::json!({
@@ -76,6 +81,8 @@ impl StatusCommand {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::commands::status::StatusCommand;
 
     #[test]
@@ -84,6 +91,14 @@ mod tests {
         assert_eq!(
             "2022-09-07T02:13:52Z",
             StatusCommand::timestamp_to_string(1662516832, 123)
+        );
+    }
+
+    #[test]
+    fn test_duration_to_string() {
+        assert_eq!(
+            "1h 2m 3s",
+            StatusCommand::duration_to_string(Duration::new(3600 + 120 + 3, 123456789))
         );
     }
 }
