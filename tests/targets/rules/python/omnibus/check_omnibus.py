@@ -125,8 +125,8 @@ def main(argv):
         for check in args.check_symlink:
             lib, link = check.split(":", 1)
             p = os.readlink(_path(root, lib))
-            want = os.path.relpath(p, link_tree)
-            have = os.path.relpath(link, link_tree)
+            have = os.path.relpath(p, link_tree)
+            want = os.path.relpath(link, link_tree)
 
             _expect(
                 want == have,
