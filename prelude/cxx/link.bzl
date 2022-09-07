@@ -12,6 +12,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkedObject",
+    "unpack_external_debug_info",
     "unpack_link_args",
 )
 load("@prelude//linking:link_postprocessor.bzl", "postprocess")
@@ -76,9 +77,19 @@ def cxx_link(
         links += [linker_map_args(ctx, linker_map.as_output())]
     (link_args, hidden, dwo_dir) = make_link_args(ctx, links, suffix = identifier, dwo_dir_name = output.short_path + ".dwo.d", is_shared = is_shared)
 
-    external_debug_paths = []
+    external_debug_info = []
+
+    # If we're not stripping the output linked object, than add-in an externally
+    # referenced debug info that the linked object may reference (and which may
+    # need to be available for debugging).
+    if not strip:
+        for link in links:
+            external_debug_info.extend(unpack_external_debug_info(link))
+
+    # When using LTO+split-dwarf, the link step will generate externally
+    # referenced debug info.
     if dwo_dir != None:
-        external_debug_paths.append(dwo_dir)
+        external_debug_info.append(dwo_dir)
 
     shell_quoted_args = cmd_args(link_args, quote = "shell")
     argfile, macro_files = ctx.actions.write(
@@ -115,12 +126,12 @@ def cxx_link(
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
-        # just pass in `binary.external_debug_paths` here instead of all link
+        # just pass in `binary.external_debug_info` here instead of all link
         # args.
         dwp_inputs = cmd_args()
         for link in links:
             dwp_inputs.add(unpack_link_args(link))
-        dwp_inputs.add(external_debug_paths)
+        dwp_inputs.add(external_debug_info)
 
         dwp_artifact = dwp(
             ctx,
@@ -139,7 +150,7 @@ def cxx_link(
         output = final_output,
         prebolt_output = output,
         dwp = dwp_artifact,
-        external_debug_paths = external_debug_paths,
+        external_debug_info = external_debug_info,
         linker_argsfile = argfile,
     )
 

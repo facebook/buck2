@@ -1,4 +1,5 @@
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -11,6 +12,7 @@ load(
     "get_headers_dep_files_flags_factory",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":debug.bzl", "SplitDebugMode")
 load(
     ":headers.bzl",
     "CPrecompiledHeaderInfo",
@@ -117,6 +119,16 @@ CxxSrcWithFlags = record(
     # If we have multiple source entries with same files but different flags,
     # specify an index so we can differentiate them. Otherwise, use None.
     index = field(["int", None], None),
+)
+
+CxxCompileOutput = record(
+    # The compiled `.o` file.
+    object = field("artifact"),
+    object_has_external_debug_info = field(bool.type, False),
+    # Externally referenced debug info, which doesn't get linked with the
+    # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
+    # the `.dwo` when using `-gsplit-dwarf=split`).
+    external_debug_info = field(["artifact", None], None),
 )
 
 def create_compile_cmds(
@@ -237,10 +249,13 @@ def create_compile_cmds(
 def compile_cxx(
         ctx: "context",
         src_compile_cmds: [CxxSrcCompileCommand.type],
-        pic: bool.type = False) -> ["artifact"]:
+        pic: bool.type = False) -> [CxxCompileOutput.type]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
+    toolchain = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain.linker_info
+
     local_only = _cxx_compile_requires_local(ctx)
     objects = []
     for src_compile_cmd in src_compile_cmds:
@@ -250,7 +265,7 @@ def compile_cxx(
             identifier = identifier + "_" + str(src_compile_cmd.index)
 
         filename_base = identifier + (".pic" if pic else "")
-        out = ctx.actions.declare_output(
+        object = ctx.actions.declare_output(
             paths.join("__objects__", filename_base + ".o"),
         )
 
@@ -262,7 +277,7 @@ def compile_cxx(
         args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
         args.add(src_compile_cmd.args)
 
-        cmd.add(args, "-o", out.as_output())
+        cmd.add(args, "-o", object.as_output())
 
         action_dep_files = {}
 
@@ -293,7 +308,20 @@ def compile_cxx(
         if pic:
             identifier += " (pic)"
         ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, local_only = local_only)
-        objects.append(out)
+
+        # If we're building with split debugging, where the debug info is in the
+        # original object, then add the object as external debug info, *unless*
+        # we're doing LTO, which generates debug info at link time (*except* for
+        # fat LTO, which still generates native code and, therefore, debug info).
+        object_has_external_debug_info = (
+            toolchain.split_debug_mode == SplitDebugMode("single") and
+            linker_info.lto_mode in (LtoMode("none"), LtoMode("fat"))
+        )
+
+        objects.append(CxxCompileOutput(
+            object = object,
+            object_has_external_debug_info = object_has_external_debug_info,
+        ))
 
     return objects
 

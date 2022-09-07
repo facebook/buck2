@@ -132,7 +132,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
     )
-    objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = link_style != LinkStyle("static"))
+    cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = link_style != LinkStyle("static"))
     sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.source_commands.argsfiles_info]
 
     # Compilation DB.
@@ -227,7 +227,15 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         LinkArgs(infos = [
             LinkInfo(
                 pre_flags = own_link_flags + impl_params.extra_link_flags + impl_params.extra_exported_link_flags,
-                linkables = [ObjectsLinkable(objects = objects, linker_type = linker_info.type, link_whole = True)],
+                linkables = [ObjectsLinkable(
+                    objects = [out.object for out in cxx_outs],
+                    linker_type = linker_info.type,
+                    link_whole = True,
+                )],
+                external_debug_info = (
+                    [out.object for out in cxx_outs if out.object_has_external_debug_info] +
+                    [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+                ),
             ),
         ]),
         dep_links,
@@ -286,7 +294,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # extraneous debug paths and will crash.  We probably need to add a special
     # exported resources provider and make sure we handle the workflows.
     # Add any referenced debug paths to runtime files.
-    #runtime_files.extend(binary.external_debug_paths)
+    #runtime_files.extend(binary.external_debug_info)
 
     # If we have some resources, write it to the resources JSON file and add
     # it and all resources to "runtime_files" so that we make to materialize
@@ -355,7 +363,7 @@ def _link_into_executable(
         enable_distributed_thinlto = False,
         strip: bool.type = False,
         strip_args_factory = None,
-        link_postprocessor: ["cmd_args", None] = None) -> (LinkedObject.type, ["artifact"], ["artifact", None], [""]):
+        link_postprocessor: ["cmd_args", None] = None) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
     output = ctx.actions.declare_output(get_cxx_excutable_product_name(ctx))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(ctx, output, shared_libs)
     exe = cxx_link(

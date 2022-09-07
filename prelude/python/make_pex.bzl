@@ -238,7 +238,7 @@ def _pex_modules_args(
         resource_artifacts +
         native_libraries +
         dwp +
-        flatten([lib.external_debug_paths for lib in shared_libraries.values()])
+        flatten([lib.external_debug_info for lib in shared_libraries.values()])
     )
     if symlink_tree_path == None:
         cmd.hidden(hidden)

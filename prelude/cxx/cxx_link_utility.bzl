@@ -148,7 +148,7 @@ def shared_libs_symlink_tree_name(output: "artifact") -> str.type:
 def executable_shared_lib_arguments(
         ctx: "context",
         output: "artifact",
-        shared_libs: {str.type: "LinkedObject"}) -> ([""], ["artifact"], ["artifact", None]):
+        shared_libs: {str.type: "LinkedObject"}) -> ([""], ["_arglike"], ["artifact", None]):
     extra_args = []
     runtime_files = []
     shared_libs_symlink_tree = None
@@ -156,7 +156,7 @@ def executable_shared_lib_arguments(
     # Add external debug paths to runtime files, so that they're
     # materialized when the binary is built.
     for shlib in shared_libs.values():
-        runtime_files.extend(shlib.external_debug_paths)
+        runtime_files.extend(shlib.external_debug_info)
 
     if len(shared_libs) > 0:
         shared_libs_symlink_tree = ctx.actions.symlinked_dir(

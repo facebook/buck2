@@ -96,6 +96,10 @@ LinkInfo = record(
     # Primary input to the linker, one of the Linkable types above.
     linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]], []),
     use_link_groups = field(bool.type, False),
+    # Debug info which is referenced -- but not included -- by linkables in the
+    # link info.  For example, this may include `.dwo` files, or the original
+    # `.o` files if they contain debug info that doesn't follow the link.
+    external_debug_info = field(["_arglike"], []),
 )
 
 # Helper to wrap a LinkInfo with additional pre/post-flags.
@@ -111,6 +115,7 @@ def wrap_link_info(
         post_flags = post_flags,
         linkables = inner.linkables,
         use_link_groups = inner.use_link_groups,
+        external_debug_info = inner.external_debug_info,
     )
 
 # Adds approprate args representing `linkable` to `args`
@@ -209,7 +214,7 @@ LinkedObject = record(
     dwp = field(["artifact", None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files).
-    external_debug_paths = field(["artifact"], []),
+    external_debug_info = field(["_arglike"], []),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(["artifact", None], None),
@@ -255,12 +260,16 @@ def _link_info_has_stripped_filelist(children: [bool.type], infos: ["LinkInfos",
             return True
     return any(children)
 
+def _link_info_external_debug_info(infos: "LinkInfos"):
+    return infos.default.external_debug_info
+
 # TransitiveSet of LinkInfos.
 LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,
         "default_filelist": _link_info_default_filelist,
         "default_shared": _link_info_default_shared_link_args,
+        "external_debug_info": _link_info_external_debug_info,
         "stripped": _link_info_stripped_args,
         "stripped_filelist": _link_info_stripped_filelist,
         "stripped_shared": _link_info_stripped_shared_link_args,
@@ -424,6 +433,21 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
 
     if args.flags != None:
         return None
+
+    fail("Unpacked invalid empty link args")
+
+def unpack_external_debug_info(args: LinkArgs.type) -> ["_arglike"]:
+    if args.tset != None:
+        (tset, stripped) = args.tset
+        if stripped:
+            return []
+        return [tset.project_as_args("external_debug_info")]
+
+    if args.infos != None:
+        return flatten([info.external_debug_info for info in args.infos])
+
+    if args.flags != None:
+        return []
 
     fail("Unpacked invalid empty link args")
 

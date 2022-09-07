@@ -83,6 +83,6 @@ def create_manifest_for_extensions(
     # in the manifest, as python packaging may also consume debug paths which
     # were referenced in native code.
     for (lib, _) in extensions.values():
-        manifest.artifacts.extend(lib.external_debug_paths)
+        manifest.artifacts.extend(lib.external_debug_info)
 
     return manifest

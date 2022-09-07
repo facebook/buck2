@@ -147,6 +147,8 @@ _CxxLibraryOutput = record(
     # Note: It's possible that this can contain some of the artifacts which are
     # also present in object_files.
     other = field(["artifact"], []),
+    # Additional debug info which is not included in the library output.
+    external_debug_info = field(["_arglike"], []),
     # A shared shared library may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
@@ -171,8 +173,15 @@ _CxxCompiledSourcesOutput = record(
     compile_cmds = field(CxxCompileCommandOutputForCompDb.type),
     # Non-PIC object files
     objects = field([["artifact"], None]),
+    # Externally referenced debug info, which doesn't get linked with the
+    # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
+    # the `.dwo` when using `-gsplit-dwarf=split`).
+    external_debug_info = field([["artifact"], None]),
+    objects_have_external_debug_info = field(bool.type, False),
     # PIC Object files
     pic_objects = field([["artifact"], None]),
+    pic_objects_have_external_debug_info = field(bool.type, False),
+    pic_external_debug_info = field([["artifact"], None]),
     # Non-PIC object files stripped of debug information
     stripped_objects = field([["artifact"], None]),
     # PIC object files stripped of debug information
@@ -431,6 +440,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                         linker_type = linker_type,
                         link_whole = True,
                     )],
+                    external_debug_info = (
+                        compiled_srcs.pic_external_debug_info +
+                        (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])
+                    ),
                 ),
                 stripped = LinkInfo(
                     pre_flags = cxx_attr_exported_linker_flags(ctx),
@@ -589,11 +602,19 @@ def cxx_compile_srcs(
 
     # Define object files.
     objects = None
+    objects_have_external_debug_info = False
+    external_debug_info = None
     stripped_objects = []
-    pic_objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
+    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
+    pic_objects = [out.object for out in pic_cxx_outs]
+    pic_objects_have_external_debug_info = any([out.object_has_external_debug_info for out in pic_cxx_outs])
+    pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
     if preferred_linkage != Linkage("shared"):
-        objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
+        cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
+        objects = [out.object for out in cxx_outs]
+        objects_have_external_debug_info = any([out.object_has_external_debug_info for out in cxx_outs])
+        external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
         stripped_objects = _strip_objects(ctx, objects)
 
     # Add in additional objects, after setting up stripped objects.
@@ -606,7 +627,11 @@ def cxx_compile_srcs(
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
         objects = objects,
+        objects_have_external_debug_info = objects_have_external_debug_info,
+        external_debug_info = external_debug_info,
         pic_objects = pic_objects,
+        pic_objects_have_external_debug_info = pic_objects_have_external_debug_info,
+        pic_external_debug_info = pic_external_debug_info,
         stripped_objects = stripped_objects,
         stripped_pic_objects = stripped_pic_objects,
     )
@@ -647,6 +672,8 @@ def _form_library_outputs(
                     ctx,
                     impl_params,
                     compiled_srcs.pic_objects if pic else compiled_srcs.objects,
+                    objects_have_external_debug_info = compiled_srcs.pic_objects_have_external_debug_info if pic else compiled_srcs.objects_have_external_debug_info,
+                    external_debug_info = compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info,
                     pic = pic,
                     stripped = False,
                     extra_linkables = extra_static_linkables,
@@ -667,12 +694,14 @@ def _form_library_outputs(
                     ctx,
                     impl_params,
                     compiled_srcs.pic_objects,
+                    (compiled_srcs.pic_external_debug_info +
+                     (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])),
                     shared_links,
                 )
                 output = _CxxLibraryOutput(
                     default = shlib.output,
                     object_files = compiled_srcs.pic_objects,
-                    other = shlib.external_debug_paths,
+                    external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
                 )
                 solibs[soname] = shlib
@@ -779,7 +808,9 @@ def _static_library(
         objects: ["artifact"],
         pic: bool.type,
         stripped: bool.type,
-        extra_linkables: ["FrameworksLinkable"]) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        extra_linkables: ["FrameworksLinkable"],
+        objects_have_external_debug_info: bool.type = False,
+        external_debug_info: ["artifact"] = []) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -817,6 +848,19 @@ def _static_library(
     else:
         post_flags.extend(linker_info.static_dep_runtime_ld_flags)
 
+    all_external_debug_info = []
+    all_external_debug_info.extend(external_debug_info)
+
+    # Track when object files contain external debug info.
+    if objects_have_external_debug_info:
+        # On darwin, the linked output references the archive that contains the
+        # object files instead of the originating objects.
+        if linker_type == "darwin":
+            all_external_debug_info.append(archive.artifact)
+            all_external_debug_info.extend(archive.external_objects)
+        else:
+            all_external_debug_info.extend(objects)
+
     return (
         _CxxLibraryOutput(
             default = archive.artifact,
@@ -834,6 +878,7 @@ def _static_library(
             # when they are deducing linker args.
             linkables = [linkable] + extra_linkables,
             use_link_groups = cxx_use_link_groups(ctx),
+            external_debug_info = all_external_debug_info,
         ),
     )
 
@@ -841,6 +886,7 @@ def _shared_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
+        external_debug_info: ["artifact"],
         dep_infos: "LinkArgs") -> (str.type, LinkedObject.type, LinkInfo.type):
     """
     Generate a shared library and the associated native link info used by
@@ -854,26 +900,34 @@ def _shared_library(
 
     soname = _soname(ctx)
     cxx_toolchain = get_cxx_toolchain_info(ctx)
-
-    # Rule to link regular shared library.
-    args = []
+    linker_info = cxx_toolchain.linker_info
 
     # NOTE(agallagher): We add exported link flags here because it's what v1
     # does, but the intent of exported link flags are to wrap the link output
     # that we propagate up the tree, rather than being used locally when
     # generating a link product.
-    args.extend(cxx_attr_exported_linker_flags(ctx))
-    args.extend(cxx_attr_linker_flags(ctx))
-    args.extend(objects)
-    args.extend(impl_params.extra_exported_link_flags)
-    args.extend(impl_params.extra_link_flags)
-    args.extend(_attr_post_linker_flags(ctx))
-    linker_info = cxx_toolchain.linker_info
-    args.extend(linker_info.shared_dep_runtime_ld_flags)
+    link_info = LinkInfo(
+        pre_flags = (
+            cxx_attr_exported_linker_flags(ctx) +
+            cxx_attr_linker_flags(ctx)
+        ),
+        linkables = [ObjectsLinkable(
+            objects = objects,
+            linker_type = linker_info.type,
+            link_whole = True,
+        )],
+        post_flags = (
+            impl_params.extra_exported_link_flags +
+            impl_params.extra_link_flags +
+            _attr_post_linker_flags(ctx) +
+            linker_info.shared_dep_runtime_ld_flags
+        ),
+        external_debug_info = external_debug_info,
+    )
     shlib = cxx_link_into_shared_library(
         ctx,
         soname,
-        [LinkArgs(flags = args), dep_infos],
+        [LinkArgs(infos = [link_info]), dep_infos],
         identifier = soname,
         soname = impl_params.use_soname,
         shared_library_flags = impl_params.shared_library_flags,
@@ -887,9 +941,16 @@ def _shared_library(
     # If shared library interfaces are enabled, link that and use it as
     # the shared lib that dependents will link against.
     if cxx_use_shlib_intfs(ctx):
-        args = list(args)
-        args.extend(get_ignore_undefined_symbols_flags(linker_info.type))
-        args.extend(linker_info.independent_shlib_interface_linker_flags)
+        link_info = LinkInfo(
+            pre_flags = link_info.pre_flags,
+            linkables = link_info.linkables,
+            post_flags = (
+                link_info.post_flags +
+                get_ignore_undefined_symbols_flags(linker_info.type) +
+                linker_info.independent_shlib_interface_linker_flags
+            ),
+            external_debug_info = link_info.external_debug_info,
+        )
         shlib_for_interface = ctx.actions.declare_output(
             get_shared_library_name(
                 linker_info.type,
@@ -901,7 +962,7 @@ def _shared_library(
             output = shlib_for_interface,
             category_suffix = "interface",
             name = soname,
-            links = [LinkArgs(flags = args)],
+            links = [LinkArgs(infos = [link_info])],
             identifier = soname,
         )
 
