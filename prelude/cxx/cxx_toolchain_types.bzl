@@ -21,6 +21,7 @@ LinkerInfo = provider(fields = [
     "link_weight",  # int.type
     "linker",
     "linker_flags",
+    "lto_mode",
     "mk_shlib_intf",
     "shlib_interfaces",
     "shared_dep_runtime_ld_flags",

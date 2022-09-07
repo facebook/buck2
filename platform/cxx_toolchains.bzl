@@ -6,6 +6,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "expect", "expect_non_none", "value_or")
 
 DEFAULT_MK_COMP_DB = "@prelude//cxx/tools:make_comp_db"
@@ -106,6 +107,7 @@ def _attrs(is_toolchain):
         dict(
             platform_name = attrs.option(attrs.string()),
             mk_hmap = attrs_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
+            lto_mode = attrs.enum(LtoMode.values(), default = "none"),
             split_debug_mode = attrs.enum(SplitDebugMode.values(), default = "none"),
         ),
     )
@@ -233,6 +235,7 @@ def _cxx_toolchain_impl(ctx):
         link_weight = value_or(ctx.attrs.link_weight, 1),
         linker = ctx.attrs.ld[RunInfo],
         linker_flags = cmd_args(ctx.attrs.ldflags),
+        lto_mode = LtoMode(ctx.attrs.lto_mode),
         mk_shlib_intf = ctx.attrs.mk_shlib_intf,
         shlib_interfaces = ctx.attrs.shlib_interfaces,
         independent_shlib_interface_linker_flags = ctx.attrs.independent_shlib_interface_ldflags,
@@ -344,6 +347,12 @@ def cxx_fbcode_toolchain(name, **kwargs):
     cxx_toolchain(
         name = name,
         platform_name = fbcode_toolchains.LEGACY_V1_PLATFORMS,
+        lto_mode = select({
+            "DEFAULT": "none",
+            "ovr_config//build_mode/constraints:lto-fat": "fat",
+            "ovr_config//build_mode/constraints:lto-monolithic": "monolithic",
+            "ovr_config//build_mode/constraints:lto-thin": "thin",
+        }),
         # TODO(christylee): fbcode tools rely on the behavior that dwp subtargets
         # are always available, we should change this to use dwp subtargets only
         # when available.
@@ -412,6 +421,7 @@ def _cxx_toolchain_override(ctx):
         link_weight = value_or(ctx.attrs.link_weight, base_linker_info.link_weight),
         linker = _pick_bin(ctx.attrs.linker, base_linker_info.linker),
         linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
+        lto_mode = LtoMode(value_or(ctx.attrs.lto_mode, base_linker_info.lto_mode.value)),
         shlib_interfaces = base_linker_info.shlib_interfaces,
         mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
         requires_archives = base_linker_info.requires_archives,
@@ -491,6 +501,7 @@ cxx_toolchain_override = rule(
         "linker": attrs.option(attrs.dep(providers = [RunInfo])),
         "linker_flags": attrs.option(attrs.list(attrs.arg())),
         "linker_type": attrs.option(attrs.enum(native.cxx.LinkerType), default = None),
+        "lto_mode": attrs.option(attrs.enum(LtoMode.values())),
         "mk_comp_db": attrs.option(attrs.dep(providers = [RunInfo], default = DEFAULT_MK_COMP_DB)),
         "mk_hmap": attrs.dep(default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
         "mk_shlib_intf": attrs.option(attrs.dep(providers = [RunInfo])),
@@ -552,6 +563,7 @@ def _cxx_toolchain_prefix(ctx: "context") -> ["provider"]:
             link_libraries_locally = base_linker_info.link_libraries_locally,
             link_style = base_linker_info.link_style,
             link_weight = base_linker_info.link_weight,
+            lto_mode = base_linker_info.lto_mode,
             shlib_interfaces = base_linker_info.shlib_interfaces,
             mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
             requires_archives = base_linker_info.requires_archives,
