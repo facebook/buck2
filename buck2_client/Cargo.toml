@@ -45,6 +45,7 @@ tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 httparse = { workspace = true }
+parking_lot = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
