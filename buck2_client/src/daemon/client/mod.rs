@@ -370,7 +370,7 @@ macro_rules! stream_method {
         pub async fn $method(
             &mut self,
             req: $req,
-            console_interaction: ConsoleInteractionStream<'_>,
+            console_interaction: Option<ConsoleInteractionStream<'_>>,
         ) -> anyhow::Result<CommandOutcome<$res>> {
             self.enter()?;
             let res = self
@@ -378,7 +378,7 @@ macro_rules! stream_method {
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
                     req,
-                    Some(console_interaction),
+                    console_interaction,
                 )
                 .await;
             self.exit().await?;

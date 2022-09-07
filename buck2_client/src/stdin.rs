@@ -98,7 +98,7 @@ impl Stdin {
         )
     }
 
-    pub fn console_interaction_stream(&mut self) -> ConsoleInteractionStream<'_> {
+    pub fn console_interaction_stream(&mut self) -> Option<ConsoleInteractionStream<'_>> {
         ConsoleInteractionStream::new(self)
     }
 }

@@ -4,29 +4,31 @@ use crate::stdin::Stdin;
 
 pub struct ConsoleInteractionStream<'a> {
     stdin: &'a mut Stdin,
-    term: Option<InteractiveTerminal>,
+    term: InteractiveTerminal,
 }
 
 impl<'a> ConsoleInteractionStream<'a> {
-    pub fn new(stdin: &'a mut Stdin) -> Self {
-        let term = InteractiveTerminal::enable();
-        if let Err(e) = term.as_ref() {
-            tracing::warn!("Failed to enable interactive terminal: {:#}", e);
-        }
+    pub fn new(stdin: &'a mut Stdin) -> Option<Self> {
+        let term = match InteractiveTerminal::enable() {
+            Ok(Some(term)) => term,
+            Ok(None) => {
+                tracing::debug!("Not enabling interactive terminal");
+                return None;
+            }
+            Err(e) => {
+                tracing::warn!("Failed to enable interactive terminal: {:#}", e);
+                return None;
+            }
+        };
 
-        Self {
-            stdin,
-            term: term.ok(),
-        }
+        Some(Self { stdin, term })
     }
 }
 
 impl<'a> Drop for ConsoleInteractionStream<'a> {
     fn drop(&mut self) {
-        if let Some(mut term) = self.term.take() {
-            if let Err(e) = term.disable() {
-                tracing::warn!("Failed to disable interactive terminal: {:#}", e);
-            }
+        if let Err(e) = self.term.disable() {
+            tracing::warn!("Failed to disable interactive terminal: {:#}", e);
         }
     }
 }
@@ -39,15 +41,15 @@ mod interactive_terminal {
     use termios::*;
 
     pub struct InteractiveTerminal {
-        orig: Option<Termios>,
+        orig: Termios,
     }
 
     impl InteractiveTerminal {
-        pub fn enable() -> anyhow::Result<Self> {
+        pub fn enable() -> anyhow::Result<Option<Self>> {
             let fd = std::io::stdin().as_raw_fd();
 
             if !nix::unistd::isatty(fd).context("Failed to check for TTY")? {
-                return Ok(Self { orig: None });
+                return Ok(None);
             }
 
             let orig = Termios::from_fd(fd).context("Failed to access current termios")?;
@@ -63,15 +65,12 @@ mod interactive_terminal {
 
             tcsetattr(fd, TCSANOW, &termios).context("Failed to set termios")?;
 
-            Ok(Self { orig: Some(orig) })
+            Ok(Some(Self { orig }))
         }
 
         pub fn disable(&mut self) -> anyhow::Result<()> {
-            if let Some(orig) = self.orig {
-                let fd = std::io::stdin().as_raw_fd();
-                tcsetattr(fd, TCSANOW, &orig).context("Failed to reset termios")?;
-            }
-
+            let fd = std::io::stdin().as_raw_fd();
+            tcsetattr(fd, TCSANOW, &self.orig).context("Failed to reset termios")?;
             Ok(())
         }
     }
@@ -82,8 +81,8 @@ mod interactive_terminal {
     pub struct InteractiveTerminal;
 
     impl InteractiveTerminal {
-        pub fn enable() -> anyhow::Result<Self> {
-            Ok(Self)
+        pub fn enable() -> anyhow::Result<Option<Self>> {
+            Ok(None)
         }
 
         pub fn disable(&mut self) -> anyhow::Result<()> {
