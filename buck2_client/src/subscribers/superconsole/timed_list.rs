@@ -130,6 +130,32 @@ impl TimedListBodyInner {
             &self.cutoffs,
         )
     }
+
+    fn draw_root(&self, root: &SpanHandle, state: &State) -> anyhow::Result<Vec<Row>> {
+        let time_speed = state.get::<TimeSpeed>()?;
+        let info = root.info();
+
+        let mut it = root.children();
+        let (first, second) = (it.next(), it.next());
+
+        match (first, second) {
+            (Some(first), None) => Ok(vec![self.draw_root_single_child(state, root, first)?]),
+            (first, second) => {
+                let mut rows = Vec::new();
+                rows.push(Row::span(0, info, time_speed.speed(), &self.cutoffs)?);
+
+                for child in first.into_iter().chain(second.into_iter()).chain(it) {
+                    rows.push(Row::span(
+                        2,
+                        child.info(),
+                        time_speed.speed(),
+                        &self.cutoffs,
+                    )?);
+                }
+                Ok(rows)
+            }
+        }
+    }
 }
 
 impl Component for TimedListBodyInner {
@@ -150,8 +176,6 @@ impl Component for TimedListBodyInner {
         let mut first_not_rendered = None;
 
         for root in &mut roots {
-            let info = root.info();
-
             // We need to estimate how many rows this will require to draw before deciding whether
             // or not to render it. See below for the logic that controls the actual rendering of
             // children.
@@ -165,30 +189,8 @@ impl Component for TimedListBodyInner {
                 break;
             }
 
-            let mut it = root.children();
-            let (first, second) = (it.next(), it.next());
-
-            match (first, second) {
-                (Some(first), None) => {
-                    builder
-                        .rows
-                        .push(self.draw_root_single_child(state, &root, first)?);
-                }
-                (first, second) => {
-                    builder
-                        .rows
-                        .push(Row::span(0, info, time_speed.speed(), &self.cutoffs)?);
-
-                    for child in first.into_iter().chain(second.into_iter()).chain(it) {
-                        builder.rows.push(Row::span(
-                            2,
-                            child.info(),
-                            time_speed.speed(),
-                            &self.cutoffs,
-                        )?);
-                    }
-                }
-            }
+            let rows = self.draw_root(&root, state)?;
+            builder.rows.extend(rows);
         }
 
         // Add remaining unshown tasks, if any.
