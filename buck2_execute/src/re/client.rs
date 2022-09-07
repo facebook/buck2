@@ -114,7 +114,7 @@ impl RemoteExecutionStaticMetadata {
                 .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_thread_count")?
                 .unwrap_or(4),
             use_manifold_rich_client: legacy_config
-                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "use_manifold_rich_client")?
+                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "use_manifold_rich_client_new")?
                 .unwrap_or(true),
             use_zippy_rich_client: legacy_config
                 .parse(BUCK2_RE_CLIENT_CFG_SECTION, "use_zippy_rich_client")?
