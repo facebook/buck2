@@ -124,7 +124,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         _ctx: "context",
         _executable: "artifact",
-        _object_files: ["artifact"],
+        _external_debug_info: ["_arglike"],
         dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared") or dwp == None:
         return ({}, [])

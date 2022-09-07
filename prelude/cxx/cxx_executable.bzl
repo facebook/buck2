@@ -103,6 +103,8 @@ _CxxExecutableOutput = record(
     sub_targets = {str.type: [DefaultInfo.type]},
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = [LinkArgs.type],
+    # External components needed to debug the executable.
+    external_debug_info = ["_arglike"],
 )
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
@@ -347,6 +349,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         runtime_files = runtime_files,
         sub_targets = sub_targets,
         link_args = links,
+        external_debug_info = binary.external_debug_info,
     ), comp_db_info, xcode_data_info
 
 # Returns a tuple of:

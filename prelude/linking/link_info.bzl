@@ -520,15 +520,6 @@ def get_link_styles_for_linkage(linkage: Linkage.type) -> [LinkStyle.type]:
     """
     return _LINK_STYLE_FOR_LINKAGE[linkage]
 
-def extract_default_filelist_from_link_args(link: "LinkArgs") -> ["artifact"]:
-    infos = []
-    if link.infos:
-        infos = link.infos
-    elif link.tset:
-        infos = [infos.default for infos in link.tset[0].traverse()]
-
-    return filter(None, flatten([link_info_filelist(info) for info in infos]))
-
 def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
     unique_framework_names = {}
     unique_framework_paths = {}

@@ -153,7 +153,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
-        object_files: ["artifact"],
+        external_debug_info: ["_arglike"],
         _dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
@@ -164,7 +164,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = executable,
-        object_files = object_files,
+        external_debug_info = external_debug_info,
         action_identifier = executable.short_path,
     )
     return ({

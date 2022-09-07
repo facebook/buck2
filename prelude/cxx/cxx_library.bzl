@@ -337,7 +337,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 link_style,
                 ctx,
                 output.default,
-                output.object_files,
+                output.external_debug_info,
                 output.dwp,
             )
 

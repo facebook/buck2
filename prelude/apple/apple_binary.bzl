@@ -7,8 +7,6 @@ load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
 )
-load("@prelude//linking:link_info.bzl", "extract_default_filelist_from_link_args")
-load("@prelude//utils:utils.bzl", "flatten")
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")
@@ -40,9 +38,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = cxx_output.binary,
-        object_files = flatten(
-            [extract_default_filelist_from_link_args(link_arg) for link_arg in cxx_output.link_args],
-        ),
+        external_debug_info = cxx_output.external_debug_info,
         action_identifier = cxx_output.binary.short_path,
     )
     cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = [dsym_artifact])]

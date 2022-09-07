@@ -11,7 +11,7 @@ AppleDebuggableInfo = provider(fields = [
 # - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
-def get_apple_dsym(ctx: "context", executable: "artifact", object_files: ["artifact"], action_identifier: "string") -> "artifact":
+def get_apple_dsym(ctx: "context", executable: "artifact", external_debug_info: ["_arglike"], action_identifier: "string") -> "artifact":
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output("{}.dSYM".format(executable.short_path))
 
@@ -21,7 +21,7 @@ def get_apple_dsym(ctx: "context", executable: "artifact", object_files: ["artif
     # Instead, they contain paths to the object files which themselves contain DWARF data.
     #
     # So, those object files are needed for dsymutil to be to create the dSYM bundle.
-    cmd.hidden(object_files)
+    cmd.hidden(external_debug_info)
     ctx.actions.run(cmd, category = "apple_dsym", identifier = action_identifier)
 
     return output
