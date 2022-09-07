@@ -92,8 +92,7 @@ impl TimedListBodyInner {
         state: &State,
         root: &SpanHandle,
         single_child: SpanHandle,
-        builder: &mut Table,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Row> {
         let time_speed = state.get::<TimeSpeed>()?;
         let info = root.info();
         let child_info = single_child.info();
@@ -123,14 +122,13 @@ impl TimedListBodyInner {
             builder
         };
 
-        builder.rows.push(Row::text(
+        Row::text(
             0,
             event_string,
             display::duration_as_secs_elapsed(info.start.elapsed(), time_speed.speed()),
             info.start.elapsed(),
             &self.cutoffs,
-        )?);
-        Ok(())
+        )
     }
 }
 
@@ -172,7 +170,9 @@ impl Component for TimedListBodyInner {
 
             match (first, second) {
                 (Some(first), None) => {
-                    self.draw_root_single_child(state, &root, first, &mut builder)?
+                    builder
+                        .rows
+                        .push(self.draw_root_single_child(state, &root, first)?);
                 }
                 (first, second) => {
                     builder
