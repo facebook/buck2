@@ -38,6 +38,12 @@ impl PartialEq for Line {
 }
 
 impl Line {
+    /// Constructor.
+    #[allow(clippy::should_implement_trait)] // Because this is not a generic collection.
+    pub fn from_iter<I: IntoIterator<Item = Span>>(iter: I) -> Line {
+        Line(Vec::from_iter(iter))
+    }
+
     /// Return the length of the all words in the line added together.
     pub fn len(&self) -> usize {
         self.0.iter().map(Span::len).sum()
