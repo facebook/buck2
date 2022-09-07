@@ -552,4 +552,5 @@ omnibus_environment(
     enable_explicit_roots = read_config("buck2", "enable_omnibus_explicit_roots", "false") in ["true", "True"],
     prefer_stripped_native_objects = True,
     visibility = ["PUBLIC"],
+    default_target_platform = "ovr_config//platform/linux:x86_64-fbcode-platform010-clang",
 )
