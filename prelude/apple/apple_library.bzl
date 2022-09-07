@@ -169,7 +169,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     )
     return ({
         DSYM_SUBTARGET: [DefaultInfo(default_outputs = [dsym_artifact])],
-    }, [AppleDebuggableInfo(dsyms = [dsym_artifact])] + min_version_providers)
+    }, [AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info)] + min_version_providers)
 
 def _get_linker_flags(ctx: "context", swift_providers: ["provider"]) -> "cmd_args":
     cmd = cmd_args(get_min_deployment_version_target_linker_flags(ctx))

@@ -10,7 +10,7 @@ load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_out
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
-load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET")
+load(":apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 
 INSTALL_DATA_SUB_TARGET = "install-data"
@@ -69,20 +69,17 @@ def _apple_bundle_run_validity_checks(ctx: "context"):
     if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
 
-def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
+def _get_debuggable_deps(ctx: "context") -> ["AppleDebuggableInfo"]:
     deps = ctx.attrs.deps
 
     # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
     if ctx.attrs.binary:
         deps.append(ctx.attrs.binary)
 
-    return flatten([
-        info.dsyms
-        for info in filter(
-            None,
-            [dep[AppleDebuggableInfo] for dep in deps],
-        )
-    ])
+    return filter(
+        None,
+        [dep[AppleDebuggableInfo] for dep in deps],
+    )
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
     resource_part_list = None
@@ -105,10 +102,16 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     binary_outputs = _get_binary(ctx)
     apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = _get_binary_bundle_parts(ctx, binary_outputs)))
 
-    dsym_artifacts = _get_dsym_artifacts(ctx)
-    sub_targets = {
-        DSYM_SUBTARGET: [DefaultInfo(default_outputs = dsym_artifacts)],
-    } if dsym_artifacts else {}
+    sub_targets = {}
+
+    debuggable_deps = _get_debuggable_deps(ctx)
+
+    dsym_artifacts = flatten([info.dsyms for info in debuggable_deps])
+    if dsym_artifacts:
+        sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
+
+    external_debug_info = flatten([info.external_debug_info for info in debuggable_deps])
+    sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
 
     bundle = bundle_output(ctx)
 
@@ -124,7 +127,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(default_outputs = [bundle], sub_targets = sub_targets),
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = get_is_watch_bundle(ctx)),
-        AppleDebuggableInfo(dsyms = dsym_artifacts),
+        AppleDebuggableInfo(dsyms = dsym_artifacts, external_debug_info = external_debug_info),
         InstallInfo(
             installer = ctx.attrs._apple_installer,
             files = {

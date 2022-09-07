@@ -9,7 +9,7 @@ load(
 )
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
-load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")
+load(":apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_link_postprocessor.bzl", "get_apple_link_postprocessor")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
@@ -43,6 +43,8 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     )
     cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = [dsym_artifact])]
 
+    cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = cxx_output.external_debug_info)]
+
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
 
@@ -57,7 +59,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(default_outputs = [cxx_output.binary], sub_targets = cxx_output.sub_targets),
         RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
         AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
-        AppleDebuggableInfo(dsyms = [dsym_artifact]),
+        AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
         xcode_data_info,
     ] + [resource_graph] + min_version_providers
 

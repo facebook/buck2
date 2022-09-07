@@ -1,10 +1,11 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 DSYM_SUBTARGET = "dsym"
+DEBUGINFO_SUBTARGET = "debuginfo"
 
 AppleDebuggableInfo = provider(fields = [
-    # ["artifact"]
-    "dsyms",
+    "dsyms",  # ["artifact"]
+    "external_debug_info",  # ["_arglike"]
 ])
 
 # TODO(T110672942): Things which are still unsupported:
