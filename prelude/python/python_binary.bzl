@@ -300,9 +300,10 @@ def convert_python_library_to_executable(
                 updated_extensions.append((dest + ".empty_stub", ctx.actions.write(dest + ".empty_stub", lines), str(label)))
 
         # TODO We still need native_libs that are shared only dependencies of extensions
-        # for libs in extension_info.shared_libraries.traverse():
-        #    native_libs.update(libs.libraries)
-        native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
+        native_libs = {}
+        for libs in extension_info.shared_libraries.traverse():
+            for name, shared_lib in libs.libraries.items():
+                native_libs[name] = shared_lib.lib
         extra_manifests = create_manifest_for_entries(ctx, "extension_stubs", updated_extensions)
         extensions = {}
     else:

@@ -313,7 +313,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     providers.append(linkable_graph)
 
     # Link info for native python
-    providers.append(merge_cxx_extension_info(ctx.actions, deps))
+    providers.append(merge_cxx_extension_info(ctx.actions, deps, shared_libraries = [lib_info.set for lib_info in shared_libraries]))
 
     # C++ resources.
     providers.append(ResourceInfo(resources = gather_resources(
