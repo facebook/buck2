@@ -108,6 +108,7 @@ pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut
     let mut wait = initial_delay;
     let mut tries = 0;
     let mut last_error = None;
+
     loop {
         tries += 1;
         match tokio::time::timeout_at(deadline, func()).await {
@@ -117,23 +118,27 @@ pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut
                 tokio::time::sleep_until(cmp::min(deadline, Instant::now() + wait)).await;
                 wait = cmp::min(max_delay, wait * 2);
             }
-            Err(_) => {
-                match last_error {
-                    Some(e) => {
-                        return Err(e.context(format!(
-                            "Failed after {} attempts over {:.2}s",
-                            tries,
-                            timeout.as_secs_f64()
-                        )));
-                    }
-                    None => {
-                        // `tries` is zero here.
-                        return Err(anyhow::anyhow!(
-                            "Timed out after {:.2}s, unknown error",
-                            timeout.as_secs_f64()
-                        ));
-                    }
-                }
+            Err(_) => return Err(make_error(tries, last_error, timeout)),
+        }
+    }
+
+    fn make_error(
+        tries: u32,
+        last_error: Option<anyhow::Error>,
+        timeout: Duration,
+    ) -> anyhow::Error {
+        match last_error {
+            Some(e) => e.context(format!(
+                "Failed after {} attempts over {:.2}s",
+                tries,
+                timeout.as_secs_f64()
+            )),
+            None => {
+                // `tries` is zero here.
+                anyhow::anyhow!(
+                    "Timed out after {:.2}s, unknown error",
+                    timeout.as_secs_f64()
+                )
             }
         }
     }
