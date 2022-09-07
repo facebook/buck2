@@ -11,7 +11,7 @@ def _implicit_root_via(root):
 
 def _find_implicit_roots(ctx):
     platform = (
-        "ovr_config//platform/linux:x86_64-fbcode-platform010"
+        "ovr_config//platform/linux:x86_64-fbcode-platform010-clang"
     )
 
     targets = ctx.cquery(platform).eval("kind('^python_(binary|test)', %s)", query_args = [ctx.cli_args.targets])

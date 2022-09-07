@@ -27,7 +27,7 @@ def _skip_node(n):
 
 def _find_exclusions_impl(ctx):
     platform = (
-        "ovr_config//platform/linux:x86_64-fbcode-platform010"
+        "ovr_config//platform/linux:x86_64-fbcode-platform010-clang"
     )
 
     cquery = ctx.cquery(platform)
