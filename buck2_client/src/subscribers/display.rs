@@ -28,6 +28,7 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Stylize;
+use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 use thiserror::Error;
@@ -330,7 +331,7 @@ pub(crate) fn format_test_result(
         TestStatus::RERUN => Span::new_styled("↻ Rerun".to_owned().cyan()),
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }?;
-    let mut base = superconsole::line![prefix, Span::new_unstyled(format!(": {}", name,))?];
+    let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {}", name,))?]);
     if let Some(duration) = duration {
         let duration = match Duration::try_from(duration.clone()) {
             Ok(duration) | Err(duration) => duration,

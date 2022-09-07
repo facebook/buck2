@@ -320,7 +320,7 @@ impl EventSubscriber for StatefulSuperConsole {
     async fn handle_stderr(&mut self, msg: &str) -> anyhow::Result<()> {
         match &mut self.super_console {
             Some(super_console) => {
-                super_console.emit(vec![superconsole::line![Span::sanitized(msg)]]);
+                super_console.emit(vec![Line::from_iter([Span::sanitized(msg)])]);
                 Ok(())
             }
             None => self.state.simple_console.handle_stderr(msg).await,
@@ -481,7 +481,7 @@ impl EventSubscriber for StatefulSuperConsole {
                     TargetDisplayOptions::for_console(),
                 )?;
 
-                lines.push(superconsole::line!(Span::new_styled_lossy(
+                lines.push(Line::from_iter([Span::new_styled_lossy(
                     StyledContent::new(
                         ContentStyle {
                             foreground_color: Some(Color::White),
@@ -489,12 +489,12 @@ impl EventSubscriber for StatefulSuperConsole {
                             ..Default::default()
                         },
                         format!("Action failed: {}", action_id,),
-                    )
-                )));
+                    ),
+                )]));
 
-                lines.push(superconsole::line!(Span::new_styled_lossy(
-                    reason.with(Color::DarkRed)
-                )));
+                lines.push(Line::from_iter([Span::new_styled_lossy(
+                    reason.with(Color::DarkRed),
+                )]));
 
                 if let Some(command) = command {
                     lines_for_command_details(&command, self.verbosity, &mut lines);
@@ -517,7 +517,7 @@ impl EventSubscriber for StatefulSuperConsole {
                             )?
                         ),
                     );
-                    lines.push(superconsole::line!(Span::new_styled_lossy(action_id)));
+                    lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
                     lines.extend(colored_lines_from_multiline_string(stderr));
                 }
             }
@@ -603,40 +603,40 @@ fn lines_for_command_details(
                 }
             };
 
-            lines.push(superconsole::line!(Span::new_styled_lossy(
-                format!("Reproduce locally: `{}`", command).with(Color::DarkRed)
-            )));
+            lines.push(Line::from_iter([Span::new_styled_lossy(
+                format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+            )]));
         }
         Some(Command::RemoteCommand(remote_command)) => {
-            lines.push(superconsole::line!(Span::new_styled_lossy(
+            lines.push(Line::from_iter([Span::new_styled_lossy(
                 format!(
                     "Reproduce locally: `frecli cas download-action {}`",
                     remote_command.action_digest
                 )
-                .with(Color::DarkRed)
-            )));
+                .with(Color::DarkRed),
+            )]));
         }
         Some(Command::OmittedLocalCommand(..)) | None => {
             // Nothing to show in this case.
         }
     };
 
-    lines.push(superconsole::line!(Span::new_styled_lossy(
+    lines.push(Line::from_iter([Span::new_styled_lossy(
         "stdout:"
             .to_owned()
             .with(Color::DarkRed)
-            .attribute(Attribute::Bold)
-    )));
+            .attribute(Attribute::Bold),
+    )]));
     lines.extend(lines_from_multiline_string(
         &command_failed.stdout,
         color(Color::DarkRed),
     ));
-    lines.push(superconsole::line!(Span::new_styled_lossy(
+    lines.push(Line::from_iter([Span::new_styled_lossy(
         "stderr:"
             .to_owned()
             .with(Color::DarkRed)
-            .attribute(Attribute::Bold)
-    )));
+            .attribute(Attribute::Bold),
+    )]));
     lines.extend(colored_lines_from_multiline_string(&command_failed.stderr));
 }
 
@@ -679,18 +679,18 @@ impl Component for SessionInfoComponent {
                 let mut ids = vec![];
                 if let Some(trace_id) = &session_info.trace_id {
                     if cfg!(fbcode_build) {
-                        headers.push(superconsole::line!(Span::new_unstyled("Buck UI:")?,));
+                        headers.push(Line::from_iter([Span::new_unstyled("Buck UI:")?]));
                         ids.push(Span::new_unstyled(format!(
                             "https://www.internalfb.com/buck2/{}",
                             trace_id
                         ))?);
                     } else {
-                        headers.push(superconsole::line!(Span::new_unstyled("Build ID:")?,));
+                        headers.push(Line::from_iter([Span::new_unstyled("Build ID:")?]));
                         ids.push(Span::new_unstyled(trace_id)?);
                     }
                 }
                 if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
-                    headers.push(superconsole::line!(Span::new_unstyled("Test Session:")?,));
+                    headers.push(Line::from_iter([Span::new_unstyled("Test Session:")?]));
                     ids.push(Span::new_unstyled(info)?);
                 }
                 // pad all headers to the max width.

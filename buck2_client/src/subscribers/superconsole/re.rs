@@ -1,4 +1,5 @@
 use superconsole::Component;
+use superconsole::Line;
 
 use crate::subscribers::re::ReState;
 
@@ -23,7 +24,7 @@ impl Component for ReHeader {
         Ok(match re.render() {
             Some(text) => {
                 let span = superconsole::Span::new_unstyled(text)?;
-                vec![superconsole::line!(span)]
+                vec![Line::from_iter([span])]
             }
             None => {
                 vec![]

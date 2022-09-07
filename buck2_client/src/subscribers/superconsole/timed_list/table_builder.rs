@@ -123,12 +123,12 @@ impl Row {
         let event = Span::new_styled(styled_for_delay(event, age, cutoffs))?;
 
         let line = if padding > 0 {
-            superconsole::line![Span::padding(padding), event]
+            Line::from_iter([Span::padding(padding), event])
         } else {
-            superconsole::line![event]
+            Line::from_iter([event])
         };
 
-        let time = superconsole::line![Span::new_styled(styled_for_delay(time, age, cutoffs))?];
+        let time = Line::from_iter([Span::new_styled(styled_for_delay(time, age, cutoffs))?]);
         Ok(Row { event: line, time })
     }
 }

@@ -21,6 +21,7 @@ use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::Direction;
 use superconsole::DrawMode;
+use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 use superconsole::State;
@@ -267,7 +268,7 @@ impl Component for CountComponent {
             }
         };
         let span = Span::new_unstyled(contents)?;
-        Ok(vec![superconsole::line!(span)])
+        Ok(vec![Line::from_iter([span])])
     }
 }
 
@@ -438,17 +439,17 @@ mod tests {
         )?;
         let expected = vec![
             vec!["test", "Jobs: In progress: 2. Finished: 0. C"].try_into()?,
-            superconsole::line![Span::sanitized("-".repeat(40))],
-            superconsole::line![
+            Line::from_iter([Span::sanitized("-".repeat(40))]),
+            Line::from_iter([
                 Span::new_styled("test -- speak of the devil".to_owned().dark_yellow())?,
                 Span::padding(10),
                 Span::new_styled("3.0s".to_owned().dark_yellow())?,
-            ],
-            superconsole::line![
+            ]),
+            Line::from_iter([
                 Span::new_unstyled("foo -- speak of the devil".to_owned())?,
                 Span::padding(11),
                 Span::new_unstyled("1.0s".to_owned())?,
-            ],
+            ]),
         ];
 
         pretty_assertions::assert_eq!(output, expected);
@@ -529,17 +530,17 @@ mod tests {
         )?;
         let expected = vec![
             vec!["test", "Jobs: In progress: 3. Finished: 0. C"].try_into()?,
-            superconsole::line![Span::sanitized("-".repeat(40))],
-            superconsole::line![
+            Line::from_iter([Span::sanitized("-".repeat(40))]),
+            Line::from_iter([
                 Span::new_styled(style("e1 -- speak of the devil".to_owned()))?,
                 Span::padding(12),
                 Span::new_styled(style("1.0s".to_owned()))?,
-            ],
-            superconsole::line![
+            ]),
+            Line::from_iter([
                 Span::new_styled("...and 2 more not shown above.".to_owned().italic())?,
                 Span::padding(6),
                 Span::new_styled("1.0s".to_owned().italic())?,
-            ],
+            ]),
         ];
 
         pretty_assertions::assert_eq!(output, expected);
@@ -648,16 +649,16 @@ mod tests {
                 "Jobs: In progress: 1. Finished: 0. Cache hits: 100%. Time elapsed: 0.0s",
             ]
             .try_into()?,
-            superconsole::line![Span::sanitized("-".repeat(80))],
-            superconsole::line![
+            Line::from_iter([Span::sanitized("-".repeat(80))]),
+            Line::from_iter([
                 Span::new_styled(
                     "pkg:target -- action (category identifier) [prepare 5.0s]"
                         .to_owned()
-                        .dark_red()
+                        .dark_red(),
                 )?,
                 Span::padding(18),
                 Span::new_styled("10.0s".to_owned().dark_red())?,
-            ],
+            ]),
         ];
 
         pretty_assertions::assert_eq!(output, expected);
@@ -709,28 +710,28 @@ mod tests {
                 "Jobs: In progress: 1. Finished: 0. Cache hits: 100%. Time elapsed: 0.0s",
             ]
             .try_into()?,
-            superconsole::line![Span::sanitized("-".repeat(80))],
-            superconsole::line![
+            Line::from_iter([Span::sanitized("-".repeat(80))]),
+            Line::from_iter([
                 Span::new_styled(
                     "pkg:target -- action (category identifier)"
                         .to_owned()
-                        .dark_red()
+                        .dark_red(),
                 )?,
                 Span::padding(33),
                 Span::new_styled("10.0s".to_owned().dark_red())?,
-            ],
-            superconsole::line![
+            ]),
+            Line::from_iter([
                 Span::padding(2),
                 Span::new_styled("prepare".to_owned().dark_red())?,
                 Span::padding(67),
                 Span::new_styled("5.0s".to_owned().dark_red())?,
-            ],
-            superconsole::line![
+            ]),
+            Line::from_iter([
                 Span::padding(2),
                 Span::new_styled("re_download".to_owned().dark_yellow())?,
                 Span::padding(63),
                 Span::new_styled("2.0s".to_owned().dark_yellow())?,
-            ],
+            ]),
         ];
 
         pretty_assertions::assert_eq!(output, expected);
