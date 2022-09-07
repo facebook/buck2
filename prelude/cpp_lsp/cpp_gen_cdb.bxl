@@ -16,7 +16,7 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.2"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.3"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
@@ -46,7 +46,7 @@ def _impl(ctx):
         compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
 
         # HMAP CONVERTER
-        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
+        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:hmapconverter").providers()[RunInfo]
         outputDir = actionFactory.declare_output("merged_cdb")
         cmd = cmd_args(hmapConverter)
         cmd.add("--input-file")
