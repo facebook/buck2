@@ -1,3 +1,4 @@
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -128,7 +129,7 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
     #
     # Context: D36669131
     dwo_dir = None
-    if cxx_toolchain_info.split_dwarf_enabled:
+    if cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
         links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
 
     for link in links:
@@ -182,6 +183,3 @@ def cxx_link_cmd(ctx: "context") -> "cmd_args":
     command = cmd_args(toolchain.linker_info.linker)
     command.add(toolchain.linker_info.linker_flags)
     return command
-
-def cxx_is_split_dwarf(ctx: "context") -> bool.type:
-    return hasattr(ctx.attrs, "split_dwarf") and ctx.attrs.split_dwarf

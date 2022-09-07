@@ -3,6 +3,7 @@ load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
 load("@fbsource//tools/build_defs:dict_defs.bzl", "dict_defs")
 load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load("@prelude//utils:utils.bzl", "expect", "expect_non_none", "value_or")
@@ -105,6 +106,7 @@ def _attrs(is_toolchain):
         dict(
             platform_name = attrs.option(attrs.string()),
             mk_hmap = attrs_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
+            split_debug_mode = attrs.enum(SplitDebugMode.values(), default = "none"),
         ),
     )
 
@@ -278,7 +280,7 @@ def _cxx_toolchain_impl(ctx):
         mk_hmap = ctx.attrs.mk_hmap[RunInfo],
         dist_lto_tools_info = ctx.attrs._dist_lto_tools_info[DistLtoToolsInfo],
         use_dep_files = value_or(ctx.attrs.use_dep_files, True),
-        split_dwarf_enabled = ctx.attrs.split_dwarf_enabled,
+        split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
     )
 
@@ -342,6 +344,13 @@ def cxx_fbcode_toolchain(name, **kwargs):
     cxx_toolchain(
         name = name,
         platform_name = fbcode_toolchains.LEGACY_V1_PLATFORMS,
+        # TODO(christylee): fbcode tools rely on the behavior that dwp subtargets
+        # are always available, we should change this to use dwp subtargets only
+        # when available.
+        split_debug_mode = select({
+            "DEFAULT": "none",
+            "ovr_config//build_mode/constraints:split-dwarf": "single",
+        }),
         **kwargs
     )
 
@@ -455,7 +464,7 @@ def _cxx_toolchain_override(ctx):
         use_dep_files = base_toolchain.use_dep_files,
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
-        split_dwarf_enabled = value_or(ctx.attrs.split_dwarf_enabled, base_toolchain.split_dwarf_enabled),
+        split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
     )
 
 cxx_toolchain_override = rule(
@@ -489,7 +498,7 @@ cxx_toolchain_override = rule(
         "objcopy": attrs.option(attrs.dep(providers = [RunInfo])),
         "platform_name": attrs.option(attrs.string(), default = None),
         "ranlib": attrs.option(attrs.dep(providers = [RunInfo])),
-        "split_dwarf_enabled": attrs.option(attrs.bool()),
+        "split_debug_mode": attrs.option(attrs.enum(SplitDebugMode.values())),
         "strip": attrs.option(attrs.dep(providers = [RunInfo])),
         "strip_all_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
@@ -578,7 +587,7 @@ def _cxx_toolchain_prefix(ctx: "context") -> ["provider"]:
         use_dep_files = base_toolchain.use_dep_files,
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = base_toolchain.strip_flags_info,
-        split_dwarf_enabled = base_toolchain.split_dwarf_enabled,
+        split_debug_mode = base_toolchain.split_debug_mode,
     )
 
 cxx_toolchain_prefix = rule(

@@ -96,7 +96,7 @@ def cxx_toolchain_impl(ctx):
         conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_exemptions,
         mk_hmap = ctx.attrs._mk_hmap[RunInfo],
         mk_comp_db = ctx.attrs._mk_comp_db,
-        split_dwarf_enabled = value_or(ctx.attrs.split_dwarf_enabled, False),
+        split_debug_mode = ctx.attrs.split_debug_mode,
         strip_flags_info = strip_flags_info,
     )
 

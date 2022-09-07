@@ -1,3 +1,5 @@
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+
 LinkerType = ["gnu", "darwin", "windows"]
 
 # TODO(T110378149): Consider whether it makes sense to move these things to
@@ -105,7 +107,7 @@ CxxToolchainInfo = provider(fields = [
     "dist_lto_tools_info",
     "use_dep_files",
     "strip_flags_info",
-    "split_dwarf_enabled",
+    "split_debug_mode",
     "bolt_enabled",
 ])
 
@@ -140,7 +142,7 @@ def cxx_toolchain_infos(
         use_dep_files = False,
         strip_flags_info = None,
         dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
-        split_dwarf_enabled = False,
+        split_debug_mode = SplitDebugMode("none"),
         bolt_enabled = False):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
@@ -171,7 +173,7 @@ def cxx_toolchain_infos(
         use_distributed_thinlto = use_distributed_thinlto,
         use_dep_files = use_dep_files,
         strip_flags_info = strip_flags_info,
-        split_dwarf_enabled = split_dwarf_enabled,
+        split_debug_mode = split_debug_mode,
         bolt_enabled = bolt_enabled,
     )
 

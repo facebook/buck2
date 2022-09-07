@@ -9,6 +9,7 @@ load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_att
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo", "DistLtoToolsInfo")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 # C++
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
@@ -218,7 +219,6 @@ def _cxx_binary_and_test_attrs():
         "link_whole": attrs.default_only(attrs.bool(default = False)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "split_dwarf": attrs.bool(default = False),
         "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
@@ -368,7 +368,7 @@ extra_attributes = struct(
         "platform_name": attrs.option(attrs.string(), default = None),
         "ranlib": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "requires_objects": attrs.bool(default = False),
-        "split_dwarf_enabled": attrs.bool(default = False),
+        "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
         "strip": attrs.dep(providers = [RunInfo]),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),

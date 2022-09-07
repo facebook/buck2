@@ -6,10 +6,10 @@ load(
 )
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
-    "cxx_is_split_dwarf",
     "cxx_link_cmd",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load(
     "@prelude//cxx:dwp.bzl",
     "run_dwp_action",
@@ -483,7 +483,7 @@ def cxx_dist_link(
             # Local thinlto generates .dwo files by default. For distributed thinlto, however, we
             # want to keep all dwo debug info in the object file to reduce the number of files to
             # materialize.
-            if cxx_is_split_dwarf(ctx):
+            if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                 opt_cmd.add("-gsplit-dwarf=single")
 
             imports = [index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]

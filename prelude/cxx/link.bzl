@@ -3,6 +3,7 @@ load(
     "bolt",
     "cxx_use_bolt",
 )
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_dist_link",
@@ -57,7 +58,7 @@ def cxx_link(
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = generate_dwp and dwp_available(ctx) and cxx_toolchain_info.split_dwarf_enabled
+    should_generate_dwp = generate_dwp and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
     if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")

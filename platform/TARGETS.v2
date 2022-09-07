@@ -1,7 +1,7 @@
 load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
-load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_list")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_list")
 load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
 load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_fbcode_toolchain", "cxx_hacks", "cxx_toolchain_override", "cxx_toolchain_prefix")
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
@@ -65,9 +65,6 @@ cxx_fbcode_toolchain(
         # should probably be that we require gvfs, but that's not well reflected
         "ovr_config//runtime/constraints:fbcode",
     ],
-    # TODO(christylee): fbcode tools rely on the behavior that dwp subtargets are always available,
-    # we should change this to use dwp subtargets only when available.
-    split_dwarf_enabled = read_bool("fbcode", "split-dwarf", True),
     # Use thin archives for static libraries, by default.
     archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
     visibility = ["PUBLIC"],
