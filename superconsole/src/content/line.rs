@@ -201,14 +201,6 @@ impl TryFrom<Vec<&str>> for Line {
     }
 }
 
-/// Convenience method for constructing a line from a sequence of spans.
-#[macro_export]
-macro_rules! line {
-    ($($tts:tt)*) => {
-        $crate::Line(vec![$($tts)*])
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crossterm::style::Stylize;
