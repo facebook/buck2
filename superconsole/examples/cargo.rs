@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use superconsole::style::Stylize;
 use superconsole::Component;
+use superconsole::Line;
 use superconsole::Span;
 use superconsole::SuperConsole;
 
@@ -46,13 +47,13 @@ impl<'a> Component for LoadingBar<'a> {
                     padding_amt = WIDTH - amount,
                 );
                 let loading = Span::new_unstyled(loading_bar)?;
-                superconsole::line!(building, loading)
+                Line::from_iter([building, loading])
             }
             superconsole::DrawMode::Final => {
                 const FINISHED: &str = "   Finished ";
                 let finished = Span::new_styled(FINISHED.to_owned().green().bold())?;
                 const COMPLETION: &str = "dev [unoptimized + debuginfo] target(s) in 14.45s";
-                superconsole::line!(finished, Span::new_unstyled(COMPLETION)?)
+                Line::from_iter([finished, Span::new_unstyled(COMPLETION)?])
             }
         };
 
@@ -72,10 +73,10 @@ fn main() {
 
     for (i, c) in crates.into_iter().enumerate() {
         let building = Span::new_styled("  Compiling ".to_owned().green().bold()).unwrap();
-        superconsole.emit(vec![superconsole::line!(
+        superconsole.emit(vec![Line::from_iter([
             building,
-            Span::new_unstyled(c).unwrap()
-        )]);
+            Span::new_unstyled(c).unwrap(),
+        ])]);
         superconsole.render(&superconsole::state!(&i)).unwrap();
         sleep(Duration::from_secs_f64(0.2));
     }

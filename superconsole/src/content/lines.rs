@@ -34,7 +34,7 @@ pub fn lines_from_multiline_string(multiline_string: &str, style: ContentStyle) 
         .lines()
         .map(|line| {
             let styled = StyledContent::new(style, line.to_owned());
-            crate::line![Span::new_styled_lossy(styled)]
+            Line::from_iter([Span::new_styled_lossy(styled)])
         })
         .collect()
 }
@@ -444,22 +444,22 @@ mod tests {
         };
         let test = lines_from_multiline_string(content, style);
         let expected = vec![
-            crate::line![Span::new_styled_lossy(StyledContent::new(
+            Line::from_iter([Span::new_styled_lossy(StyledContent::new(
                 style,
-                "foo bar".to_owned()
-            ))],
-            crate::line![Span::new_styled_lossy(StyledContent::new(
+                "foo bar".to_owned(),
+            ))]),
+            Line::from_iter([Span::new_styled_lossy(StyledContent::new(
                 style,
-                "".to_owned()
-            ))],
-            crate::line![Span::new_styled_lossy(StyledContent::new(
+                "".to_owned(),
+            ))]),
+            Line::from_iter([Span::new_styled_lossy(StyledContent::new(
                 style,
-                "baz".to_owned()
-            ))],
-            crate::line![Span::new_styled_lossy(StyledContent::new(
+                "baz".to_owned(),
+            ))]),
+            Line::from_iter([Span::new_styled_lossy(StyledContent::new(
                 style,
-                "some other line".to_owned()
-            ))],
+                "some other line".to_owned(),
+            ))]),
         ];
 
         assert_eq!(test, expected);
