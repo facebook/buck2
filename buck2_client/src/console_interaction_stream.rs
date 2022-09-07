@@ -104,7 +104,10 @@ impl<'a> ConsoleInteraction for ConsoleInteractionStream<'a> {
         match self.stdin.read_u8().await {
             Ok(c) => Ok(c.into()),
             // NOTE: An EOF here would be reported as "unexpected" because we asked for a u8.
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+            Err(e)
+                if e.kind() == std::io::ErrorKind::UnexpectedEof
+                    || e.kind() == std::io::ErrorKind::WouldBlock =>
+            {
                 futures::future::pending().await
             }
             Err(e) => Err(anyhow::Error::from(e).context("Error reading char from console")),
