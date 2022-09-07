@@ -100,9 +100,9 @@ def _get_xtensa_select_map():
 def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
+            {"DEFAULT": "fbcode//buck2/platform:cxx-{}-clang".format(_default_fbcode_platform)},
             _get_android_cxx_select_map(),
             get_apple_cxx_select_map(),
-            _get_fbcode_select_map("buck2"),
             _get_infer_select_map(),
             _get_lionhead_select_map(),
             _get_sledge_select_map(),

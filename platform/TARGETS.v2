@@ -3,7 +3,7 @@ load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_list")
 load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
-load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override", "cxx_toolchain_prefix")
+load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_fbcode_toolchain", "cxx_hacks", "cxx_toolchain_override", "cxx_toolchain_prefix")
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
 load(":java_toolchains.bzl", "config_backed_java_toolchain", "prebuilt_jar_toolchain")
@@ -59,10 +59,9 @@ _rust_flavors = _fbcode_cxx_flavors + [
     "macosx-x86_64_minimal_xcode",
 ]
 
-[config_backed_cxx_toolchain(
-    name = flavor,
-    flavor = flavor,
-    target_compatible_with = [
+cxx_fbcode_toolchain(
+    name = "cxx-fbcode",
+    exec_compatible_with = [
         # should probably be that we require gvfs, but that's not well reflected
         "ovr_config//runtime/constraints:fbcode",
     ],
@@ -73,7 +72,19 @@ _rust_flavors = _fbcode_cxx_flavors + [
     archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
     visibility = ["PUBLIC"],
     bolt_enabled = True,
-) for flavor in _fbcode_cxx_flavors]
+)
+
+# TODO(agallagher): Keeping this alive, as it currently occupies the default
+# C++ toolchain branch slot.
+config_backed_cxx_toolchain(
+    name = "cxx-platform010-clang",
+    flavor = "platform010-clang",
+    target_compatible_with = [
+        # should probably be that we require gvfs, but that's not well reflected
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
 
 # The buck2 apple toolchains use this as the base toolchain and override some values.
 # But we don't want the target_compatible_with restriction.
@@ -87,35 +98,26 @@ config_backed_cxx_toolchain(
     visibility = ["PUBLIC"],
 )
 
-[cxx_toolchain_override(
-    name = "buck2-" + flavor,
-    base = ":" + flavor,
-    target_compatible_with = [
-        "ovr_config//runtime/constraints:fbcode",
-    ],
-    visibility = ["PUBLIC"],
-) for flavor in _fbcode_cxx_flavors]
-
 lionhead_libfuzzer_flags = [
     "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION",
     "-fsanitize=fuzzer-no-link",
     "-fno-sanitize=cfi",
 ]
 
-[cxx_toolchain_override(
-    name = "lionhead-libfuzzer-" + flavor,
-    base = ":" + flavor,
+cxx_toolchain_override(
+    name = "lionhead-libfuzzer-platform010-clang",
+    base = ":cxx-platform010-clang",
     target_compatible_with = [
         "ovr_config//runtime/constraints:fbcode",
     ],
     c_compiler_flags = lionhead_libfuzzer_flags,
     cxx_compiler_flags = lionhead_libfuzzer_flags,
     visibility = ["PUBLIC"],
-) for flavor in _fbcode_cxx_flavors]
+)
 
 cxx_toolchain_override(
     name = "buck2-infer",
-    base = ":platform010-clang",
+    base = ":cxx-platform010-clang",
     cxx_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
     c_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
     linker = "fbsource//xplat/tools/infer:infer-fbcode-linux-linker",
@@ -129,7 +131,7 @@ cxx_toolchain_override(
 
 cxx_toolchain_prefix(
     name = "buck2-sledge",
-    base = ":buck2-platform010-clang",
+    base = ":cxx-platform010-clang",
     cxx_compiler = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-compiler",
     c_compiler = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-compiler",
     linker = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-linker",

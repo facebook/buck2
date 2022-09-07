@@ -5,8 +5,22 @@ load(":toolchains.bzl", "default_cxx_toolchain_inner", "default_haskell_toolchai
 # We use both `toolchain` and `toolchain_alias` here. Use `toolchain_alias` when the actual
 # toolchain definitions have been updated to themselves be toolchain rules.
 
-toolchain(
+toolchain_alias(
     name = "cxx",
+    actual = select({
+        "DEFAULT": ":cxx-legacy",
+        "ovr_config//runtime:fbcode": select({
+            "DEFAULT": "fbcode//buck2/platform:cxx-fbcode",
+            # NOTE(agallagher): Some ARVR platforms have the fbcode constraint,
+            # but shouldn't use the main fbcode toolchain.
+            "ovr_config//build_mode:arvr_mode": ":cxx-legacy",
+        }),
+    }),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "cxx-legacy",
     dep = default_cxx_toolchain_inner(),
     visibility = ["PUBLIC"],
 )

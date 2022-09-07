@@ -1,4 +1,7 @@
-load("@fbcode//buck2/platform:utils.bzl", "attr_info", "binary_attr", "bool_attr", "flags_attr", "optional_binary_attr", "optional_bool_attr", "optional_flags_attr", "optional_int_attr", "optional_string_attr", "read_string", "string_attr")
+load("@fbcode//buck2/platform:utils.bzl", "attr_info", "binary_attr", "binary_exec_attr", "bool_attr", "flags_attr", "optional_binary_attr", "optional_binary_exec_attr", "optional_bool_attr", "optional_flags_attr", "optional_int_attr", "optional_string_attr", "read_string", "string_attr")
+load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
+load("@fbsource//tools/build_defs:dict_defs.bzl", "dict_defs")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "DistLtoToolsInfo")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
@@ -14,82 +17,96 @@ DEFAULT_DEP_FILES_PROCESSOR = "@prelude//cxx/tools:makefile_to_dep_file"
 
 # These were all the buckconfig flags set when checking `buck audit config
 # cxx#flavor009-clang`, it might not be comprehensive
-_buckconfig_cxx_toolchain_attrs = {
-    "ar": binary_attr,
-    "archive_contents": string_attr,
-    "archiver_platform": string_attr,
-    "as": binary_attr,
-    "as_type": string_attr,
-    "asflags": flags_attr,
-    "asm": optional_binary_attr,
-    "asm_type": optional_string_attr,
-    "asmflags": optional_flags_attr,
-    "asmpp": optional_binary_attr,
-    "asmpp_type": optional_string_attr,
-    "asmppflags": optional_flags_attr,
-    "aspp": binary_attr,
-    "aspp_type": string_attr,
-    "asppflags": flags_attr,
-    "bolt_enabled": bool_attr,
-    "bolt_msdk": binary_attr,
-    "cache_links": optional_bool_attr,
-    "cc": binary_attr,
-    "cc_type": string_attr,
-    "cflags": flags_attr,
-    "conflicting_header_basename_whitelist": flags_attr,
-    "cpp": binary_attr,
-    "cpp_type": string_attr,
-    "cppflags": flags_attr,
-    "cuda": optional_binary_attr,
-    "cuda_type": optional_string_attr,
-    "cudaflags": optional_flags_attr,
-    "cudapp": optional_binary_attr,
-    "cudapp_type": optional_string_attr,
-    "cudappflags": optional_flags_attr,
-    "cxx": binary_attr,
-    "cxx_type": string_attr,
-    "cxxflags": flags_attr,
-    "cxxpp": binary_attr,
-    "cxxpp_type": string_attr,
-    "cxxppflags": flags_attr,
-    "dwp": binary_attr,
-    # "exported_headers_symlinks_enabled": string_attr,
-    "header_mode": string_attr,
-    "headers_as_raw_headers_mode": optional_string_attr,
-    "hip": optional_binary_attr,
-    "hip_type": optional_string_attr,
-    "hipflags": optional_flags_attr,
-    "hippp": optional_binary_attr,
-    "hippp_type": optional_string_attr,
-    "hipppflags": optional_flags_attr,
-    "independent_shlib_interface_ldflags": flags_attr,
-    "ld": binary_attr,
-    "ldflags": flags_attr,
-    "link_style": string_attr,
-    "link_weight": optional_int_attr,
-    "mk_comp_db": attr_info(reader = read_string, attr_type = attrs.dep(providers = [RunInfo], default = DEFAULT_MK_COMP_DB)),
-    "mk_shlib_intf": binary_attr,
-    "nm": binary_attr,
-    "objcopy": binary_attr,
-    "ranlib": binary_attr,
-    "requires_archives": bool_attr,
-    "requires_objects": bool_attr,
-    "shlib_interfaces": string_attr,
-    # NOTE: This is *not* the same attribute as in v1. In v1 it was used via `fbcode.split-dwarf`
-    "split_dwarf_enabled": bool_attr,
-    "strip": binary_attr,
-    "strip_all_flags": optional_flags_attr,
-    "strip_debug_flags": optional_flags_attr,
-    "strip_non_global_flags": optional_flags_attr,
-    "supports_distributed_thinlto": bool_attr,
-    "use_archiver_flags": optional_bool_attr,
-    # NOTE: This is *not* the same attribute as in v1. We might eventually make
-    # them the same but for now this lets us control dep files specifically in
-    # Buck2 since that's a new feature being added..
-    "use_dep_files": optional_bool_attr,
-    "_dep_files_processor": attr_info(reader = read_string, attr_type = attrs.dep(default = DEFAULT_DEP_FILES_PROCESSOR)),
-    "_dist_lto_tools_info": attr_info(reader = read_string, attr_type = attrs.dep(default = DEFAULT_DIST_LTO_TOOLS)),
-}
+def _buckconfig_cxx_toolchain_attrs(is_toolchain):
+    tool_attr = binary_exec_attr if is_toolchain else binary_attr
+    optional_tool_attr = optional_binary_exec_attr if is_toolchain else optional_binary_attr
+    attrs_dep = attrs.exec_dep if is_toolchain else attrs.dep
+    return {
+        "ar": tool_attr,
+        "archive_contents": string_attr,
+        "archiver_platform": string_attr,
+        "as": tool_attr,
+        "as_type": string_attr,
+        "asflags": flags_attr,
+        "asm": optional_tool_attr,
+        "asm_type": optional_string_attr,
+        "asmflags": optional_flags_attr,
+        "asmpp": optional_tool_attr,
+        "asmpp_type": optional_string_attr,
+        "asmppflags": optional_flags_attr,
+        "aspp": tool_attr,
+        "aspp_type": string_attr,
+        "asppflags": flags_attr,
+        "bolt_enabled": bool_attr,
+        "bolt_msdk": tool_attr,
+        "cache_links": optional_bool_attr,
+        "cc": tool_attr,
+        "cc_type": string_attr,
+        "cflags": flags_attr,
+        "conflicting_header_basename_whitelist": flags_attr,
+        "cpp": tool_attr,
+        "cpp_type": string_attr,
+        "cppflags": flags_attr,
+        "cuda": optional_tool_attr,
+        "cuda_type": optional_string_attr,
+        "cudaflags": optional_flags_attr,
+        "cudapp": optional_tool_attr,
+        "cudapp_type": optional_string_attr,
+        "cudappflags": optional_flags_attr,
+        "cxx": tool_attr,
+        "cxx_type": string_attr,
+        "cxxflags": flags_attr,
+        "cxxpp": tool_attr,
+        "cxxpp_type": string_attr,
+        "cxxppflags": flags_attr,
+        "dwp": tool_attr,
+        # "exported_headers_symlinks_enabled": string_attr,
+        "header_mode": string_attr,
+        "headers_as_raw_headers_mode": optional_string_attr,
+        "hip": optional_tool_attr,
+        "hip_type": optional_string_attr,
+        "hipflags": optional_flags_attr,
+        "hippp": optional_tool_attr,
+        "hippp_type": optional_string_attr,
+        "hipppflags": optional_flags_attr,
+        "independent_shlib_interface_ldflags": flags_attr,
+        "ld": tool_attr,
+        "ldflags": flags_attr,
+        "link_style": string_attr,
+        "link_weight": optional_int_attr,
+        "mk_comp_db": attr_info(reader = read_string, attr_type = attrs_dep(providers = [RunInfo], default = DEFAULT_MK_COMP_DB)),
+        "mk_shlib_intf": tool_attr,
+        "nm": tool_attr,
+        "objcopy": tool_attr,
+        "ranlib": tool_attr,
+        "requires_archives": bool_attr,
+        "requires_objects": bool_attr,
+        "shlib_interfaces": string_attr,
+        # NOTE: This is *not* the same attribute as in v1. In v1 it was used via `fbcode.split-dwarf`
+        "split_dwarf_enabled": bool_attr,
+        "strip": tool_attr,
+        "strip_all_flags": optional_flags_attr,
+        "strip_debug_flags": optional_flags_attr,
+        "strip_non_global_flags": optional_flags_attr,
+        "supports_distributed_thinlto": bool_attr,
+        "use_archiver_flags": optional_bool_attr,
+        # NOTE: This is *not* the same attribute as in v1. We might eventually make
+        # them the same but for now this lets us control dep files specifically in
+        # Buck2 since that's a new feature being added..
+        "use_dep_files": optional_bool_attr,
+        "_dep_files_processor": attr_info(reader = read_string, attr_type = attrs_dep(default = DEFAULT_DEP_FILES_PROCESSOR)),
+        "_dist_lto_tools_info": attr_info(reader = read_string, attr_type = attrs_dep(default = DEFAULT_DIST_LTO_TOOLS)),
+    }
+
+def _attrs(is_toolchain):
+    attrs_dep = attrs.exec_dep if is_toolchain else attrs.dep
+    return dict_defs.add(
+        {k: v.attr_type for (k, v) in _buckconfig_cxx_toolchain_attrs(is_toolchain).items()},
+        dict(
+            platform_name = attrs.option(attrs.string()),
+            mk_hmap = attrs_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
+        ),
+    )
 
 def _cuda_info(ctx: "context") -> [native.cxx.CudaCompilerInfo.type, None]:
     # If we see a HIP compiler setting, require all other vals are set and fill
@@ -154,7 +171,7 @@ def _asm_info(ctx: "context") -> [native.cxx.AsmCompilerInfo.type, None]:
 # TODO(cjhopman): This duplicates a lot of the cxx_toolchain impl. We should
 # probably have the config-backed version just convert the config values to
 # appropriate cxx_toolchain attrs in the macro layer.
-def _config_backed_toolchain_impl(ctx):
+def _cxx_toolchain_impl(ctx):
     c_info = native.cxx.CCompilerInfo(
         compiler = ctx.attrs.cc[RunInfo],
         compiler_type = ctx.attrs.cc_type,
@@ -244,7 +261,7 @@ def _config_backed_toolchain_impl(ctx):
     return [
         DefaultInfo(),
     ] + native.cxx.cxx_toolchain_infos(
-        platform_name = ctx.attrs.name,
+        platform_name = ctx.attrs.platform_name if ctx.attrs.platform_name != None else ctx.attrs.name,
         linker_info = linker_info,
         binary_utilities_info = utilities_info,
         bolt_enabled = ctx.attrs.bolt_enabled,
@@ -258,6 +275,7 @@ def _config_backed_toolchain_impl(ctx):
         headers_as_raw_headers_mode = headers_as_raw_headers_mode,
         conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_whitelist,
         mk_comp_db = ctx.attrs.mk_comp_db,
+        mk_hmap = ctx.attrs.mk_hmap[RunInfo],
         dist_lto_tools_info = ctx.attrs._dist_lto_tools_info[DistLtoToolsInfo],
         use_dep_files = value_or(ctx.attrs.use_dep_files, True),
         split_dwarf_enabled = ctx.attrs.split_dwarf_enabled,
@@ -273,10 +291,16 @@ def _header_mode_or_default(header_mode_value: [None, str.type], c_compiler_type
     else:
         return HeaderMode("symlink-tree-only")
 
-def config_backed_cxx_toolchain(name, flavor, **kwargs):
-    sections = ["fbcode-platform-cxx#" + flavor, "cxx"]
+def _fbcode_config_sections(flavor):
+    return [
+        "fbcode-platform-cxx#" + flavor,
+        "cxx",
+    ]
 
-    for (key, info) in _buckconfig_cxx_toolchain_attrs.items():
+def config_backed_cxx_toolchain(name, flavor, **kwargs):
+    sections = _fbcode_config_sections(flavor)
+
+    for (key, info) in _buckconfig_cxx_toolchain_attrs(is_toolchain = False).items():
         if key in kwargs:
             continue
         val = None
@@ -292,8 +316,39 @@ def config_backed_cxx_toolchain(name, flavor, **kwargs):
     )
 
 _config_backed_cxx_toolchain_rule = rule(
-    impl = _config_backed_toolchain_impl,
-    attrs = {k: v.attr_type for (k, v) in _buckconfig_cxx_toolchain_attrs.items()},
+    impl = _cxx_toolchain_impl,
+    attrs = _attrs(is_toolchain = False),
+)
+
+def _read_config_val(info, key, flavor):
+    for section in _fbcode_config_sections(flavor):
+        val = info.reader(section, key)
+        if val != None:
+            return val
+    return None
+
+def cxx_fbcode_toolchain(name, **kwargs):
+    for (key, info) in _buckconfig_cxx_toolchain_attrs(is_toolchain = True).items():
+        if key in kwargs:
+            continue
+
+        # TODO(agallagher): We should eventually replace this config-reading
+        # select when porting the source of truth from gen_modes.py.
+        kwargs[key] = selects.apply(
+            fbcode_toolchains.LEGACY_V1_PLATFORMS,
+            native.partial(_read_config_val, info, key),
+        )
+
+    cxx_toolchain(
+        name = name,
+        platform_name = fbcode_toolchains.LEGACY_V1_PLATFORMS,
+        **kwargs
+    )
+
+cxx_toolchain = rule(
+    impl = _cxx_toolchain_impl,
+    is_toolchain_rule = True,
+    attrs = _attrs(is_toolchain = True),
 )
 
 def _pick(override, underlying):

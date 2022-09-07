@@ -42,6 +42,9 @@ string_list_attr = attr_info(reader = read_list_with_comma_as_delimiter, attr_ty
 binary_attr = attr_info(reader = read_string, attr_type = attrs.dep(providers = [RunInfo]))
 optional_binary_attr = attr_info(reader = read_string, attr_type = attrs.option(attrs.dep(providers = [RunInfo])))
 
+binary_exec_attr = attr_info(reader = read_string, attr_type = attrs.exec_dep(providers = [RunInfo]))
+optional_binary_exec_attr = attr_info(reader = read_string, attr_type = attrs.option(attrs.exec_dep(providers = [RunInfo])))
+
 optional_binary_or_source_attr = attr_info(reader = read_string, attr_type = attrs.option(attrs.one_of(attrs.dep(), attrs.source())))
 source_list_attr = attr_info(reader = read_list, attr_type = attrs.list(attrs.source()))
 
