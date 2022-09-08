@@ -353,7 +353,11 @@ impl EventSubscriber for StatefulSuperConsole {
                 .await?;
         } else if c == '?' || c == 'h' {
             self.handle_stderr(
-                "Help: `d` = toggle DICE, `e` = toggle debug events, `2` = toggle two lines mode",
+                "Help:\n\
+                `d` = toggle DICE\n\
+                `e` = toggle debug events\n\
+                `2` = toggle two lines mode\n\
+                `h` = show this help",
             )
             .await?;
         }
