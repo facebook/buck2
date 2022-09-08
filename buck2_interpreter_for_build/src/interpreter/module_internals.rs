@@ -174,7 +174,6 @@ impl TargetsRecorder {
         }
     }
 
-    /// Takes the recorded TargetsMap, resetting it to empty.
     fn take(self) -> TargetsMap {
         self.targets.into_inner()
     }
