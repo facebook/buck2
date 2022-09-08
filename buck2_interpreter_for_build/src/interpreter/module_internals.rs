@@ -140,7 +140,7 @@ impl ModuleInternals {
 }
 
 // Records the targets declared when evaluating a build file.
-pub struct TargetsRecorder {
+struct TargetsRecorder {
     targets: RefCell<TargetsMap>,
 }
 
@@ -157,11 +157,11 @@ impl TargetsRecorder {
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.targets.borrow().is_empty()
     }
 
-    pub fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
+    fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
         let mut rules = self.targets.borrow_mut();
         match rules.entry(target_node.label().name().dupe()) {
             Entry::Vacant(o) => {
