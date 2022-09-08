@@ -121,6 +121,7 @@ impl ClientCommandContext {
             .into(),
             oncall: config_opts.oncall.as_ref().cloned().unwrap_or_default(),
             disable_starlark_types: config_opts.disable_starlark_types,
+            reuse_current_config: config_opts.reuse_current_config,
             ..self.empty_client_context()?
         })
     }
@@ -149,6 +150,7 @@ impl ClientCommandContext {
             oncall: Default::default(),
             disable_starlark_types: false,
             trace_id: format!("{}", trace_id),
+            reuse_current_config: false,
         })
     }
 

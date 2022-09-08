@@ -157,6 +157,9 @@ pub struct CommonBuildConfigurationOptions {
     /// to diagnose evaluation performance problems.
     #[clap(long)]
     pub disable_starlark_types: bool,
+
+    #[clap(long)]
+    pub reuse_current_config: bool,
 }
 
 impl CommonBuildConfigurationOptions {
@@ -248,6 +251,7 @@ impl CommonBuildConfigurationOptions {
             fake_host: None,
             oncall: None,
             disable_starlark_types: false,
+            reuse_current_config: false,
         };
         &DEFAULT
     }
