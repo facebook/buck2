@@ -87,7 +87,7 @@ fn test() -> anyhow::Result<()> {
         configured.to_string()
     );
 
-    let ctx = resolution_ctx();
+    let ctx = resolution_ctx(&env);
     let resolved = configured.resolve_single(&ctx)?;
     assert_eq!(
         "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
@@ -415,11 +415,10 @@ fn test_resolved_deps() -> anyhow::Result<()> {
     let attr = AttrType::list(AttrType::dep(Vec::new()));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&configuration_ctx())?;
-    let resolution_ctx = resolution_ctx();
+    let resolution_ctx = resolution_ctx(&env);
     let resolved = configured.resolve_single(&resolution_ctx)?;
 
-    let new_env = Module::new();
-    new_env.set("res", resolved);
+    env.set("res", resolved);
     let content = indoc!(
         r#"
             foo = res[0]
@@ -441,14 +440,15 @@ fn test_resolved_deps() -> anyhow::Result<()> {
             "#
     );
 
-    let success = to_value(&new_env, &globals, content);
+    let success = to_value(&env, &globals, content);
     assert_eq!(true, success.is_none());
     Ok(())
 }
 
 #[test]
 fn test_dep_requires_providers() -> anyhow::Result<()> {
-    let (resolution_ctx, provider_ids) = resolution_ctx_with_providers();
+    let env = Module::new();
+    let (resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
 
     let heap = Heap::new();
     let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
@@ -614,12 +614,11 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
             value,
         )?;
         let configured = coerced.configure(&configuration_ctx())?;
-        let resolution_ctx = resolution_ctx();
+        let resolution_ctx = resolution_ctx(&env);
         let resolved = configured.resolve_single(&resolution_ctx)?;
 
-        let test_env = Module::new();
-        test_env.set("res", resolved);
-        let success = to_value(&test_env, &globals, test_content);
+        env.set("res", resolved);
+        let success = to_value(&env, &globals, test_content);
         assert_eq!(true, success.is_none());
         Ok(())
     }
@@ -674,11 +673,12 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
 fn test_single_source_label_fails_if_multiple_returned() -> anyhow::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc("//sub/dir:foo[multiple]");
+    let env = Module::new();
 
     let attr = AttrType::source(false);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&configuration_ctx())?;
-    let resolution_ctx = resolution_ctx();
+    let resolution_ctx = resolution_ctx(&env);
     let err = configured
         .resolve_single(&resolution_ctx)
         .expect_err("Getting multiple values when expecting a single one should fail");
@@ -779,7 +779,7 @@ fn test_bool() -> anyhow::Result<()> {
     let configured = coerced.configure(&configuration_ctx())?;
     assert_eq!("[True,False,False,True]", configured.to_string());
 
-    let ctx = resolution_ctx();
+    let ctx = resolution_ctx(&env);
     let resolved = configured.resolve_single(&ctx)?;
     assert_eq!("[True, False, False, True]", resolved.to_string());
 
@@ -803,7 +803,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
             to_value(&env, &globals, value),
         )?;
         let configured = coerced.configure(&configuration_ctx())?;
-        let resolution_ctx = resolution_ctx();
+        let resolution_ctx = resolution_ctx(&env);
         configured.resolve_single(&resolution_ctx).map(|v| {
             // TODO: this is way too unnecessarily verbose for a test.
             let project_fs =

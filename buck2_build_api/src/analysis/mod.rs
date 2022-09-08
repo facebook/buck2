@@ -113,8 +113,8 @@ struct RuleAnalysisAttrResolutionContext<'v> {
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
 }
 
-impl<'v> AttrResolutionContext for RuleAnalysisAttrResolutionContext<'v> {
-    fn starlark_module(&self) -> &Module {
+impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
+    fn starlark_module(&self) -> &'v Module {
         self.module
     }
 

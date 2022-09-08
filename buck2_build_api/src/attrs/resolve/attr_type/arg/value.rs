@@ -280,7 +280,7 @@ impl ResolvedStringWithMacros {
 
     pub(crate) fn resolved<'v>(
         configured_macros: &ConfiguredStringWithMacros,
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>> {
         let resolved_parts = match configured_macros {
             ConfiguredStringWithMacros::StringPart(s) => {

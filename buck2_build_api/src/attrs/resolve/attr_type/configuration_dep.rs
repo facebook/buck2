@@ -15,7 +15,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub(crate) trait ConfigurationDepAttrTypeExt {
     fn resolve_single<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         label: &TargetLabel,
     ) -> anyhow::Result<Value<'v>> {
         Ok(ctx.heap().alloc(label.to_string()))

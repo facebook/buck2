@@ -67,11 +67,11 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
 }
 
 pub(crate) trait ConfiguredStringWithMacrosExt {
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
         ResolvedStringWithMacros::resolved(self, ctx)
     }
 }

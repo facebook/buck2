@@ -23,10 +23,10 @@ pub type AnalysisQueryResult = Vec<(ConfiguredTargetLabel, FrozenProviderCollect
 
 /// The context for attribute resolution. Provides access to the providers from
 /// dependents.
-pub trait AttrResolutionContext {
-    fn starlark_module(&self) -> &Module;
+pub trait AttrResolutionContext<'v> {
+    fn starlark_module(&self) -> &'v Module;
 
-    fn heap(&self) -> &Heap {
+    fn heap(&self) -> &'v Heap {
         self.starlark_module().heap()
     }
 

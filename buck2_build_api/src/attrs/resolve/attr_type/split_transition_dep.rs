@@ -20,14 +20,14 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub(crate) trait SplitTransitionDepAttrTypeExt {
     fn resolve_single<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         deps: &ConfiguredSplitTransitionDep,
     ) -> anyhow::Result<Value<'v>>;
 }
 
 impl SplitTransitionDepAttrTypeExt for SplitTransitionDepAttrType {
     fn resolve_single<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         deps: &ConfiguredSplitTransitionDep,
     ) -> anyhow::Result<Value<'v>> {
         let mut res = SmallMap::with_capacity(deps.deps.len());

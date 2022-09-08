@@ -96,9 +96,9 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
 }
 
 pub(crate) trait ConfiguredAttrLiteralExt {
-    fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
 
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
@@ -107,7 +107,7 @@ pub(crate) trait ConfiguredAttrLiteralExt {
 }
 
 impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
-    fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
+    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
@@ -157,7 +157,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>> {
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
             AttrLiteral::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),

@@ -45,13 +45,13 @@ pub(crate) trait DepAttrTypeExt {
     ) -> Value<'v>;
 
     fn resolve_single_impl<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
         required_providers: &Option<Arc<ProviderIdSet>>,
     ) -> anyhow::Result<Value<'v>>;
 
     fn resolve_single<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<Value<'v>>;
 }
@@ -87,7 +87,7 @@ impl DepAttrTypeExt for DepAttrType {
     }
 
     fn resolve_single_impl<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
         required_providers: &Option<Arc<ProviderIdSet>>,
     ) -> anyhow::Result<Value<'v>> {
@@ -101,7 +101,7 @@ impl DepAttrTypeExt for DepAttrType {
     }
 
     fn resolve_single<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<Value<'v>> {
         Self::resolve_single_impl(ctx, &dep_attr.label, &dep_attr.attr_type.required_providers)
@@ -110,7 +110,7 @@ impl DepAttrTypeExt for DepAttrType {
 
 pub(crate) trait ExplicitConfiguredDepAttrTypeExt {
     fn resolve_single<'v>(
-        ctx: &'v dyn AttrResolutionContext,
+        ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &ConfiguredExplicitConfiguredDep,
     ) -> anyhow::Result<Value<'v>> {
         DepAttrType::resolve_single_impl(

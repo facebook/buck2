@@ -37,20 +37,21 @@ use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLi
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
-pub(crate) fn resolution_ctx() -> impl AttrResolutionContext {
-    resolution_ctx_with_providers().0
+pub(crate) fn resolution_ctx<'v>(module: &'v Module) -> impl AttrResolutionContext<'v> {
+    resolution_ctx_with_providers(module).0
 }
 
-pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Vec<Arc<ProviderId>>)
-{
-    struct Ctx {
-        module: Module,
+pub(crate) fn resolution_ctx_with_providers<'v>(
+    module: &'v Module,
+) -> (impl AttrResolutionContext<'v>, Vec<Arc<ProviderId>>) {
+    struct Ctx<'v> {
+        module: &'v Module,
         // This module needs to be kept alive in order for the FrozenValues to stick around
         _deps_env: FrozenModule,
         deps: SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     }
 
-    impl Ctx {
+    impl<'v> Ctx<'v> {
         fn eval(env: &Module, globals: &Globals) {
             testing::to_value(
                 env,
@@ -60,46 +61,46 @@ pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Ve
                 // we do that and don't use lists of providers directly.
                 indoc!(
                     r#"
-            foo_a = source_artifact("", "default.cpp")
-            bar_a = source_artifact("", "bar.cpp")
-            bar1_a = source_artifact("", "bar1.cpp")
-            bar2_a = source_artifact("", "bar2.cpp")
-            bar3_a = source_artifact("", "bar3.cpp")
-            bar = DefaultInfo(default_outputs=[bar_a])
-            zero = DefaultInfo(default_outputs=[])
-            single = DefaultInfo(default_outputs=[bar1_a])
-            multiple = DefaultInfo(default_outputs=[bar1_a, bar2_a, bar3_a])
-            foo = DefaultInfo(
-                sub_targets={
-                    "bar": [bar],
-                    "zero": [zero],
-                    "single": [single],
-                    "multiple": [multiple],
-                    "foo_only": [FooInfo(foo="f1")],
-                    "foo_and_bar": [FooInfo(foo="f1"), BarInfo(bar="b1")],
-                },
-                default_outputs=[foo_a],
-            )
-            outer = DefaultInfo(sub_targets={
-                "foo": [foo],
-                "toolchain": [zero, TemplatePlaceholderInfo(unkeyed_variables = {"CXX": "clang++"})],
-                "keyed_placeholder": [zero, TemplatePlaceholderInfo(keyed_variables = {
-                    "user_key": "hello",
-                    "key_with_args": { "DEFAULT": "world", "big": "big world" },
-                })]
-            })
-            ret = {
-                "foo": outer.sub_targets["foo"],
-                "bar": foo.sub_targets["bar"],
-                "zero": foo.sub_targets["zero"],
-                "single": foo.sub_targets["single"],
-                "multiple": foo.sub_targets["multiple"],
-                "foo_only": foo.sub_targets["foo_only"],
-                "foo_and_bar": foo.sub_targets["foo_and_bar"],
-                "toolchain": outer.sub_targets["toolchain"],
-                "keyed_placeholder": outer.sub_targets["keyed_placeholder"],
-            }
-            "#
+             foo_a = source_artifact("", "default.cpp")
+             bar_a = source_artifact("", "bar.cpp")
+             bar1_a = source_artifact("", "bar1.cpp")
+             bar2_a = source_artifact("", "bar2.cpp")
+             bar3_a = source_artifact("", "bar3.cpp")
+             bar = DefaultInfo(default_outputs=[bar_a])
+             zero = DefaultInfo(default_outputs=[])
+             single = DefaultInfo(default_outputs=[bar1_a])
+             multiple = DefaultInfo(default_outputs=[bar1_a, bar2_a, bar3_a])
+             foo = DefaultInfo(
+                 sub_targets={
+                     "bar": [bar],
+                     "zero": [zero],
+                     "single": [single],
+                     "multiple": [multiple],
+                     "foo_only": [FooInfo(foo="f1")],
+                     "foo_and_bar": [FooInfo(foo="f1"), BarInfo(bar="b1")],
+                 },
+                 default_outputs=[foo_a],
+             )
+             outer = DefaultInfo(sub_targets={
+                 "foo": [foo],
+                 "toolchain": [zero, TemplatePlaceholderInfo(unkeyed_variables = {"CXX": "clang++"})],
+                 "keyed_placeholder": [zero, TemplatePlaceholderInfo(keyed_variables = {
+                     "user_key": "hello",
+                     "key_with_args": { "DEFAULT": "world", "big": "big world" },
+                 })]
+             })
+             ret = {
+                 "foo": outer.sub_targets["foo"],
+                 "bar": foo.sub_targets["bar"],
+                 "zero": foo.sub_targets["zero"],
+                 "single": foo.sub_targets["single"],
+                 "multiple": foo.sub_targets["multiple"],
+                 "foo_only": foo.sub_targets["foo_only"],
+                 "foo_and_bar": foo.sub_targets["foo_and_bar"],
+                 "toolchain": outer.sub_targets["toolchain"],
+                 "keyed_placeholder": outer.sub_targets["keyed_placeholder"],
+             }
+             "#
                 ),
             );
         }
@@ -121,10 +122,10 @@ pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Ve
             let provider_env = Module::new();
             let provider_content = indoc!(
                 r#"
-                FooInfo = provider(fields=["foo"])
-                BarInfo = provider(fields=["bar"])
-                None
-                "#
+                 FooInfo = provider(fields=["foo"])
+                 BarInfo = provider(fields=["bar"])
+                 None
+                 "#
             );
             testing::to_value(&provider_env, &globals, provider_content);
             let frozen_provider_env = provider_env
@@ -206,9 +207,9 @@ pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Ve
         }
     }
 
-    impl AttrResolutionContext for Ctx {
-        fn starlark_module(&self) -> &Module {
-            &self.module
+    impl<'v> AttrResolutionContext<'v> for Ctx<'v> {
+        fn starlark_module(&self) -> &'v Module {
+            self.module
         }
 
         fn get_dep(
@@ -242,7 +243,6 @@ pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Ve
         }
     }
     let (deps_env, deps, provider_ids) = Ctx::simple_deps();
-    let module = Module::new();
     (
         Ctx {
             module,

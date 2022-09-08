@@ -15,9 +15,9 @@ use crate::attrs::resolve::attr_literal::ConfiguredAttrLiteralExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub trait ConfiguredAttrExt {
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>>;
 
-    fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
@@ -31,13 +31,13 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     /// an inappropriate number of elements is returned. e.g. `attrs.list()` might
     /// accept and merge multiple returned values from `attrs.source()`, but
     /// `attrs.optional()` might only accept a single value, and fail otherwise.
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>> {
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>> {
         self.0.resolve(ctx)
     }
 
     /// Resolving a single value is common, so `resolve_single` will validate
     /// this function's output, and return a single value or an error.
-    fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
+    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
         self.0.resolve_single(ctx)
     }
 

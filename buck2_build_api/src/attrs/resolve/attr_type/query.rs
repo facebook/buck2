@@ -34,11 +34,11 @@ impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredAttr> {
 }
 
 pub(crate) trait ConfiguredQueryAttrExt {
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredAttr> {
-    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
         let query_results = self.query.resolve(ctx)?;
         let mut dependencies = Vec::new();
 
