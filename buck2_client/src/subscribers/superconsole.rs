@@ -320,7 +320,11 @@ impl EventSubscriber for StatefulSuperConsole {
     async fn handle_stderr(&mut self, msg: &str) -> anyhow::Result<()> {
         match &mut self.super_console {
             Some(super_console) => {
-                super_console.emit(vec![Line::from_iter([Span::sanitized(msg)])]);
+                super_console.emit(
+                    msg.lines()
+                        .map(|line| Line::from_iter([Span::sanitized(line)]))
+                        .collect(),
+                );
                 Ok(())
             }
             None => self.state.simple_console.handle_stderr(msg).await,
