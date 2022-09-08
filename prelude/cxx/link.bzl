@@ -13,6 +13,7 @@ load(
     "LinkArgs",
     "LinkedObject",
     "unpack_external_debug_info",
+    "unpack_link_args",
 )
 load("@prelude//linking:link_postprocessor.bzl", "postprocess")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
@@ -124,12 +125,24 @@ def cxx_link(
     final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
+        # TODO(T110378144): Once we track split dwarf from compiles, we should
+        # just pass in `binary.external_debug_info` here instead of all link
+        # args.
+        dwp_inputs = cmd_args()
+        for link in links:
+            dwp_inputs.add(unpack_link_args(link))
+        dwp_inputs.add(external_debug_info)
+
         dwp_artifact = dwp(
             ctx,
             final_output,
             identifier = identifier,
             category_suffix = category_suffix,
-            referenced_objects = external_debug_info,
+            # TODO(T110378142): Ideally, referenced objects are a list of
+            # artifacts, but currently we don't track them properly.  So, we
+            # just pass in the full link line and extract all inputs from that,
+            # which is a bit of an overspecification.
+            referenced_objects = [dwp_inputs],
             allow_huge_dwp = ctx.attrs.allow_huge_dwp if hasattr(ctx.attrs, "allow_huge_dwp") else False,
         )
 
