@@ -73,6 +73,28 @@ impl SnapshotCollector {
 
             snapshot.re_download_bytes = stats.downloaded;
             snapshot.re_upload_bytes = stats.uploaded;
+            snapshot.re_uploads_started = stats.uploads.started;
+            snapshot.re_uploads_finished_successfully = stats.uploads.finished_successfully;
+            snapshot.re_uploads_finished_with_error = stats.uploads.finished_with_error;
+            snapshot.re_downloads_started = stats.downloads.started;
+            snapshot.re_downloads_finished_successfully = stats.downloads.finished_successfully;
+            snapshot.re_downloads_finished_with_error = stats.downloads.finished_with_error;
+            snapshot.re_action_cache_started = stats.action_cache.started;
+            snapshot.re_action_cache_finished_successfully =
+                stats.action_cache.finished_successfully;
+            snapshot.re_action_cache_finished_with_error = stats.action_cache.finished_with_error;
+            snapshot.re_executes_started = stats.executes.started;
+            snapshot.re_executes_finished_successfully = stats.executes.finished_successfully;
+            snapshot.re_executes_finished_with_error = stats.executes.finished_with_error;
+            snapshot.re_materializes_started = stats.materializes.started;
+            snapshot.re_materializes_finished_successfully =
+                stats.materializes.finished_successfully;
+            snapshot.re_materializes_finished_with_error = stats.materializes.finished_with_error;
+            snapshot.re_write_action_results_started = stats.write_action_results.started;
+            snapshot.re_write_action_results_finished_successfully =
+                stats.write_action_results.finished_successfully;
+            snapshot.re_write_action_results_finished_with_error =
+                stats.write_action_results.finished_with_error;
 
             Ok(())
         }
