@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::future::Future;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -20,6 +23,7 @@ use either::Either;
 use fbinit::FacebookInit;
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use futures::TryFutureExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
@@ -150,12 +154,42 @@ pub struct RemoteExecutionClient {
     data: Arc<RemoteExecutionClientData>,
 }
 
+#[derive(Default)]
+struct OpStats {
+    started: AtomicU32,
+    finished_successfully: AtomicU32,
+    finished_with_error: AtomicU32,
+}
+
+impl OpStats {
+    async fn op<R, F>(&self, f: F) -> anyhow::Result<R>
+    where
+        F: Future<Output = anyhow::Result<R>>,
+    {
+        self.started.fetch_add(1, Ordering::Relaxed);
+        let result = f.await;
+        (if result.is_ok() {
+            &self.finished_successfully
+        } else {
+            &self.finished_with_error
+        })
+        .fetch_add(1, Ordering::Relaxed);
+        result
+    }
+}
+
 struct RemoteExecutionClientData {
     client: RemoteExecutionClientImpl,
     /// Network stats will increase throughout the lifetime of the RE client, so we're not
     /// guaranteed that they'll start at zero (if we reuse the client). Accordingly, we track the
     /// initial value so that we can provide a delta.
     initial_network_stats: NetworkStatisticsResponse,
+    uploads: OpStats,
+    downloads: OpStats,
+    action_cache: OpStats,
+    executes: OpStats,
+    materializes: OpStats,
+    write_action_results: OpStats,
 }
 
 impl RemoteExecutionClient {
@@ -184,6 +218,12 @@ impl RemoteExecutionClient {
             data: Arc::new(RemoteExecutionClientData {
                 client,
                 initial_network_stats,
+                uploads: OpStats::default(),
+                downloads: OpStats::default(),
+                action_cache: OpStats::default(),
+                executes: OpStats::default(),
+                materializes: OpStats::default(),
+                write_action_results: OpStats::default(),
             }),
         })
     }
@@ -239,7 +279,10 @@ impl RemoteExecutionClient {
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<ActionResultResponse> {
-        self.data.client.action_cache(action_digest, use_case).await
+        self.data
+            .action_cache
+            .op(self.data.client.action_cache(action_digest, use_case))
+            .await
     }
 
     pub async fn upload(
@@ -252,10 +295,13 @@ impl RemoteExecutionClient {
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.data
-            .client
-            .upload(materializer, blobs, dir_path, input_dir, use_case, knobs)
+            .uploads
+            .op(self
+                .data
+                .client
+                .upload(materializer, blobs, dir_path, input_dir, use_case, knobs)
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub async fn upload_files_and_directories(
@@ -266,15 +312,18 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.data
-            .client
-            .upload_files_and_directories(
-                files_with_digest,
-                directories,
-                inlined_blobs_with_digest,
-                use_case,
-            )
+            .uploads
+            .op(self
+                .data
+                .client
+                .upload_files_and_directories(
+                    files_with_digest,
+                    directories,
+                    inlined_blobs_with_digest,
+                    use_case,
+                )
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub async fn execute(
@@ -286,10 +335,13 @@ impl RemoteExecutionClient {
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
         self.data
-            .client
-            .execute(action_digest, platform, use_case, identity, manager)
+            .executes
+            .op(self
+                .data
+                .client
+                .execute(action_digest, platform, use_case, identity, manager)
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub async fn materialize_files(
@@ -297,7 +349,10 @@ impl RemoteExecutionClient {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        self.data.client.materialize_files(files, use_case).await
+        self.data
+            .materializes
+            .op(self.data.client.materialize_files(files, use_case))
+            .await
     }
 
     pub async fn download_trees(
@@ -306,10 +361,13 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<RE::Tree>> {
         self.data
-            .client
-            .download_trees(digests, use_case)
+            .downloads
+            .op(self
+                .data
+                .client
+                .download_trees(digests, use_case)
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub async fn download_blob(
@@ -318,10 +376,13 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<u8>> {
         self.data
-            .client
-            .download_blob(digest, use_case)
+            .downloads
+            .op(self
+                .data
+                .client
+                .download_blob(digest, use_case)
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub async fn upload_blob(
@@ -330,10 +391,13 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
         self.data
-            .client
-            .upload_blob(blob, use_case)
+            .uploads
+            .op(self
+                .data
+                .client
+                .upload_blob(blob, use_case)
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub async fn write_action_result(
@@ -343,10 +407,13 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.data
-            .client
-            .write_action_result(digest, result, use_case)
+            .write_action_results
+            .op(self
+                .data
+                .client
+                .write_action_result(digest, result, use_case)
+                .map_err(|e| self.decorate_error(e)))
             .await
-            .map_err(|e| self.decorate_error(e))
     }
 
     pub fn get_session_id(&self) -> &str {
