@@ -267,6 +267,24 @@ message Snapshot {
 
   uint64 re_download_bytes = 5;
   uint64 re_upload_bytes = 6;
+  uint32 re_uploads_started = 1011;
+  uint32 re_uploads_finished_successfully = 1012;
+  uint32 re_uploads_finished_with_error = 1013;
+  uint32 re_downloads_started = 1021;
+  uint32 re_downloads_finished_successfully = 1022;
+  uint32 re_downloads_finished_with_error = 1023;
+  uint32 re_action_cache_started = 1031;
+  uint32 re_action_cache_finished_successfully = 1032;
+  uint32 re_action_cache_finished_with_error = 1033;
+  uint32 re_executes_started = 1041;
+  uint32 re_executes_finished_successfully = 1042;
+  uint32 re_executes_finished_with_error = 1043;
+  uint32 re_materializes_started = 1051;
+  uint32 re_materializes_finished_successfully = 1052;
+  uint32 re_materializes_finished_with_error = 1053;
+  uint32 re_write_action_results_started = 1061;
+  uint32 re_write_action_results_finished_successfully = 1062;
+  uint32 re_write_action_results_finished_with_error = 1063;
 
   // Time passed since buck2 deamon was started
   uint64 daemon_uptime_s = 7;
