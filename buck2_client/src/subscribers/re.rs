@@ -3,6 +3,8 @@ use std::fmt;
 pub(crate) struct ReState {
     session_id: Option<String>,
     last: Option<Snapshot>,
+    /// Detailed RE stats.
+    pub(crate) detailed: bool,
 }
 
 struct Snapshot {
@@ -15,6 +17,7 @@ impl ReState {
         Self {
             session_id: None,
             last: None,
+            detailed: false,
         }
     }
 

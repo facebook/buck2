@@ -351,12 +351,18 @@ impl EventSubscriber for StatefulSuperConsole {
         } else if c == '2' {
             self.toggle("Two lines mode", '2', |s| &mut s.state.timed_list.two_lines)
                 .await?;
+        } else if c == 'r' {
+            self.toggle("Detailed RE", 'r', |s| {
+                &mut s.state.simple_console.re_state_mut().detailed
+            })
+            .await?;
         } else if c == '?' || c == 'h' {
             self.handle_stderr(
                 "Help:\n\
                 `d` = toggle DICE\n\
                 `e` = toggle debug events\n\
                 `2` = toggle two lines mode\n\
+                `r` = toggle detailed RE\n\
                 `h` = show this help",
             )
             .await?;
