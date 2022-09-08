@@ -11,3 +11,7 @@ tab_width = 4
 [.patternlint/config.json]
 indent_size = 2
 tab_width = 2
+
+[*.proto]
+indent_size = 2
+tab_width = 2
