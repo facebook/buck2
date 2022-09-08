@@ -6,8 +6,8 @@ pub struct ReState {
 }
 
 struct Snapshot {
-    upload_bytes: u64,
-    download_bytes: u64,
+    /// Full snapshot, including data not needed.
+    snapshot: buck2_data::Snapshot,
 }
 
 impl ReState {
@@ -24,8 +24,7 @@ impl ReState {
 
     pub fn update(&mut self, snapshot: &buck2_data::Snapshot) {
         self.last = Some(Snapshot {
-            upload_bytes: snapshot.re_upload_bytes,
-            download_bytes: snapshot.re_download_bytes,
+            snapshot: snapshot.clone(),
         });
     }
 
@@ -37,11 +36,11 @@ impl ReState {
         }
 
         if let Some(last) = self.last.as_ref() {
-            if last.upload_bytes > 0 || last.download_bytes > 0 {
+            if last.snapshot.re_upload_bytes > 0 || last.snapshot.re_download_bytes > 0 {
                 parts.push(format!(
                     "{}▲,  {}▼",
-                    HumanizedBytes(last.upload_bytes),
-                    HumanizedBytes(last.download_bytes)
+                    HumanizedBytes(last.snapshot.re_upload_bytes),
+                    HumanizedBytes(last.snapshot.re_download_bytes)
                 ));
             }
         }
