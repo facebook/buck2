@@ -243,10 +243,12 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     soname = value_or(ctx.attrs.soname, get_shared_library_name(linker_type, ctx.label.name))
     preferred_linkage = _prebuilt_linkage(ctx)
 
-    first_order_deps = cxx_attr_exported_deps(ctx)
+    # Use ctx.attrs.deps instead of cxx_attr_deps, since prebuilt rules don't have platform_deps.
+    first_order_deps = ctx.attrs.deps
+    exported_first_order_deps = cxx_attr_exported_deps(ctx)
 
     # Exported preprocessor info.
-    inherited_pp_infos = cxx_inherited_preprocessor_infos(first_order_deps)
+    inherited_pp_infos = cxx_inherited_preprocessor_infos(exported_first_order_deps)
     generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), [])
     args = cxx_attr_exported_preprocessor_flags(ctx)
     if header_dirs != None:
@@ -260,6 +262,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     ))
 
     inherited_link = cxx_inherited_link_info(ctx, first_order_deps)
+    inherited_exported_link = cxx_inherited_link_info(ctx, exported_first_order_deps)
     exported_linker_flags = cxx_attr_exported_linker_flags(ctx)
 
     # Gather link infos, outputs, and shared libs for effective link style.
@@ -313,7 +316,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                                 LinkArgs(flags = shlink_args),
                                 # TODO(T110378118): As per v1, we always link against "shared"
                                 # dependencies when building a shaerd library.
-                                get_link_args(inherited_link, LinkStyle("shared")),
+                                get_link_args(inherited_exported_link, LinkStyle("shared")),
                             ],
                         )
 
@@ -367,21 +370,23 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         # Add link info for each link style,
         libraries,
         preferred_linkage = preferred_linkage,
+        # Export link info from non-exported deps (when necessary).
+        deps = [inherited_link],
         # Export link info from out (exported) deps.
-        exported_deps = [inherited_link],
+        exported_deps = [inherited_exported_link],
     ))
 
     # Propagate shared libraries up the tree.
     providers.append(merge_shared_libraries(
         ctx.actions,
         create_shared_libraries(ctx, solibs),
-        filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
+        filter(None, map_idx(SharedLibraryInfo, exported_first_order_deps)),
     ))
 
     # Create, augment and provide the linkable graph.
     deps_linkable_graph = create_linkable_graph(
         ctx,
-        deps = first_order_deps,
+        deps = exported_first_order_deps,
     )
 
     # Omnibus root provider.
@@ -404,7 +409,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                 )],
                 post_flags = cxx_attr_exported_post_linker_flags(ctx),
             )),
-            deps = first_order_deps,
+            deps = exported_first_order_deps,
             graph = deps_linkable_graph,
             create_shared_root = known_omnibus_root,
         )
@@ -422,7 +427,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             linkable_node = create_linkable_node(
                 ctx = ctx,
                 preferred_linkage = preferred_linkage,
-                exported_deps = first_order_deps,
+                exported_deps = exported_first_order_deps,
                 # If we don't have link input for this link style, we pass in `None` so
                 # that omnibus knows to avoid it.
                 link_infos = libraries,
