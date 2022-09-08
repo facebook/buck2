@@ -16,6 +16,8 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 INSTALL_DATA_SUB_TARGET = "install-data"
 _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
 
+_PLIST = "plist"
+
 _XCTOOLCHAIN_SUB_TARGET = "xctoolchain"
 
 AppleBundlePartListConstructorParams = record(
@@ -117,10 +119,12 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
 
+    sub_targets[_PLIST] = [DefaultInfo(default_outputs = [apple_bundle_part_list_output.info_plist_part.source])]
+
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
     # Define the xcode data sub target
-    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes, processed_info_plist = apple_bundle_part_list_output.info_plist_part.source)
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
     install_data = generate_install_data(ctx)
 
@@ -142,11 +146,12 @@ def _has_xctoolchain(ctx: "context") -> bool.type:
     default_info = ctx.attrs._apple_xctoolchain[DefaultInfo]
     return len(default_info.default_outputs) > 0
 
-def _xcode_populate_attributes(ctx) -> {str.type: ""}:
+def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str.type: ""}:
     return {
         "deployment_version": get_bundle_min_target_version(ctx),
         "has_xctoolchain": _has_xctoolchain(ctx),
         "info_plist": ctx.attrs.info_plist,
+        "processed_info_plist": processed_info_plist,
         "product_name": get_product_name(ctx),
         "sdk": get_apple_sdk_name(ctx),
     }
