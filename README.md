@@ -68,9 +68,30 @@ If cargo complains about SSL peer certificate or SSH remote key error, then you 
 
 ### Windows setup
 
-Buck2 on Windows is still a work in progress.
+To set up a Windows machine run:
 
-* If you get an error about linking and `d3d12.lib` then install [the Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/).
+```shell
+fbclone fbsource --eden [dest_dir] # dest_dir is optional
+```
+
+Install OpenSSL to have no warnings from rust-analyzer:
+
+```shell
+cd C:\open
+git clone https://github.com/microsoft/vcpkg
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg.exe integrate install
+.\vcpkg.exe install openssl:x64-windows-static-md
+```
+
+Then in Administrator terminal:
+
+```shell
+choco install cmake -s 'https://chocolatey.org/api/v2/'
+```
+
+Install Rust toolchain: https://win.rustup.rs/x86_64
 
 ### Incremental development
 
