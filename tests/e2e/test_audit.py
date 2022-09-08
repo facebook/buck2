@@ -280,3 +280,43 @@ async def test_audit_visibility(buck: Buck, rule: str, passes: bool) -> None:
             buck.audit_visibility(rule),
             stderr_regex=f"not visible to `{rule}`",
         )
+
+
+@buck_test(inplace=True)
+async def test_reuse_current_config_no_previous_config(buck: Buck) -> None:
+    result_file = await buck.audit_config(
+        "project.buck_out",
+        "--style",
+        "json",
+        "--reuse-current-config",
+    )
+    result_file_json = result_file.get_json()
+
+    assert result_file_json is not None
+    assert result_file_json.get("project.buck_out") == "buck-out/dev"
+
+
+@buck_test(inplace=True)
+async def test_reuse_current_config(buck: Buck) -> None:
+    result_file = await buck.audit_config(
+        "@fbcode//mode/opt",
+        "project.buck_out",
+        "--style",
+        "json",
+    )
+    result_file_json = result_file.get_json()
+
+    assert result_file_json is not None
+    assert result_file_json.get("project.buck_out") == "buck-out/opt"
+
+    result_file = await buck.audit_config(
+        "project.buck_out",
+        "--style",
+        "json",
+        "--reuse-current-config",
+    )
+    result_file_json = result_file.get_json()
+
+    assert result_file_json is not None
+    # assert it does not revert back to @mode/dev by default
+    assert result_file_json.get("project.buck_out") == "buck-out/opt"

@@ -20,7 +20,7 @@ pub(crate) async fn materialize_command(
     context: ServerCommandContext,
     req: cli_proto::MaterializeRequest,
 ) -> anyhow::Result<cli_proto::MaterializeResponse> {
-    let metadata = context.request_metadata()?;
+    let metadata = context.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
         data: Some(buck2_data::MaterializeCommandStart {}.into()),

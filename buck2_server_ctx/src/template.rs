@@ -56,7 +56,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
     command: T,
     server_ctx: Box<dyn ServerCommandContextTrait>,
 ) -> anyhow::Result<T::Response> {
-    let metadata = server_ctx.request_metadata()?;
+    let metadata = server_ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
         data: Some(command.start_event().into()),

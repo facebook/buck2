@@ -25,12 +25,14 @@ use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
 use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
@@ -78,8 +80,8 @@ use gazebo::dupe::Dupe;
 use gazebo::prelude::VecExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use once_cell::sync::OnceCell;
 use starlark::environment::GlobalsBuilder;
+use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::configs::parse_legacy_cells;
@@ -202,7 +204,7 @@ pub struct ServerCommandContext {
     build_options: Option<CommonBuildOptions>,
 
     /// The CellResolver and Configs for this command
-    cells_and_configs: OnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
+    cells_and_configs: AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
 
     /// The DiceTransaction to use when servicing computations triggered by this command.
     dice: AsyncOnceCell<SharedResult<DiceTransaction>>,
@@ -213,6 +215,9 @@ pub struct ServerCommandContext {
     heartbeat_guard_handle: Option<HeartbeatGuard>,
 
     configure_bxl_file_globals: fn(&mut GlobalsBuilder),
+
+    /// Reuses build config from the previous invocation if there is one
+    reuse_current_config: bool,
 }
 
 impl ServerCommandContext {
@@ -285,23 +290,45 @@ impl ServerCommandContext {
             starlark_profiler_instrumentation_override,
             buck_out_dir,
             build_options: build_options.cloned(),
-            cells_and_configs: OnceCell::new(),
+            cells_and_configs: AsyncOnceCell::new(),
             dice: AsyncOnceCell::new(),
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             configure_bxl_file_globals,
+            reuse_current_config: client_context.reuse_current_config,
         })
     }
 
-    pub fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
+    pub async fn cells_and_configs(
+        &self,
+        reuse_current_config: bool,
+    ) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.cells_and_configs
-            .get_or_init(|| {
+            .get_or_init(async move {
+                if reuse_current_config {
+                    let dice_ctx = self.base_context.dice.ctx();
+                    if dice_ctx.is_cell_resolver_key_set().await?
+                        && dice_ctx.is_legacy_configs_key_set().await?
+                    {
+                        return Ok::<(CellResolver, LegacyBuckConfigs), anyhow::Error>((
+                            dice_ctx.get_cell_resolver().await?,
+                            dice_ctx.get_legacy_configs().await?,
+                        ))
+                        .shared_error();
+                    } else {
+                        warn!(
+                            "--reuse-current-config flag was set, but there was no previous invocation detected"
+                        );
+                    }
+                }
+
                 let fs = self.project_root();
                 let cwd = &self.working_dir;
                 parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
                     .shared_error()
             })
+            .await
             .clone()
     }
 
@@ -314,7 +341,9 @@ impl ServerCommandContext {
                 ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
             });
 
-        let (cell_resolver, legacy_configs) = self.cells_and_configs()?;
+        let (cell_resolver, legacy_configs) =
+            self.cells_and_configs(self.reuse_current_config).await?;
+
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
         let (interpreter_platform, interpreter_architecture) =
@@ -461,7 +490,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
     }
 
     /// Gathers metadata to attach to events for when a command starts and stops.
-    fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>> {
+    async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
@@ -489,51 +518,50 @@ impl ServerCommandContextTrait for ServerCommandContext {
         let mut metadata = metadata::collect();
         // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
         // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-        if let Ok((cells, configs)) = self.cells_and_configs() {
-            let root_cell_config = configs.get(cells.root_cell());
-            if let Ok(config) = root_cell_config {
-                add_config(&mut metadata, config, "log", "repository", "repository");
+        let (cells, configs) = self.cells_and_configs(self.reuse_current_config).await?;
+        let root_cell_config = configs.get(cells.root_cell());
+        if let Ok(config) = root_cell_config {
+            add_config(&mut metadata, config, "log", "repository", "repository");
 
-                // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
-                // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
-                // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
-                // least some of the data within it.
-                //
-                // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
-                // to say something like this:
-                // ```
-                // {
-                //   "normals": { "key": "value" },
-                //   "ints": { "key": 0 },
-                // }
-                // ```
-                //
-                // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
-                // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
-                // to consider adding support to the protocol for integer metadata.
+            // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
+            // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
+            // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
+            // least some of the data within it.
+            //
+            // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
+            // to say something like this:
+            // ```
+            // {
+            //   "normals": { "key": "value" },
+            //   "ints": { "key": 0 },
+            // }
+            // ```
+            //
+            // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
+            // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
+            // to consider adding support to the protocol for integer metadata.
 
-                if let Ok(cwd_cell_name) = cells.find(&self.working_dir) {
-                    let cwd_cell_config = configs.get(cwd_cell_name).ok();
-                    if let Some(normals_obj) = extract_scuba_defaults(cwd_cell_config) {
-                        for (key, value) in normals_obj.iter() {
-                            if let Some(value) = value.as_str() {
-                                metadata.insert(key.clone(), value.to_owned());
-                            }
+            if let Ok(cwd_cell_name) = cells.find(&self.working_dir) {
+                let cwd_cell_config = configs.get(cwd_cell_name).ok();
+                if let Some(normals_obj) = extract_scuba_defaults(cwd_cell_config) {
+                    for (key, value) in normals_obj.iter() {
+                        if let Some(value) = value.as_str() {
+                            metadata.insert(key.clone(), value.to_owned());
                         }
                     }
+                }
 
-                    // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
-                    // the root cell.
-                    if let Some(config) = cwd_cell_config {
-                        add_config(&mut metadata, config, "client", "id", "client");
-                        add_config(
-                            &mut metadata,
-                            config,
-                            "cache",
-                            "schedule_type",
-                            "schedule_type",
-                        );
-                    }
+                // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
+                // the root cell.
+                if let Some(config) = cwd_cell_config {
+                    add_config(&mut metadata, config, "client", "id", "client");
+                    add_config(
+                        &mut metadata,
+                        config,
+                        "cache",
+                        "schedule_type",
+                        "schedule_type",
+                    );
                 }
             }
         }
@@ -564,7 +592,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
         &self,
         patterns: &[buck2_data::TargetPattern],
     ) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
-        let (cells, configs) = self.cells_and_configs()?;
+        let (cells, configs) = self.cells_and_configs(self.reuse_current_config).await?;
         let providers_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
             patterns,
             &cells,

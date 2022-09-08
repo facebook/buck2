@@ -550,7 +550,7 @@ pub(crate) async fn run_lsp_server_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: StreamingRequestHandler<cli_proto::LspRequest>,
 ) -> anyhow::Result<cli_proto::LspResponse> {
-    let metadata = ctx.request_metadata()?;
+    let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
         data: Some(buck2_data::LspCommandStart {}.into()),

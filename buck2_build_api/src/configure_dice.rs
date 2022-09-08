@@ -9,8 +9,10 @@
 
 use std::sync::Arc;
 
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::SetIoProvider;
 use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use dice::cycles::DetectCycles;
 use dice::Dice;
@@ -41,5 +43,11 @@ pub fn configure_dice_for_buck(
         Ok,
     )?;
 
-    Ok(dice.build(detect_cycles))
+    let dice = dice.build(detect_cycles);
+    let dice_ctx = dice.ctx();
+    dice_ctx.set_none_cell_resolver()?;
+    dice_ctx.set_none_legacy_configs()?;
+    dice_ctx.commit();
+
+    Ok(dice)
 }

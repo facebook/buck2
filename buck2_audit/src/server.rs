@@ -21,7 +21,7 @@ pub async fn server_audit_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::GenericRequest,
 ) -> anyhow::Result<cli_proto::GenericResponse> {
-    let metadata = ctx.request_metadata()?;
+    let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
         data: Some(buck2_data::AuditCommandStart {}.into()),
