@@ -1,6 +1,8 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "value_or")
 
 def cxx_toolchain_impl(ctx):
@@ -51,6 +53,7 @@ def cxx_toolchain_impl(ctx):
         link_weight = 1,
         linker = ctx.attrs.linker[RunInfo],
         linker_flags = cmd_args(ctx.attrs.linker_flags),
+        lto_mode = LtoMode("none"),
         shlib_interfaces = "disabled",
         independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
         requires_archives = value_or(ctx.attrs.requires_archives, True),
@@ -96,7 +99,7 @@ def cxx_toolchain_impl(ctx):
         conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_exemptions,
         mk_hmap = ctx.attrs._mk_hmap[RunInfo],
         mk_comp_db = ctx.attrs._mk_comp_db,
-        split_debug_mode = ctx.attrs.split_debug_mode,
+        split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
     )
 
