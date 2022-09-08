@@ -31,7 +31,6 @@ use remote_execution::ExecuteResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
-use remote_execution::NetworkStatisticsResponse;
 use remote_execution::TActionResult2;
 use remote_execution::TDigest;
 
@@ -42,6 +41,7 @@ use crate::execute::manager::CommandExecutionManager;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
+use crate::re::client::RemoteExecutionClientStats;
 use crate::re::client::RemoteExecutionStaticMetadata;
 use crate::re::knobs::ReExecutorGlobalKnobs;
 use crate::re::re_get_session_id::ReGetSessionId;
@@ -222,7 +222,7 @@ impl ReConnectionManager {
         }
     }
 
-    pub fn get_network_stats(&self) -> anyhow::Result<Option<NetworkStatisticsResponse>> {
+    pub fn get_network_stats(&self) -> anyhow::Result<Option<RemoteExecutionClientStats>> {
         let conn = self.data.read().unwrap().upgrade();
         conn.as_ref()
             .and_then(|lazy_client| lazy_client.with_client(|client| client.get_network_stats()))

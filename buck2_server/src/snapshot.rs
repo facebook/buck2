@@ -71,15 +71,8 @@ impl SnapshotCollector {
                 None => return Ok(()),
             };
 
-            snapshot.re_download_bytes = stats
-                .downloaded
-                .try_into()
-                .with_context(|| format!("Invalid downloaded bytes: `{}`", stats.downloaded))?;
-
-            snapshot.re_upload_bytes = stats
-                .uploaded
-                .try_into()
-                .with_context(|| format!("Invalid uploaded bytes: `{}`", stats.uploaded))?;
+            snapshot.re_download_bytes = stats.downloaded;
+            snapshot.re_upload_bytes = stats.uploaded;
 
             Ok(())
         }

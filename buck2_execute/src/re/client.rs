@@ -138,6 +138,13 @@ impl RemoteExecutionStaticMetadata {
     }
 }
 
+pub struct RemoteExecutionClientStats {
+    /// In bytes.
+    pub uploaded: u64,
+    /// In bytes.
+    pub downloaded: u64,
+}
+
 #[derive(Clone, Dupe)]
 pub struct RemoteExecutionClient {
     data: Arc<RemoteExecutionClientData>,
@@ -350,7 +357,7 @@ impl RemoteExecutionClient {
         self.data.client.client().get_experiment_name()
     }
 
-    pub fn get_network_stats(&self) -> anyhow::Result<NetworkStatisticsResponse> {
+    pub fn get_network_stats(&self) -> anyhow::Result<RemoteExecutionClientStats> {
         let updated = self
             .data
             .client
@@ -358,10 +365,19 @@ impl RemoteExecutionClient {
             .get_network_stats()
             .context("Error getting updated network stats")?;
 
-        Ok(NetworkStatisticsResponse {
-            uploaded: updated.uploaded - self.data.initial_network_stats.uploaded,
-            downloaded: updated.downloaded - self.data.initial_network_stats.downloaded,
-            ..Default::default()
+        let uploaded = updated
+            .uploaded
+            .checked_sub(self.data.initial_network_stats.uploaded)
+            .and_then(|d| u64::try_from(d).ok())
+            .context("Overflow calculating uploaded bytes")?;
+        let downloaded = updated
+            .downloaded
+            .checked_sub(self.data.initial_network_stats.downloaded)
+            .and_then(|d| u64::try_from(d).ok())
+            .context("Overflow calculating downloaded bytes")?;
+        Ok(RemoteExecutionClientStats {
+            uploaded,
+            downloaded,
         })
     }
 }
