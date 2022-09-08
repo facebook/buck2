@@ -142,11 +142,33 @@ impl RemoteExecutionStaticMetadata {
     }
 }
 
+pub struct RemoteExecutionClientOpStats {
+    pub started: u32,
+    pub finished_successfully: u32,
+    pub finished_with_error: u32,
+}
+
+impl From<&'_ OpStats> for RemoteExecutionClientOpStats {
+    fn from(stats: &OpStats) -> RemoteExecutionClientOpStats {
+        RemoteExecutionClientOpStats {
+            started: stats.started.load(Ordering::Relaxed),
+            finished_successfully: stats.finished_successfully.load(Ordering::Relaxed),
+            finished_with_error: stats.finished_with_error.load(Ordering::Relaxed),
+        }
+    }
+}
+
 pub struct RemoteExecutionClientStats {
     /// In bytes.
     pub uploaded: u64,
     /// In bytes.
     pub downloaded: u64,
+    pub uploads: RemoteExecutionClientOpStats,
+    pub downloads: RemoteExecutionClientOpStats,
+    pub action_cache: RemoteExecutionClientOpStats,
+    pub executes: RemoteExecutionClientOpStats,
+    pub materializes: RemoteExecutionClientOpStats,
+    pub write_action_results: RemoteExecutionClientOpStats,
 }
 
 #[derive(Clone, Dupe)]
@@ -445,6 +467,14 @@ impl RemoteExecutionClient {
         Ok(RemoteExecutionClientStats {
             uploaded,
             downloaded,
+            uploads: RemoteExecutionClientOpStats::from(&self.data.uploads),
+            downloads: RemoteExecutionClientOpStats::from(&self.data.downloads),
+            executes: RemoteExecutionClientOpStats::from(&self.data.executes),
+            action_cache: RemoteExecutionClientOpStats::from(&self.data.action_cache),
+            write_action_results: RemoteExecutionClientOpStats::from(
+                &self.data.write_action_results,
+            ),
+            materializes: RemoteExecutionClientOpStats::from(&self.data.materializes),
         })
     }
 }
