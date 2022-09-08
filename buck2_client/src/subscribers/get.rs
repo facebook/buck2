@@ -16,7 +16,7 @@ use crate::common::CommonDaemonCommandOptions;
 use crate::common::ConsoleType;
 use crate::subscribers::build_id_writer::BuildIdWriter;
 pub use crate::subscribers::event_log::EventLog;
-pub use crate::subscribers::simpleconsole::SimpleConsole;
+use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 use crate::verbosity::Verbosity;

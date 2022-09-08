@@ -115,14 +115,14 @@ fn eprint_command_details(
 ///
 /// These stats only track executions/commands.
 #[derive(Default)]
-pub struct ActionStats {
-    pub local_actions: u64,
-    pub remote_actions: u64,
-    pub cached_actions: u64,
+pub(crate) struct ActionStats {
+    pub(crate) local_actions: u64,
+    pub(crate) remote_actions: u64,
+    pub(crate) cached_actions: u64,
 }
 
 impl ActionStats {
-    pub fn action_cache_hit_percentage(&self) -> u8 {
+    pub(crate) fn action_cache_hit_percentage(&self) -> u8 {
         // We want special semantics for the return value: the terminal values (0% and 100%)
         // should _only_ be used when there are exactly no cache hits and full cache hits.
         // So, even if we have 99.6% cache hits, we want to display 99% and conversely,
@@ -142,11 +142,11 @@ impl ActionStats {
         }
     }
 
-    pub fn total_executed_and_cached_actions(&self) -> u64 {
+    pub(crate) fn total_executed_and_cached_actions(&self) -> u64 {
         self.local_actions + self.remote_actions + self.cached_actions
     }
 
-    pub fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
+    pub(crate) fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
         match get_last_command_execution_kind(action) {
             LastCommandExecutionKind::Local => {
                 self.local_actions += 1;
@@ -161,13 +161,13 @@ impl ActionStats {
         }
     }
 
-    pub fn log_stats(&self) -> bool {
+    pub(crate) fn log_stats(&self) -> bool {
         self.total_executed_and_cached_actions() > 0
     }
 }
 
 /// Just repeats stdout and stderr to client process.
-pub struct SimpleConsole {
+pub(crate) struct SimpleConsole {
     tty_mode: TtyMode,
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received
@@ -181,7 +181,7 @@ pub struct SimpleConsole {
 }
 
 impl SimpleConsole {
-    pub fn with_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub(crate) fn with_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -195,7 +195,7 @@ impl SimpleConsole {
         }
     }
 
-    pub fn without_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub(crate) fn without_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -210,34 +210,34 @@ impl SimpleConsole {
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub fn autodetect(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub(crate) fn autodetect(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         match SuperConsole::compatible() {
             true => Self::with_tty(verbosity, show_waiting_message),
             false => Self::without_tty(verbosity, show_waiting_message),
         }
     }
 
-    pub fn spans(&self) -> &SpanTracker {
+    pub(crate) fn spans(&self) -> &SpanTracker {
         &self.span_tracker
     }
 
-    pub fn action_stats(&self) -> &ActionStats {
+    pub(crate) fn action_stats(&self) -> &ActionStats {
         &self.action_stats
     }
 
-    pub fn action_stats_mut(&mut self) -> &mut ActionStats {
+    pub(crate) fn action_stats_mut(&mut self) -> &mut ActionStats {
         &mut self.action_stats
     }
 
-    pub fn re_state(&self) -> &ReState {
+    pub(crate) fn re_state(&self) -> &ReState {
         &self.re_state
     }
 
-    pub fn re_state_mut(&mut self) -> &mut ReState {
+    pub(crate) fn re_state_mut(&mut self) -> &mut ReState {
         &mut self.re_state
     }
 
-    pub async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    pub(crate) async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         self.span_tracker
             .handle_event(event)
             .await

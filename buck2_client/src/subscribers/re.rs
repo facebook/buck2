@@ -1,6 +1,6 @@
 use std::fmt;
 
-pub struct ReState {
+pub(crate) struct ReState {
     session_id: Option<String>,
     last: Option<Snapshot>,
 }
@@ -11,24 +11,24 @@ struct Snapshot {
 }
 
 impl ReState {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             session_id: None,
             last: None,
         }
     }
 
-    pub fn add_re_session(&mut self, session: &buck2_data::RemoteExecutionSessionCreated) {
+    pub(crate) fn add_re_session(&mut self, session: &buck2_data::RemoteExecutionSessionCreated) {
         self.session_id = Some(session.session_id.clone());
     }
 
-    pub fn update(&mut self, snapshot: &buck2_data::Snapshot) {
+    pub(crate) fn update(&mut self, snapshot: &buck2_data::Snapshot) {
         self.last = Some(Snapshot {
             snapshot: snapshot.clone(),
         });
     }
 
-    pub fn render(&self) -> Option<String> {
+    pub(crate) fn render(&self) -> Option<String> {
         let mut parts = Vec::new();
 
         if let Some(session_id) = self.session_id.as_ref() {
