@@ -41,6 +41,7 @@ pub use starlark_derive::Trace;
 
 pub use crate::values::alloc_value::AllocFrozenValue;
 pub use crate::values::alloc_value::AllocValue;
+pub use crate::values::demand::Demand;
 pub use crate::values::error::ValueError;
 pub use crate::values::freeze::Freeze;
 pub use crate::values::frozen_ref::FrozenRef;
@@ -91,6 +92,7 @@ mod comparison;
 // Submodules
 mod alloc_value;
 pub(crate) mod basic;
+pub(crate) mod demand;
 pub mod docs;
 pub(crate) mod error;
 mod freeze;

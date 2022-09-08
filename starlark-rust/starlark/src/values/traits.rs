@@ -42,6 +42,7 @@ use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
+use crate::values::demand::Demand;
 use crate::values::docs::DocItem;
 use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
@@ -717,6 +718,16 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// `value` (e.g. `a.attribute = value`).
     fn set_attr(&self, attribute: &str, _new_value: Value<'v>) -> anyhow::Result<()> {
         ValueError::unsupported(self, &format!(".{}=", attribute))
+    }
+
+    /// Dynamically provide values based on type.
+    ///
+    /// Value can be fetched using [`Value::request_value`].
+    ///
+    /// The API is based on
+    /// [std::any::Provider](https://doc.rust-lang.org/std/any/trait.Provider.html).
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        let _ = demand;
     }
 }
 

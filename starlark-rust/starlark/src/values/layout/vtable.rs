@@ -36,6 +36,7 @@ use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
+use crate::values::demand::Demand;
 use crate::values::docs::DocItem;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
@@ -569,5 +570,10 @@ impl<'v> AValueDyn<'v> {
             )
         };
         unsafe { &*ptr::from_raw_parts(self.value as *const (), any_lifetime) }
+    }
+
+    #[inline]
+    pub(crate) fn provide(self, demand: &mut Demand<'_, 'v>) {
+        (self.vtable.starlark_value.provide)(StarlarkValueRawPtr::new(self.value), demand)
     }
 }
