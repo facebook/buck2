@@ -16,6 +16,7 @@ use buck2_core;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::io_counters::IoCounterKey;
 use derivative::Derivative;
 use edenfs::types::FileAttributes;
 use edenfs::types::GetAttributesFromFilesParams;
@@ -100,6 +101,8 @@ impl IoProvider for EdenIoProvider {
     }
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<SimpleDirEntry>> {
+        let _guard = IoCounterKey::ReadDirEden.guard();
+
         let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
 
         let params = ReaddirParams {
@@ -164,6 +167,8 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        let _guard = IoCounterKey::StatEden.guard();
+
         let requested_attributes = i64::from(
             i32::from(FileAttributes::SHA1_HASH)
                 | i32::from(FileAttributes::FILE_SIZE)
@@ -246,6 +251,8 @@ impl IoProvider for EdenIoProvider {
     }
 
     async fn settle(&self) -> anyhow::Result<()> {
+        let _guard = IoCounterKey::EdenSettle.guard();
+
         let root = self.manager.get_mount_point();
 
         self.manager

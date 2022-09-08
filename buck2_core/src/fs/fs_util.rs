@@ -15,11 +15,14 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 
+use crate::io_counters::IoCounterKey;
+
 pub fn symlink<P, Q>(original: P, link: Q) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
+    let _guard = IoCounterKey::Symlink.guard();
     symlink_impl(original.as_ref(), link.as_ref()).with_context(|| {
         format!(
             "symlink(original={}, link={})",
@@ -101,20 +104,24 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 }
 
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::MkDir.guard();
     fs::create_dir_all(&path)
         .with_context(|| format!("create_dir_all({})", P::as_ref(&path).display()))?;
     Ok(())
 }
 
 pub fn read_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<fs::ReadDir> {
+    let _guard = IoCounterKey::ReadDir.guard();
     fs::read_dir(&path).with_context(|| format!("read_dir({})", P::as_ref(&path).display()))
 }
 
 pub fn try_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
+    let _guard = IoCounterKey::Stat.guard();
     fs::try_exists(&path).with_context(|| format!("try_exists({})", P::as_ref(&path).display()))
 }
 
 pub fn remove_file<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::Remove.guard();
     remove_file_impl(path.as_ref())
         .with_context(|| format!("remove_file({})", P::as_ref(&path).display()))
 }
@@ -139,6 +146,7 @@ fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
 }
 
 pub fn hard_link<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::Hardlink.guard();
     fs::hard_link(&src, &dst).with_context(|| {
         format!(
             "hard_link(src={}, dst={})",
@@ -150,6 +158,7 @@ pub fn hard_link<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> anyhow::Resu
 }
 
 pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<u64> {
+    let _guard = IoCounterKey::Copy.guard();
     fs::copy(&from, &to).with_context(|| {
         format!(
             "copy(from={}, to={})",
@@ -160,10 +169,12 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<u6
 }
 
 pub fn read_link<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
+    let _guard = IoCounterKey::ReadLink.guard();
     fs::read_link(&path).with_context(|| format!("read_link({})", P::as_ref(&path).display()))
 }
 
 pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::Rename.guard();
     fs::rename(&from, &to).with_context(|| {
         format!(
             "rename(from={}, to={})",
@@ -175,42 +186,50 @@ pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<
 }
 
 pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::Write.guard();
     fs::write(&path, &contents)
         .with_context(|| format!("write({}, _)", P::as_ref(&path).display()))?;
     Ok(())
 }
 
 pub fn metadata<P: AsRef<Path>>(path: P) -> anyhow::Result<fs::Metadata> {
+    let _guard = IoCounterKey::Stat.guard();
     fs::metadata(&path).with_context(|| format!("metadata({})", P::as_ref(&path).display()))
 }
 
 pub fn symlink_metadata<P: AsRef<Path>>(path: P) -> anyhow::Result<fs::Metadata> {
+    let _guard = IoCounterKey::Stat.guard();
     fs::symlink_metadata(&path)
         .with_context(|| format!("symlink_metadata({})", P::as_ref(&path).display()))
 }
 
 pub fn set_permissions<P: AsRef<Path>>(path: P, perm: fs::Permissions) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::Chmod.guard();
     fs::set_permissions(&path, perm)
         .with_context(|| format!("set_permissions({}, _)", P::as_ref(&path).display()))?;
     Ok(())
 }
 
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::RmDirAll.guard();
     fs::remove_dir_all(&path)
         .with_context(|| format!("remove_dir_all({})", P::as_ref(&path).display()))?;
     Ok(())
 }
 
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
+    let _guard = IoCounterKey::Read.guard();
     fs::read_to_string(&path)
         .with_context(|| format!("read_to_string({})", P::as_ref(&path).display()))
 }
 
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
+    let _guard = IoCounterKey::Canonicalize.guard();
     fs::canonicalize(&path).with_context(|| format!("canonicalize({})", P::as_ref(&path).display()))
 }
 
 pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::RmDir.guard();
     fs::remove_dir(&path).with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
 }
 
