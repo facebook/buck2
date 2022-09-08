@@ -17,3 +17,4 @@ pub mod deferred;
 pub mod filetree;
 pub mod immediate;
 pub mod io;
+pub mod sqlite;

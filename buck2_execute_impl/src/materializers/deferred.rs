@@ -317,6 +317,24 @@ pub(crate) struct ArtifactMetadataSqliteEntry {
     pub symlink_target: Option<String>,
 }
 
+impl ArtifactMetadataSqliteEntry {
+    pub(crate) fn new(
+        artifact_type: String,
+        digest_size: Option<u64>,
+        digest_sha1: Option<Vec<u8>>,
+        file_is_executable: Option<bool>,
+        symlink_target: Option<String>,
+    ) -> Self {
+        Self {
+            artifact_type,
+            digest_size,
+            digest_sha1,
+            file_is_executable,
+            symlink_target,
+        }
+    }
+}
+
 impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
     fn from(metadata: ArtifactMetadata) -> Self {
         fn get_size_and_sha1(digest: TrackedFileDigest) -> (u64, Vec<u8>) {

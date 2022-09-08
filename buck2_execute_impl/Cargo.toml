@@ -11,9 +11,12 @@ derive_more = { workspace = true }
 faccess = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }
+itertools = { workspace = true }
 once_cell = { workspace = true }
+rusqlite = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-rusqlite = { workspace = true }
 tracing = { workspace = true }
 zstd = { workspace = true }
 
