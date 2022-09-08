@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "buck2_server_ctx"
 version = "0.1.0"

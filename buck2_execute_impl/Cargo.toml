@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "buck2_execute_impl"
 version = "0.1.0"

@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 description = "Remote-execution support for Buck"
 edition = "2021"

@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 description = "Some parts of Buck client"
 edition = "2021"

@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 authors = ["Facebook"]
 description = "Proc macros for Buck's buck_query crate"

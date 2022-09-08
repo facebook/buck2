@@ -1,4 +1,4 @@
-cargo-features = ['named-profiles', 'workspace-inheritance']
+cargo-features = ['named-profiles']
 
 [workspace]
 resolver = "2"
