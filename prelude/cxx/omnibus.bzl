@@ -202,11 +202,14 @@ def create_linkable_root(
             )
 
             if actual_link_style != LinkStyle("shared"):
-                inputs.append(get_link_info(
-                    node,
-                    actual_link_style,
-                    prefer_stripped = prefer_stripped_objects,
-                ))
+                inputs.append(
+                    get_link_info(
+                        node,
+                        actual_link_style,
+                        prefer_stripped = prefer_stripped_objects,
+                        force_no_link_groups = True,
+                    ),
+                )
                 continue
 
             is_excluded = dep in env_excluded or dep in omnibus_graph.excluded
