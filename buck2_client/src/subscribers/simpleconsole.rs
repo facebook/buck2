@@ -356,7 +356,7 @@ impl EventSubscriber for SimpleConsole {
             )?;
         }
 
-        if let Some(re) = &self.re_state.render() {
+        if let Some(re) = &self.re_state.render_header() {
             echo!("{}", re)?;
         }
 

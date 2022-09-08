@@ -1,5 +1,7 @@
 use std::fmt;
 
+use superconsole::Line;
+
 pub(crate) struct ReState {
     session_id: Option<String>,
     last: Option<Snapshot>,
@@ -31,7 +33,7 @@ impl ReState {
         });
     }
 
-    pub(crate) fn render(&self) -> Option<String> {
+    pub(crate) fn render_header(&self) -> Option<String> {
         let mut parts = Vec::new();
 
         if let Some(session_id) = self.session_id.as_ref() {
@@ -53,6 +55,15 @@ impl ReState {
         }
 
         Some(format!("RE: {}", parts.join(" ")))
+    }
+
+    pub(crate) fn render(&self) -> anyhow::Result<Vec<Line>> {
+        let header = match self.render_header() {
+            Some(header) => header,
+            None => return Ok(Vec::new()),
+        };
+        let header = superconsole::Span::new_unstyled(header)?;
+        Ok(vec![Line::from_iter([header])])
     }
 }
 
