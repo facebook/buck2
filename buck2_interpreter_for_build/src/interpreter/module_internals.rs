@@ -153,7 +153,7 @@ impl TargetsRecorder {
         }
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.targets.borrow().is_empty()
     }
 
