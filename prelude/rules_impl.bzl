@@ -185,8 +185,8 @@ def _cxx_python_extension_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
         "use_link_groups": attrs.bool(default = False),
+        "_cxx_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         # Copied from python_library.
         "_python_toolchain": _python_toolchain(),
@@ -201,8 +201,8 @@ def _python_test_attrs():
         "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
+        "_cxx_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         "_python_toolchain": _python_toolchain(),
         "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
@@ -220,8 +220,8 @@ def _cxx_binary_and_test_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "use_link_groups": attrs.bool(default = False),
+        "_cxx_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     }
 
 NativeLinkStrategy = ["separate", "native", "merged"]
@@ -243,8 +243,8 @@ def _python_binary_attrs():
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
+        "_cxx_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         "_python_toolchain": _python_toolchain(),
     })
@@ -343,8 +343,8 @@ extra_attributes = struct(
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "use_link_groups": attrs.bool(default = False),
+        "_cxx_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     cxx_binary = _cxx_binary_and_test_attrs(),
