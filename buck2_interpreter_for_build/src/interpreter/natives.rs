@@ -40,7 +40,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
         let internals = ModuleInternals::from_context(eval)?;
-        if !internals.recorder().is_empty() {
+        if !internals.recorded_is_empty() {
             // We require oncall to be first both so users can find it,
             // and so we can propagate it to all targets more easily.
             Err(OncallErrors::OncallAfterTargets.into())

@@ -100,8 +100,12 @@ impl ModuleInternals {
         &self.attr_coercion_context
     }
 
-    pub fn recorder(&self) -> &TargetsRecorder {
-        &self.recorder
+    pub fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
+        self.recorder.record(target_node)
+    }
+
+    pub(crate) fn recorded_is_empty(&self) -> bool {
+        self.recorder.is_empty()
     }
 
     pub fn has_seen_oncall(&self) -> bool {
