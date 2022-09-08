@@ -238,7 +238,7 @@ impl RemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> Option<ActionResultResponse> {
+    ) -> anyhow::Result<ActionResultResponse> {
         self.data.client.action_cache(action_digest, use_case).await
     }
 
@@ -539,7 +539,7 @@ impl RemoteExecutionClientImpl {
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> Option<ActionResultResponse> {
+    ) -> anyhow::Result<ActionResultResponse> {
         self.client()
             .get_action_cache_client()
             .get_action_result(
@@ -550,7 +550,6 @@ impl RemoteExecutionClientImpl {
                 },
             )
             .await
-            .ok()
     }
 
     async fn upload(
