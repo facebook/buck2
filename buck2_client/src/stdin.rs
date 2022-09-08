@@ -52,6 +52,7 @@ impl Stdin {
         let (stdin, _handle) = Self::new_for_reader(
             || {
                 // NOTE: We ignore send errors since there is no point in reading without a receiver.
+                #[allow(clippy::let_and_return)]
                 let stdin = std::io::stdin().lock();
 
                 // Disable buffering, since we don't do small reads anyway (we have a 8KB buffer
