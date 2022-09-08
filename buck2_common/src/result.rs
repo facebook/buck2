@@ -68,10 +68,6 @@ impl std::error::Error for SharedError {
         self.0.source()
     }
 
-    fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
-        Some(self.0.backtrace())
-    }
-
     fn cause(&self) -> Option<&dyn std::error::Error> {
         #[allow(deprecated)]
         self.0.cause()
