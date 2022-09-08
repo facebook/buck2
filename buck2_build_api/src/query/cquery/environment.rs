@@ -74,7 +74,6 @@ pub struct CqueryEnvironment<'c> {
     delegate: Arc<dyn CqueryDelegate + 'c>,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
-    // TODO(nga): use it.
     universe: Option<CqueryUniverse>,
     owner_behavior: CqueryOwnerBehavior,
 }
