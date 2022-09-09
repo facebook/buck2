@@ -141,12 +141,25 @@ def cxx_dist_link(
     IndexLinkData = record(
         data_type = DataType.type,
         link_data = field([BitcodeLinkData.type, ArchiveLinkData.type]),
+        prepend = bool.type,
     )
 
     PrePostFlags = record(
         pre_flags = list.type,
         post_flags = list.type,
     )
+
+    PREPEND_ARCHIVE_NAMES = [
+        # T130644072: If linked with `--whole-archive`, Clang builtins must be at the
+        # front of the argument list to avoid conflicts with identically-named Rust
+        # symbols from the `compiler_builtins` crate.
+        #
+        # Once linking of C++ binaries starts to use `rlib`s, this may no longer be
+        # necessary, because our Rust `rlib`s won't need to contain copies of
+        # `compiler_builtins` to begin with, unlike our Rust `.a`s which presently do
+        # (T130789782).
+        "clang_rt.builtins",
+    ]
 
     # Information used to construct thinlto index link command:
     # Note: The index into index_link_data is important as it's how things will appear in
@@ -206,6 +219,7 @@ def cxx_dist_link(
                             plan = plan_output,
                             opt_object = opt_output,
                         ),
+                        prepend = False,
                     )
                     index_link_data.append(data)
                     plan_outputs.extend([bc_output, plan_output])
@@ -251,6 +265,7 @@ def cxx_dist_link(
                         plan = archive_plan,
                         link_whole = linkable.link_whole,
                     ),
+                    prepend = link_name in PREPEND_ARCHIVE_NAMES,
                 )
                 index_link_data.append(data)
                 archive_opt_manifests.append(archive_opt_manifest)
@@ -283,10 +298,11 @@ def cxx_dist_link(
                     for linkable in linkables_index[idx]:
                         # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
                         append_linkable_args(object_link_arg, linkable, use_link_groups = False)
-                    index_args.add(object_link_arg)
+                        index_args.add(object_link_arg)
 
             # index link command args
             index_args = cmd_args()
+            prepend_index_args = cmd_args()
 
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
             index_meta = cmd_args()
@@ -313,17 +329,19 @@ def cxx_dist_link(
 
                     index_args.hidden(link_data.objects_dir)
 
+                    args = prepend_index_args if artifact.prepend else index_args
+
                     if not link_data.link_whole:
-                        index_args.add("-Wl,--start-lib")
+                        args.add("-Wl,--start-lib")
 
                     for obj in manifest["objects"]:
                         index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
-                        index_args.add(obj)
+                        args.add(obj)
 
                     if not link_data.link_whole:
-                        index_args.add("-Wl,--end-lib")
+                        args.add("-Wl,--end-lib")
 
-                    index_args.hidden(link_data.objects_dir)
+                    args.hidden(link_data.objects_dir)
 
                 add_post_flags(idx)
 
@@ -334,7 +352,7 @@ def cxx_dist_link(
 
             index_argfile, index_argfile_inputs = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
-                index_args,
+                prepend_index_args.add(index_args),
                 allow_args = True,
             )
 
