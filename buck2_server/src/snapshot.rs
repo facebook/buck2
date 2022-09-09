@@ -16,6 +16,8 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
 
+use crate::process_stats::process_stats;
+
 /// Stores state handles necessary to produce snapshots.
 #[derive(Clone, Dupe)]
 pub struct SnapshotCollector {
@@ -135,31 +137,10 @@ impl SnapshotCollector {
     }
 }
 
-#[cfg(unix)]
 fn add_system_metrics(snapshot: &mut buck2_data::Snapshot) {
-    let usage = unsafe {
-        let mut usage: libc::rusage = std::mem::zeroed();
-        match libc::getrusage(libc::RUSAGE_SELF, &mut usage as *mut _) {
-            0 => usage,
-            _ => return,
-        }
-    };
-    // POSIX didn't specify unit of ru_maxrss. Linux uses KB while BSD and
-    // OSX use bytes (despite their manpages might say differently).
-    let rss_scale = if cfg!(target_os = "linux") {
-        1024
-    } else {
-        // Assume BSD-ish
-        1
-    };
-    fn tv_to_micros(tv: &libc::timeval) -> u64 {
-        (1_000_000 * tv.tv_sec as u64) + (tv.tv_usec as u64)
+    if let Some(stats) = process_stats() {
+        snapshot.buck2_max_rss = stats.max_rss_bytes;
+        snapshot.buck2_user_cpu_us = stats.user_cpu_us;
+        snapshot.buck2_system_cpu_us = stats.system_cpu_us;
     }
-
-    snapshot.buck2_max_rss = (usage.ru_maxrss as u64) * rss_scale;
-    snapshot.buck2_user_cpu_us = tv_to_micros(&usage.ru_utime);
-    snapshot.buck2_system_cpu_us = tv_to_micros(&usage.ru_stime);
 }
-
-#[cfg(not(unix))]
-fn add_system_metrics(_: &mut buck2_data::Snapshot) {}

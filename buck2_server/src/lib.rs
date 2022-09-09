@@ -23,6 +23,7 @@ pub mod host_info;
 pub mod jemalloc_stats;
 pub mod lsp;
 pub mod materialize;
+pub(crate) mod process_stats;
 pub mod profile;
 pub mod snapshot;
 pub mod streaming_request_handler;
