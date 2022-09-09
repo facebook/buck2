@@ -14,6 +14,7 @@ CxxExtensionLinkInfo = provider(
     fields = [
         "link_infos",  # LinkInfosTSet.type
         "shared_libraries",  # SharedLibrariesTSet.type
+        "artifacts",  # {str.type: _a}
     ],
 )
 
@@ -21,15 +22,19 @@ def merge_cxx_extension_info(
         actions: "actions",
         deps: ["dependency"],
         link_infos: [LinkInfosTSet.type] = [],
-        shared_libraries: [SharedLibrariesTSet.type] = []) -> CxxExtensionLinkInfo.type:
+        shared_libraries: [SharedLibrariesTSet.type] = [],
+        artifacts: {str.type: "_a"} = {}) -> CxxExtensionLinkInfo.type:
     link_infos = list(link_infos)
     shared_libraries = list(shared_libraries)
+    artifacts = dict(artifacts)
     for cxx_extension_info in filter_and_map_idx(CxxExtensionLinkInfo, deps):
         link_infos.append(cxx_extension_info.link_infos)
         shared_libraries.append(cxx_extension_info.shared_libraries)
+        artifacts.update(cxx_extension_info.artifacts)
     return CxxExtensionLinkInfo(
         link_infos = actions.tset(LinkInfosTSet, children = link_infos),
         shared_libraries = actions.tset(SharedLibrariesTSet, children = shared_libraries),
+        artifacts = artifacts,
     )
 
 def suffix_symbols(

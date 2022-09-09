@@ -179,6 +179,7 @@ def _cxx_python_extension_attrs():
     me = attributes["cxx_python_extension"]
     res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
+        "allow_embedding": attrs.bool(default = True),
         # Copied from cxx_library.
         "allow_huge_dwp": attrs.bool(default = False),
         "link_whole": attrs.default_only(attrs.bool(default = True)),

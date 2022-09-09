@@ -106,19 +106,24 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     ))
 
     module_name = value_or(ctx.attrs.module_name, ctx.label.name)
+    name = module_name + ".so"
     cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
+
+    static_output = None
+    shared_libraries = []
+    link_infos = []
+    if ctx.attrs.allow_embedding:
+        static_output = libraries.outputs[LinkStyle("static")]
 
     # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
     # when linking into the main binary
-    static_output = libraries.outputs[LinkStyle("static")]
-    shared_libraries = []
-    link_infos = []
     if static_output != None:
         qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module).replace("/", "_")
         static_info = libraries.libraries[LinkStyle("static")].default
         if qualified_name == "":
             symbol_name = "PyInit_{}".format(module_name)
             static_link_info = static_info
+            extension_artifacts = {}
         else:
             suffix = qualified_name + module_name
             symbol_name = "PyInit_{}_{}".format(module_name, suffix)
@@ -136,6 +141,10 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 linkables = [new_linkable],
                 use_link_groups = static_info.use_link_groups,
             )
+
+            lines = ["# auto generated stub\n"]
+            stub_name = module_name + ".empty_stub"
+            extension_artifacts = qualify_srcs(ctx.label, ctx.attrs.base_module, {stub_name: ctx.actions.write(stub_name, lines)})
         inherited_link = cxx_inherited_link_info(ctx, cxx_deps)
 
         # We need to dynamically export the modules PyInit function so that we
@@ -151,6 +160,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
             ),
             children = [inherited_link._infos[LinkStyle("static")]],
         ))
+
     else:
         # If we cannot link this extension statically we need to include it's shared libraries
         shared_library_infos = filter_and_map_idx(SharedLibraryInfo, cxx_deps)
@@ -161,12 +171,14 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 [dep.set for dep in shared_library_infos],
             ),
         ))
+        extension_artifacts = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension.output})
 
     providers.append(merge_cxx_extension_info(
         ctx.actions,
         cxx_deps,
         link_infos = link_infos,
         shared_libraries = shared_libraries,
+        artifacts = extension_artifacts,
     ))
     providers.extend(cxx_library_info.providers)
 
@@ -184,7 +196,6 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         )
 
     # Export library info.
-    name = module_name + ".so"
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     raw_deps = (

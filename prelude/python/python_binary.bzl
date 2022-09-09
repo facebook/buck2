@@ -43,7 +43,6 @@ load(
 load(":make_pex.bzl", "PexModules", "make_pex")
 load(
     ":manifest.bzl",
-    "create_manifest_for_entries",
     "create_manifest_for_extensions",
     "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
@@ -279,32 +278,17 @@ def convert_python_library_to_executable(
             ],
             extra_preprocessors_info = inherited_preprocessor_info,
         )
-        updated_extensions = []
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
 
-        # Pretend the new exe is an extension so it get's packaged in the par
-        updated_extensions.append(("runtime/bin/{}".format(ctx.attrs.executable_name), executable_info.binary, str(ctx.label)))
-
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
-        # Replace extensions with stubs
-        for dest, (_, label) in extensions.items():
-            # TODO (T129254399) can we avoid this?
-            # currently we need the package to exist in order to import an extension from inside of it.
-            lines = [
-                "# auto generated stub\n",
-            ]
-
-            # don't write stubs for top level modules
-            if "/" in dest:
-                updated_extensions.append((dest + ".empty_stub", ctx.actions.write(dest + ".empty_stub", lines), str(label)))
-
-        # TODO We still need native_libs that are shared only dependencies of extensions
+        artifacts = dict(extension_info.artifacts)
+        artifacts["runtime/bin/{}".format(ctx.attrs.executable_name)] = executable_info.binary
         native_libs = {}
         for libs in extension_info.shared_libraries.traverse():
             for name, shared_lib in libs.libraries.items():
                 native_libs[name] = shared_lib.lib
-        extra_manifests = create_manifest_for_entries(ctx, "extension_stubs", updated_extensions)
+        extra_manifests = create_manifest_for_source_map(ctx, "extension_stubs", artifacts)
         extensions = {}
     else:
         native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
