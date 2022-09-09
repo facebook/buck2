@@ -29,6 +29,7 @@ use starlark::values::docs::DocItem;
 use starlark::values::docs::DocString;
 use starlark::values::docs::Type;
 use starlark::values::AllocValue;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -90,26 +91,17 @@ pub trait ProviderCallableLike {
     }
 }
 
+unsafe impl<'v> ProvidesStaticType for &'v dyn ProviderCallableLike {
+    type StaticType = &'static dyn ProviderCallableLike;
+}
+
 pub trait ValueAsProviderCallableLike<'v> {
     fn as_provider_callable(&self) -> Option<&'v dyn ProviderCallableLike>;
 }
 
 impl<'v, V: ValueLike<'v>> ValueAsProviderCallableLike<'v> for V {
     fn as_provider_callable(&self) -> Option<&'v dyn ProviderCallableLike> {
-        if let Some(o) = self.downcast_ref::<FrozenProviderCallable>() {
-            return Some(o as &dyn ProviderCallableLike);
-        } else if let Some(o) = self.downcast_ref::<ProviderCallable>() {
-            return Some(o as &dyn ProviderCallableLike);
-        }
-
-        // TODO(cjhopman): May be better to construct a map of type->downcast_fn rather than checking them all.
-        let v = self.to_value();
-        for registration in inventory::iter::<ProviderRegistration> {
-            if let Some(v) = (registration.as_provider_callable)(v) {
-                return Some(v);
-            }
-        }
-        None
+        self.to_value().request_value::<&dyn ProviderCallableLike>()
     }
 }
 
@@ -302,6 +294,10 @@ impl<'v> StarlarkValue<'v> for ProviderCallable {
         self.callable.borrow().invoke(args, eval)
     }
 
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn ProviderCallableLike>(self);
+    }
+
     fn documentation(&self) -> Option<DocItem> {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
@@ -388,6 +384,10 @@ impl<'v> StarlarkValue<'v> for FrozenProviderCallable {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         self.callable.invoke(args, eval)
+    }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn ProviderCallableLike>(self);
     }
 
     fn documentation(&self) -> Option<DocItem> {
