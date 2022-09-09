@@ -286,6 +286,26 @@ message Snapshot {
   uint32 re_write_action_results_finished_successfully = 1062;
   uint32 re_write_action_results_finished_with_error = 1063;
 
+  // I/O operations in progress.
+  uint32 io_in_flight_copy = 1101;
+  uint32 io_in_flight_symlink = 1102;
+  uint32 io_in_flight_hardlink = 1103;
+  uint32 io_in_flight_mk_dir = 1104;
+  uint32 io_in_flight_read_dir = 1105;
+  uint32 io_in_flight_read_dir_eden = 1106;
+  uint32 io_in_flight_rm_dir = 1107;
+  uint32 io_in_flight_rm_dir_all = 1108;
+  uint32 io_in_flight_stat = 1109;
+  uint32 io_in_flight_stat_eden = 1110;
+  uint32 io_in_flight_chmod = 1111;
+  uint32 io_in_flight_read_link = 1112;
+  uint32 io_in_flight_remove = 1113;
+  uint32 io_in_flight_rename = 1114;
+  uint32 io_in_flight_read = 1115;
+  uint32 io_in_flight_write = 1116;
+  uint32 io_in_flight_canonicalize = 1117;
+  uint32 io_in_flight_eden_settle = 1118;
+
   // Time passed since buck2 deamon was started
   uint64 daemon_uptime_s = 7;
   // TODO(jaspercb): Fill this with useful fields - total system usage,
