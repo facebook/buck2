@@ -256,7 +256,6 @@ def compile_cxx(
     toolchain = get_cxx_toolchain_info(ctx)
     linker_info = toolchain.linker_info
 
-    local_only = _cxx_compile_requires_local(ctx)
     objects = []
     for src_compile_cmd in src_compile_cmds:
         identifier = src_compile_cmd.src.short_path
@@ -307,7 +306,7 @@ def compile_cxx(
 
         if pic:
             identifier += " (pic)"
-        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, local_only = local_only)
+        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files)
 
         # If we're building with split debugging, where the debug info is in the
         # original object, then add the object as external debug info, *unless*
@@ -324,9 +323,6 @@ def compile_cxx(
         ))
 
     return objects
-
-def _cxx_compile_requires_local(ctx: "context") -> bool.type:
-    return "exceeds_re_memory_limits" in ctx.attrs.labels
 
 def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type]):
     path_to_artifact = {}
