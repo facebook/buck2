@@ -276,6 +276,13 @@ impl SimpleConsole {
     fn notify_printed(&mut self) {
         self.last_print_time = Instant::now();
     }
+
+    fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
+        if let Some(h) = self.re_state.render_header() {
+            echo!("{}", h)?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -534,6 +541,10 @@ impl EventSubscriber for SimpleConsole {
             // roots must be dropped here because it mutably borrows `self`
             // and doesn't get dropped until the end of this scope otherwise.
             std::mem::drop(roots);
+
+            if self.show_waiting_message {
+                self.print_stats_while_waiting()?;
+            }
 
             self.notify_printed();
         }
