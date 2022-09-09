@@ -40,6 +40,8 @@ use crate::what_ran::WhatRanOptions;
 use crate::what_ran::WhatRanOutputCommand;
 use crate::what_ran::WhatRanOutputWriter;
 
+/// buck2 daemon info is printed to stderr if there are no other updates available
+/// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
 fn now_display() -> impl Display {
