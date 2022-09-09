@@ -20,6 +20,7 @@ use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAs
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
 use buck2_interpreter_for_build::nodes::unconfigured::TargetNodeExt;
+use buck2_interpreter_for_build::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -48,8 +49,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-
-use crate::interpreter::rule_defs::transition::starlark::Transition;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
@@ -289,7 +288,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             })
             .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
 
-        let cfg = cfg.try_map(|x| Transition::id_from_value(*x))?;
+        let cfg = cfg.try_map(|x| transition_id_from_value(*x))?;
 
         let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
             (false, false) => RuleKind::Normal,

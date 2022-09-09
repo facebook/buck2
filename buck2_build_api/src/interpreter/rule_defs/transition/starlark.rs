@@ -41,8 +41,6 @@ use crate::interpreter::rule_defs::attr::get_attr_coercion_context;
 
 #[derive(Debug, thiserror::Error)]
 enum TransitionError {
-    #[error("cfg parameter is not a transition object: {}", _0)]
-    WrongType(String),
     #[error("Transition must be assigned to a variable, e.g. `android_cpus = transition(...)`")]
     TransitionNotAssigned,
     #[error("`transition` can only be declared in .bzl files")]
@@ -151,15 +149,6 @@ impl<'v> Freeze for Transition<'v> {
 }
 
 starlark_complex_values!(Transition);
-
-impl<'v> Transition<'v> {
-    pub fn id_from_value(value: Value) -> anyhow::Result<Arc<TransitionId>> {
-        match value.request_value::<&dyn TransitionValue>() {
-            Some(has) => has.transition_id(),
-            None => Err(TransitionError::WrongType(value.to_repr()).into()),
-        }
-    }
-}
 
 impl<'v> TransitionValue for Transition<'v> {
     fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>> {

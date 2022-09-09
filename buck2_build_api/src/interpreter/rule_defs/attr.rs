@@ -15,6 +15,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
+use buck2_interpreter_for_build::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
@@ -29,7 +30,6 @@ use thiserror::Error;
 use tracing::error;
 
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
-use crate::interpreter::rule_defs::transition::starlark::Transition;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
@@ -198,7 +198,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Attribute::check_not_relative_label(default, "attrs.transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
-        let transition_id = Transition::id_from_value(cfg)?;
+        let transition_id = transition_id_from_value(cfg)?;
         let coercer = AttrType::transition_dep(required_providers, transition_id);
 
         let coerced_default = match default {
@@ -243,7 +243,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Attribute::check_not_relative_label(default, "attrs.split_transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
-        let transition_id = Transition::id_from_value(cfg)?;
+        let transition_id = transition_id_from_value(cfg)?;
         let coercer = AttrType::split_transition_dep(required_providers, transition_id);
 
         let coerced_default = match default {
