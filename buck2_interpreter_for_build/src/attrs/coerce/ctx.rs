@@ -25,7 +25,7 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
@@ -70,7 +70,7 @@ pub struct BuildAttrCoercionContext {
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
-    query_functions: Arc<dyn QueryFunctionsExt>,
+    query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
 }
 
 impl BuildAttrCoercionContext {
@@ -78,7 +78,7 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(Package, PackageListing)>,
         package_boundary_exception: bool,
-        query_functions: Arc<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
         Self {
             cell_alias_resolver,
@@ -92,7 +92,7 @@ impl BuildAttrCoercionContext {
 
     pub fn new_no_package(
         cell_alias_resolver: CellAliasResolver,
-        query_functions: Arc<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
         Self::new(cell_alias_resolver, None, false, query_functions)
     }
@@ -101,7 +101,7 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (Package, PackageListing),
         package_boundary_exception: bool,
-        query_functions: Arc<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
         Self::new(
             cell_alias_resolver,

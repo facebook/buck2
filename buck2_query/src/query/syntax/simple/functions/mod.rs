@@ -52,7 +52,7 @@ pub trait QueryFunctions: Send + Sync {
     fn get_op(&self, op: BinaryOp) -> Option<&dyn QueryBinaryOp<Self::Env>>;
 }
 
-pub trait QueryFunctionsExt: Send + Sync {
+pub trait QueryFunctionsVisitLiterals: Send + Sync {
     fn visit_literals(
         &self,
         visitor: &mut dyn QueryLiteralVisitor,
@@ -60,7 +60,7 @@ pub trait QueryFunctionsExt: Send + Sync {
     ) -> QueryResult<()>;
 }
 
-impl<F: QueryFunctions> QueryFunctionsExt for F {
+impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
     fn visit_literals(
         &self,
         visitor: &mut dyn QueryLiteralVisitor,

@@ -23,7 +23,7 @@ use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::interpreter::configure_base_globals;
 use buck2_interpreter::package_imports::ImplicitImport;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use gazebo::cmp::PartialEqAny;
 use gazebo::dupe::Dupe;
 use starlark::environment::Globals;
@@ -70,7 +70,7 @@ impl PartialEq for AdditionalGlobalsFn {
 }
 
 #[derive(Clone, Dupe)]
-struct QueryFunctionsHolder(Arc<dyn QueryFunctionsExt>);
+struct QueryFunctionsHolder(Arc<dyn QueryFunctionsVisitLiterals>);
 
 impl PartialEq for QueryFunctionsHolder {
     fn eq(&self, _other: &Self) -> bool {
@@ -112,7 +112,7 @@ impl BuildInterpreterConfiguror {
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
-        query_functions: Arc<dyn QueryFunctionsExt>,
+        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Arc<Self> {
         Arc::new(Self {
             prelude_import,

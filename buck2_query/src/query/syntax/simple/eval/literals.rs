@@ -14,7 +14,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::query::syntax::simple::eval::values::QueryResultExt;
 use crate::query::syntax::simple::functions::QueryFunctions;
-use crate::query::syntax::simple::functions::QueryFunctionsExt;
+use crate::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use crate::query::syntax::simple::functions::QueryLiteralVisitor;
 
 /// Look through the expression to find all the target literals.

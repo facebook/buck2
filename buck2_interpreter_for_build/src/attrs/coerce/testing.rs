@@ -30,7 +30,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::syntax::simple::eval::values::QueryResult;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
@@ -81,7 +81,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
     );
 
     struct NoFunctions;
-    impl QueryFunctionsExt for NoFunctions {
+    impl QueryFunctionsVisitLiterals for NoFunctions {
         fn visit_literals(
             &self,
             _visitor: &mut dyn QueryLiteralVisitor,
