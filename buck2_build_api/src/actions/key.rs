@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
+use buck2_data::ToProtoMessage;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use gazebo::dupe::Dupe;
 
 use crate::actions::RegisteredAction;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredKey;
-use crate::events::proto::ToProtoMessage;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
 /// Since 'Action's are registered as 'Deferred's

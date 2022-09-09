@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use buck2_data::BuildGraphExecutionInfo;
 use buck2_data::CriticalPathEntry;
+use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -32,7 +33,6 @@ use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
-use crate::events::proto::ToProtoMessage;
 
 pub struct ActionExecutionSignal {
     pub action: Arc<RegisteredAction>,

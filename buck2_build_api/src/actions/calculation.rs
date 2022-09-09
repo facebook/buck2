@@ -15,6 +15,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::span_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::result::CommandExecutionReport;
@@ -38,7 +39,6 @@ use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::deferred::calculation::DeferredCalculation;
-use crate::events::proto::ToProtoMessage;
 use crate::keep_going;
 
 #[async_trait]

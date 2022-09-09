@@ -1,10 +1,10 @@
+use buck2_data::ToProtoMessage;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
 
 use crate::actions::key::ActionKey;
-use crate::events::proto::ToProtoMessage;
 
 /// An artifact that is built by the build system
 #[allow(clippy::derive_hash_xor_eq)] // The Eq is equivalent to what would have been generated

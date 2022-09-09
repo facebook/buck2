@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
@@ -16,7 +17,6 @@ use dice::DiceComputations;
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::Artifact;
 use crate::calculation::Calculation;
-use crate::events::proto::ToProtoMessage;
 
 #[async_trait]
 pub trait ArtifactMaterializer {

@@ -39,7 +39,6 @@ pub mod configure_dice;
 pub mod context;
 pub mod deferred;
 pub mod dynamic;
-pub mod events;
 pub mod interpreter;
 mod keep_going;
 pub mod nodes;

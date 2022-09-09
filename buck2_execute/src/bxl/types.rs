@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
+use buck2_data::ToProtoMessage;
 use buck2_interpreter::common::BxlFilePath;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
@@ -69,6 +70,21 @@ fn print_like_args(args: &Arc<SmallMap<String, CliArgValue>>) -> String {
         .join(" ")
 }
 
+impl ToProtoMessage for BxlKey {
+    type Message = buck2_data::BxlFunctionKey;
+
+    fn as_proto(&self) -> Self::Message {
+        buck2_data::BxlFunctionKey {
+            label: Some(self.label().as_proto()),
+            args: self
+                .cli_args()
+                .iter()
+                .map(|(k, v)| format!("--{} {}", k, v))
+                .collect(),
+        }
+    }
+}
+
 /// The identifier used to find the implementation function for this bxl. Should point at the output of `bxl()`
 #[derive(Debug, Clone, Display, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[display(fmt = "{}:{}", "bxl_path.id()", name)]
@@ -85,5 +101,16 @@ impl Serialize for BxlFunctionLabel {
         S: Serializer,
     {
         s.serialize_str(&format!("{}", self))
+    }
+}
+
+impl ToProtoMessage for BxlFunctionLabel {
+    type Message = buck2_data::BxlFunctionLabel;
+
+    fn as_proto(&self) -> Self::Message {
+        buck2_data::BxlFunctionLabel {
+            bxl_path: self.bxl_path.to_string(),
+            name: self.name.clone(),
+        }
     }
 }

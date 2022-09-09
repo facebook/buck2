@@ -114,3 +114,43 @@ mod serialize_action_kind {
 }
 
 tonic::include_proto!("buck.data");
+
+/// Trait for things that can be converted into protobuf messages, for ease of emitting events. There are many core Buck
+/// types that are represented in the Daemon API that use this trait to ease conversion.
+pub trait ToProtoMessage {
+    type Message: prost::Message;
+
+    fn as_proto(&self) -> Self::Message;
+}
+
+impl ToProtoMessage for buck2_core::target::TargetLabel {
+    type Message = crate::TargetLabel;
+
+    fn as_proto(&self) -> Self::Message {
+        crate::TargetLabel {
+            package: self.pkg().to_string(),
+            name: self.name().to_string(),
+        }
+    }
+}
+
+impl ToProtoMessage for buck2_core::target::ConfiguredTargetLabel {
+    type Message = crate::ConfiguredTargetLabel;
+
+    fn as_proto(&self) -> Self::Message {
+        crate::ConfiguredTargetLabel {
+            label: Some(self.unconfigured().as_proto()),
+            configuration: Some(self.cfg().as_proto()),
+        }
+    }
+}
+
+impl ToProtoMessage for buck2_core::configuration::Configuration {
+    type Message = crate::Configuration;
+
+    fn as_proto(&self) -> Self::Message {
+        crate::Configuration {
+            full_name: self.full_name().to_owned(),
+        }
+    }
+}

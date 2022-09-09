@@ -21,7 +21,6 @@ futures = { workspace = true }
 internment = { workspace = true }
 itertools = { workspace = true }
 owning_ref = { workspace = true }
-prost = { workspace = true }
 regex = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
