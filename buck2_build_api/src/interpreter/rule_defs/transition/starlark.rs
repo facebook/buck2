@@ -14,6 +14,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter_for_build::transition::TransitionValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -25,6 +26,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
@@ -34,7 +36,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::attr::get_attr_coercion_context;
 
@@ -106,10 +107,18 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
             }));
         }
     }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn TransitionValue>(self);
+    }
 }
 
 impl<'v> StarlarkValue<'v> for FrozenTransition {
     starlark_type!("transition");
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn TransitionValue>(self);
+    }
 }
 
 impl<'v> Freeze for Transition<'v> {
@@ -145,18 +154,26 @@ starlark_complex_values!(Transition);
 
 impl<'v> Transition<'v> {
     pub fn id_from_value(value: Value) -> anyhow::Result<Arc<TransitionId>> {
-        if let Some(transition) = value.downcast_ref::<FrozenTransition>() {
-            Ok(transition.id.dupe())
-        } else if let Some(transition) = value.downcast_ref::<Transition>() {
-            transition
-                .id
-                .borrow()
-                .as_ref()
-                .map(Dupe::dupe)
-                .ok_or_else(|| TransitionError::TransitionNotAssigned.into())
-        } else {
-            Err(TransitionError::WrongType(value.to_repr()).into())
+        match value.request_value::<&dyn TransitionValue>() {
+            Some(has) => has.transition_id(),
+            None => Err(TransitionError::WrongType(value.to_repr()).into()),
         }
+    }
+}
+
+impl<'v> TransitionValue for Transition<'v> {
+    fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>> {
+        self.id
+            .borrow()
+            .as_ref()
+            .map(Dupe::dupe)
+            .ok_or_else(|| TransitionError::TransitionNotAssigned.into())
+    }
+}
+
+impl TransitionValue for FrozenTransition {
+    fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>> {
+        Ok(self.id.dupe())
     }
 }
 
