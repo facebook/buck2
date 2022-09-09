@@ -11,11 +11,9 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
-use crate::interpreter::rule_defs::provider::ProviderLike;
 
 pub(crate) struct ProviderRegistration {
     pub(crate) as_provider_callable: fn(Value) -> Option<&dyn ProviderCallableLike>,
-    pub(crate) as_provider: fn(Value) -> Option<&dyn ProviderLike>,
     pub(crate) register_globals: fn(&mut GlobalsBuilder),
 }
 

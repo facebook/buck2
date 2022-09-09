@@ -295,6 +295,11 @@ impl ProviderCodegen {
                     })
                 }
 
+                fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
+                    demand.provide_value::<
+                        &dyn crate::interpreter::rule_defs::provider::ProviderLike>(self);
+                }
+
                 // TODO(cjhopman): UserProvider implements more of the starlark functions. We should probably match them.
             }
         })
@@ -527,17 +532,12 @@ impl ProviderCodegen {
 
     fn inventory(&self) -> syn::Result<proc_macro2::TokenStream> {
         let callable_name = self.callable_name()?;
-        let name = self.name()?;
         Ok(quote! {
             inventory::submit! {
                 crate::interpreter::rule_defs::provider::registration::ProviderRegistration {
                     as_provider_callable: |v| {
                         starlark::values::ValueLike::downcast_ref::<#callable_name>(v).map(
                             |o| o as &dyn crate::interpreter::rule_defs::provider::callable::ProviderCallableLike)
-                    },
-                    as_provider: |v| {
-                        <& #name as starlark::values::UnpackValue>::unpack_value(v).map(
-                            |o| o as &dyn crate::interpreter::rule_defs::provider::ProviderLike)
                     },
                     register_globals: |globals| {
                         register_provider(globals)

@@ -58,6 +58,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
+use gazebo::any::ProvidesStaticType;
 use starlark::environment::MethodsBuilder;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -66,9 +67,6 @@ use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
-use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
-use crate::interpreter::rule_defs::provider::user::FrozenUserProvider;
-use crate::interpreter::rule_defs::provider::user::UserProvider;
 
 pub mod builtin;
 pub mod callable;
@@ -88,6 +86,10 @@ pub(crate) trait ProviderLike<'v>: Debug {
     fn items(&self) -> Vec<(&str, Value<'v>)>;
 }
 
+unsafe impl<'v> ProvidesStaticType for &'v dyn ProviderLike<'v> {
+    type StaticType = &'static dyn ProviderLike<'static>;
+}
+
 /// Common methods on user and builtin providers.
 #[starlark_module]
 pub(crate) fn provider_methods(builder: &mut MethodsBuilder) {
@@ -102,22 +104,7 @@ pub(crate) trait ValueAsProviderLike<'v> {
 
 impl<'v, V: ValueLike<'v>> ValueAsProviderLike<'v> for V {
     fn as_provider(&self) -> Option<&'v dyn ProviderLike<'v>> {
-        let v = self.to_value();
-        if let Some(o) = v.downcast_ref::<FrozenUserProvider>() {
-            return Some(o as &dyn ProviderLike<'v>);
-        } else if let Some(o) = v.downcast_ref::<UserProvider>() {
-            return Some(o as &dyn ProviderLike<'v>);
-        }
-
-        // TODO(cjhopman): May be better to construct a map of type->downcast_fn rather than checking them all.
-        let v = self.to_value();
-        for registration in inventory::iter::<ProviderRegistration> {
-            if let Some(v) = (registration.as_provider)(v) {
-                return Some(v);
-            }
-        }
-
-        None
+        self.to_value().request_value()
     }
 }
 
