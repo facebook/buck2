@@ -139,6 +139,11 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_intellij_project",
+    srcs = ["intellij_project/test_intellij_project.py"],
+)
+
+buck2_e2e_test(
     name = "test_linker_argsfile",
     srcs = ["test_linker_argsfile.py"],
 )
