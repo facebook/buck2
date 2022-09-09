@@ -15,6 +15,7 @@ use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;
+use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::OptionRefExt;
@@ -33,7 +34,6 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
-use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 

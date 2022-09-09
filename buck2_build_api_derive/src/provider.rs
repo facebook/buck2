@@ -238,7 +238,7 @@ impl ProviderCodegen {
                     #(#field_types),*
                 ];
                 use starlark::values::type_repr::StarlarkTypeRepr;
-                use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
+                use buck2_interpreter_for_build::provider::callable::ProviderCallableLike;
                 self.provider_callable_documentation(&docstring, &field_names, &field_docs, &field_types)
             }
         })
@@ -420,7 +420,7 @@ impl ProviderCodegen {
 
                 fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
                     demand.provide_value::<
-                        &dyn crate::interpreter::rule_defs::provider::callable::ProviderCallableLike>(self);
+                        &dyn buck2_interpreter_for_build::provider::callable::ProviderCallableLike>(self);
                 }
 
                 #documentation_function
@@ -431,7 +431,7 @@ impl ProviderCodegen {
     fn callable_impl_provider_callable_like(&self) -> syn::Result<proc_macro2::TokenStream> {
         let callable_name = self.callable_name()?;
         Ok(quote! {
-            impl crate::interpreter::rule_defs::provider::callable::ProviderCallableLike for #callable_name {
+            impl buck2_interpreter_for_build::provider::callable::ProviderCallableLike for #callable_name {
                 fn id(&self) -> Option<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
                     Some(self.id)
                 }

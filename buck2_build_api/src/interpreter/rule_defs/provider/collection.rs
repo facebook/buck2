@@ -16,6 +16,7 @@ use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
+use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_container;
@@ -38,7 +39,6 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
@@ -365,12 +365,12 @@ impl FrozenProviderCollectionValue {
 
 #[cfg(test)]
 pub(crate) mod tester {
+    use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
     use gazebo::dupe::Dupe;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
     use starlark::values::ValueLike;
 
-    use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
     use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
     use crate::interpreter::rule_defs::provider::ProviderCollection;
 

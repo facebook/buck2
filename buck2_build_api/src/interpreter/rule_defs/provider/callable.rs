@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
+use buck2_interpreter_for_build::provider::callable::ProviderCallableLike;
 use gazebo::any::ProvidesStaticType;
 use gazebo::dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
@@ -24,10 +25,8 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
-use starlark::values::docs;
 use starlark::values::docs::DocItem;
 use starlark::values::docs::DocString;
-use starlark::values::docs::Type;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -45,8 +44,6 @@ use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]
 enum ProviderCallableError {
-    #[error("provider callable did not have a bound id; this is an internal error")]
-    ProviderCallableMissingID,
     #[error(
         "The result of `provider()` must be assigned to a top-level variable before it can be called"
     )]
@@ -55,54 +52,6 @@ enum ProviderCallableError {
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]
     ProviderNotAssigned(Vec<String>),
-}
-
-pub trait ProviderCallableLike {
-    fn id(&self) -> Option<&Arc<ProviderId>>;
-
-    /// Frozen callables should always have this set. It's an error if somehow it doesn't.
-    fn require_id(&self) -> anyhow::Result<Arc<ProviderId>> {
-        match self.id() {
-            Some(id) => Ok(id.dupe()),
-            None => Err(ProviderCallableError::ProviderCallableMissingID.into()),
-        }
-    }
-
-    fn provider_callable_documentation(
-        &self,
-        docs: &Option<DocString>,
-        fields: &[String],
-        field_docs: &[Option<DocString>],
-        field_types: &[Option<Type>],
-    ) -> Option<DocItem> {
-        let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
-            .map(|(name, docs, return_type)| {
-                let prop = docs::Member::Property(docs::Property {
-                    docs: docs.clone(),
-                    typ: return_type.clone(),
-                });
-                (name.to_owned(), prop)
-            })
-            .collect();
-        Some(DocItem::Object(docs::Object {
-            docs: docs.clone(),
-            members,
-        }))
-    }
-}
-
-unsafe impl<'v> ProvidesStaticType for &'v dyn ProviderCallableLike {
-    type StaticType = &'static dyn ProviderCallableLike;
-}
-
-pub trait ValueAsProviderCallableLike<'v> {
-    fn as_provider_callable(&self) -> Option<&'v dyn ProviderCallableLike>;
-}
-
-impl<'v, V: ValueLike<'v>> ValueAsProviderCallableLike<'v> for V {
-    fn as_provider_callable(&self) -> Option<&'v dyn ProviderCallableLike> {
-        self.to_value().request_value::<&dyn ProviderCallableLike>()
-    }
 }
 
 fn create_callable_function_signature(

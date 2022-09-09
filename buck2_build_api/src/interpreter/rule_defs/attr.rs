@@ -15,6 +15,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
+use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter_for_build::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
@@ -29,7 +30,6 @@ use starlark::values::ValueError;
 use thiserror::Error;
 use tracing::error;
 
-use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
