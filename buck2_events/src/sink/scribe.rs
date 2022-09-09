@@ -191,6 +191,7 @@ mod fbcode {
                     Some(Data::Watchman(..)) => false,
                     Some(Data::MatchDepFiles(..)) => false,
                     Some(Data::SharedTask(..)) => false,
+                    Some(Data::CacheUpload(..)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -213,6 +214,7 @@ mod fbcode {
                     Some(Data::Watchman(..)) => true,
                     Some(Data::MatchDepFiles(..)) => false,
                     Some(Data::SharedTask(..)) => false,
+                    Some(Data::CacheUpload(..)) => true,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }

@@ -173,6 +173,9 @@ pub trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::SharedTask(shared_task) => {
                 self.handle_shared_task_start(shared_task, event)
             }
+            buck2_data::span_start_event::Data::CacheUpload(cache_upload) => {
+                self.handle_cache_upload_start(cache_upload, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -227,6 +230,9 @@ pub trait EventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::MatchDepFiles(dep_files) => {
                 self.handle_match_dep_files_end(dep_files, event)
+            }
+            buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
+                self.handle_cache_upload_end(cache_upload, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -519,14 +525,28 @@ pub trait EventSubscriber: Send {
     }
     async fn handle_match_dep_files_start(
         &mut self,
-        _watchman: &buck2_data::MatchDepFilesStart,
+        _dep_files: &buck2_data::MatchDepFilesStart,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
     }
     async fn handle_match_dep_files_end(
         &mut self,
-        _watchman: &buck2_data::MatchDepFilesEnd,
+        _dep_files: &buck2_data::MatchDepFilesEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_cache_upload_start(
+        &mut self,
+        _cache_upload: &buck2_data::CacheUploadStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_cache_upload_end(
+        &mut self,
+        _cache_upload: &buck2_data::CacheUploadEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

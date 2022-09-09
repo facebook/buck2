@@ -18,6 +18,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest::FileDigestToReExt;
 use buck2_execute::directory::directory_to_re_tree;
@@ -33,9 +34,11 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::knobs::ReExecutorGlobalKnobs;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use derive_more::Display;
 use futures::future;
 use futures::future::FutureExt;
 use gazebo::prelude::*;
@@ -164,9 +167,10 @@ impl CachingExecutor {
     /// the action must have been successful and must have run locally (not much point in caching
     /// something that ran on RE and is already cached), and cache uploads must be enabled, both
     /// for this executor and this particular action.
-    async fn perform_cache_upload(
+    async fn maybe_perform_cache_upload(
         &self,
         request: &CommandExecutionRequest,
+        target: CommandExecutionTarget<'_>,
         digest: &ActionDigest,
         result: &CommandExecutionResult,
     ) -> anyhow::Result<()> {
@@ -190,6 +194,59 @@ impl CachingExecutor {
             }
         }
 
+        let name = buck2_data::ActionName {
+            category: target.category.as_str().to_owned(),
+            identifier: target.identifier.unwrap_or("").to_owned(),
+        };
+
+        span_async(
+            buck2_data::CacheUploadStart {
+                key: Some(target.action_key.as_proto()),
+                name: Some(name.clone()),
+                action_digest: digest.as_digest().to_string(),
+            },
+            async move {
+                let mut file_digests = Vec::new();
+                let mut tree_digests = Vec::new();
+
+                let res = self
+                    .perform_cache_upload(digest, result, &mut file_digests, &mut tree_digests)
+                    .await;
+
+                let (success, error) = match &res {
+                    Ok(CacheUploadOutcome::Success) => (true, String::new()),
+                    Ok(CacheUploadOutcome::Rejected(reason)) => {
+                        (false, format!("Rejected: {}", reason))
+                    }
+                    Err(e) => (false, format!("{:#}", e)),
+                };
+
+                (
+                    res,
+                    buck2_data::CacheUploadEnd {
+                        key: Some(target.action_key.as_proto()),
+                        name: Some(name),
+                        action_digest: digest.as_digest().to_string(),
+                        success,
+                        error,
+                        file_digests,
+                        tree_digests,
+                    },
+                )
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn perform_cache_upload(
+        &self,
+        digest: &ActionDigest,
+        result: &CommandExecutionResult,
+        file_digests: &mut Vec<String>,
+        tree_digests: &mut Vec<String>,
+    ) -> anyhow::Result<CacheUploadOutcome> {
         tracing::debug!("Uploading action result for `{}`", digest);
 
         let timing = result.report.timing;
@@ -232,6 +289,8 @@ impl CachingExecutor {
                             )
                             .await
                     };
+
+                    file_digests.push(f.digest.to_string());
                     upload_futs.push(fut.boxed());
                 }
                 DirectoryEntry::Dir(d) => {
@@ -258,7 +317,9 @@ impl CachingExecutor {
                             )
                             .await
                     };
+
                     upload_futs.push(fut.boxed());
+                    tree_digests.push(tree_digest.to_string());
                 }
                 DirectoryEntry::Leaf(..) => {
                     // Bail, there is something that is not a file here and we don't handle this.
@@ -266,7 +327,9 @@ impl CachingExecutor {
                     // being a symlink is probably unlikely. Unfortunately, we can't represent this
                     // in RE's action output, so we either have to lie about the output and pretend
                     // it's a file, or bail.
-                    return Ok(());
+                    return Ok(CacheUploadOutcome::Rejected(
+                        CacheUploadRejectionReason::SymlinkOutput,
+                    ));
                 }
             }
         }
@@ -331,7 +394,7 @@ impl CachingExecutor {
             .write_action_result(digest.as_digest().to_re(), result, self.re_use_case())
             .await?;
 
-        Ok(())
+        Ok(CacheUploadOutcome::Success)
     }
 }
 
@@ -360,7 +423,12 @@ impl PreparedCommandExecutor for CachingExecutor {
         let mut res = self.inner.exec_cmd(command, manager).await;
 
         let upload_res = self
-            .perform_cache_upload(command.request, &command.prepared_action.action, &res)
+            .maybe_perform_cache_upload(
+                command.request,
+                command.target,
+                &command.prepared_action.action,
+                &res,
+            )
             .await;
 
         if let Err(error) = upload_res {
@@ -392,6 +460,19 @@ impl PreparedCommandExecutor for CachingExecutor {
     fn name(&self) -> ExecutorName {
         self.inner.name()
     }
+}
+
+/// Whether we completed a cache upload.
+#[derive(Copy, Clone, Dupe, Debug)]
+enum CacheUploadOutcome {
+    Success,
+    Rejected(CacheUploadRejectionReason),
+}
+
+/// A reason why we chose not to upload.
+#[derive(Copy, Clone, Dupe, Debug, Display)]
+enum CacheUploadRejectionReason {
+    SymlinkOutput,
 }
 
 fn systemtime_to_ttimestamp(time: SystemTime) -> anyhow::Result<TTimestamp> {

@@ -112,6 +112,14 @@ pub(crate) fn display_action_key(
     }
 }
 
+fn display_action_name_opt(name: Option<&ActionName>) -> String {
+    match name {
+        Some(name) if name.identifier.is_empty() => name.category.clone(),
+        Some(name) => format!("{} {}", name.category, name.identifier),
+        _ => "unknown".to_owned(),
+    }
+}
+
 pub(crate) fn display_action_identity(
     action_key: Option<&ActionKey>,
     name: Option<&ActionName>,
@@ -148,11 +156,7 @@ pub(crate) fn display_event(
             Data::ActionExecution(action) => match &action.key {
                 Some(key) => {
                     let string = display_action_key(key, opts)?;
-                    let action_descriptor = match &action.name {
-                        Some(name) if name.identifier.is_empty() => name.category.clone(),
-                        Some(name) => format!("{} {}", name.category, name.identifier),
-                        _ => "unknown".to_owned(),
-                    };
+                    let action_descriptor = display_action_name_opt(action.name.as_ref());
                     Ok(format!("{} -- action ({})", string, action_descriptor))
                 }
                 None => Err(ParseEventError::MissingActionKey.into()),
@@ -213,6 +217,14 @@ pub(crate) fn display_event(
             Data::Watchman(..) => Ok("Syncing file changes (via Watchman)".to_owned()),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
+            Data::CacheUpload(upload) => match &upload.key {
+                Some(key) => {
+                    let string = display_action_key(key, opts)?;
+                    let action_descriptor = display_action_name_opt(upload.name.as_ref());
+                    Ok(format!("{} -- upload ({})", string, action_descriptor))
+                }
+                None => Err(ParseEventError::MissingActionKey.into()),
+            },
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

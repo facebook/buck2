@@ -60,6 +60,7 @@ message SpanStartEvent {
     MatchDepFilesStart match_dep_files = 60;
     LoadPackageStart load_package = 61;
     SharedTaskStart shared_task = 62;
+    CacheUploadStart cache_upload = 63;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -86,6 +87,7 @@ message SpanEndEvent {
     MatchDepFilesEnd match_dep_files = 61;
     LoadPackageEnd load_package = 62;
     SharedTaskEnd shared_task = 63;
+    CacheUploadEnd cache_upload = 64;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
