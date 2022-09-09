@@ -14,7 +14,7 @@ const TRUNCATION_MSG: &str = "<<omitted>>";
 /// `max_length` is maximum length of truncated message.
 pub fn truncate(msg: &str, max_length: usize) -> String {
     if msg.len() > max_length {
-        let max_length_without_truncation_msg = max_length - TRUNCATION_MSG.len();
+        let max_length_without_truncation_msg = max_length.saturating_sub(TRUNCATION_MSG.len());
         if max_length_without_truncation_msg < 2 {
             panic!(
                 "This message cannot be truncated to length {}. max_length is too short.",
