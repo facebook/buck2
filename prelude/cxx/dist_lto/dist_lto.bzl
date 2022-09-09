@@ -130,6 +130,7 @@ def cxx_dist_link(
         indexes_dir = "artifact",
         plan = "artifact",
         link_whole = bool.type,
+        prepend = bool.type,
     )
 
     DataType = enum(
@@ -141,7 +142,6 @@ def cxx_dist_link(
     IndexLinkData = record(
         data_type = DataType.type,
         link_data = field([BitcodeLinkData.type, ArchiveLinkData.type]),
-        prepend = bool.type,
     )
 
     PrePostFlags = record(
@@ -219,7 +219,6 @@ def cxx_dist_link(
                             plan = plan_output,
                             opt_object = opt_output,
                         ),
-                        prepend = False,
                     )
                     index_link_data.append(data)
                     plan_outputs.extend([bc_output, plan_output])
@@ -264,8 +263,8 @@ def cxx_dist_link(
                         indexes_dir = archive_indexes,
                         plan = archive_plan,
                         link_whole = linkable.link_whole,
+                        prepend = link_name in PREPEND_ARCHIVE_NAMES,
                     ),
-                    prepend = link_name in PREPEND_ARCHIVE_NAMES,
                 )
                 index_link_data.append(data)
                 archive_opt_manifests.append(archive_opt_manifest)
@@ -298,11 +297,11 @@ def cxx_dist_link(
                     for linkable in linkables_index[idx]:
                         # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
                         append_linkable_args(object_link_arg, linkable, use_link_groups = False)
-                        index_args.add(object_link_arg)
+                    index_args.add(object_link_arg)
 
             # index link command args
-            index_args = cmd_args()
             prepend_index_args = cmd_args()
+            index_args = cmd_args()
 
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
             index_meta = cmd_args()
@@ -327,21 +326,21 @@ def cxx_dist_link(
                         ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name)
                         continue
 
-                    index_args.hidden(link_data.objects_dir)
+                    archive_args = prepend_index_args if link_data.prepend else index_args
 
-                    args = prepend_index_args if artifact.prepend else index_args
+                    archive_args.hidden(link_data.objects_dir)
 
                     if not link_data.link_whole:
-                        args.add("-Wl,--start-lib")
+                        archive_args.add("-Wl,--start-lib")
 
                     for obj in manifest["objects"]:
                         index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
-                        args.add(obj)
+                        archive_args.add(obj)
 
                     if not link_data.link_whole:
-                        args.add("-Wl,--end-lib")
+                        archive_args.add("-Wl,--end-lib")
 
-                    args.hidden(link_data.objects_dir)
+                    archive_args.hidden(link_data.objects_dir)
 
                 add_post_flags(idx)
 
