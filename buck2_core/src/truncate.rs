@@ -21,12 +21,15 @@ pub fn truncate(msg: &str, max_length: usize) -> String {
                 max_length
             );
         }
+        // Note that for Unicode strings we might end up with less than max_length characters,
+        // because these functions are all in terms of bytes.
+        // Not worth the hassle to do better, given how rare that is.
         format!(
             "{}{}{}",
-            // TODO(nga): crashes on non-ASCII input.
-            &msg[0..max_length_without_truncation_msg / 2],
+            &msg[0..msg.ceil_char_boundary(max_length_without_truncation_msg / 2)],
             &TRUNCATION_MSG,
-            &msg[msg.len() - (max_length_without_truncation_msg / 2)..msg.len()]
+            &msg[msg.floor_char_boundary(msg.len() - (max_length_without_truncation_msg / 2))
+                ..msg.len()]
         )
     } else {
         msg.to_owned()
@@ -54,5 +57,12 @@ mod tests {
     #[should_panic]
     fn test_truncate_panic() {
         truncate(MSG, 5);
+    }
+
+    #[test]
+    fn test_truncate_unicode() {
+        // This will segfault if we try and split within a char boundary
+        truncate(&"❤️🧡💛💚💙💜".repeat(500), 100);
+        truncate(&"東京都".repeat(500), 100);
     }
 }

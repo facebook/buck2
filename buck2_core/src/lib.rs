@@ -18,6 +18,7 @@
 #![feature(is_some_with)]
 #![feature(fs_try_exists)]
 #![feature(map_first_last)]
+#![feature(round_char_boundary)]
 #![feature(termination_trait_lib)]
 #![feature(try_trait_v2)]
 #![feature(type_alias_impl_trait)]
