@@ -23,3 +23,16 @@ omnibus_environment = rule(impl = _omnibus_environment_impl, attrs = {
     "shared_root_ld_flags": attrs.list(attrs.arg(), default = []),
     "_cxx_toolchain": attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo, CxxPlatformInfo]),
 })
+
+def _cxx_hacks_impl(_ctx):
+    return [DefaultInfo(), TemplatePlaceholderInfo(
+        unkeyed_variables = {
+            "cxx-header-tree": "/dev/null/HACK-CXX-HEADER-TREE",
+            "output-dwo-dir": "/dev/null/HACK-OUTPUT-DWO-DIR",
+        },
+    )]
+
+cxx_hacks = rule(
+    impl = _cxx_hacks_impl,
+    attrs = {},
+)

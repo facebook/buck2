@@ -1,5 +1,5 @@
 load("@fbcode_macros//build_defs/lib:python_common.bzl", "get_ldflags", "get_strip_mode")
-load(":defs.bzl", "omnibus_environment")
+load(":defs.bzl", "cxx_hacks", "omnibus_environment")
 
 prelude = native
 
@@ -12,6 +12,12 @@ prelude.python_bootstrap_binary(
 prelude.python_bootstrap_binary(
     name = "makefile_to_dep_file",
     main = "makefile_to_dep_file.py",
+    visibility = ["PUBLIC"],
+)
+
+# Required to support the $(cxx-header-tree) macro
+cxx_hacks(
+    name = "cxx_hacks",
     visibility = ["PUBLIC"],
 )
 
