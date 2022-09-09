@@ -113,6 +113,7 @@ OmnibusSharedLibraries = record(
     roots = field({"label": AnnotatedOmnibusRootProduct.type}, {}),
     exclusion_roots = field(["label"]),
     excluded = field(["label"]),
+    dispositions = field({"label": Disposition.type}),
 )
 
 def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": AnnotatedLinkableRoot.type}, excluded: {"label": None}) -> OmnibusGraph.type:
@@ -947,6 +948,7 @@ def create_omnibus_libraries(
         roots = root_products,
         exclusion_roots = spec.exclusion_roots,
         excluded = spec.excluded.keys(),
+        dispositions = spec.dispositions,
     )
 
 def is_known_omnibus_root(ctx: "context") -> bool.type:
