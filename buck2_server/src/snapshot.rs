@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
+use buck2_core::io_counters::IoCounterKey;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::re::manager::ReConnectionManager;
 use gazebo::prelude::*;
@@ -50,12 +51,40 @@ impl SnapshotCollector {
         let mut snapshot = Self::pre_initialization_snapshot();
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
+        self.add_io_metrics(&mut snapshot);
         snapshot
     }
 
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size = self.blocking_executor.queue_size() as u64;
         snapshot.daemon_uptime_s = self.daemon_start_time.elapsed().as_secs();
+    }
+
+    fn add_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        // Using loop here to make sure no key is forgotten.
+        for key in IoCounterKey::ALL {
+            let pointer = match key {
+                IoCounterKey::Stat => &mut snapshot.io_in_flight_stat,
+                IoCounterKey::Copy => &mut snapshot.io_in_flight_copy,
+                IoCounterKey::Symlink => &mut snapshot.io_in_flight_symlink,
+                IoCounterKey::Hardlink => &mut snapshot.io_in_flight_hardlink,
+                IoCounterKey::MkDir => &mut snapshot.io_in_flight_mk_dir,
+                IoCounterKey::ReadDir => &mut snapshot.io_in_flight_read_dir,
+                IoCounterKey::ReadDirEden => &mut snapshot.io_in_flight_read_dir_eden,
+                IoCounterKey::RmDir => &mut snapshot.io_in_flight_rm_dir,
+                IoCounterKey::RmDirAll => &mut snapshot.io_in_flight_rm_dir_all,
+                IoCounterKey::StatEden => &mut snapshot.io_in_flight_stat_eden,
+                IoCounterKey::Chmod => &mut snapshot.io_in_flight_chmod,
+                IoCounterKey::ReadLink => &mut snapshot.io_in_flight_read_link,
+                IoCounterKey::Remove => &mut snapshot.io_in_flight_remove,
+                IoCounterKey::Rename => &mut snapshot.io_in_flight_rename,
+                IoCounterKey::Read => &mut snapshot.io_in_flight_read,
+                IoCounterKey::Write => &mut snapshot.io_in_flight_write,
+                IoCounterKey::Canonicalize => &mut snapshot.io_in_flight_canonicalize,
+                IoCounterKey::EdenSettle => &mut snapshot.io_in_flight_eden_settle,
+            };
+            *pointer = key.get();
+        }
     }
 
     fn add_re_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
