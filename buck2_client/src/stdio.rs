@@ -55,10 +55,10 @@ macro_rules! eprintln {
     () => {
         $crate::stdio::_eprint(std::format_args!("\n"))
     };
-    ($fmt:tt) => {
+    ($fmt:expr) => {
         $crate::stdio::_eprint(std::format_args!(concat!($fmt, "\n")))
     };
-    ($fmt:tt, $($arg:tt)*) => {
+    ($fmt:expr, $($arg:tt)*) => {
         $crate::stdio::_eprint(std::format_args!(concat!($fmt, "\n"), $($arg)*))
     };
 }

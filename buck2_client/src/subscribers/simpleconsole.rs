@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::fmt::Display;
 use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
@@ -41,14 +42,22 @@ use crate::what_ran::WhatRanOutputWriter;
 
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
+fn now_display() -> impl Display {
+    chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
+}
+
 // Echoes a message to stderr, along with a timestamp.
 macro_rules! echo {
-    ($($tts:tt)*) => {
+    () => {
         {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprint!("[{}] ", ::chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false))?;
+            crate::eprintln!("[{}]", now_display())
+        }
+    };
+    ($fmt:expr $(, $args:expr)*) => {
+        {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!($($tts)*)
+            crate::eprintln!(concat!("[{}] ", $fmt), now_display(), $($args),*)
         }
     };
 }
