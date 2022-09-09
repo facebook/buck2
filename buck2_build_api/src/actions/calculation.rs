@@ -102,7 +102,6 @@ async fn build_action_no_redirect(
     ))
     .await?;
 
-    // TODO check input based cache and compute keys
     let start_event = buck2_data::ActionExecutionStart {
         key: Some(action.key().as_proto()),
         kind: action.kind().into(),
