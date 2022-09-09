@@ -46,3 +46,22 @@ pub(crate) fn process_stats() -> Option<ProcessStats> {
 pub(crate) fn process_stats() -> Option<ProcessStats> {
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::process_stats::process_stats;
+
+    #[test]
+    fn test_process_stats() {
+        let process_stats = process_stats();
+        if cfg!(unix) {
+            let process_stats = process_stats.expect("process_stats() should return Some");
+            // Sometimes tests start too quickly and CPU counters are zero.
+            if false {
+                assert!(process_stats.user_cpu_us > 0);
+                assert!(process_stats.system_cpu_us > 0);
+            }
+            assert!(process_stats.max_rss_bytes > 0);
+        }
+    }
+}
