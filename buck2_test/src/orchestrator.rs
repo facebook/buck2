@@ -48,6 +48,7 @@ use buck2_data::TestRunEnd;
 use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
+use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -419,12 +420,16 @@ impl BuckTestOrchestrator {
         // but Tpx might run the same test repeatedly, so it is not unique.
         let identifier = self.new_identifier(test_target.target());
         let owner = BaseDeferredKey::TargetLabel(test_target.target().dupe());
+        let action_key = TestActionKey {
+            target: test_target.target(),
+        };
 
         let command = executor.exec_cmd(
             CommandExecutionTarget {
                 owner: &owner,
                 category: &TEST_CATEGORY,
                 identifier: Some(&identifier),
+                action_key: &action_key as _,
             },
             &request,
             manager,
@@ -939,6 +944,24 @@ impl EnvironmentBuilder for LossyEnvironment {
             key.as_ref().to_string_lossy().into_owned(),
             val.as_ref().to_string_lossy().into_owned(),
         );
+    }
+}
+
+struct TestActionKey<'a> {
+    target: &'a ConfiguredTargetLabel,
+}
+
+impl<'a> ToProtoMessage for TestActionKey<'a> {
+    type Message = buck2_data::ActionKey;
+
+    fn as_proto(&self) -> Self::Message {
+        buck2_data::ActionKey {
+            id: Default::default(),
+            owner: Some(buck2_data::action_key::Owner::TestTargetLabel(
+                self.target.as_proto(),
+            )),
+            key: Default::default(),
+        }
     }
 }
 

@@ -10,17 +10,24 @@
 use std::fmt::Display;
 
 use buck2_core::category::Category;
+use buck2_data::ToProtoMessage;
+use derivative::Derivative;
 use gazebo::dupe::Dupe;
 
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::path::buck_out_path::BuckOutScratchPath;
 
 /// Indicates why we are executing a given command.
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Derivative)]
+#[derivative(Debug)]
 pub struct CommandExecutionTarget<'a> {
     pub owner: &'a BaseDeferredKey,
     pub category: &'a Category,
     pub identifier: Option<&'a str>,
+
+    // For serialization in logging.
+    #[derivative(Debug = "ignore")]
+    pub action_key: &'a (dyn ToProtoMessage<Message = buck2_data::ActionKey> + Sync),
 }
 
 impl<'a> CommandExecutionTarget<'a> {

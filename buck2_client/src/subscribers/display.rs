@@ -90,7 +90,8 @@ pub(crate) fn display_action_owner(
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
     match owner {
-        action_key::Owner::TargetLabel(target_label) => {
+        action_key::Owner::TargetLabel(target_label)
+        | action_key::Owner::TestTargetLabel(target_label) => {
             display_configured_target_label(target_label, opts)
         }
         action_key::Owner::BxlKey(bxl_key) => display_bxl_key(bxl_key),

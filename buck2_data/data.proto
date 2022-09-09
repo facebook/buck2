@@ -570,6 +570,7 @@ message ActionKey {
   oneof owner {
     ConfiguredTargetLabel target_label = 2;
     BxlFunctionKey bxl_key = 4;
+    ConfiguredTargetLabel test_target_label = 5;
   }
 
   // The full deferred key associated with this action. Opaque to consumers.
@@ -1052,4 +1053,31 @@ message InvocationRecord {
   // If any, the name of the RE experiment config that was used by the RE
   // client in this build.
   string re_experiment_name = 23;
+}
+
+message CacheUploadStart {
+  // A unique key identifying this action within the build.
+  ActionKey key = 1;
+  // A pair of category and identifier describing this action.
+  ActionName name = 2;
+  // The digest of the action being uploaded.
+  string action_digest = 3;
+}
+
+message CacheUploadEnd {
+  // A unique key identifying this action within the build.
+  ActionKey key = 1;
+  // A pair of category and identifier describing this action.
+  ActionName name = 2;
+  // The digest of the action being uploaded.
+  string action_digest = 3;
+  // Whether the upload was actually completed. This may be false if it wasn't
+  // representable in RE, or if an error occurred.
+  bool success = 4;
+  // An error, if any occurred.
+  string error = 5;
+  // The files we uploaded.
+  repeated string file_digests = 6;
+  // The directories we uploaded.
+  repeated string tree_digests = 7;
 }

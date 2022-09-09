@@ -233,6 +233,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             owner: self.action.owner(),
             category: self.action.category(),
             identifier: self.action.identifier(),
+            action_key: self.action.key() as _,
         }
     }
 

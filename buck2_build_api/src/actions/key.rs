@@ -40,6 +40,10 @@ impl ActionKey {
     pub fn deferred_data(&self) -> &DeferredData<Arc<RegisteredAction>> {
         &self.0
     }
+
+    pub fn owner(&self) -> &BaseDeferredKey {
+        self.deferred_key().owner()
+    }
 }
 
 impl ToProtoMessage for ActionKey {
