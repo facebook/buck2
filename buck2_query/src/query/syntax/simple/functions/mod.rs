@@ -632,3 +632,24 @@ impl<'a, Env: QueryEnvironment> QueryFunctions for AugmentedQueryFunctions<'a, E
         }
     }
 }
+
+pub mod testing {
+    use buck2_query_parser::spanned::Spanned;
+    use buck2_query_parser::Expr;
+
+    use crate::query::syntax::simple::eval::values::QueryResult;
+    use crate::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
+    use crate::query::syntax::simple::functions::QueryLiteralVisitor;
+
+    pub struct QueryFunctionsPanic;
+
+    impl QueryFunctionsVisitLiterals for QueryFunctionsPanic {
+        fn visit_literals(
+            &self,
+            _visitor: &mut dyn QueryLiteralVisitor,
+            _expr: &Spanned<Expr>,
+        ) -> QueryResult<()> {
+            panic!("not needed in test");
+        }
+    }
+}

@@ -46,6 +46,7 @@ pub mod testing {
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::TargetsMap;
+    use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
     use gazebo::prelude::*;
     use indoc::indoc;
     use maplit::hashmap;
@@ -54,7 +55,6 @@ pub mod testing {
 
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
-    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     /// Simple container that allows us to instrument things like imports
     pub struct Tester {
@@ -272,7 +272,7 @@ pub mod testing {
                                     (additional_globals.0)(globals_builder)
                                 }
                             }))),
-                            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
+                            Arc::new(QueryFunctionsPanic),
                         ),
                         false,
                     )?),
