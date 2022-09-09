@@ -217,14 +217,7 @@ pub(crate) fn display_event(
             Data::Watchman(..) => Ok("Syncing file changes (via Watchman)".to_owned()),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
-            Data::CacheUpload(upload) => match &upload.key {
-                Some(key) => {
-                    let string = display_action_key(key, opts)?;
-                    let action_descriptor = display_action_name_opt(upload.name.as_ref());
-                    Ok(format!("{} -- upload ({})", string, action_descriptor))
-                }
-                None => Err(ParseEventError::MissingActionKey.into()),
-            },
+            Data::CacheUpload(..) => Ok("upload".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

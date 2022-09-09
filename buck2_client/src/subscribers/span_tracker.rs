@@ -251,7 +251,8 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             Data::Command(..)
             | Data::AnalysisStage(..)
             | Data::ExecutorStage(..)
-            | Data::MatchDepFiles(..),
+            | Data::MatchDepFiles(..)
+            | Data::CacheUpload(..),
         ) => false,
         Some(
             Data::ActionExecution(..)
@@ -263,7 +264,6 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             | Data::TestStart(..)
             | Data::Watchman(..)
             | Data::SharedTask(..)
-            | Data::CacheUpload(..)
             | Data::Fake(..),
         ) => true,
         None => false,
