@@ -18,9 +18,11 @@ once_cell = { workspace = true }
 prost-types = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
+rusqlite = { workspace = true }
 sha-1 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-rusqlite = { workspace = true }
 tonic = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }

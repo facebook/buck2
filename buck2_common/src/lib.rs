@@ -46,5 +46,6 @@ pub mod pattern;
 pub mod result;
 mod sorted_hash_map;
 pub mod sorted_index_set;
+pub mod sqlite;
 pub mod target_aliases;
 pub mod with_current_directory;
