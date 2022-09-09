@@ -42,6 +42,7 @@ pub use superconsole::SuperConsole;
 
 use crate::subscribers::display;
 use crate::subscribers::display::TargetDisplayOptions;
+use crate::subscribers::io::IoHeader;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsState;
@@ -137,7 +138,7 @@ impl StatefulSuperConsole {
     pub fn default_layout(command_name: &str, config: SuperConsoleConfig) -> Box<dyn Component> {
         let header = format!("Command: `{}`.", command_name);
         let mut components: Vec<Box<dyn Component>> =
-            vec![box SessionInfoComponent, ReHeader::boxed()];
+            vec![box SessionInfoComponent, ReHeader::boxed(), box IoHeader];
         if let Some(sandwiched) = config.sandwiched {
             components.push(sandwiched);
         }
@@ -254,6 +255,7 @@ impl SuperConsoleState {
             &self.time_speed,
             &self.dice_state,
             self.simple_console.re_state(),
+            &self.simple_console.io_state,
             &self.debug_events,
             &self.timed_list,
         ]
@@ -356,6 +358,11 @@ impl EventSubscriber for StatefulSuperConsole {
                 &mut s.state.simple_console.re_state_mut().detailed
             })
             .await?;
+        } else if c == 'i' {
+            self.toggle("I/O counters", 'i', |s| {
+                &mut s.state.simple_console.io_state.enabled
+            })
+            .await?;
         } else if c == '?' || c == 'h' {
             self.handle_stderr(
                 "Help:\n\
@@ -363,6 +370,7 @@ impl EventSubscriber for StatefulSuperConsole {
                 `e` = toggle debug events\n\
                 `2` = toggle two lines mode\n\
                 `r` = toggle detailed RE\n\
+                `i` = toggle I/O counters\n\
                 `h` = show this help",
             )
             .await?;
@@ -590,6 +598,7 @@ impl EventSubscriber for StatefulSuperConsole {
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.state.simple_console.re_state_mut().update(update);
+        self.state.simple_console.io_state.update(update);
         Ok(())
     }
 }

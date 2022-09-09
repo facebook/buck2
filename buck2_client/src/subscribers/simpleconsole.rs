@@ -26,6 +26,7 @@ use termwiz::escape::ControlCode;
 
 use crate::subscribers::display;
 use crate::subscribers::display::TargetDisplayOptions;
+use crate::subscribers::io::IoState;
 use crate::subscribers::last_command_execution_kind::get_last_command_execution_kind;
 use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
 use crate::subscribers::re::ReState;
@@ -178,6 +179,7 @@ pub(crate) struct SimpleConsole {
     test_session: Option<String>,
     action_stats: ActionStats,
     re_state: ReState,
+    pub(crate) io_state: IoState,
 }
 
 impl SimpleConsole {
@@ -192,6 +194,7 @@ impl SimpleConsole {
             test_session: None,
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
+            io_state: IoState::default(),
         }
     }
 
@@ -206,6 +209,7 @@ impl SimpleConsole {
             test_session: None,
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
+            io_state: IoState::default(),
         }
     }
 
@@ -544,6 +548,7 @@ impl EventSubscriber for SimpleConsole {
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.re_state_mut().update(update);
+        self.io_state.update(update);
         Ok(())
     }
 }
