@@ -67,6 +67,14 @@ impl Drop for AsyncCleanupContextGuard {
             .enable_all()
             .build()
             .expect("Should be able to start a runtime");
-        runtime.block_on(self.0.join());
+        runtime.block_on(async move {
+            let future = self.0.join();
+            if tokio::time::timeout(Duration::from_secs(30), future)
+                .await
+                .is_err()
+            {
+                tracing::warn!("Timeout waiting for async cleanup");
+            }
+        });
     }
 }
