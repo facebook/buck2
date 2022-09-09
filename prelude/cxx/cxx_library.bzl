@@ -442,7 +442,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                     )],
                     external_debug_info = (
                         compiled_srcs.pic_external_debug_info +
-                        (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])
+                        (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else []) +
+                        impl_params.additional.external_debug_info
                     ),
                 ),
                 stripped = LinkInfo(
@@ -673,7 +674,10 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic_objects if pic else compiled_srcs.objects,
                     objects_have_external_debug_info = compiled_srcs.pic_objects_have_external_debug_info if pic else compiled_srcs.objects_have_external_debug_info,
-                    external_debug_info = compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info,
+                    external_debug_info = (
+                        (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info) +
+                        impl_params.additional.external_debug_info
+                    ),
                     pic = pic,
                     stripped = False,
                     extra_linkables = extra_static_linkables,
@@ -695,7 +699,8 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic_objects,
                     (compiled_srcs.pic_external_debug_info +
-                     (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])),
+                     (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else []) +
+                     impl_params.additional.external_debug_info),
                     shared_links,
                 )
                 output = _CxxLibraryOutput(
@@ -810,7 +815,7 @@ def _static_library(
         stripped: bool.type,
         extra_linkables: ["FrameworksLinkable"],
         objects_have_external_debug_info: bool.type = False,
-        external_debug_info: ["artifact"] = []) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        external_debug_info: ["_arglike"] = []) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -886,7 +891,7 @@ def _shared_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
-        external_debug_info: ["artifact"],
+        external_debug_info: ["_arglike"],
         dep_infos: "LinkArgs") -> (str.type, LinkedObject.type, LinkInfo.type):
     """
     Generate a shared library and the associated native link info used by

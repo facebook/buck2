@@ -1,4 +1,4 @@
-load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")
+load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:swift_compilation.bzl", "compile_swift", "get_swift_dependency_infos")
 load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
@@ -124,7 +124,14 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre, swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [exported_pre]),
         srcs = cxx_srcs,
-        additional = CxxRuleAdditionalParams(srcs = swift_srcs, argsfiles = [swift_argsfile] if swift_argsfile else []),
+        additional = CxxRuleAdditionalParams(
+            srcs = swift_srcs,
+            argsfiles = [swift_argsfile] if swift_argsfile else [],
+            # We need to add any swift modules that we include in the link, as
+            # these will end up as `N_AST` entries that `dsymutil` will need to
+            # follow.
+            external_debug_info = [_get_transitive_swiftmodule_paths(swift_providers)],
+        ),
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
@@ -169,7 +176,15 @@ def _get_shared_link_style_sub_targets_and_providers(
     )
     return ({
         DSYM_SUBTARGET: [DefaultInfo(default_outputs = [dsym_artifact])],
+        DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info)],
     }, [AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info)] + min_version_providers)
+
+def _get_transitive_swiftmodule_paths(swift_providers: ["provider"]) -> "cmd_args":
+    cmd = cmd_args()
+    for p in swift_providers:
+        if hasattr(p, "transitive_swiftmodule_paths"):
+            cmd.add(p.transitive_swiftmodule_paths.project_as_args("hidden"))
+    return cmd
 
 def _get_linker_flags(ctx: "context", swift_providers: ["provider"]) -> "cmd_args":
     cmd = cmd_args(get_min_deployment_version_target_linker_flags(ctx))
