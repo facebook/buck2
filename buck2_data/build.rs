@@ -120,6 +120,10 @@ fn main() -> io::Result<()> {
             "ActionExecutionEnd.kind",
             "#[serde(with = \"crate::serialize_action_kind\")]",
         )
+        .field_attribute(
+            "RemoteCommand.queue_time",
+            "#[serde(with = \"crate::serialize_duration\")]",
+        )
         .compile(proto_files, &["."])
         .unwrap();
 

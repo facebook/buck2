@@ -100,6 +100,10 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTi
         .execution_completed_timestamp
         .saturating_duration_since(&meta.execution_start_timestamp);
 
+    let re_queue_time = meta
+        .last_queued_timestamp
+        .saturating_duration_since(&meta.queued_timestamp);
+
     let start_time = SystemTime::UNIX_EPOCH
         + meta
             .execution_start_timestamp
@@ -107,6 +111,7 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTi
 
     CommandExecutionTimingData {
         wall_time: execution_time,
+        re_queue_time: Some(re_queue_time),
         execution_time,
         start_time,
     }

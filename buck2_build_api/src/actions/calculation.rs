@@ -343,11 +343,13 @@ async fn command_details(
         CommandExecutionKind::Remote { digest } => buck2_data::RemoteCommand {
             action_digest: digest.to_string(),
             cache_hit: false,
+            queue_time: command.timing.re_queue_time.map(Into::into),
         }
         .into(),
         CommandExecutionKind::ActionCache { digest } => buck2_data::RemoteCommand {
             action_digest: digest.to_string(),
             cache_hit: true,
+            queue_time: command.timing.re_queue_time.map(Into::into),
         }
         .into(),
     });

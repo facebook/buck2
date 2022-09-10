@@ -995,6 +995,9 @@ message LocalCommand {
 message RemoteCommand {
   string action_digest = 1;
   bool cache_hit = 2;
+
+  /// How long this build waited in queue.
+  google.protobuf.Duration queue_time = 3;
 }
 
 // A representation of an invocation

@@ -309,6 +309,7 @@ impl LocalExecutor {
 
                     let timing = CommandExecutionTimingData {
                         wall_time: execution_time,
+                        re_queue_time: None,
                         execution_time,
                         start_time,
                     };

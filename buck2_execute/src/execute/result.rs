@@ -74,6 +74,10 @@ pub struct CommandExecutionTimingData {
     /// How long this build actually waited for this action to complete
     pub wall_time: Duration,
 
+    // How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
+    // this value represents how long a request has to wait for server to handle.
+    pub re_queue_time: Option<Duration>,
+
     /// How long this command actually took to execute. This can be different from the wall_time if
     /// this was e.g. an action cache hit, in which case this field would reflect how long the
     /// command took to actually execute but not how we had to wait for it.
@@ -87,6 +91,7 @@ impl Default for CommandExecutionTimingData {
     fn default() -> Self {
         Self {
             wall_time: Duration::default(),
+            re_queue_time: None,
             execution_time: Duration::default(),
             start_time: SystemTime::now(),
         }
