@@ -11,7 +11,9 @@ use std::sync::Arc;
 
 use async_condvar_fair::BatonExt;
 use async_condvar_fair::Condvar;
+use async_trait::async_trait;
 use buck2_events::TraceId;
+use dice::Dice;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 use parking_lot::FairMutex;
@@ -25,9 +27,9 @@ use starlark::collections::SmallMap;
 pub struct ConcurrencyHandler {
     data: Arc<FairMutex<ConcurrencyHandlerData>>,
     // use an async condvar because the `wait` to `notify` spans across an async function (namely
-    // the entire command execution). Luckily, this implementation is also "fair", waking up the
-    // oldest waiting command.
+    // the entire command execution).
     cond: Arc<Condvar>,
+    dice: Arc<Dice>,
 }
 
 struct ConcurrencyHandlerData {
@@ -40,28 +42,39 @@ struct ConcurrencyHandlerData {
     active_traces: SmallMap<TraceId, usize>,
 }
 
+#[async_trait]
+pub trait DiceUpdater: Send + Sync {
+    async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction>;
+}
+
 #[allow(unused)] // TODO(bobyf) temporary
 impl ConcurrencyHandler {
-    pub fn new() -> Self {
+    pub fn new(dice: Arc<Dice>) -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 active_dice: None,
                 active_traces: SmallMap::new(),
             })),
             cond: Default::default(),
+            dice,
         }
     }
 
     /// Enters a critical section that requires concurrent command synchronization,
     /// and runs the given `exec` function in the critical section.
-    pub async fn enter<F, Fut, R>(&self, transaction: DiceTransaction, trace: TraceId, exec: F) -> R
+    pub async fn enter<F, Fut, R>(
+        &self,
+        trace: TraceId,
+        updates: &dyn DiceUpdater,
+        exec: F,
+    ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send + 'static,
     {
-        let (_guard, transaction) = self.wait_for_others(transaction, trace).await;
+        let (_guard, transaction) = self.wait_for_others(updates, trace).await?;
 
-        exec(transaction).await
+        Ok(exec(transaction).await)
     }
 
     #[allow(clippy::await_holding_lock)]
@@ -71,13 +84,21 @@ impl ConcurrencyHandler {
     // starvation.
     async fn wait_for_others(
         &self,
-        transaction: DiceTransaction,
+        updates: &dyn DiceUpdater,
         trace: TraceId,
-    ) -> (OnExecExit, DiceTransaction) {
+    ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let mut data = self.data.lock();
         let mut baton = None;
 
+        let mut transaction = self.dice.ctx();
+
         loop {
+            // we rerun the updates in case that files on disk have changed between commands.
+            // this might cause some churn, but concurrent commands don't happen much and
+            // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
+            transaction = updates.update(transaction).await?;
+            transaction = transaction.commit();
+
             if let Some(active_dice) = &data.active_dice {
                 if active_dice.equivalent(&transaction) {
                     // if the dice context is equivalent, then we can run concurrently with the
@@ -108,7 +129,7 @@ impl ConcurrencyHandler {
         let on_exit = OnExecExit(self.dupe(), trace);
         baton.dispose();
 
-        (on_exit, transaction)
+        Ok((on_exit, transaction))
     }
 }
 
@@ -133,10 +154,15 @@ impl<'a> Drop for OnExecExit {
         }
 
         if data.active_traces.is_empty() {
-            data.active_dice.take();
+            data.active_dice.take().expect("should have an active dice");
 
-            // condvar is fair. This will notifying the longest waiting command.
-            self.0.cond.notify_one()
+            // we notify all commands since we don't know how many can actually wake up and run
+            // concurrently as several of the currently waiting commands could be "equivalent".
+            // This could cause commands to wake up out of order and race, such that the longest
+            // waiting command might not still be forced to wait. In reality, it is probably not
+            // a terrible issue, as we are unlikely to have many concurrent commands, and people
+            // are unlikely to usually care about the precise order they get to run.
+            self.0.cond.notify_all()
         }
     }
 }
@@ -152,86 +178,92 @@ mod tests {
     use derive_more::Display;
     use dice::cycles::DetectCycles;
     use dice::Dice;
-    use dice::DiceComputations;
-    use dice::Key;
+    use dice::DiceTransaction;
+    use dice::InjectedKey;
     use gazebo::prelude::*;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
 
     use crate::daemon::concurrency::ConcurrencyHandler;
+    use crate::daemon::concurrency::DiceUpdater;
+
+    #[async_trait]
+    impl<F> DiceUpdater for F
+    where
+        F: Fn(DiceTransaction) -> anyhow::Result<DiceTransaction> + Send + Sync,
+    {
+        async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+            self(ctx)
+        }
+    }
+
+    fn no_changes(ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+        Ok(ctx)
+    }
+
+    #[derive(Clone, Dupe, Display, Debug, Hash, Eq, PartialEq)]
+    struct K;
+
+    #[async_trait]
+    impl InjectedKey for K {
+        type Value = usize;
+
+        fn compare(_x: &Self::Value, _y: &Self::Value) -> bool {
+            false
+        }
+    }
 
     #[tokio::test]
     async fn concurrent_same_transaction() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new();
+        let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
         let traces3 = TraceId::new();
 
-        let ctx1 = dice.ctx();
-        let ctx2 = dice.ctx();
-        let ctx3 = dice.ctx();
-
         let barrier = Arc::new(Barrier::new(3));
 
-        let fut1 = concurrency.enter(ctx1, traces1, |_| {
+        let fut1 = concurrency.enter(traces1, &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
-        let fut2 = concurrency.enter(ctx2, traces2, |_| {
+        let fut2 = concurrency.enter(traces2, &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
-        let fut3 = concurrency.enter(ctx3, traces3, |_| {
+        let fut3 = concurrency.enter(traces3, &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
 
-        futures::future::join3(fut1, fut2, fut3).await;
+        let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
+        r1.unwrap();
+        r2.unwrap();
+        r3.unwrap();
     }
 
     #[tokio::test]
     async fn different_traceid_blocks() -> anyhow::Result<()> {
-        #[derive(Clone, Dupe, Display, Debug, Hash, Eq, PartialEq)]
-        struct K;
-
-        #[async_trait]
-        impl Key for K {
-            type Value = ();
-
-            async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
-                unimplemented!()
-            }
-
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
-            }
-        }
-
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new();
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
         let traces_different = TraceId::new();
 
-        let ctx1 = dice.ctx();
-        let ctx2 = dice.ctx();
-
-        let ctx_different = {
-            let ctx = dice.ctx();
+        let ctx_different = |ctx: DiceTransaction| {
             ctx.changed(vec![K])?;
-            anyhow::Ok(ctx.commit())
-        }?;
+            Ok(ctx)
+        };
 
         let block1 = Arc::new(RwLock::new(()));
         let blocked1 = block1.write().await;
@@ -251,7 +283,7 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(ctx1, traces1, |_| async move {
+                    .enter(traces1, &no_changes, |_| async move {
                         barrier.wait().await;
                         let _g = b.read().await;
                     })
@@ -266,7 +298,7 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(ctx2, traces2, |_| async move {
+                    .enter(traces2, &no_changes, |_| async move {
                         barrier.wait().await;
                         let _g = b.read().await;
                     })
@@ -284,7 +316,7 @@ mod tests {
             async move {
                 barrier.wait().await;
                 concurrency
-                    .enter(ctx_different, traces_different, |_| async move {
+                    .enter(traces_different, &ctx_different, |_| async move {
                         arrived.store(true, Ordering::Relaxed);
                     })
                     .await
@@ -296,14 +328,14 @@ mod tests {
         assert!(!arrived.load(Ordering::Relaxed));
 
         drop(blocked1);
-        fut1.await.unwrap();
+        fut1.await??;
 
         assert!(!arrived.load(Ordering::Relaxed));
 
         drop(blocked2);
-        fut2.await.unwrap();
+        fut2.await??;
 
-        fut3.await.unwrap();
+        fut3.await??;
 
         assert!(arrived.load(Ordering::Relaxed));
 
