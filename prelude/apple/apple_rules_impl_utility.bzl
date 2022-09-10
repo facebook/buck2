@@ -16,6 +16,6 @@ def apple_bundle_extra_attrs():
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attrs.bool(),
-        "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
+        "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
     }
