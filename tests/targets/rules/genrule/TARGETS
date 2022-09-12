@@ -200,6 +200,7 @@ buck_genrule(
     name = "mktemp",
     srcs = [],
     out = "output.txt",
+    cacheable = False,
     cmd = "python3 -c \"import os, tempfile; print(os.getenv('TMPDIR')); tempfile.mkstemp(); open(os.getenv('OUT'), 'w')\"",
     labels = ["buck2_test_local_exec"],
 )
