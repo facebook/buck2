@@ -52,6 +52,23 @@ There are two interesting RE values, namely a session (e.g. `reSessionID-9ddf962
 
 There are lots of other useful operations in `frecli`.
 
+## Working with Scuba Logging
+
+When you want to add/modify/delete some data column in `buck2_*` Scuba table (e.g. `buck2_builds`,) most likely you'll need to change both Buck2 and Ingress where Buck2 generates and emits the events to Scribe and Ingress receives, processes, and sends out the data to Scuba. To test this E2E logging pipeline locally, you can:
+```bash
+$ export BUCK2_SCRIBE_CATEGORY=buck2_events_test
+$ ./buck2.sh build <some:target>
+$ ./facebook/ingress/run.sh
+```
+and check `buck2_*_test` Scuba table (e.g. `buck2_builds_test`,) and `scuba_buck2_*_test` Hive table if you want, to see if your change works correctly. Make sure setting the env var before launching Buck2 daemon.
+
+Since `buck2.sh` and `run.sh` initiate building Buck2 and Ingress respectively with local changes, the following workflow is recommended in practice.
+1. Make changes on Buck2 and Ingress, and commit it on your development environment
+2. Checkout the commit on an ondemand and do `buck2.sh`
+3. Checkout the commit on another ondemand and do `run.sh`
+
+You don't need to worry about the race condition between 2 and 3 because Scribe can hold the sample data for a while.
+
 ## Useful tools
 
 * To observe the contents of a header map (`.hmap` files) do `/opt/chef/embedded/bin/ruby ~/fbsource/xplat/scripts/hmap myfile.hmap`.
