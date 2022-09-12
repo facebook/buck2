@@ -1063,6 +1063,8 @@ message InvocationRecord {
   string re_experiment_name = 23;
   // Minimum build count among the targets that were involved in the command
   uint64 min_build_count_since_rebase = 24;
+  // The number of cache uploads done by this build.
+  uint64 cache_upload_count = 25;
 }
 
 message CacheUploadStart {
