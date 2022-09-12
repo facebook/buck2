@@ -534,7 +534,11 @@ impl DeferredMaterializer {
             io_executor: io_executor.dupe(),
             command_sender: command_sender.clone(),
         });
-        let command_thread = tokio::spawn(async move { command_processor.run(command_recv).await });
+
+        let tree = ArtifactTree::new();
+
+        let command_thread =
+            tokio::spawn(async move { command_processor.run(command_recv, tree).await });
 
         Self {
             command_sender,
@@ -551,9 +555,11 @@ impl DeferredMaterializerCommandProcessor {
     /// Loop that runs for as long as the materializer is alive.
     ///
     /// It takes commands via the `Materializer` trait methods.
-    async fn run(self: Arc<Self>, mut command_recv: mpsc::UnboundedReceiver<MaterializerCommand>) {
-        let mut tree = ArtifactTree::new();
-
+    async fn run(
+        self: Arc<Self>,
+        mut command_recv: mpsc::UnboundedReceiver<MaterializerCommand>,
+        mut tree: ArtifactTree,
+    ) {
         // Each Declare bumps the version, so that if an artifact is declared
         // a second time mid materialization of its previous version, we don't
         // incorrectly assume we materialized the latest version.
