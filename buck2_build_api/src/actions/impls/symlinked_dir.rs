@@ -6,12 +6,14 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
 use std::borrow::Cow;
+use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
@@ -19,6 +21,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use starlark::values::dict::Dict;
 use starlark::values::OwnedFrozenValue;
@@ -51,6 +54,8 @@ enum SymlinkedDirError {
 pub(crate) struct UnregisteredSymlinkedDirAction {
     copy: bool,
     args: Vec<(ArtifactGroup, PathBuf)>,
+    // All associated artifacts of inputs unioned together
+    unioned_associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
 }
 
 impl UnregisteredSymlinkedDirAction {
@@ -83,20 +88,40 @@ impl UnregisteredSymlinkedDirAction {
         Ok(())
     }
 
-    fn unpack_args(srcs: Value) -> Option<Vec<(ArtifactGroup, PathBuf)>> {
+    // Map each artifact into an optional tuple of (artifact, path) and associated_artifacts, then collect
+    // them into an optional tuple of vector and an index set respectively
+    fn unpack_args(
+        srcs: Value,
+    ) -> Option<(Vec<(ArtifactGroup, PathBuf)>, IndexSet<ArtifactGroup>)> {
         Dict::from_value(srcs)?
             .iter()
             .map(|(k, v)| {
+                let (artifact, associates) = v
+                    .as_artifact()?
+                    .get_bound_artifact_and_associated_artifacts()
+                    .ok()?;
                 Some((
-                    ArtifactGroup::Artifact(v.as_artifact()?.get_bound_deprecated().ok()?),
-                    PathBuf::from(k.unpack_str()?),
+                    (
+                        ArtifactGroup::Artifact(artifact),
+                        PathBuf::from(k.unpack_str()?),
+                    ),
+                    associates.deref().deref(),
                 ))
             })
-            .collect::<Option<_>>()
+            .fold_options(
+                (Vec::new(), IndexSet::new()),
+                |(mut aps, mut assocs), (ap, assoc)| {
+                    aps.push(ap);
+                    assoc.iter().for_each(|a| {
+                        assocs.insert(a.dupe());
+                    });
+                    (aps, assocs)
+                },
+            )
     }
 
     pub fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
-        let mut args = Self::unpack_args(srcs)
+        let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
             .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("srcs".to_owned()))?;
@@ -105,11 +130,21 @@ impl UnregisteredSymlinkedDirAction {
         if !copy {
             Self::validate_args(&mut args)?;
         }
-        Ok(Self { copy, args })
+        Ok(Self {
+            copy,
+            args,
+            unioned_associated_artifacts: Arc::new(SortedIndexSet::new(
+                unioned_associated_artifacts,
+            )),
+        })
     }
 
     pub fn inputs(&self) -> IndexSet<ArtifactGroup> {
         self.args.iter().map(|x| x.0.dupe()).collect()
+    }
+
+    pub fn unioned_associated_artifacts(&self) -> Arc<SortedIndexSet<ArtifactGroup>> {
+        self.unioned_associated_artifacts.dupe()
     }
 }
 

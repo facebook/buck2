@@ -325,10 +325,11 @@ fn create_dir_tree<'v>(
     // validate that the moves are valid, and move them into inputs
     let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
     let inputs = action.inputs();
+    let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state();
     let (output_value, output_artifact) =
-        this.get_or_declare_output(eval, output, "output", Default::default())?;
+        this.get_or_declare_output(eval, output, "output", unioned_associated_artifacts)?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
     Ok(output_value)
