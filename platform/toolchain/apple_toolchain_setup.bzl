@@ -302,7 +302,7 @@ _APPLE_TOOLCHAINS = {
         sdks = ["iphoneos", "iphonesimulator", "macosx"],
         selector = _get_pika_arch_select,
         selector_args = {
-            "host": "macos",  # TODO(naris): Change `macos` -> `fat`
+            "host": "fat",
             "toolchain_name": "pika-14",
         },
     ),
