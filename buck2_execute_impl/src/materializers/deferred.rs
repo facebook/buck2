@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -39,7 +38,6 @@ use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_execute::directory::Symlink;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::http::http_client;
@@ -286,207 +284,6 @@ impl From<ActionDirectoryEntry<ActionSharedDirectory>> for ArtifactMetadata {
             DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf),
         };
         Self(new_entry)
-    }
-}
-
-#[derive(Error, Debug, PartialEq, Eq)]
-pub(crate) enum ArtifactMetadataSqliteConversionError {
-    #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
-    ExpectedNotNull {
-        field: String,
-        artifact_type: String,
-    },
-
-    #[error("Internal error: found unknown value '{}' for enum `artifact_type`", .0)]
-    UnknownArtifactType(String),
-}
-
-/// Sqlite representation of sha1. Can be converted directly into BLOB type
-/// in rusqlite. Note we use a Vec and not a fixed length array here because
-/// rusqlite can only convert to Vec.
-pub(crate) type SqliteSha1 = Vec<u8>;
-
-/// Sqlite representation of `ArtifactMetadata`. All datatypes used implement
-/// rusqlite's `FromSql` trait.
-#[derive(Debug)]
-pub(crate) struct ArtifactMetadataSqliteEntry {
-    pub artifact_type: String,
-    pub digest_size: Option<u64>,
-    pub digest_sha1: Option<SqliteSha1>,
-    pub file_is_executable: Option<bool>,
-    pub symlink_target: Option<String>,
-}
-
-impl ArtifactMetadataSqliteEntry {
-    pub(crate) fn new(
-        artifact_type: String,
-        digest_size: Option<u64>,
-        digest_sha1: Option<Vec<u8>>,
-        file_is_executable: Option<bool>,
-        symlink_target: Option<String>,
-    ) -> Self {
-        Self {
-            artifact_type,
-            digest_size,
-            digest_sha1,
-            file_is_executable,
-            symlink_target,
-        }
-    }
-}
-
-impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
-    fn from(metadata: ArtifactMetadata) -> Self {
-        fn get_size_and_sha1(digest: TrackedFileDigest) -> (u64, Vec<u8>) {
-            (digest.size(), digest.sha1().to_vec())
-        }
-
-        let (artifact_type, digest_size, digest_sha1, file_is_executable, symlink_target) =
-            match metadata.0 {
-                DirectoryEntry::Dir(digest) => {
-                    let (digest_size, digest_sha1) = get_size_and_sha1(digest);
-                    (
-                        "directory",
-                        Some(digest_size),
-                        Some(digest_sha1),
-                        None,
-                        None,
-                    )
-                }
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                    let (digest_size, digest_sha1) = get_size_and_sha1(file_metadata.digest);
-                    (
-                        "file",
-                        Some(digest_size),
-                        Some(digest_sha1),
-                        Some(file_metadata.is_executable),
-                        None,
-                    )
-                }
-                DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => (
-                    "symlink",
-                    None,
-                    None,
-                    None,
-                    Some(symlink.target().as_str().to_owned()),
-                ),
-                DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
-                    "external_symlink",
-                    None,
-                    None,
-                    None,
-                    Some(external_symlink.target_str().to_owned()),
-                ),
-            };
-
-        Self {
-            artifact_type: artifact_type.to_owned(),
-            digest_size,
-            digest_sha1,
-            file_is_executable,
-            symlink_target,
-        }
-    }
-}
-
-impl TryFrom<ArtifactMetadataSqliteEntry> for ArtifactMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(sqlite_entry: ArtifactMetadataSqliteEntry) -> anyhow::Result<Self> {
-        fn digest(
-            size: Option<u64>,
-            sha1: Option<Vec<u8>>,
-            artifact_type: &str,
-        ) -> anyhow::Result<TrackedFileDigest> {
-            let size = size.ok_or_else(|| {
-                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "size".to_owned(),
-                    artifact_type: artifact_type.to_owned()
-                })
-            })?;
-            let sha1 = sha1.ok_or_else(|| {
-                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "sha1".to_owned(),
-                    artifact_type: artifact_type.to_owned()
-                })
-            })?;
-
-            let file_digest = FileDigest {
-                size,
-                // Converts Vec<u8> to [u8; SHA1_LENGTH]
-                sha1: sha1.try_into().map_err(|v: Vec<u8>| {
-                    anyhow::anyhow!(
-                        "Internal error: cannot vec of bytes of len {} to a sha1",
-                        v.len()
-                    )
-                })?,
-            };
-            Ok(TrackedFileDigest::new(file_digest))
-        }
-
-        let metadata = match sqlite_entry.artifact_type.as_str() {
-            "directory" => DirectoryEntry::Dir(digest(
-                sqlite_entry.digest_size,
-                sqlite_entry.digest_sha1,
-                sqlite_entry.artifact_type.as_str(),
-            )?),
-            "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: digest(
-                    sqlite_entry.digest_size,
-                    sqlite_entry.digest_sha1,
-                    sqlite_entry.artifact_type.as_str(),
-                )?,
-                is_executable: sqlite_entry.file_is_executable.ok_or_else(|| {
-                    anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                        field: "file_is_executable".to_owned(),
-                        artifact_type: sqlite_entry.artifact_type.clone()
-                    })
-                })?,
-            })),
-            "symlink" => {
-                let symlink = Symlink::new(
-                    sqlite_entry
-                        .symlink_target
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                                    field: "symlink_target".to_owned(),
-                                    artifact_type: sqlite_entry.artifact_type.clone()
-                                }
-                            )
-                        })?
-                        .into(),
-                );
-                DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(symlink)))
-            }
-            "external_symlink" => {
-                let external_symlink = ExternalSymlink::new(
-                    sqlite_entry
-                        .symlink_target
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                                    field: "symlink_target".to_owned(),
-                                    artifact_type: sqlite_entry.artifact_type.clone()
-                                }
-                            )
-                        })?
-                        .into(),
-                    None,
-                )?;
-                DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(Arc::new(
-                    external_symlink,
-                )))
-            }
-            artifact_type => {
-                return Err(anyhow::anyhow!(
-                    ArtifactMetadataSqliteConversionError::UnknownArtifactType(
-                        artifact_type.to_owned()
-                    )
-                ));
-            }
-        };
-        Ok(Self(metadata))
     }
 }
 
@@ -1542,12 +1339,9 @@ fn clean_output_paths(
 mod tests {
     use std::collections::HashMap;
 
-    use assert_matches::assert_matches;
     use buck2_common::file_ops::FileMetadata;
     use buck2_execute::directory::insert_file;
-    use buck2_execute::directory::new_symlink;
     use buck2_execute::directory::ActionDirectoryBuilder;
-    use buck2_execute::directory::ActionDirectoryMember;
     use gazebo::dupe::Dupe;
 
     use super::*;
@@ -1618,56 +1412,5 @@ mod tests {
         assert_eq!(removed_subtree.len(), 2);
         assert_eq!(removed_subtree.get("a/b/c/d"), Some(&"a/b/c/d".to_owned()));
         assert_eq!(removed_subtree.get("a/b/c/e"), Some(&"a/b/c/e".to_owned()));
-    }
-
-    #[test]
-    fn test_artifact_metadata_dir_sqlite_entry_conversion_succeeds() {
-        let digest = TrackedFileDigest::new(FileDigest::from_bytes("directory".as_bytes()));
-        let metadata = ArtifactMetadata(DirectoryEntry::Dir(digest));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
-    }
-
-    #[test]
-    fn test_artifact_metadata_file_sqlite_entry_conversion_succeeds() {
-        let digest = TrackedFileDigest::new(FileDigest::from_bytes("file".as_bytes()));
-        let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
-            FileMetadata {
-                digest,
-                is_executable: false,
-            },
-        )));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
-    }
-
-    #[test]
-    fn test_artifact_metadata_symlink_sqlite_entry_conversion_succeeds() {
-        let symlink = new_symlink("foo/bar").unwrap();
-        // We use `new_symlink` as a helper but it can technically create both Symlink and ExternalSymlink.
-        // Verify that we have a Symlink here.
-        assert_matches!(symlink, ActionDirectoryMember::Symlink(..));
-
-        let metadata = ArtifactMetadata(DirectoryEntry::Leaf(symlink));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
-    }
-
-    #[test]
-    fn test_artifact_metadata_external_symlink_sqlite_entry_conversion_succeeds() {
-        let external_symlink = new_symlink(if cfg!(windows) {
-            // Not sure if we actually support any external symlink on windows, but better
-            // to just check anyways.
-            "C:\\external\\symlink\\to\\artifact"
-        } else {
-            "/mnt/gvfs/third-party2/zstd/28def025ee38919d509596da7d09e7a5262cbf32/1.4.x/platform010/64091f4/share"
-        }).unwrap();
-        // We use `new_symlink` as a helper but it can technically create both Symlink and ExternalSymlink.
-        // Verify that we have an ExternalSymlink here.
-        assert_matches!(external_symlink, ActionDirectoryMember::ExternalSymlink(..));
-
-        let metadata = ArtifactMetadata(DirectoryEntry::Leaf(external_symlink));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
     }
 }
