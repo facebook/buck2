@@ -44,6 +44,7 @@ use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_fro
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 use crate::interpreter::rule_defs::transitive_set::PreorderTransitiveSetIteratorGen;
+use crate::interpreter::rule_defs::transitive_set::TopologicalTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorLike;
@@ -220,6 +221,9 @@ where
     {
         match ordering {
             TransitiveSetOrdering::Preorder => box PreorderTransitiveSetIteratorGen::new(self),
+            TransitiveSetOrdering::Topological => {
+                box TopologicalTransitiveSetIteratorGen::new(self)
+            }
         }
     }
 

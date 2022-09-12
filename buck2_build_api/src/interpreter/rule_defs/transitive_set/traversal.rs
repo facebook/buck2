@@ -27,6 +27,8 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 pub enum TransitiveSetOrdering {
     /// Preorder traversal, a good default behavior which traverses depth-first returning the current node, and then its children left-to-right.
     Preorder,
+    /// Topological sort, such that nodes are listed after all nodes that have them as descendants.
+    Topological,
 }
 
 impl TransitiveSetOrdering {
@@ -34,6 +36,7 @@ impl TransitiveSetOrdering {
         // NOTE: If this list is updated, update the OrderingUnexpectedValue error text.
         match s {
             "preorder" => Ok(Self::Preorder),
+            "topological" => Ok(Self::Topological),
             _ => Err(anyhow::anyhow!(
                 TransitiveSetError::OrderingUnexpectedValue {
                     ordering: s.to_owned()
