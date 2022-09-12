@@ -323,9 +323,10 @@ def merge_to_split_dex(
     ] for input in pre_dexed_lib_with_class_names_files]) + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
-    secondary_dexes_dir = ctx.actions.declare_output("secondary_dexes_dir")
+    root_module_secondary_dexes_dir = ctx.actions.declare_output("root_module_secondary_dexes_dir")
+    non_root_module_secondary_dexes_dir = ctx.actions.declare_output("non_root_module_secondary_dexes_dir")
 
-    outputs = [primary_dex_output, primary_dex_artifact_list, secondary_dexes_dir]
+    outputs = [primary_dex_output, primary_dex_artifact_list, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context", artifacts, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
@@ -338,12 +339,15 @@ def merge_to_split_dex(
             get_module_from_target = apk_module_graph_info.target_to_module_mapping_function,
             module_to_canary_class_name_function = module_to_canary_class_name_function,
         )
-        secondary_dexes_for_symlinking = {}
+
+        root_module_secondary_dexes_for_symlinking = {}
+        non_root_module_secondary_dexes_for_symlinking = {}
         metadata_line_artifacts_by_module = {}
         metadata_dot_txt_files_by_module = {}
 
         for sorted_pre_dexed_input in sorted_pre_dexed_inputs:
             module = sorted_pre_dexed_input.module
+            secondary_dexes_for_symlinking = root_module_secondary_dexes_for_symlinking if is_root_module(module) else non_root_module_secondary_dexes_for_symlinking
             primary_dex_inputs = sorted_pre_dexed_input.primary_dex_inputs
             pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
             if pre_dexed_artifacts:
@@ -440,15 +444,19 @@ def merge_to_split_dex(
             ctx.actions.dynamic_output(dynamic = flatten(metadata_line_artifacts_by_module.values()), inputs = [], outputs = metadata_dot_txt_files_by_module.values(), f = write_metadata_dot_txts)
 
         ctx.actions.symlinked_dir(
-            outputs[secondary_dexes_dir],
-            secondary_dexes_for_symlinking,
+            outputs[root_module_secondary_dexes_dir],
+            root_module_secondary_dexes_for_symlinking,
+        )
+        ctx.actions.symlinked_dir(
+            outputs[non_root_module_secondary_dexes_dir],
+            non_root_module_secondary_dexes_for_symlinking,
         )
 
     ctx.actions.dynamic_output(dynamic = input_artifacts, inputs = [], outputs = outputs, f = merge_pre_dexed_libs)
 
     return DexFilesInfo(
         primary_dex = primary_dex_output,
-        secondary_dex_dirs = [secondary_dexes_dir],
+        secondary_dex_dirs = [root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir],
         proguard_text_files_path = None,
     )
 
