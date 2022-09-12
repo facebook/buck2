@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -32,9 +33,7 @@ pub(crate) fn delete_unknown_disk_state(
 ) -> anyhow::Result<()> {
     let res: anyhow::Result<()> = try {
         if cache_dir_path.exists() {
-            for file in std::fs::read_dir(&cache_dir_path)
-                .with_context(|| format!("listing directory {}", &cache_dir_path))?
-            {
+            for file in fs_util::read_dir(&cache_dir_path)? {
                 let filename = file?
                     .file_name()
                     .to_str()
