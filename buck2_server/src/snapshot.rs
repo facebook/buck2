@@ -142,5 +142,8 @@ fn add_system_metrics(snapshot: &mut buck2_data::Snapshot) {
         snapshot.buck2_max_rss = stats.max_rss_bytes;
         snapshot.buck2_user_cpu_us = stats.user_cpu_us;
         snapshot.buck2_system_cpu_us = stats.system_cpu_us;
+        if let Some(rss_bytes) = stats.rss_bytes {
+            snapshot.buck2_rss = rss_bytes;
+        }
     }
 }

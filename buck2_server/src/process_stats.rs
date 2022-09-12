@@ -8,6 +8,7 @@
  */
 
 pub(crate) struct ProcessStats {
+    pub(crate) rss_bytes: Option<u64>,
     pub(crate) max_rss_bytes: u64,
     pub(crate) user_cpu_us: u64,
     pub(crate) system_cpu_us: u64,
@@ -15,6 +16,8 @@ pub(crate) struct ProcessStats {
 
 #[cfg(unix)]
 pub(crate) fn process_stats() -> Option<ProcessStats> {
+    use crate::process_stats::proc_self_stat::ProcSelfStat;
+
     let usage = unsafe {
         let mut usage: libc::rusage = std::mem::zeroed();
         match libc::getrusage(libc::RUSAGE_SELF, &mut usage as *mut _) {
@@ -35,7 +38,18 @@ pub(crate) fn process_stats() -> Option<ProcessStats> {
         (1_000_000 * tv.tv_sec as u64) + (tv.tv_usec as u64)
     }
 
+    let rss_bytes = if cfg!(target_os = "linux") {
+        // Buck2 snapshot is made once per second, so this shouldn't be too expensive.
+        ProcSelfStat::read().map(|stat| {
+            // `getconf PAGESIZE`, but practically it's always 4096.
+            stat.rss * 4096
+        })
+    } else {
+        None
+    };
+
     Some(ProcessStats {
+        rss_bytes,
         max_rss_bytes: (usage.ru_maxrss as u64) * rss_scale,
         user_cpu_us: tv_to_micros(&usage.ru_utime),
         system_cpu_us: tv_to_micros(&usage.ru_stime),
@@ -47,8 +61,34 @@ pub(crate) fn process_stats() -> Option<ProcessStats> {
     None
 }
 
+#[cfg_attr(not(unix), allow(dead_code))]
+mod proc_self_stat {
+    use std::fs;
+
+    /// Parsed `/proc/self/stat` file.
+    pub(crate) struct ProcSelfStat {
+        /// Resident Set Size: number of pages the process has in real memory.
+        /// Raw value.
+        pub(crate) rss: u64,
+    }
+
+    impl ProcSelfStat {
+        pub(crate) fn parse(stat: &str) -> Option<ProcSelfStat> {
+            let rss = stat.split(' ').nth(23)?.parse().ok()?;
+            Some(ProcSelfStat { rss })
+        }
+
+        pub(crate) fn read() -> Option<ProcSelfStat> {
+            fs::read_to_string("/proc/self/stat")
+                .ok()
+                .and_then(|s| ProcSelfStat::parse(&s))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::process_stats::proc_self_stat::ProcSelfStat;
     use crate::process_stats::process_stats;
 
     #[test]
@@ -62,6 +102,30 @@ mod tests {
                 assert!(process_stats.system_cpu_us > 0);
             }
             assert!(process_stats.max_rss_bytes > 0);
+            if cfg!(target_os = "linux") {
+                let rss_bytes = process_stats.rss_bytes.unwrap();
+                assert!(rss_bytes > 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_proc_self_stat_parse() {
+        let stat = "1736324 (cat) R 53088 1736324 53088 34816 1736324 4194304 113 \
+            0 0 0 0 0 0 0 20 0 1 0 \
+            2018135 222441472 215 \
+            18446744073709551615 94565082071040 94565082102344 140727456826704 \
+            0 0 0 0 0 0 0 0 0 17 11 0 0 0 0 0 \
+            94565084199504 94565084201152 94565084205056 140727456831309 \
+            140727456831329 140727456831329 140727456833519 0";
+        assert_eq!(215, ProcSelfStat::parse(stat).unwrap().rss);
+    }
+
+    #[test]
+    fn test_proc_self_stat_read() {
+        if cfg!(target_os = "linux") {
+            let stat = ProcSelfStat::read().unwrap();
+            assert!(stat.rss > 0);
         }
     }
 }
