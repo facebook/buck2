@@ -9,12 +9,20 @@
 
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_common::sqlite::KeyValueSqliteTable;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileName;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_execute::execute::blocking::BlockingExecutor;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use thiserror::Error;
 
 use crate::materializers::deferred::ArtifactMetadata;
 use crate::materializers::deferred::ArtifactMetadataSqliteEntry;
@@ -155,6 +163,136 @@ fn query_placeholder(repeat: usize) -> String {
     itertools::repeat_n("?", repeat).join(",")
 }
 
+#[derive(Error, Debug, PartialEq, Eq)]
+enum MaterializerStateSqliteDbError {
+    #[error("Path {} does not exist", .0)]
+    PathDoesNotExist(AbsPathBuf),
+
+    #[error("Expected versions {:?}. Found versions {:?} in sqlite db at {}", .expected, .found, .path)]
+    VersionMismatch {
+        expected: HashMap<String, String>,
+        found: HashMap<String, String>,
+        path: AbsPathBuf,
+    },
+}
+
+/// DB that opens the sqlite connection to the materializer state db on disk and
+/// holds all the sqlite tables we need for storing/querying materializer state
+pub struct MaterializerStateSqliteDb {
+    /// Table storing actual materializer state
+    materializer_state_table: MaterializerStateSqliteTable,
+    /// Table for holding any metadata used to check version match. When loading
+    /// from an existing db, we check if the versions from this table match the
+    /// versions this buck2 binary expects. If the versions don't match, we throw
+    /// away the entire db and initialize a new one. If versions do match, then
+    /// we try to read all state from `materializer_state_table`.
+    versions_table: KeyValueSqliteTable,
+    /// Table for logging any metadata not used to check version match, generally
+    /// just for debugging purposes.
+    metadata_table: KeyValueSqliteTable,
+}
+
+impl MaterializerStateSqliteDb {
+    /// Given path to sqlite DB, opens and returns a new connection to the DB.
+    pub async fn open(path: &AbsPath) -> anyhow::Result<Self> {
+        let connection = Arc::new(tokio_rusqlite::Connection::open(path).await?);
+        let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
+        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
+        let metadata_table = KeyValueSqliteTable::new("metadata".to_owned(), connection);
+        Ok(Self {
+            materializer_state_table,
+            versions_table,
+            metadata_table,
+        })
+    }
+
+    const DB_FILENAME: &'static str = "db.sqlite";
+
+    /// Given path to the sqlite DB, attempts to read `MaterializerState` from the DB. If we encounter
+    /// any failure along the way, such as if the DB path does not exist, the sqlite read fails,
+    /// or the DB has a different set of versions than the versions this buck2 expects, we
+    /// throw away the existing DB and initialize a new DB. Returns (1) the connected sqlite DB and
+    /// (2) the `MaterializerState` if loading was successful or the load error.
+    /// The `Result<MaterializerState>` captures any failure encountered when attempting to load
+    /// from the existing DB. These failures are expected if db doesn't exist or versions don't match.
+    /// The outer `Result` captures any failure encountered when trying to delete the existing DB and
+    /// create a new one.
+    /// TODO(scottcao): pull this method into a shared trait once we add a another sqlite DB
+    pub async fn load_or_initialize(
+        materializer_state_dir: AbsPathBuf,
+        versions: HashMap<String, String>,
+        // Using `BlockingExecutor` out of convenience. This function should be called during startup
+        // when there's not a lot of I/O so it shouldn't matter.
+        io_executor: Arc<dyn BlockingExecutor>,
+    ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
+        let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
+
+        let result: anyhow::Result<(Self, MaterializerState)> = try {
+            // try reading the existing db, if it exists.
+            if !db_path.exists() {
+                Err(anyhow::anyhow!(
+                    MaterializerStateSqliteDbError::PathDoesNotExist(db_path.clone())
+                ))?
+            }
+
+            let db = Self::open(&db_path).await?;
+
+            // First check that versions match
+            let read_versions = db.versions_table.read_all().await?;
+            if read_versions != versions {
+                Err(MaterializerStateSqliteDbError::VersionMismatch {
+                    expected: versions.clone(),
+                    found: read_versions.clone(),
+                    path: db_path.clone(),
+                })?;
+            }
+
+            let state = db.materializer_state_table().read_all().await?;
+            (db, state)
+        };
+        match result {
+            Ok((db, state)) => Ok((db, Ok(state))),
+            Err(e) => {
+                // Loading failed. Initialize a new db from scratch.
+
+                // Delete the existing materializer_state directory and create a new one.
+                // We delete the entire directory and not just the db file because sqlite
+                // can leave behind other files.
+                io_executor
+                    .execute_io_inline(|| {
+                        if materializer_state_dir.exists() {
+                            fs_util::remove_dir_all(&materializer_state_dir)?;
+                        }
+                        fs_util::create_dir_all(&materializer_state_dir)
+                    })
+                    .await?;
+
+                // Initialize a new db
+                let db = Self::open(&db_path).await?;
+                db.create_all_tables().await?;
+                for (key, value) in versions.into_iter() {
+                    db.versions_table.insert(key, value).await?;
+                }
+
+                Ok((db, Err(e)))
+            }
+        }
+    }
+
+    pub(crate) fn materializer_state_table(&self) -> &MaterializerStateSqliteTable {
+        &self.materializer_state_table
+    }
+
+    pub(crate) async fn create_all_tables(&self) -> anyhow::Result<()> {
+        // We can do these awaits in serial because writes through the same `Connection`
+        // get serialized anyways.
+        self.materializer_state_table.create_table().await?;
+        self.versions_table.create_table().await?;
+        self.metadata_table.create_table().await?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -165,9 +303,11 @@ mod tests {
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::directory::DirectoryEntry;
     use buck2_core::fs::project::ProjectRelativePath;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::directory::new_symlink;
     use buck2_execute::directory::ActionDirectoryMember;
+    use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
 
     use super::*;
 
@@ -244,5 +384,109 @@ mod tests {
         }
         let state = table.read_all().await.unwrap();
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
+    }
+
+    async fn testing_materializer_state_sqlite_db(
+        fs: &ProjectRoot,
+        versions: HashMap<String, String>,
+    ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
+        MaterializerStateSqliteDb::load_or_initialize(
+            fs.resolve(ProjectRelativePath::unchecked_new(
+                "buck-out/v2/cache/materializer_state",
+            )),
+            versions,
+            Arc::new(DummyBlockingExecutor { fs: fs.clone() }),
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_load_or_initialize_sqlite_db() -> anyhow::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+
+        let path = ProjectRelativePath::unchecked_new("foo").to_owned();
+        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(TrackedFileDigest::new(
+            FileDigest::from_bytes("directory".as_bytes()),
+        )));
+
+        {
+            let (db, loaded_state) = testing_materializer_state_sqlite_db(
+                fs.path(),
+                HashMap::from([("version".to_owned(), "0".to_owned())]),
+            )
+            .await
+            .unwrap();
+            assert_matches!(
+                loaded_state,
+                Err(e) => {
+                    assert_matches!(
+                        e.downcast_ref::<MaterializerStateSqliteDbError>(),
+                        Some(MaterializerStateSqliteDbError::PathDoesNotExist(_path)));
+                }
+            );
+
+            db.materializer_state_table()
+                .insert(path.clone(), artifact_metadata.clone())
+                .await
+                .unwrap();
+        }
+
+        {
+            let (_db, loaded_state) = testing_materializer_state_sqlite_db(
+                fs.path(),
+                HashMap::from([("version".to_owned(), "0".to_owned())]),
+            )
+            .await
+            .unwrap();
+            assert_matches!(
+                loaded_state,
+                Ok(v) => {
+                    assert_eq!(v, vec![(path.clone(), artifact_metadata.clone())]);
+                }
+            );
+        }
+
+        {
+            let (db, loaded_state) = testing_materializer_state_sqlite_db(
+                fs.path(),
+                HashMap::from([("version".to_owned(), "1".to_owned())]),
+            )
+            .await
+            .unwrap();
+            assert_matches!(
+                loaded_state,
+                Err(e) => {
+                    assert_matches!(
+                        e.downcast_ref::<MaterializerStateSqliteDbError>(),
+                        Some(MaterializerStateSqliteDbError::VersionMismatch {
+                            expected: _expected,
+                            found: _found,
+                            path: _path,
+                    }));
+                }
+            );
+
+            db.materializer_state_table()
+                .insert(path.clone(), artifact_metadata.clone())
+                .await
+                .unwrap();
+        }
+
+        {
+            let (_db, loaded_state) = testing_materializer_state_sqlite_db(
+                fs.path(),
+                HashMap::from([("version".to_owned(), "1".to_owned())]),
+            )
+            .await
+            .unwrap();
+            assert_matches!(
+                loaded_state,
+                Ok(v) => {
+                    assert_eq!(v, vec![(path, artifact_metadata)]);
+                }
+            );
+        }
+
+        Ok(())
     }
 }
