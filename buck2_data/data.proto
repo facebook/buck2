@@ -1061,6 +1061,8 @@ message InvocationRecord {
   // If any, the name of the RE experiment config that was used by the RE
   // client in this build.
   string re_experiment_name = 23;
+  // Minimum build count among the targets that were involved in the command
+  uint64 min_build_count_since_rebase = 24;
 }
 
 message CacheUploadStart {

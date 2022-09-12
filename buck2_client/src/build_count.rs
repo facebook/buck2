@@ -45,12 +45,10 @@ impl BuildCount {
 
 /// BuildCountManager keeps track of how many times each target has been built since rebase.
 /// This helps understand how much the performance differs between first and incremental builds.
-#[allow(unused)]
-pub(crate) struct BuildCountManager {
+pub struct BuildCountManager {
     base_dir: AbsPathBuf,
 }
 
-#[allow(unused)]
 impl BuildCountManager {
     const LOCK_FILE_NAME: &'static str = "build_count.lock";
     const LOCK_TIMEOUT: Duration = Duration::from_millis(2000);

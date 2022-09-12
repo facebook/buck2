@@ -22,6 +22,7 @@ mod imp {
     use std::time::Instant;
     use std::time::SystemTime;
 
+    use anyhow::Context;
     use async_trait::async_trait;
     use buck2_common::convert::ProstDurationExt;
     use buck2_events::sink::scribe::ThriftScribeSink;
@@ -33,6 +34,7 @@ mod imp {
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
 
+    use crate::build_count::BuildCountManager;
     use crate::cleanup_ctx::AsyncCleanupContext;
     use crate::subscribers::last_command_execution_kind;
     use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
@@ -42,6 +44,7 @@ mod imp {
         start_time: Instant,
         async_cleanup_context: AsyncCleanupContext,
         scribe: Arc<ThriftScribeSink>,
+        build_count_manager: BuildCountManager,
         trace_id: Option<TraceId>,
         command_start: Option<buck2_data::CommandStart>,
         command_end: Option<buck2_data::CommandEnd>,
@@ -57,6 +60,7 @@ mod imp {
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
         branched_from_revision: Option<String>,
+        min_build_count_since_rebase: u64,
     }
 
     impl InvocationRecorder {
@@ -64,12 +68,14 @@ mod imp {
             async_cleanup_context: AsyncCleanupContext,
             scribe: ThriftScribeSink,
             sanitized_argv: Vec<String>,
+            build_count_manager: BuildCountManager,
         ) -> Self {
             Self {
                 cli_args: sanitized_argv,
                 start_time: Instant::now(),
                 async_cleanup_context,
                 scribe: Arc::new(scribe),
+                build_count_manager,
                 trace_id: None,
                 command_start: None,
                 command_end: None,
@@ -85,6 +91,20 @@ mod imp {
                 first_snapshot: None,
                 last_snapshot: None,
                 branched_from_revision: None,
+                min_build_count_since_rebase: 0,
+            }
+        }
+
+        async fn build_count(
+            &mut self,
+            target_patterns: &[buck2_data::TargetPattern],
+        ) -> anyhow::Result<u64> {
+            if let Some(merge_base) = &self.branched_from_revision {
+                self.build_count_manager
+                    .min_build_count(merge_base, target_patterns)
+                    .await
+            } else {
+                Ok(0)
             }
         }
 
@@ -108,6 +128,7 @@ mod imp {
                     first_snapshot: self.first_snapshot.take(),
                     last_snapshot: self.last_snapshot.take(),
                     branched_from_revision: self.branched_from_revision.take().unwrap_or_default(),
+                    min_build_count_since_rebase: self.min_build_count_since_rebase,
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -176,6 +197,21 @@ mod imp {
             };
             self.command_duration = command_end.duration;
             self.command_end = Some(command.clone());
+            self.min_build_count_since_rebase =
+                match command.data.as_ref().context("Missing command data")? {
+                    buck2_data::command_end::Data::Build(cmd) => {
+                        self.build_count(&cmd.target_patterns).await?
+                    }
+                    buck2_data::command_end::Data::Test(cmd) => {
+                        self.build_count(&cmd.target_patterns).await?
+                    }
+                    buck2_data::command_end::Data::Install(cmd) => {
+                        self.build_count(&cmd.target_patterns).await?
+                    }
+                    // other events don't have target patterns
+                    _ => 0,
+                };
+
             Ok(())
         }
 
@@ -265,6 +301,9 @@ pub fn try_get_invocation_recorder(
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     use buck2_common::events;
+
+    use crate::build_count::BuildCountManager;
+
     if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
         let recorder = imp::InvocationRecorder::new(
             ctx.async_cleanup_context().dupe(),
@@ -274,6 +313,7 @@ pub fn try_get_invocation_recorder(
                 1,
             )?,
             sanitized_argv,
+            BuildCountManager::new(ctx.paths()?.build_count_dir()),
         );
         return Ok(Some(Box::new(recorder)));
     }

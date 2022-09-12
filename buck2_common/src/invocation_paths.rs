@@ -122,6 +122,11 @@ impl InvocationPaths {
             .join(ForwardRelativePath::unchecked_new("log"))
     }
 
+    pub fn build_count_dir(&self) -> AbsPathBuf {
+        self.buck_out_path()
+            .join(ForwardRelativePath::unchecked_new("build_count"))
+    }
+
     pub fn dice_dump_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
             .join(ForwardRelativePath::unchecked_new("dice_dump"))
