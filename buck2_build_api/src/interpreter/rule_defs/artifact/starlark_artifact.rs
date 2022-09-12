@@ -147,11 +147,6 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         }
     }
 
-    // All uses of this are to be migrated in upcoming changes
-    fn get_bound_deprecated(&self) -> anyhow::Result<Artifact> {
-        Ok(self.artifact.dupe())
-    }
-
     fn get_bound_artifact(&self) -> anyhow::Result<Artifact> {
         Ok(self.artifact.dupe())
     }
