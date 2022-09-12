@@ -494,14 +494,6 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
     }
 
     for to_be_copied in outputs_to_be_copied {
-        let convert_broken_pipe_error = |e: io::Error| -> anyhow::Error {
-            if e.kind() == io::ErrorKind::BrokenPipe {
-                anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
-            } else {
-                anyhow::Error::new(e).context("when writing build artifact to --out")
-            }
-        };
-
         if to_stdout {
             let mut file = tokio::fs::File::open(to_be_copied.from_path).await?;
             tokio::io::copy(&mut file, &mut tokio::io::stdout())
@@ -510,20 +502,7 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
         } else if to_be_copied.is_dir {
             copy_directory(&to_be_copied.from_path, out).await?;
         } else {
-            let dest_path = match out.is_dir() {
-                true => Cow::Owned(
-                    out.join(
-                        to_be_copied
-                            .from_path
-                            .file_name()
-                            .context("Failed getting output name")?,
-                    ),
-                ),
-                false => Cow::Borrowed(out),
-            };
-            tokio::fs::copy(to_be_copied.from_path, dest_path)
-                .await
-                .map_err(convert_broken_pipe_error)?;
+            copy_file(&to_be_copied.from_path, out).await?;
         }
     }
 
@@ -556,6 +535,40 @@ async fn copy_directory(src: &Path, dst: &Path) -> anyhow::Result<()> {
         .await?;
 
     Ok(())
+}
+
+async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
+    let dest_path = match dst.is_dir() {
+        true => Cow::Owned(dst.join(src.file_name().context("Failed getting output name")?)),
+        false => Cow::Borrowed(dst),
+    };
+
+    // NOTE: We don't do the overwrite since we might be writing to e.g. a pipe here and we can't
+    // do an atomic move into it.
+    match tokio::fs::copy(src, &dest_path).await {
+        Ok(..) => Ok(()),
+        Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) => {
+            let dir = dest_path.parent().context("Output path has no parent")?;
+            let mut tmp_name = dest_path
+                .file_name()
+                .context("Output path has no file name")?
+                .to_owned();
+            tmp_name.push(".buck2.tmp");
+            let tmp_path = dir.join(tmp_name);
+            tokio::fs::copy(src, &tmp_path).await?;
+            tokio::fs::rename(&tmp_path, dest_path).await?;
+            Ok(())
+        }
+        Err(e) => Err(convert_broken_pipe_error(e)),
+    }
+}
+
+fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
+    if e.kind() == io::ErrorKind::BrokenPipe {
+        anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
+    } else {
+        anyhow::Error::new(e).context("when writing build artifact to --out")
+    }
 }
 
 #[cfg(test)]
@@ -637,5 +650,31 @@ mod test {
         );
 
         Ok(())
+    }
+
+    #[cfg(unix)]
+    mod unix {
+        use tokio::process::Command;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn test_copy_file() -> anyhow::Result<()> {
+            let dir = tempfile::tempdir()?;
+            let out = dir.path().join("sleep");
+
+            copy_file(Path::new("/bin/sleep"), &out).await?;
+
+            let _proc = Command::new(&out)
+                .arg("infinity")
+                .kill_on_drop(true)
+                .spawn()
+                .context("Error spawning")?;
+
+            // This will fail if we don't handle ETXTBSY.
+            copy_file(Path::new("/bin/sleep"), &out).await?;
+
+            Ok(())
+        }
     }
 }

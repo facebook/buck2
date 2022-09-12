@@ -1041,6 +1041,14 @@ async def test_out_single_default_output(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="out")
+async def test_out_overwrite(buck: Buck) -> None:
+    with tempfile.TemporaryDirectory() as out:
+        output = os.path.join(out, "output")
+        await buck.build("//:a", "--out", output)
+        await buck.build("//:a", "--out", output)
+
+
+@buck_test(inplace=False, data_dir="out")
 async def test_out_single_default_output_to_dir(buck: Buck) -> None:
     with tempfile.TemporaryDirectory() as out:
         await buck.build("//:a", "--out", out)
