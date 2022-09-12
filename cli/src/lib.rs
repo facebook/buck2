@@ -57,6 +57,7 @@ use buck2_client::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots;
 use buck2_common::result::ToSharedResultExt;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::FileNameBuf;
 use clap::AppSettings;
 use clap::Parser;
@@ -147,7 +148,13 @@ pub fn exec(
     init: fbinit::FacebookInit,
     replay: Option<(ProcessContext, Replayer)>,
 ) -> ExitResult {
-    let expanded_args = expand_argfiles(args, &cwd).context("Error expanding argsfiles")?;
+    let mut expanded_args = expand_argfiles(args, &cwd).context("Error expanding argsfiles")?;
+
+    // Override arg0 in `buck2 help`.
+    static BUCK2_ARG0: EnvHelper<String> = EnvHelper::new("BUCK2_ARG0");
+    if let Some(arg0) = BUCK2_ARG0.get()? {
+        expanded_args[0] = arg0.clone();
+    }
 
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
