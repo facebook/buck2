@@ -453,6 +453,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
     fn project_as_json<'v>(
         this: Value<'v>,
         projection: &str,
+        #[starlark(require = named, default = "preorder")] ordering: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let set = TransitiveSet::from_value(this).context("Invalid this")?;
@@ -467,12 +468,14 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(TransitiveSetJsonProjection {
             transitive_set: this,
             projection: index,
+            ordering: TransitiveSetOrdering::parse(ordering)?,
         }))
     }
 
     fn project_as_args<'v>(
         this: Value<'v>,
         projection: &str,
+        #[starlark(require = named, default = "preorder")] ordering: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let set = TransitiveSet::from_value(this).context("Invalid this")?;
@@ -487,6 +490,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(TransitiveSetArgsProjection {
             transitive_set: this,
             projection: index,
+            ordering: TransitiveSetOrdering::parse(ordering)?,
         }))
     }
 

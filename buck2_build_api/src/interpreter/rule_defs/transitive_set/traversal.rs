@@ -100,6 +100,7 @@ where
 pub struct TransitiveSetProjectionTraversalGen<V> {
     pub(super) transitive_set: V,
     pub projection: usize,
+    pub ordering: TransitiveSetOrdering,
 }
 
 starlark_complex_value!(pub TransitiveSetProjectionTraversal);
@@ -119,6 +120,6 @@ where
     {
         let set =
             TransitiveSet::from_value(self.transitive_set.to_value()).context("Invalid inner")?;
-        set.iter_projection_values(TransitiveSetOrdering::Preorder, self.projection)
+        set.iter_projection_values(self.ordering, self.projection)
     }
 }

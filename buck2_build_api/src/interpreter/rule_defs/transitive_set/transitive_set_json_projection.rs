@@ -48,6 +48,9 @@ pub struct TransitiveSetJsonProjectionGen<V> {
     /// The index of the projection. Once transitive sets are defined, their projections never
     /// change, so we can afford to just store the index here.
     pub projection: usize,
+
+    /// The ordering to use when traversing the projection.
+    pub ordering: TransitiveSetOrdering,
 }
 
 impl<'v, V: ValueLike<'v>> Display for TransitiveSetJsonProjectionGen<V> {
@@ -90,7 +93,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
     {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;
-        set.iter_projection_values(TransitiveSetOrdering::Preorder, self.projection)
+        set.iter_projection_values(self.ordering, self.projection)
     }
 }
 
@@ -115,6 +118,7 @@ fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
             transitive_set: projection.transitive_set,
             projection: projection.projection,
+            ordering: projection.ordering,
         }))
     }
 }

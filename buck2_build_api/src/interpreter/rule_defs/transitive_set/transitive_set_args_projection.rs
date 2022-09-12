@@ -55,6 +55,9 @@ pub struct TransitiveSetArgsProjectionGen<V> {
     /// The index of the projection. Once transitive sets are defined, their projections never
     /// change, so we can afford to just store the index here.
     pub projection: usize,
+
+    /// The ordering to use when traversing the projection.
+    pub ordering: TransitiveSetOrdering,
 }
 
 impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
@@ -181,7 +184,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;
 
-        for node in set.iter(TransitiveSetOrdering::Preorder).values() {
+        for node in set.iter(self.ordering).values() {
             let projection = node
                 .projections
                 .get(self.projection)
@@ -233,6 +236,7 @@ fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
             transitive_set: projection.transitive_set,
             projection: projection.projection,
+            ordering: projection.ordering,
         }))
     }
 }

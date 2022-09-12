@@ -415,6 +415,10 @@ fn test_projection_iteration() -> anyhow::Result<()> {
         command_line_stringifier(builder);
     });
 
+    /*
+     *  1 -> 2 -> 3
+     *   \--------^
+     */
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def project(value):
@@ -425,15 +429,25 @@ fn test_projection_iteration() -> anyhow::Result<()> {
         })
 
         def test():
-            f2 = make_tset(FooSet, value = "bar")
-            f1 = make_tset(FooSet, value = "foo", children = [f2])
-            proj = f1.project_as_args("project")
+            f3 = make_tset(FooSet, value = "baz")
+            f2 = make_tset(FooSet, value = "bar", children = [f3])
+            f1 = make_tset(FooSet, value = "foo", children = [f3, f2])
 
+            proj = f1.project_as_args("project")
             l = list(proj.traverse())
 
-            assert_eq(2, len(l))
+            assert_eq(3, len(l))
             assert_eq(["foo"], get_args(l[0]))
-            assert_eq(["bar"], get_args(l[1]))
+            assert_eq(["baz"], get_args(l[1]))
+            assert_eq(["bar"], get_args(l[2]))
+
+            proj2 = f1.project_as_args("project", ordering = "topological")
+            l2 = list(proj2.traverse())
+
+            assert_eq(3, len(l))
+            assert_eq(["foo"], get_args(l2[0]))
+            assert_eq(["bar"], get_args(l2[1]))
+            assert_eq(["baz"], get_args(l2[2]))
         "#
     ))?;
 
@@ -448,6 +462,10 @@ fn test_json_projection() -> anyhow::Result<()> {
         command_line_stringifier(builder);
     });
 
+    /*
+     *  1 -> 2 -> 3
+     *   \--------^
+     */
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def project(value):
@@ -458,15 +476,25 @@ fn test_json_projection() -> anyhow::Result<()> {
         })
 
         def test():
-            f2 = make_tset(FooSet, value = "bar")
-            f1 = make_tset(FooSet, value = "foo", children = [f2])
-            proj = f1.project_as_json("project")
+            f3 = make_tset(FooSet, value = "baz")
+            f2 = make_tset(FooSet, value = "bar", children = [f3])
+            f1 = make_tset(FooSet, value = "foo", children = [f3, f2])
 
+            proj = f1.project_as_json("project")
             l = list(proj.traverse())
 
-            assert_eq(2, len(l))
+            assert_eq(3, len(l))
             assert_eq(struct(value="foo"), l[0])
-            assert_eq(struct(value="bar"), l[1])
+            assert_eq(struct(value="baz"), l[1])
+            assert_eq(struct(value="bar"), l[2])
+
+            proj2 = f1.project_as_json("project", ordering = "topological")
+            l2 = list(proj2.traverse())
+
+            assert_eq(3, len(l2))
+            assert_eq(struct(value="foo"), l2[0])
+            assert_eq(struct(value="bar"), l2[1])
+            assert_eq(struct(value="baz"), l2[2])
         "#
     ))?;
 
