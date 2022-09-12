@@ -36,7 +36,7 @@ _META_XCODE_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-xcode-macos")
 _GENERIC_USAGE_TYPE = AppleToolchainUsageType("generic")
 _RESOURCES_USAGE_TYPE = AppleToolchainUsageType("resources")
 
-_DEFAULT_XCODE_VERSION = "13.4"
+_DEFAULT_XCODE_VERSION = "14.0"
 
 def get_apple_cxx_select_map():
     return _get_apple_select_map(include_default = False, rule_type = _CXX_TOOLCHAIN_RULE_TYPE, usage_type = _GENERIC_USAGE_TYPE)
