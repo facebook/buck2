@@ -81,3 +81,8 @@ if rust_linux_only():
         msgs = [m.strip() for m in result.stdout.split("\n")]
         msgs = [m for m in msgs if m]
         assert msgs == ["Hello from C: 42!"]
+
+
+@buck_test(inplace=True)
+async def test_input(buck: Buck):
+    await buck.run("fbcode//buck2/tests/targets/run:expect", input=b"test")
