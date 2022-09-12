@@ -230,6 +230,11 @@ fn test_transitive_sets_iteration() -> anyhow::Result<()> {
     let mut tester = Tester::new()?;
     tester.set_additional_globals(tset_factory);
 
+    /* Validate on a simple tree which validates transitive links:
+     *
+     *  4 -> 3 -> 2 -> 1
+     *        \--------^
+     */
     tester.run_starlark_bzl_test(indoc!(
         r#"
         FooSet = transitive_set()
@@ -241,6 +246,39 @@ fn test_transitive_sets_iteration() -> anyhow::Result<()> {
             f4 = make_tset(FooSet, children = [f3])
 
             assert_eq([3, 1, 2], list(f4.traverse()))
+            assert_eq([3, 1, 2], list(f4.traverse(ordering = "preorder")))
+        "#
+    ))?;
+
+    /* Validate on a more complex tree with:
+     * - More than 2 children per node.
+     * - Nodes that depend on lower levels of the tree.
+     * - Nodes that depend on siblings.
+     *
+     *      ┌─────┬─9─┬───┐
+     *      │     │   │   │
+     *    ┌─5─┐ ┌─6─┐ 7◄──8
+     *    │   │ │   │     │
+     *    │   2 │   3     4
+     *    1◄────┘
+     */
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        FooSet = transitive_set()
+
+        def test():
+            f1 = make_tset(FooSet, value = 1)
+            f2 = make_tset(FooSet, value = 2)
+            f3 = make_tset(FooSet, value = 3)
+            f4 = make_tset(FooSet, value = 4)
+            f5 = make_tset(FooSet, value = 5, children = [f1, f2])
+            f6 = make_tset(FooSet, value = 6, children = [f1, f3])
+            f7 = make_tset(FooSet, value = 7)
+            f8 = make_tset(FooSet, value = 8, children = [f4, f7])
+            f9 = make_tset(FooSet, value = 9, children = [f5, f6, f7, f8])
+
+            assert_eq([9, 5, 1, 2, 6, 3, 7, 8, 4], list(f9.traverse()))
+            assert_eq([9, 5, 1, 2, 6, 3, 7, 8, 4], list(f9.traverse(ordering = "preorder")))
         "#
     ))?;
 

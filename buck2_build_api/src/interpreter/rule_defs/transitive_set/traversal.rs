@@ -11,6 +11,7 @@ use anyhow::Context as _;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
+use gazebo::dupe::Dupe;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -20,6 +21,27 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
+
+#[derive(Debug, Clone, Dupe, Copy, Trace, Freeze, PartialEq)]
+pub enum TransitiveSetOrdering {
+    /// Preorder traversal, a good default behavior which traverses depth-first returning the current node, and then its children left-to-right.
+    Preorder,
+}
+
+impl TransitiveSetOrdering {
+    pub fn parse(s: &str) -> anyhow::Result<TransitiveSetOrdering> {
+        // NOTE: If this list is updated, update the OrderingUnexpectedValue error text.
+        match s {
+            "preorder" => Ok(Self::Preorder),
+            _ => Err(anyhow::anyhow!(
+                TransitiveSetError::OrderingUnexpectedValue {
+                    ordering: s.to_owned()
+                }
+            )),
+        }
+    }
+}
 
 #[derive(
     Debug,
@@ -35,6 +57,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 #[repr(C)]
 pub struct TransitiveSetTraversalGen<V> {
     pub(super) inner: V,
+    pub ordering: TransitiveSetOrdering,
 }
 
 starlark_complex_value!(pub TransitiveSetTraversal);
@@ -53,7 +76,7 @@ where
         'v: 'a,
     {
         let tset = TransitiveSet::from_value(self.inner.to_value()).context("Invalid inner")?;
-        tset.iter_values()
+        tset.iter_values(self.ordering)
     }
 }
 
@@ -93,6 +116,6 @@ where
     {
         let set =
             TransitiveSet::from_value(self.transitive_set.to_value()).context("Invalid inner")?;
-        set.iter_projection_values(self.projection)
+        set.iter_projection_values(TransitiveSetOrdering::Preorder, self.projection)
     }
 }

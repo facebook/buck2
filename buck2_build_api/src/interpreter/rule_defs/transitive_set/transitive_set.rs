@@ -41,10 +41,12 @@ use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetProjectionKind;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
+use crate::interpreter::rule_defs::transitive_set::PreorderTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorGen;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 
 #[derive(Debug, Clone, Trace, ProvidesStaticType)]
@@ -209,28 +211,40 @@ where
     V: ValueLike<'v>,
     TransitiveSetGen<V>: StarlarkValue<'v> + TransitiveSetLike<'v>,
 {
-    pub fn iter<'a>(&'a self) -> TransitiveSetIteratorGen<'a, 'v, V>
+    pub fn iter<'a>(
+        &'a self,
+        ordering: TransitiveSetOrdering,
+    ) -> Box<dyn TransitiveSetIteratorLike<'a, 'v, V> + 'a>
     where
         'v: 'a,
     {
-        TransitiveSetIteratorGen::new(self)
+        match ordering {
+            TransitiveSetOrdering::Preorder => box PreorderTransitiveSetIteratorGen::new(self),
+        }
     }
 
-    pub fn iter_values<'a>(&'a self) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    pub fn iter_values<'a>(
+        &'a self,
+        ordering: TransitiveSetOrdering,
+    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
     where
         'v: 'a,
     {
-        Ok(box self.iter().values().map(|node| node.value.to_value()))
+        Ok(box self
+            .iter(ordering)
+            .values()
+            .map(|node| node.value.to_value()))
     }
 
     pub(super) fn iter_projection_values<'a>(
         &'a self,
+        ordering: TransitiveSetOrdering,
         projection: usize,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
     where
         'v: 'a,
     {
-        let mut iter = self.iter().values().peekable();
+        let mut iter = self.iter(ordering).values().peekable();
 
         // Defensively, check the projection is valid. We know the set has the same definition
         // throughout so it'll be safe (enough) to unwrap if it is valid on the first one.
@@ -500,7 +514,14 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .with_context(|| format!("Missing reduction {}", index))
     }
 
-    fn traverse<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(TransitiveSetTraversal { inner: this }))
+    fn traverse<'v>(
+        this: Value<'v>,
+        heap: &'v Heap,
+        #[starlark(require = named, default = "preorder")] ordering: &str,
+    ) -> anyhow::Result<Value<'v>> {
+        Ok(heap.alloc(TransitiveSetTraversal {
+            inner: this,
+            ordering: TransitiveSetOrdering::parse(ordering)?,
+        }))
     }
 }

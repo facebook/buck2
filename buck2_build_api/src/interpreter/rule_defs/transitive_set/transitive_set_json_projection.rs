@@ -30,6 +30,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
@@ -89,7 +90,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
     {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;
-        set.iter_projection_values(self.projection)
+        set.iter_projection_values(TransitiveSetOrdering::Preorder, self.projection)
     }
 }
 

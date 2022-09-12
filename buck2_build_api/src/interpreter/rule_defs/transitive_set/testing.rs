@@ -31,6 +31,7 @@ use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredKey;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
@@ -96,7 +97,10 @@ fn test_new_transitive_set() -> anyhow::Result<()> {
         "#
     ))?;
 
-    assert_eq!(set.as_ref().iter().count(), 2);
+    assert_eq!(
+        set.as_ref().iter(TransitiveSetOrdering::Preorder).count(),
+        2
+    );
 
     Ok(())
 }

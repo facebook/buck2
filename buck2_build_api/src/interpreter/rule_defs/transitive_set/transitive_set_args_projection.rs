@@ -37,6 +37,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
@@ -180,7 +181,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;
 
-        for node in set.iter().values() {
+        for node in set.iter(TransitiveSetOrdering::Preorder).values() {
             let projection = node
                 .projections
                 .get(self.projection)

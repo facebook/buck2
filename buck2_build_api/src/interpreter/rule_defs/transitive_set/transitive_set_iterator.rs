@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 
 use anyhow::Context as _;
+use starlark::values::Value;
 use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
 
@@ -17,13 +18,38 @@ use crate::interpreter::rule_defs::transitive_set::transitive_set::NodeGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetLike;
 
+pub trait TransitiveSetIteratorLike<'a, 'v, V>: Iterator<Item = &'a TransitiveSetGen<V>>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    fn values(self: Box<Self>) -> TransitiveSetValuesIteratorGen<'a, 'v, V>;
+}
+
+fn assert_transitive_set<'v, V>(child: Value<'v>) -> &'v TransitiveSetGen<V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+{
+    TransitiveSetLike::from_value(child)
+        .with_context(|| {
+            format!(
+                "Invalid set: expected {:?}, got: {:?}",
+                std::any::type_name::<V>(),
+                child
+            )
+        })
+        .unwrap()
+}
+
 /// A DFS, left-to-right iterator over a TransitiveSet.
-pub struct TransitiveSetIteratorGen<'a, 'v, V> {
-    queue: Vec<&'a TransitiveSetGen<V>>,
+pub struct PreorderTransitiveSetIteratorGen<'a, 'v, V> {
+    stack: Vec<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>>,
 }
 
-impl<'a, 'v, V> TransitiveSetIteratorGen<'a, 'v, V>
+impl<'a, 'v, V> PreorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
     TransitiveSetGen<V>: TransitiveSetLike<'v>,
@@ -31,40 +57,37 @@ where
 {
     pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
         Self {
-            queue: vec![set],
+            stack: vec![set],
             seen: HashSet::new(),
         }
     }
 
-    pub fn enqueue_children(&mut self, children: &'a [V]) {
+    fn enqueue_children(&mut self, children: &'a [V]) {
         for child in children.iter().rev() {
             let child = child.to_value();
 
             if self.seen.insert(child.identity()) {
-                let next: &TransitiveSetGen<V> = TransitiveSetLike::from_value(child)
-                    .with_context(|| {
-                        format!(
-                            "Invalid set: expected {:?}, got: {:?}",
-                            std::any::type_name::<V>(),
-                            child
-                        )
-                    })
-                    .unwrap();
-
-                self.queue.push(next);
+                self.stack.push(assert_transitive_set(child));
             }
         }
     }
+}
 
-    pub fn values(self) -> TransitiveSetValuesIteratorGen<'a, 'v, V> {
+impl<'a, 'v, V> TransitiveSetIteratorLike<'a, 'v, V> for PreorderTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    fn values(self: Box<Self>) -> TransitiveSetValuesIteratorGen<'a, 'v, V> {
         TransitiveSetValuesIteratorGen { inner: self }
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FiterMap, but defined as its own type
+/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
 /// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
 /// here.
-impl<'a, 'v, V> Iterator for TransitiveSetIteratorGen<'a, 'v, V>
+impl<'a, 'v, V> Iterator for PreorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
     TransitiveSetGen<V>: TransitiveSetLike<'v>,
@@ -73,14 +96,14 @@ where
     type Item = &'a TransitiveSetGen<V>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.queue.pop()?;
+        let next = self.stack.pop()?;
         self.enqueue_children(&next.children);
         Some(next)
     }
 }
 
 pub struct TransitiveSetValuesIteratorGen<'a, 'v, V> {
-    inner: TransitiveSetIteratorGen<'a, 'v, V>,
+    inner: Box<dyn TransitiveSetIteratorLike<'a, 'v, V> + 'a>,
 }
 
 impl<'a, 'v, V> Iterator for TransitiveSetValuesIteratorGen<'a, 'v, V>

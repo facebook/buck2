@@ -36,9 +36,11 @@ pub use self::transitive_set_definition::TransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetOperations;
 pub use self::transitive_set_definition::TransitiveSetProjectionKind;
 pub use self::transitive_set_definition::TransitiveSetProjectionSpec;
-use self::transitive_set_iterator::TransitiveSetIteratorGen;
+use self::transitive_set_iterator::PreorderTransitiveSetIteratorGen;
+use self::transitive_set_iterator::TransitiveSetIteratorLike;
 pub use self::transitive_set_json_projection::FrozenTransitiveSetJsonProjection;
 pub use self::transitive_set_json_projection::TransitiveSetJsonProjection;
+pub use self::traversal::TransitiveSetOrdering;
 
 #[derive(Debug, Error)]
 pub enum TransitiveSetError {
@@ -124,4 +126,7 @@ pub enum TransitiveSetError {
         reduction: String,
         valid_reductions: Vec<String>,
     },
+
+    #[error("Expected ordering be `preorder` but got `{0}`", .ordering)]
+    OrderingUnexpectedValue { ordering: String },
 }

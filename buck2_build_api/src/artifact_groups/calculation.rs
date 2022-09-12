@@ -322,6 +322,7 @@ mod tests {
     use crate::deferred::types::AnyValue;
     use crate::interpreter::rule_defs::transitive_set::testing;
     use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+    use crate::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 
     fn mock_deferred_tset(dice_builder: DiceBuilder, value: OwnedFrozenValue) -> DiceBuilder {
         let tset = TransitiveSet::from_value(value.value()).unwrap();
@@ -403,7 +404,7 @@ mod tests {
 
         // This is kinda clowny, but we can't upcast the TransitiveSetGen back to a Value so we
         // have to access Values from their parents.
-        for set in set.as_ref().iter() {
+        for set in set.as_ref().iter(TransitiveSetOrdering::Preorder) {
             for child in set.children.iter() {
                 // Safety: We know the entire set came from the same heap.
                 let child = unsafe { OwnedFrozenValue::new(heap.dupe(), *child) };
