@@ -25,6 +25,7 @@ load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
 # Haskell
 load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
+load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 
 # Http archive
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
@@ -129,6 +130,7 @@ implemented_rules = struct(
     #haskell
     haskell_library = haskell_library_impl,
     haskell_binary = haskell_binary_impl,
+    haskell_ghci = haskell_ghci_impl,
     haskell_prebuilt_library = haskell_prebuilt_library_impl,
 
     #lua
