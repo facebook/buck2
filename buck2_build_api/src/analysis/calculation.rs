@@ -209,6 +209,25 @@ async fn resolve_queries_impl(
     Ok(all_query_results)
 }
 
+pub async fn get_dep_analysis<'v>(
+    configured_node: &'v ConfiguredTargetNode,
+    ctx: &DiceComputations,
+) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
+    Ok(keep_going::try_join_all(
+        configured_node
+            .deps()
+            .map(async move |dep| {
+                let res = ctx
+                    .get_analysis_result(dep.name())
+                    .await
+                    .and_then(|v| v.require_compatible().shared_error());
+                res.map(|x| (dep.name(), x))
+            })
+            .collect::<FuturesUnordered<_>>(),
+    )
+    .await?)
+}
+
 async fn get_analysis_result(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
@@ -221,19 +240,7 @@ async fn get_analysis_result(
         MaybeCompatible::Compatible(configured_node) => configured_node,
     };
 
-    let mut dep_analysis = keep_going::try_join_all(
-        configured_node
-            .deps()
-            .map(async move |dep| {
-                let res = ctx
-                    .get_analysis_result(dep.name())
-                    .await
-                    .and_then(|v| v.require_compatible().shared_error());
-                res.map(|x| (dep.name(), x))
-            })
-            .collect::<FuturesUnordered<_>>(),
-    )
-    .await?;
+    let mut dep_analysis = get_dep_analysis(&configured_node, ctx).await?;
 
     let func = configured_node.rule_type();
     match func {

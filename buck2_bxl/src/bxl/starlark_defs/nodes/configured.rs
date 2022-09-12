@@ -12,6 +12,11 @@ use std::path::Path;
 
 use anyhow::Context;
 use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::analysis::calculation::get_dep_analysis;
+use buck2_build_api::analysis::calculation::resolve_queries;
+use buck2_build_api::analysis::get_deps_from_analysis_results;
+use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::RuleAnalysisAttrResolutionContext;
 use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
@@ -21,6 +26,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -34,6 +40,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
@@ -98,6 +105,40 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         }
 
         Ok(heap.alloc(Struct::new(attrs)))
+    }
+
+    fn resolved_attrs<'v>(
+        this: &'v StarlarkConfiguredTargetNode,
+        ctx: &'v BxlContext<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let configured_node = &this.0;
+
+        let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
+            .async_ctx
+            .via_dice(|dice_ctx| async move { get_dep_analysis(configured_node, dice_ctx).await });
+
+        let query_results = ctx
+            .async_ctx
+            .via_dice(|dice_ctx| async move { resolve_queries(dice_ctx, configured_node).await })?;
+
+        let resolution_ctx = RuleAnalysisAttrResolutionContext {
+            module: eval.module(),
+            dep_analysis_results: get_deps_from_analysis_results(dep_analysis?)?,
+            query_results,
+        };
+
+        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let mut resolved_attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+
+        for (name, attr) in attrs_iter {
+            resolved_attrs.insert(
+                eval.heap().alloc_str(name),
+                attr.resolve_single(&resolution_ctx)?,
+            );
+        }
+
+        Ok(eval.heap().alloc(Struct::new(resolved_attrs)))
     }
 
     /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including

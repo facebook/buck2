@@ -540,6 +540,47 @@ async def test_node_attrs(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_resolved_node_attrs(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:resolved_node_attributes.bxl:resolved_attrs_test",
+    )
+
+    outputs = json.loads(result.stdout)
+
+    assert outputs["name"] == "the_binary"
+    assert outputs["cmd"] == '["RunInfo(args=cmd_args())", "$(location ...)"]'
+    assert (
+        outputs["default_target_platform_label"]
+        == "root//platforms:platform1 (root//platforms:platform1)"
+    )
+    assert (
+        outputs["default_target_platform_providers"]
+        == '[DefaultInfo(sub_targets={}, default_outputs=[], other_outputs=[]), PlatformInfo(label="root//platforms:platform1", configuration=ConfigurationInfo(constraints={}, values={}))]'
+    )
+    assert (
+        outputs["foo_toolchain_label"]
+        == "root//:foo_toolchain (root//platforms:platform1)"
+    )
+    assert (
+        outputs["foo_toolchain_providers"]
+        == '[DefaultInfo(sub_targets={}, default_outputs=[], other_outputs=[]), RunInfo(args=cmd_args()), FooInfo(foo="foo_toolchain_foo")]'
+    )
+    assert outputs["src"] == "<source bin/TARGETS.fixture>"
+    assert (
+        outputs["deps"]["root//lib:lib1 (root//platforms:platform1)"]
+        == '[DefaultInfo(sub_targets={}, default_outputs=[], other_outputs=[]), FooInfo(foo="lib1_foo")]'
+    )
+    assert (
+        outputs["deps"]["root//lib:lib2 (root//platforms:platform1)"]
+        == '[DefaultInfo(sub_targets={}, default_outputs=[], other_outputs=[]), FooInfo(foo="lib2_foo")]'
+    )
+    assert (
+        outputs["deps"]["root//lib:lib3 (root//platforms:platform1)"]
+        == '[DefaultInfo(sub_targets={}, default_outputs=[], other_outputs=[]), FooInfo(foo="lib3_foo")]'
+    )
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl_fs_exists(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:fs.bxl:exists_relative_path",

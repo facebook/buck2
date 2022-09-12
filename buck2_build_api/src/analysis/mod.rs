@@ -107,10 +107,10 @@ impl AnalysisResult {
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
-struct RuleAnalysisAttrResolutionContext<'v> {
-    module: &'v Module,
-    dep_analysis_results: HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
-    query_results: HashMap<String, Arc<AnalysisQueryResult>>,
+pub struct RuleAnalysisAttrResolutionContext<'v> {
+    pub module: &'v Module,
+    pub dep_analysis_results: HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    pub query_results: HashMap<String, Arc<AnalysisQueryResult>>,
 }
 
 impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
@@ -210,22 +210,25 @@ impl<'a> AnalysisEnv<'a> {
         execution_platform: &'a ExecutionPlatformResolution,
         impl_function: &'a dyn RuleImplFunction,
     ) -> anyhow::Result<Self> {
-        let deps =
-            results
-                .into_iter()
-                .map(|(label, result)| Ok((label, result.providers().dupe())))
-                .collect::<anyhow::Result<
-                    HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
-                >>()?;
-
         Ok(AnalysisEnv {
             impl_function,
-            deps,
+            deps: get_deps_from_analysis_results(results)?,
             query_results,
             execution_platform,
             label: label.dupe(),
         })
     }
+}
+
+pub fn get_deps_from_analysis_results<'a>(
+    results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
+) -> anyhow::Result<HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
+    results
+        .into_iter()
+        .map(|(label, result)| Ok((label, result.providers().dupe())))
+        .collect::<anyhow::Result<
+            HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+        >>()
 }
 
 fn run_analysis_with_env(
