@@ -287,25 +287,25 @@ fn create_unhashed_outputs(
     // The following IndexMap will contain a key of the unhashed/symlink path and values of all the hashed locations that map to the unhashed location.
     let mut unhashed_to_hashed: IndexMap<AbsPathBuf, HashSet<AbsPathBuf>> = IndexMap::new();
     for provider_artifact in provider_artifacts {
+        if !matches!(provider_artifact.provider_type, BuildProviderType::Default) {
+            continue;
+        }
+
         match provider_artifact.values.iter().exactly_one() {
-            Ok((artifact, _)) => match provider_artifact.provider_type {
-                BuildProviderType::Default => match artifact.as_parts().0 {
-                    BaseArtifactKind::Build(build) => {
-                        let unhashed_path =
-                            artifact_fs.retrieve_unhashed_location(build.get_path());
-                        let path = artifact_fs.resolve(artifact.get_path())?;
-                        let abs_unhashed_path = fs.resolve(&unhashed_path);
-                        let entry = unhashed_to_hashed
-                            .entry(abs_unhashed_path)
-                            .or_insert_with(HashSet::new);
-                        entry.insert(fs.resolve(&path));
-                    }
-                    _ => {}
-                },
+            Ok((artifact, _)) => match artifact.as_parts().0 {
+                BaseArtifactKind::Build(build) => {
+                    let unhashed_path = artifact_fs.retrieve_unhashed_location(build.get_path());
+                    let path = artifact_fs.resolve(artifact.get_path())?;
+                    let abs_unhashed_path = fs.resolve(&unhashed_path);
+                    let entry = unhashed_to_hashed
+                        .entry(abs_unhashed_path)
+                        .or_insert_with(HashSet::new);
+                    entry.insert(fs.resolve(&path));
+                }
                 _ => {}
             },
             Err(_) => {}
-        }
+        };
     }
     // The IndexMap is used now to determine if and what conflicts exist where multiple hashed artifact locations
     // all want a symlink to the same unhashed artifact location and deal with them accordingly.
