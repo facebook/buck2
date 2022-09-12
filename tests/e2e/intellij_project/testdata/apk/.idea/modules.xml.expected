@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib.iml" filepath="$PROJECT_DIR$/.idea/modules/fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/fbandroid_buck2_tests_good_sample_intellij_project_android_main.iml" filepath="$PROJECT_DIR$/.idea/modules/fbandroid_buck2_tests_good_sample_intellij_project_android_main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/fbandroid_buck2_tests_good_sample_intellij_project_apk.iml" filepath="$PROJECT_DIR$/.idea/modules/fbandroid_buck2_tests_good_sample_intellij_project_apk.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/project_root.iml" filepath="$PROJECT_DIR$/.idea/modules/project_root.iml" />
     </modules>
   </component>
