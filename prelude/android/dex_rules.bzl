@@ -1,9 +1,10 @@
-load("@prelude//android:android_providers.bzl", "DexFilesInfo")
-load("@prelude//android:voltron.bzl", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
+load("@prelude//android:android_providers.bzl", "DexFilesInfo", "ExopackageDexInfo")
+load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
 load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//utils:utils.bzl", "expect", "flatten")
+load("@prelude//paths.bzl", "paths")
 
 # Android builds use a tool called `d8` to compile Java bytecode is DEX (Dalvik EXecutable)
 # bytecode that runs on Android devices. Our Android builds have two distinct ways of
@@ -85,6 +86,10 @@ def get_single_primary_dex(
         android_toolchain: "AndroidToolchainInfo",
         java_library_jars: ["artifact"],
         is_optimized: bool.type) -> "DexFilesInfo":
+    expect(
+        not _is_exopackage_enabled_for_secondary_dex(ctx),
+        "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
+    )
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
 
     output_dex_file = ctx.actions.declare_output("classes.dex")
@@ -103,6 +108,7 @@ def get_single_primary_dex(
     return DexFilesInfo(
         primary_dex = output_dex_file,
         secondary_dex_dirs = [],
+        secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
     )
 
@@ -115,6 +121,10 @@ def get_multi_dex(
         proguard_mapping_output_file: ["artifact", None],
         is_optimized: bool.type,
         apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
+    expect(
+        not _is_exopackage_enabled_for_secondary_dex(ctx),
+        "secondary dex exopackage can only be enabled on pre-dexed builds!",
+    )
     primary_dex_file = ctx.actions.declare_output("classes.dex")
     root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir")
     secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir")
@@ -176,6 +186,7 @@ def get_multi_dex(
     return DexFilesInfo(
         primary_dex = primary_dex_file,
         secondary_dex_dirs = [root_module_secondary_dex_output_dir, secondary_dex_dir],
+        secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
     )
 
@@ -183,6 +194,10 @@ def merge_to_single_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
         pre_dexed_libs: ["DexLibraryInfo"]) -> "DexFilesInfo":
+    expect(
+        not _is_exopackage_enabled_for_secondary_dex(ctx),
+        "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
+    )
     output_dex_file = ctx.actions.declare_output("classes.dex")
     pre_dexed_artifacts_to_dex_file = ctx.actions.declare_output("pre_dexed_artifacts_to_dex_file.txt")
     pre_dexed_artifacts = [pre_dexed_lib.dex for pre_dexed_lib in pre_dexed_libs if pre_dexed_lib.dex != None]
@@ -191,6 +206,7 @@ def merge_to_single_dex(
     return DexFilesInfo(
         primary_dex = output_dex_file,
         secondary_dex_dirs = [],
+        secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
     )
 
@@ -299,6 +315,12 @@ def merge_to_split_dex(
         pre_dexed_libs: ["DexLibraryInfo"],
         split_dex_merge_config: "SplitDexMergeConfig",
         apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
+    is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
+    if is_exopackage_enabled_for_secondary_dex:
+        expect(
+            split_dex_merge_config.dex_compression == "jar",
+            "Exopackage can only be enabled for secondary dexes when the dex compression is 'jar', but the dex compression is '{}'".format(split_dex_merge_config.dex_compression),
+        )
     primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns)
 
     pre_dexed_lib_with_class_names_files = []
@@ -324,6 +346,8 @@ def merge_to_split_dex(
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
     root_module_secondary_dexes_dir = ctx.actions.declare_output("root_module_secondary_dexes_dir")
+    root_module_secondary_dexes_subdir = root_module_secondary_dexes_dir.project(_get_secondary_dex_subdir(ROOT_MODULE))
+    root_module_secondary_dexes_metadata = root_module_secondary_dexes_dir.project(paths.join(_get_secondary_dex_subdir(ROOT_MODULE), "metadata.txt"))
     non_root_module_secondary_dexes_dir = ctx.actions.declare_output("non_root_module_secondary_dexes_dir")
 
     outputs = [primary_dex_output, primary_dex_artifact_list, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
@@ -454,9 +478,20 @@ def merge_to_split_dex(
 
     ctx.actions.dynamic_output(dynamic = input_artifacts, inputs = [], outputs = outputs, f = merge_pre_dexed_libs)
 
+    if is_exopackage_enabled_for_secondary_dex:
+        secondary_dex_dirs = [non_root_module_secondary_dexes_dir]
+        secondary_dex_exopackage_info = ExopackageDexInfo(
+            metadata = root_module_secondary_dexes_metadata,
+            directory = root_module_secondary_dexes_subdir,
+        )
+    else:
+        secondary_dex_dirs = [root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
+        secondary_dex_exopackage_info = None
+
     return DexFilesInfo(
         primary_dex = primary_dex_output,
-        secondary_dex_dirs = [root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir],
+        secondary_dex_dirs = secondary_dex_dirs,
+        secondary_dex_exopackage_info = secondary_dex_exopackage_info,
         proguard_text_files_path = None,
     )
 
@@ -618,3 +653,6 @@ def _create_canary_class(
 def _get_fully_qualified_canary_class_name(module: str.type, module_to_canary_class_name_function: "function", index: int.type) -> str.type:
     prefix = module_to_canary_class_name_function(module)
     return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(prefix, index)
+
+def _is_exopackage_enabled_for_secondary_dex(ctx: "context") -> bool.type:
+    return "secondary_dex" in getattr(ctx.attrs, "exopackage_modes", [])

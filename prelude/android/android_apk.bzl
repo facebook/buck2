@@ -1,7 +1,7 @@
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@prelude//android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")
-load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "BuildConfigField", "CPU_FILTER_TO_ABI_DIRECTORY", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "BuildConfigField", "CPU_FILTER_TO_ABI_DIRECTORY", "ExopackageInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
@@ -112,6 +112,10 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
     )
 
+    exopackage_info = ExopackageInfo(
+        secondary_dex_info = dex_files_info.secondary_dex_exopackage_info,
+    )
+
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
         AndroidApkUnderTestInfo(
@@ -123,7 +127,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             resource_infos = resources_info.unfiltered_resource_infos,
             shared_libraries = native_library_info.apk_under_test_shared_libraries,
         ),
-        DefaultInfo(default_outputs = [output_apk], sub_targets = sub_targets),
+        DefaultInfo(default_outputs = [output_apk], other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
         InstallInfo(
             installer = ctx.attrs._android_installer,
             files = {
@@ -227,6 +231,15 @@ def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["Andro
         )[1])
 
     return java_libraries
+
+def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> ["artifact"]:
+    outputs = []
+    secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
+    if secondary_dex_exopackage_info:
+        outputs.append(secondary_dex_exopackage_info.metadata)
+        outputs.append(secondary_dex_exopackage_info.directory)
+
+    return outputs
 
 def _verify_params(ctx: "context"):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")

@@ -153,12 +153,20 @@ ExportedAndroidResourceInfo = provider(
     ],
 )
 
-DexFilesInfo = provider(
-    fields = [
-        "primary_dex",  # "artifact"
-        "secondary_dex_dirs",  # ["artifact"],
-        "proguard_text_files_path",  # ["artifact", None]
-    ],
+ExopackageDexInfo = record(
+    metadata = "artifact",
+    directory = "artifact",
+)
+
+DexFilesInfo = record(
+    primary_dex = "artifact",
+    secondary_dex_dirs = ["artifact"],
+    secondary_dex_exopackage_info = [ExopackageDexInfo.type, None],
+    proguard_text_files_path = ["artifact", None],
+)
+
+ExopackageInfo = record(
+    secondary_dex_info = [ExopackageDexInfo.type, None],
 )
 
 def merge_android_packageable_info(
