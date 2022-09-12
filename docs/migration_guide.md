@@ -45,7 +45,7 @@ We recommend the following steps to migrate an `fbcode` project to Buck2:
 11. Move production to use fbpkgs built with Buck2.
 12. Opt-in developers to GK [use_buck2_as_default](https://www.internalfb.com/intern/gatekeeper/projects/use_buck2_as_default/) or join [this group](https://fb.workplace.com/groups/984932495780948) to have `buck` command using `buck2` instead of `buck1`. Read the [_Development Opt-in GK_](#opt-in-gk-for-buck-using-buck2) section of this document. To use Buck1 either use `buck1` explicitly or set the environment variable `BUCK_VERSION=1`.
 13. When you are ready to make the migration permanent, remove the Buck1 Contbuild config.
-14. Add your repo to this [SITEVAR](https://www.internalfb.com/intern/sv/BUCKV2_SUPPORTED_REPOS/) to enable BuckV2 in VS Code's C++ extension.
+14. Add your projects to [buck-auto-mode](https://fburl.com/auto-buck2) to enable BuckV2 in VS Code's C++ extension, buck runner extension, and other tools.
 
 If you get stuck, or anything in this document is unclear, ask on [Buck2 users](https://fb.prod.workplace.com/groups/buck2users). Some migration steps may require a reasonable level of fluency with Buck or other fbcode infrastructure, so we are happy to help!
 
