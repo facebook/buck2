@@ -135,6 +135,11 @@ impl ConcurrencyHandler {
 
         Ok((on_exit, transaction))
     }
+
+    /// Access dice without locking for dumps.
+    pub(crate) fn unsafe_dice(&self) -> &Arc<Dice> {
+        &self.dice
+    }
 }
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
