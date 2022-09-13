@@ -1,3 +1,5 @@
+# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+
 import difflib
 import re
 import tempfile
@@ -7,33 +9,67 @@ from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 BXL_LABEL = "fbsource//xplat/buck2/intellij_project/main.bxl:generate_intellij_project"
-EXPECTED_DIR_RELATIVE_PATH = "buck2/tests/e2e/intellij_project/testdata"
+EXPECTED_DIR_RELATIVE_PATH = "../xplat/buck2/tests/intellij_project/testdata"
 
-# TODO: Find a more general pattern: This regex work only if target is in fbandroid.
-# Or replace with just general re.compile(r"\b[0-9a-f]{16}\b") if the path doesn't
-# need sanitizing for other segments.
-BUCK_OUT_HASH_PATTERN = re.compile(r"buck-out/(.*)/fbandroid")
-BUCK_OUT_HASH_REPLACE_TXT = "buck-out/buck-out-hash/fbandroid"
+# To replace the entire buck-out path for generated files
+BUCK_OUT_HASH_PATTERN = re.compile(r"buck-out/[^\"]*")
+BUCK_OUT_HASH_REPLACE_TXT = "buck-out-path"
+
+
+def incompatible_with_v2(test_func):
+    """Decorator to disable the tests until project generation logic is implemented."""
+    pass
 
 
 @buck_test(inplace=True)
 async def test_android_apk(buck: Buck) -> None:
-    expected_dir_name = "apk"
-    test_target = "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/apk:apk"
-    await run_and_verify_project(buck, expected_dir_name, test_target)
+    expected_dir_name = "sample_intellij_project"
+    test_targets = "fbsource//xplat/buck2/tests/intellij_project/testdata/sample_intellij_project/apk:apk"
+    await run_and_verify_project(buck, expected_dir_name, test_targets)
+
+
+@incompatible_with_v2
+@buck_test(inplace=True)
+async def test_android_library(buck: Buck) -> None:
+    expected_dir_name = "android_library"
+    test_targets = (
+        "fbsource//xplat/buck2/tests/intellij_project/testdata/android_library/..."
+    )
+    await run_and_verify_project(buck, expected_dir_name, test_targets)
+
+
+@incompatible_with_v2
+@buck_test(inplace=True)
+async def test_android_binary(buck: Buck) -> None:
+    expected_dir_name = "android_binary"
+    test_targets = (
+        "fbsource//xplat/buck2/tests/intellij_project/testdata/android_binary/..."
+    )
+    await run_and_verify_project(buck, expected_dir_name, test_targets)
+
+
+@incompatible_with_v2
+@buck_test(inplace=True)
+async def test_project1(buck: Buck) -> None:
+    expected_dir_name = "project1"
+    test_targets = "fbsource//xplat/buck2/tests/intellij_project/testdata/project1/..."
+    await run_and_verify_project(buck, expected_dir_name, test_targets)
 
 
 async def run_and_verify_project(
-    buck: Buck, expected_dir_name: str, test_target: str
+    buck: Buck, expected_dir_name: str, test_targets: str
 ) -> None:
-    expected_dir_path = (
-        buck.cwd / EXPECTED_DIR_RELATIVE_PATH / expected_dir_name / ".idea"
-    )
+    expected_dir_path = Path(EXPECTED_DIR_RELATIVE_PATH).resolve() / expected_dir_name
+    buck_config_path = expected_dir_path / "configfile"
+    idea_dir_path = expected_dir_path / ".idea"
+
     result = await buck.bxl(
         BXL_LABEL,
+        "--config-file",
+        str(buck_config_path),
         "--",
         "--targets",
-        test_target,
+        test_targets,
     )
     output_dir = Path(result.stdout.strip())
 
@@ -46,13 +82,19 @@ async def run_and_verify_project(
             "--output_path",
             xml_output_temp_dir,
         )
-        verify_expected_files(expected_dir_path, Path(xml_output_temp_dir))
+        verify_expected_files(
+            idea_dir_path, expected_dir_name, Path(xml_output_temp_dir)
+        )
 
 
-def verify_expected_files(expected_dir: Path, output_dir: Path) -> None:
-    for cur_file in expected_dir.rglob("*.expected"):
-        relative_path = cur_file.relative_to(expected_dir).parent
-        generated_file = output_dir / relative_path / cur_file.stem
+def verify_expected_files(
+    expected_dir_path: Path, expected_dir_name: str, output_dir: Path
+) -> None:
+    for cur_file in expected_dir_path.rglob("*.expected"):
+        relative_path = cur_file.relative_to(expected_dir_path).parent
+        file_name = cur_file.stem
+
+        generated_file = output_dir / relative_path / file_name
         assert generated_file.is_file(), "File does not exist:{}".format(generated_file)
 
         sanitized_gen_file_content = BUCK_OUT_HASH_PATTERN.sub(
