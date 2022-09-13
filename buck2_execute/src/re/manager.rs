@@ -301,7 +301,8 @@ impl ManagedRemoteExecutionClient {
             .await?
             .action_cache(action_digest, use_case)
             .await
-            .ok())
+            .ok()
+            .flatten())
     }
 
     pub async fn upload(

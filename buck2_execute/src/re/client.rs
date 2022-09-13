@@ -46,10 +46,12 @@ use remote_execution::NamedDigestWithPermissions;
 use remote_execution::NetworkStatisticsResponse;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
+use remote_execution::REClientError;
 use remote_execution::RemoteExecutionMetadata;
 use remote_execution::RichClientMode;
 use remote_execution::Stage;
 use remote_execution::TActionResult2;
+use remote_execution::TCode;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
 use remote_execution::TResultsCachePolicy;
@@ -300,7 +302,7 @@ impl RemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<ActionResultResponse> {
+    ) -> anyhow::Result<Option<ActionResultResponse>> {
         self.data
             .action_cache
             .op(self.data.client.action_cache(action_digest, use_case))
@@ -636,8 +638,9 @@ impl RemoteExecutionClientImpl {
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<ActionResultResponse> {
-        self.client()
+    ) -> anyhow::Result<Option<ActionResultResponse>> {
+        let res = self
+            .client()
             .get_action_cache_client()
             .get_action_result(
                 use_case.metadata(),
@@ -646,7 +649,21 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 },
             )
-            .await
+            .await;
+
+        match res {
+            Ok(r) => Ok(Some(r)),
+            Err(e) => {
+                if e.downcast_ref::<REClientError>()
+                    .map(|e| e.code == TCode::NOT_FOUND)
+                    == Some(true)
+                {
+                    Ok(None)
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     async fn upload(
