@@ -274,6 +274,9 @@ enum ConfigArgumentParseError {
 
     #[error("Contains whitespace in key-value pair `{0}`")]
     WhitespaceInKeyOrValue(String),
+
+    #[error("Specifying cells via cli config overrides is banned (`repositories.key=value`)")]
+    CellOverrideViaCliConfig,
 }
 
 // Parses config key in the format `section.key`
@@ -534,6 +537,11 @@ impl<'a> LegacyConfigParser<'a> {
         config_pair: &ConfigArgumentPair,
         current_cell_path: AbsPathBuf,
     ) -> anyhow::Result<()> {
+        if config_pair.section == "repositories" {
+            return Err(anyhow::anyhow!(
+                ConfigArgumentParseError::CellOverrideViaCliConfig
+            ));
+        };
         let pair = config_pair.to_owned();
         let cell_matches = pair.cell_path == Some(current_cell_path) || pair.cell_path == None;
         if cell_matches {

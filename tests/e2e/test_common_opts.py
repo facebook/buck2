@@ -19,3 +19,13 @@ async def test_write_uuid(buck: Buck, cmd: str) -> None:
         await expect_failure(cmd_call("--write-build-id", file.name, "a"))
 
         assert len(file.read()) > 0
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+@pytest.mark.parametrize(  # type: ignore
+    "cmd",
+    ["build", "targets", "cquery", "bxl", "uquery"],
+)
+async def test_ban_cell_override(buck: Buck, cmd: str) -> None:
+    cmd_call = getattr(buck, cmd)
+    await expect_failure(cmd_call("--config", "repositories.foo=bar", "a"))
