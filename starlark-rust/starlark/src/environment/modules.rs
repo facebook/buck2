@@ -152,30 +152,46 @@ pub struct Module {
 }
 
 impl FrozenModule {
-    /// Get value, exported or private by name.
-    #[doc(hidden)] // TODO(nga): Buck2 depends on this function
-    pub fn get_any_visibility(&self, name: &str) -> anyhow::Result<(OwnedFrozenValue, Visibility)> {
-        self.module
-            .0
-            .names
-            .get_name(name)
-            .and_then(|(slot, vis)|
+    fn get_any_visibility_option(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
+        self.module.0.names.get_name(name).and_then(|(slot, vis)|
         // This code is safe because we know the frozen module ref keeps the values alive
         self.module
             .0
             .slots
             .get_slot(slot)
             .map(|x| (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis)))
-            .ok_or_else(
-                || match did_you_mean(name, self.names().map(|s| s.as_str())) {
-                    Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
-                        name.to_owned(),
-                        better.to_owned(),
-                    )
-                    .into(),
-                    None => EnvironmentError::ModuleHasNoSymbol(name.to_owned()).into(),
-                },
-            )
+    }
+
+    /// Get value, exported or private by name.
+    // TODO(nga): separate private visibility into private (`_foo`) and imported (`load('foo')`).
+    //   Users might want to access private variables, but not imported.
+    #[doc(hidden)]
+    pub fn get_any_visibility(&self, name: &str) -> anyhow::Result<(OwnedFrozenValue, Visibility)> {
+        self.get_any_visibility_option(name).ok_or_else(|| {
+            match did_you_mean(name, self.names().map(|s| s.as_str())) {
+                Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
+                    name.to_owned(),
+                    better.to_owned(),
+                )
+                .into(),
+                None => EnvironmentError::ModuleHasNoSymbol(name.to_owned()).into(),
+            }
+        })
+    }
+
+    /// Get the value of the exported variable `name`.
+    ///
+    /// # Returns
+    /// * `None` if symbol is not found
+    /// * error if symbol is private
+    pub fn get_option(&self, name: &str) -> anyhow::Result<Option<OwnedFrozenValue>> {
+        match self.get_any_visibility_option(name) {
+            None => Ok(None),
+            Some((_, Visibility::Private)) => {
+                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
+            }
+            Some((value, Visibility::Public)) => Ok(Some(value)),
+        }
     }
 
     /// Get the value of the exported variable `name`.
