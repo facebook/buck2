@@ -28,45 +28,51 @@ def main(argv):
     parser.add_argument("srcdir", type=Path)
     args = parser.parse_args(argv[1:])
 
-    # Run `go list` to filter input sources by build pragmas.
-    out = subprocess.check_output(
-        [
-            "env",
-            "-i",
-            "GOARCH={}".format(os.environ.get("GOARCH", "")),
-            "GOOS={}".format(os.environ.get("GOOS", "")),
-            "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
-            "GO111MODULE=off",
-            "GOCACHE=/tmp",
-            args.go.resolve(),
-            "list",
-            "-e",
-            "-json",
-            "./...",
-        ],
-        cwd=args.srcdir,
-    ).decode("utf-8")
+    # Find all source sub-dirs, which we'll need to run `go list` from.
+    roots = set()
+    for root, _dirs, _files in os.walk(args.srcdir):
+        roots.add(root)
 
-    # Parse JSON output and print out sources.
-    idx = 0
-    decoder = json.JSONDecoder()
-    while idx < len(out) - 1:
-        # The raw_decode method fails if there are any leading spaces, e.g. " {}" fails
-        # so manually trim the prefix of the string
-        if out[idx].isspace():
-            idx += 1
-            continue
+    # Run `go list` on all source dirs to filter input sources by build pragmas.
+    for root in roots:
+        out = subprocess.check_output(
+            [
+                "env",
+                "-i",
+                "GOARCH={}".format(os.environ.get("GOARCH", "")),
+                "GOOS={}".format(os.environ.get("GOOS", "")),
+                "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
+                "GO111MODULE=off",
+                "GOCACHE=/tmp",
+                args.go.resolve(),
+                "list",
+                "-e",
+                "-json",
+                ".",
+            ],
+            cwd=root,
+        ).decode("utf-8")
 
-        obj, idx = decoder.raw_decode(out, idx)
-        if args.tests:
-            types = ["GoFiles", "TestGoFiles", "XTestGoFiles"]
-        else:
-            types = ["GoFiles", "SFiles"]
-        for typ in types:
-            for src in obj.get(typ, []):
-                src = Path(obj["Dir"]) / src
-                src = src.resolve().relative_to(os.getcwd())
-                print(src, file=args.output)
+        # Parse JSON output and print out sources.
+        idx = 0
+        decoder = json.JSONDecoder()
+        while idx < len(out) - 1:
+            # The raw_decode method fails if there are any leading spaces, e.g. " {}" fails
+            # so manually trim the prefix of the string
+            if out[idx].isspace():
+                idx += 1
+                continue
+
+            obj, idx = decoder.raw_decode(out, idx)
+            if args.tests:
+                types = ["GoFiles", "TestGoFiles", "XTestGoFiles"]
+            else:
+                types = ["GoFiles", "SFiles"]
+            for typ in types:
+                for src in obj.get(typ, []):
+                    src = Path(obj["Dir"]) / src
+                    src = src.resolve().relative_to(os.getcwd())
+                    print(src, file=args.output)
 
 
 sys.exit(main(sys.argv))
