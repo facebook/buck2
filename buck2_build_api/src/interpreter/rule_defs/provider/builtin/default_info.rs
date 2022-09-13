@@ -22,6 +22,7 @@ use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDict;
 use starlark::values::list::FrozenList;
 use starlark::values::list::List;
+use starlark::values::none::NoneType;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
@@ -31,6 +32,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
 use crate::artifact_groups::ArtifactGroup;
@@ -136,7 +138,7 @@ where
     V: ValueLike<'v>,
 {
     let default_output_list = List::from_value(info.default_outputs.to_value())
-        .ok_or_else(|| anyhow::anyhow!("default_output should be a list"))?; // todo(bobyf) support single item
+        .expect("should be a list from constructor");
     if default_output_list.len() > 1 {
         tracing::info!("DefaultInfo.default_output should only have a maximum of 1 item.");
         // TODO use soft_error when landed
@@ -330,11 +332,18 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
     }
 }
 
+#[derive(Debug, Error)]
+enum DefaultOutputError {
+    #[error("Cannot specify both `default_output` and `default_outputs`.")]
+    ConflictingArguments,
+}
+
 #[starlark_module]
 fn default_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(type = "DefaultInfo")]
     fn DefaultInfo<'v>(
-        #[starlark(default = FrozenList::empty())] default_outputs: Value<'v>,
+        #[starlark(default = NoneType)] default_output: Value<'v>,
+        #[starlark(default = NoneType)] default_outputs: Value<'v>,
         #[starlark(default = FrozenList::empty())] other_outputs: Value<'v>,
         #[starlark(default = SmallMap::new())] sub_targets: SmallMap<String, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
@@ -351,17 +360,41 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             })
         };
 
-        let valid_default_outputs = match List::from_value(default_outputs) {
-            Some(list) => {
-                if list.iter().all(|v| v.as_artifact().is_some()) {
-                    Ok(default_outputs)
-                } else {
-                    Err(())
+        // support both list and singular options for now until we migrate all the rules.
+        let valid_default_outputs = if !default_outputs.is_none() {
+            match List::from_value(default_outputs) {
+                Some(list) => {
+                    if !default_output.is_none() {
+                        return Err(anyhow::anyhow!(DefaultOutputError::ConflictingArguments));
+                    }
+
+                    if list.iter().all(|v| v.as_artifact().is_some()) {
+                        default_outputs
+                    } else {
+                        return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
+                            "default_outputs".to_owned()
+                        )));
+                    }
+                }
+                None => {
+                    return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
+                        "default_outputs".to_owned()
+                    )));
                 }
             }
-            None => Err(()),
-        }
-        .map_err(|_| ValueError::IncorrectParameterTypeNamed("default_outputs".to_owned()))?;
+        } else {
+            // handle where we didn't specify `default_outputs`, which means we should use the new
+            // `default_output`.
+            if default_output.is_none() {
+                eval.heap().alloc_list(&[])
+            } else if default_output.as_artifact().is_some() {
+                eval.heap().alloc_list(&[default_output])
+            } else {
+                return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
+                    "default_output".to_owned()
+                )));
+            }
+        };
 
         let valid_other_outputs = match List::from_value(other_outputs) {
             Some(list) => {
