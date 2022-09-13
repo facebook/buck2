@@ -37,6 +37,7 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
@@ -136,32 +137,29 @@ pub struct BaseServerCommandContext {
 impl BaseServerCommandContext {
     /// Provides a DiceComputations. This may be missing some data or injected keys that
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    fn unsafe_dice_ctx_with_more_data<F: FnOnce(UserComputationData) -> UserComputationData>(
+    fn dice_data_with_more_data<F: FnOnce(UserComputationData) -> UserComputationData>(
         &self,
         func: F,
-    ) -> DiceTransaction {
-        let dice_data = {
-            let mut data = DiceData::new();
-            data.set(self.events.dupe());
+    ) -> UserComputationData {
+        let mut data = DiceData::new();
+        data.set(self.events.dupe());
 
-            // For commands that don't set a fallback executor config, set a local one.
-            set_fallback_executor_config(
-                &mut data,
-                CommandExecutorConfig {
-                    executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
-                    path_separator: PathSeparatorKind::system_default(),
-                    cache_upload_behavior: CacheUploadBehavior::Disabled,
-                },
-            );
+        // For commands that don't set a fallback executor config, set a local one.
+        set_fallback_executor_config(
+            &mut data,
+            CommandExecutorConfig {
+                executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
+                path_separator: PathSeparatorKind::system_default(),
+                cache_upload_behavior: CacheUploadBehavior::Disabled,
+            },
+        );
 
-            let data = UserComputationData {
-                data,
-                tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
-                ..Default::default()
-            };
-            func(data)
+        let data = UserComputationData {
+            data,
+            tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
+            ..Default::default()
         };
-        self.dice.with_ctx_data(dice_data)
+        func(data)
     }
 }
 
@@ -332,7 +330,7 @@ impl ServerCommandContext {
             .clone()
     }
 
-    async fn construct_dice_ctx(&self) -> SharedResult<DiceTransaction> {
+    async fn construct_dice_data(&self) -> anyhow::Result<UserComputationData> {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -346,19 +344,6 @@ impl ServerCommandContext {
 
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
-        let (interpreter_platform, interpreter_architecture) =
-            host_info::get_host_info(self.host_platform_override);
-        let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(&cell_resolver)?),
-            interpreter_platform,
-            interpreter_architecture,
-            self.record_target_call_stacks,
-            configure_build_file_globals,
-            configure_extension_file_globals,
-            self.configure_bxl_file_globals,
-            None,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
-        );
 
         let root_config = legacy_configs
             .get(cell_resolver.root_cell())
@@ -407,27 +392,46 @@ impl ServerCommandContext {
             .as_ref()
             .map_or(false, |opts| opts.upload_all_actions);
 
-        let dice_ctx = self
-            .base_context
-            .unsafe_dice_ctx_with_more_data(move |mut data| {
-                set_fallback_executor_config(&mut data.data, executor_config);
-                data.set_command_executor(box CommandExecutorFactory::new(
-                    re_connection,
-                    host_sharing_broker,
-                    materializer.dupe(),
-                    blocking_executor.dupe(),
-                    execution_strategy,
-                    re_global_knobs,
-                    upload_all_actions,
-                    forkserver,
-                ));
-                data.set_blocking_executor(blocking_executor);
-                data.set_materializer(materializer);
-                data.set_build_signals(build_signals);
-                data.set_run_action_knobs(run_action_knobs);
-                data.spawner = Arc::new(BuckSpawner::default());
-                data
-            });
+        Ok(self.base_context.dice_data_with_more_data(move |mut data| {
+            set_fallback_executor_config(&mut data.data, executor_config);
+            data.set_command_executor(box CommandExecutorFactory::new(
+                re_connection,
+                host_sharing_broker,
+                materializer.dupe(),
+                blocking_executor.dupe(),
+                execution_strategy,
+                re_global_knobs,
+                upload_all_actions,
+                forkserver,
+            ));
+            data.set_blocking_executor(blocking_executor);
+            data.set_materializer(materializer);
+            data.set_build_signals(build_signals);
+            data.set_run_action_knobs(run_action_knobs);
+            data.spawner = Arc::new(BuckSpawner::default());
+            data
+        }))
+    }
+
+    async fn update_dice(&self, dice_ctx: DiceTransaction) -> SharedResult<DiceTransaction> {
+        let (cell_resolver, legacy_configs) =
+            self.cells_and_configs(self.reuse_current_config).await?;
+        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
+        // just be setting the config overrides and host platform override as leaves on the graph.
+
+        let (interpreter_platform, interpreter_architecture) =
+            host_info::get_host_info(self.host_platform_override);
+        let configuror = BuildInterpreterConfiguror::new(
+            Some(prelude_path(&cell_resolver)?),
+            interpreter_platform,
+            interpreter_architecture,
+            self.record_target_call_stacks,
+            configure_build_file_globals,
+            configure_extension_file_globals,
+            self.configure_bxl_file_globals,
+            None,
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
+        );
 
         // this sync call my clear the dice ctx, but that's okay as we reset everything below.
         let dice_ctx = self.base_context.file_watcher.sync(dice_ctx).await?;
@@ -470,11 +474,15 @@ impl ServerCommandContextTrait for ServerCommandContext {
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_ctx(&self, _private: PrivateStruct) -> anyhow::Result<DiceTransaction> {
-        Ok(self
-            .dice
-            .get_or_init(self.construct_dice_ctx())
+        self.dice
+            .get_or_init(async {
+                let dice_data = self.construct_dice_data().await?;
+                let dice_ctx = self.base_context.dice.with_ctx_data(dice_data);
+                self.update_dice(dice_ctx).await
+            })
             .await
-            .dupe()?)
+            .dupe()
+            .unshared_error()
     }
 
     fn events(&self) -> &EventDispatcher {
