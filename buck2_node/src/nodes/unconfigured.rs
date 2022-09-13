@@ -92,6 +92,9 @@ pub struct TargetNodeData {
 
     /// Call stack for the target.
     call_stack: Option<StarlarkCallStack>,
+
+    /// The oncall attribute, if set
+    oncall: Option<Arc<String>>,
 }
 
 impl TargetNode {
@@ -106,6 +109,7 @@ impl TargetNode {
         deps_cache: CoercedDepsCollector,
         visibility: VisibilitySpecification,
         call_stack: Option<StarlarkCallStack>,
+        oncall: Option<Arc<String>>,
     ) -> TargetNode {
         TargetNode(Arc::new(TargetNodeData {
             label,
@@ -118,6 +122,7 @@ impl TargetNode {
             deps_cache,
             visibility,
             call_stack,
+            oncall,
         }))
     }
 
@@ -464,6 +469,7 @@ pub mod testing {
                 attributes,
                 deps_cache,
                 VisibilitySpecification::Public,
+                None,
                 None,
             )
         }

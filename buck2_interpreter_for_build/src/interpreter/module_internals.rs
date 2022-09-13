@@ -115,6 +115,10 @@ impl ModuleInternals {
         *self.oncall.borrow_mut() = Some(Arc::new(name.to_owned()))
     }
 
+    pub fn get_oncall(&self) -> Option<Arc<String>> {
+        self.oncall.borrow().dupe()
+    }
+
     pub fn target_exists(&self, name: &str) -> bool {
         (*self.recorder.targets.borrow()).contains_key(name)
     }

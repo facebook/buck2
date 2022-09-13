@@ -60,6 +60,7 @@ pub trait TargetNodeExt: Sized {
         rule_kind: RuleKind,
         attr_spec: Arc<AttributeSpec>,
         call_stack: Option<CallStack>,
+        oncall: Option<Arc<String>>,
     ) -> anyhow::Result<Self>;
 }
 
@@ -92,6 +93,7 @@ impl TargetNodeExt for TargetNode {
                     CoercedDepsCollector::new(),
                     VisibilitySpecification::Public,
                     None,
+                    None,
                 ));
             }
         }
@@ -111,6 +113,7 @@ impl TargetNodeExt for TargetNode {
         rule_kind: RuleKind,
         attr_spec: Arc<AttributeSpec>,
         call_stack: Option<CallStack>,
+        oncall: Option<Arc<String>>,
     ) -> anyhow::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
@@ -162,6 +165,7 @@ impl TargetNodeExt for TargetNode {
             deps_cache,
             visibility,
             call_stack.map(StarlarkCallStack::new),
+            oncall,
         ))
     }
 }

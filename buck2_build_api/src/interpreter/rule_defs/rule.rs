@@ -241,6 +241,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
                 self.rule_kind,
                 self.attributes.dupe(),
                 call_stack,
+                internals.get_oncall(),
             )?;
             internals.record(target_node)?;
             Ok(Value::new_none())
