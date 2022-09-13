@@ -105,6 +105,7 @@ mod imp {
                 self.build_count_manager
                     .min_build_count(merge_base, target_patterns)
                     .await
+                    .context("Error recording build count")
             } else {
                 Ok(0)
             }
