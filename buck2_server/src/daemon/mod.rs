@@ -9,7 +9,6 @@
 
 pub mod check_working_dir;
 pub mod common;
-mod concurrency;
 pub mod dice_dump;
 pub mod disk_state;
 pub mod forkserver;

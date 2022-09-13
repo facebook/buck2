@@ -8,6 +8,7 @@
  */
 
 pub mod command_end;
+pub mod concurrency;
 pub mod ctx;
 pub mod pattern;
 pub mod raw_output;

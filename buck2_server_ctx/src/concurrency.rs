@@ -18,7 +18,7 @@ use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::prelude::*;
 use parking_lot::FairMutex;
-use starlark::collections::SmallMap;
+use starlark_map::small_map::SmallMap;
 
 /// Manages concurrent commands, blocking when appropriate.
 ///
@@ -140,7 +140,7 @@ impl ConcurrencyHandler {
     }
 
     /// Access dice without locking for dumps.
-    pub(crate) fn unsafe_dice(&self) -> &Arc<Dice> {
+    pub fn unsafe_dice(&self) -> &Arc<Dice> {
         &self.dice
     }
 }
@@ -196,8 +196,8 @@ mod tests {
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
 
-    use crate::daemon::concurrency::ConcurrencyHandler;
-    use crate::daemon::concurrency::DiceUpdater;
+    use crate::concurrency::ConcurrencyHandler;
+    use crate::concurrency::DiceUpdater;
 
     #[async_trait]
     impl<F> DiceUpdater for F

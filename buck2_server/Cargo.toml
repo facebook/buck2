@@ -6,7 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
-async-condvar-fair = { workspace = true }
 async-recursion = { workspace = true }
 async-stream = { workspace = true }
 async-trait = { workspace = true }
@@ -19,7 +18,6 @@ lsp-server = { workspace = true }
 lsp-types = { workspace = true }
 once_cell = { workspace = true }
 num_cpus = { workspace = true }
-parking_lot = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -58,7 +56,6 @@ jemalloc-ctl = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-derive_more = { workspace = true }
 maplit = { workspace = true }
 tempfile = { workspace = true }
 

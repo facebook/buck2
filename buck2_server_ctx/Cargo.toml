@@ -6,7 +6,9 @@ description = "Common parts of Buck commands"
 
 [dependencies]
 anyhow = { workspace = true }
+async-condvar-fair = { workspace = true }
 async-trait = { workspace = true }
+parking_lot = { workspace = true }
 tracing = { workspace = true }
 
 dice = { path = "../dice/dice" }
@@ -18,3 +20,9 @@ buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
 buck2_events = { path = "../buck2_events" }
 cli_proto = { path = "../cli_proto" }
+starlark_map = { path = "../starlark-rust/starlark_map" }
+
+[dev-dependencies]
+derive_more = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
