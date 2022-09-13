@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -47,7 +46,7 @@ pub struct ModuleInternals {
     attr_coercion_context: BuildAttrCoercionContext,
     buildfile_path: Arc<BuildFilePath>,
     /// Have you seen an oncall annotation yet
-    seen_oncall: Cell<bool>,
+    oncall: RefCell<Option<Arc<String>>>,
     /// Directly imported modules.
     imports: Vec<ImportPath>,
     recorder: TargetsRecorder,
@@ -87,7 +86,7 @@ impl ModuleInternals {
         Self {
             attr_coercion_context,
             buildfile_path,
-            seen_oncall: Cell::new(false),
+            oncall: RefCell::new(None),
             imports,
             package_implicits,
             recorder: TargetsRecorder::new(),
@@ -109,11 +108,11 @@ impl ModuleInternals {
     }
 
     pub fn has_seen_oncall(&self) -> bool {
-        self.seen_oncall.get()
+        self.oncall.borrow().is_some()
     }
 
-    pub fn set_seen_oncall(&self) {
-        self.seen_oncall.set(true)
+    pub fn set_oncall(&self, name: &str) {
+        *self.oncall.borrow_mut() = Some(Arc::new(name.to_owned()))
     }
 
     pub fn target_exists(&self, name: &str) -> bool {

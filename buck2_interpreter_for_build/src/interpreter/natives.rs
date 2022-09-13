@@ -36,7 +36,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
     /// all the targets defined. Must be called at most once, before any targets
     /// have been declared. Errors if called from a `.bzl` file.
     fn oncall(
-        #[starlark(require = pos)] _name: &str,
+        #[starlark(require = pos)] name: &str,
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
         let internals = ModuleInternals::from_context(eval)?;
@@ -47,7 +47,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
         } else if internals.has_seen_oncall() {
             Err(OncallErrors::DuplicateOncall.into())
         } else {
-            internals.set_seen_oncall();
+            internals.set_oncall(name);
             Ok(NoneType)
         }
     }
