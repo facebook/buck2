@@ -228,8 +228,19 @@ impl TargetNode {
                 "$package".to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string())),
             ),
+            (
+                "buck.oncall".to_owned(),
+                CoercedAttr::new_literal(match self.oncall() {
+                    None => AttrLiteral::None,
+                    Some(x) => AttrLiteral::String(x.to_owned()),
+                }),
+            ),
         ]
         .into_iter()
+    }
+
+    pub fn oncall(&self) -> Option<&str> {
+        self.0.oncall.as_ref().map(|x| x.as_str())
     }
 
     pub fn is_visible_to(&self, target: &TargetLabel) -> bool {

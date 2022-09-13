@@ -112,6 +112,13 @@ impl TargetNodeOrForward {
         }
     }
 
+    fn oncall(&self) -> Option<&str> {
+        match self {
+            TargetNodeOrForward::TargetNode(node) => node.oncall(),
+            TargetNodeOrForward::Forward(_, forward) => forward.oncall(),
+        }
+    }
+
     fn attr_or_none(&self, name: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name, opts),
@@ -470,8 +477,19 @@ impl ConfiguredTargetNode {
                 "$package".to_owned(),
                 ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string())),
             ),
+            (
+                "buck.oncall".to_owned(),
+                ConfiguredAttr::new(match self.oncall() {
+                    None => AttrLiteral::None,
+                    Some(x) => AttrLiteral::String(x.to_owned()),
+                }),
+            ),
         ]
         .into_iter()
+    }
+
+    pub fn oncall(&self) -> Option<&str> {
+        self.0.target_node.oncall()
     }
 
     pub fn attrs<'a>(
