@@ -14,6 +14,7 @@ toolchain_alias(
             # NOTE(agallagher): Some ARVR platforms have the fbcode constraint,
             # but shouldn't use the main fbcode toolchain.
             "ovr_config//build_mode:arvr_mode": ":cxx-legacy",
+            "ovr_config//toolchain/fb/constraints:sledge": ":cxx-legacy",
         }),
     }),
     visibility = ["PUBLIC"],
