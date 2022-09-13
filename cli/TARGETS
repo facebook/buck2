@@ -3,6 +3,8 @@ load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
+oncall("build_infra")
+
 rust_library(
     name = "cli",
     srcs = glob(["src/**/*.rs"]),

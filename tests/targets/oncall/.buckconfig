@@ -1,0 +1,7 @@
+[buildfile]
+name=TARGETS.fixture
+
+[repositories]
+root = .
+toolchains = toolchains
+prelude = prelude

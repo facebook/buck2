@@ -446,3 +446,11 @@ async def test_rbuildfiles(buck: Buck) -> None:
     )
 
     assert out2.stdout == "fbcode/" + target_file + "\n"
+
+
+@buck_test(inplace=False, data_dir="oncall")
+async def test_oncall(buck: Buck) -> None:
+    out = await buck.uquery("//:foo", "--output-attribute=oncall")
+    assert '"magic"' in out.stdout
+    out = await buck.cquery("//:bar", "--output-attribute=oncall")
+    assert '"magic"' in out.stdout

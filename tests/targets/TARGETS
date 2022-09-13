@@ -72,6 +72,8 @@ buck_filegroup(
         "hash_all_commands/**/.*",
         "out/**",
         "out/**/.*",
+        "oncall/**",
+        "oncall/**/.*",
         "no_output/**",
         "no_output/**/.*",
         "critical_path/**",
