@@ -62,4 +62,4 @@ frecli cas download-action 97feca9d014155a80ec55fe27e6bb17f9d2f8574:94
 
 Note that if the action was a cache hit on RE, you might get an error when downloading it indicating that it's not found. If that happens, that's because the cache entry is there but the inputs expired.
 
-We plan to fix this, but if it happens to you, force your build to run uncached by setting an isolation dir (`buck2 --isolation-dir=$SomeRandomString build $TARGET`), then follow the instructions again. Make sure you pass the same isolation dir when you run `buck2 log whatran`.
+If this happens to you, run your build with `--upload-all-actions`.
