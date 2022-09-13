@@ -632,6 +632,11 @@ async fn send_file(
     let artifact = file.artifact;
     let sha1: String = match &file.artifact_value.entry() {
         DirectoryEntry::Dir(dir) => dir.fingerprint().to_string(),
+        // todo(@lebentle) Use for now to unblock exopackage,
+        // but should follow symlink and validate the target exists and send that
+        DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
+            format!("re-symlink:{}", symlink.target().as_str())
+        }
         DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => file.digest.to_string(),
         _ => return Err(InstallError::ErrorRetrievingHash(name).into()),
     };
