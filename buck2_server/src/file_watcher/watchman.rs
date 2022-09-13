@@ -48,7 +48,7 @@ impl WatchmanQueryProcessor {
         mergebase: &Option<String>,
     ) -> anyhow::Result<(buck2_data::WatchmanStats, DiceTransaction)> {
         let mut stats = buck2_data::WatchmanStats {
-            branched_from_revision: mergebase.clone().unwrap_or_default(),
+            branched_from_revision: mergebase.clone(),
             ..Default::default()
         };
 
@@ -157,7 +157,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         Ok((
             buck2_data::WatchmanStats {
                 fresh_instance: true,
-                branched_from_revision: mergebase.clone().unwrap_or_default(),
+                branched_from_revision: mergebase.clone(),
                 ..Default::default()
             },
             ctx,

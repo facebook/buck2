@@ -300,7 +300,7 @@ mod imp {
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             if let Some(stats) = &watchman.stats {
-                self.branched_from_revision = Some(stats.branched_from_revision.clone());
+                self.branched_from_revision = stats.branched_from_revision.clone();
             }
             Ok(())
         }
