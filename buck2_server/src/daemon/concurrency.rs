@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_events::TraceId;
 use dice::Dice;
 use dice::DiceTransaction;
+use dice::UserComputationData;
 use gazebo::prelude::*;
 use parking_lot::FairMutex;
 use starlark::collections::SmallMap;
@@ -69,6 +70,7 @@ impl ConcurrencyHandler {
     pub async fn enter<F, Fut, R>(
         &self,
         trace: TraceId,
+        data: UserComputationData,
         updates: &dyn DiceUpdater,
         exec: F,
     ) -> anyhow::Result<R>
@@ -76,7 +78,7 @@ impl ConcurrencyHandler {
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send + 'static,
     {
-        let (_guard, transaction) = self.wait_for_others(updates, trace).await?;
+        let (_guard, transaction) = self.wait_for_others(data, updates, trace).await?;
 
         Ok(exec(transaction).await)
     }
@@ -88,13 +90,14 @@ impl ConcurrencyHandler {
     // starvation.
     async fn wait_for_others(
         &self,
+        user_data: UserComputationData,
         updates: &dyn DiceUpdater,
         trace: TraceId,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let mut data = self.data.lock();
         let mut baton = None;
 
-        let mut transaction = self.dice.ctx();
+        let mut transaction = self.dice.with_ctx_data(user_data);
 
         loop {
             // we rerun the updates in case that files on disk have changed between commands.
@@ -234,19 +237,19 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(3));
 
-        let fut1 = concurrency.enter(traces1, &no_changes, |_| {
+        let fut1 = concurrency.enter(traces1, Default::default(), &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
-        let fut2 = concurrency.enter(traces2, &no_changes, |_| {
+        let fut2 = concurrency.enter(traces2, Default::default(), &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
-        let fut3 = concurrency.enter(traces3, &no_changes, |_| {
+        let fut3 = concurrency.enter(traces3, Default::default(), &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
@@ -292,7 +295,7 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces1, &no_changes, |_| async move {
+                    .enter(traces1, Default::default(), &no_changes, |_| async move {
                         barrier.wait().await;
                         let _g = b.read().await;
                     })
@@ -307,7 +310,7 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces2, &no_changes, |_| async move {
+                    .enter(traces2, Default::default(), &no_changes, |_| async move {
                         barrier.wait().await;
                         let _g = b.read().await;
                     })
@@ -325,9 +328,14 @@ mod tests {
             async move {
                 barrier.wait().await;
                 concurrency
-                    .enter(traces_different, &ctx_different, |_| async move {
-                        arrived.store(true, Ordering::Relaxed);
-                    })
+                    .enter(
+                        traces_different,
+                        Default::default(),
+                        &ctx_different,
+                        |_| async move {
+                            arrived.store(true, Ordering::Relaxed);
+                        },
+                    )
                     .await
             }
         });
@@ -374,7 +382,7 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces1, &no_changes, |_| async move {
+                    .enter(traces1, Default::default(), &no_changes, |_| async move {
                         barrier.wait().await;
                     })
                     .await
@@ -387,7 +395,7 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces2, &no_changes, |_| async move {
+                    .enter(traces2, Default::default(), &no_changes, |_| async move {
                         barrier.wait().await;
                     })
                     .await
@@ -400,9 +408,14 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces_different, &ctx_different, |_| async move {
-                        barrier.wait().await;
-                    })
+                    .enter(
+                        traces_different,
+                        Default::default(),
+                        &ctx_different,
+                        |_| async move {
+                            barrier.wait().await;
+                        },
+                    )
                     .await
             }
         });
