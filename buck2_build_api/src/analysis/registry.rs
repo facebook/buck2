@@ -324,9 +324,15 @@ impl<'v> AnalysisValueStorage<'v> {
 
 impl AnalysisValueFetcher {
     /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
-    pub(crate) fn get(&self, id: DeferredId) -> Option<OwnedFrozenValue> {
-        let module = self.frozen_module.as_ref()?;
-        let starlark_key = format!("$action_key_{}", id);
-        module.get(&starlark_key).ok()
+    pub(crate) fn get(&self, id: DeferredId) -> anyhow::Result<Option<OwnedFrozenValue>> {
+        match &self.frozen_module {
+            None => Ok(None),
+            Some(module) => {
+                let starlark_key = format!("$action_key_{}", id);
+                // This return `Err` is the symbol is private.
+                // It is never private, but error is better than panic.
+                module.get_option(&starlark_key)
+            }
+        }
     }
 }

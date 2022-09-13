@@ -199,7 +199,7 @@ impl ActionsRegistry {
         // invariant is enforced here, using observed_names to keep track of the categories and identifiers that we've seen.
         let mut observed_names: HashMap<Category, HashSet<String>> = HashMap::new();
         for (key, a) in self.pending.into_iter() {
-            let starlark_data = analysis_value_fetcher.get(key.data().deferred_key().id());
+            let starlark_data = analysis_value_fetcher.get(key.data().deferred_key().id())?;
             let action_key = ActionKey::new(key.data().dupe());
             let action = a.register(starlark_data)?;
             match (action.category(), action.identifier()) {

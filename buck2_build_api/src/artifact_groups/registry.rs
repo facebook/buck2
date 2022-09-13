@@ -61,7 +61,7 @@ impl ArtifactGroupRegistry {
             let id = key.data().deferred_key().id();
 
             let set = analysis_value_fetcher
-                .get(id)
+                .get(id)?
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
 
             if set.value().downcast_ref::<FrozenTransitiveSet>().is_some() {

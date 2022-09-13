@@ -71,7 +71,7 @@ impl DynamicRegistry {
             let id = key.data().deferred_key().id();
 
             let fv = analysis_value_fetcher
-                .get(id)
+                .get(id)?
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
 
             data.bind(fv);
