@@ -9,7 +9,7 @@
 
 use anyhow::Context;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::project::ProjectRoot;
 
@@ -27,19 +27,28 @@ use buck2_core::fs::project::ProjectRoot;
 // 2) Start always deleting the cache directory now until we add support for disk
 // state in buck2.
 // The following implements mitigation #2 by always deleting disk state.
+
+/// Recursively deletes all elements under `cache_dir_path`, except for known dirs
+/// listed in `known_dir_names`.
 pub(crate) fn delete_unknown_disk_state(
-    cache_dir_path: AbsPathBuf,
+    cache_dir_path: &AbsPath,
+    known_dir_names: &[&FileName],
     fs: ProjectRoot,
 ) -> anyhow::Result<()> {
     let res: anyhow::Result<()> = try {
         if cache_dir_path.exists() {
-            for file in fs_util::read_dir(&cache_dir_path)? {
-                let filename = file?.file_name();
+            for entry in fs_util::read_dir(&cache_dir_path)? {
+                let entry = entry?;
+                let filename = entry.file_name();
                 let filename = filename
                     .to_str()
                     .context("Filename is not UTF-8")
                     .and_then(FileName::new)?;
-                fs.remove_path_recursive(&cache_dir_path.join(filename))?;
+
+                // known_dir_names is always small, so this contains isn't expensive
+                if !known_dir_names.contains(&filename) || !entry.path().is_dir() {
+                    fs.remove_path_recursive(&cache_dir_path.join(filename))?;
+                }
             }
         }
     };
@@ -50,4 +59,63 @@ pub(crate) fn delete_unknown_disk_state(
             &cache_dir_path
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::fs::paths::ForwardRelativePath;
+    use buck2_core::fs::project::ProjectRelativePath;
+    use buck2_core::fs::project::ProjectRootTemp;
+    use gazebo::dupe::Dupe;
+
+    use super::*;
+
+    #[test]
+    fn test_delete_all_from_cache_dir() {
+        let fs_temp = ProjectRootTemp::new().unwrap();
+        let fs = fs_temp.path();
+        let cache_dir_path = fs.resolve(ProjectRelativePath::unchecked_new("buck-out/v2/cache"));
+        let materializer_state_db = cache_dir_path.join(ForwardRelativePath::unchecked_new(
+            "materializer_state/db.sqlite",
+        ));
+        let command_hashes_db = cache_dir_path.join(ForwardRelativePath::unchecked_new(
+            "command_hashes/db.sqlite",
+        ));
+        fs.create_file(&materializer_state_db, false).unwrap();
+        fs.create_file(&command_hashes_db, false).unwrap();
+        assert!(materializer_state_db.exists());
+        assert!(command_hashes_db.exists());
+
+        delete_unknown_disk_state(&cache_dir_path, &[], fs.dupe()).unwrap();
+
+        assert!(!materializer_state_db.exists());
+        assert!(!command_hashes_db.exists());
+    }
+
+    #[test]
+    fn test_delete_from_cache_dir_with_known_dirs() {
+        let fs_temp = ProjectRootTemp::new().unwrap();
+        let fs = fs_temp.path();
+        let cache_dir_path = fs.resolve(ProjectRelativePath::unchecked_new("buck-out/v2/cache"));
+        let materializer_state_db = cache_dir_path.join(ForwardRelativePath::unchecked_new(
+            "materializer_state/db.sqlite",
+        ));
+        let command_hashes_db = cache_dir_path.join(ForwardRelativePath::unchecked_new(
+            "command_hashes/db.sqlite",
+        ));
+        fs.create_file(&materializer_state_db, false).unwrap();
+        fs.create_file(&command_hashes_db, false).unwrap();
+        assert!(materializer_state_db.exists());
+        assert!(command_hashes_db.exists());
+
+        delete_unknown_disk_state(
+            &cache_dir_path,
+            &[FileName::unchecked_new("materializer_state")],
+            fs.dupe(),
+        )
+        .unwrap();
+
+        assert!(materializer_state_db.exists());
+        assert!(!command_hashes_db.exists());
+    }
 }
