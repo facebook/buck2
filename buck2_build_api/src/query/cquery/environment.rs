@@ -74,6 +74,11 @@ pub struct CqueryEnvironment<'c> {
     delegate: Arc<dyn CqueryDelegate + 'c>,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
+    // TODO(nga): do not compute the universe when we don't need it, because it is not free.
+    //   For example, when evaluating
+    //   ```
+    //   buck2 cquery 'deps(//foo:bar)'
+    //   ```
     universe: Option<CqueryUniverse>,
     owner_behavior: CqueryOwnerBehavior,
 }
