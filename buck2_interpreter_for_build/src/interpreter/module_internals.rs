@@ -59,13 +59,13 @@ impl ExtraContext for ModuleInternals {
     type EvalResult = EvaluationResult;
 }
 
-pub struct PackageImplicits {
+pub(crate) struct PackageImplicits {
     import_spec: Arc<ImplicitImport>,
     env: FrozenModule,
 }
 
 impl PackageImplicits {
-    pub fn new(import_spec: Arc<ImplicitImport>, env: FrozenModule) -> Self {
+    pub(crate) fn new(import_spec: Arc<ImplicitImport>, env: FrozenModule) -> Self {
         Self { import_spec, env }
     }
 
@@ -75,7 +75,7 @@ impl PackageImplicits {
 }
 
 impl ModuleInternals {
-    pub fn new(
+    pub(crate) fn new(
         attr_coercion_context: BuildAttrCoercionContext,
         buildfile_path: Arc<BuildFilePath>,
         imports: Vec<ImportPath>,
@@ -95,7 +95,7 @@ impl ModuleInternals {
         }
     }
 
-    pub fn attr_coercion_context(&self) -> &BuildAttrCoercionContext {
+    pub(crate) fn attr_coercion_context(&self) -> &BuildAttrCoercionContext {
         &self.attr_coercion_context
     }
 
@@ -107,11 +107,11 @@ impl ModuleInternals {
         self.recorder.is_empty()
     }
 
-    pub fn has_seen_oncall(&self) -> bool {
+    pub(crate) fn has_seen_oncall(&self) -> bool {
         self.oncall.borrow().is_some()
     }
 
-    pub fn set_oncall(&self, name: &str) {
+    pub(crate) fn set_oncall(&self, name: &str) {
         *self.oncall.borrow_mut() = Some(Arc::new(name.to_owned()))
     }
 
@@ -119,7 +119,7 @@ impl ModuleInternals {
         self.oncall.borrow().dupe()
     }
 
-    pub fn target_exists(&self, name: &str) -> bool {
+    pub(crate) fn target_exists(&self, name: &str) -> bool {
         (*self.recorder.targets.borrow()).contains_key(name)
     }
 
@@ -127,13 +127,13 @@ impl ModuleInternals {
         &self.buildfile_path
     }
 
-    pub fn get_package_implicit(&self, name: &str) -> Option<OwnedFrozenValue> {
+    pub(crate) fn get_package_implicit(&self, name: &str) -> Option<OwnedFrozenValue> {
         self.package_implicits
             .as_ref()
             .and_then(|implicits| implicits.lookup(name))
     }
 
-    pub fn default_visibility_to_public(&self) -> bool {
+    pub(crate) fn default_visibility_to_public(&self) -> bool {
         self.default_visibility_to_public
     }
 
