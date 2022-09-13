@@ -654,6 +654,7 @@ mod test {
 
     #[cfg(unix)]
     mod unix {
+        use assert_matches::assert_matches;
         use tokio::process::Command;
 
         use super::*;
@@ -663,16 +664,26 @@ mod test {
             let dir = tempfile::tempdir()?;
             let out = dir.path().join("sleep");
 
-            copy_file(Path::new("/bin/sleep"), &out).await?;
+            let res = Command::new("cp")
+                .arg(Path::new("/bin/sleep"))
+                .arg(&out)
+                .spawn()?
+                .wait()
+                .await?;
 
-            let _proc = Command::new(&out)
-                .arg("infinity")
+            assert!(res.success());
+
+            let mut proc = Command::new(&out)
+                .arg("10000")
                 .kill_on_drop(true)
                 .spawn()
                 .context("Error spawning")?;
 
             // This will fail if we don't handle ETXTBSY.
             copy_file(Path::new("/bin/sleep"), &out).await?;
+
+            // Check that our sleep didn't end
+            assert_matches!(proc.try_wait(), Ok(None));
 
             Ok(())
         }
