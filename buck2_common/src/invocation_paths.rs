@@ -15,6 +15,7 @@ use std::borrow::Cow;
 
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -150,10 +151,14 @@ impl InvocationPaths {
         self.roots.project_root.root().join(&self.cache_dir())
     }
 
-    /// Subdirectory of `cache_dir` responsible for caching materializer state
-    pub fn materializer_cache_dir(&self) -> ProjectRelativePathBuf {
-        self.cache_dir()
-            .join(ForwardRelativePath::unchecked_new("materializer"))
+    /// Subdirectory of `cache_dir` responsible for storing materializer state
+    pub fn materializer_state_path(&self) -> AbsPathBuf {
+        self.cache_dir_path()
+            .join(self.materializer_state_dir_name())
+    }
+
+    pub fn materializer_state_dir_name(&self) -> &FileName {
+        FileName::unchecked_new("materializer_state")
     }
 }
 
@@ -252,11 +257,14 @@ mod tests {
             ProjectRelativePathBuf::unchecked_new("buck-out/isolation/cache".to_owned())
         );
 
+        let expected_path = if cfg!(windows) {
+            "C:\\my\\project\\buck-out\\isolation\\cache\\materializer_state"
+        } else {
+            "/my/project/buck-out/isolation/cache/materializer_state"
+        };
         assert_eq!(
-            paths.materializer_cache_dir(),
-            ProjectRelativePathBuf::unchecked_new(
-                "buck-out/isolation/cache/materializer".to_owned()
-            )
+            paths.materializer_state_path().as_os_str(),
+            OsStr::new(expected_path),
         );
     }
 }
