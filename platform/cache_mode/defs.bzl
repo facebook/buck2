@@ -14,7 +14,7 @@ def _is_apple_sandcastle_alias(sandcastle_alias: [None, str.type]):
 def _allow_cache_for_apple(ctx: "context") -> bool.type:
     return all([
         ctx.attrs.cache_mode == "readwrite",
-        ctx.attrs.schedule_type in ["continuous", "stable_cache"],
+        ctx.attrs.schedule_type in ["continuous", "continuous_stable"],
         _is_apple_sandcastle_alias(ctx.attrs.sandcastle_alias),
     ])
 
