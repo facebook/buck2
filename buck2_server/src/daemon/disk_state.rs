@@ -10,7 +10,7 @@
 use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::FileName;
 use buck2_core::fs::project::ProjectRoot;
 
 // Once we start storing disk state in the cache directory, we need to make sure
@@ -34,11 +34,11 @@ pub(crate) fn delete_unknown_disk_state(
     let res: anyhow::Result<()> = try {
         if cache_dir_path.exists() {
             for file in fs_util::read_dir(&cache_dir_path)? {
-                let filename = file?
-                    .file_name()
+                let filename = file?.file_name();
+                let filename = filename
                     .to_str()
                     .context("Filename is not UTF-8")
-                    .and_then(|f| FileNameBuf::try_from(f.to_owned()))?;
+                    .and_then(FileName::new)?;
                 fs.remove_path_recursive(&cache_dir_path.join(filename))?;
             }
         }
