@@ -36,6 +36,7 @@ use buck2_execute::directory::new_symlink;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
@@ -162,6 +163,7 @@ impl LocalExecutor {
 
     async fn exec_request(
         &self,
+        action_digest: &ActionDigest,
         action: CommandExecutionTarget<'_>,
         request: &CommandExecutionRequest,
         mut manager: CommandExecutionManager,
@@ -281,6 +283,7 @@ impl LocalExecutor {
                         .collect();
                     let stage = buck2_data::LocalExecute {
                         command: Some(buck2_data::LocalCommand {
+                            action_digest: action_digest.to_string(),
                             argv: args.to_vec(),
                             env,
                         }),
@@ -320,6 +323,7 @@ impl LocalExecutor {
             .await;
 
         let execution_kind = CommandExecutionKind::Local {
+            digest: action_digest.dupe(),
             command: args.to_vec(),
             env: request.env().clone(),
         };
@@ -455,7 +459,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             request,
             target,
             action_paths: _action_paths,
-            prepared_action: _prepared_action,
+            prepared_action,
         } = command;
         let _permit = manager
             .stage_async(
@@ -469,7 +473,14 @@ impl PreparedCommandExecutor for LocalExecutor {
 
         // If we start running something, we don't want this task to get dropped, because if we do
         // we might interfere with e.g. clean up.
-        dropcancel_critical_section(Self::exec_request(self, *target, request, manager)).await
+        dropcancel_critical_section(Self::exec_request(
+            self,
+            &prepared_action.action,
+            *target,
+            request,
+            manager,
+        ))
+        .await
     }
 
     fn re_platform(&self) -> Option<&RE::Platform> {

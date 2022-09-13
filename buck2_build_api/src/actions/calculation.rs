@@ -323,11 +323,19 @@ async fn command_details(
     };
 
     let command = command.status.execution_kind().map(|kind| match kind {
-        CommandExecutionKind::Local { command, env } => {
+        CommandExecutionKind::Local {
+            command,
+            env,
+            digest,
+        } => {
             if omit_details {
-                buck2_data::OmittedLocalCommand {}.into()
+                buck2_data::OmittedLocalCommand {
+                    action_digest: digest.to_string(),
+                }
+                .into()
             } else {
                 buck2_data::LocalCommand {
+                    action_digest: digest.to_string(),
                     argv: command.to_owned(),
                     env: env
                         .iter()
@@ -437,6 +445,7 @@ mod tests {
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::directory::ActionDirectoryMember;
+    use buck2_execute::execute::action_digest::ActionDigest;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::blocking::SetBlockingExecutor;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
@@ -852,6 +861,7 @@ mod tests {
             claim: None,
             status: CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::Local {
+                    digest: ActionDigest(TrackedFileDigest::empty()),
                     command: vec![],
                     env: hashmap![],
                 },
@@ -877,6 +887,7 @@ mod tests {
 
         report.status = CommandExecutionStatus::Failure {
             execution_kind: CommandExecutionKind::Local {
+                digest: ActionDigest(TrackedFileDigest::empty()),
                 command: vec![],
                 env: hashmap![],
             },

@@ -18,6 +18,9 @@ pub enum CommandExecutionKind {
     /// This action was executed locally.
     #[display(fmt = "local")]
     Local {
+        // Even though this did not run on RE, we still produced this, so we might as well report
+        // it.
+        digest: ActionDigest,
         command: Vec<String>,
         env: HashMap<String, String>,
     },

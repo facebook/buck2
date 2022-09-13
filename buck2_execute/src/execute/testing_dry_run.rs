@@ -13,11 +13,13 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_common::file_ops::TrackedFileDigest;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact_value::ArtifactValue;
+use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::name::ExecutorName;
@@ -77,6 +79,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             .push(DryRunEntry { args, outputs, env });
 
         let exec_kind = CommandExecutionKind::Local {
+            digest: ActionDigest(TrackedFileDigest::empty()),
             command: Default::default(),
             env: Default::default(),
         };

@@ -639,7 +639,9 @@ message ActionExecutionStart {
   ActionName name = 4;
 }
 
-message OmittedLocalCommand {}
+message OmittedLocalCommand {
+  string action_digest = 1;
+}
 
 message CommandExecutionDetails {
   reserved 6;
@@ -992,6 +994,7 @@ message LocalCommand {
 
   repeated string argv = 1;
   repeated EnvironmentEntry env = 2;
+  string action_digest = 3;
 }
 
 // A representation of a command we executed remotely.
