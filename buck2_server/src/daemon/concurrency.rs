@@ -30,6 +30,9 @@ pub struct ConcurrencyHandler {
     // the entire command execution).
     cond: Arc<Condvar>,
     dice: Arc<Dice>,
+    // whether to bypass the lock around dice for concurrent commands
+    // TODO this should be removed when we turn on semaphores for concurrent commands
+    bypass_semaphore: bool,
 }
 
 struct ConcurrencyHandlerData {
@@ -49,7 +52,7 @@ pub trait DiceUpdater: Send + Sync {
 
 #[allow(unused)] // TODO(bobyf) temporary
 impl ConcurrencyHandler {
-    pub fn new(dice: Arc<Dice>) -> Self {
+    pub fn new(dice: Arc<Dice>, bypass_semaphore: bool) -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 active_dice: None,
@@ -57,6 +60,7 @@ impl ConcurrencyHandler {
             })),
             cond: Default::default(),
             dice,
+            bypass_semaphore,
         }
     }
 
@@ -100,7 +104,7 @@ impl ConcurrencyHandler {
             transaction = transaction.commit();
 
             if let Some(active_dice) = &data.active_dice {
-                if active_dice.equivalent(&transaction) {
+                if active_dice.equivalent(&transaction) || self.bypass_semaphore {
                     // if the dice context is equivalent, then we can run concurrently with the
                     // current command.
 
@@ -217,7 +221,7 @@ mod tests {
     async fn concurrent_same_transaction() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, false);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -254,7 +258,7 @@ mod tests {
     async fn different_traceid_blocks() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), false);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -338,6 +342,70 @@ mod tests {
         fut3.await??;
 
         assert!(arrived.load(Ordering::Relaxed));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn different_traceid_bypass_semaphore() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), true);
+
+        let traces1 = TraceId::new();
+        let traces2 = traces1.dupe();
+        let traces_different = TraceId::new();
+
+        let ctx_different = |ctx: DiceTransaction| {
+            ctx.changed(vec![K])?;
+            Ok(ctx)
+        };
+
+        let barrier = Arc::new(Barrier::new(3));
+
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+
+            async move {
+                concurrency
+                    .enter(traces1, &no_changes, |_| async move {
+                        barrier.wait().await;
+                    })
+                    .await
+            }
+        });
+
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+
+            async move {
+                concurrency
+                    .enter(traces2, &no_changes, |_| async move {
+                        barrier.wait().await;
+                    })
+                    .await
+            }
+        });
+
+        let fut3 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+
+            async move {
+                concurrency
+                    .enter(traces_different, &ctx_different, |_| async move {
+                        barrier.wait().await;
+                    })
+                    .await
+            }
+        });
+
+        let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
+        r1??;
+        r2??;
+        r3??;
 
         Ok(())
     }
