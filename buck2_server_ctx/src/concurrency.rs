@@ -76,7 +76,7 @@ impl ConcurrencyHandler {
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
-        Fut: Future<Output = R> + Send + 'static,
+        Fut: Future<Output = R> + Send,
     {
         let (_guard, transaction) = self.wait_for_others(data, updates, trace).await?;
 
