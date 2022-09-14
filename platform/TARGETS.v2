@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_list")
-load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_fbcode_toolchain", "cxx_toolchain_override", "cxx_toolchain_prefix")
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
@@ -192,7 +192,7 @@ _non_fbcode_python_platforms = [
         #
         # If we add more overridden values here, we should explicitly separate the exec-config part
         # into a separate target here rather than in the macro.
-        host_interpreter = selects2.apply(
+        host_interpreter = selects.apply(
             fbcode_toolchains.get_exec_fbcode_platform(platform),
             lambda platform: read_config(
                 "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
@@ -247,7 +247,7 @@ config_backed_python_toolchain(
 ocaml_fbcode_toolchain(
     name = "ocaml-fbcode",
     # TODO(agallager): We should move away from reading these from configs.
-    ocaml_compiler_flags = selects2.apply(
+    ocaml_compiler_flags = selects.apply(
         fbcode_toolchains.LEGACY_V1_PLATFORMS,
         lambda platform_name: read_list(
             "ocaml#{}".format(platform_name),

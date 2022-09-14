@@ -1,6 +1,6 @@
 load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
 load("@fbcode_macros//build_defs:third_party_config.bzl", "third_party_config")
-load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
 # Select a GOARCH using FB contraints set on a target platform.
@@ -15,7 +15,7 @@ _GO_OS = select({
 })
 
 # Select a Go platform name using FB contraints set on a target platform.
-_GO_PLATFORM = selects2.apply_n(
+_GO_PLATFORM = selects.apply_n(
     [_GO_OS, _GO_ARCH],
     lambda os, arch: "{}_{}".format(os, arch),
 )
@@ -49,7 +49,7 @@ def _go_bin_tool(name, tool):
 
 def _go_root():
     return fbcode_toolchains.fmt(
-        selects2.apply(
+        selects.apply(
             _GO_PLATFORM,
             lambda gp: "{}:goroot-{}".format(_GO_FBCODE_PKG_TARGET, gp),
         ),
