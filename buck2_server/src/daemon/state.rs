@@ -41,6 +41,7 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
 use fbinit::FacebookInit;
@@ -72,7 +73,9 @@ pub struct DaemonState {
 pub struct DaemonStateData {
     /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
     /// (or DaemonState) itself and instead they should be represented on the computation graph.
-    dice: Arc<Dice>,
+    ///
+    /// The DICE graph is held by the concurrency handler to manage locking for concurrent commands
+    dice_manager: ConcurrencyHandler,
 
     /// Synced every time we run a command.
     file_watcher: Arc<dyn FileWatcher>,
@@ -110,11 +113,12 @@ pub struct DaemonStateData {
 
 impl DaemonStateData {
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
-        crate::daemon::dice_dump::dice_dump(&self.dice, path, format)
+        crate::daemon::dice_dump::dice_dump(self.dice_manager.unsafe_dice(), path, format)
     }
 
     pub async fn spawn_dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
-        crate::daemon::dice_dump::dice_dump_spawn(&self.dice, path, format).await
+        crate::daemon::dice_dump::dice_dump_spawn(self.dice_manager.unsafe_dice(), path, format)
+            .await
     }
 }
 
@@ -261,7 +265,10 @@ impl DaemonState {
         // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
         // tokio::task::spawn(watchman_query.sync());
         Ok(Arc::new(DaemonStateData {
-            dice,
+            dice_manager: ConcurrencyHandler::new(
+                dice,
+                true, /* TODO stop bypassing semaphores when its safe. after T129571357 */
+            ),
             file_watcher,
             io,
             re_client_manager,
@@ -403,7 +410,10 @@ impl DaemonState {
         let tags = vec![
             format!(
                 "dice-detect-cycles:{}",
-                data.dice.detect_cycles().variant_name()
+                data.dice_manager
+                    .unsafe_dice()
+                    .detect_cycles()
+                    .variant_name()
             ),
             format!("forkserver:{}", data.forkserver.is_some()),
             format!("hash-all-commands:{}", data.hash_all_commands),
@@ -419,7 +429,7 @@ impl DaemonState {
         Ok(BaseServerCommandContext {
             _fb: self.fb,
             project_root: self.paths.project_root().clone(),
-            dice: data.dice.dupe(),
+            dice_manager: data.dice_manager.dupe(),
             io: data.io.dupe(),
             re_client_manager: data.re_client_manager.dupe(),
             blocking_executor: data.blocking_executor.dupe(),

@@ -37,7 +37,6 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
-use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
@@ -62,7 +61,11 @@ use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
+use buck2_interpreter::extra::InterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
+use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_server_ctx::concurrency::DiceUpdater;
+use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
@@ -74,7 +77,6 @@ use cli_proto::ClientContext;
 use cli_proto::CommonBuildOptions;
 use cli_proto::ConfigOverride;
 use dice::data::DiceData;
-use dice::Dice;
 use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::dupe::Dupe;
@@ -110,7 +112,7 @@ pub struct BaseServerCommandContext {
     /// A reference to the dice graph. Most interesting things are accessible from this (and new interesting things should be
     /// added there rather than as fields here). This has some per-request setup done already (like attaching a per-request
     /// event dispatcher).
-    pub dice: Arc<Dice>,
+    pub dice_manager: ConcurrencyHandler,
     /// A reference to the I/O provider.
     pub io: Arc<dyn IoProvider>,
     /// The RE connection, managed such that all build commands that are concurrently active uses
@@ -204,9 +206,6 @@ pub struct ServerCommandContext {
     /// The CellResolver and Configs for this command
     cells_and_configs: AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
 
-    /// The DiceTransaction to use when servicing computations triggered by this command.
-    dice: AsyncOnceCell<SharedResult<DiceTransaction>>,
-
     /// Keep emitting heartbeat events while the ServerCommandContext is alive  We put this in an
     /// Option so that we can ensure heartbeat events are cancelled before everything else is
     /// dropped.
@@ -289,7 +288,6 @@ impl ServerCommandContext {
             buck_out_dir,
             build_options: build_options.cloned(),
             cells_and_configs: AsyncOnceCell::new(),
-            dice: AsyncOnceCell::new(),
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
@@ -305,7 +303,9 @@ impl ServerCommandContext {
         self.cells_and_configs
             .get_or_init(async move {
                 if reuse_current_config {
-                    let dice_ctx = self.base_context.dice.ctx();
+                    // TODO this is wrong and racey as the dice manager could evict the current
+                    // active dice ctx before the command that reuses config gets there.
+                    let dice_ctx = self.base_context.dice_manager.unsafe_dice().ctx();
                     if dice_ctx.is_cell_resolver_key_set().await?
                         && dice_ctx.is_legacy_configs_key_set().await?
                     {
@@ -413,7 +413,7 @@ impl ServerCommandContext {
         }))
     }
 
-    async fn update_dice(&self, dice_ctx: DiceTransaction) -> SharedResult<DiceTransaction> {
+    async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
         let (cell_resolver, legacy_configs) =
             self.cells_and_configs(self.reuse_current_config).await?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
@@ -433,25 +433,51 @@ impl ServerCommandContext {
             Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
 
-        // this sync call my clear the dice ctx, but that's okay as we reset everything below.
-        let dice_ctx = self.base_context.file_watcher.sync(dice_ctx).await?;
-
-        dice_ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
-
-        setup_interpreter(
-            &dice_ctx,
+        Ok(DiceCommandUpdater {
+            file_watcher: self.base_context.file_watcher.dupe(),
+            buck_out_dir: self.buck_out_dir.clone(),
             cell_resolver,
             configuror,
             legacy_configs,
-            self.starlark_profiler_instrumentation_override.dupe(),
-            self.disable_starlark_types,
-        )?;
-
-        Ok(dice_ctx.commit())
+            starlark_profiler_instrumentation_override: self
+                .starlark_profiler_instrumentation_override
+                .dupe(),
+            disable_starlark_types: self.disable_starlark_types,
+        })
     }
 
     pub fn get_re_connection(&self) -> ReConnectionHandle {
         self.base_context.re_client_manager.get_re_connection()
+    }
+}
+
+struct DiceCommandUpdater {
+    file_watcher: Arc<dyn FileWatcher>,
+    buck_out_dir: ProjectRelativePathBuf,
+    cell_resolver: CellResolver,
+    configuror: Arc<dyn InterpreterConfiguror>,
+    legacy_configs: LegacyBuckConfigs,
+    starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    disable_starlark_types: bool,
+}
+
+#[async_trait]
+impl DiceUpdater for DiceCommandUpdater {
+    async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+        let ctx = self.file_watcher.sync(ctx).await?;
+
+        ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
+
+        setup_interpreter(
+            &ctx,
+            self.cell_resolver.dupe(),
+            self.configuror.dupe(),
+            self.legacy_configs.dupe(),
+            self.starlark_profiler_instrumentation_override.dupe(),
+            self.disable_starlark_types,
+        )?;
+
+        Ok(ctx)
     }
 }
 
@@ -473,16 +499,14 @@ impl ServerCommandContextTrait for ServerCommandContext {
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    async fn dice_ctx(&self, _private: PrivateStruct) -> anyhow::Result<DiceTransaction> {
-        self.dice
-            .get_or_init(async {
-                let dice_data = self.construct_dice_data().await?;
-                let dice_ctx = self.base_context.dice.with_ctx_data(dice_data);
-                self.update_dice(dice_ctx).await
-            })
-            .await
-            .dupe()
-            .unshared_error()
+    async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
+        let dice_data = self.construct_dice_data().await?;
+
+        Ok(DiceAccessor {
+            dice_handler: self.base_context.dice_manager.dupe(),
+            data: dice_data,
+            setup: box self.dice_updater().await?,
+        })
     }
 
     fn events(&self) -> &EventDispatcher {

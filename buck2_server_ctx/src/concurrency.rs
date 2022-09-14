@@ -51,7 +51,6 @@ pub trait DiceUpdater: Send + Sync {
     async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction>;
 }
 
-#[allow(unused)] // TODO(bobyf) temporary
 impl ConcurrencyHandler {
     pub fn new(dice: Arc<Dice>, bypass_semaphore: bool) -> Self {
         ConcurrencyHandler {
