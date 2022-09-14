@@ -29,16 +29,24 @@ pub struct ActiveCommandDropGuard {
 
 impl ActiveCommandDropGuard {
     pub fn new(trace_id: TraceId) -> Self {
-        let mut active_commands = ACTIVE_COMMANDS.lock().unwrap();
+        let result = {
+            // Scope the guard so it's locked as little as possible
+            let mut active_commands = ACTIVE_COMMANDS.lock().unwrap();
+            active_commands.insert(trace_id.dupe());
 
-        active_commands.insert(trace_id.dupe());
+            if active_commands.len() > 1 {
+                Some(active_commands.clone())
+            } else {
+                None
+            }
+        };
 
-        if active_commands.len() > 1 {
+        if let Some(commands) = result {
             // we use eprintln here on purpose so that this message goes to ALL commands, since
             // concurrent commands can affect correctness of ALL commands.
             eprintln!(
                 "Warning! Concurrent commands detected! Concurrent commands are not supported and likely results in crashes and incorrect builds.\n    Currently running commands are `{}`",
-                active_commands
+                commands
                     .iter()
                     .map(|id| format!("https://www.internalfb.com/buck2/{}", id))
                     .join(" ")
