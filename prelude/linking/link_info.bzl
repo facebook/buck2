@@ -260,6 +260,11 @@ def _link_info_has_stripped_filelist(children: [bool.type], infos: ["LinkInfos",
             return True
     return any(children)
 
+def _link_info_has_external_debug_info(children: [bool.type], infos: ["LinkInfos", None]) -> bool.type:
+    if infos and infos.default.external_debug_info:
+        return True
+    return any(children)
+
 def _link_info_external_debug_info(infos: "LinkInfos"):
     return infos.default.external_debug_info
 
@@ -276,6 +281,7 @@ LinkInfosTSet = transitive_set(
     },
     reductions = {
         "has_default_filelist": _link_info_has_default_filelist,
+        "has_external_debug_info": _link_info_has_external_debug_info,
         "has_stripped_filelist": _link_info_has_stripped_filelist,
     },
 )
@@ -440,6 +446,8 @@ def unpack_external_debug_info(args: LinkArgs.type) -> ["_arglike"]:
     if args.tset != None:
         (tset, stripped) = args.tset
         if stripped:
+            return []
+        if not tset.reduce("has_external_debug_info"):
             return []
         return [tset.project_as_args("external_debug_info")]
 
