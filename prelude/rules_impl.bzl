@@ -16,7 +16,6 @@ load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
-load("@prelude//linking:link_info.bzl", "LinkOrdering")
 
 # Go
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
@@ -39,6 +38,9 @@ load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_imple
 
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
+
+#
+load("@prelude//linking:link_info.bzl", "LinkOrdering")
 
 # Lua
 load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
