@@ -18,20 +18,36 @@ def _allow_cache_for_apple(ctx: "context") -> bool.type:
         _is_apple_sandcastle_alias(ctx.attrs.sandcastle_alias),
     ])
 
-def _cache_mode_impl(ctx):
-    allow_cache_uploads = all([
+def _allow_cache_for_fbcode(ctx: "context") -> bool.type:
+    sandcastle_alias = ctx.attrs.sandcastle_alias or ""
+
+    if not sandcastle_alias.endswith("_buckv2-buck"):
+        return False
+
+    return all([
         ctx.attrs.cache_mode == "readwrite",
         ctx.attrs.schedule_type in ["continuous", "master"],
-        ctx.attrs.sandcastle_alias in [
-            "build_infra_buck2_linux_buckv2-buck",
-            "build_infra_buck2_mac-buck",
-            "build_infra_buck2_e2e_linux_buckv2-buck",
-        ],
+        any([
+            ctx.attrs.sandcastle_alias in [
+                "build_infra_buck2_linux_buckv2-buck",
+                "build_infra_buck2_mac-buck",
+                "build_infra_buck2_e2e_linux_buckv2-buck",
+            ],
+            # Roll out to (1/16)*(5/16) contbuilds. The hash is a hex string so
+            # we look at the first 2 chars here.
+            sha256(ctx.attrs.sandcastle_alias) < "26",
+        ]),
+    ])
+
+def _cache_mode_impl(ctx):
+    allow_cache_uploads = any([
+        _allow_cache_for_fbcode(ctx),
+        _allow_cache_for_apple(ctx),
     ])
 
     return [
         DefaultInfo(),
-        CacheModeInfo(allow_cache_uploads = (allow_cache_uploads or _allow_cache_for_apple(ctx))),
+        CacheModeInfo(allow_cache_uploads = allow_cache_uploads),
     ]
 
 cache_mode = rule(
