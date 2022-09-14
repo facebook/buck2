@@ -1,4 +1,5 @@
 load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
+load("@fbcode_macros//build_defs:third_party_config.bzl", "third_party_config")
 load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
@@ -22,12 +23,21 @@ _GO_PLATFORM = selects2.apply_n(
 _GO_FBCODE_PKG_HOST = "fbcode//third-party-buck/{host_fbcode_platform}/tools/go"
 _GO_FBCODE_PKG_TARGET = "fbcode//third-party-buck/{target_fbcode_platform}/tools/go"
 
+# Map architecture name to their Go equivalents.
+_ARCH_MAP = {
+    "aarch64": "arm64",
+    "x86_64": "amd64",
+}
+
 def _go_pkg_tool(name, tool):
     return fbcode_toolchains.tool_wrapper(
         base_name = name + "-" + tool,
-        exe = selects2.apply(
-            _GO_PLATFORM,
-            lambda gp: _GO_FBCODE_PKG_HOST + ":pkg/tool/{}/{}".format(gp, tool),
+        exe = lambda host_fbcode_platform, _target_fbode_platform, _arch: (
+            (_GO_FBCODE_PKG_HOST + ":pkg/tool/linux_{arch}/{tool}").format(
+                host_fbcode_platform = host_fbcode_platform,
+                arch = _ARCH_MAP[third_party_config["platforms"][host_fbcode_platform]["architecture"]],
+                tool = tool,
+            )
         ),
     )
 
