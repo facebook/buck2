@@ -19,6 +19,7 @@ LinkerInfo = provider(fields = [
     "link_libraries_locally",
     "link_style",  # LinkStyle.type
     "link_weight",  # int.type
+    "link_ordering",  # LinkOrdering.type
     "linker",
     "linker_flags",
     "lto_mode",

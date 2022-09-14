@@ -102,6 +102,15 @@ LinkInfo = record(
     external_debug_info = field(["_arglike"], []),
 )
 
+# The ordering to use when traversing linker libs transitive sets.
+LinkOrdering = enum(
+    # Preorder traversal, the default behavior which traverses depth-first returning the current
+    # node, and then its children left-to-right.
+    "preorder",
+    # Topological sort, such that nodes are listed after all nodes that have them as descendants.
+    "topological",
+)
+
 # Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
         inner: LinkInfo.type,
@@ -400,17 +409,19 @@ LinkArgs = record(
     flags = field(["_arglike", None], None),
 )
 
-def unpack_link_args(args: LinkArgs.type, is_shared: [bool.type, None] = None) -> "_arglike":
+def unpack_link_args(args: LinkArgs.type, is_shared: [bool.type, None] = None, link_ordering: [LinkOrdering.type, None] = None) -> "_arglike":
     if args.tset != None:
         (tset, stripped) = args.tset
+        ordering = link_ordering.value if link_ordering else "preorder"
+
         if is_shared:
             if stripped:
-                return tset.project_as_args("stripped_shared")
-            return tset.project_as_args("default_shared")
+                return tset.project_as_args("stripped_shared", ordering = ordering)
+            return tset.project_as_args("default_shared", ordering = ordering)
         else:
             if stripped:
-                return tset.project_as_args("stripped")
-            return tset.project_as_args("default")
+                return tset.project_as_args("stripped", ordering = ordering)
+            return tset.project_as_args("default", ordering = ordering)
 
     if args.infos != None:
         return cmd_args([link_info_to_args(info, is_shared) for info in args.infos])

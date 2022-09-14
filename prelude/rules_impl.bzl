@@ -16,6 +16,7 @@ load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
+load("@prelude//linking:link_info.bzl", "LinkOrdering")
 
 # Go
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
@@ -364,6 +365,7 @@ extra_attributes = struct(
         "bolt_enabled": attrs.bool(default = False),
         "c_compiler": attrs.dep(providers = [RunInfo]),
         "cxx_compiler": attrs.dep(providers = [RunInfo]),
+        "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "linker": attrs.dep(providers = [RunInfo]),
         "nm": attrs.dep(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": attrs.dep(providers = [RunInfo]),

@@ -51,6 +51,7 @@ def cxx_toolchain_impl(ctx):
         link_libraries_locally = False,
         link_style = LinkStyle("static"),
         link_weight = 1,
+        link_ordering = ctx.attrs.link_ordering,
         linker = ctx.attrs.linker[RunInfo],
         linker_flags = cmd_args(ctx.attrs.linker_flags),
         lto_mode = LtoMode("none"),

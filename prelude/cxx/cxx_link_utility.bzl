@@ -77,7 +77,13 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [st
     ]
     return (links, dwo_dir[0])
 
-def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_name: [str.type, None] = None, is_shared: [bool.type, None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
+def make_link_args(
+        ctx: "context",
+        links: ["LinkArgs"],
+        suffix = None,
+        dwo_dir_name: [str.type, None] = None,
+        is_shared: [bool.type, None] = None,
+        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -134,7 +140,7 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
         links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
 
     for link in links:
-        args.add(unpack_link_args(link, is_shared))
+        args.add(unpack_link_args(link, is_shared, link_ordering = link_ordering))
 
     return (args, [args] + filelists, dwo_dir)
 

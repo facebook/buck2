@@ -11,6 +11,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
+    "LinkOrdering",
     "LinkedObject",
     "unpack_external_debug_info",
     "unpack_link_args",
@@ -75,7 +76,14 @@ def cxx_link(
         )
     if linker_map != None:
         links += [linker_map_args(ctx, linker_map.as_output())]
-    (link_args, hidden, dwo_dir) = make_link_args(ctx, links, suffix = identifier, dwo_dir_name = output.short_path + ".dwo.d", is_shared = is_shared)
+    (link_args, hidden, dwo_dir) = make_link_args(
+        ctx,
+        links,
+        suffix = identifier,
+        dwo_dir_name = output.short_path + ".dwo.d",
+        is_shared = is_shared,
+        link_ordering = LinkOrdering(linker_info.link_ordering) if linker_info.link_ordering else None,
+    )
 
     external_debug_info = []
 
