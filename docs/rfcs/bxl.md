@@ -1,7 +1,4 @@
-# BQL ⇒ Buck Extension Language (BXL)
-
-Buck2 has promised the more powerful graph introspection feature BQL.
-The following is a further exploration of BQL, evolving it into a more powerful BXL.
+# Buck Extension Language (BXL)
 
 Buck2 will allow more complex introspection and interaction with its graphs via the `bxl` feature.
 BXL will be a starlark script that allows integrators to interact with `buck` commands like
@@ -181,7 +178,7 @@ As such, bxl will also be given the rules api to register actions,
 including dynamic outputs for the rule in the current bxl invocation to build artifacts
 as part of a bxl function.
 
-BQL has the ability to create actions with some constraints:
+BXL has the ability to create actions with some constraints:
 1. Action is tied to a particular target
 2. It’s output location is determined in the same pattern as regular actions defined via rules
 
@@ -191,12 +188,12 @@ targets = ctx.cquery(‘deps(“//foo:rule”)’)
 for t in targets:
   action_ctx = ctx.analysis(t).actions
   # the action context here is tied to the configured target `t`
-  # actions registered by bql will be attached with bql prefix key
+  # actions registered by bxl will be attached with bxl prefix key
   action_ctx.registry.write(some_output, “foo”)
 
 ```
 
-BQL can also interact with the existing actions on an action via the action_ctx,
+BXL can also interact with the existing actions on an action via the action_ctx,
 such as iterating through it, analyzing its outputs, or requesting it to be ran.
 
 ```python
@@ -223,7 +220,7 @@ or split up the bxl and use inter-bxl caching described below.
 
 ### Inter-bxl caching?
 
-Different bql can be cacheable between each other if structured as “outputs”/artifacts.
+Different bxl can be cacheable between each other if structured as “outputs”/artifacts.
 This is essentially the same behaviour as a bxl requesting `ctx.build`, which is cached.
 Since we have those as hashes on RE, we can track properly and not require
 storing the values in dice.

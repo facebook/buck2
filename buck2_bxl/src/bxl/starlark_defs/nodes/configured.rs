@@ -246,13 +246,13 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue {
 
 #[starlark_module]
 fn configured_value_methods(builder: &mut MethodsBuilder) {
-    /// returns the type name of the attribute
+    /// Returns the type name of the attribute
     #[starlark(attribute)]
     fn r#type<'v>(this: &StarlarkConfiguredValue) -> anyhow::Result<&'v str> {
         this.0.starlark_type()
     }
 
-    /// returns the value of this attribute. The value here is not fully resolved like in rules.
+    /// Returns the value of this attribute. The value here is not fully resolved like in rules.
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         this.0.to_value(heap)
     }

@@ -31,18 +31,11 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum BqlFilesetError {
-    #[error("fileset literals aren't currently supported in buck2 bql")]
-    FileSetLiteral,
-}
 
 /// FileSetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be file sets. It will accept either a
 /// literal (like `//path/to/some/file.txt`) or a FileSet Value (from one of the
-/// bql functions that return them).
+/// bxl functions that return them).
 pub enum FileSetExpr<'a> {
     Literal(&'a str),
     FileSet(&'a FileSet),

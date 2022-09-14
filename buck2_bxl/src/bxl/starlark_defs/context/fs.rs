@@ -78,7 +78,7 @@ impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
 
 #[starlark_module]
 fn fs_operations(builder: &mut MethodsBuilder) {
-    /// check if a path exists on disk, taking advantage of Buck's cached filesystem
+    /// Check if a path exists on disk, taking advantage of Buck's cached filesystem
     fn exists<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
         let path = expr.get(this.dice);
 
@@ -90,7 +90,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// returns all the contents of the given 'FileExpr' that points to a directory.
+    /// Returns all the contents of the given 'FileExpr' that points to a directory.
     /// Errors if the given path is a file.  the optional `include_ignored` specifies
     /// whether to include the buckconfig's ignored files in the output.
     fn list<'v>(

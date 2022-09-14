@@ -51,7 +51,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
     async fn eval_internal(&self, expr: &Expr<'_>) -> Result<QueryValue<Env::Target>, QueryError> {
         // TODO(cjhopman): We should extract these functions to a map of name->functionobj and attach
         // more information to them like documentation and signature. Potentially we could generalize
-        // the function impls there to work across bql and here, but not sure if that's worth the
+        // the function impls there to work across bxl and here, but not sure if that's worth the
         // complexity or not.
         match expr {
             Expr::String(word) => Ok(QueryValue::String((*word).to_owned())),

@@ -133,7 +133,7 @@ impl<'v> StarlarkCQueryCtx<'v> {
 
 #[starlark_module]
 fn register_cquery(builder: &mut MethodsBuilder) {
-    /// the `allpaths` query.
+    /// The `allpaths` query.
     fn allpaths<'v>(
         this: &StarlarkCQueryCtx<'v>,
         from: Value<'v>,
@@ -442,7 +442,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// evaluates some general query string
+    /// Evaluates some general query string
     fn eval<'v>(
         this: &StarlarkCQueryCtx<'v>,
         query: &'v str,
