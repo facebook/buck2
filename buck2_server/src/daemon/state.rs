@@ -252,7 +252,7 @@ impl DaemonState {
 
         let hash_all_commands = root_config
             .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
-            .unwrap_or_else(RolloutPercentage::never)
+            .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
