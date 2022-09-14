@@ -45,7 +45,7 @@ extra_attributes = {
         "type": attrs.string(
             default = "js_bundle_genrule",
         ),
-        "_cache_mode": attrs.dep(default = "fbcode//buck2/platform/cache_mode:cache_mode"),
+        "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
         "_is_release": attrs.bool(
             default = _is_release(),
         ),

@@ -288,7 +288,7 @@ def _target_os_type() -> "attribute":
     }))
 
 def _cache_mode() -> "attribute":
-    return attrs.dep(default = "fbcode//buck2/platform/cache_mode:cache_mode")
+    return attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")
 
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")

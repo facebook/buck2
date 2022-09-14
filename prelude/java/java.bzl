@@ -58,7 +58,7 @@ implemented_rules = {
 
 extra_attributes = {
     "jar_genrule": {
-        "_cache_mode": attrs.dep(default = "fbcode//buck2/platform/cache_mode:cache_mode"),
+        "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [

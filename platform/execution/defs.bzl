@@ -98,7 +98,7 @@ execution_platform_rule = rule(
         "remote_execution_use_case": attrs.string(default = "buck2-default"),
         "use_limited_hybrid": attrs.bool(default = read_bool("build", "use_limited_hybrid", True)),
         "use_windows_path_separators": attrs.bool(default = False),
-        "_cache_mode": attrs.dep(default = "fbcode//buck2/platform/cache_mode:cache_mode"),
+        "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
     },
     impl = _execution_platform_impl,
 )
