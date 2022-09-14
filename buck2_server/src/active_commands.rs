@@ -15,8 +15,12 @@ use gazebo::dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 
-pub static ACTIVE_COMMANDS: Lazy<Mutex<HashSet<TraceId>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
+static ACTIVE_COMMANDS: Lazy<Mutex<HashSet<TraceId>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+/// Return the active commands, if you know what they are
+pub fn active_commands() -> Option<HashSet<TraceId>> {
+    Some(ACTIVE_COMMANDS.lock().ok()?.clone())
+}
 
 pub struct ActiveCommandDropGuard {
     trace_id: TraceId,
