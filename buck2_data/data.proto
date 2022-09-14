@@ -117,6 +117,7 @@ message InstantEvent {
     TestResult test_result = 7;
     // Inform tailer that rage was performed on certain command.
     RageInvoked rage_invoked = 8;
+    // Raw output variant is special: it is not written to event logs.
     RawOutput raw_output = 9;
     Snapshot snapshot = 10;
 
