@@ -72,6 +72,7 @@ impl Write for RawOutputWriter {
         let len = std::cmp::min(buf.len(), self.chunk_size);
         if len > 0 {
             let raw_output = buck2_data::RawOutput {
+                // TODO(nga): does not handle UTF-8 correctly.
                 raw_output: String::from_utf8(buf[..len].to_vec()).map_err(|_| {
                     io::Error::new(io::ErrorKind::InvalidInput, "Output is not utf-8")
                 })?,
