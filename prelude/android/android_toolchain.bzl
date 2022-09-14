@@ -12,6 +12,7 @@ AndroidToolchainInfo = provider(fields = [
     "apk_module_graph",
     "compress_libraries",
     "d8_command",
+    "exopackage_agent_apk",
     "filter_dex_class_names",
     "filter_prebuilt_native_library_dir",
     "multi_dex_command",

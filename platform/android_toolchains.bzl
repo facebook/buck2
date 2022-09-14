@@ -10,6 +10,7 @@ def config_backed_android_toolchain(
         d8_command,
         multi_dex_command,
         copy_string_resources,
+        exopackage_agent_apk,
         filter_dex_class_names,
         filter_prebuilt_native_library_dir,
         filter_resources,
@@ -51,6 +52,7 @@ def config_backed_android_toolchain(
     kwargs["filter_prebuilt_native_library_dir"] = filter_prebuilt_native_library_dir
     kwargs["secondary_dex_weight_limit"] = read_int("android", "secondary_dex_weight_limit", 12 * 1024 * 1024)
     kwargs["copy_string_resources"] = copy_string_resources
+    kwargs["exopackage_agent_apk"] = exopackage_agent_apk
     kwargs["filter_resources"] = filter_resources
     kwargs["generate_build_config"] = generate_build_config
     kwargs["generate_manifest"] = generate_manifest
@@ -97,6 +99,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             filter_prebuilt_native_library_dir = ctx.attrs.filter_prebuilt_native_library_dir,
             multi_dex_command = ctx.attrs.multi_dex_command,
             copy_string_resources = ctx.attrs.copy_string_resources,
+            exopackage_agent_apk = ctx.attrs.exopackage_agent_apk,
             filter_resources = ctx.attrs.filter_resources,
             framework_aidl_file = ctx.attrs.framework_aidl_file,
             generate_build_config = ctx.attrs.generate_build_config,
@@ -131,6 +134,7 @@ _config_backed_android_toolchain_rule = rule(
         "compress_libraries": attrs.dep(providers = [RunInfo]),
         "copy_string_resources": attrs.dep(providers = [RunInfo]),
         "d8_command": attrs.dep(providers = [RunInfo]),
+        "exopackage_agent_apk": attrs.source(),
         "filter_dex_class_names": attrs.dep(providers = [RunInfo]),
         "filter_prebuilt_native_library_dir": attrs.dep(providers = [RunInfo]),
         "filter_resources": attrs.dep(providers = [RunInfo]),
