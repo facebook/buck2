@@ -20,6 +20,14 @@ use crate::ctx::ServerCommandContextTrait;
 
 pub struct RawOuputGuard<'a> {
     pub _phantom: PhantomData<&'a mut dyn ServerCommandContextTrait>,
+
+    // `RawOutputWriter` expects arguments to `write` to be complete UTF-8 strings.
+    //
+    // `BufWriter` (this is implementation detail) may concatenate but never split
+    // supplied inputs before passing to the underlying writer.
+    //
+    // So as long as complete UTF-8 strings are passed to this writer,
+    // this writer will never pass partial UTF-8 strings to the underlying `RawOutputWriter`.
     pub inner: BufWriter<RawOutputWriter>,
 }
 
