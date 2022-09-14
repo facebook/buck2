@@ -88,8 +88,8 @@ config_backed_cxx_toolchain(
 # TODO(cjhopman, akhozhevnikov): We probably want to get rid of this, a lot of
 # the non-overridden parts probably don't work correctly.
 config_backed_cxx_toolchain(
-    name = "platform009-clang-for-apple-toolchains",
-    flavor = "platform009-clang",
+    name = "platform010-clang-for-apple-toolchains",
+    flavor = "platform010-clang",
     # This is only used as the base of a toolchain override, let that specify it's compatibility.
     target_compatible_with = None,
     visibility = ["PUBLIC"],
