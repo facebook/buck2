@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
+use buck2_core::env_helper::EnvHelper;
 use buck2_events::TraceId;
 use gazebo::dupe::Dupe;
 use itertools::Itertools;
@@ -42,15 +43,23 @@ impl ActiveCommandDropGuard {
         };
 
         if let Some(commands) = result {
-            // we use eprintln here on purpose so that this message goes to ALL commands, since
-            // concurrent commands can affect correctness of ALL commands.
-            eprintln!(
+            static ERROR_CONCURRENT: EnvHelper<bool> = EnvHelper::new("BUCK2_ERROR_CONCURRENT");
+
+            let message = format!(
                 "Warning! Concurrent commands detected! Concurrent commands are not supported and likely results in crashes and incorrect builds.\n    Currently running commands are `{}`",
                 commands
                     .iter()
                     .map(|id| format!("https://www.internalfb.com/buck2/{}", id))
                     .join(" ")
             );
+
+            if ERROR_CONCURRENT.get_copied().ok() == Some(Some(true)) {
+                panic!("{}", message);
+            } else {
+                // we use eprintln here on purpose so that this message goes to ALL commands, since
+                // concurrent commands can affect correctness of ALL commands.
+                eprintln!("{}", message);
+            }
         }
         Self { trace_id }
     }
