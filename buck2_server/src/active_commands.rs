@@ -19,7 +19,8 @@ static ACTIVE_COMMANDS: Lazy<Mutex<HashSet<TraceId>>> = Lazy::new(|| Mutex::new(
 
 /// Return the active commands, if you know what they are
 pub fn active_commands() -> Option<HashSet<TraceId>> {
-    Some(ACTIVE_COMMANDS.lock().ok()?.clone())
+    // Note that this function is accessed during panic, so have to be super careful
+    Some(ACTIVE_COMMANDS.try_lock().ok()?.clone())
 }
 
 pub struct ActiveCommandDropGuard {
