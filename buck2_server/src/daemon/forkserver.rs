@@ -15,18 +15,13 @@ pub async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
     use anyhow::Context;
-    use buck2_core::env_helper::EnvHelper;
     use buck2_core::rollout_percentage::RolloutPercentage;
 
-    static DEFAULT_TO_FORKSERVER: EnvHelper<RolloutPercentage> =
-        EnvHelper::new("BUCK2_FORKSERVER_DEFAULT");
-    let default = DEFAULT_TO_FORKSERVER.get_copied()?;
+    let config = root_config
+        .parse::<RolloutPercentage>("buck2", "forkserver")?
+        .unwrap_or_else(RolloutPercentage::always);
 
-    let config = root_config.parse::<RolloutPercentage>("buck2", "forkserver")?;
-
-    let merged_config = config.or(default).unwrap_or_else(RolloutPercentage::never);
-
-    if !merged_config.roll() {
+    if !config.roll() {
         return Ok(None);
     }
 

@@ -29,6 +29,10 @@ impl RolloutPercentage {
     pub fn never() -> Self {
         Self::from_bool(false)
     }
+
+    pub fn always() -> Self {
+        Self::from_bool(true)
+    }
 }
 
 impl FromStr for RolloutPercentage {
