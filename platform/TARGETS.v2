@@ -95,6 +95,17 @@ config_backed_cxx_toolchain(
     visibility = ["PUBLIC"],
 )
 
+# Toolchain that is used to cross-compile Infra FPGA FW located at
+# https://fburl.com/code/54j2591g
+config_backed_cxx_toolchain(
+    name = "infra-asic-fw-toolchain",
+    flavor = "platform010-gcc",
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
+
 lionhead_libfuzzer_flags = [
     "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION",
     "-fsanitize=fuzzer-no-link",

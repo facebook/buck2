@@ -96,6 +96,9 @@ def _get_sledge_select_map():
 def _get_xtensa_select_map():
     return {"ovr_config//toolchain/xtensa:xtensa": "fbsource//arvr/third-party/toolchains/xtensa:default-toolchain"}
 
+def _get_infra_asic_fw_select_map():
+    return {"ovr_config//toolchain/fb/constraints:infra-asic-fw-riscv64": "fbcode//buck2/platform:infra-asic-fw-toolchain"}
+
 def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
@@ -109,6 +112,7 @@ def default_cxx_toolchain_inner():
             _get_lionhead_select_map(),
             _get_sledge_select_map(),
             _get_xtensa_select_map(),
+            _get_infra_asic_fw_select_map(),
         ]),
     )
 
