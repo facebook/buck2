@@ -18,7 +18,7 @@ use crate::DiceComputations;
 use crate::Key;
 use crate::StorageType;
 
-/// Specialized version of 'Key' above. This type of Key is never computed. It
+/// Specialized version of `Key` above. This type of Key is never computed. It
 /// should always be injected onto the graph before being requested via
 /// `DiceCtx::changed_to(Key, Value)`. Therefore, the `compute` function on this
 /// Key is never called.

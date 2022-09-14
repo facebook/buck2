@@ -10,9 +10,9 @@
 //!
 //! The distributed incremental caching computation engine that powers buckv2.
 //!
-//! The computation engine will output values corresponding to given 'Key's,
-//! reusing previously computed values when possible. 'Key's computations are
-//! allowed to request other 'Key's via a 'ComputationContext'.
+//! The computation engine will output values corresponding to given `Key`s,
+//! reusing previously computed values when possible. `Key`s computations are
+//! allowed to request other `Key`s via a `ComputationContext`.
 //!
 //! Example:
 //! ```
@@ -305,7 +305,7 @@ enum DiceErrorImpl {
 pub type DiceResult<T> = Result<T, DiceError>;
 
 /// An incremental computation engine that executes arbitrary computations that
-/// maps 'Key's to values.
+/// maps `Key`s to values.
 pub struct Dice {
     data: DiceData,
     pub(crate) map: Arc<RwLock<DiceMap>>,
@@ -501,7 +501,7 @@ pub mod testing {
     use crate::DiceDataBuilder;
     use crate::Key;
 
-    /// Testing utility that can be used to build a specific 'DiceComputation' where certain keys
+    /// Testing utility that can be used to build a specific `DiceComputation` where certain keys
     /// of computation mocked to return a specific result.
     ///
     /// TODO(bobyf): ideally, we want something where we don't have to use the specific keys
@@ -526,7 +526,7 @@ pub mod testing {
             self
         }
 
-        /// mocks the call of compute for the key 'expected_k' so that it returns 'expected_res'
+        /// mocks the call of compute for the key `expected_k` so that it returns `expected_res`
         pub fn mock_and_return<K>(mut self, expected_k: K, expected_res: K::Value) -> Self
         where
             K: Key,

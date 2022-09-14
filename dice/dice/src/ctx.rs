@@ -171,10 +171,10 @@ impl Clone for DiceTransaction {
 impl Dupe for DiceTransaction {}
 
 /// The context for computations to register themselves, and request for additional dependencies.
-/// The dependencies accessed are tracked for caching via the 'DiceCtx'.
+/// The dependencies accessed are tracked for caching via the `DiceCtx`.
 ///
-/// The computations are registered onto 'DiceComputations' via implementing traits for the
-/// 'DiceComputation'.
+/// The computations are registered onto `DiceComputations` via implementing traits for the
+/// `DiceComputation`.
 ///
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
@@ -221,7 +221,7 @@ impl DiceComputations {
         self.0.compute_opaque(key)
     }
 
-    /// records a set of 'Key's as changed so that they, and any dependents will
+    /// Records a set of `Key`s as changed so that they, and any dependents will
     /// be recomputed on the next set of requests at the next version.
     pub fn changed<K, I>(&self, changed: I) -> DiceResult<()>
     where
@@ -231,9 +231,9 @@ impl DiceComputations {
         self.0.changed(changed)
     }
 
-    /// records a set of 'Key's as changed to a particular value so that any
+    /// Records a set of `Key`s as changed to a particular value so that any
     /// dependents will be recomputed on the next set of requests. The
-    /// 'Key's themselves will be update to the new value such that they
+    /// `Key`s themselves will be update to the new value such that they
     /// will not need to be recomputed as long as they aren't recorded to be
     /// `changed` again (or invalidated by other means). Calling this method
     /// does not in anyway alter the types of the key such that they
@@ -273,7 +273,7 @@ impl DiceComputations {
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
-    /// the lifetime of the top-level 'DiceComputation' used for all requests.
+    /// the lifetime of the top-level `DiceComputation` used for all requests.
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub fn per_transaction_data(&self) -> &UserComputationData {
