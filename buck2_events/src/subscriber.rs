@@ -176,6 +176,9 @@ pub trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::CacheUpload(cache_upload) => {
                 self.handle_cache_upload_start(cache_upload, event)
             }
+            buck2_data::span_start_event::Data::CreateOutputSymlinks(create_output_symlinks) => {
+                self.handle_create_output_symlinks_start(create_output_symlinks, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -233,6 +236,9 @@ pub trait EventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
                 self.handle_cache_upload_end(cache_upload, event)
+            }
+            buck2_data::span_end_event::Data::CreateOutputSymlinks(create_output_symlinks) => {
+                self.handle_create_output_symlinks_end(create_output_symlinks, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -547,6 +553,20 @@ pub trait EventSubscriber: Send {
     async fn handle_cache_upload_end(
         &mut self,
         _cache_upload: &buck2_data::CacheUploadEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_create_output_symlinks_start(
+        &mut self,
+        _create_output_symlinks: &buck2_data::CreateOutputSymlinksStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_create_output_symlinks_end(
+        &mut self,
+        _create_output_symlinks: &buck2_data::CreateOutputSymlinksEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

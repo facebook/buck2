@@ -218,6 +218,7 @@ pub(crate) fn display_event(
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::CacheUpload(..) => Ok("upload".to_owned()),
+            Data::CreateOutputSymlinks(..) => Ok("Creating output symlinks".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

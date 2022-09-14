@@ -61,6 +61,7 @@ message SpanStartEvent {
     LoadPackageStart load_package = 61;
     SharedTaskStart shared_task = 62;
     CacheUploadStart cache_upload = 63;
+    CreateOutputSymlinksStart create_output_symlinks = 64;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -88,6 +89,7 @@ message SpanEndEvent {
     LoadPackageEnd load_package = 62;
     SharedTaskEnd shared_task = 63;
     CacheUploadEnd cache_upload = 64;
+    CreateOutputSymlinksEnd create_output_symlinks = 65;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1096,3 +1098,9 @@ message CacheUploadEnd {
   // The directories we uploaded.
   repeated string tree_digests = 7;
 }
+
+message CreateOutputSymlinksStart {};
+
+message CreateOutputSymlinksEnd {
+  uint64 created = 1;
+};

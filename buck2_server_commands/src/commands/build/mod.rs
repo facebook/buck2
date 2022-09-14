@@ -41,6 +41,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_events::dispatch::span;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -231,7 +232,14 @@ async fn build(
     }
 
     if should_create_unhashed_links.unwrap_or(false) {
-        create_unhashed_outputs(provider_artifacts, &artifact_fs, fs)?;
+        span(buck2_data::CreateOutputSymlinksStart {}, || {
+            let res = create_unhashed_outputs(provider_artifacts, &artifact_fs, fs);
+            let created = match res.as_ref() {
+                Ok(n) => *n,
+                Err(..) => 0,
+            };
+            (res, buck2_data::CreateOutputSymlinksEnd { created })
+        })?;
     }
 
     let mut serialized_build_report = None;
@@ -280,7 +288,7 @@ fn create_unhashed_outputs(
     provider_artifacts: Vec<ProviderArtifacts>,
     artifact_fs: &ArtifactFs,
     fs: &ProjectRoot,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<u64> {
     let buck_out_root = fs.resolve(artifact_fs.buck_out_path_resolver().root());
 
     let start = std::time::Instant::now();
@@ -327,7 +335,7 @@ fn create_unhashed_outputs(
         num_unhashed_links_made,
         duration.as_secs_f64()
     );
-    Ok(())
+    Ok(num_unhashed_links_made)
 }
 
 fn create_unhashed_link(

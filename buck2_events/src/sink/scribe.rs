@@ -192,6 +192,7 @@ mod fbcode {
                     Some(Data::MatchDepFiles(..)) => false,
                     Some(Data::SharedTask(..)) => false,
                     Some(Data::CacheUpload(..)) => false,
+                    Some(Data::CreateOutputSymlinks(..)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -215,6 +216,7 @@ mod fbcode {
                     Some(Data::MatchDepFiles(..)) => false,
                     Some(Data::SharedTask(..)) => false,
                     Some(Data::CacheUpload(..)) => true,
+                    Some(Data::CreateOutputSymlinks(..)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }
