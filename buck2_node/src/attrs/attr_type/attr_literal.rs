@@ -36,6 +36,14 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 pub enum AttrLiteral<C: AttrConfig> {
     Bool(bool),
     Int(i32),
+    // Note we store `String`, not `Arc<str>` here, because we store full attributes
+    // in unconfigured target node, but configured target node is basically a pair
+    // (reference to unconfigured target node, configuration).
+    //
+    // Configured attributes are created on demand and destroyed immediately after use.
+    //
+    // So when working with configured attributes with pay with CPU for string copies,
+    // but don't increase total memory usage, because these string copies are short living.
     String(String),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(String),
