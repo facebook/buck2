@@ -49,6 +49,11 @@ impl FinalConsole {
         self.stderr_colored(message, Color::DarkRed)
     }
 
+    /// Print the given message to stderr, in yellow if possible
+    pub fn print_warning(&self, message: &str) -> anyhow::Result<()> {
+        self.stderr_colored(message, Color::Yellow)
+    }
+
     /// Print the given message to stderr, in green if possible
     pub fn print_success(&self, message: &str) -> anyhow::Result<()> {
         self.stderr_colored(message, Color::Green)

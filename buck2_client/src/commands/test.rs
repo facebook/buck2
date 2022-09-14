@@ -229,7 +229,9 @@ impl StreamingCommand for TestCommand {
         print_error_counter(&console, &listing_failed, "LISTINGS FAILED", "⚠")?;
         print_error_counter(&console, &failed, "TESTS FAILED", "✗")?;
         print_error_counter(&console, &fatals, "TESTS FATALS", "⚠")?;
-        if !response.error_messages.is_empty() {
+        if passed.count + failed.count + fatals.count + skipped.count == 0 {
+            console.print_warning("NO TESTS RAN")?;
+        } else if !response.error_messages.is_empty() {
             console.print_error(&format!("{} BUILDS FAILED", response.error_messages.len()))?;
         }
 
