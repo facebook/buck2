@@ -39,10 +39,20 @@ def _allow_cache_for_fbcode(ctx: "context") -> bool.type:
         ]),
     ])
 
+def _allow_cache_for_android(ctx: "context") -> bool.type:
+    return all([
+        ctx.attrs.cache_mode == "readwrite",
+        ctx.attrs.schedule_type in ["continuous", "continuous_stable"],
+        ctx.attrs.sandcastle_alias in [
+            "automation_fbandroid_exo_native_buck2",
+        ],
+    ])
+
 def _cache_mode_impl(ctx):
     allow_cache_uploads = any([
         _allow_cache_for_fbcode(ctx),
         _allow_cache_for_apple(ctx),
+        _allow_cache_for_android(ctx),
     ])
 
     return [
