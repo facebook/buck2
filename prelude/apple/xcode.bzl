@@ -36,4 +36,5 @@ def apple_populate_xcode_attributes(
         if swift_version != None:
             data["swift_version"] = swift_version
 
+    apple_xcode_attributes_add_xctoolchain(ctx, data)
     return data

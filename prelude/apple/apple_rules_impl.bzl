@@ -9,7 +9,7 @@ load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
 load(":apple_resource.bzl", "apple_resource_impl")
-load(":apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs", "get_apple_toolchain_attr")
+load(":apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs", "get_apple_toolchain_attr", "get_apple_xctoolchain_attr", "get_apple_xctoolchain_bundle_id_attr")
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
@@ -46,6 +46,8 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     "apple_bundle": apple_bundle_extra_attrs(),
@@ -59,6 +61,8 @@ extra_attributes = {
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
     },
     "apple_resource": {
@@ -88,6 +92,8 @@ extra_attributes = {
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attrs.bool(),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
