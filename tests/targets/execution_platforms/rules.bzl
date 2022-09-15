@@ -29,6 +29,7 @@ def _platform(ctx):
             allow_limited_hybrid_fallbacks = ctx.attrs.allow_hybrid_fallbacks_on_failure,
             allow_hybrid_fallbacks_on_failure = ctx.attrs.allow_hybrid_fallbacks_on_failure,
             remote_execution_use_case = "buck2-default",
+            allow_cache_uploads = ctx.attrs.allow_cache_uploads,
         ),
     )
 
@@ -41,6 +42,7 @@ def _platform(ctx):
 platform = rule(
     impl = _platform,
     attrs = {
+        "allow_cache_uploads": attrs.bool(default = False),
         "allow_hybrid_fallbacks_on_failure": attrs.bool(default = False),
         "setting": attrs.configuration_label(),
         "use_limited_hybrid": attrs.bool(default = True),
@@ -128,3 +130,31 @@ def _command_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 command = rule(impl = _command_impl, attrs = {"command": attrs.source()})
+
+def _write_impl(ctx):
+    # NOTE: This uses an action so that we can exercise local uploads.
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        [
+            "sh",
+            "-c",
+            'echo -n "$1" > "$2"',
+            "--",
+            ctx.attrs.text,
+            out.as_output(),
+        ],
+        category = "write",
+        local_only = ctx.attrs.local_only,
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
+    )
+
+    return [DefaultInfo(default_outputs = [out])]
+
+write = rule(
+    impl = _write_impl,
+    attrs = {
+        "allow_cache_upload": attrs.bool(default = False),
+        "local_only": attrs.bool(default = False),
+        "text": attrs.string(),
+    },
+)

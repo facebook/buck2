@@ -173,13 +173,13 @@ impl CachingExecutor {
         target: CommandExecutionTarget<'_>,
         digest: &ActionDigest,
         result: &CommandExecutionResult,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<CacheUploadOutcome>> {
         if !self.cache_upload_behavior.is_enabled() {
-            return Ok(());
+            return Ok(None);
         }
 
         if !request.allow_cache_upload() {
-            return Ok(());
+            return Ok(None);
         }
 
         match &result.report.status {
@@ -190,7 +190,7 @@ impl CachingExecutor {
             }
             _ => {
                 // In all other cases, skip.
-                return Ok(());
+                return Ok(None);
             }
         }
 
@@ -199,7 +199,7 @@ impl CachingExecutor {
             identifier: target.identifier.unwrap_or("").to_owned(),
         };
 
-        span_async(
+        let outcome = span_async(
             buck2_data::CacheUploadStart {
                 key: Some(target.action_key.as_proto()),
                 name: Some(name.clone()),
@@ -237,7 +237,7 @@ impl CachingExecutor {
         )
         .await?;
 
-        Ok(())
+        Ok(Some(outcome))
     }
 
     async fn perform_cache_upload(
@@ -431,20 +431,41 @@ impl PreparedCommandExecutor for CachingExecutor {
             )
             .await;
 
-        if let Err(error) = upload_res {
-            if error_on_cache_upload {
-                res.report.status = CommandExecutionStatus::Error {
-                    stage: "cache_upload".to_owned(),
-                    error,
-                };
-            } else {
-                tracing::warn!(
-                    "Cache upload for `{}` failed: {:#}",
-                    command.prepared_action.action,
-                    error
+        match upload_res {
+            Ok(Some(CacheUploadOutcome::Success)) => {
+                tracing::info!(
+                    "Cache upload for `{}` succeeded",
+                    command.prepared_action.action
                 );
             }
-        }
+            Ok(Some(CacheUploadOutcome::Rejected(reason))) => {
+                tracing::info!(
+                    "Cache upload for `{}` rejected: {:#}",
+                    command.prepared_action.action,
+                    reason
+                );
+            }
+            Ok(None) => {
+                tracing::info!(
+                    "Cache upload for `{}` not attempted",
+                    command.prepared_action.action,
+                );
+            }
+            Err(error) => {
+                if error_on_cache_upload {
+                    res.report.status = CommandExecutionStatus::Error {
+                        stage: "cache_upload".to_owned(),
+                        error,
+                    };
+                } else {
+                    tracing::warn!(
+                        "Cache upload for `{}` failed: {:#}",
+                        command.prepared_action.action,
+                        error
+                    );
+                }
+            }
+        };
 
         res
     }

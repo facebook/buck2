@@ -1,0 +1,10 @@
+load("@root//:rules.bzl", "write")
+
+write(
+    name="write",
+    text=read_config("write", "text") or fail("text missing"),
+    allow_cache_upload=True,
+    local_only=True,
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:cache_uploads"],
+)

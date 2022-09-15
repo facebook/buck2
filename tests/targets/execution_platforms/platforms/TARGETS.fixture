@@ -23,7 +23,13 @@ platform(
     allow_hybrid_fallbacks_on_failure = True,
 )
 
+platform(
+    name="cache_uploads",
+    setting=":setting",
+    allow_cache_uploads = True,
+)
+
 platforms(
     name="platforms",
-    platforms=[":default", ":no_fallback", ":full_hybrid"]
+    platforms=[":default", ":no_fallback", ":full_hybrid", ":cache_uploads"]
 )
