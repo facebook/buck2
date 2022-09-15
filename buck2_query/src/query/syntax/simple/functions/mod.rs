@@ -294,7 +294,10 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     }
 
     async fn filter(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(self.implementation.filter(&regex, &targets)?.into())
+        Ok(self
+            .implementation
+            .filter_target_set(&regex, &targets)?
+            .into())
     }
 
     async fn inputs(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
@@ -469,7 +472,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         .await
     }
 
-    pub fn filter(
+    pub fn filter_target_set(
         &self,
         regex: &str,
         targets: &TargetSet<Env::Target>,

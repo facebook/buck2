@@ -339,7 +339,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
-                this.functions.filter(
+                this.functions.filter_target_set(
                     regex,
                     &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         targets,
