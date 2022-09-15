@@ -21,6 +21,7 @@ use either::Either;
 use gazebo::any::ProvidesStaticType;
 use gazebo::display::display_container;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -38,6 +39,7 @@ use starlark::values::ValueLike;
 /// bxl functions that return them).
 pub enum FileSetExpr<'a> {
     Literal(&'a str),
+    Literals(Vec<&'a str>),
     FileSet(&'a FileSet),
 }
 
@@ -48,6 +50,13 @@ impl<'a> FileSetExpr<'a> {
     ) -> anyhow::Result<Cow<'a, FileSet>> {
         let set = match self {
             FileSetExpr::Literal(val) => Cow::Owned(env.eval_file_literal(val).await?),
+            FileSetExpr::Literals(val) => {
+                let mut file_set = FileSet::new(IndexSet::new());
+                for arg in val.iter() {
+                    file_set.insert_all(&env.eval_file_literal(arg).await?);
+                }
+                Cow::Owned(file_set)
+            }
             FileSetExpr::FileSet(val) => Cow::Borrowed(val),
         };
         Ok(set)
@@ -74,9 +83,12 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        match value.unpack_str() {
-            Some(s) => Some(FileSetExpr::Literal(s)),
-            None => FileSetExpr::unpack_set(value),
+        if let Some(s) = value.unpack_str() {
+            Some(FileSetExpr::Literal(s))
+        } else if let Some(s) = <Vec<&'v str>>::unpack_value(value) {
+            Some(FileSetExpr::Literals(s))
+        } else {
+            FileSetExpr::unpack_set(value)
         }
     }
 }
