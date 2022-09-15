@@ -603,8 +603,8 @@ impl DeferredMaterializerCommandProcessor {
                         paths = ?paths,
                         "invalidate paths",
                     );
-                    let (removed_paths, existing_futs) =
-                        tree.remove_paths_and_collect_futures(paths);
+                    let (invalidated_paths, existing_futs) =
+                        tree.invalidate_paths_and_collect_futures(paths);
                     let sqlite_db = self.sqlite_db.dupe();
                     let invalidation_fut = tokio::task::spawn(async move {
                         join_all_existing_futs(existing_futs).await?;
@@ -617,7 +617,7 @@ impl DeferredMaterializerCommandProcessor {
                         if let Some(sqlite_db) = sqlite_db {
                             sqlite_db
                                 .materializer_state_table()
-                                .delete(removed_paths)
+                                .delete(invalidated_paths)
                                 .await?;
                         }
 
@@ -739,8 +739,8 @@ impl DeferredMaterializerCommandProcessor {
         // Always invalidate materializer state before actual deleting from filesystem
         // so there will never be a moment where artifact is deleted but materializer
         // thinks it still exists.
-        let (tree_removed_paths, existing_futs) =
-            tree.remove_paths_and_collect_futures(vec![path.clone()]);
+        let (invalidated_paths, existing_futs) =
+            tree.invalidate_paths_and_collect_futures(vec![path.clone()]);
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
             stage: ArtifactMaterializationStage::Declared {
@@ -753,12 +753,12 @@ impl DeferredMaterializerCommandProcessor {
                 path.clone(),
                 // In order to make sure we don't have any race conditions when deleting,
                 // we need to wait for all existing I/O futures to finish before
-                // running out own cleaning future. In the case `remove_paths_and_collect_futures`
+                // running out own cleaning future. In the case `invalidate_paths_and_collect_futures`
                 // removed an entire sub-trie, we need to wait for all futures from that
                 // sub-trie to finish first.
                 Some(existing_futs),
                 self.sqlite_db.dupe(),
-                tree_removed_paths,
+                invalidated_paths,
             ))),
         };
         tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -1196,24 +1196,24 @@ impl ArtifactTree {
     /// Removes paths from tree and returns a pair of two vecs.
     /// First vec is a list of paths removed. Second vec is a list of
     /// pairs of removed paths to futures that haven't finished.
-    fn remove_paths_and_collect_futures(
+    fn invalidate_paths_and_collect_futures(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
     ) -> (
         Vec<ProjectRelativePathBuf>,
         Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
     ) {
-        let mut removed_paths = Vec::new();
+        let mut invalidated_paths = Vec::new();
         let mut futs = Vec::new();
         for path in paths {
             for (path, data) in self.remove_path(&path) {
                 if let Some(processing_fut) = data.processing_fut {
                     futs.push((path.clone(), processing_fut));
                 }
-                removed_paths.push(path);
+                invalidated_paths.push(path);
             }
         }
-        (removed_paths, futs)
+        (invalidated_paths, futs)
     }
 }
 
@@ -1383,7 +1383,7 @@ fn clean_output_paths(
     path: ProjectRelativePathBuf,
     existing_futs: Option<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>,
     sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
-    tree_removed_paths: Vec<ProjectRelativePathBuf>,
+    invalidated_paths: Vec<ProjectRelativePathBuf>,
 ) -> CleaningFuture {
     tokio::task::spawn(async move {
         if let Some(existing_futs) = existing_futs {
@@ -1397,7 +1397,7 @@ fn clean_output_paths(
         if let Some(sqlite_db) = sqlite_db {
             sqlite_db
                 .materializer_state_table()
-                .delete(tree_removed_paths)
+                .delete(invalidated_paths)
                 .await?;
         }
 
