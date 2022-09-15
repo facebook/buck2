@@ -15,6 +15,7 @@ AndroidBinaryNativeLibsInfo = provider(
     fields = [
         "apk_under_test_prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
         "apk_under_test_shared_libraries",  # ["SharedLibrary"]
+        "exopackage_info",  # ["ExopackageNativeInfo", None]
         "native_lib_assets",  # ["artifact"]
         "native_libs_for_primary_apk",  # ["artifact"]
         "unstripped_libs",  # ["artifact"]
@@ -158,6 +159,11 @@ ExopackageDexInfo = record(
     directory = "artifact",
 )
 
+ExopackageNativeInfo = record(
+    metadata = "artifact",
+    directory = "artifact",
+)
+
 DexFilesInfo = record(
     primary_dex = "artifact",
     secondary_dex_dirs = ["artifact"],
@@ -167,6 +173,7 @@ DexFilesInfo = record(
 
 ExopackageInfo = record(
     secondary_dex_info = [ExopackageDexInfo.type, None],
+    native_library_info = [ExopackageNativeInfo.type, None],
 )
 
 def merge_android_packageable_info(

@@ -1,5 +1,5 @@
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "CPU_FILTER_TO_ABI_DIRECTORY", "ExopackageNativeInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
@@ -61,10 +61,12 @@ def get_android_binary_native_library_info(
             all_prebuilt_native_library_dirs,
             platform_to_native_linkables,
         )
-        native_libs = [
-            native_libs_and_assets_info.native_libs,
+        native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(
+            ctx,
             native_libs_and_assets_info.native_libs_always_in_primary_apk,
-        ]
+            native_libs_and_assets_info.native_libs,
+            native_libs_and_assets_info.native_libs_metadata,
+        )
         native_lib_assets = filter(None, [
             native_libs_and_assets_info.native_lib_assets_for_primary_apk,
             native_libs_and_assets_info.stripped_native_linkable_assets_for_primary_apk,
@@ -74,12 +76,14 @@ def get_android_binary_native_library_info(
         return AndroidBinaryNativeLibsInfo(
             apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
             apk_under_test_shared_libraries = all_shared_libraries,
-            native_libs_for_primary_apk = native_libs,
+            native_libs_for_primary_apk = native_libs_for_primary_apk,
+            exopackage_info = exopackage_info,
             unstripped_libs = unstripped_libs,
             native_lib_assets = native_lib_assets,
         )
     else:
         native_libs = ctx.actions.declare_output("native_libs_symlink")
+        native_libs_metadata = ctx.actions.declare_output("native_libs_metadata_symlink")
         native_libs_always_in_primary_apk = ctx.actions.declare_output("native_libs_always_in_primary_apk_symlink")
         native_lib_assets_for_primary_apk = ctx.actions.declare_output("native_lib_assets_for_primary_apk_symlink")
         stripped_native_linkable_assets_for_primary_apk = ctx.actions.declare_output("stripped_native_linkable_assets_for_primary_apk_symlink")
@@ -88,6 +92,7 @@ def get_android_binary_native_library_info(
 
         outputs = [
             native_libs,
+            native_libs_metadata,
             native_libs_always_in_primary_apk,
             native_lib_assets_for_primary_apk,
             stripped_native_linkable_assets_for_primary_apk,
@@ -108,6 +113,7 @@ def get_android_binary_native_library_info(
             # Rather than passing the created outputs into `_get_native_libs_and_assets`, we
             # just symlink to the outputs that function produces.
             ctx.actions.symlink_file(outputs[native_libs], dynamic_info.native_libs)
+            ctx.actions.symlink_file(outputs[native_libs_metadata], dynamic_info.native_libs_metadata)
             ctx.actions.symlink_file(outputs[native_libs_always_in_primary_apk], dynamic_info.native_libs_always_in_primary_apk)
             ctx.actions.symlink_file(outputs[native_lib_assets_for_primary_apk], dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
             ctx.actions.symlink_file(outputs[stripped_native_linkable_assets_for_primary_apk], dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
@@ -116,10 +122,12 @@ def get_android_binary_native_library_info(
 
         ctx.actions.dynamic_output(dynamic = [apk_module_graph_file], inputs = [], outputs = outputs, f = get_native_libs_info_modular)
 
+        native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(ctx, native_libs_always_in_primary_apk, native_libs, native_libs_metadata)
         return AndroidBinaryNativeLibsInfo(
             apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
             apk_under_test_shared_libraries = all_shared_libraries,
-            native_libs_for_primary_apk = [native_libs, native_libs_always_in_primary_apk],
+            native_libs_for_primary_apk = native_libs_for_primary_apk,
+            exopackage_info = exopackage_info,
             unstripped_libs = unstripped_libs,
             native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, metadata_assets, compressed_lib_assets],
         )
@@ -130,12 +138,24 @@ def get_android_binary_native_library_info(
 # the paths overlap) so it's easier to just be explicit about exactly what we produce.
 _NativeLibsAndAssetsInfo = record(
     native_libs = "artifact",
+    native_libs_metadata = "artifact",
     native_libs_always_in_primary_apk = "artifact",
     native_lib_assets_for_primary_apk = ["artifact", None],
     stripped_native_linkable_assets_for_primary_apk = ["artifact", None],
     metadata_assets = "artifact",
     compressed_lib_assets = "artifact",
 )
+
+def _get_exopackage_info(
+        ctx: "context",
+        native_libs_always_in_primary_apk: "artifact",
+        native_libs: "artifact",
+        native_libs_metadata: "artifact") -> (["artifact"], [ExopackageNativeInfo.type, None]):
+    is_exopackage_enabled_for_native_libs = "native_library" in getattr(ctx.attrs, "exopackage_modes", [])
+    if is_exopackage_enabled_for_native_libs:
+        return [native_libs_always_in_primary_apk], ExopackageNativeInfo(directory = native_libs, metadata = native_libs_metadata)
+    else:
+        return [native_libs, native_libs_always_in_primary_apk], None
 
 def _get_native_libs_and_assets(
         ctx: "context",
@@ -220,6 +240,7 @@ def _get_native_libs_and_assets(
         compressed_lib_srcs[_get_native_libs_as_assets_dir(module)] = compressed_lib_dir
 
     combined_native_libs = ctx.actions.declare_output("combined_native_libs")
+    native_libs_metadata = ctx.actions.declare_output("native_libs_metadata.txt")
     ctx.actions.run(cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
         "--output-dir",
@@ -227,6 +248,8 @@ def _get_native_libs_and_assets(
         "--library-dirs",
         native_libs,
         stripped_native_linkables,
+        "--metadata-file",
+        native_libs_metadata.as_output(),
     ]), category = "combine_native_libs")
 
     combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk")
@@ -241,6 +264,7 @@ def _get_native_libs_and_assets(
 
     return _NativeLibsAndAssetsInfo(
         native_libs = combined_native_libs,
+        native_libs_metadata = native_libs_metadata,
         native_libs_always_in_primary_apk = combined_native_libs_always_in_primary_apk,
         native_lib_assets_for_primary_apk = native_lib_assets_for_primary_apk,
         stripped_native_linkable_assets_for_primary_apk = stripped_native_linkable_assets_for_primary_apk,

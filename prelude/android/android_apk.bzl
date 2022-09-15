@@ -114,6 +114,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
 
     exopackage_info = ExopackageInfo(
         secondary_dex_info = dex_files_info.secondary_dex_exopackage_info,
+        native_library_info = native_library_info.exopackage_info,
     )
 
     return [
@@ -238,6 +239,11 @@ def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> ["artifact"
     if secondary_dex_exopackage_info:
         outputs.append(secondary_dex_exopackage_info.metadata)
         outputs.append(secondary_dex_exopackage_info.directory)
+
+    native_library_exopackage_info = exopackage_info.native_library_info
+    if native_library_exopackage_info:
+        outputs.append(native_library_exopackage_info.metadata)
+        outputs.append(native_library_exopackage_info.directory)
 
     return outputs
 
