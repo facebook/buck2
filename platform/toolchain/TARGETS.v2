@@ -1,4 +1,4 @@
-load(":apple_toolchain_setup.bzl", "default_apple_toolchain", "default_apple_xctoolchain", "resources_apple_toolchain")
+load(":apple_toolchain_setup.bzl", "default_apple_toolchain", "default_apple_xctoolchain", "default_apple_xctoolchain_bundle_id", "resources_apple_toolchain")
 load(":defs.bzl", "toolchain", "toolchain_alias")
 load(":toolchains.bzl", "default_cxx_toolchain_inner", "default_haskell_toolchain_inner", "default_python_bootstrap_toolchain_inner", "default_python_toolchain_inner", "default_rust_toolchain_inner")
 
@@ -92,5 +92,11 @@ toolchain(
 toolchain(
     name = "apple-xctoolchain",
     dep = default_apple_xctoolchain(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "apple-xctoolchain-bundle-id",
+    dep = default_apple_xctoolchain_bundle_id(),
     visibility = ["PUBLIC"],
 )

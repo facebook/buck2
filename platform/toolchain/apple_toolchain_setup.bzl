@@ -49,7 +49,13 @@ def resources_apple_toolchain():
     select_map = _get_apple_select_map(include_default = True, rule_type = _APPLE_TOOLCHAIN_RULE_TYPE, usage_type = _RESOURCES_USAGE_TYPE)
     return select(select_map)
 
+def default_apple_xctoolchain_bundle_id():
+    return _default_apple_xctoolchain(bundle_id_target = True)
+
 def default_apple_xctoolchain():
+    return _default_apple_xctoolchain(bundle_id_target = False)
+
+def _default_apple_xctoolchain(bundle_id_target: bool.type):
     select_map = {"DEFAULT": None}
 
     toolchain_type_to_name_map = {
@@ -62,14 +68,15 @@ def default_apple_xctoolchain():
 
     for (toolchain_type, toolchain_name) in toolchain_type_to_name_map.items():
         config_key = _get_toolchain_select_config(toolchain_type = toolchain_type, usage_type = _GENERIC_USAGE_TYPE)
-        toolchain_target = _get_xctoolchain_target(toolchain_name = toolchain_name)
+        toolchain_target = _get_xctoolchain_target(toolchain_name = toolchain_name, bundle_id_target = bundle_id_target)
         select_map[config_key] = toolchain_target
 
     return select(select_map)
 
-def _get_xctoolchain_target(toolchain_name: str.type) -> str.type:
+def _get_xctoolchain_target(toolchain_name: str.type, bundle_id_target: bool.type) -> str.type:
     # xctoolchain is an Xcode-specific toolchain bundle, so we always pick macOS-hosted ones, as Xcode only runs on macOS.
-    return "fbsource//xplat/toolchains/facebook-dt:{}-macos-noasserts-focus-xctoolchain".format(toolchain_name)
+    suffix = "-bundle-id" if bundle_id_target else ""
+    return "fbsource//xplat/toolchains/facebook-dt:{}-macos-noasserts-focus-xctoolchain".format(toolchain_name) + suffix
 
 def _get_apple_select_map(include_default: bool.type, rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = {

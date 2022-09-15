@@ -13,6 +13,7 @@ def apple_bundle_extra_attrs():
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain"),
+        "_apple_xctoolchain_bundle_id": attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id"),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attrs.bool(),
