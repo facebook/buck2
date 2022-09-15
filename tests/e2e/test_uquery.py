@@ -183,6 +183,21 @@ async def test_uquery_provider_names(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_query_filter(buck: Buck) -> None:
+    # Test uquery/cquery on target and file sets
+    out = await buck.uquery("filter('the_binary$', root//...)")
+    assert out.stdout == "root//bin:the_binary\n"
+    out = await buck.cquery("filter('the_binary\\w', root//...)")
+    assert (
+        out.stdout == "root//bin:the_binary_with_dir_srcs (root//platforms:platform1)\n"
+    )
+    out = await buck.uquery("filter('fixture$', inputs(root//bin:the_binary))")
+    assert out.stdout == "bin/TARGETS.fixture\n"
+    out = await buck.cquery("filter('fixture$', inputs(root//bin:the_binary))")
+    assert out.stdout == "bin/TARGETS.fixture\n"
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_attributes(buck: Buck) -> None:
     out = await buck.uquery("set(root//bin:the_binary //lib:file1)")
     assert out.stdout == "root//bin:the_binary\nroot//lib:file1\n"
