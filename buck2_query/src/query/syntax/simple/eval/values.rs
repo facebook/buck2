@@ -32,6 +32,13 @@ pub enum QueryValue<T: QueryTarget> {
     FileSet(FileSet),
 }
 
+/// Used as a value in query evaluation where sets are valid, may appear in arguments to functions, results of functions etc.
+#[derive(Debug)]
+pub enum QueryValueSet<T: QueryTarget> {
+    TargetSet(TargetSet<T>),
+    FileSet(FileSet),
+}
+
 /// Used as the final result of evaluating a query. A literal at the top-level is treated specially and so this has
 /// a more limited set of possibilities than a general QueryValue (for example `//foo/...` becomes a TargetSet in
 /// `buck query //foo/...` rather than being a String).

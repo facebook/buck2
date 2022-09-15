@@ -82,7 +82,12 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
                                 this,
                                 visitor,
                                 arg,
-                                matches!(func.arg_type(i)?, QueryArgType::TargetSet),
+                                matches!(
+                                    func.arg_type(i)?,
+                                    QueryArgType::TargetSet
+                                        | QueryArgType::Set
+                                        | QueryArgType::Value
+                                ),
                             )?;
                         }
                         Ok(())

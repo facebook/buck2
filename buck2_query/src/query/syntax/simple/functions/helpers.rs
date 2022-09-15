@@ -25,6 +25,7 @@ use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::eval::values::QueryValueSet;
 
 // IntoEnumIterator triggers this lint :/
 #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))]
@@ -37,6 +38,7 @@ mod _scoped_allow {
         Integer,
         TargetSet,
         FileSet,
+        Set,
         Expression,
         Value,
     }
@@ -51,6 +53,7 @@ impl QueryArgType {
             QueryArgType::Integer => "integer",
             QueryArgType::TargetSet => "target expression",
             QueryArgType::FileSet => "file expression",
+            QueryArgType::Set => "target or file expression",
             QueryArgType::Expression => "query expression",
             QueryArgType::Value => "any value",
         }
@@ -63,6 +66,9 @@ impl QueryArgType {
             }
             QueryArgType::FileSet => {
                 "a file expression, either a literal or the return value of a function"
+            }
+            QueryArgType::Set => {
+                "a file or target expression, either a literal or the return value of a function"
             }
             QueryArgType::Expression => {
                 "a valid query expression, evaluated in a function-specific context"
@@ -88,6 +94,10 @@ impl QueryArgType {
             QueryArgType::FileSet => {
                 "A file set expression. This could be a file literal like `path/to/a.file` or the return value of a function that \
                 returns files (for example, the `buildfile()` function)."
+            }
+            QueryArgType::Set => {
+                "A file set or target set expression. This could be a literal like `path/to/a.file` or `\"cell//some:target\"`,
+                or the return value of a function that returns files or targets."
             }
             QueryArgType::Expression => {
                 "A query expression. This is used for functions that capture an expression and evaluate it in another context. \
@@ -179,6 +189,23 @@ impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for QueryValue<Env::Ta
 
     async fn accept(_env: &Env, val: QueryValue<Env::Target>) -> Result<Self, QueryError> {
         Ok(val)
+    }
+}
+
+#[async_trait]
+impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for QueryValueSet<Env::Target> {
+    const ARG_TYPE: QueryArgType = QueryArgType::Set;
+
+    async fn accept(env: &Env, val: QueryValue<Env::Target>) -> Result<Self, QueryError> {
+        match val {
+            QueryValue::String(s) => Ok(QueryValueSet::TargetSet(env.eval_literals(&[&s]).await?)),
+            QueryValue::TargetSet(x) => Ok(QueryValueSet::TargetSet(x)),
+            QueryValue::FileSet(x) => Ok(QueryValueSet::FileSet(x)),
+            _ => Err(QueryError::InvalidType {
+                expected: "file or target set",
+                actual: val.variant_name(),
+            }),
+        }
     }
 }
 
