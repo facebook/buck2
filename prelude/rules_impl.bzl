@@ -269,10 +269,10 @@ def _rust_toolchain():
     return _toolchain("rust", [RustToolchainInfo, RustPlatformInfo])
 
 def _go_toolchain():
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform:go-fbcode", providers = [GoToolchainInfo])
+    return _toolchain("go", [GoToolchainInfo])
 
 def _ocaml_toolchain():
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform:ocaml-fbcode", providers = [OCamlToolchainInfo, OCamlPlatformInfo])
+    return _toolchain("ocaml", [OCamlToolchainInfo, OCamlPlatformInfo])
 
 def _python_toolchain():
     return _toolchain("python", [PythonToolchainInfo, PythonPlatformInfo])
