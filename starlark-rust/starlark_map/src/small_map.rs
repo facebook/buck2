@@ -370,7 +370,8 @@ impl<K, V> SmallMap<K, V> {
         debug_assert!(capacity >= self.entries.len());
         let mut index = RawTable::with_capacity(capacity);
         for (i, b) in self.entries.buckets.iter().enumerate() {
-            index.insert_no_grow(b.hash.promote(), i);
+            // SAFETY: capacity >= self.entries.len()
+            unsafe { index.insert_no_grow(b.hash.promote(), i) };
         }
         self.index = Some(Box::new(index));
     }

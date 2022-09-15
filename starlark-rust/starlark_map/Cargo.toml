@@ -19,7 +19,7 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 
 fnv = "1.0.7"
-hashbrown = { version = "0.11.2", features = ["raw"] }
+hashbrown = { version = "0.12.3", features = ["raw"] }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
