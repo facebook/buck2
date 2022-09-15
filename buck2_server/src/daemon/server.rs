@@ -341,7 +341,14 @@ impl BuckdServer {
             .await
             .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
 
-        dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot());
+        let data = daemon_state
+            .data()
+            .await
+            .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
+
+        dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot(
+            data.start_time,
+        ));
 
         let configure_bxl_file_globals = self.callbacks.configure_bxl_file_globals();
 

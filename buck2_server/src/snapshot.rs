@@ -42,15 +42,15 @@ impl SnapshotCollector {
     /// We emit a Snapshot before a BaseCommandContext is made available.
     /// Initializes snapshot with all information we don't get off a BaseCommandContext.
     /// This lets us send our first Snapshot before fully initializing/syncing.
-    pub fn pre_initialization_snapshot() -> buck2_data::Snapshot {
+    pub fn pre_initialization_snapshot(daemon_start_time: Instant) -> buck2_data::Snapshot {
         let mut snapshot = buck2_data::Snapshot::default();
-        add_system_metrics(&mut snapshot);
+        add_system_metrics(&mut snapshot, daemon_start_time);
         snapshot
     }
 
     /// Create a new Snapshot.
     pub fn create_snapshot(&self) -> buck2_data::Snapshot {
-        let mut snapshot = Self::pre_initialization_snapshot();
+        let mut snapshot = Self::pre_initialization_snapshot(self.daemon_start_time);
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
@@ -59,7 +59,6 @@ impl SnapshotCollector {
 
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size = self.blocking_executor.queue_size() as u64;
-        snapshot.daemon_uptime_s = self.daemon_start_time.elapsed().as_secs();
     }
 
     fn add_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
@@ -137,11 +136,12 @@ impl SnapshotCollector {
     }
 }
 
-fn add_system_metrics(snapshot: &mut buck2_data::Snapshot) {
+fn add_system_metrics(snapshot: &mut buck2_data::Snapshot, daemon_start_time: Instant) {
     if let Some(stats) = process_stats() {
         snapshot.buck2_max_rss = stats.max_rss_bytes;
         snapshot.buck2_user_cpu_us = stats.user_cpu_us;
         snapshot.buck2_system_cpu_us = stats.system_cpu_us;
+        snapshot.daemon_uptime_s = daemon_start_time.elapsed().as_secs();
         if let Some(rss_bytes) = stats.rss_bytes {
             snapshot.buck2_rss = rss_bytes;
         }
