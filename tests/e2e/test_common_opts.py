@@ -7,7 +7,7 @@ from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 @pytest.mark.parametrize(  # type: ignore
     "cmd",
     ["build", "targets", "cquery", "bxl", "uquery"],
@@ -21,7 +21,7 @@ async def test_write_uuid(buck: Buck, cmd: str) -> None:
         assert len(file.read()) > 0
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 @pytest.mark.parametrize(  # type: ignore
     "cmd",
     ["build", "targets", "cquery", "bxl", "uquery"],

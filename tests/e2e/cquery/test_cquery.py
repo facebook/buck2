@@ -20,25 +20,25 @@ more extensive testing in the uquery tests.
 """
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_inputs(buck: Buck) -> None:
     result = await buck.cquery("""inputs(set(root//bin:the_binary //lib:file1))""")
     assert result.stdout == "bin/TARGETS.fixture\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_cell(buck: Buck) -> None:
     result = await buck.cquery("""//stuff:magic""", rel_cwd=Path("special"))
     assert result.stdout == "special//stuff:magic (root//platforms:platform1)\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_relative(buck: Buck) -> None:
     result = await buck.cquery("""...""", rel_cwd=Path("special"))
     assert result.stdout == "special//stuff:magic (root//platforms:platform1)\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_provider_names(buck: Buck) -> None:
     result = await buck.cquery("""'root//bin:the_binary[provider_name]'""")
     assert result.stdout == "root//bin:the_binary (root//platforms:platform1)\n"
@@ -47,7 +47,7 @@ async def test_query_provider_names(buck: Buck) -> None:
     assert result.stdout == "root//bin:the_binary (root//platforms:platform1)\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_print_provider(buck: Buck) -> None:
     out = await buck.cquery("%s", "root//bin:the_binary", "--show-providers")
     assert (
@@ -80,7 +80,7 @@ async def test_query_print_provider(buck: Buck) -> None:
     assert providers["FooInfo"]["foo"] == "the_binary_foo"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_chunked_stream(buck: Buck) -> None:
     q = "deps(root//bin:the_binary)"
     result1 = await buck.cquery(q)
@@ -89,7 +89,7 @@ async def test_query_chunked_stream(buck: Buck) -> None:
     assert result1.stdout == result2.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_attributes(buck: Buck) -> None:
     attrs_out = await buck.cquery(
         "--output-attribute",
@@ -133,7 +133,7 @@ async def test_attributes(buck: Buck) -> None:
 
 
 # Tests for "%Ss" uses
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_args_as_set(buck: Buck) -> None:
     out = await buck.cquery("%Ss", "root//bin:the_binary", "//lib:file1")
     assert (
@@ -142,7 +142,7 @@ async def test_args_as_set(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_multi_query(buck: Buck) -> None:
     out = await buck.cquery("%s", "root//bin:the_binary", "//lib:file1")
     assert (
@@ -151,7 +151,7 @@ async def test_multi_query(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_multi_query_print_provider(buck: Buck) -> None:
     out = await buck.cquery(
         "%s", "root//bin:the_binary", "//lib:lib1", "--show-providers"

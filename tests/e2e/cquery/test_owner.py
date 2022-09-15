@@ -3,13 +3,13 @@ from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_owner(buck: Buck) -> None:
     result = await buck.cquery("""owner(bin/TARGETS.fixture)""")
     assert result.stdout == "root//bin:the_binary (root//platforms:platform1)\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) -> None:
     result = await expect_failure(
         buck.cquery(

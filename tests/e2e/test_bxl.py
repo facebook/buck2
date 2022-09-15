@@ -6,7 +6,7 @@ from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_label_functions(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/label_functions.bxl:label_func_test",
@@ -26,7 +26,7 @@ async def test_bxl_label_functions(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_target_functions(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/target_functions.bxl:new_empty_target_set",
@@ -35,7 +35,7 @@ async def test_bxl_target_functions(buck: Buck) -> None:
     assert result.stdout.splitlines() == ["target_set", "0"]
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_root(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -45,7 +45,7 @@ async def test_bxl_root(buck: Buck) -> None:
     assert str(buck.cwd) in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cli_args.bxl:cli_test",
@@ -229,7 +229,7 @@ async def test_bxl(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cli_target_pattern(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cli_args.bxl:target_expr_test",
@@ -321,7 +321,7 @@ async def test_cli_target_pattern(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_owner(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cquery.bxl:owner_test",
@@ -329,7 +329,7 @@ async def test_cquery_owner(buck: Buck) -> None:
     assert result.stdout == "[root//bin:the_binary (root//platforms:platform1)]\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_kind(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:cquery.bxl:kind_test",
@@ -339,7 +339,7 @@ async def test_cquery_kind(buck: Buck) -> None:
     assert "bar" not in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_inputs(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:cquery.bxl:inputs_test",
@@ -348,7 +348,7 @@ async def test_cquery_inputs(buck: Buck) -> None:
     assert "TARGETS.fixture" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_filter(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:cquery.bxl:filter_test",
@@ -357,7 +357,7 @@ async def test_cquery_filter(buck: Buck) -> None:
     assert "root//bin:the_binary" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_attrregex_filter(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cquery.bxl:attrregexfilter_test",
@@ -368,7 +368,7 @@ async def test_cquery_attrregex_filter(buck: Buck) -> None:
     assert "bar" not in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_rdeps(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cquery.bxl:rdeps_test",
@@ -379,7 +379,7 @@ async def test_query_rdeps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_deps(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cquery.bxl:deps_test",
@@ -390,7 +390,7 @@ async def test_query_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_build(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -409,7 +409,7 @@ async def test_bxl_build(buck: Buck) -> None:
     assert (buck.cwd / Path(outputs)).read_text() == "FOO"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_analysis(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -420,7 +420,7 @@ async def test_bxl_analysis(buck: Buck) -> None:
     assert "bin_foo" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_actions(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -431,7 +431,7 @@ async def test_bxl_actions(buck: Buck) -> None:
     assert "[<source bin/TARGETS.fixture>]" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_dynamic_action(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -441,7 +441,7 @@ async def test_bxl_dynamic_action(buck: Buck) -> None:
     assert Path(outputs).read_text() == "content"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_create_build_actions(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -453,7 +453,7 @@ async def test_bxl_create_build_actions(buck: Buck) -> None:
     assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_configured_node(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/node.bxl:configured_node_test",
@@ -465,7 +465,7 @@ async def test_bxl_configured_node(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_unconfigured_node(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/node.bxl:unconfigured_node_test",
@@ -476,7 +476,7 @@ async def test_bxl_unconfigured_node(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_caching(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/caching.bxl:print_caching",
@@ -493,7 +493,7 @@ async def test_bxl_caching(buck: Buck) -> None:
     assert "result print" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_eval(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:cquery.bxl:eval_query_test",
@@ -502,7 +502,7 @@ async def test_cquery_eval(buck: Buck) -> None:
     assert "TARGETS.fixture" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_read_config(buck: Buck) -> None:
     result = await buck.bxl(
         "-c",
@@ -514,7 +514,7 @@ async def test_bxl_read_config(buck: Buck) -> None:
     assert "True" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_load_file(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:load_file.bxl:load_test",
@@ -523,7 +523,7 @@ async def test_load_file(buck: Buck) -> None:
     assert str(buck.cwd) in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_node_attrs(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:node_attributes.bxl:attrs_test",
@@ -539,7 +539,7 @@ async def test_node_attrs(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_resolved_node_attrs(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:resolved_node_attributes.bxl:resolved_attrs_test",
@@ -580,7 +580,7 @@ async def test_resolved_node_attrs(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_fs_exists(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:fs.bxl:exists_relative_path",
@@ -613,7 +613,7 @@ async def test_bxl_fs_exists(buck: Buck) -> None:
     assert "True" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_fs_list(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:fs.bxl:list_relative_path",

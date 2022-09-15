@@ -14,7 +14,7 @@ Otherwise the test will fail because it cannot recognize the new directory.
 """
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_inputs(buck: Buck) -> None:
     result = await buck.uquery("""inputs(set(root//bin:the_binary //lib:file1))""")
     assert result.stdout == "bin/TARGETS.fixture\n"
@@ -23,7 +23,7 @@ async def test_uquery_inputs(buck: Buck) -> None:
     assert result.stdout == ""
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_union(buck: Buck) -> None:
     result = await buck.uquery("""deps(root//lib:lib1) + set(root//data:data)""")
     assert (
@@ -40,7 +40,7 @@ async def test_uquery_union(buck: Buck) -> None:
     assert result.stdout == "root//bin:the_binary\nroot//data:data\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_owner(buck: Buck) -> None:
     result = await buck.uquery("""owner(bin/TARGETS.fixture)""")
     assert result.stdout == "root//bin:the_binary\n"
@@ -64,7 +64,7 @@ async def test_uquery_owner(buck: Buck) -> None:
     assert result.stdout == "root//data:data\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) -> None:
     # This needs to be changed to `expect_failure` once Buck2 is checking path validity
     # outside of `package_boundary_exceptions`
@@ -81,7 +81,7 @@ async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) 
     assert "root//:package_boundary_violation" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_buildfile(buck: Buck) -> None:
     result = await buck.uquery("""buildfile(root//bin:the_binary)""")
     assert result.stdout == "bin/TARGETS.fixture\n"
@@ -95,7 +95,7 @@ async def test_uquery_buildfile(buck: Buck) -> None:
     assert result.stdout == "data/TARGETS.fixture\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_deps(buck: Buck) -> None:
     result = await buck.uquery("""deps(root//bin:the_binary)""")
     assert (
@@ -159,13 +159,13 @@ async def test_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_cell(buck: Buck) -> None:
     result = await buck.uquery("""//stuff:magic""", rel_cwd=Path("special"))
     assert result.stdout == "special//stuff:magic\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_relative(buck: Buck) -> None:
     result = await buck.uquery("""...""", rel_cwd=Path("special"))
     assert result.stdout == "special//stuff:magic\n"
@@ -173,7 +173,7 @@ async def test_uquery_relative(buck: Buck) -> None:
     assert "root//bin:the_binary\n" in result.stdout
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_provider_names(buck: Buck) -> None:
     result = await buck.uquery("""'root//bin:the_binary[provider_name]'""")
     assert result.stdout == "root//bin:the_binary\n"
@@ -182,7 +182,7 @@ async def test_uquery_provider_names(buck: Buck) -> None:
     assert result.stdout == "root//bin:the_binary\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_filter(buck: Buck) -> None:
     # Test uquery/cquery on target and file sets
     out = await buck.uquery("filter('the_binary$', root//...)")
@@ -197,7 +197,7 @@ async def test_query_filter(buck: Buck) -> None:
     assert out.stdout == "bin/TARGETS.fixture\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_attributes(buck: Buck) -> None:
     out = await buck.uquery("set(root//bin:the_binary //lib:file1)")
     assert out.stdout == "root//bin:the_binary\nroot//lib:file1\n"
@@ -254,7 +254,7 @@ async def test_attributes(buck: Buck) -> None:
     } == attrs_json_out
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_dot(buck: Buck) -> None:
     out = await buck.uquery("--dot", "deps(root//bin:the_binary, 100, target_deps())")
     with open(buck.cwd / "expected/dot/deps") as f:
@@ -277,7 +277,7 @@ async def test_dot(buck: Buck) -> None:
         assert out.stdout == f.read()
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_dot_compact(buck: Buck) -> None:
     out = await buck.uquery(
         "--dot-compact", "deps(root//bin:the_binary, 100, target_deps())"
@@ -303,7 +303,7 @@ async def test_dot_compact(buck: Buck) -> None:
 
 
 # Tests for "%Ss" uses
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_args_as_set(buck: Buck) -> None:
     out = await buck.uquery("%Ss", "root//bin:the_binary", "//lib:file1")
     assert out.stdout == "root//bin:the_binary\nroot//lib:file1\n"
@@ -313,7 +313,7 @@ async def test_args_as_set(buck: Buck) -> None:
     assert json_out == ["root//bin:the_binary", "root//lib:file1"]
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_multi_uquery(buck: Buck) -> None:
     out = await buck.uquery("%s", "root//bin:the_binary", "//lib:file1")
     assert out.stdout == "root//bin:the_binary\nroot//lib:file1\n"

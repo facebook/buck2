@@ -363,7 +363,7 @@ async def test_modify_directory(buck: Buck) -> None:
     await buck.build("//:writer")
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_rdeps(buck: Buck) -> None:
     result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1)""")
     assert result.stdout == "root//lib:file1\nroot//lib:lib1\nroot//bin:the_binary\n"
@@ -378,7 +378,7 @@ async def test_query_rdeps(buck: Buck) -> None:
     assert result.stdout == "root//lib:file1\nroot//lib:lib1\nroot//bin:the_binary\n"
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_targets_recursive(buck: Buck) -> None:
     result = await buck.targets("--json", "ignored/...")
     assert json.loads(result.stdout) == []
@@ -386,7 +386,7 @@ async def test_targets_recursive(buck: Buck) -> None:
     await expect_failure(buck.targets("--json", "nonexistent/..."))
 
 
-@buck_test(inplace=False, data_dir="bql/simple")
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_target_hashing_accepts_backreferencing_relative_paths(
     buck: Buck,
 ) -> None:
