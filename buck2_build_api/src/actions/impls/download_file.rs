@@ -37,7 +37,7 @@ use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::Action;
 use crate::actions::ActionExecutable;
 use crate::actions::ActionExecutionCtx;
-use crate::actions::PristineActionExecutable;
+use crate::actions::IncrementalActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 
@@ -197,7 +197,7 @@ impl Action for DownloadFileAction {
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Pristine(self)
+        ActionExecutable::Incremental(self)
     }
 
     fn category(&self) -> &Category {
@@ -209,19 +209,18 @@ impl Action for DownloadFileAction {
 }
 
 #[async_trait]
-impl PristineActionExecutable for DownloadFileAction {
+impl IncrementalActionExecutable for DownloadFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
-        let artifact_fs = ctx.fs();
-        let project_fs = artifact_fs.fs();
-        let rel_path = artifact_fs.resolve_build(self.output().get_path());
-
         let client = http_client()?;
 
         let (metadata, execution_kind) = match self.declared_metadata(&client).await? {
             Some(metadata) => {
+                let artifact_fs = ctx.fs();
+                let rel_path = artifact_fs.resolve_build(self.output().get_path());
+
                 // Fast path: download later via the materializer.
                 ctx.materializer()
                     .declare_http(
@@ -238,6 +237,12 @@ impl PristineActionExecutable for DownloadFileAction {
                 (metadata, ActionExecutionKind::Deferred)
             }
             None => {
+                ctx.cleanup_outputs().await?;
+
+                let artifact_fs = ctx.fs();
+                let project_fs = artifact_fs.fs();
+                let rel_path = artifact_fs.resolve_build(self.output().get_path());
+
                 // Slow path: download now.
                 let digest = http_download(
                     &client,

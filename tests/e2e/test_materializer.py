@@ -148,6 +148,27 @@ async def test_sqlite_materializer_state_matching_artifact_optimization(
     inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
+async def test_download_file_sqlite_matching_artifact_optimization(
+    buck: Buck,
+) -> None:
+    # sqlite materializer state is already enabled
+    target = "root//:download"
+    result = await buck.build(target)
+    # Check output is correctly materialized
+    assert result.get_build_report().output_for_target(target).exists()
+
+    await buck.kill()
+
+    result = await buck.build(target)
+    # Check that materializer did not report any rematerialization
+    assert "already materialized, updating deps only" in result.stderr, result.stderr
+    assert "materialize artifact" not in result.stderr
+
+
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_sqlite_materializer_state_disabled(
     buck: Buck,
 ) -> None:
