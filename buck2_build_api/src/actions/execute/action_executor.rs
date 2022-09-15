@@ -81,8 +81,12 @@ pub struct ActionExecutionMetadata {
 /// The *way* that a particular action was executed.
 #[derive(Debug, Display, Clone)]
 pub enum ActionExecutionKind {
-    #[display(fmt = "command({})", self.0)]
-    Command(CommandExecutionKind),
+    #[display(fmt = "command({})", kind)]
+    Command {
+        kind: CommandExecutionKind,
+        prefers_local: bool,
+        requires_local: bool,
+    },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display(fmt = "simple")]
     Simple,
@@ -94,13 +98,34 @@ pub enum ActionExecutionKind {
     Deferred,
 }
 
+pub struct CommandExecutionRef<'a> {
+    pub kind: &'a CommandExecutionKind,
+    pub prefers_local: bool,
+    pub requires_local: bool,
+}
+
 impl ActionExecutionKind {
     pub fn as_enum(&self) -> buck2_data::ActionExecutionKind {
         match self {
-            ActionExecutionKind::Command(command) => command.as_enum(),
+            ActionExecutionKind::Command { kind, .. } => kind.as_enum(),
             ActionExecutionKind::Simple => buck2_data::ActionExecutionKind::Simple,
             ActionExecutionKind::Skipped => buck2_data::ActionExecutionKind::Skipped,
             ActionExecutionKind::Deferred => buck2_data::ActionExecutionKind::Deferred,
+        }
+    }
+
+    pub fn command(&self) -> Option<CommandExecutionRef<'_>> {
+        match self {
+            Self::Command {
+                kind,
+                prefers_local,
+                requires_local,
+            } => Some(CommandExecutionRef {
+                kind,
+                prefers_local: *prefers_local,
+                requires_local: *requires_local,
+            }),
+            Self::Simple | Self::Skipped | Self::Deferred => None,
         }
     }
 }
@@ -293,7 +318,11 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             CommandExecutionStatus::Success { execution_kind } => Ok((
                 outputs,
                 ActionExecutionMetadata {
-                    execution_kind: ActionExecutionKind::Command(execution_kind.clone()),
+                    execution_kind: ActionExecutionKind::Command {
+                        kind: execution_kind.clone(),
+                        prefers_local: request.executor_preference().prefers_local(),
+                        requires_local: request.executor_preference().requires_local(),
+                    },
                     timing: report.timing.into(),
                 },
             )),

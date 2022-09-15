@@ -136,6 +136,9 @@ async fn build_action_no_redirect(
         let error;
         let output_size;
 
+        let mut prefers_local = None;
+        let mut requires_local = None;
+
         match execute_result {
             Ok((outputs, meta)) => {
                 if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
@@ -150,6 +153,11 @@ async fn build_action_no_redirect(
                 execution_kind = Some(meta.execution_kind.as_enum());
                 wall_time = Some(meta.timing.wall_time);
                 error = None;
+
+                if let Some(command) = meta.execution_kind.command() {
+                    prefers_local = Some(command.prefers_local);
+                    requires_local = Some(command.requires_local);
+                }
             }
             Err(e) => {
                 // Because we already are sending the error message in the
@@ -205,6 +213,8 @@ async fn build_action_no_redirect(
                 output_size,
                 commands,
                 outputs,
+                prefers_local: prefers_local.unwrap_or_default(),
+                requires_local: requires_local.unwrap_or_default(),
             },
         )
     })
