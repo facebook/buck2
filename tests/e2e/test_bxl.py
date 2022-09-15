@@ -330,6 +330,17 @@ async def test_cquery_owner(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_cquery_owner_list(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/cquery.bxl:owner_list_test",
+    )
+    assert (
+        result.stdout
+        == "[root//bin:the_binary (root//platforms:platform1), root//bin:the_binary_with_dir_srcs (root//platforms:platform1)]\n"
+    )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_cquery_kind(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:cquery.bxl:kind_test",
