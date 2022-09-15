@@ -830,17 +830,29 @@ async def test_local_only(buck: Buck) -> None:
     )
 
 
+def _assert_upload_attempted(stderr):
+    # Tolerate permission denied errors because we don't have a choice on CI :(
+    assert_occurrences_regex(
+        "Cache upload for .+ (succeeded|failed:.+uploading_action_result_raw)",
+        stderr,
+        1,
+    )
+
+
 @buck_test(inplace=False, data_dir="execution_platforms")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 async def test_re_uploads(buck: Buck) -> None:
     args = ["-c", f"write.text={random_string()}"]
     res = await buck.build("root//upload_tests:write", *args)
-    # Tolerate permission denied errors because we don't have a choice on CI :(
-    assert_occurrences_regex(
-        "Cache upload for .+ (succeeded|failed:.+uploading_action_result_raw)",
-        res.stderr,
-        1,
-    )
+    _assert_upload_attempted(res.stderr)
+
+
+@buck_test(inplace=False, data_dir="execution_platforms")
+@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
+async def test_re_uploads_dir(buck: Buck) -> None:
+    args = ["-c", f"write.text={random_string()}"]
+    res = await buck.build("root//upload_tests:write_in_dir", *args)
+    _assert_upload_attempted(res.stderr)
 
 
 @buck_test(inplace=False, data_dir="toolchain_deps")

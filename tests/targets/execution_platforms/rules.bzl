@@ -132,16 +132,16 @@ def _command_impl(ctx):
 command = rule(impl = _command_impl, attrs = {"command": attrs.source()})
 
 def _write_impl(ctx):
-    # NOTE: This uses an action so that we can exercise local uploads.
+    # NOTE: This uses a run action so that we can exercise local uploads.
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
             "sh",
             "-c",
-            'echo -n "$1" > "$2"',
+            'mkdir -p $(dirname "$2") && echo -n "$1" > "$2"',
             "--",
             ctx.attrs.text,
-            out.as_output(),
+            cmd_args(out.as_output(), format = ctx.attrs.format),
         ],
         category = "write",
         local_only = ctx.attrs.local_only,
@@ -154,6 +154,7 @@ write = rule(
     impl = _write_impl,
     attrs = {
         "allow_cache_upload": attrs.bool(default = False),
+        "format": attrs.string(default = "{}"),
         "local_only": attrs.bool(default = False),
         "text": attrs.string(),
     },
