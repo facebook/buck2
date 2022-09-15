@@ -37,7 +37,15 @@ def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, 
     command = cmd_args(toolchain.linker_info.archiver)
     command.add(_archive_flags(toolchain.linker_info.type, toolchain.linker_info.use_archiver_flags, thin))
     command.add([archive_output.as_output()])
-    command.add(args)
+
+    if toolchain.linker_info.archiver_supports_argfiles:
+        shell_quoted_args = cmd_args(args, quote = "shell")
+        argfile, macro_files = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
+        command.hidden(macro_files + [shell_quoted_args])
+        command.add(cmd_args(["@", argfile], delimiter = ""))
+    else:
+        command.add(args)
+
     category = "archive"
     if thin:
         category = "archive_thin"

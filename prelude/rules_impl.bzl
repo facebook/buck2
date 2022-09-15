@@ -38,8 +38,6 @@ load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_imple
 
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
-
-#
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 
 # Lua
@@ -360,6 +358,7 @@ extra_attributes = struct(
     ),
     cxx_toolchain = {
         "archiver": attrs.dep(providers = [RunInfo]),
+        "archiver_supports_argfiles": attrs.bool(default = False),
         "asm_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "asm_preprocessor": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "assembler": attrs.dep(providers = [RunInfo]),

@@ -27,6 +27,7 @@ def _buckconfig_cxx_toolchain_attrs(is_toolchain):
         "ar": tool_attr,
         "archive_contents": string_attr,
         "archiver_platform": string_attr,
+        "archiver_supports_argfiles": optional_bool_attr,
         "as": tool_attr,
         "as_type": string_attr,
         "asflags": flags_attr,
@@ -212,6 +213,7 @@ def _cxx_toolchain_impl(ctx):
 
     linker_info = native.cxx.LinkerInfo(
         archiver = ctx.attrs.ar[RunInfo],
+        archiver_supports_argfiles = value_or(ctx.attrs.archiver_supports_argfiles, False),
         archive_contents = ctx.attrs.archive_contents,
         # This is a v2-only setting that does not have an equivalent v1
         # (nor do we want to introduce a v1 config for it)
@@ -415,6 +417,7 @@ def _cxx_toolchain_override(ctx):
     base_linker_info = base_toolchain.linker_info
     linker_info = native.cxx.LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
+        archiver_supports_argfiles = value_or(ctx.attrs.archiver_supports_argfiles, base_linker_info.archiver_supports_argfiles),
         archive_contents = base_linker_info.archive_contents,
         archive_objects_locally = value_or(ctx.attrs.archive_objects_locally, base_linker_info.archive_objects_locally),
         link_binaries_locally = value_or(ctx.attrs.link_binaries_locally, base_linker_info.link_binaries_locally),
@@ -485,6 +488,7 @@ cxx_toolchain_override = rule(
     attrs = {
         "archive_objects_locally": attrs.option(attrs.bool()),
         "archiver": attrs.option(attrs.dep(providers = [RunInfo])),
+        "archiver_supports_argfiles": attrs.option(attrs.bool()),
         "as_compiler": attrs.option(attrs.dep(providers = [RunInfo])),
         "as_compiler_flags": attrs.option(attrs.list(attrs.arg())),
         "as_preprocessor_flags": attrs.option(attrs.list(attrs.arg())),
@@ -579,6 +583,7 @@ def _cxx_toolchain_prefix(ctx: "context") -> ["provider"]:
             static_pic_dep_runtime_ld_flags = base_linker_info.static_pic_dep_runtime_ld_flags,
             type = base_linker_info.type,
             use_archiver_flags = base_linker_info.use_archiver_flags,
+            archiver_supports_argfiles = base_linker_info.archiver_supports_argfiles,
         )
 
     return [
