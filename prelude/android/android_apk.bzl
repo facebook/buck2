@@ -129,14 +129,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             shared_libraries = native_library_info.apk_under_test_shared_libraries,
         ),
         DefaultInfo(default_outputs = [output_apk], other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
-        InstallInfo(
-            installer = ctx.attrs._android_installer,
-            files = {
-                ctx.attrs.name: output_apk,
-                "manifest": resources_info.manifest,
-                "options": generate_install_config(ctx),
-            },
-        ),
+        _get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
     ]
 
 def build_apk(
@@ -195,6 +188,24 @@ def build_apk(
     actions.run(apk_builder_args, category = "apk_build")
 
     return output_apk
+
+def _get_install_info(ctx: "context", output_apk: "artifact", manifest: "artifact", exopackage_info: ExopackageInfo.type) -> InstallInfo.type:
+    files = {
+        ctx.attrs.name: output_apk,
+        "manifest": manifest,
+        "options": generate_install_config(ctx),
+    }
+
+    secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
+    if secondary_dex_exopackage_info:
+        files["exopackage_agent_apk"] = ctx.attrs._android_toolchain[AndroidToolchainInfo].exopackage_agent_apk
+        files["secondary_dex_exopackage_info_directory"] = secondary_dex_exopackage_info.directory
+        files["secondary_dex_exopackage_info_metadata"] = secondary_dex_exopackage_info.metadata
+
+    return InstallInfo(
+        installer = ctx.attrs._android_installer,
+        files = files,
+    )
 
 def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["AndroidBuildConfigInfo"]) -> ["JavaPackagingInfo"]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
