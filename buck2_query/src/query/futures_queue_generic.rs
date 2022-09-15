@@ -34,7 +34,7 @@ impl<Fut: Future> FuturesQueue<Fut> {
 
     pub(crate) fn push(&mut self, fut: Fut) {
         match self {
-            FuturesQueue::Ordered(futures_ordered) => futures_ordered.push(fut),
+            FuturesQueue::Ordered(futures_ordered) => futures_ordered.push_back(fut),
             FuturesQueue::Unordered(futures_unordered) => futures_unordered.push(fut),
         }
     }
