@@ -197,7 +197,8 @@ def process_genrule(
         env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
 
     # For now, when uploads are enabled, be safe and avoid sharing cache hits.
-    if cacheable and ctx.attrs._cache_mode[CacheModeInfo].allow_cache_uploads:
+    cache_bust = ctx.attrs._cache_mode[CacheModeInfo].cache_bust_genrules
+    if cacheable and cache_bust:
         env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = cmd_args("")
 
     if _requires_no_srcs_environment(ctx):
