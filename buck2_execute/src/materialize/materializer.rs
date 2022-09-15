@@ -94,6 +94,14 @@ pub enum MaterializationError {
         path: ProjectRelativePathBuf,
         info: Arc<CasDownloadInfo>,
     },
+
+    #[error("Error inserting entry into materializer state sqlite for artifact at `{}`", .path)]
+    SqliteDbError {
+        path: ProjectRelativePathBuf,
+
+        #[source]
+        source: anyhow::Error,
+    },
 }
 
 /// A trait providing methods to asynchronously materialize artifacts.

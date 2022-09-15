@@ -77,6 +77,8 @@ use crate::materializers::filetree::FileTree;
 use crate::materializers::immediate;
 use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
+use crate::materializers::sqlite::MaterializerState;
+use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 /// Materializer implementation that defers materialization of declared
 /// artifacts until they are needed (i.e. `ensure_materialized` is called).
@@ -135,6 +137,7 @@ struct DeferredMaterializerCommandProcessor {
     io_executor: Arc<dyn BlockingExecutor>,
     /// Used to emit MaterializationFinished to the command thread
     command_sender: mpsc::UnboundedSender<MaterializerCommand>,
+    sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -143,6 +146,7 @@ struct DeferredMaterializerCommandProcessor {
 enum SharedMaterializingError {
     Error(SharedError),
     NotFound { info: Arc<CasDownloadInfo> },
+    SqliteDbError(SharedError),
 }
 
 #[derive(Error, Debug)]
@@ -525,6 +529,8 @@ impl DeferredMaterializer {
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
         configs: DeferredMaterializerConfigs,
+        sqlite_db: Option<MaterializerStateSqliteDb>,
+        sqlite_state: Option<MaterializerState>,
     ) -> Self {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
@@ -533,9 +539,23 @@ impl DeferredMaterializer {
             re_client_manager,
             io_executor: io_executor.dupe(),
             command_sender: command_sender.clone(),
+            sqlite_db: sqlite_db.map(Arc::new),
         });
 
-        let tree = ArtifactTree::new();
+        let mut tree = ArtifactTree::new();
+        if let Some(sqlite_state) = sqlite_state {
+            for (path, metadata) in sqlite_state.into_iter() {
+                tree.insert(
+                    path.iter().map(|f| f.to_owned()), // TODO(scottcao): Add an into_iter?
+                    box ArtifactMaterializationData {
+                        deps: None,
+                        stage: ArtifactMaterializationStage::Materialized { metadata },
+                        version: 0u64, // Any state restored from disk always gets set to version 0
+                        processing_fut: None,
+                    },
+                );
+            }
+        }
 
         let command_thread =
             tokio::spawn(async move { command_processor.run(command_recv, tree).await });
@@ -562,8 +582,9 @@ impl DeferredMaterializerCommandProcessor {
     ) {
         // Each Declare bumps the version, so that if an artifact is declared
         // a second time mid materialization of its previous version, we don't
-        // incorrectly assume we materialized the latest version.
-        let mut next_version = 0u64;
+        // incorrectly assume we materialized the latest version. We start with
+        // 1 with because any disk state restored will start with version 0.
+        let mut next_version = 1u64;
 
         while let Some(command) = command_recv.recv().await {
             match command {
@@ -582,11 +603,24 @@ impl DeferredMaterializerCommandProcessor {
                         paths = ?paths,
                         "invalidate paths",
                     );
-                    let (_removed_paths, existing_futs) =
+                    let (removed_paths, existing_futs) =
                         tree.remove_paths_and_collect_futures(paths);
+                    let sqlite_db = self.sqlite_db.dupe();
                     let invalidation_fut = tokio::task::spawn(async move {
                         join_all_existing_futs(existing_futs).await?;
-                        // Once we have disk state, invalidate disk state here.
+
+                        // The existing futures can be in-flight materializations for
+                        // the paths we are about to invalidate. The last thing those
+                        // futures will do is insert into the SQLite DB, so we need to
+                        // wait until they finish before we delete said rows.
+                        // TODO(scottcao): add a unit test to test this behavior
+                        if let Some(sqlite_db) = sqlite_db {
+                            sqlite_db
+                                .materializer_state_table()
+                                .delete(removed_paths)
+                                .await?;
+                        }
+
                         Ok(())
                     })
                     .map(|r| match r {
@@ -619,6 +653,7 @@ impl DeferredMaterializerCommandProcessor {
                         // Let materialization_finished always consume a version in case the entry
                         // gets redeclared.
                         next_version,
+                        self.sqlite_db.dupe(),
                     );
                     next_version += 1;
                 }
@@ -642,6 +677,12 @@ impl DeferredMaterializerCommandProcessor {
                         },
                         SharedMaterializingError::NotFound { info } => {
                             MaterializationError::NotFound { path, info }
+                        }
+                        SharedMaterializingError::SqliteDbError(source) => {
+                            MaterializationError::SqliteDbError {
+                                path,
+                                source: source.into(),
+                            }
                         }
                     })
                 })
@@ -698,7 +739,8 @@ impl DeferredMaterializerCommandProcessor {
         // Always invalidate materializer state before actual deleting from filesystem
         // so there will never be a moment where artifact is deleted but materializer
         // thinks it still exists.
-        let (_, existing_futs) = tree.remove_paths_and_collect_futures(vec![path.clone()]);
+        let (tree_removed_paths, existing_futs) =
+            tree.remove_paths_and_collect_futures(vec![path.clone()]);
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
             stage: ArtifactMaterializationStage::Declared {
@@ -715,6 +757,8 @@ impl DeferredMaterializerCommandProcessor {
                 // removed an entire sub-trie, we need to wait for all futures from that
                 // sub-trie to finish first.
                 Some(existing_futs),
+                self.sqlite_db.dupe(),
+                tree_removed_paths,
             ))),
         };
         tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -812,6 +856,7 @@ impl DeferredMaterializerCommandProcessor {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let command_sender = self.command_sender.clone();
+        let sqlite_db = self.sqlite_db.dupe();
         let task = tokio::task::spawn(async move {
             // Materialize the deps and this entry. This *must* happen in a try block because we
             // need to notity the materializer regardless of whether this succeeds or fails.
@@ -835,12 +880,22 @@ impl DeferredMaterializerCommandProcessor {
                     t.await?;
                 }
 
-                // All potential deps are materialized. Now materialize the entry.
                 if let Some((entry, method)) = entry_and_method {
+                    // All potential deps are materialized. Now materialize the entry.
                     self.dupe()
-                        .materialize_entry(path_buf.clone(), method, entry)
+                        .materialize_entry(path_buf.clone(), method, entry.dupe())
                         .await?;
-                }
+
+                    // Record in sqlite that this artifact is now materialized
+                    if let Some(sqlite_db) = sqlite_db {
+                        sqlite_db
+                            .materializer_state_table()
+                            .insert(path_buf.clone(), entry.into())
+                            .await
+                            .shared_error()
+                            .map_err(SharedMaterializingError::SqliteDbError)?;
+                    }
+                };
 
                 // Wait for the deps (targets) of the entry's symlinks to be materialized
                 for t in link_deps_tasks {
@@ -1078,7 +1133,7 @@ impl ArtifactTree {
         }
     }
 
-    #[instrument(level = "debug", skip(self, result, io_executor), fields(path = %artifact_path, version = %version))]
+    #[instrument(level = "debug", skip(self, result, io_executor, sqlite_db), fields(path = %artifact_path, version = %version))]
     fn materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
@@ -1086,6 +1141,7 @@ impl ArtifactTree {
         result: Result<(), SharedMaterializingError>,
         io_executor: Arc<dyn BlockingExecutor>,
         next_version: u64,
+        sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
@@ -1108,8 +1164,12 @@ impl ArtifactTree {
                     // add a test case to ensure this behavior.
                     info.processing_fut = Some(ProcessingFuture::Cleaning(clean_output_paths(
                         io_executor,
-                        artifact_path,
+                        artifact_path.clone(),
                         None,
+                        // It may be possible that sqlite insertion failed but still inserted
+                        // an entry in the db, in which case we should delete it.
+                        sqlite_db,
+                        vec![artifact_path],
                     )));
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
@@ -1322,11 +1382,25 @@ fn clean_output_paths(
     io_executor: Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
     existing_futs: Option<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>,
+    sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
+    tree_removed_paths: Vec<ProjectRelativePathBuf>,
 ) -> CleaningFuture {
     tokio::task::spawn(async move {
         if let Some(existing_futs) = existing_futs {
             join_all_existing_futs(existing_futs).await?;
         }
+
+        // See comment block below the previous call site of `join_all_existing_futs`
+        // in the `MaterializerCommand::InvalidateFilePaths` arm of the match statement
+        // to see why we need to do the sqlite deletion after all existing futures are
+        // finished.
+        if let Some(sqlite_db) = sqlite_db {
+            sqlite_db
+                .materializer_state_table()
+                .delete(tree_removed_paths)
+                .await?;
+        }
+
         io_executor
             .dupe()
             .execute_io(box CleanOutputPaths { paths: vec![path] })

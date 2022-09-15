@@ -312,6 +312,8 @@ impl DaemonState {
                     re_client_manager,
                     blocking_executor,
                     config,
+                    None,
+                    None,
                 )))
             }
             MaterializationMethod::Eden => {
