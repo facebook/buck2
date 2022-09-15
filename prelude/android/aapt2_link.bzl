@@ -22,7 +22,7 @@ def get_aapt2_link(
         locales: [str.type] = [],
         compiled_resource_apks: ["artifact"] = [],
         additional_aapt2_params: [str.type] = [],
-        extra_filtered_resources: [str.type] = []) -> "provider":
+        extra_filtered_resources: [str.type] = []) -> Aapt2LinkInfo.type:
     aapt2_command = cmd_args(android_toolchain.aapt2)
     aapt2_command.add("link")
 

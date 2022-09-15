@@ -1,44 +1,38 @@
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
-Aapt2LinkInfo = provider(
-    fields = [
-        # "APK" containing resources to be used by the Android binary
-        "primary_resources_apk",  # artifact
-        # proguard config needed to retain used resources
-        "proguard_config_file",  # artifact
-        # R.txt containing all the linked resources
-        "r_dot_txt",  # artifact
-    ],
+Aapt2LinkInfo = record(
+    # "APK" containing resources to be used by the Android binary
+    primary_resources_apk = "artifact",
+    # proguard config needed to retain used resources
+    proguard_config_file = "artifact",
+    # R.txt containing all the linked resources
+    r_dot_txt = "artifact",
 )
 
-AndroidBinaryNativeLibsInfo = provider(
-    fields = [
-        "apk_under_test_prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
-        "apk_under_test_shared_libraries",  # ["SharedLibrary"]
-        "exopackage_info",  # ["ExopackageNativeInfo", None]
-        "native_lib_assets",  # ["artifact"]
-        "native_libs_for_primary_apk",  # ["artifact"]
-        "unstripped_libs",  # ["artifact"]
-    ],
+AndroidBinaryNativeLibsInfo = record(
+    apk_under_test_prebuilt_native_library_dirs = ["PrebuiltNativeLibraryDir"],
+    apk_under_test_shared_libraries = ["SharedLibrary"],
+    exopackage_info = ["ExopackageNativeInfo", None],
+    native_lib_assets = ["artifact"],
+    native_libs_for_primary_apk = ["artifact"],
+    unstripped_libs = ["artifact"],
 )
 
-AndroidBinaryResourcesInfo = provider(
-    fields = [
-        # manifest to be used by the APK
-        "manifest",  # artifact
-        # zip containing any strings packaged as assets
-        "packaged_string_assets",  # ["artifact", None]
-        # "APK" containing resources to be used by the Android binary
-        "primary_resources_apk",  # artifact
-        # proguard config needed to retain used resources
-        "proguard_config_file",  # artifact
-        # R.txt containing all the linked resources
-        "r_dot_java",  # ["JavaLibraryInfo", None]
-        # directory containing filtered string resources files
-        "string_source_map",  # ["artifact", None]
-        # The resource infos that are used in this APK
-        "unfiltered_resource_infos",  # ["AndroidResourceInfo"]
-    ],
+AndroidBinaryResourcesInfo = record(
+    # manifest to be used by the APK
+    manifest = "artifact",
+    # zip containing any strings packaged as assets
+    packaged_string_assets = ["artifact", None],
+    # "APK" containing resources to be used by the Android binary
+    primary_resources_apk = "artifact",
+    # proguard config needed to retain used resources
+    proguard_config_file = "artifact",
+    # R.txt containing all the linked resources
+    r_dot_java = ["JavaLibraryInfo", None],
+    # directory containing filtered string resources files
+    string_source_map = ["artifact", None],
+    # The resource infos that are used in this APK
+    unfiltered_resource_infos = ["AndroidResourceInfo"],
 )
 
 # Information about an `android_build_config`
