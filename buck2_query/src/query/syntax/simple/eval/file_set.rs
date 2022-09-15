@@ -11,6 +11,7 @@ use std::fmt;
 
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
+use fancy_regex::Regex;
 use gazebo::display::display_container;
 use indexmap::IndexSet;
 
@@ -37,6 +38,21 @@ impl fmt::Display for FileSet {
 impl FileSet {
     pub fn new(files: IndexSet<FileNode>) -> Self {
         Self { files }
+    }
+
+    pub(crate) fn filter_name(&self, regex: &str) -> anyhow::Result<Self> {
+        let re = Regex::new(regex)?;
+        self.filter(|node| Ok(re.is_match(&node.0.to_string())?))
+    }
+
+    fn filter<F: Fn(&FileNode) -> anyhow::Result<bool>>(&self, filter: F) -> anyhow::Result<Self> {
+        let mut files = IndexSet::new();
+        for file in self.files.iter() {
+            if filter(file)? {
+                files.insert(file.clone());
+            }
+        }
+        Ok(Self { files })
     }
 
     pub fn insert_all(&mut self, other: &FileSet) {

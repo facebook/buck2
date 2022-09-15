@@ -24,6 +24,7 @@ use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::set::TargetSetExt;
 use crate::query::syntax::simple::eval::values::QueryResult;
 use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::eval::values::QueryValueSet;
 use crate::query::syntax::simple::functions::deps::DepsFunction;
 use crate::query::syntax::simple::functions::docs::ModuleDescription;
 use crate::query::syntax::simple::functions::helpers::CapturedExpr;
@@ -298,11 +299,16 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
-    async fn filter(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(self
-            .implementation
-            .filter_target_set(&regex, &targets)?
-            .into())
+    async fn filter(&self, regex: String, set: QueryValueSet<Env::Target>) -> QueryFuncResult<Env> {
+        match set {
+            QueryValueSet::TargetSet(targets) => Ok(self
+                .implementation
+                .filter_target_set(&regex, &targets)?
+                .into()),
+            QueryValueSet::FileSet(files) => {
+                Ok(self.implementation.filter_file_set(&regex, &files)?.into())
+            }
+        }
     }
 
     async fn inputs(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
@@ -483,6 +489,10 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: &TargetSet<Env::Target>,
     ) -> anyhow::Result<TargetSet<Env::Target>> {
         targets.filter_name(regex)
+    }
+
+    pub fn filter_file_set(&self, regex: &str, files: &FileSet) -> anyhow::Result<FileSet> {
+        files.filter_name(regex)
     }
 
     pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> anyhow::Result<FileSet> {
