@@ -5,6 +5,7 @@ load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnd
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
+load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
@@ -216,8 +217,7 @@ def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["Andro
     build_config_constants = [
         BuildConfigField(type = "boolean", name = "DEBUG", value = str(ctx.attrs.package_type != "release").lower()),
         BuildConfigField(type = "boolean", name = "IS_EXOPACKAGE", value = str(len(ctx.attrs.exopackage_modes) > 0).lower()),
-        # TODO(T104150125) add correct exopackage flags to BuildConfig
-        BuildConfigField(type = "int", name = "EXOPACKAGE_FLAGS", value = "0"),
+        BuildConfigField(type = "int", name = "EXOPACKAGE_FLAGS", value = str(get_exopackage_flags(ctx.attrs.exopackage_modes))),
     ]
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.build_config_values)
