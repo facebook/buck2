@@ -35,7 +35,7 @@ linux_execution_base_platforms = {
 remote_execution_action_key_providers = [
     "fbcode//buck2/platform/build_mode:build_mode",
 ]
-remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 40 * 1024)
+remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024)
 allow_hybrid_fallbacks_on_failure = read_bool("remoteexecution", "is_local_fallback_enabled_for_completed_actions")
 
 host_is_mac = host_info().os.is_macos
