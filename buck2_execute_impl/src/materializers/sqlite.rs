@@ -377,8 +377,8 @@ enum MaterializerStateSqliteDbError {
 
     #[error("Expected versions {:?}. Found versions {:?} in sqlite db at {}", .expected, .found, .path)]
     VersionMismatch {
-        expected: HashMap<String, String>,
-        found: HashMap<String, String>,
+        expected: HashMap<String, Option<String>>,
+        found: HashMap<String, Option<String>>,
         path: AbsPathBuf,
     },
 }
@@ -427,7 +427,7 @@ impl MaterializerStateSqliteDb {
     /// TODO(scottcao): pull this method into a shared trait once we add a another sqlite DB
     pub async fn load_or_initialize(
         materializer_state_dir: AbsPathBuf,
-        versions: HashMap<String, String>,
+        versions: HashMap<String, Option<String>>,
         // Using `BlockingExecutor` out of convenience. This function should be called during startup
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
@@ -646,7 +646,7 @@ mod tests {
 
     async fn testing_materializer_state_sqlite_db(
         fs: &ProjectRoot,
-        versions: HashMap<String, String>,
+        versions: HashMap<String, Option<String>>,
     ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
         MaterializerStateSqliteDb::load_or_initialize(
             fs.resolve(ProjectRelativePath::unchecked_new(
@@ -670,7 +670,7 @@ mod tests {
         {
             let (db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "0".to_owned())]),
+                HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
             )
             .await
             .unwrap();
@@ -692,7 +692,7 @@ mod tests {
         {
             let (_db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "0".to_owned())]),
+                HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
             )
             .await
             .unwrap();
@@ -707,7 +707,7 @@ mod tests {
         {
             let (db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "1".to_owned())]),
+                HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
             )
             .await
             .unwrap();
@@ -733,7 +733,7 @@ mod tests {
         {
             let (_db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "1".to_owned())]),
+                HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
             )
             .await
             .unwrap();
