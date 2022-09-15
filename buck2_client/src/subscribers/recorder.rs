@@ -62,6 +62,7 @@ mod imp {
         branched_from_revision: Option<String>,
         min_build_count_since_rebase: u64,
         cache_upload_count: u64,
+        cache_upload_attempt_count: u64,
     }
 
     impl InvocationRecorder {
@@ -94,6 +95,7 @@ mod imp {
                 branched_from_revision: None,
                 min_build_count_since_rebase: 0,
                 cache_upload_count: 0,
+                cache_upload_attempt_count: 0,
             }
         }
 
@@ -133,6 +135,7 @@ mod imp {
                     branched_from_revision: self.branched_from_revision.take().unwrap_or_default(),
                     min_build_count_since_rebase: self.min_build_count_since_rebase,
                     cache_upload_count: self.cache_upload_count,
+                    cache_upload_attempt_count: self.cache_upload_attempt_count,
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -245,10 +248,13 @@ mod imp {
 
         async fn handle_cache_upload_end(
             &mut self,
-            _cache_upload: &buck2_data::CacheUploadEnd,
+            cache_upload: &buck2_data::CacheUploadEnd,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            self.cache_upload_count += 1;
+            if cache_upload.success {
+                self.cache_upload_count += 1;
+            }
+            self.cache_upload_attempt_count += 1;
             Ok(())
         }
 

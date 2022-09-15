@@ -1075,6 +1075,8 @@ message InvocationRecord {
   uint64 min_build_count_since_rebase = 24;
   // The number of cache uploads done by this build.
   uint64 cache_upload_count = 25;
+  // The number of cache uploads attempted by this build.
+  uint64 cache_upload_attempt_count = 26;
 }
 
 message CacheUploadStart {
