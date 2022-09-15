@@ -12,3 +12,5 @@ prelude = prelude
 [buck2]
 materializations = deferred
 enable_local_caching_of_re_artifacts = true
+sqlite_materializer_state = true
+sqlite_materializer_state_version = 0

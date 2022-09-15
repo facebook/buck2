@@ -85,17 +85,111 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
         assert f.read().strip() == "SRC2"
 
 
-# Doesn't matter which fake repository we use. We just a generic one.
-@buck_test(inplace=False, data_dir="modify_deferred_materialization")
-async def test_cache_directory_is_always_empty(buck: Buck) -> None:
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
+async def test_cache_directory_cleanup(buck: Buck) -> None:
+    # sqlite materializer state is already enabled
     cache_dir = Path(buck.cwd, "buck-out", "v2", "cache")
-    cache_dir.mkdir(parents=True)
+    materializer_state_dir = cache_dir / "materializer_state"
+    command_hashes_dir = cache_dir / "command_hashes"
+    materializer_state_dir.mkdir(parents=True)
+    command_hashes_dir.mkdir(parents=True)
 
     # Need to run a command to start the daemon.
     await buck.audit_config()
 
     cache_dir_listing = list(cache_dir.iterdir())
-    assert len(cache_dir_listing) == 0
+    assert cache_dir_listing == [materializer_state_dir]
+
+    await buck.kill()
+    disable_sqlite_materializer_state(buck)
+    await buck.audit_config()
+
+    cache_dir_listing = list(cache_dir.iterdir())
+    assert cache_dir_listing == []
+
+
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
+async def test_sqlite_materializer_state_matching_artifact_optimization(
+    buck: Buck,
+) -> None:
+    # sqlite materializer state is already enabled
+    target = "root//:copy"
+    result = await buck.build(target)
+    # Check output is correctly materialized
+    assert result.get_build_report().output_for_target(target).exists()
+
+    await buck.kill()
+
+    result = await buck.build(target)
+    # Check that materializer did not report any rematerialization
+    assert "already materialized, updating deps only" in result.stderr, result.stderr
+    assert "materialize artifact" not in result.stderr
+
+    await buck.kill()
+
+    # In this case, modifying `src` changes the output, so the output should be rematerialized
+    with open(buck.cwd / "src", "w", encoding="utf-8") as f:
+        f.write("SRC2")
+
+    result = await buck.build(target)
+    # Check output still exists
+    output = result.get_build_report().output_for_target(target)
+    assert output.exists()
+    with open(output) as f:
+        assert f.read().strip() == "SRC2"
+
+
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
+async def test_sqlite_materializer_state_disabled(
+    buck: Buck,
+) -> None:
+    disable_sqlite_materializer_state(buck)
+
+    target = "root//:copy"
+    result = await buck.build(target)
+    # Check output is correctly materialized
+    assert result.get_build_report().output_for_target(target).exists()
+
+    await buck.kill()
+
+    result = await buck.build(target)
+    # Check that materializer did have to rematerialize the same artifact
+    assert "already materialized, updating deps only" not in result.stderr
+    assert "materialize artifact" in result.stderr
+
+
+@buck_test(
+    inplace=False, data_dir="deferred_materializer_matching_artifact_optimization"
+)
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
+async def test_sqlite_materializer_state_buckconfig_version_change(
+    buck: Buck,
+) -> None:
+    # sqlite materializer state is already enabled
+    target = "root//:copy"
+    result = await buck.build(target)
+    # Check output is correctly materialized
+    assert result.get_build_report().output_for_target(target).exists()
+
+    await buck.kill()
+
+    # Bump the buckconfig version of sqlite materializer state to invalidate the existing sqlite db
+    replace_in_file(
+        "sqlite_materializer_state_version = 0",
+        "sqlite_materializer_state_version = 1",
+        buck.cwd / ".buckconfig",
+    )
+
+    # just starting the buck2 daemon should delete the sqlite materializer state
+    await buck.audit_config()
 
 
 if eden_linux_only():
@@ -112,6 +206,15 @@ def set_materializer(buck: Buck, old: str, new: str) -> None:
     old_config = "materializations = {}".format(old)
     new_config = "materializations = {}".format(new)
     replace_in_file(old_config, new_config, file=config_file)
+
+
+def disable_sqlite_materializer_state(buck: Buck) -> None:
+    config_file = buck.cwd / ".buckconfig"
+    replace_in_file(
+        "sqlite_materializer_state = true",
+        "sqlite_materializer_state = false",
+        file=config_file,
+    )
 
 
 if eden_linux_only():
