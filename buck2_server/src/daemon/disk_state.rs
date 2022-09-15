@@ -7,11 +7,90 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use anyhow::Context;
+use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::materialize::materializer::MaterializationMethod;
+use buck2_execute_impl::materializers::sqlite::MaterializerState;
+use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
+use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
+
+pub(crate) struct DiskStateOptions {
+    sqlite_materializer_state: bool,
+    // In future, this will include the config for dep files on disk
+}
+
+impl DiskStateOptions {
+    pub(crate) fn new(
+        root_config: &LegacyBuckConfig,
+        materialization_method: MaterializationMethod,
+    ) -> anyhow::Result<Self> {
+        let sqlite_materializer_state = matches!(
+            // We can only enable materializer state on sqlite if you use deferred materializer
+            materialization_method,
+            MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts
+        ) && root_config
+            .parse("buck2", "sqlite_materializer_state")?
+            .unwrap_or(false);
+        Ok(Self {
+            sqlite_materializer_state,
+        })
+    }
+}
+
+pub(crate) async fn maybe_load_or_initialize_materializer_sqlite_db(
+    options: &DiskStateOptions,
+    paths: &InvocationPaths,
+    io_executor: Arc<dyn BlockingExecutor>,
+    root_config: &LegacyBuckConfig,
+    fs: ProjectRoot,
+) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
+    if !options.sqlite_materializer_state {
+        // When sqlite materializer state is disabled, we should always delete the materializer state db.
+        // Otherwise, artifacts in buck-out will diverge from the state stored in db.
+        io_executor
+            .execute_io_inline(|| fs.remove_path_recursive(&paths.materializer_state_path()))
+            .await?;
+        return Ok((None, None));
+    }
+
+    let metadata = buck2_events::metadata::collect();
+    let buckconfig_version: Option<String> =
+        root_config.parse("buck2", "sqlite_materializer_state_version")?;
+    let versions = HashMap::from([
+        (
+            "schema_version".to_owned(),
+            Some(DB_SCHEMA_VERSION.to_string()),
+        ),
+        ("buckconfig_version".to_owned(), buckconfig_version),
+        ("hostname".to_owned(), metadata.get("hostname").cloned()),
+    ]);
+    // Most things in the rest of `metadata` should go in the metadata sqlite table.
+    // TODO(scottcao): Narrow down what metadata we need and and insert them into the
+    // metadata table before a feature rollout.
+    let (db, load_result) = MaterializerStateSqliteDb::load_or_initialize(
+        paths.materializer_state_path(),
+        versions,
+        io_executor,
+    )
+    .await?;
+    let materializer_state = match load_result {
+        Ok(s) => Some(s),
+        // We know path not found or version mismatch is normal, but some sqlite failures
+        // are worth logging here. TODO(scottcao): Refine our error types and figure out what
+        // errors to log
+        Err(_e) => None,
+    };
+    Ok((Some(db), materializer_state))
+}
 
 // Once we start storing disk state in the cache directory, we need to make sure
 // buck2 always deletes the cache directory if the cache is disabled.

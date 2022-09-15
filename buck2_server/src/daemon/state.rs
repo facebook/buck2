@@ -40,6 +40,8 @@ use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
+use buck2_execute_impl::materializers::sqlite::MaterializerState;
+use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
@@ -52,6 +54,8 @@ use crate::active_commands::ActiveCommandDropGuard;
 use crate::ctx::BaseServerCommandContext;
 use crate::daemon::check_working_dir;
 use crate::daemon::disk_state::delete_unknown_disk_state;
+use crate::daemon::disk_state::maybe_load_or_initialize_materializer_sqlite_db;
+use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::file_watcher::FileWatcher;
@@ -188,25 +192,37 @@ impl DaemonState {
             })
             .collect::<anyhow::Result<_>>()?;
 
+        let materialization_method =
+            MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
+        let disk_state_options = DiskStateOptions::new(root_config, materialization_method.dupe())?;
         let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
         let cache_dir_path = paths.cache_dir_path();
+        let valid_cache_dirs = paths.valid_cache_dirs();
         let fs_duped = fs.dupe();
 
-        let (io, forkserver, _) = futures::future::try_join3(
-            buck2_common::io::create_io_provider(
-                fb,
-                fs,
-                legacy_configs.get(cells.root_cell()).ok(),
-            ),
-            maybe_launch_forkserver(root_config),
-            (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
-                // Using `execute_io_inline` is just out of convenience.
-                // It doesn't really matter what's used here since there's no IO-heavy
-                // operations on daemon startup
-                delete_unknown_disk_state(&cache_dir_path, &[], fs_duped)
-            }),
-        )
-        .await?;
+        let (io, forkserver, _, (materializer_db, materializer_state)) =
+            futures::future::try_join4(
+                buck2_common::io::create_io_provider(
+                    fb,
+                    fs.dupe(),
+                    legacy_configs.get(cells.root_cell()).ok(),
+                ),
+                maybe_launch_forkserver(root_config),
+                (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
+                    // Using `execute_io_inline` is just out of convenience.
+                    // It doesn't really matter what's used here since there's no IO-heavy
+                    // operations on daemon startup
+                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
+                }),
+                maybe_load_or_initialize_materializer_sqlite_db(
+                    &disk_state_options,
+                    paths,
+                    blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+                    root_config,
+                    fs,
+                ),
+            )
+            .await?;
 
         let re_client_manager = Arc::new(ReConnectionManager::new(
             fb,
@@ -223,8 +239,6 @@ impl DaemonState {
             ),
             paths.buck_out_dir().to_string(),
         ));
-        let materialization_method =
-            MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
         let materializer = Self::create_materializer(
             fb,
             io.fs().dupe(),
@@ -233,6 +247,8 @@ impl DaemonState {
             blocking_executor.dupe(),
             materialization_method,
             root_config,
+            materializer_db,
+            materializer_state,
         )?;
 
         let buffer_size = root_config
@@ -289,6 +305,8 @@ impl DaemonState {
         blocking_executor: Arc<dyn BlockingExecutor>,
         materialization_method: MaterializationMethod,
         root_config: &LegacyBuckConfig,
+        materializer_db: Option<MaterializerStateSqliteDb>,
+        materializer_state: Option<MaterializerState>,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
@@ -312,8 +330,8 @@ impl DaemonState {
                     re_client_manager,
                     blocking_executor,
                     config,
-                    None,
-                    None,
+                    materializer_db,
+                    materializer_state,
                 )))
             }
             MaterializationMethod::Eden => {

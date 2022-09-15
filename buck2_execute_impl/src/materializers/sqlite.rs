@@ -33,6 +33,13 @@ use thiserror::Error;
 
 use crate::materializers::deferred::ArtifactMetadata;
 
+/// Hand-maintained schema version for the materializer state sqlite db.
+/// PLEASE bump this version if you are making a breaking change to the
+/// materializer state sqlite db schema! If you forget to bump this version,
+/// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
+/// buckconfig in the project root's .buckconfig.
+pub const DB_SCHEMA_VERSION: u64 = 0;
+
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, ArtifactMetadata)>;
 
 #[derive(Error, Debug, PartialEq, Eq)]

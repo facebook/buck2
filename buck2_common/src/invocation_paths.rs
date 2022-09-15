@@ -160,6 +160,10 @@ impl InvocationPaths {
     pub fn materializer_state_dir_name(&self) -> &FileName {
         FileName::unchecked_new("materializer_state")
     }
+
+    pub fn valid_cache_dirs(&self) -> Vec<&FileName> {
+        vec![self.materializer_state_dir_name()]
+    }
 }
 
 #[cfg(test)]
