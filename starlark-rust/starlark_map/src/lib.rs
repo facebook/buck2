@@ -19,6 +19,8 @@
 
 // TODO(nga): fix.
 #![allow(clippy::should_implement_trait)]
+// Hints we disagree with
+#![allow(clippy::missing_safety_doc)]
 
 mod equivalent;
 mod hash_value;
