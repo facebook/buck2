@@ -26,7 +26,7 @@ simple wrapper over a c++ binary that supported a fat platform by delegating to 
 os-specific binary at runtime).
 """
 
-load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 load("@fbsource//tools/build_defs:fbsource_utils.bzl", "is_arvr_mode")
 load(
     ":defs.bzl",
@@ -43,7 +43,6 @@ load(
     "mac_execution_platform",
     "ordered_platforms_by_host_type",
     "remote_execution_action_key_providers",
-    "remote_execution_max_input_files_mebibytes",
 )
 load(":util.bzl", "fat_platform_incompatible")
 
@@ -84,7 +83,7 @@ linux_platforms = execution_platform(
         "platform": "linux-remote-execution",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 ) + execution_platform(
     name = "linux-aarch64",
@@ -93,7 +92,7 @@ linux_platforms = execution_platform(
     # NOTE(agallagher): We don't have aarch64 RE workers.
     remote_enabled = False,
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
 )
 
 windows_platforms = execution_platform(
@@ -105,7 +104,7 @@ windows_platforms = execution_platform(
         "platform": "windows",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 300 * 1024),
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
     use_windows_path_separators = True,
 )
@@ -119,7 +118,7 @@ fat_mac_linux = execution_platform(
         "platform": "linux-remote-execution",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
     make_dash_only_platforms = False,
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
@@ -139,7 +138,7 @@ asic_devinfra_xtensa_platform = execution_platform(
     },
     remote_execution_use_case = "buck2-asic-devinfra",
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 300 * 1024),
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 asic_devinfra_platforms = asic_devinfra_xtensa_platform if is_arvr_mode() else []

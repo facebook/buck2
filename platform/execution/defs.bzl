@@ -35,7 +35,6 @@ linux_execution_base_platforms = {
 remote_execution_action_key_providers = [
     "fbcode//buck2/platform/build_mode:build_mode",
 ]
-remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024)
 allow_hybrid_fallbacks_on_failure = read_bool("remoteexecution", "is_local_fallback_enabled_for_completed_actions")
 
 host_is_mac = host_info().os.is_macos
@@ -53,7 +52,7 @@ def mac_execution_platform(name: str.type, platform_key: str.type):
             "subplatform": mac_execution_subplatforms[platform_key],
         },
         remote_execution_action_key_providers = remote_execution_action_key_providers,
-        remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+        remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
         allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
     )
 
