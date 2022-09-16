@@ -20,6 +20,7 @@ def config_backed_android_toolchain(
         manifest_utils,
         merge_android_resources,
         merge_assets,
+        merge_third_party_jar_resources,
         mini_aapt,
         native_libs_as_assets_metadata,
         package_strings_as_assets,
@@ -61,6 +62,7 @@ def config_backed_android_toolchain(
     kwargs["manifest_utils"] = manifest_utils
     kwargs["merge_android_resources"] = merge_android_resources
     kwargs["merge_assets"] = merge_assets
+    kwargs["merge_third_party_jar_resources"] = merge_third_party_jar_resources
     kwargs["mini_aapt"] = mini_aapt
     kwargs["native_libs_as_assets_metadata"] = native_libs_as_assets_metadata
     kwargs["package_strings_as_assets"] = package_strings_as_assets
@@ -112,6 +114,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             manifest_utils = ctx.attrs.manifest_utils,
             merge_android_resources = ctx.attrs.merge_android_resources,
             merge_assets = ctx.attrs.merge_assets,
+            merge_third_party_jar_resources = ctx.attrs.merge_third_party_jar_resources,
             mini_aapt = ctx.attrs.mini_aapt,
             optimized_proguard_config = ctx.attrs.optimized_proguard_config,
             native_libs_as_assets_metadata = ctx.attrs.native_libs_as_assets_metadata,
@@ -150,6 +153,7 @@ _config_backed_android_toolchain_rule = rule(
         "manifest_utils": attrs.dep(providers = [RunInfo]),
         "merge_android_resources": attrs.dep(providers = [RunInfo]),
         "merge_assets": attrs.dep(providers = [RunInfo]),
+        "merge_third_party_jar_resources": attrs.dep(providers = [RunInfo]),
         "mini_aapt": attrs.dep(providers = [RunInfo]),
         "multi_dex_command": attrs.dep(providers = [RunInfo]),
         "native_libs_as_assets_metadata": attrs.dep(providers = [RunInfo]),
