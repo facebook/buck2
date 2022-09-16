@@ -84,8 +84,11 @@ pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
 
 // We don't care _that_ much about the size of these structures,
 // but we equally don't want to regress without noticing.
-assert_eq_size!(AstStmt, [usize; 12]);
-assert_eq_size!(AstExpr, [usize; 9]);
+
+// These two data structures reduced in size with nightly ~10 Sep 2022.
+// Once that date is in the distant past, we should reenable these assertions.
+// assert_eq_size!(AstStmt, [usize; 12]);
+// assert_eq_size!(AstExpr, [usize; 9]);
 assert_eq_size!(AstAssign, [usize; 7]);
 
 /// A representation of a Starlark module abstract syntax tree.
