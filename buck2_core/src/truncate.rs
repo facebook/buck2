@@ -13,14 +13,10 @@ const TRUNCATION_MSG: &str = "<<omitted>>";
 /// the debug message with the middle elided if it's too long.
 /// `max_length` is maximum length of truncated message.
 pub fn truncate(msg: &str, max_length: usize) -> String {
-    if msg.len() > max_length {
+    if max_length <= TRUNCATION_MSG.len() {
+        TRUNCATION_MSG.to_owned()
+    } else if msg.len() > max_length {
         let max_length_without_truncation_msg = max_length.saturating_sub(TRUNCATION_MSG.len());
-        if max_length_without_truncation_msg < 2 {
-            panic!(
-                "This message cannot be truncated to length {}. max_length is too short.",
-                max_length
-            );
-        }
         // Note that for Unicode strings we might end up with less than max_length characters,
         // because these functions are all in terms of bytes.
         // Not worth the hassle to do better, given how rare that is.
@@ -44,19 +40,13 @@ mod tests {
 
     #[test]
     fn test_truncate() {
+        assert_eq!(&truncate(MSG, 0), "<<omitted>>");
+        assert_eq!(&truncate(MSG, TRUNCATION_MSG.len()), "<<omitted>>");
         assert_eq!(&truncate(MSG, 30), "rdeps(set<<omitted>>li:buck2)");
         assert_eq!(
             &truncate(MSG, 50),
             "rdeps(set(fbcode//b<<omitted>>e//buck2/cli:buck2)"
         );
-    }
-
-    // TODO(nga): `truncate` function is used in error messages,
-    //   so if used incorrectly, it's better to produce some message than crash.
-    #[test]
-    #[should_panic]
-    fn test_truncate_panic() {
-        truncate(MSG, 5);
     }
 
     #[test]
