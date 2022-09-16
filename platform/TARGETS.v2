@@ -64,6 +64,7 @@ cxx_fbcode_toolchain(
     ],
     # Use thin archives for static libraries, by default.
     archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
+    link_ordering = "topological" if native.read_config("fbcode", "topological_link_order", False) else None,
     visibility = ["PUBLIC"],
     bolt_enabled = True,
 )
