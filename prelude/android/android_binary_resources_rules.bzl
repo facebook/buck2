@@ -48,38 +48,6 @@ def get_android_binary_resources_info(
         filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False),
     )
 
-    override_symbols_paths = [override_symbols] if override_symbols else []
-    resources = [resource for resource in resource_infos if resource.res != None]
-    r_dot_java = None if len(resources) == 0 else generate_r_dot_java(
-        ctx,
-        ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
-        ctx.attrs._java_toolchain[JavaToolchainInfo],
-        resources,
-        get_effective_banned_duplicate_resource_types(
-            getattr(ctx.attrs, "duplicate_resource_behavior", "allow_by_default"),
-            getattr(ctx.attrs, "allowed_duplicate_resource_types", []),
-            getattr(ctx.attrs, "banned_duplicate_resource_types", []),
-        ),
-        [aapt2_link_info.r_dot_txt],
-        override_symbols_paths,
-        getattr(ctx.attrs, "duplicate_resource_whitelist", None),
-        getattr(ctx.attrs, "resource_union_package", None),
-        referenced_resources_lists,
-    )
-    string_source_map = _maybe_generate_string_source_map(
-        ctx.actions,
-        getattr(ctx.attrs, "build_string_source_map", False),
-        resources,
-        android_toolchain,
-    )
-    packaged_string_assets = _maybe_package_strings_as_assets(
-        ctx,
-        string_files_list,
-        string_files_res_dirs,
-        aapt2_link_info.r_dot_txt,
-        android_toolchain,
-    )
-
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
 
     cxx_resources = _get_cxx_resources(ctx, deps)
@@ -91,7 +59,30 @@ def get_android_binary_resources_info(
         resource_infos,
         cxx_resources,
     )
+
     if is_exopackaged_enabled_for_resources:
+        r_dot_txt = ctx.actions.declare_output("after_exo/R.txt")
+        primary_resources_apk = ctx.actions.declare_output("after_exo/primary_resources_apk.apk")
+        exo_resources = ctx.actions.declare_output("exo_resources.apk")
+        exo_resources_hash = ctx.actions.declare_output("exo_resources.apk.hash")
+        ctx.actions.run(cmd_args([
+            android_toolchain.exo_resources_rewriter[RunInfo],
+            "--original-r-dot-txt",
+            aapt2_link_info.r_dot_txt,
+            "--new-r-dot-txt",
+            r_dot_txt.as_output(),
+            "--original-primary-apk-resources",
+            aapt2_link_info.primary_resources_apk,
+            "--new-primary-apk-resources",
+            primary_resources_apk.as_output(),
+            "--exo-resources",
+            exo_resources.as_output(),
+            "--exo-resources-hash",
+            exo_resources_hash.as_output(),
+            "--zipalign-tool",
+            android_toolchain.zipalign[RunInfo],
+        ]), category = "write_exo_resources")
+
         third_party_jars = ctx.actions.write("third_party_jars", prebuilt_jars)
         third_party_jar_resources = ctx.actions.declare_output("third_party_jars.resources")
         third_party_jar_resources_hash = ctx.actions.declare_output("third_party_jars.resources.hash")
@@ -108,6 +99,8 @@ def get_android_binary_resources_info(
         exopackage_info = ExopackageResourcesInfo(
             assets = exopackaged_assets,
             assets_hash = exopackaged_assets_hash,
+            res = exo_resources,
+            res_hash = exo_resources_hash,
             third_party_jar_resources = third_party_jar_resources,
             third_party_jar_resources_hash = third_party_jar_resources_hash,
         )
@@ -115,6 +108,39 @@ def get_android_binary_resources_info(
     else:
         exopackage_info = None
         jar_files_that_may_contain_resources = prebuilt_jars
+        r_dot_txt = aapt2_link_info.r_dot_txt
+
+    override_symbols_paths = [override_symbols] if override_symbols else []
+    resources = [resource for resource in resource_infos if resource.res != None]
+    r_dot_java = None if len(resources) == 0 else generate_r_dot_java(
+        ctx,
+        ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
+        ctx.attrs._java_toolchain[JavaToolchainInfo],
+        resources,
+        get_effective_banned_duplicate_resource_types(
+            getattr(ctx.attrs, "duplicate_resource_behavior", "allow_by_default"),
+            getattr(ctx.attrs, "allowed_duplicate_resource_types", []),
+            getattr(ctx.attrs, "banned_duplicate_resource_types", []),
+        ),
+        [r_dot_txt],
+        override_symbols_paths,
+        getattr(ctx.attrs, "duplicate_resource_whitelist", None),
+        getattr(ctx.attrs, "resource_union_package", None),
+        referenced_resources_lists,
+    )
+    string_source_map = _maybe_generate_string_source_map(
+        ctx.actions,
+        getattr(ctx.attrs, "build_string_source_map", False),
+        resources,
+        android_toolchain,
+    )
+    packaged_string_assets = _maybe_package_strings_as_assets(
+        ctx,
+        string_files_list,
+        string_files_res_dirs,
+        r_dot_txt,
+        android_toolchain,
+    )
 
     return AndroidBinaryResourcesInfo(
         exopackage_info = exopackage_info,

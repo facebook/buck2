@@ -263,6 +263,8 @@ def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> ["artifact"
 
     resources_info = exopackage_info.resources_info
     if resources_info:
+        outputs.append(resources_info.res)
+        outputs.append(resources_info.res_hash)
         outputs.append(resources_info.third_party_jar_resources)
         outputs.append(resources_info.third_party_jar_resources_hash)
 
