@@ -301,7 +301,7 @@ impl LspContext for Context {
     fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
         match uri {
             LspUrl::File(path) => match path.is_absolute() {
-                true => match fs::read_to_string(&path) {
+                true => match fs::read_to_string(path) {
                     Ok(contents) => Ok(Some(contents)),
                     Err(e)
                         if e.kind() == io::ErrorKind::NotFound

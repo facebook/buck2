@@ -45,7 +45,7 @@ impl TypecheckProfile {
         *self
             .by_function
             .entry_hashed(function.get_hashed())
-            .or_insert(SmallDuration::default()) += time;
+            .or_default() += time;
     }
 
     fn gen_csv(&self) -> String {
