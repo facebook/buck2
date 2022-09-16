@@ -378,7 +378,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Hasher for index resize.
     #[inline(always)]
-    fn hasher<'a>(entries: &'a VecMap<K, V>) -> impl Fn(&usize) -> u64 + 'a {
+    fn hasher(entries: &VecMap<K, V>) -> impl Fn(&usize) -> u64 + '_ {
         move |&index| {
             debug_assert!(index < entries.len());
             unsafe { entries.buckets.get_unchecked(index).hash.promote() }
