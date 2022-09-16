@@ -123,7 +123,6 @@ def main(argv):
             continue
 
         if data["archive_index"] is not None:
-            # Coming from an archive - we'll handle this separately. Record it and move on.
             archives[data["archive_index"]]["objects"].append(path)
             continue
 
@@ -257,12 +256,24 @@ def main(argv):
             if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
                 continue
             path = os.path.relpath(line, start=args.index)
-            if line in index_files_set and mapping[path]["output"]:
-                output = mapping[path]["output"].replace(
-                    bitcode_suffix, opt_objects_suffix
-                )
-                final_link_index_output.write(output + "\n")
+            if line in index_files_set:
+                if mapping[path]["output"]:
+                    # handle files that were not extracted from archives
+                    output = mapping[path]["output"].replace(
+                        bitcode_suffix, opt_objects_suffix
+                    )
+                    final_link_index_output.write(output + "\n")
+                elif os.path.exists(index_path(path) + imports_suffix):
+                    # handle files built from source that were extracted from archives
+                    opt_objects_path = path.replace(
+                        "/objects/", "/opt_objects/objects/"
+                    )
+                    final_link_index_output.write(opt_objects_path + "\n")
+                else:
+                    # handle pre-built archives
+                    final_link_index_output.write(line + "\n")
             else:
+                # handle input files that did not come from linker input, e.g. linkerscirpts
                 final_link_index_output.write(line + "\n")
 
 
