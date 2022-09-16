@@ -2,7 +2,7 @@ load("@prelude//:attributes.bzl", "RType")
 load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//android:aapt2_link.bzl", "get_aapt2_link")
 load("@prelude//android:android_manifest.bzl", "generate_android_manifest")
-load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo")
+load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo", "ExopackageResourcesInfo")
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_java")
@@ -80,12 +80,24 @@ def get_android_binary_resources_info(
     )
 
     cxx_resources = _get_cxx_resources(ctx, deps)
-    apk_with_merged_assets = _merge_assets(ctx, aapt2_link_info.primary_resources_apk, resource_infos, cxx_resources)
+    is_exopackaged_enabled_for_resources = "resources" in getattr(ctx.attrs, "exopackage_modes", [])
+    primary_resources_apk, exopackaged_assets, exopackaged_assets_hash = _merge_assets(
+        ctx,
+        is_exopackaged_enabled_for_resources,
+        aapt2_link_info.primary_resources_apk,
+        resource_infos,
+        cxx_resources,
+    )
+    if is_exopackaged_enabled_for_resources:
+        exopackage_info = ExopackageResourcesInfo(assets = exopackaged_assets, assets_hash = exopackaged_assets_hash)
+    else:
+        exopackage_info = None
 
     return AndroidBinaryResourcesInfo(
+        exopackage_info = exopackage_info,
         manifest = android_manifest,
         packaged_string_assets = packaged_string_assets,
-        primary_resources_apk = apk_with_merged_assets,
+        primary_resources_apk = primary_resources_apk,
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_java = r_dot_java,
         string_source_map = string_source_map,
@@ -321,29 +333,42 @@ def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableI
 
     return android_manifest
 
+# Returns the "primary resources APK" (i.e. the resource that are packaged into the primary APK),
+# and optionally an "exopackaged assets APK" and the hash for that APK.
 def _merge_assets(
         ctx: "context",
+        is_exopackaged_enabled_for_resources: bool.type,
         base_apk: "artifact",
         resource_infos: ["AndroidResourceInfo"],
-        cxx_resources: ["artifact", None]) -> "artifact":
+        cxx_resources: ["artifact", None]) -> ("artifact", ["artifact", None], ["artifact", None]):
     assets_dirs = [resource_info.assets for resource_info in resource_infos if resource_info.assets]
     if cxx_resources != None:
         assets_dirs.extend([cxx_resources])
     if len(assets_dirs) == 0:
-        return base_apk
+        return base_apk, None, None
 
     merge_assets_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_assets[RunInfo])
 
     merged_assets_output = ctx.actions.declare_output("merged_assets.ap_")
     merge_assets_cmd.add(["--output-apk", merged_assets_output.as_output()])
-    merge_assets_cmd.add(["--base-apk", base_apk])
+
+    if is_exopackaged_enabled_for_resources:
+        merged_assets_output_hash = ctx.actions.declare_output("merged_assets.ap_.hash")
+        merge_assets_cmd.add(["--output-apk-hash", merged_assets_output_hash.as_output()])
+    else:
+        merge_assets_cmd.add(["--base-apk", base_apk])
+        merged_assets_output_hash = None
+
     assets_dirs_file = ctx.actions.write("assets_dirs", assets_dirs)
     merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
     merge_assets_cmd.hidden(assets_dirs)
 
     ctx.actions.run(merge_assets_cmd, category = "merge_assets")
 
-    return merged_assets_output
+    if is_exopackaged_enabled_for_resources:
+        return base_apk, merged_assets_output, merged_assets_output_hash
+    else:
+        return merged_assets_output, None, None
 
 def get_effective_banned_duplicate_resource_types(
         duplicate_resource_behavior: str.type,

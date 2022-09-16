@@ -19,6 +19,8 @@ AndroidBinaryNativeLibsInfo = record(
 )
 
 AndroidBinaryResourcesInfo = record(
+    # Optional information about resources that should be exopackaged
+    exopackage_info = ["ExopackageResourcesInfo", None],
     # manifest to be used by the APK
     manifest = "artifact",
     # zip containing any strings packaged as assets
@@ -158,6 +160,11 @@ ExopackageNativeInfo = record(
     directory = "artifact",
 )
 
+ExopackageResourcesInfo = record(
+    assets = ["artifact", None],
+    assets_hash = ["artifact", None],
+)
+
 DexFilesInfo = record(
     primary_dex = "artifact",
     secondary_dex_dirs = ["artifact"],
@@ -168,6 +175,7 @@ DexFilesInfo = record(
 ExopackageInfo = record(
     secondary_dex_info = [ExopackageDexInfo.type, None],
     native_library_info = [ExopackageNativeInfo.type, None],
+    resources_info = [ExopackageResourcesInfo.type, None],
 )
 
 def merge_android_packageable_info(
