@@ -147,6 +147,7 @@ async fn build(
         &ctx.get_legacy_configs().await?,
         cwd,
     )?;
+    server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
