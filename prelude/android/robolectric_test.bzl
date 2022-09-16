@@ -21,6 +21,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         ctx,
         all_packaging_deps,
         android_packageable_info,
+        java_packaging_deps = [],  # Only used for third-party jar resources, which we don't care about here.
         use_proto_format = False,
         referenced_resources_lists = [],
     )

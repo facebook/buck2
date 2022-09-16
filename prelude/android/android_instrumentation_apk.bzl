@@ -33,6 +33,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
         ctx,
         deps,
         android_packageable_info,
+        java_packaging_deps = java_packaging_deps,
         use_proto_format = False,
         referenced_resources_lists = [],
         resource_infos_to_exclude = apk_under_test_info.resource_infos,
@@ -60,7 +61,6 @@ def android_instrumentation_apk_impl(ctx: "context"):
         dex_files_info = dex_files_info,
         native_library_info = native_library_info,
         resources_info = resources_info,
-        java_packaging_deps = java_packaging_deps,
     )
 
     return [

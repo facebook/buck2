@@ -13,6 +13,7 @@ def get_android_binary_resources_info(
         ctx: "context",
         deps: ["dependency"],
         android_packageable_info: "AndroidPackageableInfo",
+        java_packaging_deps: ["JavaPackagingDep"],
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"],
         resource_infos_to_exclude: [AndroidResourceInfo.type] = []) -> "AndroidBinaryResourcesInfo":
@@ -79,6 +80,8 @@ def get_android_binary_resources_info(
         android_toolchain,
     )
 
+    prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
+
     cxx_resources = _get_cxx_resources(ctx, deps)
     is_exopackaged_enabled_for_resources = "resources" in getattr(ctx.attrs, "exopackage_modes", [])
     primary_resources_apk, exopackaged_assets, exopackaged_assets_hash = _merge_assets(
@@ -101,6 +104,7 @@ def get_android_binary_resources_info(
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_java = r_dot_java,
         string_source_map = string_source_map,
+        jar_files_that_may_contain_resources = prebuilt_jars,
         unfiltered_resource_infos = unfiltered_resource_infos,
     )
 

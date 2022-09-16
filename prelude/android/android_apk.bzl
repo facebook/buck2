@@ -35,7 +35,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
 
     referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps] if ctx.attrs.trim_resource_ids and should_pre_dex else []
-    resources_info = get_android_binary_resources_info(ctx, deps, android_packageable_info, use_proto_format = False, referenced_resources_lists = referenced_resources_lists)
+    resources_info = get_android_binary_resources_info(ctx, deps, android_packageable_info, java_packaging_deps, use_proto_format = False, referenced_resources_lists = referenced_resources_lists)
     if resources_info.r_dot_java:
         java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 
@@ -109,7 +109,6 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         dex_files_info = dex_files_info,
         native_library_info = native_library_info,
         resources_info = resources_info,
-        java_packaging_deps = java_packaging_deps,
         compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
     )
 
@@ -141,7 +140,6 @@ def build_apk(
         dex_files_info: "DexFilesInfo",
         native_library_info: "AndroidBinaryNativeLibsInfo",
         resources_info: "AndroidBinaryResourcesInfo",
-        java_packaging_deps: ["JavaPackagingDep"],
         compress_resources_dot_arsc: bool.type = False) -> "artifact":
     output_apk = actions.declare_output("output_apk.apk")
 
@@ -172,9 +170,8 @@ def build_apk(
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
     zip_files = actions.write("zip_files", all_zip_files)
     apk_builder_args.hidden(all_zip_files)
-    prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
-    jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", prebuilt_jars)
-    apk_builder_args.hidden(prebuilt_jars)
+    jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", resources_info.jar_files_that_may_contain_resources)
+    apk_builder_args.hidden(resources_info.jar_files_that_may_contain_resources)
 
     apk_builder_args.add([
         "--asset-directories-list",

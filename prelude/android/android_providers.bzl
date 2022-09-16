@@ -33,6 +33,8 @@ AndroidBinaryResourcesInfo = record(
     r_dot_java = ["JavaLibraryInfo", None],
     # directory containing filtered string resources files
     string_source_map = ["artifact", None],
+    # list of jars that could contain resources that should be packaged into the APK
+    jar_files_that_may_contain_resources = ["artifact"],
     # The resource infos that are used in this APK
     unfiltered_resource_infos = ["AndroidResourceInfo"],
 )
