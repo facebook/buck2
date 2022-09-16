@@ -205,7 +205,18 @@ def _get_install_info(ctx: "context", output_apk: "artifact", manifest: "artifac
         files["native_library_exopackage_info_directory"] = native_library_exopackage_info.directory
         files["native_library_exopackage_info_metadata"] = native_library_exopackage_info.metadata
 
-    if secondary_dex_exopackage_info or native_library_exopackage_info:
+    resources_info = exopackage_info.resources_info
+    if resources_info:
+        if resources_info.assets:
+            files["resources_exopackage_assets"] = resources_info.assets
+            files["resources_exopackage_assets_hash"] = resources_info.assets_hash
+
+        files["resources_exopackage_res"] = resources_info.res
+        files["resources_exopackage_res_hash"] = resources_info.res_hash
+        files["resources_exopackage_third_party_jar_resources"] = resources_info.third_party_jar_resources
+        files["resources_exopackage_third_party_jar_resources_hash"] = resources_info.third_party_jar_resources_hash
+
+    if secondary_dex_exopackage_info or native_library_exopackage_info or resources_info:
         files["exopackage_agent_apk"] = ctx.attrs._android_toolchain[AndroidToolchainInfo].exopackage_agent_apk
 
     return InstallInfo(
