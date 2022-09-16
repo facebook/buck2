@@ -14,6 +14,8 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
 use buck2_events::dispatch::EventDispatcher;
@@ -41,6 +43,8 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
     async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
 
     async fn config_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
+
+    fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPattern>]);
 
     async fn canonicalize_patterns_for_logging(
         &self,

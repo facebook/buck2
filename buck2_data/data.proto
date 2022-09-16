@@ -132,6 +132,9 @@ message InstantEvent {
 
     // A tag to mark on the scuba tables
     TagEvent tag_event = 14;
+
+    // Sent when the target pattern gets resolved to update the invocation info
+    ResolvedTargetPatterns target_patterns = 15;
   }
 }
 
@@ -1055,6 +1058,10 @@ message RecordEvent {
 // An arbitrary tag on the command. Usually used to mark A/B experiments
 message TagEvent {
   repeated string tags = 1;
+}
+
+message ResolvedTargetPatterns {
+  repeated TargetPattern target_patterns = 1;
 }
 
 message TypedMetadata {

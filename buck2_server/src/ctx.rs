@@ -44,6 +44,7 @@ use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -80,6 +81,7 @@ use dice::data::DiceData;
 use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::dupe::Dupe;
+use gazebo::prelude::SliceExt;
 use gazebo::prelude::VecExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
@@ -647,5 +649,16 @@ impl ServerCommandContextTrait for ServerCommandContext {
         });
 
         Ok(patterns)
+    }
+
+    fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPattern>]) {
+        let patterns = providers_patterns.map(|pat| buck2_data::TargetPattern {
+            value: format!("{}", pat),
+        });
+
+        self.events()
+            .instant_event(buck2_data::ResolvedTargetPatterns {
+                target_patterns: patterns,
+            })
     }
 }
