@@ -111,7 +111,13 @@ mod imp {
         ) -> anyhow::Result<u64> {
             if let Some(merge_base) = &self.branched_from_revision {
                 self.build_count_manager
-                    .min_build_count(merge_base, target_patterns)
+                    .min_build_count(
+                        merge_base,
+                        self.resolved_target_patterns
+                            .as_ref()
+                            .map(|d| &d.target_patterns[..])
+                            .unwrap_or(target_patterns),
+                    )
                     .await
                     .context("Error recording build count")
             } else {
@@ -216,13 +222,13 @@ mod imp {
             self.min_build_count_since_rebase =
                 match command.data.as_ref().context("Missing command data")? {
                     buck2_data::command_end::Data::Build(cmd) => {
-                        self.build_count(&cmd.target_patterns).await?
+                        self.build_count(&cmd.unresolved_target_patterns).await?
                     }
                     buck2_data::command_end::Data::Test(cmd) => {
-                        self.build_count(&cmd.target_patterns).await?
+                        self.build_count(&cmd.unresolved_target_patterns).await?
                     }
                     buck2_data::command_end::Data::Install(cmd) => {
-                        self.build_count(&cmd.target_patterns).await?
+                        self.build_count(&cmd.unresolved_target_patterns).await?
                     }
                     // other events don't have target patterns
                     _ => 0,

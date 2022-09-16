@@ -176,22 +176,11 @@ pub async fn test_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TestRequest,
 ) -> anyhow::Result<TestResponse> {
-    let patterns_for_logging = ctx
-        .canonicalize_patterns_for_logging(&req.target_patterns)
-        .await?;
-    run_server_command(
-        TestServerCommand {
-            req,
-            patterns_for_logging,
-        },
-        ctx,
-    )
-    .await
+    run_server_command(TestServerCommand { req }, ctx).await
 }
 
 struct TestServerCommand {
     req: cli_proto::TestRequest,
-    patterns_for_logging: Vec<buck2_data::TargetPattern>,
 }
 
 #[async_trait]
@@ -206,7 +195,7 @@ impl ServerCommandTemplate for TestServerCommand {
 
     fn end_event(&self) -> buck2_data::TestCommandEnd {
         buck2_data::TestCommandEnd {
-            target_patterns: self.patterns_for_logging.clone(),
+            unresolved_target_patterns: self.req.target_patterns.clone(),
         }
     }
 

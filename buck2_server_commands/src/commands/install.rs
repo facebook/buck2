@@ -130,22 +130,11 @@ pub async fn install_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
-    let patterns_for_logging = ctx
-        .canonicalize_patterns_for_logging(&req.target_patterns)
-        .await?;
-    run_server_command(
-        InstallServerCommand {
-            req,
-            patterns_for_logging,
-        },
-        ctx,
-    )
-    .await
+    run_server_command(InstallServerCommand { req }, ctx).await
 }
 
 struct InstallServerCommand {
     req: InstallRequest,
-    patterns_for_logging: Vec<buck2_data::TargetPattern>,
 }
 
 #[async_trait]
@@ -156,7 +145,7 @@ impl ServerCommandTemplate for InstallServerCommand {
 
     fn end_event(&self) -> Self::EndEvent {
         buck2_data::InstallCommandEnd {
-            target_patterns: self.patterns_for_logging.clone(),
+            unresolved_target_patterns: self.req.target_patterns.clone(),
         }
     }
 

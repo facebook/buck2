@@ -45,11 +45,6 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
     async fn config_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
 
     fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPattern>]);
-
-    async fn canonicalize_patterns_for_logging(
-        &self,
-        patterns: &[buck2_data::TargetPattern],
-    ) -> anyhow::Result<Vec<buck2_data::TargetPattern>>;
 }
 
 pub struct PrivateStruct(());

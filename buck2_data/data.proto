@@ -508,12 +508,7 @@ message AuditCommandEnd {
 message BuildCommandEnd {
   reserved 2;
 
-  // Unambiguous provider patterns that this command is requesting be brought
-  // up-to-date. These patterns are not exactly the same as the patterns
-  // directly provided to the buck2 command-line; rather, these patterns have
-  // been disambiguated using the client's working directory and cell
-  // configuration.
-  repeated TargetPattern target_patterns = 1;
+  repeated TargetPattern unresolved_target_patterns = 1;
 }
 
 message BxlCommandEnd {
@@ -540,12 +535,7 @@ message AqueryCommandEnd {
 }
 
 message TestCommandEnd {
-  // Unambiguous provider patterns that this command is requesting be brought
-  // up-to-date. These patterns are not exactly the same as the patterns
-  // directly provided to the buck2 command-line; rather, these patterns have
-  // been disambiguated using the client's working directory and cell
-  // configuration.
-  repeated TargetPattern target_patterns = 1;
+  repeated TargetPattern unresolved_target_patterns = 1;
 }
 
 message DocsCommandEnd {
@@ -557,12 +547,7 @@ message CleanCommandEnd {
 }
 
 message InstallCommandEnd {
-  // Unambiguous provider patterns that this command is requesting be brought
-  // up-to-date. These patterns are not exactly the same as the patterns
-  // directly provided to the buck2 command-line; rather, these patterns have
-  // been disambiguated using the client's working directory and cell
-  // configuration.
-  repeated TargetPattern target_patterns = 1;
+  repeated TargetPattern unresolved_target_patterns = 1;
 }
 
 message MaterializeCommandEnd {
@@ -1060,6 +1045,11 @@ message TagEvent {
   repeated string tags = 1;
 }
 
+// Unambiguous provider patterns that this command is requesting be brought
+// up-to-date. These patterns are not exactly the same as the patterns
+// directly provided to the buck2 command-line; rather, these patterns have
+// been disambiguated using the client's working directory and cell
+// configuration.
 message ResolvedTargetPatterns {
   repeated TargetPattern target_patterns = 1;
 }

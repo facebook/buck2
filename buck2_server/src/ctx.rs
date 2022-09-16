@@ -69,7 +69,6 @@ use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::raw_output::RawOuputGuard;
 use buck2_server_ctx::raw_output::RawOutputWriter;
 use cli_proto::client_context::HostPlatformOverride;
@@ -82,7 +81,6 @@ use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use starlark::environment::GlobalsBuilder;
@@ -621,34 +619,6 @@ impl ServerCommandContextTrait for ServerCommandContext {
         }
 
         Ok(metadata)
-    }
-
-    /// The target patterns sent to the Buck2 daemon are ambiguous and require some amount of disambiguation prior to
-    /// running a command. There are two key things that need to be disambiguated by the Buck2 daemon:
-    ///   1) Target patterns can be relative to the Buck2 client's current working directory, in which case we must
-    ///      canonicalize the path to the root of the nearest cell,
-    ///   2) Target patterns do not require an explicit cell at the root of the path, in which case Buck2 infers the cell
-    ///      based on configuration.
-    ///
-    /// This function produces a canonicalized list of target patterns from a command-supplied list of target patterns, with
-    /// all ambiguities resolved. This greatly simplifies logging as we only ever log unambiguous target patterns and do not
-    /// need to log things like the command's working directory or cell.
-    async fn canonicalize_patterns_for_logging(
-        &self,
-        patterns: &[buck2_data::TargetPattern],
-    ) -> anyhow::Result<Vec<buck2_data::TargetPattern>> {
-        let (cells, configs) = self.cells_and_configs(self.reuse_current_config).await?;
-        let providers_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
-            patterns,
-            &cells,
-            &configs,
-            &self.working_dir,
-        )?;
-        let patterns = providers_patterns.into_map(|pat| buck2_data::TargetPattern {
-            value: format!("{}", pat),
-        });
-
-        Ok(patterns)
     }
 
     fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPattern>]) {

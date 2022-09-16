@@ -78,23 +78,11 @@ pub async fn build_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: cli_proto::BuildRequest,
 ) -> anyhow::Result<cli_proto::BuildResponse> {
-    let patterns_for_logging = ctx
-        .canonicalize_patterns_for_logging(&req.target_patterns)
-        .await?;
-
-    run_server_command(
-        BuildServerCommand {
-            req,
-            patterns_for_logging,
-        },
-        ctx,
-    )
-    .await
+    run_server_command(BuildServerCommand { req }, ctx).await
 }
 
 struct BuildServerCommand {
     req: cli_proto::BuildRequest,
-    patterns_for_logging: Vec<buck2_data::TargetPattern>,
 }
 
 #[async_trait]
@@ -105,7 +93,7 @@ impl ServerCommandTemplate for BuildServerCommand {
 
     fn end_event(&self) -> Self::EndEvent {
         buck2_data::BuildCommandEnd {
-            target_patterns: self.patterns_for_logging.clone(),
+            unresolved_target_patterns: self.req.target_patterns.clone(),
         }
     }
 
