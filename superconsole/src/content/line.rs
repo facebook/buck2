@@ -44,6 +44,10 @@ impl Line {
         Line(Vec::from_iter(iter))
     }
 
+    pub fn unstyled(text: &str) -> anyhow::Result<Line> {
+        Ok(Line::from_iter([Span::new_unstyled(text)?]))
+    }
+
     /// Return the length of the all words in the line added together.
     pub fn len(&self) -> usize {
         self.0.iter().map(Span::len).sum()
