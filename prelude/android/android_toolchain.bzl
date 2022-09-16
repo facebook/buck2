@@ -13,6 +13,7 @@ AndroidToolchainInfo = provider(fields = [
     "combine_native_library_dirs",
     "compress_libraries",
     "d8_command",
+    "exo_resources_rewriter",
     "exopackage_agent_apk",
     "filter_dex_class_names",
     "filter_prebuilt_native_library_dir",
