@@ -17,7 +17,6 @@ use superconsole::Direction;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
-use superconsole::Span;
 use superconsole::State;
 
 #[derive(Debug)]
@@ -62,7 +61,6 @@ impl Component for StaticStringComponent {
         _dimensions: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let title = Span::new_unstyled(&self.header)?;
-        Ok(vec![Line::from_iter([title])])
+        Ok(vec![Line::unstyled(&self.header)?])
     }
 }

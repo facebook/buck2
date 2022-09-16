@@ -267,8 +267,7 @@ impl Component for CountComponent {
                 }
             }
         };
-        let span = Span::new_unstyled(contents)?;
-        Ok(vec![Line::from_iter([span])])
+        Ok(vec![Line::unstyled(&contents)?])
     }
 }
 

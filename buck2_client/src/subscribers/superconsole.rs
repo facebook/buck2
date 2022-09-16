@@ -702,18 +702,18 @@ impl Component for SessionInfoComponent {
                 let mut ids = vec![];
                 if let Some(trace_id) = &session_info.trace_id {
                     if cfg!(fbcode_build) {
-                        headers.push(Line::from_iter([Span::new_unstyled("Buck UI:")?]));
+                        headers.push(Line::unstyled("Buck UI:")?);
                         ids.push(Span::new_unstyled(format!(
                             "https://www.internalfb.com/buck2/{}",
                             trace_id
                         ))?);
                     } else {
-                        headers.push(Line::from_iter([Span::new_unstyled("Build ID:")?]));
+                        headers.push(Line::unstyled("Build ID:")?);
                         ids.push(Span::new_unstyled(trace_id)?);
                     }
                 }
                 if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
-                    headers.push(Line::from_iter([Span::new_unstyled("Test Session:")?]));
+                    headers.push(Line::unstyled("Test Session:")?);
                     ids.push(Span::new_unstyled(info)?);
                 }
                 // pad all headers to the max width.

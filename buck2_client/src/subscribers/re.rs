@@ -76,9 +76,7 @@ impl ReState {
             {finished_successfully:>5} success, \
             {finished_with_error:>5} error"
         );
-        Ok(Some(Line::from_iter([superconsole::Span::new_unstyled(
-            line,
-        )?])))
+        Ok(Some(Line::unstyled(&line)?))
     }
 
     fn render_detailed(&self) -> anyhow::Result<Vec<Line>> {
@@ -130,8 +128,7 @@ impl ReState {
             Some(header) => header,
             None => return Ok(Vec::new()),
         };
-        let header = superconsole::Span::new_unstyled(header)?;
-        let mut lines = vec![Line::from_iter([header])];
+        let mut lines = vec![Line::unstyled(&header)?];
         if self.detailed {
             lines.extend(self.render_detailed()?);
         }

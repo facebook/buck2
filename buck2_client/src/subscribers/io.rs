@@ -51,9 +51,7 @@ impl IoState {
                 IoCounterKey::EdenSettle => snapshot.io_in_flight_eden_settle,
             };
             if value != 0 {
-                lines.push(Line::from_iter([superconsole::Span::new_unstyled(
-                    format!("{:?} = {}", key, value),
-                )?]));
+                lines.push(Line::unstyled(&format!("{:?} = {}", key, value))?);
             }
         }
         Ok(lines)
