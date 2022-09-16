@@ -62,6 +62,7 @@ message SpanStartEvent {
     SharedTaskStart shared_task = 62;
     CacheUploadStart cache_upload = 63;
     CreateOutputSymlinksStart create_output_symlinks = 64;
+    CommandCriticalStart command_critical = 65;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -90,6 +91,7 @@ message SpanEndEvent {
     SharedTaskEnd shared_task = 63;
     CacheUploadEnd cache_upload = 64;
     CreateOutputSymlinksEnd create_output_symlinks = 65;
+    CommandCriticalEnd command_critical = 66;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -385,6 +387,15 @@ message CommandStart {
   }
 }
 
+// An event that marks that the command has start execution and synced it's
+// state. The period of time between CommandStart and CommandBegin is the time
+// spent synchronizing changes and waiting for concurrent commands to finish.
+message CommandCriticalStart {
+  // Metadata associated with this build. Values in this map have no particular
+  // semantics and are useful for logging and telemetry only.
+  map<string, string> metadata = 1;
+}
+
 message AuditCommandStart {
   // TODO(swgillespie) fill this with useful fields
 }
@@ -464,6 +475,14 @@ message CommandEnd {
 
   bool is_success = 2;
   repeated string error_messages = 3;
+}
+
+// Marks the exit of the `CommandBeginCritical` event, such that the command has
+// left the critical section.
+message CommandCriticalEnd {
+  // Metadata associated with this command. Values in this map have no
+  // particular semantics and are useful for logging and telemetry only.
+  map<string, string> metadata = 1;
 }
 
 message AuditCommandEnd {

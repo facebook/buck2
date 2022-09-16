@@ -249,6 +249,7 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
     match event.data.as_ref() {
         Some(
             Data::Command(..)
+            | Data::CommandCritical(..)
             | Data::AnalysisStage(..)
             | Data::ExecutorStage(..)
             | Data::MatchDepFiles(..)

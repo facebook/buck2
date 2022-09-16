@@ -45,6 +45,14 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
+            "buck.data.CommandCriticalStart.data",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
+            "buck.data.CommandCriticalEnd.data",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
             "buck.data.InstantEvent.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )

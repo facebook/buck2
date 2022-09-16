@@ -139,6 +139,9 @@ pub trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::Command(command) => {
                 self.handle_command_start(command, event)
             }
+            buck2_data::span_start_event::Data::CommandCritical(command) => {
+                self.handle_command_critical_start(command, event)
+            }
             buck2_data::span_start_event::Data::ActionExecution(action) => {
                 self.handle_action_execution_start(action, event)
             }
@@ -196,6 +199,9 @@ pub trait EventSubscriber: Send {
         {
             buck2_data::span_end_event::Data::Command(command) => {
                 self.handle_command_end(command, event)
+            }
+            buck2_data::span_end_event::Data::CommandCritical(command) => {
+                self.handle_command_critical_end(command, event)
             }
             buck2_data::span_end_event::Data::ActionExecution(action) => {
                 self.handle_action_execution_end(action, event)
@@ -301,6 +307,20 @@ pub trait EventSubscriber: Send {
     async fn handle_command_end(
         &mut self,
         _command: &buck2_data::CommandEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_command_critical_start(
+        &mut self,
+        _command: &buck2_data::CommandCriticalStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_command_critical_end(
+        &mut self,
+        _command: &buck2_data::CommandCriticalEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

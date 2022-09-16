@@ -213,6 +213,7 @@ pub(crate) fn display_event(
                 }
                 None => Err(ParseEventError::MissingSuiteName.into()),
             },
+            Data::CommandCritical(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Command(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Watchman(..) => Ok("Syncing file changes (via Watchman)".to_owned()),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
