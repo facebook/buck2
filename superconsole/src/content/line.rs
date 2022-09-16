@@ -48,6 +48,10 @@ impl Line {
         Ok(Line::from_iter([Span::new_unstyled(text)?]))
     }
 
+    pub fn sanitized(text: &str) -> Line {
+        Line::from_iter([Span::sanitized(text)])
+    }
+
     /// Return the length of the all words in the line added together.
     pub fn len(&self) -> usize {
         self.0.iter().map(Span::len).sum()
