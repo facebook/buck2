@@ -83,7 +83,7 @@ linux_platforms = execution_platform(
         "platform": "linux-remote-execution",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 512 * 1024),
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 ) + execution_platform(
     name = "linux-aarch64",
@@ -118,7 +118,7 @@ fat_mac_linux = execution_platform(
         "platform": "linux-remote-execution",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
-    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 512 * 1024),
     make_dash_only_platforms = False,
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
