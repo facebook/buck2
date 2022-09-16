@@ -48,6 +48,8 @@ mod imp {
         trace_id: Option<TraceId>,
         command_start: Option<buck2_data::CommandStart>,
         command_end: Option<buck2_data::CommandEnd>,
+        command_critical_start: Option<buck2_data::CommandCriticalStart>,
+        command_critical_end: Option<buck2_data::CommandCriticalEnd>,
         command_duration: Option<prost_types::Duration>,
         re_session_id: Option<String>,
         re_experiment_name: Option<String>,
@@ -81,6 +83,8 @@ mod imp {
                 trace_id: None,
                 command_start: None,
                 command_end: None,
+                command_critical_start: None,
+                command_critical_end: None,
                 command_duration: None,
                 re_session_id: None,
                 re_experiment_name: None,
@@ -118,6 +122,8 @@ mod imp {
                 let record = buck2_data::InvocationRecord {
                     command_start: self.command_start.take(),
                     command_end: self.command_end.take(),
+                    command_critical_start: self.command_critical_start.take(),
+                    command_critical_end: self.command_critical_end.take(),
                     command_duration: self.command_duration.take(),
                     client_walltime: Some(self.start_time.elapsed().into()),
                     re_session_id: self.re_session_id.take().unwrap_or_default(),
@@ -219,6 +225,22 @@ mod imp {
                     _ => 0,
                 };
 
+            Ok(())
+        }
+        async fn handle_command_critical_start(
+            &mut self,
+            command: &buck2_data::CommandCriticalStart,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            self.command_critical_start = Some(command.clone());
+            Ok(())
+        }
+        async fn handle_command_critical_end(
+            &mut self,
+            command: &buck2_data::CommandCriticalEnd,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            self.command_critical_end = Some(command.clone());
             Ok(())
         }
 

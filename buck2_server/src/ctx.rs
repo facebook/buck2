@@ -313,7 +313,7 @@ impl ServerCommandContext {
                             dice_ctx.get_cell_resolver().await?,
                             dice_ctx.get_legacy_configs().await?,
                         ))
-                        .shared_error();
+                            .shared_error();
                     } else {
                         warn!(
                             "--reuse-current-config flag was set, but there was no previous invocation detected"
@@ -526,6 +526,26 @@ impl ServerCommandContextTrait for ServerCommandContext {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
+        let mut metadata = metadata::collect();
+
+        metadata.insert(
+            "io_provider".to_owned(),
+            self.base_context.io.name().to_owned(),
+        );
+
+        if let Some(oncall) = &self.oncall {
+            metadata.insert("oncall".to_owned(), oncall.clone());
+        }
+
+        Ok(metadata)
+    }
+
+    /// Gathers metadata from buckconfig to attach to events for when a command enters the critical
+    /// section
+    async fn config_metadata(&self) -> anyhow::Result<HashMap<String, String>> {
+        // Facebook only: metadata collection for Scribe writes
+        facebook_only();
+
         fn add_config(
             map: &mut HashMap<String, String>,
             cfg: &LegacyBuckConfig,
@@ -547,7 +567,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
             sample_json.get("normals")?.as_object().cloned()
         }
 
-        let mut metadata = metadata::collect();
+        let mut metadata = HashMap::new();
         // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
         // error. We won't be able to get configs to log in that case, but we shouldn't crash.
         let (cells, configs) = self.cells_and_configs(self.reuse_current_config).await?;
@@ -596,15 +616,6 @@ impl ServerCommandContextTrait for ServerCommandContext {
                     );
                 }
             }
-        }
-
-        metadata.insert(
-            "io_provider".to_owned(),
-            self.base_context.io.name().to_owned(),
-        );
-
-        if let Some(oncall) = &self.oncall {
-            metadata.insert("oncall".to_owned(), oncall.clone());
         }
 
         Ok(metadata)

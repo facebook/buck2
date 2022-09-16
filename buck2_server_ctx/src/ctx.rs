@@ -14,6 +14,8 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_data::CommandCriticalEnd;
+use buck2_data::CommandCriticalStart;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceTransaction;
 use dice::UserComputationData;
@@ -37,6 +39,8 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
     fn stdout(&mut self) -> anyhow::Result<RawOuputGuard<'_>>;
 
     async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
+
+    async fn config_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
 
     async fn canonicalize_patterns_for_logging(
         &self,
@@ -76,7 +80,20 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                 self.events().trace_id().dupe(),
                 dice_accessor.data,
                 &*dice_accessor.setup,
-                |dice| async move { exec(self, dice).await },
+                |dice| async move {
+                    let events = self.events().dupe();
+
+                    let metadata = self.config_metadata().await?;
+
+                    events
+                        .span_async(
+                            CommandCriticalStart {
+                                metadata: metadata.clone(),
+                            },
+                            async move { (exec(self, dice).await, CommandCriticalEnd { metadata }) },
+                        )
+                        .await
+                },
             )
             .await?
     }

@@ -368,6 +368,8 @@ message TestSuite {
 message CommandStart {
   // Metadata associated with this build. Values in this map have no particular
   // semantics and are useful for logging and telemetry only.
+  //
+  // The metadata cannot contain information from buckconfig or dice state
   map<string, string> metadata = 1;
   oneof data {
     BuildCommandStart build = 20;
@@ -393,6 +395,8 @@ message CommandStart {
 message CommandCriticalStart {
   // Metadata associated with this build. Values in this map have no particular
   // semantics and are useful for logging and telemetry only.
+  //
+  // The metadata will contain information from buckconfigs
   map<string, string> metadata = 1;
 }
 
@@ -455,6 +459,8 @@ message ProfileCommandStart {}
 message CommandEnd {
   // Metadata associated with this build. Values in this map have no particular
   // semantics and are useful for logging and telemetry only.
+  //
+  // The metadata cannot contain information from buckconfig or dice state
   map<string, string> metadata = 1;
   oneof data {
     BuildCommandEnd build = 20;
@@ -482,6 +488,8 @@ message CommandEnd {
 message CommandCriticalEnd {
   // Metadata associated with this command. Values in this map have no
   // particular semantics and are useful for logging and telemetry only.
+  //
+  // The metadata will contain information from buckconfigs
   map<string, string> metadata = 1;
 }
 
@@ -1096,6 +1104,11 @@ message InvocationRecord {
   uint64 cache_upload_count = 25;
   // The number of cache uploads attempted by this build.
   uint64 cache_upload_attempt_count = 26;
+  // Optional - present if ever sent to client.
+  CommandCriticalStart command_critical_start = 27;
+  // Optional - present if ever sent to client.
+  // Will be missing on a cancelled build.
+  CommandCriticalEnd command_critical_end = 28;
 }
 
 message CacheUploadStart {
