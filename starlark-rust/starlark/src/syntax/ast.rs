@@ -21,6 +21,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem;
 
 use derivative::Derivative;
 use gazebo::prelude::*;
@@ -86,9 +87,9 @@ pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
 // but we equally don't want to regress without noticing.
 
 // These two data structures reduced in size with nightly ~10 Sep 2022.
-// Once that date is in the distant past, we should reenable these assertions.
-// assert_eq_size!(AstStmt, [usize; 12]);
-// assert_eq_size!(AstExpr, [usize; 9]);
+// Once that date is in the distant past, we should make these assertions equality.
+const _: () = assert!(mem::size_of::<AstStmt>() <= mem::size_of::<[usize; 12]>());
+const _: () = assert!(mem::size_of::<AstExpr>() <= mem::size_of::<[usize; 9]>());
 assert_eq_size!(AstAssign, [usize; 7]);
 
 /// A representation of a Starlark module abstract syntax tree.
