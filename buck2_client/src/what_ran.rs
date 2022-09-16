@@ -12,7 +12,6 @@ use std::fmt;
 
 use gazebo::dupe::Dupe;
 use superconsole::Line;
-use superconsole::Span;
 use superconsole::SuperConsole;
 
 use crate::subscribers::display;
@@ -302,7 +301,7 @@ impl WhatRanOutputWriter for SuperConsole {
             repro: command.repro(),
         }
         .to_string();
-        self.emit(vec![Line::from_iter([Span::sanitized(msg)])]);
+        self.emit(vec![Line::sanitized(&msg)]);
         Ok(())
     }
 }

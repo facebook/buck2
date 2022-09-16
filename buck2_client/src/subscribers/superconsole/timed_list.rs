@@ -438,7 +438,7 @@ mod tests {
         )?;
         let expected = vec![
             vec!["test", "Jobs: In progress: 2. Finished: 0. C"].try_into()?,
-            Line::from_iter([Span::sanitized("-".repeat(40))]),
+            Line::sanitized(&"-".repeat(40)),
             Line::from_iter([
                 Span::new_styled("test -- speak of the devil".to_owned().dark_yellow())?,
                 Span::padding(10),
@@ -529,7 +529,7 @@ mod tests {
         )?;
         let expected = vec![
             vec!["test", "Jobs: In progress: 3. Finished: 0. C"].try_into()?,
-            Line::from_iter([Span::sanitized("-".repeat(40))]),
+            Line::sanitized(&"-".repeat(40)),
             Line::from_iter([
                 Span::new_styled(style("e1 -- speak of the devil".to_owned()))?,
                 Span::padding(12),
@@ -648,7 +648,7 @@ mod tests {
                 "Jobs: In progress: 1. Finished: 0. Cache hits: 100%. Time elapsed: 0.0s",
             ]
             .try_into()?,
-            Line::from_iter([Span::sanitized("-".repeat(80))]),
+            Line::sanitized(&"-".repeat(80)),
             Line::from_iter([
                 Span::new_styled(
                     "pkg:target -- action (category identifier) [prepare 5.0s]"
@@ -709,7 +709,7 @@ mod tests {
                 "Jobs: In progress: 1. Finished: 0. Cache hits: 100%. Time elapsed: 0.0s",
             ]
             .try_into()?,
-            Line::from_iter([Span::sanitized("-".repeat(80))]),
+            Line::sanitized(&"-".repeat(80)),
             Line::from_iter([
                 Span::new_styled(
                     "pkg:target -- action (category identifier)"
