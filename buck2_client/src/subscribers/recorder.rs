@@ -65,6 +65,7 @@ mod imp {
         min_build_count_since_rebase: u64,
         cache_upload_count: u64,
         cache_upload_attempt_count: u64,
+        resolved_target_patterns: Option<buck2_data::ResolvedTargetPatterns>,
     }
 
     impl InvocationRecorder {
@@ -100,6 +101,7 @@ mod imp {
                 min_build_count_since_rebase: 0,
                 cache_upload_count: 0,
                 cache_upload_attempt_count: 0,
+                resolved_target_patterns: None,
             }
         }
 
@@ -142,6 +144,7 @@ mod imp {
                     min_build_count_since_rebase: self.min_build_count_since_rebase,
                     cache_upload_count: self.cache_upload_count,
                     cache_upload_attempt_count: self.cache_upload_attempt_count,
+                    resolved_target_patterns: self.resolved_target_patterns.take(),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -331,6 +334,14 @@ mod imp {
             if let Some(stats) = &watchman.stats {
                 self.branched_from_revision = stats.branched_from_revision.clone();
             }
+            Ok(())
+        }
+
+        async fn handle_resolved_target_patterns(
+            &mut self,
+            patterns: &buck2_data::ResolvedTargetPatterns,
+        ) -> anyhow::Result<()> {
+            self.resolved_target_patterns = Some(patterns.clone());
             Ok(())
         }
     }

@@ -1116,6 +1116,8 @@ message InvocationRecord {
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
   CommandCriticalEnd command_critical_end = 28;
+  // The target pattern for the command, fully resolved
+  ResolvedTargetPatterns resolved_target_patterns = 29;
 }
 
 message CacheUploadStart {
