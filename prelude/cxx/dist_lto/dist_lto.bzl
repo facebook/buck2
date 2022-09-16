@@ -555,6 +555,9 @@ def cxx_dist_link(
                 opt_cmd.add("-c")
                 opt_cmd.add(cmd_args(entry["bitcode_file"], format = "-fthinlto-index={}"))
 
+                if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
+                    opt_cmd.add("-gsplit-dwarf=single")
+
                 imports = [index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
                 archives = [index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
                 opt_cmd.hidden(imports)
