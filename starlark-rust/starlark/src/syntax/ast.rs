@@ -88,6 +88,10 @@ pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
 
 // These two data structures reduced in size with nightly ~10 Sep 2022.
 // Once that date is in the distant past, we should make these assertions equality.
+//
+// Our best understanding of the drop in size is that previously the largest field
+// was Literal (9 words) wrapping AstLiteral (7 words). That's one more word of padding
+// than expected, which is fixed in later nightly.
 const _: () = assert!(mem::size_of::<AstStmt>() <= mem::size_of::<[usize; 12]>());
 const _: () = assert!(mem::size_of::<AstExpr>() <= mem::size_of::<[usize; 9]>());
 assert_eq_size!(AstAssign, [usize; 7]);
