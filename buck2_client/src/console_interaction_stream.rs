@@ -48,7 +48,24 @@ mod interactive_terminal {
         pub fn enable() -> anyhow::Result<Option<Self>> {
             let fd = std::io::stdin().as_raw_fd();
 
-            if !nix::unistd::isatty(fd).context("Failed to check for TTY")? {
+            if !nix::unistd::isatty(fd).context("Failed to check stdin for TTY")? {
+                return Ok(None);
+            }
+
+            // We also check for stderr, since if a user is starting a bunch of bucks in the
+            // background those may end up clobbering the termios state and the following can
+            // happen:
+            //
+            // - Process starts 1 buck, which sets noecho.
+            // - Process starts another buck, which reads the tty state, reads noecho.
+            // - The first buck exits and resets echo.
+            // - The second buck exits and resets noecho (since that's what it read)
+            //
+            // We check stderr becasue if stderr is a TTY the user will see a bunch of consoles
+            // interleaving and that would probably tell them something's wrong.
+            if !nix::unistd::isatty(std::io::stderr().as_raw_fd())
+                .context("Failed to check stderr for TTY")?
+            {
                 return Ok(None);
             }
 
