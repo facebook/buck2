@@ -140,11 +140,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
 }
 
 /// Get the lifetimes that are mentioned in a given type and its nested generics.
-fn get_lifetimes_inner<'a>(
-    ret: &mut HashSet<&'a syn::Lifetime>,
-    span: proc_macro2::Span,
-    typ: &'a syn::Type,
-) {
+fn get_lifetimes_inner<'a>(ret: &mut HashSet<&'a syn::Lifetime>, typ: &'a syn::Type) {
     match typ {
         syn::Type::Path(path) => {
             if let Some(segment) = path.path.segments.last() {
@@ -156,35 +152,35 @@ fn get_lifetimes_inner<'a>(
                                 syn::GenericArgument::Lifetime(l) => {
                                     ret.insert(l);
                                 }
-                                syn::GenericArgument::Type(t) => get_lifetimes_inner(ret, span, t),
+                                syn::GenericArgument::Type(t) => get_lifetimes_inner(ret, t),
                                 _ => {}
                             };
                         }
                     }
                     syn::PathArguments::Parenthesized(args) => {
                         for t in &args.inputs {
-                            get_lifetimes_inner(ret, span, t);
+                            get_lifetimes_inner(ret, t);
                         }
                         match &args.output {
                             syn::ReturnType::Default => {}
-                            syn::ReturnType::Type(_, t) => get_lifetimes_inner(ret, span, t),
+                            syn::ReturnType::Type(_, t) => get_lifetimes_inner(ret, t),
                         };
                     }
                 };
             }
         }
-        syn::Type::Group(g) => get_lifetimes_inner(ret, span, &g.elem),
-        syn::Type::Paren(p) => get_lifetimes_inner(ret, span, &p.elem),
-        syn::Type::Ptr(p) => get_lifetimes_inner(ret, span, &p.elem),
+        syn::Type::Group(g) => get_lifetimes_inner(ret, &g.elem),
+        syn::Type::Paren(p) => get_lifetimes_inner(ret, &p.elem),
+        syn::Type::Ptr(p) => get_lifetimes_inner(ret, &p.elem),
         syn::Type::Reference(r) => {
             if let Some(l) = &r.lifetime {
                 ret.insert(l);
             };
-            get_lifetimes_inner(ret, span, &r.elem);
+            get_lifetimes_inner(ret, &r.elem);
         }
         syn::Type::Tuple(t) => {
             for t in &t.elems {
-                get_lifetimes_inner(ret, span, t);
+                get_lifetimes_inner(ret, t);
             }
         }
         _ => {}
@@ -196,7 +192,7 @@ fn get_lifetimes_inner<'a>(
 /// e.g. `i32` would return ``, `Vec<(&'a str, &'b str)>` would return `<'a, 'b>`
 fn get_lifetimes(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
     let mut ret = HashSet::new();
-    get_lifetimes_inner(&mut ret, span, typ);
+    get_lifetimes_inner(&mut ret, typ);
     if ret.is_empty() {
         TokenStream::new()
     } else {
