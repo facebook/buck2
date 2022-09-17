@@ -21,6 +21,7 @@ load(":voltron.bzl", "android_app_modularity_impl")
 
 def android_toolchain():
     return attrs.toolchain_dep(
+        # FIXME: prelude// should be standalone (not refer to fbcode//)
         default = "fbcode//buck2/platform/toolchain:android",
         providers = [
             AndroidPlatformInfo,
@@ -30,6 +31,7 @@ def android_toolchain():
 
 def _dex_toolchain():
     return attrs.toolchain_dep(
+        # FIXME: prelude// should be standalone (not refer to fbcode//)
         default = "fbcode//buck2/platform/toolchain:dex_for_android",
         providers = [
             DexToolchainInfo,
@@ -38,6 +40,7 @@ def _dex_toolchain():
 
 def _java_toolchain():
     return attrs.toolchain_dep(
+        # FIXME: prelude// should be standalone (not refer to fbcode//)
         default = "fbcode//buck2/platform/toolchain:java_for_android",
         providers = [
             JavaPlatformInfo,
@@ -47,6 +50,7 @@ def _java_toolchain():
 
 def _kotlin_toolchain():
     return attrs.toolchain_dep(
+        # FIXME: prelude// should be standalone (not refer to fbcode//)
         default = "fbcode//buck2/platform/toolchain:kotlin",
         providers = [
             KotlinToolchainInfo,
@@ -85,6 +89,7 @@ extra_attributes = {
         "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_installer": attrs.label(
+            # FIXME: prelude// should be standalone (not refer to buck//)
             default = "buck//src/com/facebook/buck/installer/android:android_installer",
         ),
         "_android_toolchain": android_toolchain(),
@@ -137,6 +142,7 @@ extra_attributes = {
     },
     "apk_genrule": {
         "type": attrs.string(default = "apk"),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
     },
     "gen_aidl": {

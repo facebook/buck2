@@ -25,6 +25,7 @@ cxx_hacks(
 omnibus_environment(
     name = "omnibus_environment",
     # Generate using fbcode/buck2/omnibus_tools/exclusions.bxl
+    # FIXME: prelude// should be standalone (not refer to fbcode//)
     exclusions = [
         "fbcode//common/memory:jemalloc",
         "fbcode//common/memory:operator_override",
@@ -556,6 +557,7 @@ omnibus_environment(
     enable_explicit_roots = read_config("buck2", "enable_omnibus_explicit_roots", "false") in ["true", "True"],
     prefer_stripped_native_objects = True,
     visibility = ["PUBLIC"],
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     default_target_platform = "ovr_config//platform/linux:x86_64-fbcode-platform010-clang",
     # We override the binary-level ldflags with library level ldfalgs for
     # shared roots. We include 2 important things: stripping binaries, and not

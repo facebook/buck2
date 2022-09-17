@@ -14,9 +14,11 @@ load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
 
 def _select_java_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/java:java"
 
 def _select_kotlin_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/kotlin:kotlin"
 
 implemented_rules = {

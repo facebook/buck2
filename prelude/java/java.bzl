@@ -16,6 +16,7 @@ load(":keystore.bzl", "keystore_impl")
 load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 
 def _select_java_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbcode//, buck// or ovr_config//)
     return select(
         {
             # TODO: add buck specific platform constraints
@@ -31,6 +32,7 @@ def _select_java_toolchain():
     )
 
 def select_dex_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbsource//, ovr_config//)
     return select(
         {
             # Only need a Dex toolchain for Android builds.
@@ -40,9 +42,11 @@ def select_dex_toolchain():
     )
 
 def select_junit_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/java:junit"
 
 def select_prebuilt_jar_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbcode//)
     return "fbcode//buck2/platform:prebuilt_jar"
 
 implemented_rules = {
@@ -58,6 +62,7 @@ implemented_rules = {
 
 extra_attributes = {
     "jar_genrule": {
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),

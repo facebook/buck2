@@ -279,6 +279,7 @@ def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
 def _target_os_type() -> "attribute":
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     return attrs.enum(Platform, default = select({
         "DEFAULT": "linux",
         "ovr_config//os:macos": "macos",
@@ -286,6 +287,7 @@ def _target_os_type() -> "attribute":
     }))
 
 def _cache_mode() -> "attribute":
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")
 
 def _create_manifest_for_source_dir():
@@ -327,6 +329,7 @@ extra_attributes = struct(
     worker_tool = {
         # overridden to handle buck1's use of @Value.Default
         "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = []),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_worker_tool_runner": attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner"),
     },
 
@@ -380,6 +383,7 @@ extra_attributes = struct(
         "use_archiver_flags": attrs.bool(default = True),
         "_dist_lto_tools": attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools"),
         "_mk_comp_db": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db"),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
     },
     cxx_python_extension = _cxx_python_extension_attrs(),

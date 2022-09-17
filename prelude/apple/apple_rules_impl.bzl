@@ -60,6 +60,7 @@ extra_attributes = {
         "stripped": attrs.bool(default = False),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
@@ -91,6 +92,7 @@ extra_attributes = {
         "resource_group_map": attrs.option(attrs.string(), default = None),
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),

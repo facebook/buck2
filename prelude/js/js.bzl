@@ -5,18 +5,21 @@ load("@prelude//js:js_library.bzl", "js_library_impl")
 load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
 
 def _select_platform():
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     return select({
         "DEFAULT": "android",
         "ovr_config//os/constraints:iphoneos": "ios",
     })
 
 def _is_release():
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     return select({
         "DEFAULT": False,
         "ovr_config//build_mode/constraints:release": True,
     })
 
 def _select_js_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/js:js"
 
 implemented_rules = {
@@ -45,6 +48,7 @@ extra_attributes = {
         "type": attrs.string(
             default = "js_bundle_genrule",
         ),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
         "_is_release": attrs.bool(
             default = _is_release(),

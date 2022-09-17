@@ -1,5 +1,6 @@
 load("@prelude//android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
 
+# FIXME: prelude// should be standalone (not refer to ovr_config//)
 _REFS = {
     "arm64": "ovr_config//cpu/constraints:arm64",
     "armv7": "ovr_config//cpu/constraints:arm32",

@@ -25,6 +25,7 @@ def _tp2_constraint(project, version):
     version
     """
 
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     return "ovr_config//third-party/{}/constraints:{}".format(project, version)
 
 def _tp2_constraint_multi(versions):

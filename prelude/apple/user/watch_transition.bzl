@@ -64,6 +64,7 @@ def _impl(platform: PlatformInfo.type, refs: struct.type) -> "PlatformInfo":
         configuration = new_cfg,
     )
 
+# FIXME: prelude// should be standalone (not refer to ovr_config//)
 watch_transition = transition(impl = _impl, refs = {
     "ios": "ovr_config//os/constraints:iphoneos",
     "ios_device_sdk": "ovr_config//os/sdk/apple/constraints:iphoneos",

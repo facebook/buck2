@@ -56,6 +56,7 @@ def zip_file_impl(ctx: "context") -> ["provider"]:
     return [DefaultInfo(default_outputs = [output])]
 
 def _select_zip_file_toolchain():
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/zip_file:zip_file"
 
 implemented_rules = {
