@@ -115,7 +115,7 @@ inventory = "0.1.10"
 itertools = "0.10.3"
 jemalloc-ctl = "0.3.3"
 jemallocator = { version = "0.3.2", features = ["profiling"] }
-libc = "0.2.121, <= 0.2.126"
+libc = "0.2.132"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 log = "0.4"
 lsp-server = "0.5"
