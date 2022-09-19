@@ -1,9 +1,15 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::Future;
 use gazebo::prelude::*;
+use thiserror::Error;
 use tokio::sync::OwnedRwLockWriteGuard;
 use tokio::sync::RwLock;
+
+#[derive(Error)]
+#[error("LivelinessManager reports this session is shutting down")]
+struct NotAlive;
 
 #[async_trait]
 pub trait LivelinessManager: Send + Sync {
@@ -12,12 +18,19 @@ pub trait LivelinessManager: Send + Sync {
 }
 
 impl dyn LivelinessManager {
-    pub async fn while_alive_owned(self: Arc<Self>) {
-        self.while_alive().await
+    pub fn while_alive_owned(self: Arc<Self>) -> impl Future<Output = ()> + Send + 'static {
+        async move { self.while_alive().await }
     }
 
     pub async fn is_alive(&self) -> bool {
         futures::poll!(self.while_alive()).is_pending()
+    }
+
+    pub async fn require_alive(&self) -> anyhow::Result<()> {
+        if !self.is_alive() {
+            return Err(NotAlive);
+        }
+        Ok(())
     }
 }
 
