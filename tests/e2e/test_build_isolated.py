@@ -15,6 +15,10 @@ from pathlib import Path
 
 import pytest
 
+from buck2.tests.e2e.helper.assert_occurrences import (
+    assert_occurrences,
+    assert_occurrences_regex,
+)
 from py._path.local import LocalPath
 from xplat.build_infra.buck_e2e import asserts
 from xplat.build_infra.buck_e2e.api.buck import Buck
@@ -406,39 +410,6 @@ async def test_target_hashing_accepts_backreferencing_relative_paths(
             "--target-hash-modified-paths=../.buckconfig",
         ),
         stderr_regex="expected a normalized path but got an un-normalized path instead",
-    )
-
-
-def truncate(x: str, limit: int) -> str:
-    if len(x) <= limit:
-        return x
-    else:
-        return x[: limit // 2] + " <<TRUNCATED>> " + x[-(limit // 2) :]
-
-
-def print_occurences_msg(
-    needle: str, haystack: str, occurrences: int, success: bool
-) -> None:
-    OUTPUT_LIMIT = 10000
-    # Hacky way to actually make sure we print the full output when a string
-    # does not appear the correct number of times.
-    assert success, "Expected to find {} occurrences of `{}` in `{}`".format(
-        occurrences, needle, truncate(repr(haystack), OUTPUT_LIMIT)
-    )
-
-
-def assert_occurrences(needle: str, haystack: str, occurrences: int) -> None:
-    print_occurences_msg(
-        needle, haystack, occurrences, haystack.count(needle) == occurrences
-    )
-
-
-def assert_occurrences_regex(needle: str, haystack: str, occurrences: int) -> None:
-    print_occurences_msg(
-        needle,
-        haystack,
-        occurrences,
-        len(re.findall(needle, haystack, re.MULTILINE)) == occurrences,
     )
 
 

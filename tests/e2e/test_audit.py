@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from buck2.tests.e2e.helper.assert_occurrences import assert_occurrences
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
@@ -280,6 +281,30 @@ async def test_audit_visibility(buck: Buck, rule: str, passes: bool) -> None:
             buck.audit_visibility(rule),
             stderr_regex=f"not visible to `{rule}`",
         )
+
+
+@buck_test(inplace=True)
+async def test_reuse_current_config_warnings(buck: Buck) -> None:
+    res = await buck.audit_config(
+        "@fbcode//mode/opt",
+        "--config",
+        "foo.bar=foobar",
+        "--config-file",
+        "fbsource//tools/buckconfigs/fbcode/modes/dev.bcfg",
+        "project.buck_out",
+        "--reuse-current-config",
+    )
+
+    no_previous_invocation_detected = "no previous invocation detected"
+    default_to_use_current_config = "using current config instead"
+    opt_override = "fbsource//tools/buckconfigs/fbcode/modes/opt.bcfg"
+    dev_override = "fbsource//tools/buckconfigs/fbcode/modes/dev.bcfg"
+    foobar_override = "foo.bar=foobar"
+    assert_occurrences(no_previous_invocation_detected, res.stderr, 1)
+    assert_occurrences(default_to_use_current_config, res.stderr, 1)
+    assert_occurrences(opt_override, res.stderr, 1)
+    assert_occurrences(dev_override, res.stderr, 1)
+    assert_occurrences(foobar_override, res.stderr, 1)
 
 
 @buck_test(inplace=True)

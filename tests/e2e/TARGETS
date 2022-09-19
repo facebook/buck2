@@ -1,4 +1,10 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+bzl_native.python_library(
+    name = "assert_occurrences",
+    srcs = ["helper/assert_occurrences.py"],
+)
 
 buck2_e2e_test(
     name = "test_audit",
@@ -8,6 +14,9 @@ buck2_e2e_test(
         "OVR_CONFIG": "1",
         "PRELUDE": "$(location prelude//:prelude)",
     },
+    deps = [
+        ":assert_occurrences",
+    ],
 )
 
 buck2_e2e_test(
@@ -19,6 +28,9 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
         "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
     },
+    deps = [
+        ":assert_occurrences",
+    ],
 )
 
 buck2_e2e_test(
