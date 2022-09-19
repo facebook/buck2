@@ -46,6 +46,9 @@ where
                     duration: Some(duration.into()),
                 })
             }
+            CommandEvent::Exit(GatherOutputStatus::Cancelled) => {
+                Data::Cancel(forkserver_proto::CancelEvent {})
+            }
         };
 
         forkserver_proto::CommandEvent { data: Some(data) }
@@ -96,6 +99,9 @@ where
                         .try_into_duration()
                         .context("Invalid `duration`")?,
                 ))
+            }
+            Data::Cancel(forkserver_proto::CancelEvent {}) => {
+                CommandEvent::Exit(GatherOutputStatus::Cancelled)
             }
         };
 

@@ -36,6 +36,7 @@ use self::interruptible_async_read::InterruptibleAsyncRead;
 pub enum GatherOutputStatus {
     Finished(ExitStatus),
     TimedOut(Duration),
+    Cancelled,
 }
 
 pub enum CommandEvent {

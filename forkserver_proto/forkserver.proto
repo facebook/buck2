@@ -34,6 +34,7 @@ message CommandEvent {
     TimeoutEvent timeout = 2;
     StreamEvent stdout = 4;
     StreamEvent stderr = 5;
+    CancelEvent cancel = 6;
   }
 }
 
@@ -49,9 +50,14 @@ message StreamEvent {
   bytes data = 1;
 }
 
+message CancelEvent {}
+
+message CancelRequest {}
+
 message RequestEvent {
   oneof data {
     CommandRequest command_request = 1;
+    CancelRequest cancel_request = 2;
   }
 }
 

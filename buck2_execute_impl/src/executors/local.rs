@@ -345,6 +345,9 @@ impl LocalExecutor {
                 GatherOutputStatus::TimedOut(duration) => {
                     manager.timeout(execution_kind, duration, std_streams, timing)
                 }
+                GatherOutputStatus::Cancelled => {
+                    manager.error("cancelled".into(), anyhow::anyhow!("cancelled"))
+                }
             },
             Err(e) => manager.error("calculate_output_values_failed".into(), e),
         }
