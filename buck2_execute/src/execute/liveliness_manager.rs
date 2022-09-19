@@ -11,6 +11,12 @@ pub trait LivelinessManager: Send + Sync {
     async fn while_alive(&self);
 }
 
+impl dyn LivelinessManager {
+    pub async fn while_alive_owned(self: Arc<Self>) {
+        self.while_alive().await
+    }
+}
+
 /// While the associated LivelinessGuard is alive, `while_alive` will be Pending. When the guard is
 /// dropped, that stops being the case.
 #[derive(Clone, Dupe)]

@@ -43,6 +43,7 @@ use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::liveliness_manager::LivelinessManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::output::CommandStdStreams;
@@ -63,6 +64,8 @@ use buck2_forkserver::run::GatherOutputStatus;
 use derive_more::From;
 use faccess::PathExt;
 use futures::future;
+use futures::future::select;
+use futures::future::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
@@ -107,58 +110,71 @@ impl LocalExecutor {
         }
     }
 
-    async fn exec(
-        &self,
-        exe: &str,
-        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
-        env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-        working_directory: Option<&ProjectRelativePath>,
+    // Compiler gets confused (on the not(unix) branch only, weirdly) if you use an async fn.
+    #[allow(clippy::manual_async_fn)]
+    fn exec<'a>(
+        &'a self,
+        exe: &'a str,
+        args: impl IntoIterator<Item = impl AsRef<OsStr>> + 'a,
+        env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)> + 'a,
+        working_directory: Option<&'a ProjectRelativePath>,
         timeout: Option<Duration>,
-        env_inheritance: Option<&EnvironmentInheritance>,
-    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
-        let working_directory = match working_directory {
-            Some(d) => Cow::Owned(self.root.join(d)),
-            None => Cow::Borrowed(&self.root),
-        };
+        env_inheritance: Option<&'a EnvironmentInheritance>,
+        liveliness_manager: Arc<dyn LivelinessManager>,
+    ) -> impl futures::future::Future<Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>> + 'a
+    {
+        async move {
+            let working_directory = match working_directory {
+                Some(d) => Cow::Owned(self.root.join(d)),
+                None => Cow::Borrowed(&self.root),
+            };
 
-        let working_directory: &Path = working_directory.as_ref();
+            let working_directory: &Path = working_directory.as_ref();
 
-        match &self.forkserver {
-            Some(forkserver) => {
-                #[cfg(unix)]
-                {
-                    unix::exec_via_forkserver(
-                        forkserver,
-                        exe,
-                        args,
-                        env,
+            match &self.forkserver {
+                Some(forkserver) => {
+                    #[cfg(unix)]
+                    {
+                        unix::exec_via_forkserver(
+                            forkserver,
+                            exe,
+                            args,
+                            env,
+                            working_directory,
+                            timeout,
+                            env_inheritance,
+                            liveliness_manager,
+                        )
+                        .await
+                    }
+
+                    #[cfg(not(unix))]
+                    {
+                        let _unused = forkserver;
+                        Err(anyhow::anyhow!("Forkserver is not supported off-UNIX"))
+                    }
+                }
+
+                None => {
+                    let mut cmd = background_command(exe);
+                    cmd.current_dir(working_directory);
+                    cmd.args(args);
+                    apply_local_execution_environment(
+                        &mut cmd,
                         working_directory,
-                        timeout,
+                        env,
                         env_inheritance,
-                    )
-                    .await
+                    );
+                    let timeout = timeout_into_cancellation(timeout);
+                    let alive = liveliness_manager
+                        .while_alive()
+                        .map(|()| anyhow::Ok(GatherOutputStatus::Cancelled));
+                    let cancellation =
+                        select(timeout.boxed(), alive.boxed()).map(|r| r.factor_first().0);
+                    gather_output(cmd, cancellation).await
                 }
-
-                #[cfg(not(unix))]
-                {
-                    let _unused = forkserver;
-                    Err(anyhow::anyhow!("Forkserver is not supported off-UNIX"))
-                }
+                .with_context(|| format!("Failed to gather output from command: {}", exe)),
             }
-
-            None => {
-                let mut cmd = background_command(exe);
-                cmd.current_dir(working_directory);
-                cmd.args(args);
-                apply_local_execution_environment(
-                    &mut cmd,
-                    working_directory,
-                    env,
-                    env_inheritance,
-                );
-                gather_output(cmd, timeout_into_cancellation(timeout)).await
-            }
-            .with_context(|| format!("Failed to gather output from command: {}", exe)),
         }
     }
 
@@ -273,6 +289,8 @@ impl LocalExecutor {
                 )
         };
 
+        let liveliness_manager = manager.liveliness_manager.dupe();
+
         let (timing, res) = manager
             .stage_async(
                 {
@@ -306,6 +324,7 @@ impl LocalExecutor {
                             request.working_directory(),
                             request.timeout(),
                             request.local_environment_inheritance(),
+                            liveliness_manager,
                         )
                         .await;
 
@@ -682,6 +701,7 @@ mod unix {
         working_directory: &Path,
         comand_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
+        liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
@@ -699,7 +719,9 @@ mod unix {
             timeout: comand_timeout.map(|d| d.into()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
-        forkserver.execute(req, futures::future::pending()).await
+        forkserver
+            .execute(req, liveliness_manager.while_alive_owned())
+            .await
     }
 
     impl EnvironmentBuilder for forkserver_proto::CommandRequest {
@@ -735,6 +757,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
+    use buck2_execute::execute::liveliness_manager::NoopLivelinessManager;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -860,6 +883,7 @@ mod tests {
                 None,
                 None,
                 None,
+                NoopLivelinessManager::create(),
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
@@ -894,6 +918,7 @@ mod tests {
                 None,
                 None,
                 Some(&EnvironmentInheritance::empty()),
+                NoopLivelinessManager::create(),
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
