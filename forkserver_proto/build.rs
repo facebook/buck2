@@ -6,7 +6,12 @@ fn main() -> io::Result<()> {
     // Tonic build uses PROTOC to determine the protoc path.
     println!("cargo:rerun-if-env-changed=PROTOC");
     buck2_protoc_dev::maybe_setup_protoc("../../..");
-    tonic_build::configure().compile(proto_files, &["."])?;
+    tonic_build::configure()
+        .type_attribute(
+            "buck.forkserver.RequestEvent.data",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
+        )
+        .compile(proto_files, &["."])?;
 
     // Tell Cargo that if the given file changes, to rerun this build script.
     for proto_file in proto_files {

@@ -49,6 +49,12 @@ message StreamEvent {
   bytes data = 1;
 }
 
+message RequestEvent {
+  oneof data {
+    CommandRequest command_request = 1;
+  }
+}
+
 service Forkserver {
-  rpc Run(CommandRequest) returns (stream CommandEvent) {}
+  rpc Run(stream RequestEvent) returns (stream CommandEvent) {}
 }

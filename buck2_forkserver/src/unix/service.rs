@@ -9,10 +9,12 @@ use buck2_core::process::async_background_command;
 use buck2_grpc::to_tonic;
 use forkserver_proto::forkserver_server::Forkserver;
 use forkserver_proto::CommandRequest;
+use forkserver_proto::RequestEvent;
 use futures::stream::Stream;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
+use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
 use crate::run::stream_command_events;
@@ -27,8 +29,20 @@ pub struct UnixForkserverService;
 impl Forkserver for UnixForkserverService {
     type RunStream = RunStream;
 
-    async fn run(&self, req: Request<CommandRequest>) -> Result<Response<Self::RunStream>, Status> {
+    async fn run(
+        &self,
+        req: Request<Streaming<RequestEvent>>,
+    ) -> Result<Response<Self::RunStream>, Status> {
         to_tonic(async move {
+            let mut stream = req.into_inner();
+
+            let msg = stream
+                .message()
+                .await?
+                .and_then(|m| m.data)
+                .and_then(|m| m.into_command_request())
+                .context("RequestEvent was not a CommandRequest!")?;
+
             let CommandRequest {
                 exe,
                 argv,
@@ -36,7 +50,7 @@ impl Forkserver for UnixForkserverService {
                 env_clear,
                 cwd,
                 timeout,
-            } = req.into_inner();
+            } = msg;
 
             let exe = OsStr::from_bytes(&exe);
             let cwd = cwd.as_ref().map(|c| OsStr::from_bytes(&c.path));

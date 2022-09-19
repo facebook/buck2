@@ -8,4 +8,8 @@ rust_protobuf_library(
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
     spec = "forkserver.proto",
+    deps = [
+        "fbcode//buck2/gazebo/gazebo:gazebo",
+        "fbsource//third-party/rust:derive_more",
+    ],
 )

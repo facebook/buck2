@@ -2,6 +2,8 @@ use std::process::Child;
 use std::sync::Arc;
 
 use anyhow::Context;
+use futures::future;
+use futures::stream;
 use gazebo::prelude::*;
 use tonic::transport::Channel;
 
@@ -37,7 +39,11 @@ impl ForkserverClient {
             .inner
             .rpc
             .clone()
-            .run(req)
+            .run(stream::once(future::ready(
+                forkserver_proto::RequestEvent {
+                    data: Some(req.into()),
+                },
+            )))
             .await
             .context("Error dispatching command to Forkserver")?
             .into_inner();
