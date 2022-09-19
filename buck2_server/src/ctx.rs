@@ -419,10 +419,12 @@ impl ServerCommandContext {
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
 
+        let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
+
         let (interpreter_platform, interpreter_architecture) =
             host_info::get_host_info(self.host_platform_override);
         let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(&cell_resolver)?),
+            Some(prelude_path(cell_alias_resolver)?),
             interpreter_platform,
             interpreter_architecture,
             self.record_target_call_stacks,

@@ -185,8 +185,9 @@ pub async fn get_prelude_docs(
     ctx: &DiceTransaction,
     existing_globals: &HashSet<&str>,
 ) -> anyhow::Result<Vec<Doc>> {
-    let cells = ctx.get_cell_resolver().await?;
-    let prelude_path = prelude_path(&cells)?;
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
+    let prelude_path = prelude_path(cell_alias_resolver)?;
     let interpreter_calculation = ctx
         .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
         .await?;

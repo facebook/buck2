@@ -47,8 +47,9 @@ impl AuditSubcommand for AuditPreludeCommand {
                 let mut stdout = server_ctx.stdout()?;
                 // Print out all the Prelude-like stuff that is loaded into each module
                 let global_interpreter_state = ctx.get_global_interpreter_state().await?;
-                let cells = ctx.get_cell_resolver().await?;
-                let prelude_path = prelude_path(&cells)?;
+                let cell_resolver = ctx.get_cell_resolver().await?;
+                let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
+                let prelude_path = prelude_path(cell_alias_resolver)?;
                 let interpreter_calculation = ctx
                     .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
                     .await?;

@@ -11,10 +11,8 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::cells::CellName;
-use buck2_core::cells::CellResolver;
+use buck2_core::cells::CellAliasResolver;
 use starlark::environment::GlobalsBuilder;
-use thiserror::Error;
 
 use crate::interpreter::build_defs::register_natives;
 use crate::interpreter::rule_defs::cmd_args::register_args_function;
@@ -22,22 +20,12 @@ use crate::interpreter::rule_defs::command_executor_config::register_command_exe
 use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::rule_defs::transition::starlark::register_transition_defs;
 
-#[derive(Error, Debug)]
-enum PreludeErrors {
-    #[error("Cell `prelude` not found in the configuration")]
-    PreludeCellNotFound,
-}
-
-pub fn prelude_path(cells: &CellResolver) -> anyhow::Result<ImportPath> {
-    let prelude_cell = CellName::unchecked_new("prelude".to_owned());
-    if !cells.contains(&prelude_cell) {
-        return Err(PreludeErrors::PreludeCellNotFound.into());
-    }
-
+pub fn prelude_path(alias_resolver: &CellAliasResolver) -> anyhow::Result<ImportPath> {
+    let prelude_cell = alias_resolver.resolve("prelude")?;
     let prelude_file = CellRelativePathBuf::unchecked_new("prelude.bzl".to_owned());
     ImportPath::new(
         CellPath::new(prelude_cell.clone(), prelude_file),
-        BuildFileCell::new(prelude_cell),
+        BuildFileCell::new(prelude_cell.clone()),
     )
 }
 
