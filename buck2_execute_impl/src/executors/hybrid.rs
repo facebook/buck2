@@ -14,6 +14,7 @@ use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::ClaimManager;
+use buck2_execute::execute::liveliness_manager::LivelinessManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -50,8 +51,14 @@ impl HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         claim_manager: Arc<dyn ClaimManager>,
         events: EventDispatcher,
+        liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> CommandExecutionResult {
-        let local_manager = CommandExecutionManager::new(self.local.name(), claim_manager, events);
+        let local_manager = CommandExecutionManager::new(
+            self.local.name(),
+            claim_manager,
+            events,
+            liveliness_manager,
+        );
         self.local.exec_cmd(command, local_manager).await
     }
 
@@ -60,9 +67,14 @@ impl HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         claim_manager: Arc<dyn ClaimManager>,
         events: EventDispatcher,
+        liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> CommandExecutionResult {
-        let remote_manager =
-            CommandExecutionManager::new(self.remote.name(), claim_manager, events);
+        let remote_manager = CommandExecutionManager::new(
+            self.remote.name(),
+            claim_manager,
+            events,
+            liveliness_manager,
+        );
         self.remote.exec_cmd(command, remote_manager).await
     }
 }
@@ -80,10 +92,18 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         // Note that this only sets up these futures, nothing will happen until they are awaited (this is important in the
         // case where we shouldn't be sending one of them).
-        let local_result =
-            self.local_exec_cmd(command, manager.claim_manager.dupe(), manager.events.dupe());
-        let remote_result =
-            self.remote_exec_cmd(command, manager.claim_manager.dupe(), manager.events.dupe());
+        let local_result = self.local_exec_cmd(
+            command,
+            manager.claim_manager.dupe(),
+            manager.events.dupe(),
+            manager.liveliness_manager.dupe(),
+        );
+        let remote_result = self.remote_exec_cmd(
+            command,
+            manager.claim_manager.dupe(),
+            manager.events.dupe(),
+            manager.liveliness_manager.dupe(),
+        );
 
         let executor_preference = self
             .executor_preference
@@ -242,6 +262,7 @@ where
         // We already obtained a result here so we need a new claim to allow it to proceed.
         <dyn ClaimManager>::new_simple(),
         manager.events.dupe(),
+        manager.liveliness_manager.dupe(),
     );
 
     let mut res = fallback.executor.exec_cmd(command, fallback_manager).await;

@@ -20,6 +20,7 @@ use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::ClaimManager;
 use crate::execute::claim::ClaimedRequest;
 use crate::execute::kind::CommandExecutionKind;
+use crate::execute::liveliness_manager::LivelinessManager;
 use crate::execute::name::ExecutorName;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
@@ -35,6 +36,7 @@ pub struct CommandExecutionManager {
 
     pub claim_manager: Arc<dyn ClaimManager>,
     pub events: EventDispatcher,
+    pub liveliness_manager: Arc<dyn LivelinessManager>,
 }
 
 impl CommandExecutionManager {
@@ -42,12 +44,14 @@ impl CommandExecutionManager {
         executor_name: ExecutorName,
         claim_manager: Arc<dyn ClaimManager>,
         events: EventDispatcher,
+        liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> Self {
         Self {
             executor_name,
             claim_manager,
             claimed: false,
             events,
+            liveliness_manager,
         }
     }
 

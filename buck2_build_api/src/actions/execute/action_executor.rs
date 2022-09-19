@@ -29,6 +29,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::liveliness_manager::NoopLivelinessManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
@@ -302,6 +303,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             self.executor.command_executor.name(),
             <dyn ClaimManager>::new_simple(),
             self.executor.events.dupe(),
+            NoopLivelinessManager::create(),
         );
         let CommandExecutionResult {
             outputs,

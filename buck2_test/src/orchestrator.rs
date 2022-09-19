@@ -59,6 +59,7 @@ use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::liveliness_manager::NoopLivelinessManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -414,6 +415,7 @@ impl BuckTestOrchestrator {
             executor.name(),
             <dyn ClaimManager>::new_simple(),
             self.events.dupe(),
+            NoopLivelinessManager::create(),
         );
 
         // We'd love to use the `metadata` field to generate a unique identifier,
