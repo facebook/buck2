@@ -698,7 +698,7 @@ mod unix {
             timeout: comand_timeout.map(|d| d.into()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
-        forkserver.execute(req).await
+        forkserver.execute(req, futures::future::pending()).await
     }
 
     impl EnvironmentBuilder for forkserver_proto::CommandRequest {

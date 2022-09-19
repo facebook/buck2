@@ -3,7 +3,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use futures::future;
+use futures::future::Future;
+use futures::future::FutureExt;
 use futures::stream;
+use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use tonic::transport::Channel;
 
@@ -31,19 +34,28 @@ impl ForkserverClient {
         }
     }
 
-    pub async fn execute(
+    pub async fn execute<C>(
         &self,
         req: forkserver_proto::CommandRequest,
-    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+        cancel: C,
+    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+    where
+        C: Future<Output = ()> + Send + 'static,
+    {
+        let stream = stream::once(future::ready(forkserver_proto::RequestEvent {
+            data: Some(req.into()),
+        }))
+        .chain(stream::once(cancel.map(|()| {
+            forkserver_proto::RequestEvent {
+                data: Some(forkserver_proto::CancelRequest {}.into()),
+            }
+        })));
+
         let stream = self
             .inner
             .rpc
             .clone()
-            .run(stream::once(future::ready(
-                forkserver_proto::RequestEvent {
-                    data: Some(req.into()),
-                },
-            )))
+            .run(stream)
             .await
             .context("Error dispatching command to Forkserver")?
             .into_inner();

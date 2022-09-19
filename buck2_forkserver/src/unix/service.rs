@@ -9,6 +9,8 @@ use buck2_grpc::to_tonic;
 use forkserver_proto::forkserver_server::Forkserver;
 use forkserver_proto::CommandRequest;
 use forkserver_proto::RequestEvent;
+use futures::future::select;
+use futures::future::FutureExt;
 use futures::stream::Stream;
 use tonic::Request;
 use tonic::Response;
@@ -19,10 +21,10 @@ use crate::convert::encode_event_stream;
 use crate::run::prepare_command;
 use crate::run::stream_command_events;
 use crate::run::timeout_into_cancellation;
+use crate::run::GatherOutputStatus;
 
 // Not quite BoxStream: it has to be Sync (...)
-type RunStream =
-    Pin<Box<dyn Stream<Item = Result<forkserver_proto::CommandEvent, Status>> + Send + Sync>>;
+type RunStream = Pin<Box<dyn Stream<Item = Result<forkserver_proto::CommandEvent, Status>> + Send>>;
 
 pub struct UnixForkserverService;
 
@@ -43,6 +45,17 @@ impl Forkserver for UnixForkserverService {
                 .and_then(|m| m.data)
                 .and_then(|m| m.into_command_request())
                 .context("RequestEvent was not a CommandRequest!")?;
+
+            let cancel = async move {
+                stream
+                    .message()
+                    .await?
+                    .and_then(|m| m.data)
+                    .and_then(|m| m.into_cancel_request())
+                    .context("RequestEvent was not a CancelRequest!")?;
+
+                anyhow::Ok(GatherOutputStatus::Cancelled)
+            };
 
             let CommandRequest {
                 exe,
@@ -79,7 +92,11 @@ impl Forkserver for UnixForkserverService {
 
             let child = cmd.spawn().context("Spawn failed")?;
 
-            let stream = stream_command_events(child, timeout_into_cancellation(timeout))?;
+            let timeout = timeout_into_cancellation(timeout);
+
+            let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
+
+            let stream = stream_command_events(child, cancellation)?;
             let stream = encode_event_stream(stream);
             Ok(Box::pin(stream) as _)
         })

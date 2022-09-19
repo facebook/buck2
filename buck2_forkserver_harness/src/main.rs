@@ -78,7 +78,9 @@ async fn main() -> anyhow::Result<()> {
     stream::iter(0..repeat)
         .map(Ok)
         .try_for_each_concurrent(concurrency, |_i| async {
-            let (status, out, err) = forkserver.execute(req.clone()).await?;
+            let (status, out, err) = forkserver
+                .execute(req.clone(), futures::future::pending())
+                .await?;
             if !matches!(status, GatherOutputStatus::Finished(s) if s.success()) {
                 failures.fetch_add(1, Ordering::Relaxed);
             }
