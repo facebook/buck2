@@ -18,6 +18,7 @@ use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
 use crate::run::stream_command_events;
+use crate::run::timeout_into_cancellation;
 
 // Not quite BoxStream: it has to be Sync (...)
 type RunStream =
@@ -80,7 +81,7 @@ impl Forkserver for UnixForkserverService {
 
             let child = cmd.spawn().context("Spawn failed")?;
 
-            let stream = stream_command_events(child, timeout)?;
+            let stream = stream_command_events(child, timeout_into_cancellation(timeout))?;
             let stream = encode_event_stream(stream);
             Ok(Box::pin(stream) as _)
         })

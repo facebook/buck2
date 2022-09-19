@@ -119,10 +119,25 @@ where
     }
 }
 
-pub fn stream_command_events(
-    mut child: Child,
+pub async fn timeout_into_cancellation(
     timeout: Option<Duration>,
-) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>> {
+) -> anyhow::Result<GatherOutputStatus> {
+    match timeout {
+        Some(t) => {
+            tokio::time::sleep(t).await;
+            Ok(GatherOutputStatus::TimedOut(t))
+        }
+        None => futures::future::pending().await,
+    }
+}
+
+pub fn stream_command_events<T>(
+    mut child: Child,
+    cancellation: T,
+) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
+where
+    T: Future<Output = anyhow::Result<GatherOutputStatus>>,
+{
     let stdout = child.stdout.take().context("Child stdout is not piped")?;
     let stderr = child.stderr.take().context("Child stderr is not piped")?;
 
@@ -138,20 +153,31 @@ pub fn stream_command_events(
     let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
 
     let status = async move {
-        let exit_status_result = match timeout {
-            Some(t) => match tokio::time::timeout(t, child.wait()).await {
-                Ok(r) => r,
-                Err(..) => {
-                    kill_process(&child).context("Failed to terminate child after timeout")?;
-                    return Ok(GatherOutputStatus::TimedOut(t));
-                }
-            },
-            None => child.wait().await,
-        };
+        let (result, cancelled) = {
+            let wait = async {
+                let status = GatherOutputStatus::Finished(child.wait().await?);
+                anyhow::Ok((status, false))
+            };
 
-        exit_status_result
-            .map(GatherOutputStatus::Finished)
-            .map_err(anyhow::Error::from)
+            let cancellation = async {
+                let status = cancellation.await?;
+                anyhow::Ok((status, true))
+            };
+
+            futures::pin_mut!(wait);
+            futures::pin_mut!(cancellation);
+
+            futures::future::select(wait, cancellation)
+                .await
+                .factor_first()
+                .0
+        }?;
+
+        if cancelled {
+            kill_process(&child).context("Failed to terminate child after timeout")?;
+        }
+
+        Ok(result)
     };
 
     let stdout = FramedRead::new(stdout, BytesCodec::new())
@@ -200,7 +226,7 @@ pub async fn gather_output(
         .await
         .context("Failed to start command")?;
 
-    let stream = stream_command_events(child, timeout)?;
+    let stream = stream_command_events(child, timeout_into_cancellation(timeout))?;
     decode_command_event_stream(stream).await
 }
 
