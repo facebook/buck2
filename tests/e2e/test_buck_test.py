@@ -64,7 +64,7 @@ if fbcode_linux_only():
         )
 
 
-if fbcode_linux_only() and not is_deployed_buck2():
+if fbcode_linux_only():
 
     @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
     async def test_cpp_test_coverage(buck: Buck, tmpdir) -> None:
@@ -340,60 +340,57 @@ async def test_allow_tests_on_re(buck: Buck) -> None:
     )
 
 
-if not is_deployed_buck2():
-
-    @buck_test(inplace=True, data_dir="..")
-    async def test_incompatible_tests_do_not_run_on_re(buck: Buck) -> None:
-        await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/external_runner_test_info:invalid_test",
-                "-c",
-                "external_runner_test_info.declare_invalid_test=1",
-            ),
-            stderr_regex="Trying to execute a `local_only = True` action on remote executor",
-        )
+@buck_test(inplace=True, data_dir="..")
+async def test_incompatible_tests_do_not_run_on_re(buck: Buck) -> None:
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/external_runner_test_info:invalid_test",
+            "-c",
+            "external_runner_test_info.declare_invalid_test=1",
+        ),
+        stderr_regex="Trying to execute a `local_only = True` action on remote executor",
+    )
 
 
-if not is_deployed_buck2():
+@buck_test(inplace=True, data_dir="..")
+@env("TEST_MAKE_IT_FAIL", "1")
+async def test_env_var_filtering(buck: Buck) -> None:
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+    )
 
-    @buck_test(inplace=True, data_dir="..")
-    @env("TEST_MAKE_IT_FAIL", "1")
-    async def test_env_var_filtering(buck: Buck) -> None:
-        await buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test:test",
-        )
-
-        await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/python/test:test",
-                "--",
-                "--env",
-                "TEST_MAKE_IT_FAIL=1",
-            ),
-            stderr_regex="1 TESTS FAILED",
-        )
-
-    @buck_test(inplace=True, data_dir="..")
-    @env("EXTRA_VAR", "foo")
-    async def test_prepare_for_local_execution_env(buck: Buck, tmpdir) -> None:
-        out = Path(str(tmpdir)) / "out"
-        await buck.test(
+    await expect_failure(
+        buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
             "--",
-            "--no-run-output-test-commands-for-fdb",
-            str(out),
-        )
+            "--env",
+            "TEST_MAKE_IT_FAIL=1",
+        ),
+        stderr_regex="1 TESTS FAILED",
+    )
 
-        with open(out) as f:
-            config = json.load(f)
 
-        # Expect python/test:test target to support debugging. Executable field is populated only when debugging is supported.
-        assert "debuggers" in config
-        assert len(config["debuggers"]) > 0
-        assert "executable" in config
-        env = config["executable"]["env"]
-        assert "PWD" in env
-        assert "EXTRA_VAR" not in env
+@buck_test(inplace=True, data_dir="..")
+@env("EXTRA_VAR", "foo")
+async def test_prepare_for_local_execution_env(buck: Buck, tmpdir) -> None:
+    out = Path(str(tmpdir)) / "out"
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+        "--",
+        "--no-run-output-test-commands-for-fdb",
+        str(out),
+    )
+
+    with open(out) as f:
+        config = json.load(f)
+
+    # Expect python/test:test target to support debugging. Executable field is populated only when debugging is supported.
+    assert "debuggers" in config
+    assert len(config["debuggers"]) > 0
+    assert "executable" in config
+    env = config["executable"]["env"]
+    assert "PWD" in env
+    assert "EXTRA_VAR" not in env
 
 
 @buck_test(inplace=True, data_dir="..")
@@ -404,84 +401,82 @@ async def test_tcp(buck: Buck) -> None:
     )
 
 
-if not is_deployed_buck2():
+@buck_test(inplace=True, data_dir="..")
+async def test_passing_test_names_are_not_shown(buck: Buck) -> None:
+    # Passing test headers are not shown unless we pass --print-passing-details explicitly.
+    tests = await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+    )
+    assert "Pass: buck2/tests/targets/rules/python/test:test - test" not in tests.stderr
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_passing_test_names_are_not_shown(buck: Buck) -> None:
-        # Passing test headers are not shown unless we pass --print-passing-details explicitly.
-        tests = await buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test:test",
-        )
-        assert (
-            "Pass: buck2/tests/targets/rules/python/test:test - test"
-            not in tests.stderr
-        )
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_failing_test_names_are_shown(buck: Buck) -> None:
-        await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/python/test:test",
-                "--",
-                "--env",
-                "TEST_ENV=fail",
-            ),
-            stderr_regex="Fail: buck2/tests/targets/rules/python/test:test - test",
-        )
-
-    @buck_test(inplace=True, data_dir="..")
-    async def test_no_print_passing_details(buck: Buck) -> None:
-        # Without --print-passing-details, test headers and stdout is NOT displayed.
-        tests = await buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test:test",
-        )
-        assert (
-            "Pass: buck2/tests/targets/rules/python/test:test - test"
-            not in tests.stderr
-        )
-        assert "TESTED!" not in tests.stderr
-
-    @buck_test(inplace=True, data_dir="..")
-    async def test_print_passing_details(buck: Buck) -> None:
-        # With --print-passing-details, test headers and stdout is displayed.
-        tests = await buck.test(
+@buck_test(inplace=True, data_dir="..")
+async def test_failing_test_names_are_shown(buck: Buck) -> None:
+    await expect_failure(
+        buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
             "--",
-            "--print-passing-details",
-        )
-        assert "Pass: buck2/tests/targets/rules/python/test:test - test" in tests.stderr
-        assert "TESTED!" in tests.stderr
+            "--env",
+            "TEST_ENV=fail",
+        ),
+        stderr_regex="Fail: buck2/tests/targets/rules/python/test:test - test",
+    )
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_no_no_print_details(buck: Buck) -> None:
-        # Without --no-print-details the stack trace is displayed.
-        await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/python/test:test",
-                "--",
-                "--env",
-                "TEST_ENV=fail",
-            ),
-            stderr_regex="AssertionError: 41 != 42",
-        )
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_no_print_details(buck: Buck) -> None:
-        # With --no-print-details the stack trace is not displayed.
-        tests = await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/python/test:test",
-                "--",
-                "--env",
-                "TEST_ENV=fail",
-                "--no-print-details",
-            ),
-        )
-        assert "AssertionError: 41 != 42" not in tests.stderr
+@buck_test(inplace=True, data_dir="..")
+async def test_no_print_passing_details(buck: Buck) -> None:
+    # Without --print-passing-details, test headers and stdout is NOT displayed.
+    tests = await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+    )
+    assert "Pass: buck2/tests/targets/rules/python/test:test - test" not in tests.stderr
+    assert "TESTED!" not in tests.stderr
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_bundle_sharding(buck: Buck) -> None:
-        tests = await buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test:multi_tests",
-        )
-        assert "Pass 4" in tests.stdout
+
+@buck_test(inplace=True, data_dir="..")
+async def test_print_passing_details(buck: Buck) -> None:
+    # With --print-passing-details, test headers and stdout is displayed.
+    tests = await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+        "--",
+        "--print-passing-details",
+    )
+    assert "Pass: buck2/tests/targets/rules/python/test:test - test" in tests.stderr
+    assert "TESTED!" in tests.stderr
+
+
+@buck_test(inplace=True, data_dir="..")
+async def test_no_no_print_details(buck: Buck) -> None:
+    # Without --no-print-details the stack trace is displayed.
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+            "--",
+            "--env",
+            "TEST_ENV=fail",
+        ),
+        stderr_regex="AssertionError: 41 != 42",
+    )
+
+
+@buck_test(inplace=True, data_dir="..")
+async def test_no_print_details(buck: Buck) -> None:
+    # With --no-print-details the stack trace is not displayed.
+    tests = await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+            "--",
+            "--env",
+            "TEST_ENV=fail",
+            "--no-print-details",
+        ),
+    )
+    assert "AssertionError: 41 != 42" not in tests.stderr
+
+
+@buck_test(inplace=True, data_dir="..")
+async def test_bundle_sharding(buck: Buck) -> None:
+    tests = await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:multi_tests",
+    )
+    assert "Pass 4" in tests.stdout
