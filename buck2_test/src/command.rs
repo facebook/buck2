@@ -33,6 +33,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_execute::execute::liveliness_manager::LivelinessGuard;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::compatibility::MaybeCompatible;
@@ -338,6 +339,7 @@ async fn test_targets(
     cell_resolver: CellResolver,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
+    let (liveliness_manager, _guard) = LivelinessGuard::create();
 
     let tpx_args = {
         let mut args = vec![
@@ -370,10 +372,14 @@ async fn test_targets(
         let test_status_sender = test_status_sender.clone();
         move |ctx| async move {
             // Spawn our server to listen to the test runner's requests for execution.
-            let orchestrator =
-                BuckTestOrchestrator::new(ctx.dupe(), session.dupe(), test_status_sender)
-                    .await
-                    .context("Failed to create a BuckTestOrchestrator")?;
+            let orchestrator = BuckTestOrchestrator::new(
+                ctx.dupe(),
+                session.dupe(),
+                liveliness_manager,
+                test_status_sender,
+            )
+            .await
+            .context("Failed to create a BuckTestOrchestrator")?;
 
             let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 

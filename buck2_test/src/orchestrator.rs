@@ -59,7 +59,7 @@ use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
-use buck2_execute::execute::liveliness_manager::NoopLivelinessManager;
+use buck2_execute::execute::liveliness_manager::LivelinessManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -126,27 +126,37 @@ pub struct BuckTestOrchestrator {
     /// identifiers (e.g. Uuid or similar) because each might create some temporary outputs on disk,
     /// so use sequential identifiers for each target.
     identifiers: DashMap<ConfiguredTargetLabel, usize>,
+    liveliness_manager: Arc<dyn LivelinessManager>,
 }
 
 impl BuckTestOrchestrator {
     pub async fn new(
         dice: DiceTransaction,
         session: Arc<TestSession>,
+        liveliness_manager: Arc<dyn LivelinessManager>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
     ) -> anyhow::Result<Self> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
-        Ok(Self::from_parts(dice, session, results_channel, events))
+        Ok(Self::from_parts(
+            dice,
+            session,
+            liveliness_manager,
+            results_channel,
+            events,
+        ))
     }
 
     fn from_parts(
         dice: DiceTransaction,
         session: Arc<TestSession>,
+        liveliness_manager: Arc<dyn LivelinessManager>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
         events: EventDispatcher,
     ) -> Self {
         Self {
             dice,
             session,
+            liveliness_manager,
             results_channel,
             events,
             identifiers: Default::default(),
@@ -415,7 +425,7 @@ impl BuckTestOrchestrator {
             executor.name(),
             <dyn ClaimManager>::new_simple(),
             self.events.dupe(),
-            NoopLivelinessManager::create(),
+            self.liveliness_manager.dupe(),
         );
 
         // We'd love to use the `metadata` field to generate a unique identifier,
@@ -978,6 +988,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_execute::execute::liveliness_manager::NoopLivelinessManager;
     use buck2_test_api::data::testing::ConfiguredTargetHandleExt;
     use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
@@ -1014,6 +1025,7 @@ mod tests {
             BuckTestOrchestrator::from_parts(
                 dice,
                 Arc::new(TestSession::new(Default::default())),
+                NoopLivelinessManager::create(),
                 sender,
                 EventDispatcher::null(),
             ),
