@@ -3,6 +3,15 @@
 In these folders are some examples on how to get buck2 working with
 your favorite languages and tools.
 
+## prelude
+
+Examples taking advantage of the prelude to create toolchain-independent
+build definitions in cpp and python. Includes as an example a usecase
+for building and using c-extension-backed python libraries.
+
+Note: to take advantage of these examples you must symlink the prelude
+into this folder.
+
 ## no_prelude
 
 Preludeless examples for those wanting to use buck2 with their own
