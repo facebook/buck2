@@ -1,0 +1,10 @@
+# Used by open source projects to provide a simple platform setting
+
+load(":defs.bzl", "execution_platform")
+
+execution_platform(
+    name = "default",
+    configuration =
+        "//os:mac" if host_info().os.is_macos else "//os:windows" if host_info().os.is_windows else "//os:linux",
+    use_windows_path_separators = host_info().os.is_windows,
+)
