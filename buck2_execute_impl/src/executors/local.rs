@@ -58,6 +58,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
+use buck2_forkserver::run::timeout_into_cancellation;
 use buck2_forkserver::run::GatherOutputStatus;
 use derive_more::From;
 use faccess::PathExt;
@@ -155,7 +156,7 @@ impl LocalExecutor {
                     env,
                     env_inheritance,
                 );
-                gather_output(cmd, timeout).await
+                gather_output(cmd, timeout_into_cancellation(timeout)).await
             }
             .with_context(|| format!("Failed to gather output from command: {}", exe)),
         }
@@ -750,7 +751,7 @@ mod tests {
         };
         cmd.args(&["-c", "echo hello"]);
 
-        let (status, stdout, stderr) = gather_output(cmd, None).await?;
+        let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -776,8 +777,11 @@ mod tests {
         }
 
         let timeout = if cfg!(windows) { 5 } else { 1 };
-        let (status, stdout, stderr) =
-            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
+        let (status, stdout, stderr) = gather_output(
+            cmd,
+            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+        )
+        .await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -797,8 +801,11 @@ mod tests {
         cmd.args(&["-c", "echo hello; sleep 10; echo bye"]);
 
         let timeout = if cfg!(windows) { 5 } else { 1 };
-        let (status, stdout, stderr) =
-            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
+        let (status, stdout, stderr) = gather_output(
+            cmd,
+            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+        )
+        .await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");

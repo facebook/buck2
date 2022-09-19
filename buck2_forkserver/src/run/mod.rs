@@ -215,17 +215,20 @@ where
     ))
 }
 
-pub async fn gather_output(
+pub async fn gather_output<T>(
     cmd: Command,
-    timeout: Option<Duration>,
-) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+    cancellation: T,
+) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+where
+    T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
+{
     let cmd = prepare_command(cmd);
 
     let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
         .await
         .context("Failed to start command")?;
 
-    let stream = stream_command_events(child, timeout_into_cancellation(timeout))?;
+    let stream = stream_command_events(child, cancellation)?;
     decode_command_event_stream(stream).await
 }
 
@@ -346,7 +349,7 @@ mod tests {
         };
         cmd.args(&["-c", "echo hello"]);
 
-        let (status, stdout, stderr) = gather_output(cmd, None).await?;
+        let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -372,8 +375,11 @@ mod tests {
         }
 
         let timeout = if cfg!(windows) { 5 } else { 1 };
-        let (status, stdout, stderr) =
-            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
+        let (status, stdout, stderr) = gather_output(
+            cmd,
+            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+        )
+        .await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -393,8 +399,11 @@ mod tests {
         cmd.args(&["-c", "echo hello; sleep 10; echo bye"]);
 
         let timeout = if cfg!(windows) { 5 } else { 1 };
-        let (status, stdout, stderr) =
-            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
+        let (status, stdout, stderr) = gather_output(
+            cmd,
+            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+        )
+        .await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -463,7 +472,8 @@ mod tests {
         // This command will spawn 2 subprocesses (subshells) and print the PID of the 2nd shell.
         let mut cmd = background_command("sh");
         cmd.arg("-c").arg("( ( echo $$ && sleep 1000 ) )");
-        let (_status, stdout, _stderr) = gather_output(cmd, Some(Duration::from_secs(1))).await?;
+        let (_status, stdout, _stderr) =
+            gather_output(cmd, timeout_into_cancellation(Some(Duration::from_secs(1)))).await?;
         let pid = i32::from_str(std::str::from_utf8(&stdout)?.trim())?;
 
         for _ in 0..10 {
