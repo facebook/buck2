@@ -133,7 +133,6 @@ pub mod cell_root_path;
 pub mod paths;
 
 use std::borrow::Borrow;
-use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -497,7 +496,11 @@ fn default_buildfiles() -> Vec<FileNameBuf> {
 
 #[derive(Default, Debug)]
 struct CellAggregatorInfo {
-    all_aliases: BTreeSet<String>,
+    /// The name to use for this alias.
+    /// So that it is predictable, we always use the first name we encounter,
+    /// so the root file can choose what the alias is called.
+    name: Option<CellName>,
+    /// All the aliases known by this cell.
     alias_mapping: HashMap<CellAlias, CellRootPathBuf>,
     /// The build file name in this if it's been set. If it hasn't we'll use the
     /// default `["BUCK.v2", "BUCK"]` when building the resolver.
@@ -525,8 +528,8 @@ impl CellsAggregator {
         alias_path: CellRootPathBuf,
     ) -> anyhow::Result<()> {
         self.cell_info(alias_path.clone())
-            .all_aliases
-            .insert(parsed_alias.0.clone());
+            .name
+            .get_or_insert_with(|| CellName::unchecked_new(parsed_alias.0.clone()));
 
         let root_info = self.cell_info(cell_root);
 
@@ -550,13 +553,10 @@ impl CellsAggregator {
         cell_info.buildfiles = Some(buildfiles);
     }
 
-    /// for now, the global cell-name is the first alias in lexicographic sorted
-    /// order of all the aliases for a particular cell path
     fn get_cell_name_from_path(&self, path: &CellRootPath) -> anyhow::Result<CellName> {
         self.cell_infos
             .get(path)
-            .and_then(|info| info.all_aliases.first())
-            .map(|alias| CellName::unchecked_new(alias.clone()))
+            .and_then(|info| info.name.clone())
             .ok_or_else(|| {
                 anyhow::anyhow!(CellError::UnknownCellPath(
                     path.as_project_relative_path().to_buf(),
@@ -876,6 +876,43 @@ mod tests {
             )
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_aliases() -> anyhow::Result<()> {
+        let mut agg = CellsAggregator::new();
+
+        let cell_root = CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?);
+        let alias_path =
+            CellRootPathBuf::new(ProjectRelativePathBuf::try_from("random/path".to_owned())?);
+
+        agg.add_cell_alias_entry(
+            cell_root.clone(),
+            CellAlias::new("root".to_owned()),
+            cell_root.clone(),
+        )?;
+        agg.add_cell_alias_entry(
+            cell_root.clone(),
+            CellAlias::new("hello".to_owned()),
+            alias_path.clone(),
+        )?;
+        agg.add_cell_alias_entry(
+            cell_root.clone(),
+            CellAlias::new("cruel".to_owned()),
+            alias_path.clone(),
+        )?;
+        agg.add_cell_alias_entry(cell_root, CellAlias::new("world".to_owned()), alias_path)?;
+
+        // We want the first alias to win (hello), rather than the lexiographically first (cruel)
+        assert!(
+            agg.make_cell_resolver()?
+                .contains(&CellName::unchecked_new("hello".to_owned()))
+        );
+        assert!(
+            !agg.make_cell_resolver()?
+                .contains(&CellName::unchecked_new("cruel".to_owned()))
+        );
         Ok(())
     }
 }
