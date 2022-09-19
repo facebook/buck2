@@ -1,6 +1,8 @@
+import asyncio
 import json
 import os
 import re
+import signal
 import sys
 import tempfile
 from pathlib import Path
@@ -480,3 +482,59 @@ async def test_bundle_sharding(buck: Buck) -> None:
         "fbcode//buck2/tests/targets/rules/python/test:multi_tests",
     )
     assert "Pass 4" in tests.stdout
+
+
+if not is_deployed_buck2():
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_cancellation(buck: Buck, tmpdir) -> None:
+        """
+        This test starts a test that writes its PID to a file then runs for 60
+        seconds. We test cancellation by sending a CTRL+C as soon as a test
+        starts. We then check that the process exited, and that nothing else
+        started (or if anything did, that they stopped).
+        """
+
+        # Make sure we are ready to go
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/python/test:cancellation",
+            "--build-test-info",
+        )
+
+        tests = buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:cancellation",
+            "--",
+            "--stress-runs",
+            "10",
+            "--env",
+            "SLOW_DURATION=60",
+            "--env",
+            f"PIDS={tmpdir}",
+        )
+
+        tests = await tests.start()
+
+        for _i in range(30):
+            await asyncio.sleep(1)
+            pids = os.listdir(tmpdir)
+            if pids:
+                break
+        else:
+            raise Exception("Tests never started")
+
+        tests.send_signal(signal.SIGINT)
+        await tests.communicate()  # Wait for the command to exit
+
+        # Give stuff time to settle, PIDS don't necessarily disappear
+        # instantly. Also, verify that we are not starting more tests.
+        await asyncio.sleep(5)
+
+        # At this point, nothing should be alive.
+        pids = os.listdir(tmpdir)
+        for pid in pids:
+            try:
+                os.kill(int(pid), 0)
+            except OSError:
+                pass
+            else:
+                raise Exception(f"PID existed: {pid}")

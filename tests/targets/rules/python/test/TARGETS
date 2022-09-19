@@ -81,3 +81,11 @@ python_unittest(
         "tpx:experimental-shard-size-for-bundle=1",
     ],
 )
+
+python_unittest(
+    name = "cancellation",
+    srcs = [
+        "cancellation.py",
+    ],
+    tags = ["serialize_test_cases"],
+)
