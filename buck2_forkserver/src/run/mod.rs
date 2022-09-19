@@ -11,6 +11,7 @@ mod interruptible_async_read;
 
 use std::io;
 use std::pin::Pin;
+use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
 use std::task::Context;
@@ -26,7 +27,6 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use pin_project::pin_project;
 use tokio::process::Child;
-use tokio::process::Command;
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
@@ -215,12 +215,10 @@ where
 }
 
 pub async fn gather_output(
-    mut cmd: Command,
+    cmd: Command,
     timeout: Option<Duration>,
 ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    let cmd = prepare_command(cmd);
 
     let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
         .await
@@ -273,6 +271,13 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
     }
 }
 
+pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    cmd.into()
+}
+
 /// fork-exec is a bit tricky in a busy process. We often have files open to writing just prior to
 /// executing them (as we download from RE), and many processes being spawned concurrently. We do
 /// close the fds properly before the exec, but what can happn is:
@@ -288,7 +293,10 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
 ///
 /// The more correct solution for this here would be to start a fork server in a separate process
 /// when we start.  However, until we get there, this should do the trick.
-async fn spawn_retry_txt_busy<F, D>(mut cmd: Command, mut delay: F) -> io::Result<Child>
+async fn spawn_retry_txt_busy<F, D>(
+    mut cmd: tokio::process::Command,
+    mut delay: F,
+) -> io::Result<Child>
 where
     F: FnMut() -> D,
     D: Future<Output = ()>,
@@ -317,15 +325,16 @@ mod tests {
     use std::time::Instant;
 
     use buck2_core::process::async_background_command;
+    use buck2_core::process::background_command;
 
     use super::*;
 
     #[tokio::test]
     async fn test_gather_output() -> anyhow::Result<()> {
         let mut cmd = if cfg!(windows) {
-            async_background_command("powershell")
+            background_command("powershell")
         } else {
-            async_background_command("sh")
+            background_command("sh")
         };
         cmd.args(&["-c", "echo hello"]);
 
@@ -341,9 +350,9 @@ mod tests {
     async fn test_gather_does_not_wait_for_children() -> anyhow::Result<()> {
         // If we wait for sleep, this will time out.
         let mut cmd = if cfg!(windows) {
-            async_background_command("powershell")
+            background_command("powershell")
         } else {
-            async_background_command("sh")
+            background_command("sh")
         };
         if cfg!(windows) {
             cmd.args(&[
@@ -369,9 +378,9 @@ mod tests {
         let now = Instant::now();
 
         let mut cmd = if cfg!(windows) {
-            async_background_command("powershell")
+            background_command("powershell")
         } else {
-            async_background_command("sh")
+            background_command("sh")
         };
         cmd.args(&["-c", "echo hello; sleep 10; echo bye"]);
 

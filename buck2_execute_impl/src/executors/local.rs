@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -27,7 +28,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::process::async_background_command;
+use buck2_core::process::background_command;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::extract_artifact_value;
@@ -67,7 +68,6 @@ use indexmap::IndexMap;
 use more_futures::spawn::dropcancel_critical_section;
 use remote_execution as RE;
 use thiserror::Error;
-use tokio::process::Command;
 use tracing::info;
 
 #[derive(Debug, Error)]
@@ -146,7 +146,7 @@ impl LocalExecutor {
             }
 
             None => {
-                let mut cmd = async_background_command(exe);
+                let mut cmd = background_command(exe);
                 cmd.current_dir(working_directory);
                 cmd.args(args);
                 apply_local_execution_environment(
@@ -741,9 +741,9 @@ mod tests {
     #[tokio::test]
     async fn test_gather_output() -> anyhow::Result<()> {
         let mut cmd = if cfg!(windows) {
-            async_background_command("powershell")
+            background_command("powershell")
         } else {
-            async_background_command("sh")
+            background_command("sh")
         };
         cmd.args(&["-c", "echo hello"]);
 
@@ -759,9 +759,9 @@ mod tests {
     async fn test_gather_does_not_wait_for_children() -> anyhow::Result<()> {
         // If we wait for sleep, this will time out.
         let mut cmd = if cfg!(windows) {
-            async_background_command("powershell")
+            background_command("powershell")
         } else {
-            async_background_command("sh")
+            background_command("sh")
         };
         if cfg!(windows) {
             cmd.args(&[
@@ -787,9 +787,9 @@ mod tests {
         let now = Instant::now();
 
         let mut cmd = if cfg!(windows) {
-            async_background_command("powershell")
+            background_command("powershell")
         } else {
-            async_background_command("sh")
+            background_command("sh")
         };
         cmd.args(&["-c", "echo hello; sleep 10; echo bye"]);
 

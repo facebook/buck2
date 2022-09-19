@@ -23,9 +23,5 @@ pub fn background_command<S: AsRef<OsStr>>(program: S) -> std::process::Command 
 
 /// Creates `tokio::process::Command` which doesn't show any windows on Windows.
 pub fn async_background_command<S: AsRef<OsStr>>(program: S) -> tokio::process::Command {
-    #[allow(unused_mut)]
-    let mut cmd = tokio::process::Command::new(program);
-    #[cfg(windows)]
-    cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
-    cmd
+    background_command(program).into()
 }
