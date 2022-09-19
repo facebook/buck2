@@ -11,6 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
+use buck2_common::liveliness_manager::LivelinessManager;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -20,7 +21,6 @@ use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::ClaimManager;
 use crate::execute::claim::ClaimedRequest;
 use crate::execute::kind::CommandExecutionKind;
-use crate::execute::liveliness_manager::LivelinessManager;
 use crate::execute::name::ExecutorName;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;

@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvid
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::liveliness_manager::LivelinessGuard;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::*;
@@ -33,7 +34,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_execute::execute::liveliness_manager::LivelinessGuard;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::compatibility::MaybeCompatible;

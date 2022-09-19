@@ -23,6 +23,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::liveliness_manager::LivelinessManager;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
@@ -43,7 +44,6 @@ use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
-use buck2_execute::execute::liveliness_manager::LivelinessManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::output::CommandStdStreams;
@@ -749,6 +749,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Instant;
 
+    use buck2_common::liveliness_manager::NoopLivelinessManager;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
@@ -757,7 +758,6 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
-    use buck2_execute::execute::liveliness_manager::NoopLivelinessManager;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;

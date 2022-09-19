@@ -8,7 +8,6 @@ pub mod dice_data;
 pub mod environment_inheritance;
 pub mod inputs_directory;
 pub mod kind;
-pub mod liveliness_manager;
 pub mod manager;
 pub mod name;
 pub mod output;
