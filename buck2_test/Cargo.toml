@@ -38,3 +38,4 @@ buck2_execute = { path = "../buck2_execute" }
 host_sharing = { path = "../host_sharing" }
 buck2_test_api = { path = "../buck2_test_api" }
 buck2_grpc = { path = "../buck2_grpc" }
+more_futures = { path = "../shed/more_futures" }

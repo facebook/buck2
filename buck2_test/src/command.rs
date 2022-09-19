@@ -61,6 +61,7 @@ use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use more_futures::spawn::dropcancel_critical_section;
 use serde::Serialize;
 
 use crate::downward_api::BuckTestDownwardApi;
@@ -365,62 +366,75 @@ async fn test_targets(
 
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
-    // this is kinda ugly. but we have a bunch of lifetimes on the orchestrator and tpx engine
-    // that makes them not spawnable, and so we have to spawn the test discovery code instead.
-    // TODO(bobyf): we can probably clean this up after doing tpx out of proc, and fixing some lifetimes
     let test_run = ctx.temporary_spawn({
         let test_status_sender = test_status_sender.clone();
-        move |ctx| async move {
-            // Spawn our server to listen to the test runner's requests for execution.
-            let orchestrator = BuckTestOrchestrator::new(
-                ctx.dupe(),
-                session.dupe(),
-                liveliness_manager,
-                test_status_sender,
-            )
-            .await
-            .context("Failed to create a BuckTestOrchestrator")?;
-
-            let server_handle = make_server(orchestrator, BuckTestDownwardApi);
-
-            let mut driver = TestDriver::new(TestDriverState {
-                ctx: &ctx,
-                label_filtering: &label_filtering,
-                global_target_platform: &global_target_platform,
-                session: &session,
-                test_executor: &test_executor,
-                cell_resolver: &cell_resolver,
-            });
-
-            driver.push_pattern(pattern);
-            driver.drive_to_completion().await;
-
-            test_executor
-                .end_of_test_requests()
+        move |ctx| {
+            // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
+            // if the liveliness guard indicates we should.
+            dropcancel_critical_section(async move {
+                // Spawn our server to listen to the test runner's requests for execution.
+                let orchestrator = BuckTestOrchestrator::new(
+                    ctx.dupe(),
+                    session.dupe(),
+                    liveliness_manager.dupe(),
+                    test_status_sender,
+                )
                 .await
-                .context("Failed to notify test executor of end-of-tests")?;
+                .context("Failed to create a BuckTestOrchestrator")?;
 
-            // Wait for the tests to finish running.
+                let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
-            let test_statuses = test_status_receiver
-                .try_fold(ExecutorReport::default(), |mut acc, result| {
-                    acc.ingest(&result);
-                    future::ready(Ok(acc))
-                })
-                .await
-                .context("Did not receive all results from executor")?;
+                let mut driver = TestDriver::new(TestDriverState {
+                    ctx: &ctx,
+                    label_filtering: &label_filtering,
+                    global_target_platform: &global_target_platform,
+                    session: &session,
+                    test_executor: &test_executor,
+                    cell_resolver: &cell_resolver,
+                });
 
-            // Shutdown our server. This is technically not *required* since dropping it would shut it
-            // down implicitly, but let's do it anyway so we can collect any errors.
+                driver.push_pattern(pattern);
 
-            server_handle
-                .shutdown()
-                .await
-                .context("Failed to shutdown orchestrator")?;
+                {
+                    let drive = driver.drive_to_completion();
+                    let alive = liveliness_manager.while_alive();
+                    futures::pin_mut!(drive);
+                    futures::pin_mut!(alive);
+                    match futures::future::select(drive, alive).await {
+                        futures::future::Either::Left(..) => {}
+                        futures::future::Either::Right(..) => {
+                            tracing::warn!("Test run was cancelled");
+                        }
+                    }
+                }
 
-            // And finally return our results;
+                test_executor
+                    .end_of_test_requests()
+                    .await
+                    .context("Failed to notify test executor of end-of-tests")?;
 
-            anyhow::Ok((driver.build_errors, test_statuses))
+                // Wait for the tests to finish running.
+
+                let test_statuses = test_status_receiver
+                    .try_fold(ExecutorReport::default(), |mut acc, result| {
+                        acc.ingest(&result);
+                        future::ready(Ok(acc))
+                    })
+                    .await
+                    .context("Did not receive all results from executor")?;
+
+                // Shutdown our server. This is technically not *required* since dropping it would shut it
+                // down implicitly, but let's do it anyway so we can collect any errors.
+
+                server_handle
+                    .shutdown()
+                    .await
+                    .context("Failed to shutdown orchestrator")?;
+
+                // And finally return our results;
+
+                anyhow::Ok((driver.build_errors, test_statuses))
+            })
         }
     });
 
