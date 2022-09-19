@@ -269,6 +269,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     outputs = {}
     libraries = {}
     solibs = {}
+    sub_targets = {}
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         args = []
         outs = []
@@ -358,11 +359,18 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             ),
         )
 
+        sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
+            default_outputs = outputs[link_style],
+        )]
+
     # Create the default ouput for the library rule given it's link style and preferred linkage
     link_style = get_cxx_toolchain_info(ctx).linker_info.link_style
     actual_link_style = get_actual_link_style(link_style, preferred_linkage)
     output = outputs[actual_link_style]
-    providers.append(DefaultInfo(default_outputs = output))
+    providers.append(DefaultInfo(
+        default_outputs = output,
+        sub_targets = sub_targets,
+    ))
 
     # Propagate link info provider.
     providers.append(create_merged_link_info(

@@ -1,0 +1,38 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.cxx_genrule(
+    name = "shared_lib_file",
+    srcs = ["lib.cpp"],
+    out = "libshared.so",
+    cmd = "$(ld) -shared -fPIC $(ldflags-shared) $SRCS -o $OUT",
+)
+
+bzl_native.prebuilt_cxx_library(
+    name = "shared_lib",
+    shared_lib = ":shared_lib_file",
+)
+
+bzl_native.genrule(
+    name = "check_shared_lib_suffix",
+    out = "out.txt",
+    cmd = 'echo $(location :shared_lib[shared]) | grep "libshared[.]so" > $OUT',
+)
+
+cpp_binary(
+    # @autodeps-skip
+    name = "bin",
+    srcs = ["bin.cpp"],
+    deps = [":shared_lib"],
+)
+
+bzl_native.genrule(
+    name = "check_bin",
+    out = "out.txt",
+    cmd = "$(exe :bin) > $OUT",
+    # TODO: this is a hack.
+    #   Without it genrule changes directory,
+    #   and loading of shared library by relative path
+    #   does not work.
+    labels = ["buck2_test_build_root"],
+)
