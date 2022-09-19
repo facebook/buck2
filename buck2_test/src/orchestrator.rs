@@ -196,6 +196,8 @@ impl TestOrchestrator for BuckTestOrchestrator {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExecutionResult2> {
+        self.liveliness_manager.require_alive().await?;
+
         let test_target = self.session.get(test_target)?;
 
         let fs = self.dice.get_artifact_fs().await?;
@@ -241,6 +243,8 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 execution_request,
             )
             .await?;
+
+        self.liveliness_manager.require_alive().await?;
 
         let (outputs, paths_to_materialize) = outputs
             .into_iter()
