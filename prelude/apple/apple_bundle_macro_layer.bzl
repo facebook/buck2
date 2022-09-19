@@ -4,6 +4,7 @@ load(":apple_info_plist_substitutions_parsing.bzl", "parse_codesign_entitlements
 _RESOURCE_BUNDLE_FIELDS = [
     "asset_catalogs_compilation_options",
     "binary",
+    "default_target_platform",
     "deps",
     "extension",
     "ibtool_flags",
