@@ -210,7 +210,7 @@ def process_genrule(
     # Create required directories.
     if is_windows:
         script = [
-            cmd_args(srcs_artifact, format = "if not exist .\\{}\\..\\out md .\\{}\\..\\out"),
+            cmd_args(srcs_artifact, format = "if not exist .\\{}\\..\\out mkdir .\\{}\\..\\out"),
         ]
         script_extension = "bat"
     else:
