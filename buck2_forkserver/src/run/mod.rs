@@ -247,7 +247,8 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
     use nix::unistd::Pid;
 
     let pid: i32 = pid.try_into().context("PID does not fit a i32")?;
-    signal::kill(Pid::from_raw(pid), Signal::SIGKILL)
+
+    signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
         .with_context(|| format!("Failed to kill process {}", pid))
 }
 
@@ -272,6 +273,12 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
 }
 
 pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -441,5 +448,35 @@ mod tests {
         assert!(res.is_err());
 
         Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_kill_terminates_process_group() -> anyhow::Result<()> {
+        use std::str::FromStr;
+
+        use nix::errno::Errno;
+        use nix::sys::signal;
+        use nix::unistd::Pid;
+
+        // This command will spawn 2 subprocesses (subshells) and print the PID of the 2nd shell.
+        let mut cmd = background_command("sh");
+        cmd.arg("-c").arg("( ( echo $$ && sleep 1000 ) )");
+        let (_status, stdout, _stderr) = gather_output(cmd, Some(Duration::from_secs(1))).await?;
+        let pid = i32::from_str(std::str::from_utf8(&stdout)?.trim())?;
+
+        for _ in 0..10 {
+            // This does rely on no PID reuse but the odds of PIDs wrapping around all the way to the
+            // same PID we just used before we issue this kill seem low. So, we expect this to error
+            // out.
+            if matches!(signal::kill(Pid::from_raw(pid), None), Err(e) if e == Errno::ESRCH) {
+                return Ok(());
+            }
+
+            // This is awkward but unfortunately the process does not immediately disappear.
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+
+        Err(anyhow::anyhow!("PID did not exit: {}", pid))
     }
 }
