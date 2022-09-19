@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::extra::BuildContext;
@@ -73,7 +74,7 @@ impl AttributeExt for Attribute {
                         &get_attr_coercion_context(eval)?,
                         x,
                     )
-                    .map_err(|_| ValueError::IncorrectParameterType)?,
+                    .context("When coercing attribute default")?,
             )),
         };
         Ok(AttributeAsStarlarkValue(Attribute {
@@ -686,7 +687,7 @@ mod tests {
                 attrs.dep(default="notatarget")
             "#
             ),
-            "Type of parameter",
+            "Invalid absolute target",
         );
 
         // Relative targets are disallowed; there is no build file for them to be relative to
