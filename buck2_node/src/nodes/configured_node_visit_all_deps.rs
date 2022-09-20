@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_query::query::traversal::async_depth_first_postorder_traversal;
+use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use gazebo::dupe::Dupe;
@@ -55,6 +55,6 @@ pub async fn configured_node_visit_all_deps(
         .into_iter()
         .map(|node| ConfiguredGraphNodeRef(node.dupe()))
         .collect::<Vec<_>>();
-    async_depth_first_postorder_traversal(&ConfiguredGraphNodeRefLookup, &roots, &mut delegate)
+    async_fast_depth_first_postorder_traversal(&ConfiguredGraphNodeRefLookup, &roots, &mut delegate)
         .await
 }
