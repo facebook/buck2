@@ -8,6 +8,7 @@ load(
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
+load("@prelude//genrule.bzl", "genrule_attributes")
 load(":jar_genrule.bzl", "jar_genrule_impl")
 load(":java_binary.bzl", "java_binary_impl")
 load(":java_library.bzl", "java_library_impl")
@@ -61,9 +62,8 @@ implemented_rules = {
 }
 
 extra_attributes = {
-    "jar_genrule": {
+    "jar_genrule": genrule_attributes() | {
         # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [

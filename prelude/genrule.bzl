@@ -60,6 +60,11 @@ def _should_handle_special_case_whole_out_dir_is_output(ctx: "context", outs_att
         return True
     return False
 
+# Extra attributes required by every genrule based on genrule_impl
+def genrule_attributes() -> {str.type: "attribute"}:
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
+    return {"_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")}
+
 def genrule_impl(ctx: "context") -> ["provider"]:
     # Directories:
     #   sh - sh file

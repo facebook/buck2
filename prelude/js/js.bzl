@@ -3,6 +3,7 @@ load("@prelude//js:js_bundle.bzl", "js_bundle_impl")
 load("@prelude//js:js_bundle_genrule.bzl", "js_bundle_genrule_impl")
 load("@prelude//js:js_library.bzl", "js_library_impl")
 load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
+load("@prelude//genrule.bzl", "genrule_attributes")
 
 def _select_platform():
     # FIXME: prelude// should be standalone (not refer to ovr_config//)
@@ -44,12 +45,10 @@ extra_attributes = {
             default = _select_platform(),
         ),
     },
-    "js_bundle_genrule": {
+    "js_bundle_genrule": genrule_attributes() | {
         "type": attrs.string(
             default = "js_bundle_genrule",
         ),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
         "_is_release": attrs.bool(
             default = _is_release(),
         ),

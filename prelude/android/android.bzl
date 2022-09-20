@@ -3,6 +3,7 @@ load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java.bzl", "select_junit_toolchain")
 load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
+load("@prelude//genrule.bzl", "genrule_attributes")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
 load(":android_instrumentation_apk.bzl", "android_instrumentation_apk_impl")
@@ -140,10 +141,8 @@ extra_attributes = {
         "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "_android_toolchain": android_toolchain(),
     },
-    "apk_genrule": {
+    "apk_genrule": genrule_attributes() | {
         "type": attrs.string(default = "apk"),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode"),
     },
     "gen_aidl": {
         "_android_toolchain": android_toolchain(),

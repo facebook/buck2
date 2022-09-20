@@ -74,7 +74,7 @@ load(":attributes.bzl", "IncludeType", "LinkableDepType", "Linkage", "Platform",
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
-load(":genrule.bzl", "genrule_impl")
+load(":genrule.bzl", "genrule_attributes", "genrule_impl")
 load(":http_file.bzl", "http_file_impl")
 load(":remote_file.bzl", "remote_file_impl")
 load(":sh_binary.bzl", "sh_binary_impl")
@@ -286,10 +286,6 @@ def _target_os_type() -> "attribute":
         "ovr_config//os:windows": "windows",
     }))
 
-def _cache_mode() -> "attribute":
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")
-
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")
 
@@ -297,9 +293,8 @@ extra_attributes = struct(
     export_file = {
         "src": attrs.source(allow_directory = True),
     },
-    genrule = {
+    genrule = genrule_attributes() | {
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
-        "_cache_mode": _cache_mode(),
         "_target_os_type": _target_os_type(),
     },
     # The 'actual' attribute of configured_alias is a configured_label, which is
@@ -334,8 +329,7 @@ extra_attributes = struct(
     },
 
     #c++
-    cxx_genrule = {
-        "_cache_mode": _cache_mode(),
+    cxx_genrule = genrule_attributes() | {
         "_cxx_toolchain": _cxx_toolchain(),
         "_target_os_type": _target_os_type(),
     },
