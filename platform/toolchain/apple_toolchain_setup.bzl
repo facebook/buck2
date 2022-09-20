@@ -98,6 +98,10 @@ def _get_apple_select_map(include_default: bool.type, rule_type: AppleToolchainR
 
     return select_map
 
+def _get_unversioned_xcode_toolchain_select_config(usage_type: AppleToolchainUsageType.type) -> str.type:
+    config_suffix = "-for-resources" if usage_type == _RESOURCES_USAGE_TYPE else ""
+    return "fbsource//xplat/buck2/platform/apple/config:apple-xcode-unversioned-macos".format(config_suffix)
+
 def _get_toolchain_select_config(toolchain_type: AppleToolchainType.type, usage_type: AppleToolchainUsageType.type) -> str.type:
     config_suffix = "-for-resources" if usage_type == _RESOURCES_USAGE_TYPE else ""
     config = toolchain_type.value + config_suffix
@@ -119,8 +123,10 @@ def _get_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type
     non_xcode_select_map = _get_toolchain_select_map_with_xcode(rule_type = rule_type, usage_type = usage_type, sdk = sdk, xcode_based = False)
 
     combined_select_map = {}
-    combined_select_map.update(xcode_select_map)
     combined_select_map.update(non_xcode_select_map)
+
+    unversioned_xcode_select_config = _get_unversioned_xcode_toolchain_select_config(usage_type = usage_type)
+    combined_select_map[unversioned_xcode_select_config] = select(xcode_select_map)
 
     return combined_select_map
 
