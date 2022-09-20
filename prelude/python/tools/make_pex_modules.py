@@ -52,12 +52,11 @@ from typing import Dict, Set, Tuple
 
 # Suffixes which should trigger `__init__.py` additions.
 # TODO(agallaher): This was coped from v1, but some things below probably
-# don't need to be here (e.g. `.pyd`, `.pyi`).
+# don't need to be here (e.g. `.pyd`).
 _MODULE_SUFFIXES = {
     ".dll",
     ".py",
     ".pyd",
-    ".pyi",
     ".so",
 }
 
