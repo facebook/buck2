@@ -568,9 +568,18 @@ impl<'a> LegacyConfigParser<'a> {
         self.parse_lines(parent, self.file_ops.read_file_lines(path)?, parse_includes)
     }
 
+    fn strip_line_comment(line: &str) -> &str {
+        match line.split_once(" #") {
+            Some((before, _)) => before,
+            None => line,
+        }
+    }
+
     fn parse_section_marker(line: &str) -> anyhow::Result<Option<&str>> {
+        // We allow trailing comment markers at the end of sections, since otherwise
+        // using oss-enable/oss-disable is super tricky
         match line.strip_prefix('[') {
-            Some(remaining) => match remaining.strip_suffix(']') {
+            Some(remaining) => match Self::strip_line_comment(remaining).strip_suffix(']') {
                 None => Err(ConfigError::SectionMissingTrailingBracket(line.to_owned()).into()),
                 Some(section) => Ok(Some(section)),
             },
@@ -1414,6 +1423,27 @@ mod tests {
         assert_config_value(&config, "new_section", "reopened", "ok");
         assert_config_value(&config, "new_section", "overridden", "3");
         assert_config_value(&config, "bad_formatting", "value", "1");
+        Ok(())
+    }
+
+    #[test]
+    fn test_comments() -> anyhow::Result<()> {
+        let config = parse(
+            &[(
+                "/config",
+                indoc!(
+                    r#"
+            [section1] # stuff
+                key1 = value1
+            [section2#name]
+                key2 = value2
+        "#
+                ),
+            )],
+            "/config",
+        )?;
+        assert_config_value(&config, "section1", "key1", "value1");
+        assert_config_value(&config, "section2#name", "key2", "value2");
         Ok(())
     }
 
