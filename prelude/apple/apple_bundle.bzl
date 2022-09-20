@@ -12,7 +12,7 @@ load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
-load(":xcode.bzl", "apple_xcode_attributes_add_xctoolchain")
+load(":xcode.bzl", "apple_xcode_data_add_xctoolchain")
 
 INSTALL_DATA_SUB_TARGET = "install-data"
 _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
@@ -144,7 +144,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     ]
 
 def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str.type: ""}:
-    attribs = {
+    data = {
         "deployment_version": get_bundle_min_target_version(ctx),
         "info_plist": ctx.attrs.info_plist,
         "processed_info_plist": processed_info_plist,
@@ -152,8 +152,8 @@ def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str.ty
         "sdk": get_apple_sdk_name(ctx),
     }
 
-    apple_xcode_attributes_add_xctoolchain(ctx, attribs)
-    return attribs
+    apple_xcode_data_add_xctoolchain(ctx, data)
+    return data
 
 def generate_install_data(
         ctx: "context",
