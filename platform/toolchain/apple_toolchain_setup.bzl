@@ -103,16 +103,26 @@ def _get_toolchain_select_config(toolchain_type: AppleToolchainType.type, usage_
     config = toolchain_type.value + config_suffix
     return "fbsource//xplat/buck2/platform/apple/config:{}".format(config)
 
-def _get_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, sdk: str.type) -> {str.type: "selector"}:
+def _get_toolchain_select_map_with_xcode(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, sdk: str.type, xcode_based: bool.type) -> {str.type: "selector"}:
     select_map = {}
     for toolchain_type in AppleToolchainType:
         toolchain_info = _APPLE_TOOLCHAINS[toolchain_type]
-        if sdk in toolchain_info.sdks:
+        if sdk in toolchain_info.sdks and toolchain_info.xcode_based == xcode_based:
             config = _get_toolchain_select_config(toolchain_type = toolchain_type, usage_type = usage_type)
             selector = toolchain_info.selector(rule_type = rule_type, sdk = sdk, **toolchain_info.selector_args)
             select_map[config] = selector
 
     return select_map
+
+def _get_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, sdk: str.type) -> {str.type: "selector"}:
+    xcode_select_map = _get_toolchain_select_map_with_xcode(rule_type = rule_type, usage_type = usage_type, sdk = sdk, xcode_based = True)
+    non_xcode_select_map = _get_toolchain_select_map_with_xcode(rule_type = rule_type, usage_type = usage_type, sdk = sdk, xcode_based = False)
+
+    combined_select_map = {}
+    combined_select_map.update(xcode_select_map)
+    combined_select_map.update(non_xcode_select_map)
+
+    return combined_select_map
 
 def _get_iphone_device_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = _get_toolchain_select_map(rule_type = rule_type, usage_type = usage_type, sdk = "iphoneos")
@@ -264,6 +274,7 @@ _APPLE_TOOLCHAINS = {
         selector_args = {
             "xcode_version": "13.4",
         },
+        xcode_based = True,
     ),
     _APPLE_XCODE_14_0_TOOLCHAIN_TYPE: struct(
         sdks = ["iphoneos", "iphonesimulator", "macosx", "watchos", "watchsimulator"],
@@ -271,6 +282,7 @@ _APPLE_TOOLCHAINS = {
         selector_args = {
             "xcode_version": "14.0",
         },
+        xcode_based = True,
     ),
     # Pika (thin)
     _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE: struct(
@@ -280,6 +292,7 @@ _APPLE_TOOLCHAINS = {
             "host": "linux",
             "toolchain_name": "pika-13.3",
         },
+        xcode_based = False,
     ),
     _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE: struct(
         sdks = ["iphoneos", "iphonesimulator", "macosx"],
@@ -288,6 +301,7 @@ _APPLE_TOOLCHAINS = {
             "host": "macos",
             "toolchain_name": "pika-13.3",
         },
+        xcode_based = False,
     ),
     _META_PIKA_14_LINUX_TOOLCHAIN_TYPE: struct(
         sdks = ["iphoneos", "iphonesimulator", "macosx"],
@@ -296,6 +310,7 @@ _APPLE_TOOLCHAINS = {
             "host": "linux",
             "toolchain_name": "pika-14",
         },
+        xcode_based = False,
     ),
     _META_PIKA_14_MACOS_TOOLCHAIN_TYPE: struct(
         sdks = ["iphoneos", "iphonesimulator", "macosx"],
@@ -304,6 +319,7 @@ _APPLE_TOOLCHAINS = {
             "host": "macos",
             "toolchain_name": "pika-14",
         },
+        xcode_based = False,
     ),
     # Pika (fat)
     _META_PIKA_14_FAT_TOOLCHAIN_TYPE: struct(
@@ -313,6 +329,7 @@ _APPLE_TOOLCHAINS = {
             "host": "fat",
             "toolchain_name": "pika-14",
         },
+        xcode_based = False,
     ),
     # xbat
     _META_XCODE_MACOS_TOOLCHAIN_TYPE: struct(
@@ -322,5 +339,6 @@ _APPLE_TOOLCHAINS = {
             "host": "macos",
             "toolchain_name": "xcode",
         },
+        xcode_based = False,
     ),
 }
