@@ -33,12 +33,14 @@ use tokio_util::codec::FramedRead;
 use self::interruptible_async_read::InterruptNotifiable;
 use self::interruptible_async_read::InterruptibleAsyncRead;
 
+#[derive(Debug)]
 pub enum GatherOutputStatus {
     Finished(ExitStatus),
     TimedOut(Duration),
     Cancelled,
 }
 
+#[derive(Debug)]
 pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
@@ -343,6 +345,7 @@ mod tests {
     use std::str;
     use std::time::Instant;
 
+    use assert_matches::assert_matches;
     use buck2_core::process::async_background_command;
     use buck2_core::process::background_command;
 
@@ -497,5 +500,21 @@ mod tests {
         }
 
         Err(anyhow::anyhow!("PID did not exit: {}", pid))
+    }
+
+    #[tokio::test]
+    async fn test_stream_command_events_ends() -> anyhow::Result<()> {
+        let mut cmd = if cfg!(windows) {
+            background_command("powershell")
+        } else {
+            background_command("sh")
+        };
+        cmd.args(&["-c", "exit 0"]);
+
+        let child = prepare_command(cmd).spawn()?;
+        let mut events = stream_command_events(child, futures::future::pending())?.boxed();
+        assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
+        assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
+        Ok(())
     }
 }
