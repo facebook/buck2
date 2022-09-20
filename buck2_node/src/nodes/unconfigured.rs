@@ -32,8 +32,10 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
+use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::DEPS_LEGACY;
 use crate::nodes::attributes::ONCALL;
+use crate::nodes::attributes::PACKAGE;
 use crate::nodes::attributes::PACKAGE_LEGACY;
 use crate::nodes::attributes::TYPE;
 use crate::nodes::attributes::TYPE_LEGACY;
@@ -199,11 +201,22 @@ impl TargetNode {
     }
 
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (String, CoercedAttr)> {
+        let typ_attr =
+            CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned()));
+        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(
+            self.deps()
+                .map(|t| {
+                    CoercedAttr::new_literal(AttrLiteral::Label(box ProvidersLabel::default_for(
+                        t.dupe(),
+                    )))
+                })
+                .collect(),
+            AttrType::dep(Vec::new()),
+        ));
+        let package_attr =
+            CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string()));
         vec![
-            (
-                TYPE.to_owned(),
-                CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned())),
-            ),
+            (TYPE.to_owned(), typ_attr.clone()),
             (
                 CONFIGURATION_DEPS.to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::List(
@@ -213,27 +226,11 @@ impl TargetNode {
                     AttrType::configuration_dep(),
                 )),
             ),
-            (
-                DEPS_LEGACY.to_owned(),
-                CoercedAttr::new_literal(AttrLiteral::List(
-                    self.deps()
-                        .map(|t| {
-                            CoercedAttr::new_literal(AttrLiteral::Label(
-                                box ProvidersLabel::default_for(t.dupe()),
-                            ))
-                        })
-                        .collect(),
-                    AttrType::dep(Vec::new()),
-                )),
-            ),
-            (
-                TYPE_LEGACY.to_owned(),
-                CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned())),
-            ),
-            (
-                PACKAGE_LEGACY.to_owned(),
-                CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string())),
-            ),
+            (DEPS.to_owned(), deps_attr.clone()),
+            (DEPS_LEGACY.to_owned(), deps_attr),
+            (TYPE_LEGACY.to_owned(), typ_attr),
+            (PACKAGE.to_owned(), package_attr.clone()),
+            (PACKAGE_LEGACY.to_owned(), package_attr),
             (
                 ONCALL.to_owned(),
                 CoercedAttr::new_literal(match self.oncall() {

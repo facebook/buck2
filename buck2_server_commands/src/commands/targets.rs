@@ -24,10 +24,15 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::nodes::attributes::DEPS;
 use buck2_node::nodes::attributes::DEPS_LEGACY;
+use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::attributes::PACKAGE_LEGACY;
+use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_CALL_STACK_LEGACY;
+use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TARGET_HASH_LEGACY;
+use buck2_node::nodes::attributes::TYPE;
 use buck2_node::nodes::attributes::TYPE_LEGACY;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -113,25 +118,22 @@ impl TargetPrinter for JsonPrinter {
             first = false;
             write!(self.json_string, "      \"{}\": {}", k, v).unwrap();
         };
-        print_attr(
-            TYPE_LEGACY,
-            &quote_json_string(&target_info.node.rule_type().to_string()),
-        );
-        print_attr(
-            DEPS_LEGACY,
-            &format!(
-                "[{}]",
-                target_info
-                    .node
-                    .deps()
-                    .map(|d| quote_json_string(&d.to_string()))
-                    .join(", ")
-            ),
-        );
+        let typ = target_info.node.rule_type().to_string();
+        print_attr(TYPE, &quote_json_string(&typ));
+        print_attr(TYPE_LEGACY, &quote_json_string(&typ));
+        let deps = target_info
+            .node
+            .deps()
+            .map(|d| quote_json_string(&d.to_string()))
+            .join(", ");
+        print_attr(DEPS, &format!("[{}]", deps));
+        print_attr(DEPS_LEGACY, &format!("[{}]", deps));
 
         if let Some(BuckTargetHash(hash)) = target_info.target_hash {
+            print_attr(TARGET_HASH, &format!("\"{:x}\"", hash));
             print_attr(TARGET_HASH_LEGACY, &format!("\"{:x}\"", hash));
         }
+        print_attr(PACKAGE, &format!("\"{}\"", package));
         print_attr(PACKAGE_LEGACY, &format!("\"{}\"", package));
 
         for (k, v) in target_info.node.attrs(self.attr_inspect_opts) {
@@ -142,6 +144,7 @@ impl TargetPrinter for JsonPrinter {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
                     print_attr(TARGET_CALL_STACK_LEGACY, &quote_json_string(&call_stack));
+                    print_attr(TARGET_CALL_STACK, &quote_json_string(&call_stack));
                 }
                 None => {
                     // Should not happen.

@@ -47,8 +47,10 @@ use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
+use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::DEPS_LEGACY;
 use crate::nodes::attributes::ONCALL;
+use crate::nodes::attributes::PACKAGE;
 use crate::nodes::attributes::PACKAGE_LEGACY;
 use crate::nodes::attributes::TYPE;
 use crate::nodes::attributes::TYPE_LEGACY;
@@ -454,34 +456,28 @@ impl ConfiguredTargetNode {
     }
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (String, ConfiguredAttr)> {
+        let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned()));
+        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(
+            self.deps()
+                .map(|t| {
+                    ConfiguredAttr(AttrLiteral::Label(box ConfiguredProvidersLabel::new(
+                        t.name().dupe(),
+                        ProvidersName::Default,
+                    )))
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+            AttrType::dep(Vec::new()),
+        ));
+        let package_attr =
+            ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string()));
         vec![
-            (
-                TYPE.to_owned(),
-                ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
-            ),
-            (
-                DEPS_LEGACY.to_owned(),
-                ConfiguredAttr::new(AttrLiteral::List(
-                    self.deps()
-                        .map(|t| {
-                            ConfiguredAttr(AttrLiteral::Label(box ConfiguredProvidersLabel::new(
-                                t.name().dupe(),
-                                ProvidersName::Default,
-                            )))
-                        })
-                        .collect::<Vec<_>>()
-                        .into_boxed_slice(),
-                    AttrType::dep(Vec::new()),
-                )),
-            ),
-            (
-                TYPE_LEGACY.to_owned(),
-                ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
-            ),
-            (
-                PACKAGE_LEGACY.to_owned(),
-                ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string())),
-            ),
+            (TYPE.to_owned(), typ_attr.clone()),
+            (DEPS.to_owned(), deps_attr.clone()),
+            (DEPS_LEGACY.to_owned(), deps_attr),
+            (TYPE_LEGACY.to_owned(), typ_attr),
+            (PACKAGE.to_owned(), package_attr.clone()),
+            (PACKAGE_LEGACY.to_owned(), package_attr),
             (
                 ONCALL.to_owned(),
                 ConfiguredAttr::new(match self.oncall() {
