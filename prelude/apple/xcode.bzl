@@ -6,6 +6,7 @@ load(
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 load("@prelude//cxx:xcode.bzl", "cxx_populate_xcode_attributes")
+load("@prelude//utils:utils.bzl", "expect")
 
 def apple_populate_xcode_attributes(
         ctx,
@@ -28,13 +29,27 @@ def apple_populate_xcode_attributes(
 
 def apple_xcode_data_add_xctoolchain(ctx: "context", data: {str.type: ""}):
     _add_label_for_attr(ctx, "_apple_xctoolchain_bundle_id", "xctoolchain_bundle_id_target", data)
+    _add_output_for_attr(ctx, "_apple_xctoolchain_bundle_id", "xctoolchain_bundle_id", data)
     _add_label_for_attr(ctx, "_apple_xctoolchain", "xctoolchain_bundle_target", data)
 
 def _add_label_for_attr(ctx: "context", attr_name: str.type, field_name: str.type, data: {str.type: ""}):
+    xctoolchain_dep = _get_attribute_with_output(ctx, attr_name)
+    if xctoolchain_dep:
+        data[field_name] = xctoolchain_dep.label
+
+def _add_output_for_attr(ctx: "context", attr_name: str.type, field_name: str.type, data: {str.type: ""}):
+    xctoolchain_dep = _get_attribute_with_output(ctx, attr_name)
+    if xctoolchain_dep:
+        default_info = xctoolchain_dep[DefaultInfo]
+        expect(len(default_info.default_outputs) == 1, "Expected only one output, got {}", len(default_info.default_outputs))
+        data[field_name] = default_info.default_outputs[0]
+
+def _get_attribute_with_output(ctx: "context", attr_name: str.type) -> ["dependency", None]:
     if hasattr(ctx.attrs, attr_name):
         dep = getattr(ctx.attrs, attr_name)
         default_info = dep[DefaultInfo]
         if len(default_info.default_outputs) > 0:
             # When there's no xctoolchain (i.e., non-Pika), there will be an empty `DefaultInfo`.
-            # So, an emmpty `DefaultInfo` basically signifies that there's no xctoolchain.
-            data[field_name] = dep.label
+            # So, an empty `DefaultInfo` basically signifies that there's no xctoolchain.
+            return dep
+    return None
