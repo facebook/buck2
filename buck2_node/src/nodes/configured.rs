@@ -47,6 +47,11 @@ use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
+use crate::nodes::attributes::DEPS_LEGACY;
+use crate::nodes::attributes::ONCALL;
+use crate::nodes::attributes::PACKAGE_LEGACY;
+use crate::nodes::attributes::TYPE;
+use crate::nodes::attributes::TYPE_LEGACY;
 use crate::nodes::unconfigured::RuleKind;
 use crate::nodes::unconfigured::TargetNode;
 use crate::rule_type::RuleType;
@@ -451,11 +456,11 @@ impl ConfiguredTargetNode {
     pub fn special_attrs(&self) -> impl Iterator<Item = (String, ConfiguredAttr)> {
         vec![
             (
-                "buck.type".to_owned(),
+                TYPE.to_owned(),
                 ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
             ),
             (
-                "$deps".to_owned(),
+                DEPS_LEGACY.to_owned(),
                 ConfiguredAttr::new(AttrLiteral::List(
                     self.deps()
                         .map(|t| {
@@ -470,15 +475,15 @@ impl ConfiguredTargetNode {
                 )),
             ),
             (
-                "$type".to_owned(),
+                TYPE_LEGACY.to_owned(),
                 ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
             ),
             (
-                "$package".to_owned(),
+                PACKAGE_LEGACY.to_owned(),
                 ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string())),
             ),
             (
-                "buck.oncall".to_owned(),
+                ONCALL.to_owned(),
                 ConfiguredAttr::new(match self.oncall() {
                     None => AttrLiteral::None,
                     Some(x) => AttrLiteral::String(x.to_owned()),

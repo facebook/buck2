@@ -31,6 +31,12 @@ use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
+use crate::nodes::attributes::CONFIGURATION_DEPS;
+use crate::nodes::attributes::DEPS_LEGACY;
+use crate::nodes::attributes::ONCALL;
+use crate::nodes::attributes::PACKAGE_LEGACY;
+use crate::nodes::attributes::TYPE;
+use crate::nodes::attributes::TYPE_LEGACY;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
 
@@ -195,11 +201,11 @@ impl TargetNode {
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (String, CoercedAttr)> {
         vec![
             (
-                "buck.type".to_owned(),
+                TYPE.to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned())),
             ),
             (
-                "buck.configuration_deps".to_owned(),
+                CONFIGURATION_DEPS.to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::List(
                     self.get_configuration_deps()
                         .map(|t| CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(t.dupe())))
@@ -208,7 +214,7 @@ impl TargetNode {
                 )),
             ),
             (
-                "$deps".to_owned(),
+                DEPS_LEGACY.to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::List(
                     self.deps()
                         .map(|t| {
@@ -221,15 +227,15 @@ impl TargetNode {
                 )),
             ),
             (
-                "$type".to_owned(),
+                TYPE_LEGACY.to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned())),
             ),
             (
-                "$package".to_owned(),
+                PACKAGE_LEGACY.to_owned(),
                 CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string())),
             ),
             (
-                "buck.oncall".to_owned(),
+                ONCALL.to_owned(),
                 CoercedAttr::new_literal(match self.oncall() {
                     None => AttrLiteral::None,
                     Some(x) => AttrLiteral::String(x.to_owned()),
