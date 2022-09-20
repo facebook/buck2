@@ -568,6 +568,16 @@ impl<'a> LegacyConfigParser<'a> {
         self.parse_lines(parent, self.file_ops.read_file_lines(path)?, parse_includes)
     }
 
+    fn parse_section_marker(line: &str) -> anyhow::Result<Option<&str>> {
+        match line.strip_prefix('[') {
+            Some(remaining) => match remaining.strip_suffix(']') {
+                None => Err(ConfigError::SectionMissingTrailingBracket(line.to_owned()).into()),
+                Some(section) => Ok(Some(section)),
+            },
+            None => Ok(None),
+        }
+    }
+
     fn parse_lines<T, E>(
         &mut self,
         dir: &AbsPath,
@@ -602,23 +612,14 @@ impl<'a> LegacyConfigParser<'a> {
             .filter(|(_, l)| !l.is_empty() && !l.starts_with('#') && !l.starts_with(';'));
 
         for (i, line) in lines {
-            if let Some(remaining) = line.strip_prefix('[') {
-                match remaining.strip_suffix(']') {
-                    None => {
-                        return Err(anyhow::anyhow!(ConfigError::SectionMissingTrailingBracket(
-                            line.to_owned()
-                        )));
-                    }
-                    Some(section) => {
-                        // Start the new section, grabbing the recorded values for the previous
-                        // section.
-                        let section = std::mem::replace(
-                            &mut self.current_section,
-                            (section.to_owned(), BTreeMap::new()),
-                        );
-                        self.commit_section(section)
-                    }
-                }
+            if let Some(section) = Self::parse_section_marker(&line)? {
+                // Start the new section, grabbing the recorded values for the previous
+                // section.
+                let section = std::mem::replace(
+                    &mut self.current_section,
+                    (section.to_owned(), BTreeMap::new()),
+                );
+                self.commit_section(section)
             } else if let Some((key, val)) = line.split_once('=') {
                 let key = key.trim();
                 let val = val.trim();
