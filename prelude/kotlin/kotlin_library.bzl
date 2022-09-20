@@ -7,8 +7,9 @@ load(
 load(
     "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
+    "JavaPackagingDepTSet",
+    "JavaPackagingInfo",
     "derive_compiling_deps",
-    "get_all_java_packaging_deps",
     "to_list",
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
@@ -92,15 +93,17 @@ def _create_kotlin_sources(
         compile_kotlin_cmd.add(["--kapt_annotation_processors", ",".join([p for ap in annotation_processor_params for p in ap.processors])])
         compile_kotlin_cmd.add(["--kapt_annotation_processor_params", ";".join([p for ap in annotation_processor_params for p in ap.params])])
 
-        annotation_processor_classpath = [d for ap in annotation_processor_params for d in ap.deps] + [
-            packaging_dep.jar
-            for packaging_dep in get_all_java_packaging_deps(ctx, [kotlin_toolchain.annotation_processing_jar, kotlin_toolchain.kotlin_stdlib])
-            if packaging_dep.jar
-        ]
-        deduped_annotation_processor_classpath = dedupe(annotation_processor_classpath)
-        kapt_classpath_file = ctx.actions.write("kapt_classpath_file", deduped_annotation_processor_classpath)
+        annotation_processor_classpath_tsets = (
+            filter(None, ([ap.deps for ap in annotation_processor_params])) +
+            [dep[JavaPackagingInfo].packaging_deps for dep in [kotlin_toolchain.annotation_processing_jar, kotlin_toolchain.kotlin_stdlib]]
+        )
+        annotation_processor_classpath = ctx.actions.tset(
+            JavaPackagingDepTSet,
+            children = annotation_processor_classpath_tsets,
+        ).project_as_args("full_jar_args")
+        kapt_classpath_file = ctx.actions.write("kapt_classpath_file", annotation_processor_classpath)
         compile_kotlin_cmd.add(["--kapt_classpath_file", kapt_classpath_file])
-        compile_kotlin_cmd.hidden(deduped_annotation_processor_classpath)
+        compile_kotlin_cmd.hidden(annotation_processor_classpath)
 
         sources_output = ctx.actions.declare_output("kapt_sources_output")
         compile_kotlin_cmd.add(["--kapt_sources_output", sources_output.as_output()])
@@ -132,8 +135,10 @@ def _create_kotlin_sources(
     ksp_zipped_sources_output = None
     if ksp_annotation_processor_params:
         ksp_cmd = cmd_args(compile_kotlin_tool)
-        ksp_cmd.add(["--ksp_processor_jars"])
-        ksp_cmd.add(cmd_args(ksp_annotation_processor_params.deps, delimiter = ","))
+
+        if ksp_annotation_processor_params.deps:
+            ksp_cmd.add(["--ksp_processor_jars"])
+            ksp_cmd.add(cmd_args(ksp_annotation_processor_params.deps.project_as_args("full_jar_args"), delimiter = ","))
 
         ksp_cmd.add(["--ksp_classpath", classpath_args])
         ksp_classes_and_resources_output = ctx.actions.declare_output("ksp_output_dir/ksp_classes_and_resources_output")
@@ -263,7 +268,7 @@ def build_kotlin_library(
             ctx.attrs.annotation_processor_params,
             ctx.attrs.annotation_processor_deps,
         )
-        ksp_annotation_processor_params = create_ksp_ap_params(ctx.attrs.plugins)
+        ksp_annotation_processor_params = create_ksp_ap_params(ctx, ctx.attrs.plugins)
 
         kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
             ctx,

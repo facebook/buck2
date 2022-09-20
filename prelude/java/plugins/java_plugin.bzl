@@ -1,3 +1,4 @@
+load("@prelude//java:java_providers.bzl", "JavaPackagingDepTSet")
 load(
     "@prelude//java/plugins:java_annotation_processor.bzl",
     "JavaProcessorsInfo",
@@ -11,10 +12,10 @@ PluginParams = record(
     args = field({
         str.type: "cmd_args",
     }),
-    deps = field(["artifact"]),
+    deps = field(["JavaPackagingDepTSet", None]),
 )
 
-def create_plugin_params(plugins: ["dependency"]) -> [PluginParams.type, None]:
+def create_plugin_params(ctx: "context", plugins: ["dependency"]) -> [PluginParams.type, None]:
     processors = []
     plugin_deps = []
 
@@ -24,14 +25,15 @@ def create_plugin_params(plugins: ["dependency"]) -> [PluginParams.type, None]:
             if len(plugin.processors) > 1:
                 fail("Only 1 java compiler plugin is expected. But received: {}".format(plugin.processors))
             processors.append(plugin.processors[0])
-            plugin_deps = plugin_deps + plugin.deps
+            if plugin.deps:
+                plugin_deps.append(plugin.deps)
 
     if not processors:
         return None
 
     return PluginParams(
         processors = dedupe(processors),
-        deps = dedupe(plugin_deps),
+        deps = ctx.actions.tset(JavaPackagingDepTSet, children = plugin_deps) if plugin_deps else None,
         args = {},
     )
 

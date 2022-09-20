@@ -1,4 +1,4 @@
-load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "get_all_java_packaging_deps")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "map_idx")
 
 JavaProcessorsType = enum(
@@ -17,7 +17,7 @@ JavaProcessorsInfo = provider(
         "processors",  # ["string"]
 
         # Java dependencies exposed to dependent targets and supposed to be used during compilation.
-        "deps",  # ["artifact"]
+        "deps",  # ["JavaPackagingDepTSet", None]
         "affects_abi",
         "supports_source_only_abi",
     ],
@@ -28,16 +28,19 @@ AnnotationProcessorParams = record(
     supports_source_only_abi = field(bool.type),
     processors = field(["string"]),
     params = field(["string"]),
-    deps = field(["artifact"]),
+    deps = field(["JavaPackagingDepTSet", None]),
 )
 
 # Every transitive java annotation processors dependency has to be included into processor classpath for AP/Java Plugin run
-def derive_transitive_deps(ctx: "context", deps: ["dependency"]) -> ["artifact"]:
-    for dep in map_idx(JavaLibraryInfo, deps):
-        if not dep:
+def derive_transitive_deps(ctx: "context", deps: ["dependency"]) -> ["JavaPackagingDepTSet", None]:
+    for dep in deps:
+        if not dep[JavaLibraryInfo]:
             fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(deps))
 
-    return [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.jar]
+    return ctx.actions.tset(
+        JavaPackagingDepTSet,
+        children = [dep[JavaPackagingInfo].packaging_deps for dep in deps],
+    ) if deps else None
 
 def create_ap_params(
         ctx: "context",
@@ -61,7 +64,7 @@ def create_ap_params(
             processors = annotation_processors,
             params = annotation_processor_params,
             # using packaging deps to have all transitive deps collected for processors classpath
-            deps = [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, annotation_processor_deps) if packaging_dep.jar],
+            deps = derive_transitive_deps(ctx, annotation_processor_deps),
         ))
 
     # APs derived from `plugins` attribute
@@ -80,7 +83,7 @@ def create_ap_params(
 
     return ap_params if has_annotation_processors else []
 
-def create_ksp_ap_params(plugins: ["dependency"]) -> [AnnotationProcessorParams.type, None]:
+def create_ksp_ap_params(ctx: "context", plugins: ["dependency"]) -> [AnnotationProcessorParams.type, None]:
     ap_processors = []
     ap_processor_deps = []
 
@@ -90,7 +93,8 @@ def create_ksp_ap_params(plugins: ["dependency"]) -> [AnnotationProcessorParams.
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("ksp_annotation_processor"):
             ap_processors += ap_plugin.processors
-            ap_processor_deps += ap_plugin.deps
+            if ap_plugin.deps:
+                ap_processor_deps.append(ap_plugin.deps)
 
     if not ap_processors:
         return None
@@ -98,7 +102,7 @@ def create_ksp_ap_params(plugins: ["dependency"]) -> [AnnotationProcessorParams.
     return AnnotationProcessorParams(
         processors = dedupe(ap_processors),
         params = [],
-        deps = ap_processor_deps,
+        deps = ctx.actions.tset(JavaPackagingDepTSet, children = ap_processor_deps) if ap_processor_deps else None,
         affects_abi = True,
         supports_source_only_abi = False,
     )

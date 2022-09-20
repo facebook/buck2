@@ -3,6 +3,7 @@ load("@prelude//android:android_providers.bzl", "merge_android_packageable_info"
 load(
     "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
+    "JavaPackagingDepTSet",
     "JavaProviders",
     "create_abi",
     "create_java_library_providers",
@@ -84,7 +85,7 @@ def _process_plugins(
         plugin_params: ["PluginParams", None],
         javac_args: "cmd_args",
         cmd: "cmd_args"):
-    processors_classpath = []
+    processors_classpath_tsets = []
 
     # Process Annotation processors
     if ap_params:
@@ -97,7 +98,8 @@ def _process_plugins(
         for ap in ap_params:
             for param in ap.params:
                 javac_args.add("-A{}".format(param))
-            processors_classpath = processors_classpath + ap.deps
+            if ap.deps:
+                processors_classpath_tsets.append(ap.deps)
 
     else:
         javac_args.add("-proc:none")
@@ -114,10 +116,18 @@ def _process_plugins(
         plugin_arg.add(cmd_args(plugin_and_args, delimiter = " "))
 
         javac_args.add(plugin_arg)
-        processors_classpath = processors_classpath + plugin_params.deps
+        if plugin_params.deps:
+            processors_classpath_tsets.append(plugin_params.deps)
 
-    if processors_classpath:
-        processors_classpath = classpath_args(processors_classpath)
+    if len(processors_classpath_tsets) > 1:
+        processors_classpath_tset = actions.tset(JavaPackagingDepTSet, children = processors_classpath_tsets)
+    elif len(processors_classpath_tsets) == 1:
+        processors_classpath_tset = processors_classpath_tsets[0]
+    else:
+        processors_classpath_tset = None
+
+    if processors_classpath_tset:
+        processors_classpath = classpath_args(processors_classpath_tset.project_as_args("full_jar_args"))
         _process_classpath(
             actions,
             processors_classpath,
@@ -518,7 +528,7 @@ def build_java_library(
         ctx.attrs.annotation_processor_params,
         ctx.attrs.annotation_processor_deps,
     ) if run_annotation_processors else None
-    plugin_params = create_plugin_params(ctx.attrs.plugins) if run_annotation_processors else None
+    plugin_params = create_plugin_params(ctx, ctx.attrs.plugins) if run_annotation_processors else None
     manifest_file = ctx.attrs.manifest_file
     source_level, target_level = _get_java_version_attributes(ctx)
     javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
@@ -573,7 +583,7 @@ def build_java_library(
         classpath_args = _build_classpath(ctx.actions, first_order_deps, additional_classpath_entries, "args_for_ast_dumper")
         if classpath_args:
             dump_ast_args.add(classpath_args)
-        ast_dumping_plugin_params = create_plugin_params([ast_dumper])
+        ast_dumping_plugin_params = create_plugin_params(ctx, [ast_dumper])
         ast_dumper_args_file = ctx.actions.write("dump_ast_args", dump_ast_args)
         ast_dumping_plugin_params = PluginParams(
             processors = ast_dumping_plugin_params.processors,

@@ -125,10 +125,19 @@ def _full_jar_args(dep: JavaPackagingDep.type):
 def _args_for_classpath_macro(dep: JavaPackagingDep.type):
     return dep.output_for_classpath_macro
 
+def _packaging_dep_javacd_json(dep: JavaPackagingDep.type):
+    if dep.jar:
+        return struct(path = dep.jar)
+
+    return struct()
+
 JavaPackagingDepTSet = transitive_set(
     args_projections = {
         "args_for_classpath_macro": _args_for_classpath_macro,
         "full_jar_args": _full_jar_args,
+    },
+    json_projections = {
+        "javacd_json": _packaging_dep_javacd_json,
     },
 )
 

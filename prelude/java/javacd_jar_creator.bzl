@@ -249,7 +249,7 @@ def create_jar_artifact_javacd(
                         doesNotAffectAbi = not ap.affects_abi,
                         supportsAbiGenerationFromSource = ap.supports_source_only_abi,
                         processorNames = ap.processors,
-                        classpath = [encode_path(v) for v in ap.deps],
+                        classpath = ap.deps.project_as_json("javacd_json") if ap.deps else [],
                         pathParams = {},
                     ),
                 )
@@ -264,7 +264,7 @@ def create_jar_artifact_javacd(
                     doesNotAffectAbi = False,
                     supportsAbiGenerationFromSource = False,
                     processorNames = plugin_params.processors,
-                    classpath = [encode_path(v) for v in plugin_params.deps],
+                    classpath = plugin_params.deps.project_as_json("javacd_json") if plugin_params.deps else [],
                     pathParams = {},
                 )],
             )
