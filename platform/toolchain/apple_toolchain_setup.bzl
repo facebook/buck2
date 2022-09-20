@@ -120,7 +120,7 @@ def _get_toolchain_select_map_with_xcode(rule_type: AppleToolchainRuleType.type,
 
 def _get_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, sdk: str.type) -> {str.type: "selector"}:
     xcode_select_map = _get_toolchain_select_map_with_xcode(rule_type = rule_type, usage_type = usage_type, sdk = sdk, xcode_based = True)
-    xcode_select_map["DEFAULT"] = _get_default_xcode_toolchain_fallback(rule_type = rule_type, sdk = sdk)
+    xcode_select_map["DEFAULT"] = _get_default_xcode_toolchain_fallback(rule_type = rule_type, usage_type = usage_type, sdk = sdk)
     non_xcode_select_map = _get_toolchain_select_map_with_xcode(rule_type = rule_type, usage_type = usage_type, sdk = sdk, xcode_based = False)
 
     combined_select_map = {}
@@ -131,37 +131,42 @@ def _get_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type
 
     return combined_select_map
 
-def _get_default_global_toolchain_fallback(rule_type: AppleToolchainRuleType.type, sdk: str.type) -> "selector":
-    # This is the default toolchain fallback in case _no_ toolchain has been specified at all
-    return _get_apple_xcode_arch_select(rule_type = rule_type, sdk = sdk, xcode_version = _DEFAULT_XCODE_VERSION)
+def _get_default_xcode_version(usage_type: AppleToolchainUsageType.type) -> str.type:
+    prefix = "resources_" if usage_type == _RESOURCES_USAGE_TYPE else ""
+    config_key = prefix + "toolchain_xcode_version"
+    return native.read_config("apple", config_key, _DEFAULT_XCODE_VERSION)
 
-def _get_default_xcode_toolchain_fallback(rule_type: AppleToolchainRuleType.type, sdk: str.type) -> "selector":
+def _get_default_global_toolchain_fallback(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, sdk: str.type) -> "selector":
+    # This is the default toolchain fallback in case _no_ toolchain has been specified at all
+    return _get_apple_xcode_arch_select(rule_type = rule_type, sdk = sdk, xcode_version = _get_default_xcode_version(usage_type = usage_type))
+
+def _get_default_xcode_toolchain_fallback(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type, sdk: str.type) -> "selector":
     # This is the default _Xcode_ toolchain fallback, in case no Xcode _version_ has been specified
-    return _get_apple_xcode_arch_select(rule_type = rule_type, sdk = sdk, xcode_version = _DEFAULT_XCODE_VERSION)
+    return _get_apple_xcode_arch_select(rule_type = rule_type, sdk = sdk, xcode_version = _get_default_xcode_version(usage_type = usage_type))
 
 def _get_iphone_device_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = _get_toolchain_select_map(rule_type = rule_type, usage_type = usage_type, sdk = "iphoneos")
-    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, sdk = "iphoneos")
+    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, usage_type = usage_type, sdk = "iphoneos")
     return select(select_map)
 
 def _get_watch_simulator_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = _get_toolchain_select_map(rule_type = rule_type, usage_type = usage_type, sdk = "watchsimulator")
-    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, sdk = "watchsimulator")
+    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, usage_type = usage_type, sdk = "watchsimulator")
     return select(select_map)
 
 def _get_watchos_device_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = _get_toolchain_select_map(rule_type = rule_type, usage_type = usage_type, sdk = "watchos")
-    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, sdk = "watchos")
+    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, usage_type = usage_type, sdk = "watchos")
     return select(select_map)
 
 def _get_iphone_simulator_toolchain_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     select_map = _get_toolchain_select_map(rule_type = rule_type, usage_type = usage_type, sdk = "iphonesimulator")
-    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, sdk = "iphonesimulator")
+    select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, usage_type = usage_type, sdk = "iphonesimulator")
     return select(select_map)
 
 def _get_apple_macos_select_map(rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     inner_select_map = _get_toolchain_select_map(rule_type = rule_type, usage_type = usage_type, sdk = "macosx")
-    inner_select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, sdk = "macosx")
+    inner_select_map["DEFAULT"] = _get_default_global_toolchain_fallback(rule_type = rule_type, usage_type = usage_type, sdk = "macosx")
 
     select_map = {
         # Minimal Xcode takes priority over toolchain selection, so we have nested DEFAULT statements
