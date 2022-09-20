@@ -29,10 +29,7 @@ def get_dex_produced_from_java_library(
     output_dex_file = ctx.actions.declare_output(prefix + ".dex.jar")
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
-    jar_to_dex_file = ctx.actions.write(prefix + "_jar_to_dex_file.txt", jar_to_dex)
-    d8_cmd.add(["--files-to-dex-list", jar_to_dex_file])
-    d8_cmd.hidden(jar_to_dex)
-
+    d8_cmd.add(["--file-to-dex", jar_to_dex])
     d8_cmd.add(["--android-jar", dex_toolchain.android_jar])
 
     d8_cmd.add(["--intermediate", "--no-optimize", "--force-jumbo"])
