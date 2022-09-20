@@ -66,6 +66,8 @@ impl From<StdioEvent> for CommandEvent {
 struct CommandEventStream<Status, Stdio> {
     exit: Option<anyhow::Result<GatherOutputStatus>>,
 
+    done: bool,
+
     #[pin]
     status: futures::future::Fuse<Status>,
 
@@ -81,6 +83,7 @@ where
     fn new(status: Status, stdio: Stdio) -> Self {
         Self {
             exit: None,
+            done: false,
             status: status.fuse(),
             stdio: stdio.fuse(),
         }
@@ -96,6 +99,10 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
+
+        if *this.done {
+            return Poll::Ready(None);
+        }
 
         // This future is fused so it's guaranteed to be ready once. If it does, capture the exit
         // status, we'll return it later.
@@ -113,6 +120,7 @@ where
         // If we got here that means the stream is done. If we have it we return, and if we don't
         // we report we're pending, because we'll have polled it already earlier.
         if let Some(exit) = this.exit.take() {
+            *this.done = true;
             return Poll::Ready(Some(exit.map(CommandEvent::Exit)));
         }
 
