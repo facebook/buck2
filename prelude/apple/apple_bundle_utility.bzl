@@ -5,8 +5,15 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
+def _get_bundle_target_name(ctx: "context"):
+    if hasattr(ctx.attrs, "_bundle_target_name"):
+        # `apple_resource_bundle` rules are proxies for the real rules,
+        # so make sure we return the real target name rather the proxy one
+        return ctx.attrs._bundle_target_name
+    return ctx.attrs.name
+
 def get_product_name(ctx: "context") -> str.type:
-    return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else ctx.attrs.name
+    return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else _get_bundle_target_name(ctx)
 
 def get_extension_attr(ctx: "context") -> "":
     return ctx.attrs.extension
