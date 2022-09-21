@@ -27,6 +27,7 @@ use termwiz::escape::ControlCode;
 
 use crate::subscribers::display;
 use crate::subscribers::display::TargetDisplayOptions;
+use crate::subscribers::humanized_bytes::HumanizedBytes;
 use crate::subscribers::io::IoState;
 use crate::subscribers::last_command_execution_kind::get_last_command_execution_kind;
 use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
@@ -191,6 +192,8 @@ pub(crate) struct SimpleConsole {
     action_stats: ActionStats,
     re_state: ReState,
     pub(crate) io_state: IoState,
+    /// Last server snapshot.
+    last_snapshot: Option<buck2_data::Snapshot>,
 }
 
 impl SimpleConsole {
@@ -206,6 +209,7 @@ impl SimpleConsole {
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             io_state: IoState::default(),
+            last_snapshot: None,
         }
     }
 
@@ -221,6 +225,7 @@ impl SimpleConsole {
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             io_state: IoState::default(),
+            last_snapshot: None,
         }
     }
 
@@ -282,6 +287,11 @@ impl SimpleConsole {
     fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
         if let Some(h) = self.re_state.render_header() {
             echo!("{}", h)?;
+        }
+        if let Some(snapshot) = &self.last_snapshot {
+            if snapshot.buck2_rss != 0 {
+                echo!("RSS: {}", HumanizedBytes(snapshot.buck2_rss))?;
+            }
         }
         Ok(())
     }
@@ -571,6 +581,7 @@ impl EventSubscriber for SimpleConsole {
     ) -> anyhow::Result<()> {
         self.re_state_mut().update(update);
         self.io_state.update(update);
+        self.last_snapshot = Some(update.clone());
         Ok(())
     }
 }
