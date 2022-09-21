@@ -472,12 +472,11 @@ fn get_stdio() -> anyhow::Result<Stdio> {
         Ok(v) => v,
         Err(_) => "warn".to_owned(),
     };
-
     let level_filter = EnvFilter::try_new(log_level)?;
-    if level_filter.max_level_hint().unwrap() <= LevelFilter::INFO {
+    if level_filter.max_level_hint().unwrap() > LevelFilter::INFO {
         return Ok(Stdio::inherit());
     }
-    Ok(Stdio::piped())
+    Ok(Stdio::null())
 }
 
 #[derive(Debug)]
@@ -576,7 +575,7 @@ async fn connect_to_installer(
     let channel = match attempt_channel {
         Ok(channel) => channel,
         Err(err) => {
-            println!(
+            eprintln!(
                 "Failed to connect with UDS: {:#} Falling back to TCP on port: {}",
                 err, tcp_port
             );
