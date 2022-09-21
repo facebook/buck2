@@ -33,6 +33,7 @@ use crate::subscribers::last_command_execution_kind::get_last_command_execution_
 use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
 use crate::subscribers::re::ReState;
 use crate::subscribers::span_tracker::SpanTracker;
+use crate::subscribers::two_snapshots::TwoSnapshots;
 use crate::verbosity::Verbosity;
 use crate::what_ran;
 use crate::what_ran::local_command_to_string;
@@ -192,8 +193,7 @@ pub(crate) struct SimpleConsole {
     action_stats: ActionStats,
     re_state: ReState,
     pub(crate) io_state: IoState,
-    /// Last server snapshot.
-    last_snapshot: Option<buck2_data::Snapshot>,
+    two_snapshots: TwoSnapshots,
 }
 
 impl SimpleConsole {
@@ -209,7 +209,7 @@ impl SimpleConsole {
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             io_state: IoState::default(),
-            last_snapshot: None,
+            two_snapshots: TwoSnapshots::default(),
         }
     }
 
@@ -225,7 +225,7 @@ impl SimpleConsole {
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             io_state: IoState::default(),
-            last_snapshot: None,
+            two_snapshots: TwoSnapshots::default(),
         }
     }
 
@@ -288,10 +288,13 @@ impl SimpleConsole {
         if let Some(h) = self.re_state.render_header() {
             echo!("{}", h)?;
         }
-        if let Some(snapshot) = &self.last_snapshot {
+        if let Some((_, snapshot)) = &self.two_snapshots.last {
             if snapshot.buck2_rss != 0 {
                 echo!("RSS: {}", HumanizedBytes(snapshot.buck2_rss))?;
             }
+        }
+        if let Some(cpu) = self.two_snapshots.cpu_percents() {
+            echo!("CPU: {}%", cpu)?;
         }
         Ok(())
     }
@@ -577,11 +580,11 @@ impl EventSubscriber for SimpleConsole {
     async fn handle_snapshot(
         &mut self,
         update: &buck2_data::Snapshot,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.re_state_mut().update(update);
         self.io_state.update(update);
-        self.last_snapshot = Some(update.clone());
+        self.two_snapshots.update(event.timestamp, update);
         Ok(())
     }
 }

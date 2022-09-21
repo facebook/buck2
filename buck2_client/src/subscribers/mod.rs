@@ -19,3 +19,4 @@ pub mod simpleconsole;
 pub mod span_tracker;
 pub mod stdout_stderr_forwarder;
 pub mod superconsole;
+pub(crate) mod two_snapshots;
