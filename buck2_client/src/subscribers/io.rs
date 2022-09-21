@@ -10,6 +10,7 @@
 use std::time::SystemTime;
 
 use buck2_core::io_counters::IoCounterKey;
+use gazebo::prelude::VecExt;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
@@ -26,12 +27,40 @@ pub(crate) struct IoState {
     pub(crate) enabled: bool,
 }
 
+/// Place space-separated words on lines.
+fn words_to_lines(words: Vec<String>, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut current_line = String::new();
+    for word in words {
+        if current_line.is_empty() {
+            current_line = word;
+            continue;
+        }
+        // This works correctly only for ASCII strings.
+        if current_line.len() + 1 + word.len() > width {
+            lines.push(current_line);
+            current_line = word;
+        } else {
+            current_line.push(' ');
+            current_line.push_str(&word);
+        }
+    }
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+    lines
+}
+
 impl IoState {
     pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
         self.two_snapshots.update(timestamp, snapshot);
     }
 
-    fn do_render(&self, snapshot: &buck2_data::Snapshot) -> anyhow::Result<Vec<Line>> {
+    fn do_render(
+        &self,
+        snapshot: &buck2_data::Snapshot,
+        width: usize,
+    ) -> anyhow::Result<Vec<Line>> {
         let mut lines = Vec::new();
         if snapshot.buck2_rss != 0 {
             let mut parts = Vec::new();
@@ -43,6 +72,8 @@ impl IoState {
                 parts.join("  "),
             )?]));
         }
+
+        let mut counters = Vec::new();
         // Using a loop to make sure no key is missing.
         for key in IoCounterKey::ALL {
             let value = match key {
@@ -66,13 +97,15 @@ impl IoState {
                 IoCounterKey::EdenSettle => snapshot.io_in_flight_eden_settle,
             };
             if value != 0 {
-                lines.push(Line::unstyled(&format!("{:?} = {}", key, value))?);
+                counters.push(format!("{:?} = {}", key, value));
             }
         }
+        lines.extend(words_to_lines(counters, width).into_try_map(|s| Line::unstyled(&s))?);
+
         Ok(lines)
     }
 
-    pub(crate) fn render(&self, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
+    pub(crate) fn render(&self, draw_mode: DrawMode, width: usize) -> anyhow::Result<Vec<Line>> {
         if !self.enabled {
             return Ok(Vec::new());
         }
@@ -80,7 +113,7 @@ impl IoState {
             return Ok(Vec::new());
         }
         if let Some((_, snapshot)) = &self.two_snapshots.last {
-            self.do_render(snapshot)
+            self.do_render(snapshot, width)
         } else {
             Ok(Vec::new())
         }
@@ -94,10 +127,36 @@ impl Component for IoHeader {
     fn draw_unchecked(
         &self,
         state: &State,
-        _dimensions: Dimensions,
+        dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         let io = state.get::<IoState>()?;
-        io.render(mode)
+        io.render(mode, dimensions.width)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::subscribers::io::words_to_lines;
+
+    #[test]
+    fn test_words_to_lines() {
+        assert_eq!(vec![String::new(); 0], words_to_lines(vec![], 5));
+        assert_eq!(
+            vec!["ab".to_owned()],
+            words_to_lines(vec!["ab".to_owned()], 5)
+        );
+        assert_eq!(
+            vec!["ab cd".to_owned()],
+            words_to_lines(vec!["ab".to_owned(), "cd".to_owned()], 5)
+        );
+        assert_eq!(
+            vec!["ab".to_owned(), "cd".to_owned()],
+            words_to_lines(vec!["ab".to_owned(), "cd".to_owned()], 4)
+        );
+        assert_eq!(
+            vec!["abcd".to_owned()],
+            words_to_lines(vec!["abcd".to_owned()], 3)
+        );
     }
 }
