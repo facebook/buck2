@@ -1,25 +1,23 @@
+use std::time::SystemTime;
+
 use superconsole::Line;
 
 use crate::subscribers::humanized_bytes::HumanizedBytes;
+use crate::subscribers::two_snapshots::TwoSnapshots;
 
 pub(crate) struct ReState {
     session_id: Option<String>,
-    last: Option<Snapshot>,
+    two_snapshots: TwoSnapshots,
     /// Detailed RE stats.
     pub(crate) detailed: bool,
-}
-
-struct Snapshot {
-    /// Full snapshot, including data not needed.
-    snapshot: buck2_data::Snapshot,
 }
 
 impl ReState {
     pub(crate) fn new() -> Self {
         Self {
             session_id: None,
-            last: None,
             detailed: false,
+            two_snapshots: TwoSnapshots::default(),
         }
     }
 
@@ -27,10 +25,8 @@ impl ReState {
         self.session_id = Some(session.session_id.clone());
     }
 
-    pub(crate) fn update(&mut self, snapshot: &buck2_data::Snapshot) {
-        self.last = Some(Snapshot {
-            snapshot: snapshot.clone(),
-        });
+    pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+        self.two_snapshots.update(timestamp, snapshot);
     }
 
     pub(crate) fn render_header(&self) -> Option<String> {
@@ -40,12 +36,23 @@ impl ReState {
             parts.push(session_id.to_owned());
         }
 
-        if let Some(last) = self.last.as_ref() {
-            if last.snapshot.re_upload_bytes > 0 || last.snapshot.re_download_bytes > 0 {
+        if let Some((_, last)) = &self.two_snapshots.last {
+            if last.re_upload_bytes > 0 || last.re_download_bytes > 0 {
+                // TODO(nga): do not show rate if it is final render.
                 parts.push(format!(
-                    "{}▲,  {}▼",
-                    HumanizedBytes(last.snapshot.re_upload_bytes),
-                    HumanizedBytes(last.snapshot.re_download_bytes)
+                    "{} {}/s▲  {} {}/s▼",
+                    HumanizedBytes(last.re_upload_bytes),
+                    HumanizedBytes(
+                        self.two_snapshots
+                            .re_upload_bytes_per_second()
+                            .unwrap_or_default()
+                    ),
+                    HumanizedBytes(last.re_download_bytes),
+                    HumanizedBytes(
+                        self.two_snapshots
+                            .re_download_bytes_per_second()
+                            .unwrap_or_default()
+                    ),
                 ));
             }
         }
@@ -54,7 +61,7 @@ impl ReState {
             return None;
         }
 
-        Some(format!("RE: {}", parts.join(" ")))
+        Some(format!("RE: {}", parts.join("  ")))
     }
 
     fn render_detailed_items(
@@ -81,8 +88,7 @@ impl ReState {
 
     fn render_detailed(&self) -> anyhow::Result<Vec<Line>> {
         let mut r = Vec::new();
-        if let Some(last) = &self.last {
-            let last = &last.snapshot;
+        if let Some((_, last)) = &self.two_snapshots.last {
             r.extend(self.render_detailed_items(
                 "uploads",
                 last.re_uploads_started,

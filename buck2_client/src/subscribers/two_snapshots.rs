@@ -8,6 +8,7 @@
  */
 
 use std::mem;
+use std::time::Duration;
 use std::time::SystemTime;
 
 #[derive(Default)]
@@ -21,14 +22,21 @@ impl TwoSnapshots {
         self.penultimate = mem::replace(&mut self.last, Some((timestamp, snapshot.clone())));
     }
 
-    /// User + system CPU time between two snapshots in percents.
-    pub(crate) fn cpu_percents(&self) -> Option<u32> {
-        let (penultimate_time, penultimate_snapshot) = self.penultimate.as_ref()?;
-        let (last_time, last_snapshot) = self.last.as_ref()?;
+    fn non_zero_duration(&self) -> Option<Duration> {
+        let (penultimate_time, _) = self.penultimate.as_ref()?;
+        let (last_time, _) = self.last.as_ref()?;
         let duration = last_time.duration_since(*penultimate_time).ok()?;
         if duration.is_zero() {
             return None;
         }
+        Some(duration)
+    }
+
+    /// User + system CPU time between two snapshots in percents.
+    pub(crate) fn cpu_percents(&self) -> Option<u32> {
+        let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
+        let (_, last_snapshot) = self.last.as_ref()?;
+        let duration = self.non_zero_duration()?;
         let last_cpu_us = last_snapshot.buck2_user_cpu_us + last_snapshot.buck2_system_cpu_us;
         let penultimate_cpu_us =
             penultimate_snapshot.buck2_user_cpu_us + penultimate_snapshot.buck2_system_cpu_us;
@@ -38,6 +46,27 @@ impl TwoSnapshots {
         } else {
             None
         }
+    }
+
+    fn re_upload_download_rate_bytes_per_second(
+        &self,
+        field: impl Fn(&buck2_data::Snapshot) -> u64,
+    ) -> Option<u64> {
+        let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
+        let (_, last_snapshot) = self.last.as_ref()?;
+        let duration = self.non_zero_duration()?;
+        let last_bytes = field(last_snapshot);
+        let penultimate_bytes = field(penultimate_snapshot);
+        let bytes = last_bytes.checked_sub(penultimate_bytes)?;
+        Some(bytes * 1_000_000 / duration.as_micros() as u64)
+    }
+
+    pub(crate) fn re_download_bytes_per_second(&self) -> Option<u64> {
+        self.re_upload_download_rate_bytes_per_second(|snapshot| snapshot.re_download_bytes)
+    }
+
+    pub(crate) fn re_upload_bytes_per_second(&self) -> Option<u64> {
+        self.re_upload_download_rate_bytes_per_second(|snapshot| snapshot.re_upload_bytes)
     }
 }
 
@@ -74,5 +103,29 @@ mod tests {
         );
         // 2 seconds real time, 14 seconds user + system time, so 700% CPU.
         assert_eq!(Some(700), two_snapshots.cpu_percents());
+    }
+
+    #[test]
+    fn test_re_download_bytes_per_second() {
+        let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
+
+        let mut two_snapshots = TwoSnapshots::default();
+        assert_eq!(None, two_snapshots.re_download_bytes_per_second());
+        two_snapshots.update(
+            t0,
+            &buck2_data::Snapshot {
+                re_download_bytes: 100,
+                ..Default::default()
+            },
+        );
+        assert_eq!(None, two_snapshots.re_download_bytes_per_second());
+        two_snapshots.update(
+            t0.add(Duration::from_secs(2)),
+            &buck2_data::Snapshot {
+                re_download_bytes: 6100,
+                ..Default::default()
+            },
+        );
+        assert_eq!(Some(3000), two_snapshots.re_download_bytes_per_second());
     }
 }

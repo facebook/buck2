@@ -582,7 +582,7 @@ impl EventSubscriber for SimpleConsole {
         update: &buck2_data::Snapshot,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.re_state_mut().update(update);
+        self.re_state_mut().update(event.timestamp, update);
         self.io_state.update(update);
         self.two_snapshots.update(event.timestamp, update);
         Ok(())
