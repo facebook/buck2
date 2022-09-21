@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::SystemTime;
+
 use buck2_core::io_counters::IoCounterKey;
 use superconsole::Component;
 use superconsole::Dimensions;
@@ -16,23 +18,29 @@ use superconsole::Lines;
 use superconsole::State;
 
 use crate::subscribers::humanized_bytes::HumanizedBytes;
+use crate::subscribers::two_snapshots::TwoSnapshots;
 
 #[derive(Default)]
 pub(crate) struct IoState {
-    last: Option<buck2_data::Snapshot>,
+    two_snapshots: TwoSnapshots,
     pub(crate) enabled: bool,
 }
 
 impl IoState {
-    pub(crate) fn update(&mut self, snapshot: &buck2_data::Snapshot) {
-        self.last = Some(snapshot.clone());
+    pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+        self.two_snapshots.update(timestamp, snapshot);
     }
 
     fn do_render(&self, snapshot: &buck2_data::Snapshot) -> anyhow::Result<Vec<Line>> {
         let mut lines = Vec::new();
         if snapshot.buck2_rss != 0 {
+            let mut parts = Vec::new();
+            parts.push(format!("RSS = {}", HumanizedBytes(snapshot.buck2_rss)));
+            if let Some(cpu) = self.two_snapshots.cpu_percents() {
+                parts.push(format!("CPU = {}%", cpu));
+            }
             lines.push(Line::from_iter([superconsole::Span::new_unstyled(
-                format!("RSS = {}", HumanizedBytes(snapshot.buck2_rss)),
+                parts.join("  "),
             )?]));
         }
         // Using a loop to make sure no key is missing.
@@ -71,7 +79,7 @@ impl IoState {
         if let DrawMode::Final = draw_mode {
             return Ok(Vec::new());
         }
-        if let Some(snapshot) = &self.last {
+        if let Some((_, snapshot)) = &self.two_snapshots.last {
             self.do_render(snapshot)
         } else {
             Ok(Vec::new())
