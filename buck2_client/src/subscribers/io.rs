@@ -15,6 +15,8 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
 
+use crate::subscribers::humanized_bytes::HumanizedBytes;
+
 #[derive(Default)]
 pub(crate) struct IoState {
     last: Option<buck2_data::Snapshot>,
@@ -28,6 +30,11 @@ impl IoState {
 
     fn do_render(&self, snapshot: &buck2_data::Snapshot) -> anyhow::Result<Vec<Line>> {
         let mut lines = Vec::new();
+        if snapshot.buck2_rss != 0 {
+            lines.push(Line::from_iter([superconsole::Span::new_unstyled(
+                format!("RSS = {}", HumanizedBytes(snapshot.buck2_rss)),
+            )?]));
+        }
         // Using a loop to make sure no key is missing.
         for key in IoCounterKey::ALL {
             let value = match key {
