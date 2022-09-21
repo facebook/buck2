@@ -28,6 +28,14 @@ use crate::AuditSubcommand;
     about = "Query information about the [repositories] list in .buckconfig."
 )]
 pub struct AuditCellCommand {
+    #[clap(flatten)]
+    config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    console_opts: CommonConsoleOptions,
+
+    #[clap(flatten)]
+    event_log_opts: CommonDaemonCommandOptions,
     #[clap(long = "json", help = "Output in JSON format")]
     json: bool,
 
@@ -140,15 +148,15 @@ impl AuditSubcommand for AuditCellCommand {
             .await
     }
 
-    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
-        None
+    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
+        &self.config_opts
     }
 
-    fn console_opts(&self) -> Option<&CommonConsoleOptions> {
-        None
+    fn console_opts(&self) -> &CommonConsoleOptions {
+        &self.console_opts
     }
 
-    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
-        None
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        &self.event_log_opts
     }
 }

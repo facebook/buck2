@@ -169,15 +169,15 @@ impl AuditSubcommand for AuditVisibilityCommand {
             .await
     }
 
-    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
-        Some(&self.config_opts)
+    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
+        &self.config_opts
     }
 
-    fn console_opts(&self) -> Option<&CommonConsoleOptions> {
-        Some(&self.console_opts)
+    fn console_opts(&self) -> &CommonConsoleOptions {
+        &self.console_opts
     }
 
-    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
-        Some(&self.event_log_opts)
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        &self.event_log_opts
     }
 }

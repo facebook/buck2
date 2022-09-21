@@ -345,3 +345,34 @@ async def test_reuse_current_config(buck: Buck) -> None:
     assert result_file_json is not None
     # assert it does not revert back to @mode/dev by default
     assert result_file_json.get("project.buck_out") == "buck-out/opt"
+
+
+@buck_test(inplace=True)
+@pytest.mark.parametrize(  # type: ignore
+    "cmd",
+    [
+        "audit_visibility",
+        "audit_configurations",
+        "audit_config",
+        "audit_visibility",
+    ],
+)
+async def test_pass_common_opts_func(buck: Buck, cmd: str) -> None:
+    cmd_call = getattr(buck, cmd)
+    await cmd_call("--config", "client.id=placeholder_id")
+
+
+@buck_test(inplace=True)
+@pytest.mark.parametrize(  # type: ignore
+    "cmd",
+    [
+        "analysis-queries",
+        "cell",
+        "execution-platform-resolution",
+        "includes",
+        "prelude",
+        "providers",
+    ],
+)
+async def test_pass_common_opts(buck: Buck, cmd: str) -> None:
+    await buck.audit(cmd, "--config", "client.id=placeholder_id")

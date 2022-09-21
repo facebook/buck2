@@ -16,7 +16,6 @@ use buck2_client::commands::streaming::StreamingCommand;
 use buck2_client::common::CommonBuildConfigurationOptions;
 use buck2_client::common::CommonConsoleOptions;
 use buck2_client::common::CommonDaemonCommandOptions;
-use buck2_client::common::ConsoleType;
 use buck2_client::daemon::client::BuckdClientConnector;
 use buck2_client::exit_result::ExitResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -81,11 +80,11 @@ pub trait AuditSubcommand: Send + Sync + 'static {
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
 
-    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions>;
+    fn config_opts(&self) -> &CommonBuildConfigurationOptions;
 
-    fn console_opts(&self) -> Option<&CommonConsoleOptions>;
+    fn console_opts(&self) -> &CommonConsoleOptions;
 
-    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions>;
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
 }
 
 impl AuditCommand {
@@ -135,10 +134,7 @@ impl StreamingCommand for AuditCommand {
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        let context = match config_opts {
-            Some(opts) => ctx.client_context(opts, submatches)?,
-            _ => ctx.empty_client_context()?,
-        };
+        let context = ctx.client_context(config_opts, submatches)?;
 
         buckd
             .with_flushing()
@@ -154,33 +150,14 @@ impl StreamingCommand for AuditCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        static DEFAULT_OPTS: CommonConsoleOptions = CommonConsoleOptions {
-            console_type: ConsoleType::Simple,
-            ui: vec![],
-        };
-        match self.as_subcommand().console_opts() {
-            Some(v) => v,
-            None => &DEFAULT_OPTS,
-        }
+        self.as_subcommand().console_opts()
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        static DEFAULT_OPTS: CommonDaemonCommandOptions = CommonDaemonCommandOptions {
-            no_event_log: false,
-            event_log: None,
-            build_id_file: None,
-        };
-
-        match self.as_subcommand().event_log_opts() {
-            Some(v) => v,
-            None => &DEFAULT_OPTS,
-        }
+        self.as_subcommand().event_log_opts()
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        match self.as_subcommand().config_opts() {
-            Some(v) => v,
-            None => CommonBuildConfigurationOptions::default_ref(),
-        }
+        self.as_subcommand().config_opts()
     }
 }

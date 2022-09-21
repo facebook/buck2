@@ -33,7 +33,16 @@ use crate::AuditSubcommand;
     name = "audit-prelude",
     about = "print the interpreter prelude to stdout"
 )]
-pub struct AuditPreludeCommand {}
+pub struct AuditPreludeCommand {
+    #[clap(flatten)]
+    config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    console_opts: CommonConsoleOptions,
+
+    #[clap(flatten)]
+    event_log_opts: CommonDaemonCommandOptions,
+}
 
 #[async_trait]
 impl AuditSubcommand for AuditPreludeCommand {
@@ -83,15 +92,15 @@ impl AuditSubcommand for AuditPreludeCommand {
             .await
     }
 
-    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
-        None
+    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
+        &self.config_opts
     }
 
-    fn console_opts(&self) -> Option<&CommonConsoleOptions> {
-        None
+    fn console_opts(&self) -> &CommonConsoleOptions {
+        &self.console_opts
     }
 
-    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
-        None
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        &self.event_log_opts
     }
 }

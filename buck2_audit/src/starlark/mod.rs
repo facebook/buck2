@@ -43,15 +43,15 @@ impl AuditSubcommand for StarlarkCommand {
         }
     }
 
-    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
-        None
+    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
+        CommonBuildConfigurationOptions::default_ref()
     }
 
-    fn console_opts(&self) -> Option<&CommonConsoleOptions> {
-        None
+    fn console_opts(&self) -> &CommonConsoleOptions {
+        CommonConsoleOptions::default_ref()
     }
 
-    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
-        None
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        CommonDaemonCommandOptions::default_ref()
     }
 }
