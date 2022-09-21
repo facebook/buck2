@@ -591,11 +591,12 @@ impl EventSubscriber for StatefulSuperConsole {
     async fn handle_snapshot(
         &mut self,
         update: &buck2_data::Snapshot,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.simple_console.re_state_mut().update(update);
-        self.state.simple_console.io_state.update(update);
-        Ok(())
+        self.state
+            .simple_console
+            .handle_snapshot(update, event)
+            .await
     }
 }
 
