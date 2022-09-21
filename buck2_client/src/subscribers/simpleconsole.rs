@@ -21,6 +21,7 @@ use buck2_events::subscriber::Tick;
 use buck2_events::BuckEvent;
 use gazebo::prelude::*;
 use lsp_server::Message;
+use superconsole::DrawMode;
 use superconsole::SuperConsole;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
@@ -285,7 +286,7 @@ impl SimpleConsole {
     }
 
     fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
-        if let Some(h) = self.re_state.render_header() {
+        if let Some(h) = self.re_state.render_header(DrawMode::Normal) {
             echo!("{}", h)?;
         }
         if let Some((_, snapshot)) = &self.two_snapshots.last {
@@ -391,7 +392,7 @@ impl EventSubscriber for SimpleConsole {
             )?;
         }
 
-        if let Some(re) = &self.re_state.render_header() {
+        if let Some(re) = &self.re_state.render_header(DrawMode::Final) {
             echo!("{}", re)?;
         }
 

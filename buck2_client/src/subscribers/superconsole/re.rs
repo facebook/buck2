@@ -17,9 +17,9 @@ impl Component for ReHeader {
         &self,
         state: &superconsole::State,
         _dimensions: superconsole::Dimensions,
-        _mode: superconsole::DrawMode,
+        mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
         let re = state.get::<ReState>()?;
-        re.render()
+        re.render(mode)
     }
 }

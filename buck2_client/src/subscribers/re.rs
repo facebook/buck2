@@ -1,5 +1,6 @@
 use std::time::SystemTime;
 
+use superconsole::DrawMode;
 use superconsole::Line;
 
 use crate::subscribers::humanized_bytes::HumanizedBytes;
@@ -29,7 +30,7 @@ impl ReState {
         self.two_snapshots.update(timestamp, snapshot);
     }
 
-    pub(crate) fn render_header(&self) -> Option<String> {
+    pub(crate) fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
         let mut parts = Vec::new();
 
         if let Some(session_id) = self.session_id.as_ref() {
@@ -38,22 +39,33 @@ impl ReState {
 
         if let Some((_, last)) = &self.two_snapshots.last {
             if last.re_upload_bytes > 0 || last.re_download_bytes > 0 {
-                // TODO(nga): do not show rate if it is final render.
-                parts.push(format!(
-                    "{} {}/s▲  {} {}/s▼",
-                    HumanizedBytes(last.re_upload_bytes),
-                    HumanizedBytes(
-                        self.two_snapshots
-                            .re_upload_bytes_per_second()
-                            .unwrap_or_default()
-                    ),
-                    HumanizedBytes(last.re_download_bytes),
-                    HumanizedBytes(
-                        self.two_snapshots
-                            .re_download_bytes_per_second()
-                            .unwrap_or_default()
-                    ),
-                ));
+                let part = match draw_mode {
+                    DrawMode::Normal => {
+                        format!(
+                            "{} {}/s▲  {} {}/s▼",
+                            HumanizedBytes(last.re_upload_bytes),
+                            HumanizedBytes(
+                                self.two_snapshots
+                                    .re_upload_bytes_per_second()
+                                    .unwrap_or_default()
+                            ),
+                            HumanizedBytes(last.re_download_bytes),
+                            HumanizedBytes(
+                                self.two_snapshots
+                                    .re_download_bytes_per_second()
+                                    .unwrap_or_default()
+                            ),
+                        )
+                    }
+                    DrawMode::Final => {
+                        format!(
+                            "{}▲  {}▼",
+                            HumanizedBytes(last.re_upload_bytes),
+                            HumanizedBytes(last.re_download_bytes),
+                        )
+                    }
+                };
+                parts.push(part);
             }
         }
 
@@ -129,8 +141,8 @@ impl ReState {
         Ok(r)
     }
 
-    pub(crate) fn render(&self) -> anyhow::Result<Vec<Line>> {
-        let header = match self.render_header() {
+    pub(crate) fn render(&self, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
+        let header = match self.render_header(draw_mode) {
             Some(header) => header,
             None => return Ok(Vec::new()),
         };
