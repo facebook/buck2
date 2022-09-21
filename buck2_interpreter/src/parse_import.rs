@@ -18,7 +18,7 @@ use buck2_core::fs::paths::ForwardRelativePath;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ImportParseError {
+enum ImportParseError {
     #[error(
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`. Got `{0}`"
     )]
@@ -27,10 +27,6 @@ pub enum ImportParseError {
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`, but got an empty filename. Got `{0}`"
     )]
     EmptyFileName(String),
-    #[error(
-        "Unable to parse import spec. Expected file relative path format `name/filename.bzl`. Got cell relative path `{0}`"
-    )]
-    CellRelativePathWithoutPackage(String),
     #[error("Unexpected relative import spec. Got `{0}`")]
     ProhibitedRelativeImport(String),
     #[error(
