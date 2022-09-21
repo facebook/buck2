@@ -45,6 +45,9 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_data::InstallEventInfoEnd;
+use buck2_data::InstallEventInfoStart;
+use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -612,6 +615,7 @@ async fn connect_to_installer(
     let client = InstallerClient::new(channel);
     Ok(client)
 }
+
 async fn send_file(
     file: FileResult,
     artifact_fs: &ArtifactFs,
@@ -640,41 +644,55 @@ async fn send_file(
         sha1: sha1.to_owned(),
         path: path.to_string(),
     });
-    let response_result = client.file_ready(request).await;
-    let response = match response_result {
-        Ok(r) => r.into_inner(),
-        Err(status) => {
-            return Err(InstallError::ProcessingFileReadyFailure {
+
+    let start = InstallEventInfoStart {
+        artifact_name: name.to_owned(),
+        file_path: path.to_string(),
+    };
+    let end = InstallEventInfoEnd {};
+    span_async(start, async {
+        let mut outcome: anyhow::Result<()> = Ok(());
+        let response_result = client.file_ready(request).await;
+        let response = match response_result {
+            Ok(r) => r.into_inner(),
+            Err(status) => {
+                return (
+                    Err(InstallError::ProcessingFileReadyFailure {
+                        install_id: install_id.to_owned(),
+                        artifact: name,
+                        path: path.to_owned(),
+                        err: status.message().to_owned(),
+                    }
+                    .into()),
+                    end,
+                );
+            }
+        };
+
+        if response.install_id != install_id {
+            outcome = Err(InstallError::ProcessingFileReadyFailure {
                 install_id: install_id.to_owned(),
-                artifact: name,
+                artifact: name.to_owned(),
                 path: path.to_owned(),
-                err: status.message().to_owned(),
+                err: format!(
+                    "Received install id: {} doesn't match with the sent one: {}",
+                    response.install_id, &install_id
+                ),
             }
             .into());
         }
-    };
 
-    if response.install_id != install_id {
-        return Err(InstallError::ProcessingFileReadyFailure {
-            install_id: install_id.to_owned(),
-            artifact: name,
-            path: path.to_owned(),
-            err: format!(
-                "Received install id: {} doesn't match with the sent one: {}",
-                response.install_id, &install_id
-            ),
+        if let Some(error_detail) = response.error_detail {
+            outcome = Err(InstallError::ProcessingFileReadyFailure {
+                install_id: install_id.to_owned(),
+                artifact: name.to_owned(),
+                path: path.to_owned(),
+                err: error_detail.message,
+            }
+            .into());
         }
-        .into());
-    }
-
-    if let Some(error_detail) = response.error_detail {
-        return Err(InstallError::ProcessingFileReadyFailure {
-            install_id: install_id.to_owned(),
-            artifact: name,
-            path: path.to_owned(),
-            err: error_detail.message,
-        }
-        .into());
-    }
+        (outcome, end)
+    })
+    .await?;
     Ok(())
 }

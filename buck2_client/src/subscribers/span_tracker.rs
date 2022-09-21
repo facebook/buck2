@@ -266,6 +266,7 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             | Data::Watchman(..)
             | Data::SharedTask(..)
             | Data::CreateOutputSymlinks(..)
+            | Data::InstallEventInfo(..)
             | Data::Fake(..),
         ) => true,
         None => false,

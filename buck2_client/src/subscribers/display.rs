@@ -220,6 +220,10 @@ pub(crate) fn display_event(
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::CacheUpload(..) => Ok("upload".to_owned()),
             Data::CreateOutputSymlinks(..) => Ok("Creating output symlinks".to_owned()),
+            Data::InstallEventInfo(info) => Ok(format!(
+                "Sending {} at path {}",
+                info.artifact_name, info.file_path
+            )),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

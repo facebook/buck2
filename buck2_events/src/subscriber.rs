@@ -182,6 +182,9 @@ pub trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::CreateOutputSymlinks(create_output_symlinks) => {
                 self.handle_create_output_symlinks_start(create_output_symlinks, event)
             }
+            buck2_data::span_start_event::Data::InstallEventInfo(info) => {
+                self.handle_install_event_info_start(info, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -245,6 +248,9 @@ pub trait EventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::CreateOutputSymlinks(create_output_symlinks) => {
                 self.handle_create_output_symlinks_end(create_output_symlinks, event)
+            }
+            buck2_data::span_end_event::Data::InstallEventInfo(info) => {
+                self.handle_install_event_info_end(info, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -590,6 +596,20 @@ pub trait EventSubscriber: Send {
     async fn handle_create_output_symlinks_end(
         &mut self,
         _create_output_symlinks: &buck2_data::CreateOutputSymlinksEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_install_event_info_start(
+        &mut self,
+        _info: &buck2_data::InstallEventInfoStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_install_event_info_end(
+        &mut self,
+        _info: &buck2_data::InstallEventInfoEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

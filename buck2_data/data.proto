@@ -63,6 +63,7 @@ message SpanStartEvent {
     CacheUploadStart cache_upload = 63;
     CreateOutputSymlinksStart create_output_symlinks = 64;
     CommandCriticalStart command_critical = 65;
+    InstallEventInfoStart install_event_info = 66;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -92,6 +93,7 @@ message SpanEndEvent {
     CacheUploadEnd cache_upload = 64;
     CreateOutputSymlinksEnd create_output_symlinks = 65;
     CommandCriticalEnd command_critical = 66;
+    InstallEventInfoEnd install_event_info = 67;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1142,3 +1144,10 @@ message CreateOutputSymlinksStart {};
 message CreateOutputSymlinksEnd {
   uint64 created = 1;
 };
+
+message InstallEventInfoStart {
+  string artifact_name = 1;
+  string file_path = 2;
+};
+
+message InstallEventInfoEnd {};
