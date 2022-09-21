@@ -8,6 +8,7 @@ load("@prelude//utils:utils.bzl", "expect", "map_idx")
 def _build_dependencies_file(
         ctx: "context",
         transform_profile: str.type,
+        flavors: [str.type],
         transitive_js_library_outputs: "transitive_set_args_projection") -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
@@ -23,7 +24,7 @@ def _build_dependencies_file(
         "command": "dependencies",
         "entryPoints": [ctx.attrs.entry] if type(ctx.attrs.entry) == "string" else list(ctx.attrs.entry),
         "extraData": extra_data_args,
-        "flavors": get_flavors(ctx),
+        "flavors": flavors,
         "libraries": transitive_js_library_outputs,
         "outputFilePath": dependencies_file,
         "platform": ctx.attrs._platform,
@@ -53,6 +54,7 @@ def _build_js_bundle(
         ram_bundle_name: str.type,
         ram_bundle_command: str.type,
         transform_profile: str.type,
+        flavors: [str.type],
         transitive_js_library_outputs: "transitive_set_args_projection",
         dependencies_file: "artifact") -> JsBundleInfo.type:
     base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
@@ -78,7 +80,7 @@ def _build_js_bundle(
         "command": "bundle",
         "entryPoints": [ctx.attrs.entry] if type(ctx.attrs.entry) == "string" else list(ctx.attrs.entry),
         "extraData": extra_data_args,
-        "flavors": get_flavors(ctx),
+        "flavors": flavors,
         "libraries": transitive_js_library_outputs,
         "miscDirPath": misc_dir_path,
         "platform": ctx.attrs._platform,
@@ -166,15 +168,16 @@ def js_bundle_impl(ctx: "context") -> ["provider"]:
     default_outputs = []
     extra_unnamed_output_providers = None
     bundle_name = get_bundle_name(ctx, "{}.js".format(ctx.attrs.name))
+    flavors = get_flavors(ctx)
     for transform_profile in TRANSFORM_PROFILES:
         dep_infos = map_idx(JsLibraryInfo, [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps])
 
         transitive_js_library_tset = get_transitive_outputs(ctx.actions, deps = dep_infos)
         transitive_js_library_outputs = transitive_js_library_tset.project_as_args("artifacts")
-        dependencies_file = _build_dependencies_file(ctx, transform_profile, transitive_js_library_outputs)
+        dependencies_file = _build_dependencies_file(ctx, transform_profile, flavors, transitive_js_library_outputs)
 
         for ram_bundle_name, ram_bundle_command in RAM_BUNDLE_TYPES.items():
-            js_bundle_info = _build_js_bundle(ctx, bundle_name, ram_bundle_name, ram_bundle_command, transform_profile, transitive_js_library_outputs, dependencies_file)
+            js_bundle_info = _build_js_bundle(ctx, bundle_name, ram_bundle_name, ram_bundle_command, transform_profile, flavors, transitive_js_library_outputs, dependencies_file)
 
             simple_name = transform_profile if not ram_bundle_name else "{}-{}".format(ram_bundle_name, transform_profile)
             built_js_providers = _get_default_providers(js_bundle_info)

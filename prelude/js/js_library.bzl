@@ -41,6 +41,7 @@ def _get_virtual_path(ctx: "context", src: "artifact", base_path: [str.type, Non
 def _build_js_file(
         ctx: "context",
         transform_profile: str.type,
+        flavors: [str.type],
         grouped_src: GroupedSource.type) -> "artifact":
     identifier = "{}/{}".format(transform_profile, grouped_src.canonical_name)
 
@@ -51,7 +52,7 @@ def _build_js_file(
             "virtualPath": _get_virtual_path(ctx, additional_source, ctx.attrs.base_path),
         } for additional_source in grouped_src.additional_sources],
         "command": "transform",
-        "flavors": get_flavors(ctx),
+        "flavors": flavors,
         "outputFilePath": output_path,
         "release": ctx.attrs._is_release,
         "sourceJsFileName": _get_virtual_path(ctx, grouped_src.main_source, ctx.attrs.base_path),
@@ -86,13 +87,14 @@ def _build_js_file(
 def _build_library_files(
         ctx: "context",
         transform_profile: str.type,
+        flavors: [str.type],
         js_files: ["artifact"]) -> "artifact":
     output_path = ctx.actions.declare_output("{}/library_files".format(transform_profile))
     command_args_file = ctx.actions.write_json(
         "library_files_{}_command_args".format(transform_profile),
         {
             "command": "library-files",
-            "flavors": get_flavors(ctx),
+            "flavors": flavors,
             "outputFilePath": output_path,
             "platform": ctx.attrs._platform,
             "release": ctx.attrs._is_release,
@@ -114,13 +116,14 @@ def _build_js_library(
         ctx: "context",
         transform_profile: str.type,
         library_files: "artifact",
+        flavors: [str.type],
         js_library_deps: ["artifact"]) -> "artifact":
     output_path = ctx.actions.declare_output("{}.jslib".format(transform_profile))
     job_args = {
         "aggregatedSourceFilesFilePath": library_files,
         "command": "library-dependencies",
         "dependencyLibraryFilePaths": js_library_deps,
-        "flavors": get_flavors(ctx),
+        "flavors": flavors,
         "outputPath": output_path,
         "platform": ctx.attrs._platform,
         "release": ctx.attrs._is_release,
@@ -153,14 +156,15 @@ def _build_js_library(
 
 def js_library_impl(ctx: "context") -> ["provider"]:
     grouped_srcs = _get_grouped_srcs(ctx)
+    flavors = get_flavors(ctx)
     sub_targets = {}
 
     for transform_profile in TRANSFORM_PROFILES:
         built_js_files = [
-            _build_js_file(ctx, transform_profile, grouped_src)
+            _build_js_file(ctx, transform_profile, flavors, grouped_src)
             for grouped_src in grouped_srcs
         ]
-        library_files = _build_library_files(ctx, transform_profile, built_js_files)
+        library_files = _build_library_files(ctx, transform_profile, flavors, built_js_files)
 
         js_library_deps = dedupe(map_idx(
             JsLibraryInfo,
@@ -170,6 +174,7 @@ def js_library_impl(ctx: "context") -> ["provider"]:
             ctx,
             transform_profile,
             library_files,
+            flavors,
             [js_library_dep.output for js_library_dep in js_library_deps],
         )
 
