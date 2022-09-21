@@ -538,6 +538,14 @@ async fn copy_directory(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
+    if let Some(parent) = dst.parent() {
+        if !parent.exists() {
+            return Err(anyhow::anyhow!(
+                "Directory `{}` does not exist",
+                parent.display()
+            ));
+        }
+    }
     let dest_path = match dst.is_dir() {
         true => Cow::Owned(dst.join(src.file_name().context("Failed getting output name")?)),
         false => Cow::Borrowed(dst),

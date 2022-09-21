@@ -1045,6 +1045,14 @@ async def test_out_overwrite(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="out")
+async def test_out_parent_not_exist(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("//:a", "--out", "notexist/tmpfile"),
+        stderr_regex="Directory `notexist` does not exist",
+    )
+
+
+@buck_test(inplace=False, data_dir="out")
 async def test_out_single_default_output_to_dir(buck: Buck) -> None:
     with tempfile.TemporaryDirectory() as out:
         await buck.build("//:a", "--out", out)
