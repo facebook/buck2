@@ -60,10 +60,23 @@ def _should_handle_special_case_whole_out_dir_is_output(ctx: "context", outs_att
         return True
     return False
 
+# We don't want to use cache mode in open source because the config keys that drive it aren't wired up
+# @oss-disable: _USE_CACHE_MODE = True 
+_USE_CACHE_MODE = False # @oss-enable
+
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> {str.type: "attribute"}:
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return {"_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")}
+    if _USE_CACHE_MODE:
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
+        return {"_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")}
+    else:
+        return {}
+
+def _get_cache_mode(ctx: "context") -> CacheModeInfo.type:
+    if _USE_CACHE_MODE:
+        return ctx.attrs._cache_mode[CacheModeInfo]
+    else:
+        return CacheModeInfo(allow_cache_uploads = False, cache_bust_genrules = False)
 
 def genrule_impl(ctx: "context") -> ["provider"]:
     # Directories:
@@ -202,7 +215,8 @@ def process_genrule(
         env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
 
     # For now, when uploads are enabled, be safe and avoid sharing cache hits.
-    cache_bust = ctx.attrs._cache_mode[CacheModeInfo].cache_bust_genrules
+    cache_bust = _get_cache_mode(ctx).cache_bust_genrules
+
     if cacheable and cache_bust:
         env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = cmd_args("")
 
