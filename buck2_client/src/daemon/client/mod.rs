@@ -7,13 +7,17 @@
  * of this source tree.
  */
 
+use std::fs::File;
 use std::pin::Pin;
 use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_common::client_utils::retrying;
+use buck2_core::fs::paths::AbsPathBuf;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
+use fs2::FileExt;
 use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;
@@ -81,6 +85,37 @@ impl BuckdClientConnector {
         FlushingBuckdClient {
             inner: &mut self.client,
         }
+    }
+}
+
+pub struct BuckdLifecycleLock {
+    lock_file: File,
+}
+
+impl BuckdLifecycleLock {
+    pub async fn lock_with_timeout(
+        daemon_dir: AbsPathBuf,
+        timeout: Duration,
+    ) -> anyhow::Result<BuckdLifecycleLock> {
+        let lifecycle_path = daemon_dir.as_path().join("buckd.lifecycle");
+        let file = File::create(lifecycle_path)?;
+        retrying(
+            Duration::from_millis(5),
+            Duration::from_millis(100),
+            timeout,
+            async || Ok(file.try_lock_exclusive()?),
+        )
+        .await?;
+
+        Ok(BuckdLifecycleLock { lock_file: file })
+    }
+}
+
+impl Drop for BuckdLifecycleLock {
+    fn drop(&mut self) {
+        self.lock_file
+            .unlock()
+            .expect("Unexpected failure to unlock buckd.lifecycle file.")
     }
 }
 
@@ -459,18 +494,18 @@ macro_rules! debug_method {
 
 /// Wrap a method that exists on the BuckdClient, with flushing.
 macro_rules! wrap_method {
-    ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
-        pub async fn $method(&mut self, $($param: $param_type)*) -> anyhow::Result<$res> {
-            self.enter()?;
-            let out = self
-                .inner
-                .$method($($param)*)
-                .await;
-            self.exit().await?;
-            out
-        }
-    };
-}
+     ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
+         pub async fn $method(&mut self, $($param: $param_type)*) -> anyhow::Result<$res> {
+             self.enter()?;
+             let out = self
+                 .inner
+                 .$method($($param)*)
+                 .await;
+             self.exit().await?;
+             out
+         }
+     };
+ }
 
 impl<'a> FlushingBuckdClient<'a> {
     stream_method!(clean, CleanRequest, CleanResponse);

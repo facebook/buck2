@@ -24,7 +24,6 @@ use buck2_core::process::async_background_command;
 use buck2_events::subscriber::EventSubscriber;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
-use fs2::FileExt;
 use futures::future::try_join3;
 use gazebo::prelude::StrExt;
 use thiserror::Error;
@@ -34,6 +33,7 @@ use tonic::transport::Channel;
 
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::ClientKind;
 use crate::daemon::client::VersionCheckResult;
 use crate::events_ctx::EventsCtx;
@@ -52,7 +52,7 @@ fn buckd_startup_timeout() -> anyhow::Result<Duration> {
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {
     paths: &'a InvocationPaths,
-    lock_file: File,
+    _lock: BuckdLifecycleLock,
 }
 
 impl<'a> BuckdLifecycle<'a> {
@@ -60,19 +60,9 @@ impl<'a> BuckdLifecycle<'a> {
         paths: &'a InvocationPaths,
         timeout: Duration,
     ) -> anyhow::Result<BuckdLifecycle<'a>> {
-        let lifecycle_path = paths.daemon_dir()?.as_path().join("buckd.lifecycle");
-        let file = File::create(lifecycle_path)?;
-        retrying(
-            Duration::from_millis(5),
-            Duration::from_millis(100),
-            timeout,
-            async || Ok(file.try_lock_exclusive()?),
-        )
-        .await?;
-
         Ok(BuckdLifecycle::<'a> {
             paths,
-            lock_file: file,
+            _lock: BuckdLifecycleLock::lock_with_timeout(paths.daemon_dir()?, timeout).await?,
         })
     }
 
@@ -183,14 +173,6 @@ impl<'a> BuckdLifecycle<'a> {
                 }
             }
         }
-    }
-}
-
-impl<'a> Drop for BuckdLifecycle<'a> {
-    fn drop(&mut self) {
-        self.lock_file
-            .unlock()
-            .expect("Unexpected failure to unlock buckd.pid file.")
     }
 }
 
