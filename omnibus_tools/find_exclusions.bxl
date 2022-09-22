@@ -39,7 +39,11 @@ def _find_exclusions_impl(ctx):
     tp2_labels = cquery.eval("fbcode//third-party-buck/platform010/...")
     tp2_labels += cquery.eval("fbsource//third-party/ucc/...")
 
-    exclusion_roots = ["fbcode//common/memory:jemalloc"]
+    # Targets that are commonly used as preload_deps, which gets excluded
+    exclusion_roots = [
+        "fbcode//common/memory:jemalloc",
+        "//folly/experimental/exception_tracer:exception_tracer_callbacks",
+    ]
     exclusion_root_labels = [_one(cquery.eval(e)) for e in exclusion_roots]
 
     nodes = list(tp2_labels) + exclusion_root_labels
