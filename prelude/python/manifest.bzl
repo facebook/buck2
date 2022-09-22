@@ -16,14 +16,7 @@ def _write_manifest(
     """
     Serialize the given source manifest entries to a JSON file.
     """
-    lines = ["["]
-    for idx, (dest, artifact, origin) in enumerate(entries):
-        fmt = "  [\"{}\", \"{{}}\", \"{}\"]".format(dest, origin)
-        if idx != len(entries) - 1:
-            fmt += ","
-        lines.append(cmd_args(artifact, format = fmt))
-    lines.append("]")
-    return ctx.actions.write(name + ".manifest", lines)
+    return ctx.actions.write_json(name + ".manifest", entries)
 
 def create_manifest_for_entries(
         ctx: "context",
