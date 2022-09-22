@@ -51,6 +51,37 @@ fn words_to_lines(words: Vec<String>, width: usize) -> Vec<String> {
     lines
 }
 
+fn io_in_flight_non_zero_counters(
+    snapshot: &buck2_data::Snapshot,
+) -> impl Iterator<Item = (IoCounterKey, u32)> + '_ {
+    IoCounterKey::ALL
+        .iter()
+        .map(|key| {
+            let value = match key {
+                IoCounterKey::Stat => snapshot.io_in_flight_stat,
+                IoCounterKey::Copy => snapshot.io_in_flight_copy,
+                IoCounterKey::Symlink => snapshot.io_in_flight_symlink,
+                IoCounterKey::Hardlink => snapshot.io_in_flight_hardlink,
+                IoCounterKey::MkDir => snapshot.io_in_flight_mk_dir,
+                IoCounterKey::ReadDir => snapshot.io_in_flight_read_dir,
+                IoCounterKey::ReadDirEden => snapshot.io_in_flight_read_dir_eden,
+                IoCounterKey::RmDir => snapshot.io_in_flight_rm_dir,
+                IoCounterKey::RmDirAll => snapshot.io_in_flight_rm_dir_all,
+                IoCounterKey::StatEden => snapshot.io_in_flight_stat_eden,
+                IoCounterKey::Chmod => snapshot.io_in_flight_chmod,
+                IoCounterKey::ReadLink => snapshot.io_in_flight_read_link,
+                IoCounterKey::Remove => snapshot.io_in_flight_remove,
+                IoCounterKey::Rename => snapshot.io_in_flight_rename,
+                IoCounterKey::Read => snapshot.io_in_flight_read,
+                IoCounterKey::Write => snapshot.io_in_flight_write,
+                IoCounterKey::Canonicalize => snapshot.io_in_flight_canonicalize,
+                IoCounterKey::EdenSettle => snapshot.io_in_flight_eden_settle,
+            };
+            (*key, value)
+        })
+        .filter(|(_, value)| *value > 0)
+}
+
 impl IoState {
     pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
         self.two_snapshots.update(timestamp, snapshot);
@@ -74,31 +105,8 @@ impl IoState {
         }
 
         let mut counters = Vec::new();
-        // Using a loop to make sure no key is missing.
-        for key in IoCounterKey::ALL {
-            let value = match key {
-                IoCounterKey::Stat => snapshot.io_in_flight_stat,
-                IoCounterKey::Copy => snapshot.io_in_flight_copy,
-                IoCounterKey::Symlink => snapshot.io_in_flight_symlink,
-                IoCounterKey::Hardlink => snapshot.io_in_flight_hardlink,
-                IoCounterKey::MkDir => snapshot.io_in_flight_mk_dir,
-                IoCounterKey::ReadDir => snapshot.io_in_flight_read_dir,
-                IoCounterKey::ReadDirEden => snapshot.io_in_flight_read_dir_eden,
-                IoCounterKey::RmDir => snapshot.io_in_flight_rm_dir,
-                IoCounterKey::RmDirAll => snapshot.io_in_flight_rm_dir_all,
-                IoCounterKey::StatEden => snapshot.io_in_flight_stat_eden,
-                IoCounterKey::Chmod => snapshot.io_in_flight_chmod,
-                IoCounterKey::ReadLink => snapshot.io_in_flight_read_link,
-                IoCounterKey::Remove => snapshot.io_in_flight_remove,
-                IoCounterKey::Rename => snapshot.io_in_flight_rename,
-                IoCounterKey::Read => snapshot.io_in_flight_read,
-                IoCounterKey::Write => snapshot.io_in_flight_write,
-                IoCounterKey::Canonicalize => snapshot.io_in_flight_canonicalize,
-                IoCounterKey::EdenSettle => snapshot.io_in_flight_eden_settle,
-            };
-            if value != 0 {
-                counters.push(format!("{:?} = {}", key, value));
-            }
+        for (key, value) in io_in_flight_non_zero_counters(snapshot) {
+            counters.push(format!("{:?} = {}", key, value));
         }
         lines.extend(words_to_lines(counters, width).into_try_map(|s| Line::unstyled(&s))?);
 
