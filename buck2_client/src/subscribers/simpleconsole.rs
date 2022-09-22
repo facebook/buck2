@@ -29,6 +29,7 @@ use termwiz::escape::ControlCode;
 use crate::subscribers::display;
 use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::humanized_bytes::HumanizedBytes;
+use crate::subscribers::io::io_in_flight_non_zero_counters;
 use crate::subscribers::io::IoState;
 use crate::subscribers::last_command_execution_kind::get_last_command_execution_kind;
 use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
@@ -302,6 +303,20 @@ impl SimpleConsole {
             }
             if !parts.is_empty() {
                 echo!("Resource usage: {}", parts.join(" "))?;
+            }
+        }
+
+        {
+            if let Some((_, snapshot)) = &self.two_snapshots.last {
+                let mut parts = Vec::new();
+                for (key, value) in io_in_flight_non_zero_counters(snapshot) {
+                    parts.push(format!("{:?}: {}", key, value));
+                }
+                if !parts.is_empty() {
+                    echo!("IO: {}", parts.join(" "))?;
+                } else {
+                    echo!("IO: none")?;
+                }
             }
         }
 

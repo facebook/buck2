@@ -51,7 +51,7 @@ fn words_to_lines(words: Vec<String>, width: usize) -> Vec<String> {
     lines
 }
 
-fn io_in_flight_non_zero_counters(
+pub(crate) fn io_in_flight_non_zero_counters(
     snapshot: &buck2_data::Snapshot,
 ) -> impl Iterator<Item = (IoCounterKey, u32)> + '_ {
     IoCounterKey::ALL
