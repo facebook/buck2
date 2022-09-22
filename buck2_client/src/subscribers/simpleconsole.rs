@@ -289,14 +289,22 @@ impl SimpleConsole {
         if let Some(h) = self.re_state.render_header(DrawMode::Normal) {
             echo!("{}", h)?;
         }
-        if let Some((_, snapshot)) = &self.two_snapshots.last {
-            if snapshot.buck2_rss != 0 {
-                echo!("RSS: {}", HumanizedBytes(snapshot.buck2_rss))?;
+
+        {
+            let mut parts = Vec::with_capacity(2);
+            if let Some((_, snapshot)) = &self.two_snapshots.last {
+                if snapshot.buck2_rss != 0 {
+                    parts.push(format!("RSS: {}", HumanizedBytes(snapshot.buck2_rss)));
+                }
+            }
+            if let Some(cpu) = self.two_snapshots.cpu_percents() {
+                parts.push(format!("CPU: {}%", cpu));
+            }
+            if !parts.is_empty() {
+                echo!("Resource usage: {}", parts.join(" "))?;
             }
         }
-        if let Some(cpu) = self.two_snapshots.cpu_percents() {
-            echo!("CPU: {}%", cpu)?;
-        }
+
         Ok(())
     }
 }
