@@ -702,7 +702,7 @@ native.genrule(
 
 native.genrule(
     name = "check_binary_with_metainf_dir",
-    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/java_binary_with_metainf:binary) \"META-INF/\" \"META-INF/MANIFEST.MF\" \"META-INF/test.txt\" \"META-INF/foo.txt\" \"META-INF/bar/\" \"META-INF/bar/baz.txt\"> $OUT",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/java_binary_with_metainf:binary) \"META-INF/\" \"META-INF/MANIFEST.MF\" \"META-INF/test.txt\" \"META-INF/foo.txt\" \"META-INF/bar/baz.txt\"> $OUT",
     out = "out.txt",
 )
 
