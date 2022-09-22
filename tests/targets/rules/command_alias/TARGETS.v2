@@ -77,3 +77,19 @@ native.genrule(
     out = "out.txt",
     cmd = '$(exe :relative_path) | grep "foo" && touch "$OUT"',
 )
+
+native.python_binary(
+    name = "print_cwd",
+    base_module = "",
+    main_module = "print_cwd",
+    deps = [":print_cwd_lib"],
+    visibility = ["PUBLIC"],
+)
+
+native.python_library(
+    name = "print_cwd_lib",
+    base_module = "",
+    srcs = [
+        "print_cwd.py",
+    ],
+)

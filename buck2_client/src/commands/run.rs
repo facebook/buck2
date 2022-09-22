@@ -70,6 +70,12 @@ pub struct RunCommand {
     command_args_file: Option<String>,
 
     #[clap(
+        long = "chdir",
+        help = "Set the current working directory of the executable being run"
+    )]
+    chdir: Option<String>,
+
+    #[clap(
         name = "TARGET_ARGS",
         help = "Additional arguments passed to the target when running it"
     )]
@@ -167,7 +173,7 @@ impl StreamingCommand for RunCommand {
 
             ExitResult::success()
         } else {
-            ExitResult::exec(run_args[0].clone(), run_args)
+            ExitResult::exec(run_args[0].clone(), run_args, self.chdir)
         }
     }
 

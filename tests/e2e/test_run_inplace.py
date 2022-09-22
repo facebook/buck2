@@ -1,4 +1,6 @@
+import os
 import sys
+import tempfile
 
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.asserts import expect_failure
@@ -86,3 +88,24 @@ if rust_linux_only():
 @buck_test(inplace=True)
 async def test_input(buck: Buck):
     await buck.run("fbcode//buck2/tests/targets/run:expect", input=b"test")
+
+
+@buck_test(inplace=True)
+async def test_change_cwd(buck: Buck) -> None:
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        result = await buck.run(
+            "fbcode//buck2/tests/targets/rules/command_alias:print_cwd",
+            f"--chdir={tmpdirname}",
+        )
+        # e.g. in CI it's like this
+        # assert '/var/folders/jq/7h2_h68s0ndbmc43k9cgf2zw000xbj/T/tmp2dk9jc68'
+        # in '/private/var/folders/jq/7h2_h68s0ndbmc43k9cgf2zw000xbj/T/tmp2dk9jc68'
+        assert tmpdirname in result.stdout.strip()
+
+
+@buck_test(inplace=True)
+async def test_dont_change_cwd(buck: Buck) -> None:
+    result = await buck.run(
+        "fbcode//buck2/tests/targets/rules/command_alias:print_cwd",
+    )
+    assert os.getcwd() == result.stdout.strip()

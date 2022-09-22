@@ -20,6 +20,12 @@ use anyhow::Context;
 use cli_proto::command_result;
 use gazebo::prelude::*;
 
+pub struct ExecArgs {
+    prog: String,
+    argv: Vec<String>,
+    chdir: Option<String>,
+}
+
 /// ExitResult represents the outcome of a process execution where we care to return a specific
 /// exit code. This is designed to be used as the return value from `main()`.
 ///
@@ -37,7 +43,7 @@ pub enum ExitResult {
     /// We finished successfully, return the specific exit code.
     Status(u8),
     /// Instead of terminating normally, `exec` a new process with the given name and argv.
-    Exec(String, Vec<String>),
+    Exec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
     Err(anyhow::Error),
@@ -66,8 +72,8 @@ impl ExitResult {
         }
     }
 
-    pub fn exec(prog: String, argv: Vec<String>) -> Self {
-        Self::Exec(prog, argv)
+    pub fn exec(prog: String, argv: Vec<String>, chdir: Option<String>) -> Self {
+        Self::Exec(ExecArgs { prog, argv, chdir })
     }
 
     pub fn bail(msg: impl Display) -> Self {
@@ -137,7 +143,7 @@ impl Try for ExitResult {
             Self::Err(v) => ControlFlow::Break(v),
             // `Exec` doesn't lend itself to a reasonable implementation of Try; it doesn't easily decompose into a
             // residual or output, and changing the output type would break all call sites of ExitResult.
-            Self::Exec(_, _) => unimplemented!("Try impl invoked on Exec variant"),
+            Self::Exec(..) => unimplemented!("Try impl invoked on Exec variant"),
         }
     }
 }
@@ -167,11 +173,11 @@ impl ExitResult {
         // ensures we get the desired exit code printed instead of potentially a panic.
         let mut exit_code = match self {
             Self::Status(v) => v,
-            Self::Exec(prog, argv) => {
+            Self::Exec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
                 // execv does not return on successful operation, so it always returns an error.
-                let e = execv(&prog, &argv).unwrap_err();
+                let e = execv(args).unwrap_err();
                 Self::Err(e).report()
             }
             Self::Err(e) => {
@@ -244,12 +250,18 @@ pub enum FailureExitCode {
 
 /// Invokes the given program with the given argv and replaces the program image with the new program. Does not return
 /// in the case of successful execution.
-fn execv(prog: &str, argv: &[String]) -> anyhow::Result<()> {
-    let argv_cstrs: Vec<CString> = argv.try_map(|s| CString::new(s.clone()))?;
+fn execv(args: ExecArgs) -> anyhow::Result<()> {
+    let argv_cstrs: Vec<CString> = args.argv.try_map(|s| CString::new(s.clone()))?;
     let mut argv_ptrs: Vec<_> = argv_cstrs.map(|cstr| cstr.as_ptr());
     // By convention, execv's second argument is terminated by a null pointer.
     argv_ptrs.push(std::ptr::null());
-    let prog_cstr = CString::new(prog).context("program name contained a null byte")?;
+    let prog_cstr = CString::new(args.prog).context("program name contained a null byte")?;
+
+    if let Some(dir) = args.chdir {
+        // This is OK because we immediately call execv after this
+        // (otherwise this would be a really bad idea)
+        std::env::set_current_dir(&dir)?;
+    }
     unsafe {
         libc::execv(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
     }
