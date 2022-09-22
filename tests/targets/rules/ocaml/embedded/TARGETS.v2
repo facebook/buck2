@@ -22,3 +22,17 @@ rust_binary(
     # Mode 'opt-clang' doesn't need this but 'dev' does.
     link_style = "static",
 )
+
+# The point of this test is to check that the loop over ocaml libs in
+# `ocaml_object_impl` doesn't refer to record fields that don't exist (see
+# D39744573).
+ocaml_library(
+    name = "empty-lib",
+    srcs = [],
+    deps = [],
+)
+ocaml_object(
+    name = "empty-obj",
+    srcs = [],
+    deps = [":empty-lib"],
+)

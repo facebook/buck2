@@ -733,8 +733,8 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     cmd = _compiler(ctx, ocamlopt, ld)
 
     for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
-        cmd.add(lib.cmxas, lib.libs, lib.native_c_libs, lib.stbs)
-        cmd.hidden(lib.cmxs, lib.cmis, lib.cmts)
+        cmd.add(lib.cmxas, lib.c_libs, lib.native_c_libs, lib.stbs_nat)
+        cmd.hidden(lib.cmxs, lib.cmis_nat, lib.cmts_nat)
 
     cmd.add(stbs, "-args", cmxs_order)
     cmd.hidden(cmxs, cmis, cmts, objs, cmtis)
