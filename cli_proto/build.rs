@@ -24,6 +24,7 @@ fn main() -> io::Result<()> {
     println!("cargo:rerun-if-env-changed=PROTOC");
     buck2_protoc_dev::maybe_setup_protoc("../../..");
     tonic_build::configure()
+        .protoc_arg("--experimental_allow_proto3_optional")
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)] #[serde(rename_all = \"snake_case\")]")
         .field_attribute("start_time", "#[serde(with = \"serialize_timestamp\")]")
         .field_attribute("timeout", "#[serde(with = \"serialize_duration\")]")
