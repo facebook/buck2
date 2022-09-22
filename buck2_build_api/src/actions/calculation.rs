@@ -138,6 +138,7 @@ async fn build_action_no_redirect(
 
         let mut prefers_local = None;
         let mut requires_local = None;
+        let mut allows_cache_upload = None;
 
         match execute_result {
             Ok((outputs, meta)) => {
@@ -157,6 +158,7 @@ async fn build_action_no_redirect(
                 if let Some(command) = meta.execution_kind.command() {
                     prefers_local = Some(command.prefers_local);
                     requires_local = Some(command.requires_local);
+                    allows_cache_upload = Some(command.allows_cache_upload);
                 }
             }
             Err(e) => {
@@ -215,6 +217,7 @@ async fn build_action_no_redirect(
                 outputs,
                 prefers_local: prefers_local.unwrap_or_default(),
                 requires_local: requires_local.unwrap_or_default(),
+                allows_cache_upload: allows_cache_upload.unwrap_or_default(),
             },
         )
     })

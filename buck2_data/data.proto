@@ -788,6 +788,7 @@ message ActionExecutionEnd {
   // For commands, their local preference.
   bool prefers_local = 27;
   bool requires_local = 28;
+  bool allows_cache_upload = 29;
 }
 
 // The beginning of materialization for the output of a target requested,
