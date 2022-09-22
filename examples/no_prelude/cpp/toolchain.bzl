@@ -4,12 +4,12 @@ CxxCompilerInfo = provider(
 )
 
 def _cpp_local_toolchain_impl(ctx):
-    return [DefaultInfo(), CxxCompilerInfo(compiler_path = ctx.attr.command)]
+    return [DefaultInfo(), CxxCompilerInfo(compiler_path = ctx.attrs.command)]
 
 cpp_local_toolchain = rule(
-    implementation = _cpp_local_toolchain_impl,
+    impl = _cpp_local_toolchain_impl,
     is_toolchain_rule = True,
     attrs = {
-        "command": attr.string(),
+        "command": attrs.string(),
     },
 )
