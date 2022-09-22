@@ -396,7 +396,9 @@ def create_jar_artifact_javacd(
                 return output
             return output_paths.jar
 
-        merged_jar = declare_prefixed_output(actions_prefix, "merged.jar")
+        merged_jar = output
+        if not merged_jar:
+            merged_jar = declare_prefixed_output(actions_prefix, "merged.jar")
         actions.run(
             [
                 java_toolchain.merge_to_jar[RunInfo],
@@ -411,17 +413,7 @@ def create_jar_artifact_javacd(
             ],
             category = "{}merge_additional_srcs".format(actions_prefix),
         )
-
-        scrubbed_jar = output
-        if not scrubbed_jar:
-            scrubbed_jar = declare_prefixed_output(actions_prefix, "merged_and_scrubbed.jar")
-
-        actions.run(
-            cmd_args([java_toolchain.zip_scrubber, merged_jar, scrubbed_jar.as_output()]),
-            category = "{}scrub_jar".format(actions_prefix),
-        )
-
-        return scrubbed_jar
+        return merged_jar
 
     final_jar = prepare_final_jar()
     class_abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, final_jar)
