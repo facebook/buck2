@@ -251,6 +251,7 @@ def _python_binary_attrs():
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": attrs.dep(default = "prelude//cxx/tools:omnibus_environment"),
         "_python_toolchain": _python_toolchain(),
+        "_target_os_type": _target_os_type(),
     })
     return updated_attrs
 

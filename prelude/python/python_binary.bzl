@@ -380,11 +380,18 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
         compile = value_or(ctx.attrs.compile, False),
     )
 
+    run_args = []
+
+    # Windows can't run PAR directly.
+    if ctx.attrs._target_os_type == "windows":
+        run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
+    run_args.append(output)
+
     return [
         DefaultInfo(
             default_outputs = [output],
             other_outputs = runtime_files,
             sub_targets = extra,
         ),
-        RunInfo(cmd_args(output).hidden(runtime_files)),
+        RunInfo(cmd_args(run_args).hidden(runtime_files)),
     ]
