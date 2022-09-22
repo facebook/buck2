@@ -106,10 +106,7 @@ impl StreamingCommand for CqueryCommand {
         let correct_owner = match (self.correct_owner, self.deprecated_owner) {
             (true, false) => true,
             (false, true) => false,
-            (false, false) => {
-                // TODO(nga): make it correct by default,
-                false
-            }
+            (false, false) => true,
             (true, true) => {
                 return ExitResult::bail(
                     "Cannot specify both --correct-owner and --deprecated-owner",
