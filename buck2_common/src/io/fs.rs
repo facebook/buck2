@@ -83,26 +83,27 @@ impl IoProvider for FsIoProvider {
 
         let path = self.fs.resolve(&path);
 
-        let dir_entries = tokio::task::spawn_blocking(move || fs_util::read_dir(&path))
-            .await
-            .unwrap()
-            .context("Error listing directory")?;
+        tokio::task::spawn_blocking(move || {
+            let dir_entries = fs_util::read_dir(&path)?;
 
-        let mut entries = Vec::new();
+            let mut entries = Vec::new();
 
-        for entry in dir_entries {
-            let e = entry.context("Error accessing directory entry")?;
-            let file_name = e.file_name();
-            let file_name = file_name
-                .to_str()
-                .ok_or_else(|| ReadDirError::NotUtf8(file_name.clone()))?;
-            entries.push(SimpleDirEntry {
-                file_type: e.file_type()?.into(),
-                file_name: FileNameBuf::unchecked_new(file_name.to_owned()),
-            });
-        }
+            for entry in dir_entries {
+                let e = entry.context("Error accessing directory entry")?;
+                let file_name = e.file_name();
+                let file_name = file_name
+                    .to_str()
+                    .ok_or_else(|| ReadDirError::NotUtf8(file_name.clone()))?;
+                entries.push(SimpleDirEntry {
+                    file_type: e.file_type()?.into(),
+                    file_name: FileNameBuf::unchecked_new(file_name.to_owned()),
+                });
+            }
 
-        Ok(entries)
+            anyhow::Ok(entries)
+        })
+        .await?
+        .context("Error listing directory")
     }
 
     async fn read_path_metadata_if_exists(
