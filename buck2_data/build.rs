@@ -16,6 +16,7 @@ fn main() -> io::Result<()> {
     println!("cargo:rerun-if-env-changed=PROTOC");
     buck2_protoc_dev::maybe_setup_protoc("../../..");
     tonic_build::configure()
+        .protoc_arg("--experimental_allow_proto3_optional")
         .type_attribute(
             "buck.data.BuckEvent.data",
             "#[allow(clippy::large_enum_variant)]",
