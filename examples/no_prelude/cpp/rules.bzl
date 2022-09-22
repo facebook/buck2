@@ -30,7 +30,7 @@ def _cpp_library_impl(ctx: "context") -> ["provider"]:
     headers = ctx.attrs.headers
     out = ctx.actions.declare_output("lib.so")
 
-    cmd = cmd_args(["clang++", "-shared", "-undefined", "dynamic_lookup", "-o", out.as_output()] + sources)
+    cmd = cmd_args([ctx.attrs.toolchain[CxxCompilerInfo].compiler_path, "-shared", "-undefined", "dynamic_lookup", "-o", out.as_output()] + sources)
 
     ctx.actions.run(cmd, category = "compile")
 
@@ -42,5 +42,6 @@ cpp_library = rule(
         "deps": attrs.list(attrs.dep()),
         "headers": attrs.list(attrs.source()),
         "srcs": attrs.list(attrs.source()),
+        "toolchain": attrs.toolchain_dep(),
     },
 )
