@@ -15,7 +15,6 @@ futures = { workspace = true }
 indent_write = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
-num_cpus = { workspace = true }
 once_cell = { workspace = true }
 os_str_bytes = { workspace = true }
 regex = { workspace = true }
@@ -23,14 +22,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 siphasher = { workspace = true }
 tempfile = { workspace = true }
-threadpool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-walkdir = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }

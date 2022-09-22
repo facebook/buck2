@@ -292,6 +292,7 @@ impl CommandKind {
             CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
                 buck2_client::eprintln!(
@@ -309,7 +310,6 @@ impl CommandKind {
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Install(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),

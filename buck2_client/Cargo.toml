@@ -44,7 +44,9 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 httparse = { workspace = true }
 parking_lot = { workspace = true }
-
+walkdir = { workspace = true }
+num_cpus = { workspace = true }
+threadpool = { workspace = true }
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
 fbinit = { workspace = true }
@@ -55,6 +57,7 @@ superconsole = { version = "0.1.0", path = "../superconsole" }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
+buck2_execute = { path = "../buck2_execute"}
 buck2_events = { path = "../buck2_events" }
 buck2_test_api = { path = "../buck2_test_api" }
 cli_proto = { path = "../cli_proto" }

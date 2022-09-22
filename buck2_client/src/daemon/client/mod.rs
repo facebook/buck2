@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fs::create_dir_all;
 use std::fs::File;
 use std::pin::Pin;
 use std::time::Duration;
@@ -97,6 +98,7 @@ impl BuckdLifecycleLock {
         daemon_dir: AbsPathBuf,
         timeout: Duration,
     ) -> anyhow::Result<BuckdLifecycleLock> {
+        create_dir_all(daemon_dir.as_path())?;
         let lifecycle_path = daemon_dir.as_path().join("buckd.lifecycle");
         let file = File::create(lifecycle_path)?;
         retrying(
