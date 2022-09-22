@@ -56,9 +56,9 @@ async def test_configured_target_hashing(
 
     # Hash should change iff the target is the modified target or depends on the modified target
     if rule in unmodified:
-        assert output[0]["$target_hash"] == modified_output[0]["$target_hash"]
+        assert output[0]["buck.target_hash"] == modified_output[0]["buck.target_hash"]
     else:
-        assert output[0]["$target_hash"] != modified_output[0]["$target_hash"]
+        assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
 
 
 # TODO: Make this test isolated, i.e. inplace=False.
@@ -110,6 +110,6 @@ async def test_unconfigured_target_hashing(
 
     # Hash should change iff the target is the modified target or depends on the modified target
     if rule in unmodified:
-        assert output[0]["$target_hash"] == modified_output[0]["$target_hash"]
+        assert output[0]["buck.target_hash"] == modified_output[0]["buck.target_hash"]
     else:
-        assert output[0]["$target_hash"] != modified_output[0]["$target_hash"]
+        assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
