@@ -1,0 +1,15 @@
+python_binary(
+    name = "fbcode_cimport",
+    srcs = ["fbcode_cimport.py"],
+    base_module = "",
+    main_module = "fbcode_cimport",
+    deps = [
+        "fbcode//common/concurrency:thread_safe_fork_guard",
+    ],
+)
+
+buck_genrule(
+    name = "fbcode_cimport_run",
+    out = "hello.txt",
+    cmd = "$(exe :fbcode_cimport) > $OUT",
+)

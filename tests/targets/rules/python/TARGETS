@@ -41,13 +41,13 @@ bzl_native.python_library(
 bzl_native.genrule(
     name = "run_hello",
     out = "hello.txt",
-    bash = "$(exe :hello) > $OUT",
+    cmd = "$(exe :hello) > $OUT",
 )
 
 bzl_native.genrule(
     name = "run_hello_with_main_module",
     out = "hello.txt",
-    bash = "$(exe :hello_with_main_module) > $OUT",
+    cmd = "$(exe :hello_with_main_module) > $OUT",
 )
 
 bzl_native.python_binary(
@@ -62,7 +62,7 @@ bzl_native.python_binary(
 bzl_native.genrule(
     name = "run_with_dependency",
     out = "hello.txt",
-    bash = "$(exe :with_dependency) > $OUT",
+    cmd = "$(exe :with_dependency) > $OUT",
 )
 
 python_binary(
@@ -75,7 +75,7 @@ python_binary(
 buck_genrule(
     name = "fbcode_hello_run",
     out = "hello.txt",
-    bash = "$(exe :fbcode_hello) > $OUT",
+    cmd = "$(exe :fbcode_hello) > $OUT",
 )
 
 python_binary(
@@ -91,21 +91,5 @@ python_binary(
 buck_genrule(
     name = "fbcode_import_run",
     out = "hello.txt",
-    bash = "$(exe :fbcode_import) > $OUT",
-)
-
-python_binary(
-    name = "fbcode_cimport",
-    srcs = ["fbcode_cimport.py"],
-    base_module = "",
-    main_module = "fbcode_cimport",
-    deps = [
-        "fbcode//common/concurrency:thread_safe_fork_guard",
-    ],
-)
-
-buck_genrule(
-    name = "fbcode_cimport_run",
-    out = "hello.txt",
-    bash = "$(exe :fbcode_cimport) > $OUT",
+    cmd = "$(exe :fbcode_import) > $OUT",
 )

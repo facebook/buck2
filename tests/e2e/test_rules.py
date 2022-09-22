@@ -256,6 +256,8 @@ async def test_python(buck: Buck, package_style: str) -> None:
     ]
     if sys.platform == "darwin":
         args.append("@fbcode//mode/mac")
+    if sys.platform == "win32":
+        args.append("@fbcode//mode/win")
     await buck.build(*args)
 
 
