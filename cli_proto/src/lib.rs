@@ -247,7 +247,6 @@ result_convert!(TargetsShowOutputsResponse);
 result_convert!(GenericResponse);
 result_convert!(UnstableDocsResponse);
 result_convert!(ProfileResponse);
-result_convert!(CleanResponse);
 result_convert!(InstallResponse);
 result_convert!(MaterializeResponse);
 result_convert!(LspResponse);
@@ -268,5 +267,4 @@ define_request!(UnstableDocsRequest, has(context));
 define_request!(ProfileRequest, has(context));
 define_request!(MaterializeRequest, has(context));
 
-define_request!(CleanRequest, has(context));
 define_request!(InstallRequest, has(context, build_options));

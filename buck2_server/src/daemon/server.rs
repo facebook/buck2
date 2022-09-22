@@ -137,11 +137,6 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         ctx: Box<dyn ServerCommandContextTrait>,
         req: BuildRequest,
     ) -> anyhow::Result<BuildResponse>;
-    async fn clean(
-        &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
-        req: CleanRequest,
-    ) -> anyhow::Result<CleanResponse>;
     async fn install(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -640,65 +635,6 @@ impl DaemonApi for BuckdServer {
             buck2_build_api::actions::impls::run::dep_files::flush_dep_files();
             Ok(GenericResponse {})
         })
-        .await
-    }
-
-    type CleanStream = ResponseStream;
-    async fn clean(&self, req: Request<CleanRequest>) -> Result<Response<ResponseStream>, Status> {
-        struct ShutdownDropGuard {
-            daemon_shutdown: Arc<DaemonShutdown>,
-        }
-
-        impl Drop for ShutdownDropGuard {
-            fn drop(&mut self) {
-                self.daemon_shutdown.start_shutdown(None);
-            }
-        }
-
-        let shut_down_after = !req.get_ref().dry_run;
-
-        struct CleanRunCommandOptions {
-            shut_down_after: bool,
-        }
-
-        impl OneshotCommandOptions for CleanRunCommandOptions {
-            fn pre_run(&self, server: &BuckdServer) -> Result<(), Status> {
-                server.check_if_accepting_requests()?;
-                if self.shut_down_after {
-                    // NOTE: we don't do reject requests via start_shutdown() because that would
-                    // cause us to stop listening on our socket, which is not ideal for callers as
-                    // it means they can't tell *why* the server is not accepting requests.
-                    server
-                        .stop_accepting_requests
-                        .store(true, Ordering::Relaxed);
-                }
-                Ok(())
-            }
-        }
-
-        impl StreamingCommandOptions<CleanRequest> for CleanRunCommandOptions {}
-
-        let drop_guard = if shut_down_after {
-            Some(ShutdownDropGuard {
-                daemon_shutdown: self.daemon_shutdown.dupe(),
-            })
-        } else {
-            None
-        };
-
-        let callbacks = self.callbacks;
-        self.run_streaming(
-            req,
-            CleanRunCommandOptions { shut_down_after },
-            move |ctx, req| async move {
-                let res = callbacks.clean(box ctx, req).await;
-
-                // Ensure that if all goes well, the drop guard lives until this point.
-                drop(drop_guard);
-
-                res
-            },
-        )
         .await
     }
 

@@ -28,15 +28,6 @@ message KillRequest {
 
 message KillResponse {}
 
-message CleanRequest {
-  ClientContext context = 1;
-  bool dry_run = 2;
-}
-
-message CleanResponse {
-  repeated string clean_paths = 1;
-}
-
 message StatusRequest {
   bool snapshot = 1;
 }
@@ -448,7 +439,6 @@ message CommandResult {
     UnstableDocsResponse unstable_docs_response = 10;
     ProfileResponse profile_response = 11;
     TargetsShowOutputsResponse targets_show_outputs_response = 12;
-    CleanResponse clean_response = 13;
     InstallResponse install_response = 14;
     AqueryResponse aquery_response = 15;
     MaterializeResponse materialize_response = 16;
@@ -583,7 +573,6 @@ service DaemonApi {
   rpc Uquery(UqueryRequest) returns (stream CommandProgress);
   rpc Audit(GenericRequest) returns (stream CommandProgress);
   rpc UnstableDocs(UnstableDocsRequest) returns (stream CommandProgress);
-  rpc Clean(CleanRequest) returns (stream CommandProgress);
   rpc Install(InstallRequest) returns (stream CommandProgress);
   rpc Materialize(MaterializeRequest) returns (stream CommandProgress);
   rpc Profile2(ProfileRequest) returns (stream CommandProgress);

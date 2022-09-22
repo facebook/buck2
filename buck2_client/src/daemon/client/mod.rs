@@ -510,7 +510,6 @@ macro_rules! wrap_method {
  }
 
 impl<'a> FlushingBuckdClient<'a> {
-    stream_method!(clean, CleanRequest, CleanResponse);
     stream_method!(aquery, AqueryRequest, AqueryResponse);
     stream_method!(cquery, CqueryRequest, CqueryResponse);
     stream_method!(uquery, UqueryRequest, UqueryResponse);

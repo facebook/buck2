@@ -37,7 +37,6 @@ use buck2_server::daemon::server::BuckdServerDependencies;
 use buck2_server::docs::docs_command;
 use buck2_server::profile::profile_command;
 use buck2_server_commands::commands::build::build_command;
-use buck2_server_commands::commands::clean::clean_command;
 use buck2_server_commands::commands::install::install_command;
 use buck2_server_commands::commands::query::aquery::aquery_command;
 use buck2_server_commands::commands::query::cquery::cquery_command;
@@ -117,13 +116,6 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         req: cli_proto::BuildRequest,
     ) -> anyhow::Result<cli_proto::BuildResponse> {
         build_command(ctx, req).await
-    }
-    async fn clean(
-        &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::CleanRequest,
-    ) -> anyhow::Result<cli_proto::CleanResponse> {
-        clean_command(ctx, req).await
     }
     async fn install(
         &self,
