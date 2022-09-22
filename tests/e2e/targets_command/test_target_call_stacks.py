@@ -23,5 +23,5 @@ async def test_target_call_stacks_json(buck: Buck) -> None:
     )
 
     out = json.loads(out.stdout)
-    call_stack = out[0]["$target_call_stack"]
+    call_stack = out[0]["buck.target_call_stack"]
     assert "export_file" in call_stack
