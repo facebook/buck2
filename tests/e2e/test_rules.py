@@ -722,7 +722,7 @@ if fbcode_linux_only():
             target,
             "@//mode/opt-clang-thinlto",
             "-c",
-            "fbcode.experimental_distributed_thinlto=True",
+            "fbcode.enable_distributed_thinlto=True",
             "-c",
             "fbcode.platform=platform010",
         )
@@ -743,7 +743,7 @@ if fbcode_linux_only():
             "fbcode//buck2/tests/targets/rules/cxx/dist_lto:enforce-thinlto",
             "@//mode/opt-clang-thinlto",
             "-c",
-            "fbcode.experimental_distributed_thinlto=True",
+            "fbcode.enable_distributed_thinlto=True",
             "-c",
             "fbcode.platform=platform010",
         )
@@ -757,7 +757,7 @@ if fbcode_linux_only():
             "fbcode//buck2/tests/targets/rules/cxx/dist_lto:enforce-thinlto-rust",
             "@//mode/opt-clang-thinlto",
             "-c",
-            "fbcode.experimental_distributed_thinlto=True",
+            "fbcode.enable_distributed_thinlto=True",
             "-c",
             "fbcode.platform=platform010",
         )
