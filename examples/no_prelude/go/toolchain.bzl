@@ -4,9 +4,9 @@ GoCompilerInfo = provider(
 )
 
 def _go_toolchain_impl(ctx):
-    url = "https://go.dev/dl/go" + ctx.attr.version + "." + ctx.attr.platform + ".tar.gz"
+    url = "https://go.dev/dl/go" + ctx.attrs.version + "." + ctx.attrs.platform + ".tar.gz"
 
-    download = http_archive_impl(ctx, url, ctx.attr.sha1)
+    download = http_archive_impl(ctx, url, ctx.attrs.sha1)
 
     compiler_dst = ctx.actions.declare_output("compiler")
     compiler_src = cmd_args(download[0].default_outputs[0], format = "{}/go/bin/go")
@@ -15,11 +15,11 @@ def _go_toolchain_impl(ctx):
     return download + [GoCompilerInfo(compiler_path = compiler_dst, GOROOT = "")]
 
 go_toolchain = rule(
-    implementation = _go_toolchain_impl,
+    impl = _go_toolchain_impl,
     attrs = {
-        "platform": attr.string(),
-        "sha1": attr.string(),
-        "version": attr.string(),
+        "platform": attrs.string(),
+        "sha1": attrs.string(),
+        "version": attrs.string(),
     },
 )
 

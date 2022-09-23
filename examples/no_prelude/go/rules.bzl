@@ -1,10 +1,10 @@
 load("//toolchain.bzl", "GoCompilerInfo")
 
 def _go_binary_impl(ctx: "context") -> ["provider"]:
-    sources = ctx.attr.srcs
+    sources = ctx.attrs.srcs
     out = ctx.actions.declare_output("main")
 
-    cmd = cmd_args([ctx.attr.toolchain[GoCompilerInfo].compiler_path, "build", "-o", out.as_output()] + sources)
+    cmd = cmd_args([ctx.attrs.toolchain[GoCompilerInfo].compiler_path, "build", "-o", out.as_output()] + sources)
 
     ctx.actions.run(cmd, category = "compile")
 
@@ -14,10 +14,10 @@ def _go_binary_impl(ctx: "context") -> ["provider"]:
     ]
 
 go_binary = rule(
-    implementation = _go_binary_impl,
+    impl = _go_binary_impl,
     attrs = {
-        "deps": attr.list(attr.dep()),
-        "srcs": attr.list(attr.source()),
-        "toolchain": attr.dep(),
+        "deps": attrs.list(attrs.dep()),
+        "srcs": attrs.list(attrs.source()),
+        "toolchain": attrs.dep(),
     },
 )
