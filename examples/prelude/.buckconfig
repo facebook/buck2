@@ -5,3 +5,4 @@ name=BUILD
 prelude = ./prelude
 toolchains = ./toolchains
 root = .
+bazel_skylib = no
