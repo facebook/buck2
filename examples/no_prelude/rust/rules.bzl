@@ -1,5 +1,5 @@
 def _rust_binary_impl(ctx):
-    file = ctx.attr.file
+    file = ctx.attrs.file
     out = ctx.actions.declare_output("main")
 
     cmd = cmd_args(["rustc", "--crate-type=bin", file, "-o", out.as_output()])
@@ -9,8 +9,8 @@ def _rust_binary_impl(ctx):
     return [DefaultInfo(default_outputs = [out]), RunInfo(args = cmd_args([out]))]
 
 rust_binary = rule(
-    implementation = _rust_binary_impl,
+    impl = _rust_binary_impl,
     attrs = {
-        "file": attr.source(),
+        "file": attrs.source(),
     },
 )
