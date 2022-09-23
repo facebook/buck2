@@ -19,7 +19,7 @@ python_toolchain(
 )
 
 # the bootstrap toolchain is used
-# to poentially initialize other
+# to potentially initialize other
 # toolchains
 python_toolchain(
     name="python_bootstrap",
