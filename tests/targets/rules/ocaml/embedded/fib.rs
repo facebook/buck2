@@ -1,3 +1,5 @@
+extern crate fib_ffi;
+
 use std::env::args;
 use std::ffi::CString;
 use std::os::raw::c_char;
