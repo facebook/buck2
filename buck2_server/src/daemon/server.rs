@@ -17,6 +17,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -567,9 +568,19 @@ where
     // We run the event consumer on a totally separate tokio runtime to avoid the consumer task from getting stuck behind
     // another tokio task in its lifo task slot. See T96012305 and https://github.com/tokio-rs/tokio/issues/4323 for more
     // information.
-    let _merge_task = std::thread::spawn(move || {
-        pump_events(events, output_send);
-    });
+    let merge_task = thread::Builder::new()
+        .name("pump-events".to_owned())
+        .spawn(move || {
+            pump_events(events, output_send);
+        });
+    let _merge_task = match merge_task {
+        Ok(merge_task) => merge_task,
+        Err(e) => {
+            return error_to_response_stream(
+                anyhow::Error::new(e).context("failed to spawn pump-events"),
+            );
+        }
+    };
 
     // The stream we ultimately return is the receiving end of the channel that the above task is writing to.
     Response::new(Box::pin(SyncStream {
