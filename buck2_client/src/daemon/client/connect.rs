@@ -10,6 +10,7 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -378,7 +379,7 @@ impl BuckdConnectOptions {
         let (protocol, endpoint) = info.endpoint.split1(":");
         let connection_type = match protocol {
             "uds" => ConnectionType::Uds {
-                unix_socket: endpoint.to_owned(),
+                unix_socket: Path::new(endpoint).to_path_buf(),
             },
             "tcp" => ConnectionType::Tcp {
                 socket: SOCKET_ADDR.to_owned(),

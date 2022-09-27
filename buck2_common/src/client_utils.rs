@@ -8,6 +8,8 @@
  */
 
 use std::cmp;
+use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -20,7 +22,7 @@ pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";
 
 pub enum ConnectionType {
-    Uds { unix_socket: String },
+    Uds { unix_socket: PathBuf },
     Tcp { socket: String, port: String },
 }
 // This function could potentialy change the working directory briefly and should not be run
@@ -39,11 +41,9 @@ pub async fn get_channel(
 
 #[cfg(unix)]
 pub async fn get_channel_uds(
-    unix_socket: &str,
+    unix_socket: &Path,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
-    use std::path::Path;
-
     use tonic::codegen::http::Uri;
     use tower::service_fn;
 
@@ -53,15 +53,14 @@ pub async fn get_channel_uds(
     // then change directory back to the current directory since the unix domain socket
     // path is limited to 108 characters. https://man7.org/linux/man-pages/man7/unix.7.html
     let (connect_to, _with_dir) = if change_to_parent_dir {
-        let unix_socket = Path::new(unix_socket);
         let socket_dir = unix_socket.parent().ok_or_else(|| {
             anyhow::anyhow!("Socket path has no parent: `{}`", unix_socket.display())
         })?;
-        let filename = unix_socket
-            .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid socket: `{}`", unix_socket.display()))?
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid Conversion from Osstr to Str"))?;
+        let filename = Path::new(
+            unix_socket
+                .file_name()
+                .ok_or_else(|| anyhow::anyhow!("Invalid socket: `{}`", unix_socket.display()))?,
+        );
         (filename, Some(WithCurrentDirectory::new(socket_dir)))
     } else {
         (unix_socket, None)
@@ -69,7 +68,12 @@ pub async fn get_channel_uds(
 
     let io = tokio::net::UnixStream::connect(&connect_to)
         .await
-        .with_context(|| format!("Failed to connect to unix domain socket `{}`", unix_socket))?;
+        .with_context(|| {
+            format!(
+                "Failed to connect to unix domain socket `{}`",
+                unix_socket.display()
+            )
+        })?;
 
     let mut io = Some(io);
     // This URL string is not relevant to the connection. Some URL is required for the function to work but the closure running inside connect_with_connector()
@@ -82,10 +86,15 @@ pub async fn get_channel_uds(
             futures::future::ready(io)
         }))
         .await
-        .with_context(|| format!("Failed to connect to unix domain socket `{}`", unix_socket))
+        .with_context(|| {
+            format!(
+                "Failed to connect to unix domain socket `{}`",
+                unix_socket.display()
+            )
+        })
 }
 #[cfg(windows)]
-pub async fn get_channel_uds(_unix_filename: &str, _chg_dir: bool) -> anyhow::Result<Channel> {
+pub async fn get_channel_uds(_unix_filename: &Path, _chg_dir: bool) -> anyhow::Result<Channel> {
     Err(anyhow::Error::msg(
         "Unix domain sockets are not supported on Windows",
     ))

@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::net::SocketAddr;
 use std::net::TcpListener;
+use std::path::PathBuf;
 use std::process::Stdio;
 
 use anyhow::Context;
@@ -343,7 +344,7 @@ async fn handle_install_request<'a>(
         build_launch_installer(ctx, installer_label, &installer_run_args).await?;
 
         let client: InstallerClient<Channel> =
-            connect_to_installer(uds_socket_filename.to_owned(), tcp_port).await?;
+            connect_to_installer(PathBuf::from(uds_socket_filename), tcp_port).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
 
         for (install_id, install_files) in install_files_slice {
@@ -555,7 +556,7 @@ async fn materialize_artifact_group(
 
 #[cfg(unix)]
 async fn connect_to_installer(
-    unix_socket: String,
+    unix_socket: PathBuf,
     tcp_port: u16,
 ) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
@@ -606,7 +607,7 @@ async fn connect_to_installer(
 
 #[cfg(windows)]
 async fn connect_to_installer(
-    _unix_socket: String,
+    _unix_socket: PathBuf,
     tcp_port: u16,
 ) -> anyhow::Result<InstallerClient<Channel>> {
     use tonic::transport::Endpoint;
