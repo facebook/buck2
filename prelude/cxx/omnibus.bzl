@@ -140,7 +140,7 @@ def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": AnnotatedLinka
 def get_roots(label: "label", deps: ["dependency"]) -> {"label": AnnotatedLinkableRoot.type}:
     roots = {}
     for dep in deps:
-        if dep[LinkableRootInfo]:
+        if LinkableRootInfo in dep:
             roots[dep.label] = AnnotatedLinkableRoot(
                 root = dep[LinkableRootInfo],
                 annotation = LinkableRootAnnotation(dependent = label),
