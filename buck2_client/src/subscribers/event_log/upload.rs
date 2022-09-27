@@ -8,12 +8,16 @@
  */
 
 use std::io;
+use std::io::ErrorKind;
+use std::process::Stdio;
+use std::time::Duration;
 
+use anyhow::Context;
 use buck2_events::TraceId;
 
+use crate::find_certs::find_tls_cert;
 use crate::subscribers::event_log::EventLogPathBuf;
 
-#[allow(dead_code)] // TODO(nga): for windows, not needed after D39793419.
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum LogUploadError {
     #[error("Log file deleted before upload")]
@@ -28,18 +32,14 @@ impl From<io::Error> for LogUploadError {
     }
 }
 
-#[cfg(unix)]
 pub(crate) async fn log_upload(
     path: &EventLogPathBuf,
     trace_id: &TraceId,
 ) -> Result<(), LogUploadError> {
-    use std::io::ErrorKind;
-    use std::process::Stdio;
-    use std::time::Duration;
-
-    use anyhow::Context;
-
-    use crate::find_certs::find_tls_cert;
+    if cfg!(windows) {
+        // We do not have `curl` and certificates on Windows.
+        return Ok(());
+    }
 
     buck2_core::facebook_only();
     let manifold_url = match log_upload_url() {
@@ -118,15 +118,6 @@ pub(crate) async fn log_upload(
         upload.stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
     }
 
-    Ok(())
-}
-
-#[cfg(not(unix))]
-pub(crate) async fn log_upload(
-    path: &EventLogPathBuf,
-    trace_id: &TraceId,
-) -> Result<(), LogUploadError> {
-    let _ = (path, trace_id);
     Ok(())
 }
 
