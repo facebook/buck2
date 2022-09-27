@@ -151,7 +151,8 @@ impl ClientCommandContext {
         };
 
         Ok(ClientContext {
-            working_dir: std::env::current_dir()?
+            working_dir: self
+                .working_dir
                 .to_str()
                 .ok_or(CurrentDirIsNotUtf8)?
                 .to_owned(),
