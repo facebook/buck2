@@ -98,7 +98,7 @@ def _add_args_declaration_to_trampoline_args(trampoline_args: "cmd_args", base: 
     trampoline_args.add(")")
 
 def _get_run_info_from_exe(exe: "dependency") -> RunInfo.type:
-    run_info = exe[RunInfo]
+    run_info = exe.get(RunInfo)
     if run_info == None:
         run_info = RunInfo(
             args = exe[DefaultInfo].default_outputs,
