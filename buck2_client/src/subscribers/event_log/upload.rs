@@ -35,6 +35,7 @@ pub(crate) async fn log_upload(
 ) -> Result<(), LogUploadError> {
     use std::io::ErrorKind;
     use std::process::Stdio;
+    use std::time::Duration;
 
     use anyhow::Context;
 
@@ -74,7 +75,7 @@ pub(crate) async fn log_upload(
     // of a bit of delay.
     let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
 
-    let mut upload = buck2_core::process::background_command("curl");
+    let mut upload = buck2_core::process::async_background_command("curl");
     upload.args([
         "--silent",
         "--show-error",
@@ -94,17 +95,24 @@ pub(crate) async fn log_upload(
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()?
-            .wait_with_output()
-            .context("Failed to wait for log upload")?;
+            .wait_with_output();
+
+        // This branch is executed only on Sandcastle.
+        // Network on Sandcastle is fast, so this is a reasonable timeout.
+        // And if it fails to upload in that time, it is better to fail explicitly
+        // and show the error in Sandcastle logs instead of job timeout with no diagnostics.
+        let res = tokio::time::timeout(Duration::from_secs(22), res)
+            .await
+            .context("Timed out waiting for log upload to manifold")
+            .map_err(LogUploadError::Other)??;
 
         if !res.status.success() {
             let stderr = String::from_utf8_lossy(&res.stderr);
-            return Err(anyhow::anyhow!(
+            return Err(LogUploadError::Other(anyhow::anyhow!(
                 "Log upload exited with {}. Stderr: `{}`",
                 res.status,
                 stderr.trim(),
-            )
-            .into());
+            )));
         }
     } else {
         upload.stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
