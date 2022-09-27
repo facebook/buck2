@@ -348,14 +348,11 @@ impl BuckdServer {
                             configure_bxl_file_globals,
                         )?;
 
-                        let result = match func(context, req).await {
-                            Ok(res) => CommandResult {
-                                result: Some(res.into()),
-                            },
-                            Err(e) => error_to_command_result(e),
-                        };
+                        let result = func(context, req).await?;
 
-                        Ok(result)
+                        Ok(CommandResult {
+                            result: Some(result.into()),
+                        })
                     })
                     .await?
                 };
