@@ -33,28 +33,6 @@ impl EventSink for ChannelEventSink {
 // whose Clone implementation bumps a few atomics and clones an Arc.
 impl Dupe for ChannelEventSink {}
 
-/// An event sink that accepts events and discards them. Useful for testing and development.
-#[derive(Dupe, Clone)]
-pub struct NullEventSink;
-
-impl NullEventSink {
-    pub fn new() -> NullEventSink {
-        NullEventSink
-    }
-}
-
-impl Default for NullEventSink {
-    fn default() -> Self {
-        NullEventSink::new()
-    }
-}
-
-impl EventSink for NullEventSink {
-    fn send(&self, _: BuckEvent) {}
-
-    fn send_control(&self, _: ControlEvent) {}
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
