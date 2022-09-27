@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::Context;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -325,7 +326,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self,
         package: &Package,
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
-    ) -> SharedResult<T::EvalResult> {
+    ) -> anyhow::Result<T::EvalResult> {
         let listing = span_async(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
@@ -356,8 +357,8 @@ impl<'c> DiceCalculationDelegate<'c> {
         let interpreter = self.get_interpreter_for_cell().await?;
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         span(start_event, move || {
-            let result = try {
-                interpreter.eval_build_file::<T>(
+            let result = interpreter
+                .eval_build_file::<T>(
                     &build_file_path,
                     &buckconfig,
                     listing,
@@ -365,8 +366,8 @@ impl<'c> DiceCalculationDelegate<'c> {
                     ast,
                     deps.get_loaded_modules(),
                     profiler,
-                )?
-            };
+                )
+                .with_context(|| format!("evaluating build file: `{}`", build_file_path));
 
             (
                 result,

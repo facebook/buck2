@@ -695,7 +695,15 @@ async fn compute_configured_target_node(
     key: &ConfiguredNodeKey,
     ctx: &DiceComputations,
 ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
-    let target_node = ctx.get_target_node(key.0.unconfigured()).await?;
+    let target_node = ctx
+        .get_target_node(key.0.unconfigured())
+        .await
+        .with_context(|| {
+            format!(
+                "looking up unconfigured target node `{}`",
+                key.0.unconfigured()
+            )
+        })?;
 
     match key.0.exec_cfg() {
         None if target_node.is_toolchain_rule() => {
@@ -774,7 +782,8 @@ impl NodeCalculation for DiceComputations {
     async fn get_target_node(&self, target: &TargetLabel) -> SharedResult<TargetNode> {
         Ok(self
             .get_interpreter_results(target.pkg())
-            .await?
+            .await
+            .with_context(|| format!("loading targets in package `{}`", target.pkg()))?
             .targets()
             .get(target.name())
             .ok_or_else(|| {
