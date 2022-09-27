@@ -203,7 +203,8 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
         assert len(res) == 0
 
 
-@buck_test(inplace=False, data_dir="lsp")
+# TODO(marwhal): Fix and enable on Windows
+@buck_test(inplace=False, data_dir="lsp", skip_if_windows=True)
 async def test_supports_bxl_files(buck: Buck) -> None:
     src_bxl_path = Path("query.bxl")
 
