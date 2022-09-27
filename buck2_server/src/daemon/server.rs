@@ -9,6 +9,7 @@
 
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
+use std::future;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
@@ -43,6 +44,7 @@ use dice::cycles::DetectCycles;
 use dice::Dice;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
+use futures::stream;
 use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
@@ -384,9 +386,10 @@ impl BuckdServer {
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
     {
-        self.run_streaming_anyhow(req, opts, func)
+        Ok(self
+            .run_streaming_anyhow(req, opts, func)
             .await
-            .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))
+            .unwrap_or_else(error_to_response_stream))
     }
 
     async fn oneshot<
@@ -440,6 +443,20 @@ fn error_to_command_result(e: anyhow::Error) -> CommandResult {
     CommandResult {
         result: Some(command_result::Result::Error(CommandError { messages })),
     }
+}
+
+fn error_to_command_progress(e: anyhow::Error) -> CommandProgress {
+    CommandProgress {
+        progress: Some(command_progress::Progress::Result(error_to_command_result(
+            e,
+        ))),
+    }
+}
+
+fn error_to_response_stream(e: anyhow::Error) -> Response<ResponseStream> {
+    tonic::Response::new(Box::pin(stream::once(future::ready(Ok(
+        error_to_command_progress(e),
+    )))))
 }
 
 /// tonic requires the response for a streaming api to be a Sync Stream. With async/await, that requirement is really difficult
