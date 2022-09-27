@@ -29,6 +29,7 @@ tracing = { workspace = true }
 nix = { workspace = true }
 derivative = { workspace = true }
 parking_lot = { workspace = true }
+tempfile = { workspace = true }
 
 dice = { path = "../dice/dice" }
 # @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
@@ -60,5 +61,4 @@ eden_io = [] # @oss-enable
 indoc = { workspace = true }
 maplit = { workspace = true }
 assert_matches = { workspace = true }
-tempfile = { workspace = true }
 test-case = { workspace = true }

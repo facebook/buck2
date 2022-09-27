@@ -29,7 +29,6 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:test-case",
     ],
     deps = [
@@ -51,6 +50,7 @@ rust_library(
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:rusqlite",
         "fbsource//third-party/rust:sha-1",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-rusqlite",

@@ -44,26 +44,25 @@ pub async fn get_channel_uds(
     unix_socket: &Path,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
+    use buck2_core::fs::fs_util;
     use tonic::codegen::http::Uri;
     use tower::service_fn;
 
-    use crate::with_current_directory::WithCurrentDirectory;
+    let tempdir;
+    let connect_to;
 
-    // change directory to the daemon directory to connect to unix domain socket
-    // then change directory back to the current directory since the unix domain socket
-    // path is limited to 108 characters. https://man7.org/linux/man-pages/man7/unix.7.html
-    let (connect_to, _with_dir) = if change_to_parent_dir {
-        let socket_dir = unix_socket.parent().ok_or_else(|| {
-            anyhow::anyhow!("Socket path has no parent: `{}`", unix_socket.display())
-        })?;
-        let filename = Path::new(
-            unix_socket
-                .file_name()
-                .ok_or_else(|| anyhow::anyhow!("Invalid socket: `{}`", unix_socket.display()))?,
-        );
-        (filename, Some(WithCurrentDirectory::new(socket_dir)))
+    // Symlink to temp file to connect to unix domain socket
+    // since the unix domain socket path is limited to 108 characters.
+    // https://man7.org/linux/man-pages/man7/unix.7.html
+    let connect_to = if change_to_parent_dir {
+        tempdir = tempfile::tempdir()?;
+        connect_to = tempdir.path().join("s");
+
+        fs_util::symlink(unix_socket, &connect_to)?;
+
+        &connect_to
     } else {
-        (unix_socket, None)
+        unix_socket
     };
 
     let io = tokio::net::UnixStream::connect(&connect_to)
