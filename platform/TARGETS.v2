@@ -1,0 +1,295 @@
+load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
+load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
+load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_list")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
+load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_fbcode_toolchain", "cxx_toolchain_override", "cxx_toolchain_prefix")
+load(":go_toolchains.bzl", "go_fbcode_toolchain")
+load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
+load(":java_toolchains.bzl", "config_backed_java_toolchain", "prebuilt_jar_toolchain")
+load(":ocaml_toolchains.bzl", "ocaml_fbcode_toolchain")
+load(":python_bootstrap_toolchains.bzl", "config_backed_python_bootstrap_toolchain")
+load(":python_toolchains.bzl", "config_backed_python_toolchain")
+load(":rust_toolchains.bzl", "config_backed_rust_toolchain")
+
+_fbcode_cxx_flavors = [
+    #  "appletvos-arm64",
+    #  "appletvsimulator-x86_64",
+    #  "iphoneos-arm64",
+    #  "iphoneos-armv7",
+    #  "iphonesimulator-i386",
+    #  "iphonesimulator-x86_64",
+    #  "linux-x86_64",
+    #  "maccatalyst-x86_64",
+    #  "macosx-arm64",
+    #  "macosx-x86_64",
+    #  "macosx-x86_64_minimal_xcode",
+    "platform009-clang",
+    "platform009-clang-nosan",
+    "platform009-clang-nosan-split-dwarf",
+    "platform009-clang-split-dwarf",
+    "platform009-gcc",
+    "platform010-clang",
+    "platform010-clang-nosan",
+    "platform010-clang-nosan-split-dwarf",
+    "platform010-clang-split-dwarf",
+    "platform010-gcc",
+    "platform010-aarch64-clang",
+    "platform010-aarch64-clang-nosan",
+    "platform010-aarch64-clang-nosan-split-dwarf",
+    "platform010-aarch64-clang-split-dwarf",
+    "platform010-aarch64-gcc",
+    "platform010-compat-clang",
+    "platform010-compat-clang-nosan",
+    "platform010-compat-clang-nosan-split-dwarf",
+    "platform010-compat-clang-split-dwarf",
+    "platform010-compat-gcc",
+    #  "watchos-arm64_32",
+    #  "watchos-armv7k",
+    #  "watchsimulator-i386",
+    #  "watchsimulator-x86_64",
+    #  "windows-i386",
+    #  "windows-x86_64",
+]
+
+_rust_flavors = _fbcode_cxx_flavors + [
+    "macosx-x86_64_minimal_xcode",
+]
+
+cxx_fbcode_toolchain(
+    name = "cxx-fbcode",
+    exec_compatible_with = [
+        # should probably be that we require gvfs, but that's not well reflected
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    # Use thin archives for static libraries, by default.
+    archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
+    link_ordering = "topological" if native.read_config("fbcode", "topological_link_order", False) else None,
+    visibility = ["PUBLIC"],
+    bolt_enabled = True,
+)
+
+# TODO(agallagher): Keeping this alive, as it currently occupies the default
+# C++ toolchain branch slot.
+config_backed_cxx_toolchain(
+    name = "cxx-platform010-clang",
+    flavor = "platform010-clang",
+    target_compatible_with = [
+        # should probably be that we require gvfs, but that's not well reflected
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+# The buck2 apple toolchains use this as the base toolchain and override some values.
+# But we don't want the target_compatible_with restriction.
+# TODO(cjhopman, akhozhevnikov): We probably want to get rid of this, a lot of
+# the non-overridden parts probably don't work correctly.
+config_backed_cxx_toolchain(
+    name = "platform010-clang-for-apple-toolchains",
+    flavor = "platform010-clang",
+    # This is only used as the base of a toolchain override, let that specify it's compatibility.
+    target_compatible_with = None,
+    visibility = ["PUBLIC"],
+)
+
+# Toolchain that is used to cross-compile Infra FPGA FW located at
+# https://fburl.com/code/54j2591g
+config_backed_cxx_toolchain(
+    name = "infra-asic-fw-toolchain",
+    flavor = "platform010-gcc",
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+lionhead_libfuzzer_flags = [
+    "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION",
+    "-fsanitize=fuzzer-no-link",
+    "-fno-sanitize=cfi",
+]
+
+cxx_toolchain_override(
+    name = "lionhead-libfuzzer-platform010-clang",
+    base = ":cxx-platform010-clang",
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    c_compiler_flags = lionhead_libfuzzer_flags,
+    cxx_compiler_flags = lionhead_libfuzzer_flags,
+    visibility = ["PUBLIC"],
+)
+
+cxx_toolchain_override(
+    name = "buck2-infer",
+    base = ":cxx-platform010-clang",
+    cxx_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
+    c_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
+    linker = "fbsource//xplat/tools/infer:infer-fbcode-linux-linker",
+    archiver = "fbsource//xplat/tools/infer:infer-fbcode-linux-archiver",
+    mk_shlib_intf = "fbsource//xplat/tools/infer:fake-mkshlibintf",
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+cxx_toolchain_prefix(
+    name = "buck2-sledge",
+    base = ":cxx-platform010-clang",
+    cxx_compiler = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-compiler",
+    c_compiler = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-compiler",
+    linker = "fbsource//xplat/tools/sledge/toolchain:sledge-linux-linker",
+    mk_shlib_intf = "fbsource//xplat/tools/infer:fake-mkshlibintf",  # Reuse Infer's script.
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+go_fbcode_toolchain(
+    name = "go-fbcode",
+    # Set native platform linker flags.
+    external_linker_flags = [
+        "-Wl,--build-id=md5",
+        # fbcode uses -nodefaultlibs ld flag by default. And C system
+        # libraries are provided as implicit deps to corresponding buck
+        # targets. To make this work for Go, it requires cgo_library,
+        # but cgo is not supported for Go cross-compilation.
+        # Work around by providing an explicit -lc and -ldl options.
+        "-lc",
+        "-ldl",
+    ],
+    tags = read_list("go", "tags", default = []),
+    visibility = ["PUBLIC"],
+)
+
+# The Python toolchains to setup, using 2-tuples of platform flavor and constraints
+# to use for `target_compatible_with`.
+_fbcode_python_platforms = [
+    (platform, select({
+        "DEFAULT": ["ovr_config//runtime:fbcode"],
+        "ovr_config//runtime/constraints:android-host-test": ["ovr_config//runtime/constraints:android-host-test"],
+    }))
+    for platform in fbcode_toolchains.PLATFORMS
+]
+_non_fbcode_python_platforms = [
+    ("macosx-x86_64", []),
+    ("windows-x86_64", []),
+]
+
+# Define fbcode Python toolchains.
+[
+    config_backed_python_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        # For fbcode platforms, we pick a host interpreter that's compatble with
+        # the target platform but can run on the exec platform (e.g. use
+        # platform010's py3.8 for py3.8 builds targeting platform010-aarch64).
+        #
+        # Note that host_interpreter is special and this select will actually be pushed down
+        # into an exec_dep of the toolchain and will be resolved in the exec configuration.
+        # We encode information about the target configuration from the use of platform/version
+        # to construct the select.
+        #
+        # If we add more overridden values here, we should explicitly separate the exec-config part
+        # into a separate target here rather than in the macro.
+        host_interpreter = selects.apply(
+            fbcode_toolchains.get_exec_fbcode_platform(platform),
+            lambda platform: read_config(
+                "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
+                "interpreter",
+            ),
+        ),
+        target_compatible_with = constraints,
+        visibility = ["PUBLIC"],
+    )
+    for platform, constraints in _fbcode_python_platforms
+    for version in python_versioning.get_platform_python_versions(platform)
+]
+
+# For legacy reasons, the fbcode's platform009 Python toolchain set in the
+# DEFAULT clause of the Python toolchain select, and it's really difficult to
+# move out (ARVR at least seems dependent on it).  So, to decouple setting a
+# more constrained `target_compatible_with` on the fbcode Python toolchains,
+# create a separate toolchain to keep in the default.
+config_backed_python_toolchain(
+    name = "py3.8-platform010-for-default",
+    flavor = "py3.8-platform010",
+    visibility = ["PUBLIC"],
+)
+
+# Define non-fbcode Python toolchains.
+[
+    config_backed_python_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        target_compatible_with = constraints,
+        visibility = ["PUBLIC"],
+    )
+    for platform, constraints in _non_fbcode_python_platforms
+    for version in python_versioning.get_platform_python_versions(platform)
+]
+
+# Define bootstrap Python toolchains.
+[
+    config_backed_python_bootstrap_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        visibility = ["PUBLIC"],
+    )
+    # TODO(agallagher): We should add `target_compatible_with` here.
+    for platform, _constraints in (_fbcode_python_platforms + _non_fbcode_python_platforms)
+    for version in python_versioning.get_platform_python_versions(platform)
+]
+
+[config_backed_rust_toolchain(
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _rust_flavors]
+
+ocaml_fbcode_toolchain(
+    name = "ocaml-fbcode",
+    # TODO(agallager): We should move away from reading these from configs.
+    ocaml_compiler_flags = selects.apply(
+        fbcode_toolchains.LEGACY_V1_PLATFORMS,
+        lambda platform_name: read_list(
+            "ocaml#{}".format(platform_name),
+            "ocaml_compiler_flags",
+            default = [],
+        ),
+    ),
+    warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
+    visibility = ["PUBLIC"],
+)
+
+[
+    config_backed_haskell_toolchain(
+        flavor = flavor,
+        visibility = ["PUBLIC"],
+        target_compatible_with = [
+            "ovr_config//runtime:fbcode",
+        ],
+    )
+    for flavor in _fbcode_cxx_flavors
+    if read_config("haskell#" + flavor, "compiler")
+]
+
+config_backed_java_toolchain(
+    name = "java_fbcode",
+    # In v1, these are set as raw, repo-relative paths.  As we can't parse those
+    # properly in v2 (and rightfully so), set them explicitly here using their
+    # corresponding wrapper rule.
+    java = "fbcode//tools/build/buck/wrappers:java11.sh",
+    java_for_tests = "fbcode//tools/build/buck/wrappers:java.sh",
+    visibility = ["PUBLIC"],
+)
+
+prebuilt_jar_toolchain(
+    name = "prebuilt_jar_bootstrap",
+    is_bootstrap_toolchain = True,
+    visibility = ["PUBLIC"],
+)
+
+prebuilt_jar_toolchain(
+    name = "prebuilt_jar",
+    visibility = ["PUBLIC"],
+)

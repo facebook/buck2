@@ -1,0 +1,33 @@
+prelude = native
+
+prelude.cxx_library(
+    name = "lib",
+    exported_headers = ["foo.h"],
+    srcs = [
+        (
+            "foo.cpp",
+            ["-DFOO"],
+        ),
+        (
+            "foo.cpp",
+            ["-DBAR"],
+        ),
+    ],
+)
+
+prelude.cxx_binary(
+    name = "bin",
+    linker_flags = [
+        "-lc",
+    ],
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [":lib"],
+)
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :bin) > $OUT",
+)

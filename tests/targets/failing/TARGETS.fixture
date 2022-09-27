@@ -1,0 +1,7 @@
+load(":defs.bzl", "failing_binary")
+
+failing_binary(name = "foo")
+
+failing_binary(name = "bar")
+
+failing_binary(name = "using_dir", src = "a_dir")

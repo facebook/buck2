@@ -1,0 +1,47 @@
+native.java_binary(
+    name = "main",
+    main_class = "com.example.Main",
+    deps = [
+        ":main_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "main_lib",
+    srcs = [
+        "Main.java",
+    ],
+    plugins = [
+        ":javac_plugin",
+    ],
+)
+
+native.java_plugin(
+    name = "javac_plugin",
+    plugin_name = "MyPlugin",
+    deps = [
+        ":javac_plugin_lib",
+    ],
+)
+
+native.java_library(
+    name = "javac_plugin_lib",
+    srcs = [
+        "JavacPlugin.java",
+    ],
+    resources = ["resources/META-INF/services/com.sun.source.util.Plugin"],
+    resources_root = "resources",
+    deps = [
+        ":util",
+    ],
+)
+
+native.java_library(
+    name = "util",
+    srcs = [
+        "Util.java",
+    ],
+)

@@ -1,0 +1,8 @@
+key1: m1_value1
+key2: m1_value2
+key3: m1_value3
+Main-Class: M1MainClass
+key4: m1_value4
+key5: m1_value5
+key6: m1_value6
+uniq_m1_key: some value m1

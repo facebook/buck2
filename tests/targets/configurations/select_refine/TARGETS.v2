@@ -1,0 +1,77 @@
+prelude = native
+
+prelude.constraint_setting(
+    name = "quality",
+)
+
+prelude.constraint_value(
+    name = "good",
+    constraint_setting = ":quality",
+)
+
+prelude.constraint_value(
+    name = "bad",
+    constraint_setting = ":quality",
+)
+
+prelude.constraint_setting(
+    name = "origin",
+)
+
+prelude.constraint_value(
+    name = "domestic",
+    constraint_setting = ":origin",
+)
+
+prelude.constraint_value(
+    name = "imported",
+    constraint_setting = ":origin",
+)
+
+prelude.config_setting(
+    name = "c-good-domestic",
+    constraint_values = [
+        ":good",
+        ":domestic",
+    ],
+)
+
+prelude.config_setting(
+    name = "c-good",
+    constraint_values = [
+        ":good",
+    ],
+)
+
+prelude.platform(
+    name = "p-good-domestic",
+    constraint_values = [
+        ":good",
+        ":domestic",
+    ],
+)
+
+prelude.export_file(
+    name = "t-good-domestic",
+    src = "TARGETS.v2",
+)
+
+prelude.export_file(
+    name = "t-good",
+    src = "TARGETS.v2",
+)
+
+prelude.export_file(
+    name = "t-default",
+    src = "TARGETS.v2",
+)
+
+prelude.alias(
+    name = "the-test",
+    actual = select({
+        ":c-good": ":t-good",
+        # This option is picked in test even previous options match.
+        ":c-good-domestic": ":t-good-domestic",
+        "DEFAULT": ":t-default",
+    }),
+)

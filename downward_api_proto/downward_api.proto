@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package buck.downward_api;
+
+message LogLevel {
+  enum Value {
+    NOT_SET = 0;
+    TRACE = 1;
+    DEBUG = 2;
+    INFO = 3;
+    WARN = 4;
+    ERROR = 5;
+  }
+
+  Value value = 1;
+}
+
+message Event {
+  message Item {
+    string key = 1;
+    string value = 2;
+  }
+
+  repeated Item items = 1;
+}
+
+message ConsoleRequest {
+  LogLevel level = 1;
+  string message = 2;
+}
+
+message LogRequest {
+  LogLevel level = 1;
+  string message = 2;
+}
+
+message ExternalEventRequest {
+  Event event = 1;
+}
+
+message Empty {};
+
+service DownwardApi {
+  rpc Console(ConsoleRequest) returns (Empty);
+  rpc Log(LogRequest) returns (Empty);
+  rpc ExternalEvent(ExternalEventRequest) returns (Empty);
+}

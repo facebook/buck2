@@ -1,0 +1,22 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+cpp_binary(
+    # @autodeps-skip
+    name = "binary",
+    srcs = ["main.cpp"],
+    deps = [":library"],
+)
+
+cpp_library(
+    name = "library",
+    srcs = ["library.cpp"],
+    preferred_linkage = "shared",
+)
+
+buck_genrule(
+    name = "run",
+    out = "out.txt",
+    bash = "$(exe :binary) 2> $OUT",
+)

@@ -1,0 +1,45 @@
+[package]
+name = "buck2_execute_impl"
+version = "0.1.0"
+edition = "2021"
+description = "Implementations of executors and materializers"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+faccess = { workspace = true }
+futures = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+once_cell = { workspace = true }
+rusqlite = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-rusqlite = { workspace = true }
+tracing = { workspace = true }
+zstd = { workspace = true }
+
+gazebo = { workspace = true }
+host_sharing = { path = "../host_sharing" }
+# @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
+more_futures = { path = "../shed/more_futures" }
+remote_execution = { workspace = true }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
+buck2_execute = { path = "../buck2_execute" }
+buck2_forkserver = { path = "../buck2_forkserver" }
+buck2_forkserver_proto = { path = "../buck2_forkserver_proto" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+assert_matches = { workspace = true }
+
+[features]
+# @oss-disable: default = ["eden_materializer"]
+# @oss-disable: eden_materializer = []
+eden_materializer = [] # @oss-enable

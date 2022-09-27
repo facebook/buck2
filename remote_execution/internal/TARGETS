@@ -1,0 +1,11 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "remote_execution",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "//remote_execution/client_lib/wrappers/rust:re_client_lib",
+        "//remote_execution/rust/tonic_grpc:re-tonic-grpc",
+    ],
+)

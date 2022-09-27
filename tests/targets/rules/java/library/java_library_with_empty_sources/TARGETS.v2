@@ -1,0 +1,7 @@
+native.java_library(
+    name = "lib",
+    srcs = ["feature_type-java-swift.src.zip"],
+    visibility = [
+        "PUBLIC",
+    ],
+)

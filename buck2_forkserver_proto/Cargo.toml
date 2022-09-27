@@ -1,0 +1,16 @@
+[package]
+name = "buck2_forkserver_proto"
+
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic = { workspace = true }
+derive_more = { workspace = true }
+gazebo = { workspace = true }
+
+[build-dependencies]
+buck2_protoc_dev = { path = "../buck2_protoc_dev" }
+tonic-build = { workspace = true }

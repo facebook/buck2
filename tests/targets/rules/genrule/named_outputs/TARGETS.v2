@@ -1,0 +1,134 @@
+prelude = native
+
+# Produces multiple outputs
+prelude.genrule(
+    name = "multiple_outputs_producer",
+    outs = {
+        "multiple": [
+            "multi0.txt",
+            "multi1.txt",
+        ],
+        "single": ["single.txt"],
+    },
+    bash = "echo 1 > $OUT/single.txt && echo 2 > $OUT/multi0.txt && echo 3 > $OUT/multi1.txt",
+)
+
+# Consumes named outputs
+prelude.genrule(
+    name = "multiple_outputs_consumer",
+    out = "out.txt",
+    bash = "cat $(location :multiple_outputs_producer[single]) && echo --- && cat $(location :multiple_outputs_producer[multiple]) > $OUT",
+)
+
+prelude.export_file(
+    name = "file_tree_printer",
+    src = "file_tree_printer.py",
+)
+
+prelude.export_file(
+    name = "equality_checker",
+    src = "equality_checker.py",
+)
+
+# Similar to `fbcode//third-party-buck/platform009/build/cuda:cuda_path`
+# where "." both is in `outs` and `default_outs`
+prelude.genrule(
+    name = "whole_dir",
+    default_outs = [
+        ".",
+    ],
+    outs = {
+        ".": [
+            ".",
+        ],
+    },
+    bash = "echo 1 > $OUT/1.txt && echo 2 > $OUT/2.txt",
+)
+
+prelude.genrule(
+    name = "whole_dir_output",
+    out = "file_tree.txt",
+    bash = "python3 $(location :file_tree_printer) $(location :whole_dir) > $OUT",
+)
+
+prelude.export_file(
+    name = "expected_whole_dir_output",
+    src = "expected_whole_dir.txt",
+)
+
+prelude.genrule(
+    name = "whole_dir_checker",
+    out = "dummy.txt",
+    bash = "python3 $(location :equality_checker) $(location :whole_dir_output) $(location :expected_whole_dir_output) > $OUT",
+)
+
+prelude.genrule(
+    name = "various_outs_with_whole_dir_as_default_output",
+    default_outs = [
+        ".",
+    ],
+    outs = {
+        "one": [
+            "1.txt",
+        ],
+        "two": [
+            "2.txt",
+        ],
+    },
+    bash = "echo 1 > $OUT/1.txt && echo 2 > $OUT/2.txt",
+)
+
+prelude.genrule(
+    name = "various_outs_with_whole_dir_as_default_output_output",
+    out = "file_tree.txt",
+    bash = "python3 $(location :file_tree_printer) $(location :various_outs_with_whole_dir_as_default_output) > $OUT",
+)
+
+prelude.export_file(
+    name = "expected_various_outs_with_whole_dir_as_default_output_output",
+    src = "expected_various_outs_with_whole_dir_as_default.txt",
+)
+
+prelude.genrule(
+    name = "various_outs_with_whole_dir_as_default_output_checker",
+    out = "dummy.txt",
+    bash = "python3 $(location :equality_checker) $(location :various_outs_with_whole_dir_as_default_output_output) $(location :expected_various_outs_with_whole_dir_as_default_output_output) > $OUT",
+)
+
+prelude.genrule(
+    name = "specified_named_out_output",
+    out = "file_tree.txt",
+    bash = "python3 $(location :file_tree_printer) $(location :various_outs_with_whole_dir_as_default_output[one]) > $OUT",
+)
+
+prelude.export_file(
+    name = "expected_specified_named_out_output",
+    src = "expected_specified_named_out.txt",
+)
+
+prelude.genrule(
+    name = "specified_named_out_output_checker",
+    out = "dummy.txt",
+    bash = "python3 $(location :equality_checker) $(location :specified_named_out_output) $(location :expected_specified_named_out_output) > $OUT",
+)
+
+# Produces multiple outputs and is executable
+prelude.genrule(
+    name = "multiple_outputs_executable",
+    outs = {
+        "cmd": ["cmd.sh"],
+        "multiple": [
+            "multi0.txt",
+            "multi1.txt",
+        ],
+    },
+    srcs = ["multiple_outputs_cmd.sh"],
+    bash = "echo 0 > $OUT/multi0.txt && echo 1 > $OUT/multi1.txt && cp $SRCS $OUT/cmd.sh",
+    default_outs = ["cmd.sh"],
+    executable = True,
+)
+prelude.genrule(
+    name = "multiple_outputs_executable_out",
+    out = "someout.txt",
+    bash = "$(exe :multiple_outputs_executable) > $OUT",
+)

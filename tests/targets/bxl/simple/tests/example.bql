@@ -1,0 +1,5 @@
+d = deps("//lib:lib1")
+
+if not d == d:
+  # use fail() to fail the test.
+  fail("something wrong with `%s`" % d)

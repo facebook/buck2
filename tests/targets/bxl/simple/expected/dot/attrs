@@ -1,0 +1,17 @@
+digraph result_graph {
+  "root//bin:the_binary" [style=filled,color="#DFECDF",buck_name=the_binary,buck_deps="[\"root//lib:lib1\",\"root//lib:lib2\",\"root//lib:lib3\"]"];
+  "root//bin:the_binary" -> "root//:data";
+  "root//bin:the_binary" -> "root//lib:lib1";
+  "root//bin:the_binary" -> "root//lib:lib2";
+  "root//bin:the_binary" -> "root//lib:lib3";
+  "root//:data" [style=filled,color="#DFECDF",buck_name=data];
+  "root//lib:lib1" [style=filled,color="#DFECDF",buck_name=lib1,buck_deps="[]"];
+  "root//lib:lib1" -> "root//lib:file1";
+  "root//lib:lib2" [style=filled,color="#DFECDF",buck_name=lib2,buck_deps="[]"];
+  "root//lib:lib2" -> "root//lib:file2";
+  "root//lib:lib3" [style=filled,color="#DFECDF",buck_name=lib3,buck_deps="[]"];
+  "root//lib:lib3" -> "root//lib:file3";
+  "root//lib:file1" [style=filled,color="#DFECDF",buck_name=file1];
+  "root//lib:file2" [style=filled,color="#DFECDF",buck_name=file2];
+  "root//lib:file3" [style=filled,color="#DFECDF",buck_name=file3];
+}

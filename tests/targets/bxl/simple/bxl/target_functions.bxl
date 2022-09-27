@@ -1,0 +1,10 @@
+def _impl_new_empty_target_set(ctx):
+    targets = target_set()
+    ctx.output.print(type(targets))
+    ctx.output.print(len(targets))
+
+new_empty_target_set = bxl(
+    impl = _impl_new_empty_target_set,
+    cli_args = {
+    },
+)

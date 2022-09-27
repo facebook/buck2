@@ -1,0 +1,50 @@
+prelude = native
+
+prelude.cxx_genrule(
+    name = "check-static",
+    srcs = ["test.cpp"],
+    cmd = "$(ld) -fuse-ld=lld test.cpp -o $OUT $(ldflags-static :dep) -lc",
+    out = "out",
+)
+
+prelude.cxx_genrule(
+    name = "check-static-pic",
+    srcs = ["test.cpp"],
+    cmd = "$(ld) -fuse-ld=lld test.cpp -o $OUT $(ldflags-static-pic :dep) -lc",
+    out = "out",
+)
+
+prelude.cxx_genrule(
+    name = "check-shared",
+    srcs = ["test.cpp"],
+    cmd = "$(ld) -fuse-ld=lld test.cpp -o $OUT $(ldflags-shared :dep) -lc",
+    out = "out",
+)
+
+prelude.cxx_library(
+    name = "dep",
+    srcs = [
+        "foo.c",
+    ],
+)
+
+prelude.cxx_genrule(
+    name = "check-single-static",
+    srcs = ["empty.cpp"],
+    cmd = "$(ld) -fuse-ld=lld empty.cpp -o $OUT $(ldflags-static) -lc",
+    out = "out",
+)
+
+prelude.cxx_genrule(
+    name = "check-single-static-pic",
+    srcs = ["empty.cpp"],
+    cmd = "$(ld) -fuse-ld=lld empty.cpp -o $OUT $(ldflags-static-pic) -lc",
+    out = "out",
+)
+
+prelude.cxx_genrule(
+    name = "check-single-shared",
+    srcs = ["empty.cpp"],
+    cmd = "$(ld) -fuse-ld=lld empty.cpp -o $OUT $(ldflags-shared) -lc",
+    out = "out",
+)

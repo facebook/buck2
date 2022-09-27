@@ -1,0 +1,268 @@
+"""
+Sets up all the execution platforms for buck2 builds.
+
+buck2 execution platform resolution takes a list of execution platforms and
+selects the first one that is compatible with the execution deps of a target.
+execution platforms are used only for execution deps (i.e. build tools).
+
+We have a couple different platform types here with some adhoc naming:
+
+hybrid platform - this is a platform with both local and remote execution enabled
+local_only platform - a platform with only local execution, generally these would only exist matching the host platform
+remote_only platform - a platform with only remote execution
+fat platform - a platform where execution may happen on one of several possible platforms. for example, a mac-linux fat platform
+  could run on either mac or linux. it may be configured with linux RE workers but also enable local execution on either of a mac
+  or linux host.
+
+fat platforms are used so that we can use the cheaper linux RE workers for actions running
+on a mac host while preserving the option to run those actions locally.
+
+For fat platforms, we introduce constraint setting like `fat_platform_mac` with
+values like `fat_platform_mac=some_mac_platform` and then those constraints can
+be used for transitions to the specific platforms. There's a helper `fat_platform_transition`
+to do a split transition to all the individual platforms to support binaries that want
+to support the fat platform but need os-specific deps (for example, you could have a
+simple wrapper over a c++ binary that supported a fat platform by delegating to the appropriate
+os-specific binary at runtime).
+"""
+
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
+load("@fbsource//tools/build_defs:fbsource_utils.bzl", "is_arvr_mode")
+load(
+    ":defs.bzl",
+    "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY",
+    "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY",
+    "MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY",
+    "MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY",
+    "allow_hybrid_fallbacks_on_failure",
+    "execution_platform",
+    "execution_platforms",
+    "fat_platform_transition_helper",
+    "linux_execution_base_platforms",
+    "mac_execution_base_platforms",
+    "mac_execution_platform",
+    "ordered_platforms_by_host_type",
+    "remote_execution_action_key_providers",
+)
+load(":util.bzl", "fat_platform_incompatible")
+
+prelude = native
+host_is_linux = host_info().os.is_linux
+host_is_linux_aarch64 = host_is_linux and host_info().arch.is_aarch64
+host_is_windows = host_info().os.is_windows
+
+local_linux_execution = read_bool("build", "enable_local_linux_execution", host_is_linux)
+local_windows_execution = read_bool("build", "enable_local_windows_execution", host_is_windows)
+
+fat_platforms_enabled = read_bool("build", "enable_fat_platforms", True)
+
+mac_platforms = mac_execution_platform(
+    name = "macos-minimal",
+    platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
+) + mac_execution_platform(
+    name = "macos",
+    platform_key = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
+) + mac_execution_platform(
+    name = "macos-minimal-xcode-14.0",
+    platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
+) + mac_execution_platform(
+    name = "macos-xcode-14.0",
+    platform_key = MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
+)
+
+linux_platforms = execution_platform(
+    name = "linux-x86_64",
+    base_platform = read_config(
+        "build",
+        "exec_base_platform_linux",
+        linux_execution_base_platforms["platform010"],
+    ),
+    local_enabled = host_is_linux and host_info().arch.is_x86_64,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "linux-remote-execution",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 512 * 1024),
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+) + execution_platform(
+    name = "linux-aarch64",
+    base_platform = linux_execution_base_platforms["platform010-aarch64"],
+    local_enabled = host_is_linux_aarch64,
+    # NOTE(agallagher): We don't have aarch64 RE workers.
+    remote_enabled = False,
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 60 * 1024),
+)
+
+windows_platforms = execution_platform(
+    name = "windows",
+    base_platform = "ovr_config//platform/windows:x86_64-fbsource-debug",
+    local_enabled = local_windows_execution,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "windows",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 300 * 1024),
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+    use_windows_path_separators = True,
+)
+
+fat_mac_linux = execution_platform(
+    name = "fat_mac_linux",
+    base_platform = ":fat_platform_posix_platform010",
+    local_enabled = not host_is_linux_aarch64,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "linux-remote-execution",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 512 * 1024),
+    make_dash_only_platforms = False,
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+)
+
+fat_platforms = fat_mac_linux if fat_platforms_enabled and not host_is_windows and not host_is_linux_aarch64 else []
+
+# The Xtensa platform is used for compiling with the Xtensa toolchain. This
+# toolchain must be run on corp and with access to ASIC Dev Infrastructure,
+# specifically the network filesystem "/nfs"
+asic_devinfra_xtensa_platform = execution_platform(
+    name = "asic_devinfra_xtensa",
+    base_platform = "ovr_config//platform/xtensa:base",
+    local_enabled = False,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "asic-grid",
+    },
+    remote_execution_use_case = "buck2-asic-devinfra",
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 300 * 1024),
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+)
+asic_devinfra_platforms = asic_devinfra_xtensa_platform if is_arvr_mode() else []
+
+execution_platforms(
+    name = "platforms",
+    # Before execution platforms, we'd generally use the host platform as the
+    # execution platform. We flip these orders on different hosts to roughly
+    # preserve that behavior.
+    # TODO(cjhopman): Our long-term goal has to be to remove this. All build
+    # tooling will first need to be updated to properly specify their execution
+    # requirements.
+    platforms = (
+        fat_platforms +
+        ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platforms) +
+        asic_devinfra_platforms
+    ),
+)
+
+prelude.constraint_setting(
+    name = "runs_remote",
+)
+
+prelude.constraint_value(
+    name = "may_run_remote",
+    constraint_setting = ":runs_remote",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "runs_local",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_value(
+    name = "may_run_local",
+    constraint_setting = ":runs_local",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "runs_only",
+)
+
+prelude.constraint_value(
+    name = "runs_only_local",
+    constraint_setting = ":runs_only",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_value(
+    name = "runs_only_remote",
+    constraint_setting = ":runs_only",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "fat_platform_marker",
+)
+
+prelude.constraint_value(
+    name = "fat_platform_enabled",
+    constraint_setting = ":fat_platform_marker",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "fat_platform_mac",
+)
+
+# This sets up a fat_platform_mac=specific_platform for each execution platform
+# in the mac platforms (and then the same for linux). The main use for these is
+# for the fat_platform_transition to know the platforms to transition to.
+[
+    prelude.constraint_value(
+        name = "fat_platform_mac={}".format(name),
+        constraint_setting = ":fat_platform_mac",
+    )
+    for (name, _value) in mac_execution_base_platforms.items()
+]
+
+prelude.constraint_setting(
+    name = "fat_platform_linux",
+)
+
+[
+    prelude.constraint_value(
+        name = "fat_platform_linux={}".format(name),
+        constraint_setting = ":fat_platform_linux",
+        visibility = ["PUBLIC"],
+    )
+    for (name, _value) in linux_execution_base_platforms.items()
+]
+
+prelude.platform(
+    name = "fat_platform_posix_platform010",
+    # TODO(cjhopman): we probably want to actually have some base os-agnostic
+    # platform that all of these, including the fat platform, depend on, but
+    # the fbsource platforms just aren't that useful yet.
+    constraint_values = [
+        ":fat_platform_enabled",
+        ":fat_platform_mac={}".format(MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY),
+        ":fat_platform_linux=platform010",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+# This is mostly here for a rule type to add a dependency on it to mark all
+# instances of that rule type as incompatible with a fat platform. Ideally,
+# toolchains could affect the target compatibility of their users directly but
+# toolchains are currently all exec deps and so cannot do that. We'd like
+# buck2 to support a form of dep that inherited its users execution platform
+# so that toolchains could basically get visibility and affect both target and
+# execution configuration, but that's not implemented yet.
+export_file(
+    name = "fat_platform_incompatible",
+    src = "TARGETS.v2",
+    target_compatible_with = fat_platform_incompatible(),
+)
+
+# This is just a helper used by the fat_platform_transition in fat_platforms.bzl
+fat_platform_transition_helper(
+    name = "fat_platform_transition_helper",
+    mac = [[":fat_platform_mac={}".format(platform_name), platform] for (platform_name, platform) in mac_execution_base_platforms.items()],
+    linux = [[":fat_platform_linux={}".format(platform_name), platform] for (platform_name, platform) in linux_execution_base_platforms.items()],
+    visibility = ["PUBLIC"],
+)

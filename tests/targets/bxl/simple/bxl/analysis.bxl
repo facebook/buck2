@@ -1,0 +1,15 @@
+load("//rules:rules.bzl", "FooInfo")
+
+def _providers_test_impl(ctx):
+    node = ctx.configured_targets("root//bin:the_binary")
+
+    providers = ctx.analysis(node).providers()
+    ctx.output.print(providers[FooInfo])
+
+    providers = ctx.analysis("//:bin").providers()
+    ctx.output.print(providers[FooInfo])
+
+providers_test = bxl(
+    impl = _providers_test_impl,
+    cli_args = {},
+)

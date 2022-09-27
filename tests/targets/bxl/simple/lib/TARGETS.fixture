@@ -1,0 +1,51 @@
+load("//rules:rules.bzl", "foo_library", "foo_genrule", "foo_config_setting")
+
+foo_config_setting(
+    name = "constraint",
+)
+
+foo_library(
+    name = "lib1",
+    srcs = [":file1", "TARGETS.fixture"],
+    description = "this is lib1",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_library(
+    name = "lib2",
+    srcs = [":file2"],
+    cmd = ["this is lib2", "cmd", "$(location :file2)"],
+    description = "this is lib2",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_library(
+    name = "lib3",
+    srcs = [":file3"],
+    cmd = ["this is lib3"] + select({
+        ":constraint": ["this is lib3 too, case 1"],
+        "DEFAULT": ["this is lib3 too, case 2"]
+    }),
+    description = "this is lib3",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_genrule(
+    name = "file1",
+    cmd = "",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_genrule(
+    name = "file2",
+    cmd = "",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_genrule(
+    name = "file3",
+    cmd = "",
+    visibility = [ "PUBLIC" ],
+)
+
+

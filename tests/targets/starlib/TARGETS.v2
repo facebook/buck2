@@ -1,0 +1,3 @@
+load("@fbcode//buck2/tests/targets/starlib:paths_tests.bzl", paths_test = "test")
+
+paths_test()

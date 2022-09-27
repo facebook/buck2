@@ -1,0 +1,7 @@
+load("//rules:rules.bzl", "foo_binary")
+
+foo_binary(
+    name = "bin",
+    srcs = ["bin"],
+    visibility = [ "PUBLIC" ],
+)

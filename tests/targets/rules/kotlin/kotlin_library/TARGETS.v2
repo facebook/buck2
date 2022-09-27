@@ -1,0 +1,206 @@
+native.kotlin_library(
+    name = "lib_with_interdependent_java_and_kotlin_srcs",
+    srcs = ["A.java", "B.kt"],
+    deps = [
+    ],
+)
+
+native.kotlin_library(
+    name = "lib_with_interdependent_java_and_kotlin_srcs_zipped",
+    srcs = ["ABZipped.src.zip"],
+    deps = [
+    ],
+)
+
+native.kotlin_library(
+    name = "lib_uses_a_and_b",
+    srcs = ["C.kt"],
+    deps = [
+        ":lib_with_interdependent_java_and_kotlin_srcs",
+    ],
+)
+
+native.kotlin_library(
+    name = "need_friend_paths",
+    srcs = ["com/example/D.kt"],
+    deps = [
+        ":lib_uses_a_and_b",
+        ":lib_with_interdependent_java_and_kotlin_srcs",
+    ],
+    friend_paths = [
+        ":lib_uses_a_and_b",
+        ":lib_with_interdependent_java_and_kotlin_srcs",
+    ],
+)
+
+native.kotlin_library(
+    name = "lib_with_zipped_java_source",
+    srcs = ["AZipped.src.zip"],
+    deps = [
+        ":lib_with_interdependent_java_and_kotlin_srcs",
+    ],
+)
+
+native.kotlin_library(
+    name = "lib_with_annotation_processor",
+    srcs = ["com/example/E.kt"],
+    plugins = [
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:annotation_processor",
+    ],
+    annotation_processor_params = ["propKey=custom_value_from_configuration", "methodName1=methodNameFromApParams1", "methodName2=methodNameFromApParams2"],
+    deps = [
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:annotation_lib",
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:util",
+    ],
+    source = "8",
+    target = "8",
+)
+
+native.genrule(
+    name = "check_lib_with_annotation_processor_resources",
+    cmd = "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar_resource) $(location :lib_with_annotation_processor) \"_RESOURCES.test.com.example.GeneratedE\" > $OUT",
+    out = "out.txt",
+)
+
+native.kotlin_library(
+    name = "lib_uses_generated_code",
+    srcs = ["com/example/F.kt"],
+    deps = [
+        ":lib_with_annotation_processor",
+    ],
+)
+
+native.kotlin_library(
+    name = "plugin",
+    srcs = ["com/example/compilerplugin/TestPlugin.kt"],
+    resources = glob(["com/example/compilerplugin/resources/**"]),
+    resources_root = "com/example/compilerplugin/resources",
+    deps = [
+        "fbsource//third-party/kotlin:kotlin-compiler",
+    ],
+)
+
+native.kotlin_library(
+    name = "compiler_plugin_example",
+    srcs = ["com/example/compilerplugin/CompilerPluginExample.kt"],
+    kotlin_compiler_plugins = {
+        ":plugin": {
+            "plugin:com.example.compilerplugin.test:newMethodName": "transformedMethod",
+            "plugin:com.example.compilerplugin.test:oldMethodName": "originalMethod",
+            "plugin:com.example.compilerplugin.test:outputDir": "__codegen_dir__",
+        },
+    },
+)
+
+native.kotlin_library(
+    name = "uses_ksp_and_annotation_processor",
+    srcs = glob([
+        "com/example/ksp/*.kt",
+        "com/example/ksp/*.java",
+    ]),
+    annotation_processing_tool = "kapt",
+    plugins = [
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:annotation_processor",
+        ":kspprocessor",
+    ],
+    kotlin_compiler_plugins = {
+        "fbsource//third-party/kotlin/ksp:symbol-processing-api-jar": {},
+        "fbsource//third-party/kotlin/ksp:symbol-processing-cmdline": {},
+    },
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":kspannotations",
+        "fbsource//third-party/kotlin/ksp:symbol-processing-api",
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:annotation_lib",
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:util",
+    ],
+)
+
+native.kotlin_library(
+    name = "ksp_generates_new_class",
+    srcs = glob([
+        "com/example/ksp/JavaClassWithJavaAnnotation.java",
+        "com/example/ksp/JavaClassWithKotlinAnnotation.java",
+        "com/example/ksp/KotlinClassWithJavaAnnotation.kt",
+        "com/example/ksp/KotlinClassWithKotlinAnnotation.kt",
+    ]),
+    plugins = [
+        ":kspprocessor",
+    ],
+    kotlin_compiler_plugins = {
+        "fbsource//third-party/kotlin/ksp:symbol-processing-api-jar": {},
+        "fbsource//third-party/kotlin/ksp:symbol-processing-cmdline": {},
+    },
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":kspannotations",
+        "fbsource//third-party/kotlin/ksp:symbol-processing-api",
+    ],
+)
+
+native.kotlin_library(
+    name = "uses_ksp_generated_class_and_kapt",
+    srcs = glob([
+        "com/example/ksp/AKotlinClass.kt",
+        "com/example/ksp/AJavaClass.java",
+    ]),
+    plugins = [
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:annotation_processor",
+    ],
+    annotation_processing_tool = "kapt",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":ksp_generates_new_class",
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:annotation_lib",
+        "fbcode//buck2/tests/targets/rules/java/library/annotation_processors:util",
+    ],
+)
+
+native.kotlin_library(
+    name = "kspannotations",
+    srcs = glob([
+        "com/example/ksp/annotations/*.kt",
+        "com/example/ksp/annotations/*.java",
+    ]),
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_annotation_processor(
+    name = "kspprocessor",
+    processor_class = "KSP:com.example.ksp.processor.AnnotationProcessorKotlinKspProvider",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":kspprocessor-lib",
+    ],
+)
+
+native.kotlin_library(
+    name = "kspprocessor-lib",
+    srcs = [
+        "com/example/ksp/processor/AnnotationProcessorKotlinKsp.kt",
+    ],
+    resources = glob([
+        "com/example/ksp/processor/resources/**",
+    ]),
+    resources_root = "com/example/ksp/processor/resources",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":kspannotations",
+        "fbsource//third-party/java/com/squareup/kotlinpoet:kotlinpoet",
+        "fbsource//third-party/java/guava:guava",
+        "fbsource//third-party/kotlin/ksp:symbol-processing-api",
+        "fbsource//third-party/kotlin/ksp:symbol-processing-cmdline",
+    ],
+)

@@ -1,0 +1,22 @@
+def _impl(ctx):
+    node = ctx.configured_targets("root//bin:the_binary")
+
+    ctx.output.print(node.label)
+    ctx.output.print(node.rule_type)
+
+configured_node_test = bxl(
+    impl = _impl,
+    cli_args = {
+    },
+)
+
+def _impl_unconfigured(ctx):
+    node = ctx.unconfigured_targets("root//bin:the_binary")
+
+    ctx.output.print(node.label)
+
+unconfigured_node_test = bxl(
+    impl = _impl_unconfigured,
+    cli_args = {
+    },
+)

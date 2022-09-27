@@ -1,0 +1,15 @@
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+# Copyright 2004-present Facebook. All Rights Reserved.
+load("//buck2:proto_defs.bzl", "rust_protobuf_library")
+
+rust_protobuf_library(
+    name = "buck2_forkserver_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    spec = "forkserver.proto",
+    deps = [
+        "fbcode//buck2/gazebo/gazebo:gazebo",
+        "fbsource//third-party/rust:derive_more",
+    ],
+)

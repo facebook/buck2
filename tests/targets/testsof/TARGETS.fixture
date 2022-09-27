@@ -1,0 +1,34 @@
+load(":rules.bzl", "test_rule", "config_setting", "configuration", "platform")
+
+config_setting(
+    name="testfullness",
+)
+
+configuration(
+    name="regular_tests",
+    config_setting=":testfullness",
+)
+
+configuration(
+    name="more_tests",
+    config_setting=":testfullness",
+)
+
+platform(
+    name="platform_default_tests",
+    configuration=":regular_tests",
+)
+
+platform(
+    name="platform_more_tests",
+    configuration=":more_tests",
+)
+
+test_rule(
+    name="foo_lib",
+    tests=[":foo_test"] + select({"DEFAULT": [], ":more_tests": [":foo_extra_test"]}),
+)
+
+test_rule(name="foo_test")
+
+test_rule(name="foo_extra_test", compatible_with = [":more_tests"])

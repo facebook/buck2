@@ -1,0 +1,6 @@
+load("@root//rules:rules.bzl", "foo_genrule")
+
+foo_genrule(
+    name = "magic",
+    cmd = "",
+)

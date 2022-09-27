@@ -1,0 +1,14 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load(":b.bzl", "nothing_b")
+
+nothing_b()
+
+buck_genrule(
+    name = "def",
+    out = "out.txt",
+)
+
+buck_genrule(
+    name = "ghi",
+    out = "out.txt",
+)

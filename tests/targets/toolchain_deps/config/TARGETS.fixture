@@ -1,0 +1,24 @@
+load(":defs.bzl", "constraint_setting", "constraint_value", "platform", "platforms")
+
+constraint_setting(name = "os")
+constraint_value(name = "windows", setting = ":os")
+constraint_value(name = "linux", setting = ":os")
+
+constraint_setting(name = "mode")
+constraint_value(name = "release", setting = ":mode")
+constraint_value(name = "debug", setting = ":mode")
+
+platform(
+    name = "platform_windows",
+    configuration = [":windows", ":release"],
+)
+
+platform(
+    name = "platform_linux",
+    configuration = [":linux", ":release"],
+)
+
+platforms(
+    name = "platforms",
+    platforms = [":platform_linux", ":platform_windows"]
+)

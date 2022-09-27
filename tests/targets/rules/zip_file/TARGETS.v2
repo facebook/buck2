@@ -1,0 +1,369 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+######################################
+# zip_file utils
+######################################
+
+native.python_binary(
+    name = "check_zip",
+    base_module = "",
+    main_module = "check_zip",
+    deps = [
+        ":check_zip_lib",
+    ],
+)
+
+native.python_library(
+    name = "check_zip_lib",
+    base_module = "",
+    srcs = [
+        "check_zip.py",
+    ],
+)
+
+native.python_binary(
+    name = "check_file_content",
+    base_module = "",
+    main_module = "check_file_content",
+    deps = [
+        ":check_file_content_lib",
+    ],
+)
+
+native.python_library(
+    name = "check_file_content_lib",
+    base_module = "",
+    srcs = [
+        "check_file_content.py",
+    ],
+)
+
+######################################
+# zip all files in the directory
+######################################
+
+native.zip_file(
+    name = "ziptastic",
+    srcs = glob(
+        ["**/*"],
+        exclude = ["BUCK"],
+    ),
+)
+
+native.genrule(
+    name = "check_ziptastic",
+    cmd = "$(exe :check_zip) $(location :ziptastic) 'TARGETS.v2' 'beans/' 'beans/cheesy.txt' 'cake.txt' 'check_zip.py' 'check_file_content.py' 'duplicates/' 'duplicates/cake.txt' 'source-1.0-sources.jar' 'source-2.0-sources.jar/' 'source-2.0-sources.jar/taco.txt' 'zip-with-empty-dir.zip' > $OUT",
+    out = "out.txt",
+)
+
+######################################
+# unrolled zip_file
+######################################
+
+native.export_file(
+    name = "source-jar",
+    src = "source-1.0-sources.jar",
+)
+
+native.zip_file(
+    name = "unrolled",
+    zip_srcs = [":source-jar"],
+)
+
+native.genrule(
+    name = "check_unrolled",
+    cmd = "$(exe :check_zip) $(location :unrolled) 'menu.txt' > $OUT",
+    out = "out.txt",
+)
+
+######################################
+# Check zip with `zip_srcs` attribute
+######################################
+
+native.zip_file(
+    name = "zip_sources",
+    srcs = [
+        "cake.txt",
+        "source-2.0-sources.jar/taco.txt",
+    ],
+    zip_srcs = ["source-1.0-sources.jar"],
+)
+
+native.genrule(
+    name = "check_zip_sources",
+    cmd = "$(exe :check_zip) $(location :zip_sources) 'cake.txt' 'source-2.0-sources.jar/' 'source-2.0-sources.jar/taco.txt' 'menu.txt' > $OUT",
+    out = "out.txt",
+)
+
+############################################################################
+# Check zip with `entries_to_exclude` attribute
+############################################################################
+
+native.zip_file(
+    name = "exclude_all",
+    srcs = [
+        "cake.txt",
+        "source-1.0-sources.jar",
+    ],
+    entries_to_exclude = [
+        "cake.txt",
+        "menu.txt",
+    ],
+)
+
+native.genrule(
+    name = "check_exclude_all",
+    cmd = "$(exe :check_zip) $(location :exclude_all) > $OUT",
+    out = "out.txt",
+)
+
+############################################################################
+# Check zip with `entries_to_exclude` attribute / exclude cake.txt
+############################################################################
+
+native.zip_file(
+    name = "exclude_cake",
+    srcs = [
+        "cake.txt",
+    ],
+    entries_to_exclude = ["ca.e.*"],
+    zip_srcs = [
+        "source-1.0-sources.jar",
+    ],
+)
+
+native.genrule(
+    name = "check_exclude_cake",
+    cmd = "$(exe :check_zip) $(location :exclude_cake) 'menu.txt' > $OUT",
+    out = "out.txt",
+)
+
+############################################################################
+# Check zip with `entries_to_exclude` attribute / nothing to exclude
+############################################################################
+
+native.zip_file(
+    name = "exclude_nothing",
+    srcs = [
+        "cake.txt",
+    ],
+    entries_to_exclude = [
+        "this.is.not.a.match",
+        "neither.is.this",
+    ],
+    zip_srcs = [
+        "source-1.0-sources.jar",
+    ],
+)
+
+native.genrule(
+    name = "check_exclude_nothing",
+    cmd = "$(exe :check_zip) $(location :exclude_nothing) 'menu.txt' 'cake.txt' > $OUT",
+    out = "out.txt",
+)
+
+########################################################################################
+# Check zip with `entries_to_exclude` attribute / nothing to exclude with subfolder
+########################################################################################
+
+native.zip_file(
+    name = "excludes_nothing_in_subfolder",
+    srcs = [
+        "beans/cheesy.txt",
+        "cake.txt",
+    ],
+)
+
+native.genrule(
+    name = "check_excludes_nothing_in_subfolder",
+    cmd = "$(exe :check_zip) $(location :excludes_nothing_in_subfolder) 'beans/' 'beans/cheesy.txt' 'cake.txt'> $OUT",
+    out = "out.txt",
+)
+
+########################################################################################
+# Check zip with `entries_to_exclude` attribute / exact match with subfolder
+########################################################################################
+
+native.zip_file(
+    name = "excludes_exact_match_in_subfolder",
+    srcs = [
+        "beans/cheesy.txt",
+        "cake.txt",
+    ],
+    entries_to_exclude = [
+        "beans/cheesy.txt",
+    ],
+)
+
+native.genrule(
+    name = "check_excludes_exact_match_in_subfolder",
+    cmd = "$(exe :check_zip) $(location :excludes_exact_match_in_subfolder) 'cake.txt'> $OUT",
+    out = "out.txt",
+)
+
+########################################################################################
+# Check zip with `entries_to_exclude` attribute / exclude from zip_srcs
+########################################################################################
+
+native.zip_file(
+    name = "exclude_from_zip",
+    entries_to_exclude = [
+        "cake.txt",
+    ],
+    zip_srcs = [
+        ":ziptastic",
+    ],
+)
+
+native.genrule(
+    name = "check_exclude_from_zip",
+    cmd = "$(exe :check_zip) $(location :exclude_from_zip) 'TARGETS.v2' 'beans/' 'beans/cheesy.txt' 'check_zip.py' 'check_file_content.py' 'duplicates/' 'duplicates/cake.txt' 'source-1.0-sources.jar' 'source-2.0-sources.jar/' 'source-2.0-sources.jar/taco.txt' 'zip-with-empty-dir.zip' > $OUT",
+    out = "out.txt",
+)
+
+###########################
+# Handle duplicates cases
+###########################
+
+buck_genrule(
+    name = "copy",
+    srcs = ["cake.txt"],
+    out = "copy_out",
+    cmd = "mkdir -p $OUT && cp $SRCS $OUT",
+)
+
+native.zip_file(
+    name = "copy_zip",
+    srcs = [
+        ":copy",
+    ],
+)
+
+native.zip_file(
+    name = "zip1",
+    srcs = [
+        "cake.txt",
+    ],
+)
+
+buck_genrule(
+    name = "zip2_gen",
+    srcs = [
+        "duplicates/cake.txt",
+    ],
+    out = "cake.txt",
+    cmd = "cp duplicates/cake.txt $OUT",
+)
+
+native.zip_file(
+    name = "zip2",
+    srcs = [
+        ":zip2_gen",
+    ],
+)
+
+native.zip_file(
+    name = "zip3",
+    srcs = [
+        "cake.txt",
+    ],
+)
+
+native.zip_file(
+    name = "overwrite_duplicates",
+    zip_srcs = [
+        ":zip1",
+        ":zip2",
+    ],
+)
+
+native.genrule(
+    name = "check_overwrite_duplicates",
+    cmd = "$(exe :check_zip) $(location :overwrite_duplicates) 'cake.txt' > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_overwrite_duplicates_content",
+    cmd = "$(exe :check_file_content) $(location :overwrite_duplicates) 'cake.txt' 'Cake :)' > $OUT",
+    out = "out.txt",
+)
+
+native.zip_file(
+    name = "overwrite_duplicates_in_different_order",
+    zip_srcs = [
+        ":zip2",
+        ":zip1",
+    ],
+)
+
+native.genrule(
+    name = "check_overwrite_duplicates_in_different_order",
+    cmd = "$(exe :check_zip) $(location :overwrite_duplicates_in_different_order) 'cake.txt' > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_check_overwrite_duplicates_in_different_order_content",
+    cmd = "$(exe :check_file_content) $(location :overwrite_duplicates_in_different_order) 'cake.txt' 'Guten Tag' > $OUT",
+    out = "out.txt",
+)
+
+#########################
+# Check empty dirs case
+#########################
+
+native.zip_file(
+    name = "copy-zip-with-empty-dir",
+    zip_srcs = [
+        "zip-with-empty-dir.zip",
+    ],
+)
+
+native.genrule(
+    name = "check_copy-zip-with-empty-dir",
+    cmd = "$(exe :check_zip) $(location :copy-zip-with-empty-dir) 'empty/' > $OUT",
+    out = "out.txt",
+)
+
+#########################
+# Append duplicates case
+#########################
+
+native.zip_file(
+    name = "append_duplicates",
+    srcs = [
+        "cake.txt",
+    ],
+    on_duplicate_entry = "append",
+    zip_srcs = [
+        ":zip1",
+        ":zip3",
+    ],
+)
+
+native.genrule(
+    name = "check_append_duplicates",
+    cmd = "$(exe :check_zip) $(location :append_duplicates) 'cake.txt' 'cake.txt' 'cake.txt' > $OUT",
+    out = "out.txt",
+)
+
+############################
+# Override duplicates case
+############################
+
+native.zip_file(
+    name = "overwrite_mixed_duplicates",
+    srcs = [
+        "cake.txt",
+    ],
+    zip_srcs = [
+        ":zip2",
+    ],
+)
+
+native.genrule(
+    name = "check_overwrite_mixed_duplicates",
+    cmd = "$(exe :check_file_content) $(location :overwrite_mixed_duplicates) 'cake.txt' 'Guten Tag' > $OUT",
+    out = "out.txt",
+)

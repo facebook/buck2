@@ -1,0 +1,6 @@
+cpp_binary(
+    name = "test",
+    srcs = [
+        "test/main.cpp",
+    ],
+)

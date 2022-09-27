@@ -1,0 +1,61 @@
+"""
+Setup a build where one root is linked against another.
+"""
+
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    main_module = "bin",
+    native_link_strategy = "merged",
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    # These deps from a Python rule makes lib1 and lib3 root nodes.
+    deps = [
+        ":lib1",
+        ":lib3",
+    ],
+)
+
+# A omnibus root node.
+fb_native.cxx_library(
+    name = "lib1",
+    srcs = [
+        "lib1.cpp",
+    ],
+    deps = [
+        ":lib2",
+    ],
+)
+
+# A omnibus body node.
+fb_native.cxx_library(
+    name = "lib2",
+    srcs = [
+        "lib2.cpp",
+    ],
+    # Exporting this dep causes the lib1 root to link against it.
+    exported_deps = [
+        ":lib3",
+    ],
+)
+
+# A omnibus root node.
+fb_native.cxx_library(
+    name = "lib3",
+    srcs = [
+        "lib3.cpp",
+    ],
+)

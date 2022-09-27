@@ -1,0 +1,17 @@
+prelude = native
+
+prelude.config_setting(
+    name = "cs",
+    values = {
+        "aaa.bbb": "ccc",
+    },
+)
+
+prelude.genrule(
+    name = "the-test",
+    srcs = [],
+    cmd = select({
+        ":cs": "YES",
+        "DEFAULT": "NO",
+    }),
+)

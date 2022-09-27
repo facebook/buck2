@@ -1,0 +1,5 @@
+load(":defs.bzl", "cp")
+
+cp(name = "cp", src = "src/link/file")
+
+cp(name = "ext", src = "ext/link/file")

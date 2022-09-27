@@ -1,0 +1,64 @@
+[package]
+name = "buck2_common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+dirs = { workspace = true }
+faccess = { workspace = true }
+futures = { workspace = true }
+globset = { workspace = true }
+hex = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+once_cell = { workspace = true }
+prost-types = { workspace = true }
+ref-cast = { workspace = true }
+regex = { workspace = true }
+rusqlite = { workspace = true }
+sha-1 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-rusqlite = { workspace = true }
+tonic = { workspace = true }
+tower = { workspace = true }
+tracing = { workspace = true }
+nix = { workspace = true }
+derivative = { workspace = true }
+parking_lot = { workspace = true }
+
+dice = { path = "../dice/dice" }
+# @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
+fbinit = { workspace = true }
+# @oss-disable: fb303_core = { package = "fb303_core", path = "../../fb303/thrift", optional = true }
+gazebo = { workspace = true }
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+internment_tweaks = { path = "../shed/internment_tweaks" }
+more_futures = { path = "../shed/more_futures" }
+sorted_vector_map = { workspace = true }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+
+buck2_core = { path = "../buck2_core" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+xattr = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+xattr = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint", "eden_io"]
+# @oss-disable: eden_io = ["edenfs", "fb303_core"]
+eden_io = [] # @oss-enable
+
+[dev-dependencies]
+indoc = { workspace = true }
+maplit = { workspace = true }
+assert_matches = { workspace = true }
+tempfile = { workspace = true }
+test-case = { workspace = true }

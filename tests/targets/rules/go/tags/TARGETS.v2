@@ -1,0 +1,15 @@
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_list")
+
+go_binary(
+    name = "example",
+    link_mode = "internal",
+    srcs = ["example.go", "example_included.go", "example_excluded.go"],
+)
+
+# Test only passes with correct config, configured in tests/e2e.
+enabled = read_list("go", "tags", default = []) == ["tag1", "tag2"]
+check = buck_genrule(
+    name = "example-check",
+    cmd = "$(exe :example) | grep 'hello world' > $OUT",
+    out = "out.txt",
+) if enabled else None

@@ -1,0 +1,21 @@
+load(
+    "@prelude//python:python_binary.bzl",
+    "OmnibusMetadataInfo",
+)
+
+def _debug_impl(ctx):
+    metadata = ctx.analysis(sub_target(ctx.cli_args.target, "omnibus")).providers()[OmnibusMetadataInfo]
+    if metadata == None:
+        fail("Metadata generation must be enabled")
+
+    omnibus_libs = metadata.omnibus_libs
+
+    for lib, disp in omnibus_libs.dispositions.items():
+        ctx.output.print("{}\t{}".format(lib, disp))
+
+debug = bxl(
+    impl = _debug_impl,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)

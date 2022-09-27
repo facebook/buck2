@@ -1,0 +1,12 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "starlark_map",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:fnv",
+        "fbsource//third-party/rust:hashbrown",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
+)

@@ -1,0 +1,41 @@
+prelude = native
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = (
+        "set -euo pipefail; " +
+        "echo $(exe :bin); " +
+        "objdump --dwarf `echo $(location :bin) | sed 's:.par:#link-tree:'`/libomnibus.so | " +
+        "(! grep 'lib.cpp') > $OUT"
+    ),
+) if not read_config("python", "package_style") == "standalone" else None
+
+prelude.python_binary(
+    name = "bin",
+    main = "bin.py",
+    native_link_strategy = "merged",
+    prefer_stripped_native_objects = True,
+    deps = [
+        ":root",
+    ],
+)
+
+prelude.cxx_library(
+    name = "root",
+    compiler_flags = ["-g"],
+    srcs = [
+        "root.cpp",
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+prelude.cxx_library(
+    name = "lib",
+    compiler_flags = ["-g"],
+    srcs = [
+        "lib.cpp",
+    ],
+)

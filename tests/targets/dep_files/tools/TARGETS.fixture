@@ -1,0 +1,5 @@
+tool(
+    name = "gcc",
+    src = "gcc.py",
+    visibility = ["PUBLIC"]
+)
