@@ -480,6 +480,46 @@ impl<T: Stream<Item = Result<CommandProgress, Status>> + Send> Stream for SyncSt
     }
 }
 
+fn pump_events<E: EventSource>(
+    mut events: E,
+    output_send: tokio::sync::mpsc::UnboundedSender<
+        Result<cli_proto::CommandProgress, tonic::Status>,
+    >,
+) {
+    while let Some(next_event) = events.receive() {
+        // Note that writes to `output_send` have their errors explicitly ignored here. There is only one reason
+        // for a write to a `mpsc::channel` to fail: the receiving end of the channel has already been closed.
+        //
+        // This function returns the receiving channel back to `tonic` as part of a streaming response. Tonic can
+        // drop the stream before it is fully resolved if, for example, the gRPC client disconnects during the
+        // command. In this case, we explicitly ignore write errors and let them float off into the void, since no
+        // client is listening.
+        //
+        // TODO(swgillespie) - We should handle client disconnects better.
+        match next_event {
+            Event::Control(control_event) => {
+                // A control event. This event isn't going to be sent to gRPC, but we do need to react to it. In
+                // this case, the CommandResult event indicates that the spawned computation has produced a result
+                // and will not be producing any more events.
+                match control_event {
+                    ControlEvent::CommandResult(result) => {
+                        let _ignore = output_send.send(Ok(CommandProgress {
+                            progress: Some(command_progress::Progress::Result(result)),
+                        }));
+                    }
+                }
+                return;
+            }
+            Event::Buck(buck_event) => {
+                // A buck event. These events should be forwarded directly to gRPC.
+                let _ignore = output_send.send(Ok(CommandProgress {
+                    progress: Some(command_progress::Progress::Event(buck_event.into())),
+                }));
+            }
+        }
+    }
+}
+
 /// Dispatches a request to the given function and returns a stream of responses, suitable for streaming to a client.
 #[allow(clippy::mut_mut)] // select! does this internally
 async fn streaming<
@@ -489,7 +529,7 @@ async fn streaming<
     E: EventSource + 'static,
 >(
     req: Request<Req>,
-    mut events: E,
+    events: E,
     dispatcher: EventDispatcher,
     func: F,
 ) -> Response<ResponseStream>
@@ -528,38 +568,7 @@ where
     // another tokio task in its lifo task slot. See T96012305 and https://github.com/tokio-rs/tokio/issues/4323 for more
     // information.
     let _merge_task = std::thread::spawn(move || {
-        while let Some(next_event) = events.receive() {
-            // Note that writes to `output_send` have their errors explicitly ignored here. There is only one reason
-            // for a write to a `mpsc::channel` to fail: the receiving end of the channel has already been closed.
-            //
-            // This function returns the receiving channel back to `tonic` as part of a streaming response. Tonic can
-            // drop the stream before it is fully resolved if, for example, the gRPC client disconnects during the
-            // command. In this case, we explicitly ignore write errors and let them float off into the void, since no
-            // client is listening.
-            //
-            // TODO(swgillespie) - We should handle client disconnects better.
-            match next_event {
-                Event::Control(control_event) => {
-                    // A control event. This event isn't going to be sent to gRPC, but we do need to react to it. In
-                    // this case, the CommandResult event indicates that the spawned computation has produced a result
-                    // and will not be producing any more events.
-                    match control_event {
-                        ControlEvent::CommandResult(result) => {
-                            let _ignore = output_send.send(Ok(CommandProgress {
-                                progress: Some(command_progress::Progress::Result(result)),
-                            }));
-                        }
-                    }
-                    return;
-                }
-                Event::Buck(buck_event) => {
-                    // A buck event. These events should be forwarded directly to gRPC.
-                    let _ignore = output_send.send(Ok(CommandProgress {
-                        progress: Some(command_progress::Progress::Event(buck_event.into())),
-                    }));
-                }
-            }
-        }
+        pump_events(events, output_send);
     });
 
     // The stream we ultimately return is the receiving end of the channel that the above task is writing to.
