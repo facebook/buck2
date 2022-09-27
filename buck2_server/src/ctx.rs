@@ -65,6 +65,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::extra::InterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_server_ctx::concurrency::DiceDataProvider;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
@@ -77,6 +78,7 @@ use cli_proto::ClientContext;
 use cli_proto::CommonBuildOptions;
 use cli_proto::ConfigOverride;
 use dice::data::DiceData;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::dupe::Dupe;
@@ -334,6 +336,12 @@ impl ServerCommandContext {
             .clone()
     }
 
+    async fn dice_data_constructor(&self) -> DiceCommandDataProvider {
+        DiceCommandDataProvider {
+            data: self.construct_dice_data().await,
+        }
+    }
+
     async fn construct_dice_data(&self) -> anyhow::Result<UserComputationData> {
         let execution_strategy = self
             .build_options
@@ -454,6 +462,20 @@ impl ServerCommandContext {
     }
 }
 
+struct DiceCommandDataProvider {
+    data: anyhow::Result<UserComputationData>,
+}
+
+#[async_trait]
+impl DiceDataProvider for DiceCommandDataProvider {
+    async fn provide(
+        self: Box<Self>,
+        _ctx: &DiceComputations,
+    ) -> anyhow::Result<UserComputationData> {
+        self.data
+    }
+}
+
 struct DiceCommandUpdater {
     file_watcher: Arc<dyn FileWatcher>,
     buck_out_dir: ProjectRelativePathBuf,
@@ -503,11 +525,9 @@ impl ServerCommandContextTrait for ServerCommandContext {
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
-        let dice_data = self.construct_dice_data().await?;
-
         Ok(DiceAccessor {
             dice_handler: self.base_context.dice_manager.dupe(),
-            data: dice_data,
+            data: box self.dice_data_constructor().await,
             setup: box self.dice_updater().await?,
         })
     }

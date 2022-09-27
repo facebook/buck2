@@ -14,6 +14,7 @@ use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_events::TraceId;
 use dice::Dice;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::prelude::*;
@@ -51,6 +52,14 @@ pub trait DiceUpdater: Send + Sync {
     async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction>;
 }
 
+#[async_trait]
+pub trait DiceDataProvider: Send + Sync + 'static {
+    async fn provide(
+        self: Box<Self>,
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<UserComputationData>;
+}
+
 impl ConcurrencyHandler {
     pub fn new(dice: Arc<Dice>, bypass_semaphore: bool) -> Self {
         ConcurrencyHandler {
@@ -69,7 +78,7 @@ impl ConcurrencyHandler {
     pub async fn enter<F, Fut, R>(
         &self,
         trace: TraceId,
-        data: UserComputationData,
+        data: Box<dyn DiceDataProvider>,
         updates: &dyn DiceUpdater,
         exec: F,
     ) -> anyhow::Result<R>
@@ -89,14 +98,16 @@ impl ConcurrencyHandler {
     // starvation.
     async fn wait_for_others(
         &self,
-        user_data: UserComputationData,
+        user_data: Box<dyn DiceDataProvider>,
         updates: &dyn DiceUpdater,
         trace: TraceId,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let mut data = self.data.lock();
         let mut baton = None;
 
-        let mut transaction = self.dice.with_ctx_data(user_data);
+        let mut transaction = self
+            .dice
+            .with_ctx_data(user_data.provide(&self.dice.ctx()).await?);
 
         loop {
             // we rerun the updates in case that files on disk have changed between commands.
@@ -189,13 +200,16 @@ mod tests {
     use derive_more::Display;
     use dice::cycles::DetectCycles;
     use dice::Dice;
+    use dice::DiceComputations;
     use dice::DiceTransaction;
     use dice::InjectedKey;
+    use dice::UserComputationData;
     use gazebo::prelude::*;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
 
     use crate::concurrency::ConcurrencyHandler;
+    use crate::concurrency::DiceDataProvider;
     use crate::concurrency::DiceUpdater;
 
     #[async_trait]
@@ -224,6 +238,18 @@ mod tests {
         }
     }
 
+    struct TestDiceDataProvider;
+
+    #[async_trait]
+    impl DiceDataProvider for TestDiceDataProvider {
+        async fn provide(
+            self: Box<Self>,
+            _ctx: &DiceComputations,
+        ) -> anyhow::Result<UserComputationData> {
+            Ok(Default::default())
+        }
+    }
+
     #[tokio::test]
     async fn concurrent_same_transaction() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
@@ -236,19 +262,19 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(3));
 
-        let fut1 = concurrency.enter(traces1, Default::default(), &no_changes, |_| {
+        let fut1 = concurrency.enter(traces1, box TestDiceDataProvider, &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
-        let fut2 = concurrency.enter(traces2, Default::default(), &no_changes, |_| {
+        let fut2 = concurrency.enter(traces2, box TestDiceDataProvider, &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
             }
         });
-        let fut3 = concurrency.enter(traces3, Default::default(), &no_changes, |_| {
+        let fut3 = concurrency.enter(traces3, box TestDiceDataProvider, &no_changes, |_| {
             let b = barrier.dupe();
             async move {
                 b.wait().await;
@@ -294,10 +320,15 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces1, Default::default(), &no_changes, |_| async move {
-                        barrier.wait().await;
-                        let _g = b.read().await;
-                    })
+                    .enter(
+                        traces1,
+                        box TestDiceDataProvider,
+                        &no_changes,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                    )
                     .await
             }
         });
@@ -309,10 +340,15 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces2, Default::default(), &no_changes, |_| async move {
-                        barrier.wait().await;
-                        let _g = b.read().await;
-                    })
+                    .enter(
+                        traces2,
+                        box TestDiceDataProvider,
+                        &no_changes,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                    )
                     .await
             }
         });
@@ -329,7 +365,7 @@ mod tests {
                 concurrency
                     .enter(
                         traces_different,
-                        Default::default(),
+                        box TestDiceDataProvider,
                         &ctx_different,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -381,9 +417,14 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces1, Default::default(), &no_changes, |_| async move {
-                        barrier.wait().await;
-                    })
+                    .enter(
+                        traces1,
+                        box TestDiceDataProvider,
+                        &no_changes,
+                        |_| async move {
+                            barrier.wait().await;
+                        },
+                    )
                     .await
             }
         });
@@ -394,9 +435,14 @@ mod tests {
 
             async move {
                 concurrency
-                    .enter(traces2, Default::default(), &no_changes, |_| async move {
-                        barrier.wait().await;
-                    })
+                    .enter(
+                        traces2,
+                        box TestDiceDataProvider,
+                        &no_changes,
+                        |_| async move {
+                            barrier.wait().await;
+                        },
+                    )
                     .await
             }
         });
@@ -409,7 +455,7 @@ mod tests {
                 concurrency
                     .enter(
                         traces_different,
-                        Default::default(),
+                        box TestDiceDataProvider,
                         &ctx_different,
                         |_| async move {
                             barrier.wait().await;

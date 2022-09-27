@@ -20,10 +20,10 @@ use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceTransaction;
-use dice::UserComputationData;
 use gazebo::prelude::*;
 
 use crate::concurrency::ConcurrencyHandler;
+use crate::concurrency::DiceDataProvider;
 use crate::concurrency::DiceUpdater;
 use crate::raw_output::RawOuputGuard;
 
@@ -51,7 +51,7 @@ pub struct PrivateStruct(());
 
 pub struct DiceAccessor {
     pub dice_handler: ConcurrencyHandler,
-    pub data: UserComputationData,
+    pub data: Box<dyn DiceDataProvider>,
     pub setup: Box<dyn DiceUpdater>,
 }
 
