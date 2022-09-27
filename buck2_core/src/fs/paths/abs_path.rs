@@ -18,6 +18,8 @@ use std::path::PathBuf;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
+use serde::de::Error;
+use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -68,6 +70,15 @@ impl Serialize for AbsPathBuf {
         S: serde::Serializer,
     {
         self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for AbsPathBuf {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        AbsPathBuf::new(PathBuf::deserialize(deserializer)?).map_err(D::Error::custom)
     }
 }
 
