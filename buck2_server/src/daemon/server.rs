@@ -32,6 +32,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
+use buck2_core::error::reset_soft_error_counters;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::ControlEvent;
 use buck2_events::Event;
@@ -320,6 +321,10 @@ impl BuckdServer {
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
     {
+        // This will reset counters incorrectly if commands are running concurrently.
+        // This is fine.
+        reset_soft_error_counters();
+
         OneshotCommandOptions::pre_run(&opts, self)?;
 
         let daemon_state = self.daemon_state.dupe();
