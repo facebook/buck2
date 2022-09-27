@@ -60,10 +60,7 @@ members = [
 ]
 
 [workspace.dependencies]
-# Upper bound because we are on older nightly,
-# and newer version does not work with our nightly.
-# Lower bound is what is used in our buck build.
-anyhow = ">=1.0.56, <1.0.63"
+anyhow = "1.0.65"
 assert_matches = "1.5"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip"] }
 async-condvar-fair = { version = "0.2.2", features = ["parking_lot_0_11"] }
@@ -166,7 +163,7 @@ termios = "0.3"
 termwiz = "0.15"
 test-case = "1.2.0"
 textwrap = "0.14.2"
-thiserror = "1.0.24"
+thiserror = "1.0.36"
 threadpool = "1.8.1"
 tokio = { version = "1.5", features = ["full"] }
 tokio-rusqlite = "0.3.0"

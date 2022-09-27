@@ -26,11 +26,11 @@ gazebo_lint.optional = true
 owning_ref = "0.4.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"
-thiserror = "1.0.24"
+thiserror = "1.0.36"
 tracing = "0.1.22"
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
 lock_api = ">=0.4, <0.4.7" # Not using this as an explicit dep, but lock_api 0.4.7 is only compatible with latest nightly
-anyhow = "1.0.51"
+anyhow = "1.0.65"
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
@@ -42,7 +42,7 @@ criterion = { version = "0.3.4", features = ["async", "async_tokio"] }
 cast = "=0.2.6"
 derivative = "2.1.1"
 tempfile = "3.1"
-anyhow = "1.0.51"
+anyhow = "1.0.65"
 assert_matches = "1.5"
 tokio = { version = "1.5", features = ["full"]}
 

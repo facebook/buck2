@@ -20,7 +20,7 @@ lalrpop = "0.19.7"
 
 [dependencies]
 annotate-snippets = { version = "0.9.0", features = ["color"] }
-anyhow = "1.0.56"
+anyhow = "1.0.65"
 derivative = "2.2"
 derive_more = "0.99"
 erased-serde = "0.3.20"
@@ -32,7 +32,7 @@ paste = "1.0"
 either = "1.6.1"
 static_assertions = "1.1.0"
 memoffset = "0.6.4"
-thiserror = "1.0.30"
+thiserror = "1.0.36"
 starlark_derive = { version = "0.9.0-pre", path = "../starlark_derive" }
 starlark_map = { version = "0.9.0-pre", path = "../starlark_map" }
 gazebo.version = "0.8.0"

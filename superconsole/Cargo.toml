@@ -11,7 +11,7 @@ categories = ["command-line-interface"]
 keywords = ["TUI"]
 
 [dependencies]
-anyhow = "1.0.51"
+anyhow = "1.0.65"
 crossterm = "0.23"
 itertools = "0.10"
 unicode-segmentation = "1.7"
@@ -20,7 +20,7 @@ gazebo.version = "0.8.0"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-thiserror = "1"
+thiserror = "1.0.36"
 termwiz = "0.15"
 crossbeam-channel = "0.5"
 # 0.9.8 is only compatible with nightly 1.61
