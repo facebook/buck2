@@ -333,35 +333,26 @@ impl BuckdServer {
         let configure_bxl_file_globals = self.callbacks.configure_bxl_file_globals();
 
         let resp = streaming(req, events, dispatch.dupe(), move |req| async move {
-            let result: CommandResult = {
-                let result: anyhow::Result<CommandResult> = try {
-                    let base_context = daemon_state.prepare_command(dispatch.dupe()).await?;
-                    build_listener::scope(base_context.events.dupe(), |build_sender| async {
-                        let context = ServerCommandContext::new(
-                            base_context,
-                            req.client_context()?,
-                            build_sender,
-                            opts.starlark_profiler_instrumentation_override(&req)?,
-                            req.build_options(),
-                            daemon_state.paths.buck_out_dir(),
-                            req.record_target_call_stacks(),
-                            configure_bxl_file_globals,
-                        )?;
+            let result: anyhow::Result<Res> = try {
+                let base_context = daemon_state.prepare_command(dispatch.dupe()).await?;
+                build_listener::scope(base_context.events.dupe(), |build_sender| async {
+                    let context = ServerCommandContext::new(
+                        base_context,
+                        req.client_context()?,
+                        build_sender,
+                        opts.starlark_profiler_instrumentation_override(&req)?,
+                        req.build_options(),
+                        daemon_state.paths.buck_out_dir(),
+                        req.record_target_call_stacks(),
+                        configure_bxl_file_globals,
+                    )?;
 
-                        let result = func(context, req).await?;
-
-                        Ok(CommandResult {
-                            result: Some(result.into()),
-                        })
-                    })
-                    .await?
-                };
-
-                match result {
-                    Ok(result) => result,
-                    Err(e) => error_to_command_result(e),
-                }
+                    func(context, req).await
+                })
+                .await?
             };
+
+            let result: CommandResult = result_to_command_result(result);
             dispatch.control_event(ControlEvent::CommandResult(result));
         })
         .await;
@@ -439,6 +430,17 @@ fn error_to_command_result(e: anyhow::Error) -> CommandResult {
 
     CommandResult {
         result: Some(command_result::Result::Error(CommandError { messages })),
+    }
+}
+
+fn result_to_command_result<R: Into<command_result::Result>>(
+    result: anyhow::Result<R>,
+) -> CommandResult {
+    match result {
+        Ok(result) => CommandResult {
+            result: Some(result.into()),
+        },
+        Err(e) => error_to_command_result(e),
     }
 }
 
