@@ -395,12 +395,8 @@ impl BuckdServer {
         opts.pre_run(self)?;
 
         let req = req.into_inner();
-        match func(req).await {
-            Ok(val) => Ok(Response::new(CommandResult {
-                result: Some(val.into()),
-            })),
-            Err(e) => Ok(Response::new(error_to_command_result(e))),
-        }
+        let result = func(req).await;
+        Ok(Response::new(result_to_command_result(result)))
     }
 
     /// Checks if the server is accepting requests.
