@@ -23,6 +23,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
 sync_wrapper = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -57,7 +58,6 @@ jemalloc-ctl = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 maplit = { workspace = true }
-tempfile = { workspace = true }
 
 [features]
 # @oss-disable: default = ["eden_materializer"]

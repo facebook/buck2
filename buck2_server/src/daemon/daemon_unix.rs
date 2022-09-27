@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::task;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
-use buck2_common::with_current_directory::WithCurrentDirectory;
+use buck2_core::fs::fs_util;
 use futures::Stream;
 use futures::TryFutureExt;
 use tokio::io::AsyncRead;
@@ -38,12 +38,15 @@ pub async fn create_listener(
     }
 
     let listener = {
-        // change directory to the daemon directory to connect to unix domain socket
-        // then change directory back to the current directory since the unix domain socket
-        // path is limited to 108 characters. https://man7.org/linux/man-pages/man7/unix.7.html
+        // Create symlink to the daemon directory to connect to unix domain socket
+        // since the unix domain socket path is limited to 108 characters.
+        // https://man7.org/linux/man-pages/man7/unix.7.html
         let uds = {
-            let _with_dir = WithCurrentDirectory::new(daemon_dir)?;
-            UnixListener::bind(Path::new(UDS_DAEMON_FILENAME))?
+            let tempdir = tempfile::tempdir()?;
+            let socket_dir_symlink = tempdir.path().join("d");
+            fs_util::symlink(daemon_dir, &socket_dir_symlink)?;
+            let socket_path = socket_dir_symlink.join(UDS_DAEMON_FILENAME);
+            UnixListener::bind(socket_path)?
         };
 
         async_stream::stream! {
