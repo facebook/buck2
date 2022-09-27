@@ -331,6 +331,7 @@ pub(crate) struct EventLog {
     async_cleanup_context: Option<AsyncCleanupContext>,
     sanitized_argv: Vec<String>,
     command_name: String,
+    working_dir: AbsPathBuf,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -342,6 +343,7 @@ pub(crate) struct Invocation {
 impl EventLog {
     pub(crate) fn new(
         logdir: AbsPathBuf,
+        working_dir: AbsPathBuf,
         extra_path: Option<PathBuf>,
         sanitized_argv: Vec<String>,
         async_cleanup_context: AsyncCleanupContext,
@@ -352,16 +354,16 @@ impl EventLog {
             async_cleanup_context: Some(async_cleanup_context),
             sanitized_argv,
             command_name,
+            working_dir,
         })
     }
 
     /// Get the command line arguments and cwd and serialize them for replaying later.
     async fn log_invocation(&mut self) -> anyhow::Result<()> {
-        let working_dir = AbsPathBuf::new(std::env::current_dir()?)?;
         let command_line_args = self.sanitized_argv.clone();
         let invocation = Invocation {
             command_line_args,
-            working_dir,
+            working_dir: self.working_dir.clone(),
         };
         self.write_ln(&invocation).await
     }
@@ -697,6 +699,7 @@ impl Decoder for EventLogDecoder {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
 
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
@@ -717,6 +720,7 @@ mod tests {
                 sanitized_argv: vec!["buck2".to_owned()],
                 async_cleanup_context: None,
                 command_name: "testtest".to_owned(),
+                working_dir: AbsPathBuf::new(env::current_dir()?)?,
             })
         }
     }

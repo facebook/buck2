@@ -82,6 +82,7 @@ pub(crate) fn try_get_event_log_subscriber(
     let logdir = ctx.paths()?.log_dir();
     let log = EventLog::new(
         logdir,
+        ctx.working_dir.clone(),
         event_log_opts.event_log.clone(),
         sanitized_argv,
         ctx.async_cleanup_context().dupe(),

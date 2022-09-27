@@ -59,6 +59,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use clap::AppSettings;
 use clap::Parser;
@@ -130,6 +131,7 @@ pub(crate) struct Opt {
 impl Opt {
     pub(crate) fn exec(
         self,
+        working_dir: AbsPathBuf,
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
         replay: Option<(ProcessContext, Replayer)>,
@@ -139,8 +141,13 @@ impl Opt {
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        self.cmd
-            .exec(subcommand_matches, self.common_opts, init, replay)
+        self.cmd.exec(
+            working_dir,
+            subcommand_matches,
+            self.common_opts,
+            init,
+            replay,
+        )
     }
 }
 
@@ -161,7 +168,8 @@ pub fn exec(
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
-    opt.exec(&matches, init, replay)
+    let working_dir = AbsPathBuf::new(cwd)?;
+    opt.exec(working_dir, &matches, init, replay)
 }
 
 #[derive(Debug, clap::Subcommand, VariantName)]
@@ -207,6 +215,7 @@ impl CommandKind {
 
     pub(crate) fn exec(
         self,
+        working_dir: AbsPathBuf,
         matches: &clap::ArgMatches,
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
@@ -290,6 +299,7 @@ impl CommandKind {
             process_context,
             start_in_process_daemon,
             command_name: self.command_name(),
+            working_dir,
         };
 
         match self {

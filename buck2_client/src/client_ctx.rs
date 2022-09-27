@@ -13,6 +13,7 @@ use std::str::FromStr;
 use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
+use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::truncate::truncate_container;
 use buck2_events::trace::TraceId;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
@@ -56,6 +57,7 @@ impl ProcessContext {
 pub struct ClientCommandContext {
     pub init: fbinit::FacebookInit,
     pub paths: SharedResult<InvocationPaths>,
+    pub working_dir: AbsPathBuf,
     pub replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     pub verbosity: Verbosity,
     pub replay_speed: Option<f64>,
