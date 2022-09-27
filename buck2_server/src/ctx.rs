@@ -78,6 +78,7 @@ use cli_proto::ClientContext;
 use cli_proto::CommonBuildOptions;
 use cli_proto::ConfigOverride;
 use dice::data::DiceData;
+use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
@@ -185,8 +186,6 @@ pub struct ServerCommandContext {
     /// The oncall specified by the client, if any. This gets injected into request metadata.
     pub oncall: Option<String>,
 
-    config_overrides: Vec<ConfigOverride>,
-
     host_platform_override: HostPlatformOverride,
 
     // This ensures that there's only one RE connection during the lifetime of this context. It's possible
@@ -209,8 +208,8 @@ pub struct ServerCommandContext {
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
 
-    /// The CellResolver and Configs for this command
-    cells_and_configs: AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
+    /// The CellResolver and Configs loader for this command
+    cell_configs_loader: Arc<CellConfigLoader>,
 
     /// Keep emitting heartbeat events while the ServerCommandContext is alive  We put this in an
     /// Option so that we can ensure heartbeat events are cancelled before everything else is
@@ -218,9 +217,6 @@ pub struct ServerCommandContext {
     heartbeat_guard_handle: Option<HeartbeatGuard>,
 
     configure_bxl_file_globals: fn(&mut GlobalsBuilder),
-
-    /// Reuses build config from the previous invocation if there is one
-    reuse_current_config: bool,
 }
 
 impl ServerCommandContext {
@@ -282,10 +278,20 @@ impl ServerCommandContext {
 
         let heartbeat_guard_handle = HeartbeatGuard::new(&base_context);
 
+        let cell_configs_loader = Arc::new(CellConfigLoader {
+            // TODO this is wrong and racey as the dice manager could evict the current
+            // active dice ctx before the command that reuses config gets there.
+            dice: base_context.dice_manager.unsafe_dice().dupe(),
+            project_root: base_context.project_root.clone(),
+            working_dir: project_path.to_buf().into(),
+            reuse_current_config: client_context.reuse_current_config,
+            config_overrides: client_context.config_overrides.clone(),
+            loaded_cell_configs: AsyncOnceCell::new(),
+        });
+
         Ok(ServerCommandContext {
             base_context,
             working_dir: project_path.to_buf().into(),
-            config_overrides: client_context.config_overrides.clone(),
             host_platform_override: client_context.host_platform(),
             oncall,
             _re_connection_handle: re_connection_handle,
@@ -293,47 +299,12 @@ impl ServerCommandContext {
             starlark_profiler_instrumentation_override,
             buck_out_dir,
             build_options: build_options.cloned(),
-            cells_and_configs: AsyncOnceCell::new(),
+            cell_configs_loader,
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             configure_bxl_file_globals,
-            reuse_current_config: client_context.reuse_current_config,
         })
-    }
-
-    pub async fn cells_and_configs(
-        &self,
-        reuse_current_config: bool,
-    ) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
-        self.cells_and_configs
-            .get_or_init(async move {
-                if reuse_current_config {
-                    // TODO this is wrong and racey as the dice manager could evict the current
-                    // active dice ctx before the command that reuses config gets there.
-                    let dice_ctx = self.base_context.dice_manager.unsafe_dice().ctx();
-                    if dice_ctx.is_cell_resolver_key_set().await?
-                        && dice_ctx.is_legacy_configs_key_set().await?
-                    {
-                        return Ok::<(CellResolver, LegacyBuckConfigs), anyhow::Error>((
-                            dice_ctx.get_cell_resolver().await?,
-                            dice_ctx.get_legacy_configs().await?,
-                        ))
-                            .shared_error();
-                    } else {
-                        warn!(
-                            "--reuse-current-config flag was set, but there was no previous invocation detected"
-                        );
-                    }
-                }
-
-                let fs = self.project_root();
-                let cwd = &self.working_dir;
-                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
-                    .shared_error()
-            })
-            .await
-            .clone()
     }
 
     async fn dice_data_constructor(&self) -> DiceCommandDataProvider {
@@ -351,8 +322,7 @@ impl ServerCommandContext {
                 ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
             });
 
-        let (cell_resolver, legacy_configs) =
-            self.cells_and_configs(self.reuse_current_config).await?;
+        let (cell_resolver, legacy_configs) = self.cell_configs_loader.cells_and_configs().await?;
 
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
@@ -423,8 +393,7 @@ impl ServerCommandContext {
     }
 
     async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
-        let (cell_resolver, legacy_configs) =
-            self.cells_and_configs(self.reuse_current_config).await?;
+        let (cell_resolver, legacy_configs) = self.cell_configs_loader.cells_and_configs().await?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
 
@@ -459,6 +428,47 @@ impl ServerCommandContext {
 
     pub fn get_re_connection(&self) -> ReConnectionHandle {
         self.base_context.re_client_manager.get_re_connection()
+    }
+}
+
+struct CellConfigLoader {
+    dice: Arc<Dice>,
+    project_root: ProjectRoot,
+    working_dir: ProjectRelativePathBuf,
+    /// Reuses build config from the previous invocation if there is one
+    reuse_current_config: bool,
+    config_overrides: Vec<ConfigOverride>,
+    loaded_cell_configs: AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
+}
+
+impl CellConfigLoader {
+    pub async fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
+        self.loaded_cell_configs
+            .get_or_init(async move {
+                let dice_ctx = self.dice.ctx();
+                if self.reuse_current_config {
+                    if dice_ctx.is_cell_resolver_key_set().await?
+                        && dice_ctx.is_legacy_configs_key_set().await?
+                    {
+                        return Ok::<(CellResolver, LegacyBuckConfigs), anyhow::Error>((
+                            dice_ctx.get_cell_resolver().await?,
+                            dice_ctx.get_legacy_configs().await?,
+                        ))
+                            .shared_error();
+                    } else {
+                        warn!(
+                            "--reuse-current-config flag was set, but there was no previous invocation detected"
+                        );
+                    }
+                }
+
+                let fs = &self.project_root;
+                let cwd = &self.working_dir;
+                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
+                    .shared_error()
+            })
+            .await
+            .clone()
     }
 }
 
@@ -593,7 +603,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
         let mut metadata = HashMap::new();
         // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
         // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-        let (cells, configs) = self.cells_and_configs(self.reuse_current_config).await?;
+        let (cells, configs) = self.cell_configs_loader.cells_and_configs().await?;
         let root_cell_config = configs.get(cells.root_cell());
         if let Ok(config) = root_cell_config {
             add_config(&mut metadata, config, "log", "repository", "repository");
