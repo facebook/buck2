@@ -218,7 +218,7 @@ impl EventLogPathBuf {
         let invocation = match stream.try_next().await?.context("No invocation found")? {
             Frame::Invocation(inv) => Invocation {
                 command_line_args: inv.command_line_args,
-                working_dir: PathBuf::from(OsString::from(inv.working_dir)),
+                working_dir: AbsPathBuf::new(PathBuf::from(OsString::from(inv.working_dir)))?,
             },
             Frame::Value(_) => {
                 return Err(anyhow::anyhow!("Expected Invocation, found StreamValue"));
@@ -336,7 +336,7 @@ pub(crate) struct EventLog {
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct Invocation {
     pub(crate) command_line_args: Vec<String>,
-    pub(crate) working_dir: PathBuf,
+    pub(crate) working_dir: AbsPathBuf,
 }
 
 impl EventLog {
@@ -357,7 +357,7 @@ impl EventLog {
 
     /// Get the command line arguments and cwd and serialize them for replaying later.
     async fn log_invocation(&mut self) -> anyhow::Result<()> {
-        let working_dir = std::env::current_dir()?;
+        let working_dir = AbsPathBuf::new(std::env::current_dir()?)?;
         let command_line_args = self.sanitized_argv.clone();
         let invocation = Invocation {
             command_line_args,
