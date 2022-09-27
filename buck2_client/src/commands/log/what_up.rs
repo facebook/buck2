@@ -70,7 +70,7 @@ impl WhatUpCommand {
 
         let path = match path {
             Some(path) => path,
-            None => retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?,
+            None => retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?.into_path_buf(),
         };
         let log_path = EventLogPathBuf::infer(path)?;
 

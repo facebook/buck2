@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
-use std::path::Path;
-use std::path::PathBuf;
-
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_events::BuckEvent;
 use chrono::DateTime;
@@ -42,7 +41,7 @@ pub(crate) fn get_logfile_name(
     .unwrap()
 }
 
-pub(crate) async fn remove_old_logs(logdir: &Path) {
+pub(crate) async fn remove_old_logs(logdir: &AbsPath) {
     const N_LOGS_RETAINED: usize = 10;
 
     if let Ok(logfiles) = get_local_logs(logdir) {
@@ -57,7 +56,7 @@ pub(crate) async fn remove_old_logs(logdir: &Path) {
 }
 
 /// List logs in logdir, ordered from oldest to newest.
-pub(crate) fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+pub(crate) fn get_local_logs(logdir: &AbsPath) -> anyhow::Result<Vec<AbsPathBuf>> {
     let dir = fs_util::read_dir(logdir)?;
     let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
     logfiles.sort_by_cached_key(|file| {
@@ -69,13 +68,13 @@ pub(crate) fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<PathBuf>> {
         }
         std::time::UNIX_EPOCH
     });
-    Ok(logfiles.into_map(|entry| entry.path()))
+    logfiles.into_try_map(|entry| AbsPathBuf::new(entry.path()))
 }
 
 pub(crate) fn retrieve_nth_recent_log(
     ctx: &ClientCommandContext,
     n: usize,
-) -> anyhow::Result<PathBuf> {
+) -> anyhow::Result<AbsPathBuf> {
     let log_dir = ctx.paths()?.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first

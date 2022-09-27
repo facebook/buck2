@@ -459,8 +459,18 @@ impl AbsPath {
 }
 
 impl AbsPathBuf {
+    pub fn new(path: PathBuf) -> anyhow::Result<AbsPathBuf> {
+        // Validate.
+        AbsPath::new(&path)?;
+        Ok(AbsPathBuf(path))
+    }
+
     pub fn unchecked_new(s: String) -> Self {
         Self(PathBuf::from(s))
+    }
+
+    pub fn into_path_buf(self) -> PathBuf {
+        self.0
     }
 
     pub fn from(s: String) -> anyhow::Result<Self> {
