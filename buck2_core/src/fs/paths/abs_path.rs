@@ -32,7 +32,7 @@ pub struct AbsPath(Path);
 
 ///
 /// The owned version of 'AbsPath', like how 'PathBuf' relates to 'Path'
-#[derive(Clone, Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Serialize)]
+#[derive(Clone, Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 #[display(fmt = "{}", "_0.display()")]
 pub struct AbsPathBuf(PathBuf);
 
@@ -59,6 +59,15 @@ impl Deref for AbsPath {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Serialize for AbsPathBuf {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
     }
 }
 
