@@ -22,7 +22,6 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::path::PathBuf;
 use std::thread;
 
 use anyhow::Context as _;
@@ -153,11 +152,12 @@ impl Opt {
 
 pub fn exec(
     args: Vec<String>,
-    cwd: PathBuf,
+    working_dir: AbsPathBuf,
     init: fbinit::FacebookInit,
     replay: Option<(ProcessContext, Replayer)>,
 ) -> ExitResult {
-    let mut expanded_args = expand_argfiles(args, &cwd).context("Error expanding argsfiles")?;
+    let mut expanded_args =
+        expand_argfiles(args, &working_dir).context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
     static BUCK2_ARG0: EnvHelper<String> = EnvHelper::new("BUCK2_ARG0");
@@ -168,7 +168,6 @@ pub fn exec(
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
-    let working_dir = AbsPathBuf::new(cwd)?;
     opt.exec(working_dir, &matches, init, replay)
 }
 

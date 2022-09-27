@@ -81,6 +81,7 @@ buck_rust_binary(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:tracing-subscriber",
         "//buck2/buck2_client:buck2_client",
+        "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_events:buck2_events",
         "//buck2/cli:cli",
         "//common/rust/folly/logging:logging",

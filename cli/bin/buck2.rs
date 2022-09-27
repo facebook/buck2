@@ -17,6 +17,7 @@ use std::io;
 
 use anyhow::Context as _;
 use buck2_client::exit_result::ExitResult;
+use buck2_core::fs::paths::AbsPathBuf;
 use cli::exec;
 use cli::panic;
 use fbinit::FacebookInit;
@@ -102,7 +103,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
         init_logging(init)?;
 
         let args = std::env::args().collect::<Vec<String>>();
-        let cwd = std::env::current_dir()?;
+        let cwd = AbsPathBuf::new(std::env::current_dir()?)?;
 
         exec(args, cwd, init, None)
     }

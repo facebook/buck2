@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
-
 use allocator_stats::AllocatorStatsCommand;
+use buck2_core::fs::paths::AbsPathBuf;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;
@@ -77,7 +76,7 @@ pub enum DebugCommand {
 /// `cli::exec` function.
 pub type ExecFn = fn(
     Vec<String>,
-    PathBuf,
+    AbsPathBuf,
     fbinit::FacebookInit,
     Option<(ProcessContext, Replayer)>,
 ) -> ExitResult;

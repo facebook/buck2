@@ -84,7 +84,7 @@ impl ReplayCommand {
 
         exec(
             args,
-            working_dir.into_path_buf(),
+            working_dir,
             ctx.init,
             Some((ctx.process_context, replayer)),
         )
