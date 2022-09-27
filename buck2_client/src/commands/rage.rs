@@ -20,7 +20,7 @@ use buck2_core::process::background_command;
 use buck2_data::RageInvoked;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
-use buck2_events::TraceId;
+use buck2_events::trace::TraceId;
 use chrono::offset::Local;
 use chrono::DateTime;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;

@@ -30,9 +30,9 @@ mod imp {
     use buck2_common::convert::ProstDurationExt;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_events::sink::scribe::ThriftScribeSink;
+    use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
     use buck2_events::EventSink;
-    use buck2_events::TraceId;
     use futures::FutureExt;
     use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;

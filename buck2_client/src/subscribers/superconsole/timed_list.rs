@@ -352,9 +352,9 @@ mod tests {
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
+    use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
     use buck2_events::SpanId;
-    use buck2_events::TraceId;
     use superconsole::style::style;
 
     use super::*;

@@ -163,9 +163,9 @@ mod imp {
         use buck2_data::InstantEvent;
         use buck2_events::sink::scribe;
         use buck2_events::sink::scribe::ThriftScribeSink;
+        use buck2_events::trace::TraceId;
         use buck2_events::BuckEvent;
         use buck2_events::EventSink;
-        use buck2_events::TraceId;
 
         facebook_only();
         if !scribe::is_enabled() {

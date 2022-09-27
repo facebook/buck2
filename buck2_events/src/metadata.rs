@@ -28,7 +28,7 @@ pub fn collect() -> HashMap<String, String> {
     {
         use once_cell::sync::Lazy;
 
-        use crate::TraceId;
+        use crate::trace::TraceId;
 
         // Global trace ID
         static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);

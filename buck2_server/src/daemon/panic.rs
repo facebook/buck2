@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use buck2_events::TraceId;
+use buck2_events::trace::TraceId;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use once_cell::sync::OnceCell;
 

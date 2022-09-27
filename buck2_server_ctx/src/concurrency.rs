@@ -12,7 +12,7 @@ use std::sync::Arc;
 use async_condvar_fair::BatonExt;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
-use buck2_events::TraceId;
+use buck2_events::trace::TraceId;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -196,7 +196,7 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use buck2_events::TraceId;
+    use buck2_events::trace::TraceId;
     use derive_more::Display;
     use dice::cycles::DetectCycles;
     use dice::Dice;

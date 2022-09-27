@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 
 use buck2_core::env_helper::EnvHelper;
-use buck2_events::TraceId;
+use buck2_events::trace::TraceId;
 use gazebo::dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;

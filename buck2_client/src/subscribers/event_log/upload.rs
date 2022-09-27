@@ -13,7 +13,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use anyhow::Context;
-use buck2_events::TraceId;
+use buck2_events::trace::TraceId;
 
 use crate::find_certs::find_tls_cert;
 use crate::subscribers::event_log::EventLogPathBuf;

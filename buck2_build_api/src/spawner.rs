@@ -34,9 +34,9 @@ mod tests {
     use buck2_events::create_source_sink_pair;
     use buck2_events::dispatch::span;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
     use buck2_events::EventSource;
-    use buck2_events::TraceId;
     use dice::data::DiceData;
     use dice::UserComputationData;
     use futures::future::FutureExt;

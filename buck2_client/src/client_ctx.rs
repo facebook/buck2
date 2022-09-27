@@ -14,7 +14,7 @@ use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_core::truncate::truncate_container;
-use buck2_events::TraceId;
+use buck2_events::trace::TraceId;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
 use gazebo::dupe::Dupe;
