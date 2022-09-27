@@ -9,7 +9,6 @@
 
 use std::path::PathBuf;
 
-use buck2_core::fs::paths::AbsPathBuf;
 use tokio::runtime::Runtime;
 
 use crate::client_ctx::ClientCommandContext;
@@ -77,7 +76,7 @@ impl ReplayCommand {
             (invocation.command_line_args, invocation.working_dir)
         } else {
             override_args.insert(0, "buck2".to_owned());
-            (override_args, AbsPathBuf::new(std::env::current_dir()?)?)
+            (override_args, ctx.working_dir.clone())
         };
 
         // add --no-event-log to prevent recursion
