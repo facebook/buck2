@@ -21,20 +21,16 @@ pub mod dispatch;
 pub mod metadata;
 pub mod sink;
 pub mod source;
+pub mod span;
 pub mod trace;
 
-use std::hash::Hash;
 use std::num::NonZeroU64;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
 use cli_proto::CommandResult;
-use derive_more::Display;
 use derive_more::From;
-use gazebo::prelude::*;
 use gazebo::variants::UnpackVariants;
 use serde::Serialize;
 use thiserror::Error;
@@ -42,28 +38,8 @@ use uuid::Uuid;
 
 use crate::sink::channel::ChannelEventSink;
 use crate::source::ChannelEventSource;
+use crate::span::SpanId;
 use crate::trace::TraceId;
-
-/// A SpanId is a unique identifier for a span, which is a pair of events that represent a conceptual start and stop
-/// of a particular operation.
-#[derive(Debug, Copy, Clone, Dupe, Serialize, PartialEq, Eq, Hash, Display)]
-pub struct SpanId(NonZeroU64);
-
-impl SpanId {
-    /// Generates a new SpanId, suitable for identifying a particular span within the context of a trace. Span IDs are
-    /// increasing nonzero 64-bit integers.
-    pub fn new() -> SpanId {
-        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
-        loop {
-            let next_id = NEXT_ID.fetch_add(1, Ordering::AcqRel);
-            match NonZeroU64::new(next_id) {
-                Some(id) => return SpanId(id),
-                // 64-bit wrap around; continue the loop to generate the next non-zero ID.
-                None => continue,
-            }
-        }
-    }
-}
 
 /// An event that can be produced by Buck2. Events are points in time with additional metadata attached to them,
 /// depending on the nature of the event.

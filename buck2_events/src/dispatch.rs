@@ -23,11 +23,11 @@ use futures::Future;
 use gazebo::prelude::*;
 
 use crate::sink::null::NullEventSink;
+use crate::span::SpanId;
 use crate::trace::TraceId;
 use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::EventSink;
-use crate::SpanId;
 
 /// A type-erased and dupe-able container for EventSinks, containing some additional metadata useful for all events
 /// emitted through the dispatcher.

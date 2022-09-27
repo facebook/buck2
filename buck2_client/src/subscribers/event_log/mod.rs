@@ -700,8 +700,8 @@ mod tests {
 
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
+    use buck2_events::span::SpanId;
     use buck2_events::BuckEventError;
-    use buck2_events::SpanId;
     use futures::TryStreamExt;
     use tempfile::TempDir;
 

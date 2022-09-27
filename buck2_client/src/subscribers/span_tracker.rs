@@ -12,8 +12,8 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_data::SpanStartEvent;
+use buck2_events::span::SpanId;
 use buck2_events::BuckEvent;
-use buck2_events::SpanId;
 use derive_more::From;
 use gazebo::prelude::*;
 use linked_hash_map::LinkedHashMap;

@@ -18,8 +18,8 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_common::convert::ProstDurationExt;
+use buck2_events::span::SpanId;
 use buck2_events::BuckEvent;
-use buck2_events::SpanId;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
 use serde::Serialize;
@@ -82,9 +82,9 @@ struct ChromeTraceFirstPass {
     ///    only if they appear in the CriticalPath, but the CriticalPath is one
     ///    of the last events.
     /// So this first pass builds up several lists of "interesting" span IDs.
-    pub long_analyses: HashSet<buck2_events::SpanId>,
-    pub long_loads: HashSet<buck2_events::SpanId>,
-    pub local_actions: HashSet<buck2_events::SpanId>,
+    pub long_analyses: HashSet<buck2_events::span::SpanId>,
+    pub long_loads: HashSet<buck2_events::span::SpanId>,
+    pub local_actions: HashSet<buck2_events::span::SpanId>,
     pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
 }
 
@@ -419,7 +419,7 @@ impl AverageRateOfChangeCounters {
 struct SpanCounters {
     counter: SimpleCounters<i32>,
     // Stores how current open spans contribute to counter values.
-    open_spans: HashMap<buck2_events::SpanId, (&'static str, i32)>,
+    open_spans: HashMap<buck2_events::span::SpanId, (&'static str, i32)>,
 }
 
 impl SpanCounters {
@@ -455,7 +455,7 @@ impl SpanCounters {
 
 struct ChromeTraceWriter {
     trace_events: Vec<serde_json::Value>,
-    open_spans: HashMap<buck2_events::SpanId, ChromeTraceOpenSpan>,
+    open_spans: HashMap<buck2_events::span::SpanId, ChromeTraceOpenSpan>,
     invocation: Invocation,
     first_pass: ChromeTraceFirstPass,
     span_counters: SpanCounters,
