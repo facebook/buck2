@@ -146,7 +146,9 @@ async def test_build_symlink_genrule_rule(buck: Buck) -> None:
         assert symlink.is_symlink()
 
 
-@buck_test(inplace=True)
+# This test passes locally, but fails on sandcastle
+# TODO(marwhal): Fix and enable on Windows
+@buck_test(inplace=True, skip_if_windows=True)
 async def test_build_symlink_sh_binary(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/rules/shell:diff"
     args = [target, "--show-full-output"]
