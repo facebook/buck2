@@ -315,4 +315,15 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
             associated_artifacts: this.associated_artifacts.dupe(),
         })
     }
+
+    // Returns a `StarlarkDeclaredArtifact` instance which is identical to the original artifact, except with no associated artifacts
+    fn without_associated_artifacts(
+        this: &StarlarkDeclaredArtifact,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        Ok(StarlarkDeclaredArtifact {
+            declaration_location: this.declaration_location.dupe(),
+            artifact: this.artifact.dupe(),
+            associated_artifacts: Default::default(),
+        })
+    }
 }

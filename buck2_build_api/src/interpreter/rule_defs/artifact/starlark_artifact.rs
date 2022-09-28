@@ -313,4 +313,12 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
             path, this
         )))
     }
+
+    // Returns a `StarlarkArtifact` instance which is identical to the original artifact, except with no associated artifacts
+    fn without_associated_artifacts(this: &StarlarkArtifact) -> anyhow::Result<StarlarkArtifact> {
+        Ok(StarlarkArtifact {
+            artifact: this.artifact.dupe(),
+            associated_artifacts: Default::default(),
+        })
+    }
 }

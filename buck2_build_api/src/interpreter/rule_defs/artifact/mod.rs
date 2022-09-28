@@ -616,6 +616,10 @@ mod tests {
                 a6 = declared_bound_artifact_with_associated_artifacts(a3, [])
                 assert_eq(a6.short_path, "wom/bat.h")
                 assert_eq(get_associated_artifacts_as_string(a6), "")
+
+                a7 = a5.without_associated_artifacts()
+                assert_eq(a5.short_path, a7.short_path)
+                assert_eq(get_associated_artifacts_as_string(a7), "")
             "#
         ))
     }
