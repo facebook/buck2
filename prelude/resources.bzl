@@ -22,7 +22,7 @@ def gather_resources(
 
     # Merge in resources for deps.
     for dep in deps:
-        if dep[ResourceInfo]:
+        if ResourceInfo in dep:
             all_resources.update(dep[ResourceInfo].resources)
 
     return all_resources
