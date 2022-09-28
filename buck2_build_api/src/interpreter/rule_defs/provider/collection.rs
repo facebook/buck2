@@ -16,6 +16,7 @@ use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::soft_error;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
@@ -46,6 +47,16 @@ use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
+
+fn format_provider_keys_for_error(keys: &[String]) -> String {
+    format!(
+        "[{}]",
+        keys.iter()
+            .map(|k| format!("`{}`", k))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
 
 #[derive(Debug, thiserror::Error)]
 enum ProviderCollectionError {
@@ -79,6 +90,11 @@ enum ProviderCollectionError {
         got `{1}`"
     )]
     AtTypeNotProvider(GetOp, &'static str),
+    #[error(
+        "provider collection does not have a key `{0}`, available keys are: {}",
+        format_provider_keys_for_error(_1)
+    )]
+    AtNotFound(String, Vec<String>),
 }
 
 /// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
@@ -259,7 +275,20 @@ where
     starlark_type!("provider_collection");
 
     fn at(&self, index: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(self.get_impl(index, GetOp::At)?.left_or(Value::new_none()))
+        match self.get_impl(index, GetOp::At)? {
+            Either::Left(v) => Ok(v),
+            Either::Right(provider_id) => {
+                soft_error!(
+                    "provider_collection_at_not_found",
+                    ProviderCollectionError::AtNotFound(
+                        provider_id.name.clone(),
+                        self.providers.keys().map(|k| k.name.clone()).collect(),
+                    )
+                    .into()
+                )?;
+                Ok(Value::new_none())
+            }
+        }
     }
 
     fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
