@@ -448,20 +448,20 @@ def _create_jar_artifact(
 
 def _check_dep_types(deps: ["dependency"]):
     for dep in deps:
-        if not dep[JavaLibraryInfo] and not dep[SharedLibraryInfo]:
+        if JavaLibraryInfo not in dep and SharedLibraryInfo not in dep:
             fail("Received dependency {} is not supported. `java_library`, `prebuilt_jar` and native libraries are supported.".format(dep))
 
 def _check_provided_deps(provided_deps: ["dependency"], attr_name: str.type):
     for provided_dep in provided_deps:
         expect(
-            provided_dep[JavaLibraryInfo] != None or provided_dep[SharedLibraryInfo] == None,
+            JavaLibraryInfo in provided_dep or SharedLibraryInfo not in provided_dep,
             "Java code does not need native libs in order to compile, so not valid as {}: {}".format(attr_name, provided_dep),
         )
 
 def _check_exported_deps(exported_deps: ["dependency"], attr_name: str.type):
     for exported_dep in exported_deps:
         expect(
-            exported_dep[JavaLibraryInfo] != None,
+            JavaLibraryInfo in exported_dep,
             "Exported deps are meant to be forwarded onto the classpath for dependents, so only " +
             "make sense for a target that emits Java bytecode, {} in {} does not.".format(exported_dep, attr_name),
         )

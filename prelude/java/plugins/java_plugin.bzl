@@ -5,7 +5,6 @@ load(
     "JavaProcessorsType",
     "derive_transitive_deps",
 )
-load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
 PluginParams = record(
     processors = field(["string"]),
@@ -20,7 +19,7 @@ def create_plugin_params(ctx: "context", plugins: ["dependency"]) -> [PluginPara
     plugin_deps = []
 
     # Compiler plugin derived from `plugins` attribute
-    for plugin in filter_and_map_idx(JavaProcessorsInfo, plugins):
+    for plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
         if plugin.type == JavaProcessorsType("plugin"):
             if len(plugin.processors) > 1:
                 fail("Only 1 java compiler plugin is expected. But received: {}".format(plugin.processors))

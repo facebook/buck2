@@ -1,6 +1,6 @@
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx")
+load("@prelude//utils:utils.bzl", "expect")
 load(
     ":java_providers.bzl",
     "create_template_info",
@@ -125,7 +125,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps),
+        deps = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.deps]),
     )
     native_deps = [shared_lib.lib.output for shared_lib in traverse_shared_library_info(shared_library_info).values()]
 

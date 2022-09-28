@@ -8,7 +8,7 @@ def get_path_separator() -> "string":
 def derive_javac(javac_attribute: [str.type, "dependency", "artifact"]) -> [str.type, "RunInfo", "artifact"]:
     javac_attr_type = type(javac_attribute)
     if javac_attr_type == "dependency":
-        javac_run_info = javac_attribute[RunInfo]
+        javac_run_info = javac_attribute.get(RunInfo)
         if javac_run_info:
             return javac_run_info
         outputs = javac_attribute[DefaultInfo].default_outputs

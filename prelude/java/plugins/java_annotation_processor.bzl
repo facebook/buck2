@@ -1,5 +1,4 @@
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo")
-load("@prelude//utils:utils.bzl", "filter_and_map_idx", "map_idx")
 
 JavaProcessorsType = enum(
     "java_annotation_processor",
@@ -53,7 +52,7 @@ def create_ap_params(
 
     # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
     if annotation_processors or annotation_processor_params or annotation_processor_deps:
-        for ap_dep in map_idx(JavaLibraryInfo, annotation_processor_deps):
+        for ap_dep in [x.get(JavaLibraryInfo) for x in annotation_processor_deps]:
             if not ap_dep:
                 fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
 
@@ -68,7 +67,7 @@ def create_ap_params(
         ))
 
     # APs derived from `plugins` attribute
-    for ap_plugin in filter_and_map_idx(JavaProcessorsInfo, plugins):
+    for ap_plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
         has_annotation_processors = True
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
@@ -88,7 +87,7 @@ def create_ksp_ap_params(ctx: "context", plugins: ["dependency"]) -> [Annotation
     ap_processor_deps = []
 
     # APs derived from `plugins` attribute
-    for ap_plugin in filter_and_map_idx(JavaProcessorsInfo, plugins):
+    for ap_plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("ksp_annotation_processor"):

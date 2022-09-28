@@ -11,7 +11,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
-load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx")
+load("@prelude//utils:utils.bzl", "expect")
 
 # JAVA PROVIDER DOCS
 #
@@ -254,7 +254,10 @@ def derive_compiling_deps(
         library_output: [JavaClasspathEntry.type, None],
         children: ["dependency"]) -> ["JavaCompilingDepsTSet", None]:
     if children:
-        filtered_children = filter(None, [exported_dep.compiling_deps for exported_dep in filter_and_map_idx(JavaLibraryInfo, children)])
+        filtered_children = filter(
+            None,
+            [exported_dep.compiling_deps for exported_dep in filter(None, [x.get(JavaLibraryInfo) for x in children])],
+        )
         children = filtered_children
 
     if not library_output and not children:
@@ -296,7 +299,7 @@ def create_java_packaging_dep(
     )
 
 def get_all_java_packaging_deps(ctx: "context", deps: ["dependency"]) -> ["JavaPackagingDep"]:
-    return get_all_java_packaging_deps_from_packaging_infos(ctx, filter_and_map_idx(JavaPackagingInfo, deps))
+    return get_all_java_packaging_deps_from_packaging_infos(ctx, filter(None, [x.get(JavaPackagingInfo) for x in deps]))
 
 def get_all_java_packaging_deps_from_packaging_infos(ctx: "context", infos: ["JavaPackagingInfo"]) -> ["JavaPackagingDep"]:
     children = filter(None, [info.packaging_deps for info in infos])
@@ -312,7 +315,7 @@ def get_java_packaging_info(
         ctx: "context",
         raw_deps: ["dependency"],
         java_packaging_dep: [JavaPackagingDep.type, None] = None) -> JavaPackagingInfo.type:
-    java_packaging_infos = filter_and_map_idx(JavaPackagingInfo, raw_deps)
+    java_packaging_infos = filter(None, [x.get(JavaPackagingInfo) for x in raw_deps])
 
     packaging_deps_kwargs = {}
     if java_packaging_dep:
@@ -348,7 +351,7 @@ def _create_non_template_providers(
     packaging_deps = declared_deps + exported_deps + runtime_deps
     shared_library_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter_and_map_idx(SharedLibraryInfo, packaging_deps),
+        deps = filter(None, [x.get(SharedLibraryInfo) for x in packaging_deps]),
     )
     cxx_resource_info = ResourceInfo(resources = gather_resources(
         ctx.label,
@@ -392,7 +395,7 @@ def create_java_library_providers(
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
         is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
-    first_order_classpath_deps = filter_and_map_idx(JavaLibraryInfo, declared_deps + exported_deps + runtime_deps)
+    first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
     compiling_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)

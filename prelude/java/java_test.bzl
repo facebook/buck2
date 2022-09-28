@@ -3,7 +3,6 @@ load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_from_pack
 load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
 def java_test_impl(ctx: "context") -> ["provider"]:
     java_providers = build_java_library(ctx, ctx.attrs.srcs)
@@ -107,9 +106,9 @@ def _get_native_libs_env(ctx: "context") -> dict.type:
         return {}
 
     if ctx.attrs.cxx_library_whitelist:
-        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.cxx_library_whitelist)
+        shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.cxx_library_whitelist])
     else:
-        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)
+        shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.deps])
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,
