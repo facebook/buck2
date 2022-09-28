@@ -39,5 +39,5 @@ def create_source_db(
         ctx: "context",
         srcs: [ManifestInfo.type, None],
         deps: ["dependency"]) -> DefaultInfo.type:
-    python_deps = filter(None, [d[PythonLibraryInfo] for d in deps])
+    python_deps = filter(None, [d.get(PythonLibraryInfo) for d in deps])
     return create_source_db_deps(ctx, srcs, python_deps)

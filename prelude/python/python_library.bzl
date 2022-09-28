@@ -141,9 +141,9 @@ def gather_dep_libraries(raw_deps: [["dependency"]]) -> (["PythonLibraryInfo"], 
     shared_libraries = []
     for raw in raw_deps:
         for dep in raw:
-            if dep[PythonLibraryInfo]:
+            if PythonLibraryInfo in dep:
                 deps.append(dep[PythonLibraryInfo])
-            elif dep[SharedLibraryInfo]:
+            elif SharedLibraryInfo in dep:
                 shared_libraries.append(dep[SharedLibraryInfo])
             else:
                 # TODO(nmj): This is disabled for the moment because of:

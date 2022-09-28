@@ -4,10 +4,6 @@ load(
     "ObjectsLinkable",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet")
-load(
-    "@prelude//utils/utils.bzl",
-    "filter_and_map_idx",
-)
 
 # Info required to link cxx_python_extensions into native python binaries
 CxxExtensionLinkInfo = provider(
@@ -27,7 +23,10 @@ def merge_cxx_extension_info(
     link_infos = list(link_infos)
     shared_libraries = list(shared_libraries)
     artifacts = dict(artifacts)
-    for cxx_extension_info in filter_and_map_idx(CxxExtensionLinkInfo, deps):
+    for dep in deps:
+        cxx_extension_info = dep.get(CxxExtensionLinkInfo)
+        if cxx_extension_info == None:
+            continue
         link_infos.append(cxx_extension_info.link_infos)
         shared_libraries.append(cxx_extension_info.shared_libraries)
         artifacts.update(cxx_extension_info.artifacts)

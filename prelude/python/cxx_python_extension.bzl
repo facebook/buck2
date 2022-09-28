@@ -41,7 +41,7 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet", "SharedLibraryInfo")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
-load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(
     ":native_python_util.bzl",
@@ -163,7 +163,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
 
     else:
         # If we cannot link this extension statically we need to include it's shared libraries
-        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, cxx_deps)
+        shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in cxx_deps])
         shared_libraries.append(ctx.actions.tset(
             SharedLibrariesTSet,
             children = filter(
@@ -221,7 +221,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         for dep in flatten(raw_deps)
         # We only want to handle C++ Python extension deps, but not other native
         # linkable deps like C++ libraries.
-        if dep[PythonLibraryInfo] != None
+        if PythonLibraryInfo in dep
     ])
     roots[ctx.label] = AnnotatedLinkableRoot(root = cxx_library_info.linkable_root)
 
