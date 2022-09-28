@@ -12,6 +12,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
@@ -45,17 +46,18 @@ use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 #[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType)]
 #[repr(C)]
-pub struct UserProviderGen<V> {
+pub struct UserProviderGen<'v, V: ValueLike<'v>> {
     #[trace(unsafe_ignore)]
     #[freeze(identity)]
     id: Arc<ProviderId>,
     // TODO(nga): make key `StringValue`.
     attributes: SmallMap<String, V>,
+    _marker: PhantomData<&'v ()>,
 }
 
-starlark_complex_value!(pub UserProvider);
+starlark_complex_value!(pub UserProvider<'v>);
 
-impl<V: Display> Display for UserProviderGen<V> {
+impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_keyed_container(
             f,
@@ -67,7 +69,7 @@ impl<V: Display> Display for UserProviderGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for UserProviderGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for UserProviderGen<'v, V>
 where
     Self: ProvidesStaticType,
 {
@@ -174,7 +176,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<V> {
+impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<'v, V> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -183,10 +185,7 @@ impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<V>
-where
-    UserProviderGen<V>: Debug,
-{
+impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
     fn id(&self) -> &Arc<ProviderId> {
         &self.id
     }
@@ -221,5 +220,6 @@ pub(crate) fn user_provider_creator<'v>(
     Ok(heap.alloc(UserProvider {
         id,
         attributes: values,
+        _marker: PhantomData,
     }))
 }
