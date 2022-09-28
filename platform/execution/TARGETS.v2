@@ -36,8 +36,8 @@ load(
     "execution_platform",
     "execution_platforms",
     "fat_platform_transition_helper",
+    "get_mac_execution_base_platforms",
     "linux_execution_base_platforms",
-    "mac_execution_base_platforms",
     "ordered_platforms_by_host_type",
     "remote_execution_action_key_providers",
 )
@@ -202,7 +202,7 @@ prelude.constraint_setting(
         name = "fat_platform_mac={}".format(name),
         constraint_setting = ":fat_platform_mac",
     )
-    for (name, _value) in mac_execution_base_platforms.items()
+    for (name, _value) in get_mac_execution_base_platforms().items()
 ]
 
 prelude.constraint_setting(
@@ -247,7 +247,7 @@ export_file(
 # This is just a helper used by the fat_platform_transition in fat_platforms.bzl
 fat_platform_transition_helper(
     name = "fat_platform_transition_helper",
-    mac = [[":fat_platform_mac={}".format(platform_name), platform] for (platform_name, platform) in mac_execution_base_platforms.items()],
+    mac = [[":fat_platform_mac={}".format(platform_name), platform] for (platform_name, platform) in get_mac_execution_base_platforms().items()],
     linux = [[":fat_platform_linux={}".format(platform_name), platform] for (platform_name, platform) in linux_execution_base_platforms.items()],
     visibility = ["PUBLIC"],
 )
