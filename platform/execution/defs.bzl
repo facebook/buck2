@@ -7,42 +7,44 @@ MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode_13.4
 MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY = "x86_64-fbsource-xcode-14.0"
 MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY = "x86_64_minimal_xcode_14.0"
 
-_MAC_EXEC_PLATFORM_KEYS = [
-    # NB: The order of plaforms is important because the first
-    # exec platform which matches gets picked. Most importantly,
-    # minimal Xcode platform for _each Xcode version_ must always
-    # come first, so that host tools use the minimal Xcode.
-    MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
-    MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
-    MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
-    MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
-]
+def get_mac_exec_platform_keys():
+    return [
+        # NB: The order of plaforms is important because the first
+        # exec platform which matches gets picked. Most importantly,
+        # minimal Xcode platform for _each Xcode version_ must always
+        # come first, so that host tools use the minimal Xcode.
+        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
+        MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
+        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
+        MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
+    ]
 
-# NB: The platforms' constraints for Xcode must match the values defined
-#     by `re_subplatforms`. Mismatch will be detected as all
-#     toolchain actions will fail due to a version mismatch.
-_MAC_EXEC_PLATFORMS_INFO = {
-    MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: struct(
-        name = "macos-minimal-xcode-13.4",
-        base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
-        re_subplatform = "xcode-13.4",
-    ),
-    MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: struct(
-        name = "macos-xcode-13.4",
-        base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
-        re_subplatform = "xcode-13.4",
-    ),
-    MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY: struct(
-        name = "macos-minimal-xcode-14.0",
-        base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-14.0",
-        re_subplatform = "xcode-14.0",
-    ),
-    MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: struct(
-        name = "macos-xcode-14.0",
-        base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-14.0",
-        re_subplatform = "xcode-14.0",
-    ),
-}
+def get_mac_exec_platforms_info():
+    # NB: The platforms' constraints for Xcode must match the values defined
+    #     by `re_subplatforms`. Mismatch will be detected as all
+    #     toolchain actions will fail due to a version mismatch.
+    return {
+        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: struct(
+            name = "macos-minimal-xcode-13.4",
+            base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
+            re_subplatform = "xcode-13.4",
+        ),
+        MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: struct(
+            name = "macos-xcode-13.4",
+            base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
+            re_subplatform = "xcode-13.4",
+        ),
+        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY: struct(
+            name = "macos-minimal-xcode-14.0",
+            base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-14.0",
+            re_subplatform = "xcode-14.0",
+        ),
+        MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: struct(
+            name = "macos-xcode-14.0",
+            base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-14.0",
+            re_subplatform = "xcode-14.0",
+        ),
+    }
 
 FAT_PLATFORM_DEFAULT_MAC_PLATFORM_KEY = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY
 
@@ -64,7 +66,8 @@ local_mac_execution = read_bool("build", "enable_local_mac_execution", host_is_m
 remote_mac_execution = read_bool("build", "enable_remote_mac_execution", True)
 
 def mac_execution_platform(platform_key: str.type):
-    platform_info = _MAC_EXEC_PLATFORMS_INFO[platform_key]
+    mac_exec_platforms_info = get_mac_exec_platforms_info()
+    platform_info = mac_exec_platforms_info[platform_key]
     return execution_platform(
         name = platform_info.name,
         base_platform = platform_info.base_platform,
@@ -81,15 +84,16 @@ def mac_execution_platform(platform_key: str.type):
 
 def define_mac_execution_platforms():
     mac_platforms = []
-    for platform_key in _MAC_EXEC_PLATFORM_KEYS:
+    for platform_key in get_mac_exec_platform_keys():
         mac_platforms += mac_execution_platform(platform_key = platform_key)
 
     return mac_platforms
 
 def get_mac_execution_base_platforms():
+    mac_exec_platforms_info = get_mac_exec_platforms_info()
     base_platforms = {}
-    for platform_key in _MAC_EXEC_PLATFORMS_INFO:
-        platform_info = _MAC_EXEC_PLATFORMS_INFO[platform_key]
+    for platform_key in mac_exec_platforms_info:
+        platform_info = mac_exec_platforms_info[platform_key]
         base_platforms[platform_key] = platform_info.base_platform
 
     return base_platforms
