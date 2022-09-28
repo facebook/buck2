@@ -81,7 +81,7 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
             "-parse-stdlib",
         ])
 
-    module_dependency_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attrs.deps])
+    module_dependency_infos = filter(None, [d.get(SdkUncompiledModuleInfo) for d in ctx.attrs.deps])
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(

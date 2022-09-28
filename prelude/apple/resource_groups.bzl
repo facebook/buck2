@@ -59,7 +59,7 @@ def create_resource_graph(
         core_data_spec = core_data_spec,
     )
     all_deps = deps + exported_deps
-    child_nodes = filter(None, [d[ResourceGraph] for d in all_deps])
+    child_nodes = filter(None, [d.get(ResourceGraph) for d in all_deps])
     return ResourceGraph(
         label = ctx.label,
         nodes = ctx.actions.tset(ResourceGraphTSet, value = node, children = [child_node.nodes for child_node in child_nodes]),
@@ -77,7 +77,7 @@ def _with_resources_deps(deps: ["dependency"]) -> ["label"]:
     Filters dependencies and returns only those which are relevant
     to working with resources i.e. those which contains resource graph provider.
     """
-    graphs = filter(None, [d[ResourceGraph] for d in deps])
+    graphs = filter(None, [d.get(ResourceGraph) for d in deps])
     return [g.label for g in graphs]
 
 def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:

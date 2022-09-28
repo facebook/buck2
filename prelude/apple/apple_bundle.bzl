@@ -81,7 +81,7 @@ def _get_debuggable_deps(ctx: "context") -> ["AppleDebuggableInfo"]:
 
     return filter(
         None,
-        [dep[AppleDebuggableInfo] for dep in deps],
+        [dep.get(AppleDebuggableInfo) for dep in deps],
     )
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:

@@ -3,7 +3,7 @@ load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo")
 
 def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
     cmd = get_shared_pcm_compilation_args(ctx.attrs.target, ctx.attrs.module_name)
-    module_dependency_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attrs.deps])
+    module_dependency_infos = filter(None, [d.get(SdkUncompiledModuleInfo) for d in ctx.attrs.deps])
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(

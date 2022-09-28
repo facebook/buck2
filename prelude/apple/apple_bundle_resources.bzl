@@ -122,7 +122,7 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBu
     return result
 
 def _copy_first_level_bundles(ctx: "context") -> [AppleBundlePart.type]:
-    first_level_bundle_infos = filter(None, [dep[AppleBundleInfo] for dep in ctx.attrs.deps])
+    first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])
     return filter(None, [_copied_bundle_spec(info) for info in first_level_bundle_infos])
 
 def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundlePart.type]:

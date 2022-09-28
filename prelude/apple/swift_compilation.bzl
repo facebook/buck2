@@ -12,7 +12,6 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load("@prelude//utils:utils.bzl", "map_idx")
 load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
@@ -377,14 +376,14 @@ def _get_swift_paths_tsets(deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
     return [
         d[SwiftDependencyInfo].exported_swiftmodule_paths
         for d in deps
-        if d[SwiftDependencyInfo] != None
+        if SwiftDependencyInfo in d
     ]
 
 def _get_transitive_swift_paths_tsets(deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
     return [
         d[SwiftDependencyInfo].transitive_swiftmodule_paths
         for d in deps
-        if d[SwiftDependencyInfo] != None
+        if SwiftDependencyInfo in d
     ]
 
 def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], None] = None) -> "ExportedHeadersTSet":
@@ -393,7 +392,7 @@ def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], No
         value = {get_module_name(ctx): exported_headers} if exported_headers else None,
         children = [
             dep.exported_headers
-            for dep in map_idx(SwiftDependencyInfo, ctx.attrs.exported_deps)
+            for dep in [x.get(SwiftDependencyInfo) for x in ctx.attrs.exported_deps]
             if dep and dep.exported_headers
         ],
     )

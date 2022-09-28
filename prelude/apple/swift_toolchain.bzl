@@ -16,7 +16,7 @@ def swift_toolchain_impl(ctx):
 
     compiled_sdk_module_providers = {}
 
-    sdk_uncompiled_module_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attrs.sdk_modules])
+    sdk_uncompiled_module_infos = filter(None, [d.get(SdkUncompiledModuleInfo) for d in ctx.attrs.sdk_modules])
     for uncompiled_swift_module_info in sdk_uncompiled_module_infos:
         create_sdk_modules_graph(
             ctx,

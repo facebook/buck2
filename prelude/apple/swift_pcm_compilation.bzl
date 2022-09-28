@@ -33,7 +33,7 @@ def get_pcm_deps_tset(ctx: "context", deps: ["dependency"]) -> "PcmDepTSet":
             children = [d[SwiftPCMCompilationInfo].deps_set],
         )
         for d in deps
-        if d[SwiftPCMCompilationInfo] != None
+        if SwiftPCMCompilationInfo in d
     ]
     return ctx.actions.tset(PcmDepTSet, children = pcm_deps)
 
