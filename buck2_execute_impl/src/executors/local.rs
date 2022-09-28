@@ -229,7 +229,7 @@ impl LocalExecutor {
             Err(e) => return manager.error("materialize_inputs_failed".into(), e),
         };
 
-        let mut manager = manager.try_claim().await?;
+        let mut manager = manager.claim().await;
 
         let scratch_dir = self
             .artifact_fs

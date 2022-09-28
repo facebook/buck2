@@ -88,7 +88,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         // Construct our claim manager and a liveniless guard for local commands. The way this
         // works is as follows: when RE takes a claim, we cancel local commands. This means that we
         // can truly race RE and local: if RE finishes even after local started, it'll cancel the
-        // local execution, we'll get back here with a ClaimRejected from local execution, cancel
+        // local execution, we'll get back here with a ClaimCancelled from local execution, cancel
         // local's claim, and then resume RE.
         let (local_execution_liveliness_manager, local_execution_liveliness_guard) =
             LivelinessGuard::create();
@@ -146,10 +146,6 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let is_retryable_status = move |r: &CommandExecutionResult| {
             match &r.report.status {
-                // This doesn't really matter since ClaimRejected will not be returned before we
-                // drop the Claim (or release it) here, so in practice we'll never see this on the
-                // first command.
-                CommandExecutionStatus::ClaimRejected => false,
                 // This does need be retried since if we get a cancelled claim that would typically
                 // mean the other result asked for cancellation and we're about to receive the
                 // result here.
@@ -241,7 +237,7 @@ struct ReClaimManagerInner {
 
 #[async_trait::async_trait]
 impl ClaimManager for ReClaimManager {
-    async fn claim(mut self: Box<Self>) -> Option<Box<dyn Claim>> {
+    async fn claim(mut self: Box<Self>) -> Box<dyn Claim> {
         let inner = self.inner.take().expect("This is only taken once");
 
         // Kill in-flight local commands.
@@ -249,12 +245,12 @@ impl ClaimManager for ReClaimManager {
 
         // Ask for the lock. If we never get it then we just exit as that would mean local
         // execution finished.
-        let claim = inner.claim_manager.claim().await?;
+        let claim = inner.claim_manager.claim().await;
 
-        Some(box ReClaim {
+        box ReClaim {
             released_liveliness_guard,
             claim,
-        })
+        }
     }
 }
 

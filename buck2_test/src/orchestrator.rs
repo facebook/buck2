@@ -530,9 +530,6 @@ impl BuckTestOrchestrator {
                 timing,
                 outputs,
             ),
-            CommandExecutionStatus::ClaimRejected => {
-                return Err(anyhow::anyhow!("Internal error: ClaimRejected"));
-            }
             CommandExecutionStatus::ClaimCancelled => {
                 return Err(anyhow::anyhow!("Internal error: ClaimCancelled"));
             }

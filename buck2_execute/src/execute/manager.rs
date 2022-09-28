@@ -8,7 +8,6 @@
  */
 
 use std::future::Future;
-use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -61,28 +60,14 @@ impl CommandExecutionManager {
         }
     }
 
-    /// Try to acquire a claim. Error out if that's not possible.
-    pub async fn try_claim(
-        self,
-    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
-        match self.claim_manager.claim().await {
-            None => ControlFlow::Break(CommandExecutionResult {
-                outputs: Default::default(),
-                report: CommandExecutionReport {
-                    claim: None,
-                    status: CommandExecutionStatus::ClaimRejected,
-                    timing: Default::default(),
-                    std_streams: Default::default(),
-                    exit_code: Default::default(),
-                },
-                rejected_execution: None,
-                did_cache_upload: false,
-            }),
-            Some(claim) => ControlFlow::Continue(CommandExecutionManagerWithClaim {
-                claim,
-                events: self.events,
-                liveliness_manager: self.liveliness_manager,
-            }),
+    /// Acquire a claim. This might never return if the claim has been taken.
+    pub async fn claim(self) -> CommandExecutionManagerWithClaim {
+        let claim = self.claim_manager.claim().await;
+
+        CommandExecutionManagerWithClaim {
+            claim,
+            events: self.events,
+            liveliness_manager: self.liveliness_manager,
         }
     }
 

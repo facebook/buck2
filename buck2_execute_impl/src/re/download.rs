@@ -56,7 +56,7 @@ pub async fn download_action_results<'a>(
     response: &dyn RemoteActionResult,
 ) -> CommandExecutionResult {
     // Claim the request before starting the download.
-    let manager = manager.try_claim().await?;
+    let manager = manager.claim().await;
 
     let downloader = CasDownloader {
         materializer,

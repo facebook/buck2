@@ -64,7 +64,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             prepared_action: _prepared_action,
         } = command;
 
-        let manager = manager.try_claim().await?;
+        let manager = manager.claim().await;
 
         let args = request.args().to_owned();
         let outputs = request.outputs().map(|o| o.cloned()).collect();

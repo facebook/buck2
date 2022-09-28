@@ -18,7 +18,7 @@ pub trait ClaimManager: Send + Sync + 'static {
     ///
     /// The expectation is that multiple actions that attempt to write to the same output directory
     /// should not be allowed to obtain claims concurrently.
-    async fn claim(self: Box<Self>) -> Option<Box<dyn Claim>>;
+    async fn claim(self: Box<Self>) -> Box<dyn Claim>;
 }
 
 pub trait Claim: Send + Sync + fmt::Debug + 'static {
@@ -50,14 +50,14 @@ impl MutexClaimManager {
 
 #[async_trait]
 impl ClaimManager for MutexClaimManager {
-    async fn claim(self: Box<Self>) -> Option<Box<dyn Claim>> {
+    async fn claim(self: Box<Self>) -> Box<dyn Claim> {
         let mut guard = self.mutex.dupe().lock_owned().await;
         match *guard {
             ClaimStatus::NotClaimed => {}
-            ClaimStatus::Claimed => return None,
+            ClaimStatus::Claimed => futures::future::pending().await,
         }
         *guard = ClaimStatus::Claimed;
-        Some(box MutexClaim { guard })
+        box MutexClaim { guard }
     }
 }
 
@@ -88,16 +88,13 @@ mod tests {
     #[tokio::test]
     async fn test_mutex_claim_release() {
         let claim_manager = MutexClaimManager::new();
-        let claim = (box claim_manager.dupe())
-            .claim()
-            .await
-            .expect("Have a claim");
+        let claim = (box claim_manager.dupe()).claim().await;
 
         let claim2 = (box claim_manager.dupe()).claim();
         futures::pin_mut!(claim2);
         assert_matches!(futures::poll!(claim2.as_mut()), Poll::Pending);
 
         claim.release().expect("Can release claim");
-        assert_matches!(futures::poll!(claim2.as_mut()), Poll::Ready(Some(..)));
+        assert_matches!(futures::poll!(claim2.as_mut()), Poll::Ready(..));
     }
 }
