@@ -296,9 +296,7 @@ async fn targets(
     let attributes = if request.output_attributes.is_empty() {
         None
     } else {
-        Some(RegexSet::new(
-            request.output_attributes.iter().map(|v| format!("^{}$", v)),
-        )?)
+        Some(RegexSet::new(&request.output_attributes)?)
     };
 
     let mut printer: Box<dyn TargetPrinter> = if is_json {
