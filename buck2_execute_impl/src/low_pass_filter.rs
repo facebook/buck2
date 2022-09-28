@@ -3,20 +3,32 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use parking_lot::Mutex;
 
+/// A semaphore-like structure that locks up and stops emitting permits *at all* if the number of
+/// requests exceeds the permit limit. This puts an upper bound on callers entering the critical
+/// section at the capacity, but unlike a semaphore, the lower bound is zero, not the capacity.
+pub struct LowPassFilter {
+    /// Keeps track of the outstanding requests.
+    state: Mutex<LowPassFilterState>,
+
+    /// This is used to notify waiters when a new permit can be handed out.
+    cv: Condvar,
+}
+
 struct LowPassFilterState {
+    /// The number of times `access()` has ben called. This may be greater than the capacity.
     accessors: usize,
+
+    /// The (configured) limit for allowed concurrent accessors. If this is exceeded, no further
+    /// permits will be issued until the accessors count goes back below the capacity. Permits that
+    /// were issued aren't relinquished, but as they are released, no replacement permits will be
+    /// issued until the accessors count goes below the capacity.
     capacity: usize,
 }
 
 impl LowPassFilterState {
-    fn dispatch_more(&self) -> bool {
+    fn can_dispatch_more(&self) -> bool {
         self.accessors <= self.capacity
     }
-}
-
-pub struct LowPassFilter {
-    state: Mutex<LowPassFilterState>,
-    cv: Condvar,
 }
 
 impl LowPassFilter {
@@ -30,6 +42,8 @@ impl LowPassFilter {
         }
     }
 
+    /// Request a permit to enter the critical section.
+    ///
     /// To make things predictable, we synchronously increment the accessors count. This ensures
     /// that there is no ambiguity about whether an accessor has already incremented the count or
     /// not depending on whether it was polled.
@@ -39,7 +53,7 @@ impl LowPassFilter {
         let go = {
             let mut state = self.state.lock();
             state.accessors += 1;
-            state.dispatch_more()
+            state.can_dispatch_more()
         };
 
         // This needs to be created *here* and not at the return point so that if this future gets
@@ -54,7 +68,7 @@ impl LowPassFilter {
         async move {
             let mut state = self.state.lock();
             loop {
-                if state.dispatch_more() {
+                if state.can_dispatch_more() {
                     return guard;
                 }
                 state = self.cv.wait(state).await;
@@ -69,10 +83,14 @@ pub struct LowPassFilterGuard<'a> {
 }
 
 impl Drop for LowPassFilterGuard<'_> {
+    /// When a guard is released, lower the accessors count, and if we are now low enough to
+    /// proceed, notify a task. Note that this happens regardless of whether the owner of the
+    /// LowPassFilterGuard had entered the critical section or not, since there is no difference
+    /// between dropping a permit and dropping an outstading request for access.
     fn drop(&mut self) {
         let mut state = self.filter.state.lock();
         state.accessors -= 1;
-        if state.dispatch_more() {
+        if state.can_dispatch_more() {
             self.filter.cv.notify_one();
         }
     }
