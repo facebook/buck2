@@ -84,6 +84,46 @@ impl LivelinessManager for NoopLivelinessManager {
     }
 }
 
+#[async_trait]
+impl LivelinessManager for Arc<dyn LivelinessManager> {
+    async fn while_alive(&self) {
+        self.as_ref().while_alive().await
+    }
+}
+
+pub struct LivelinessAnd<A, B> {
+    a: A,
+    b: B,
+}
+
+#[async_trait]
+impl<A, B> LivelinessManager for LivelinessAnd<A, B>
+where
+    A: LivelinessManager,
+    B: LivelinessManager,
+{
+    async fn while_alive(&self) {
+        let a = self.a.while_alive();
+        let b = self.b.while_alive();
+        futures::pin_mut!(a);
+        futures::pin_mut!(b);
+        futures::future::select(a, b).await;
+    }
+}
+
+pub trait LivelinessManagerExt: Sized {
+    fn and<B>(self, b: B) -> LivelinessAnd<Self, B>;
+}
+
+impl<T> LivelinessManagerExt for T
+where
+    T: LivelinessManager + Sized,
+{
+    fn and<B>(self, b: B) -> LivelinessAnd<Self, B> {
+        LivelinessAnd { a: self, b }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +131,19 @@ mod tests {
     #[tokio::test]
     async fn test_guard_is_alive() {
         let (manager, guard) = LivelinessGuard::create();
+        assert!(manager.is_alive().await);
+        drop(guard);
+        assert!(!manager.is_alive().await);
+    }
+
+    #[tokio::test]
+    async fn test_and() {
+        let (manager_a, guard) = LivelinessGuard::create();
+        let manager_b = NoopLivelinessManager::create();
+
+        let manager = manager_a.and(manager_b);
+        let manager = &manager as &dyn LivelinessManager;
+
         assert!(manager.is_alive().await);
         drop(guard);
         assert!(!manager.is_alive().await);
