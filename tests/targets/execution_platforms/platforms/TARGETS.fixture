@@ -24,6 +24,12 @@ platform(
 )
 
 platform(
+    name="full_hybrid",
+    setting=":setting",
+    use_limited_hybrid = False,
+)
+
+platform(
     name="cache_uploads",
     setting=":setting",
     allow_cache_uploads = True,
@@ -31,5 +37,5 @@ platform(
 
 platforms(
     name="platforms",
-    platforms=[":default", ":no_fallback", ":full_hybrid_will_failure_fallbacks", ":cache_uploads"]
+    platforms=[":default", ":no_fallback", ":full_hybrid", ":full_hybrid_will_failure_fallbacks", ":cache_uploads"]
 )

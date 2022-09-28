@@ -9,11 +9,16 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_common::liveliness_manager::CancelledLivelinessGuard;
+use buck2_common::liveliness_manager::LivelinessGuard;
 use buck2_common::liveliness_manager::LivelinessManager;
+use buck2_common::liveliness_manager::LivelinessManagerExt;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -80,19 +85,32 @@ impl PreparedCommandExecutor for HybridExecutor {
         // the current approach effectively loses the data from the primary result (for example, we
         // should have stage events the reflect the full duration not just the fallback part).
 
-        // Note that this only sets up these futures, nothing will happen until they are awaited (this is important in the
-        // case where we shouldn't be sending one of them).
+        // Construct our claim manager and a liveniless guard for local commands. The way this
+        // works is as follows: when RE takes a claim, we cancel local commands. This means that we
+        // can truly race RE and local: if RE finishes even after local started, it'll cancel the
+        // local execution, we'll get back here with a ClaimRejected from local execution, cancel
+        // local's claim, and then resume RE.
+        let (local_execution_liveliness_manager, local_execution_liveliness_guard) =
+            LivelinessGuard::create();
         let claim_manager = MutexClaimManager::new();
 
+        // Note that this only sets up these futures, nothing will happen until they are awaited
+        // (this is important in the case where we shouldn't be sending one of them).
         let local_result = self.local_exec_cmd(
             command,
             box claim_manager.dupe(),
             manager.events.dupe(),
-            manager.liveliness_manager.dupe(),
+            Arc::new(
+                manager
+                    .liveliness_manager
+                    .dupe()
+                    .and(local_execution_liveliness_manager.dupe()),
+            ),
         );
+
         let remote_result = self.remote_exec_cmd(
             command,
-            box claim_manager.dupe(),
+            box ReClaimManager::new(local_execution_liveliness_guard, box claim_manager),
             manager.events.dupe(),
             manager.liveliness_manager.dupe(),
         );
@@ -186,5 +204,76 @@ impl PreparedCommandExecutor for HybridExecutor {
 
     fn re_use_case(&self) -> RemoteExecutorUseCase {
         self.remote.re_use_case()
+    }
+}
+
+struct ReClaimManager {
+    inner: Option<ReClaimManagerInner>,
+}
+
+impl ReClaimManager {
+    fn new(
+        local_execution_liveliness_guard: LivelinessGuard,
+        claim_manager: Box<dyn ClaimManager>,
+    ) -> Self {
+        Self {
+            inner: Some(ReClaimManagerInner {
+                local_execution_liveliness_guard,
+                claim_manager,
+            }),
+        }
+    }
+}
+
+impl Drop for ReClaimManager {
+    /// If RE decides to not execute, then allow local execution to proceed.
+    fn drop(&mut self) {
+        if let Some(inner) = self.inner.take() {
+            inner.local_execution_liveliness_guard.forget();
+        }
+    }
+}
+
+struct ReClaimManagerInner {
+    local_execution_liveliness_guard: LivelinessGuard,
+    claim_manager: Box<dyn ClaimManager>,
+}
+
+#[async_trait::async_trait]
+impl ClaimManager for ReClaimManager {
+    async fn claim(mut self: Box<Self>) -> Option<Box<dyn Claim>> {
+        let inner = self.inner.take().expect("This is only taken once");
+
+        // Kill in-flight local commands.
+        let released_liveliness_guard = inner.local_execution_liveliness_guard.cancel();
+
+        // Ask for the lock. If we never get it then we just exit as that would mean local
+        // execution finished.
+        let claim = inner.claim_manager.claim().await?;
+
+        Some(box ReClaim {
+            released_liveliness_guard,
+            claim,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct ReClaim {
+    released_liveliness_guard: CancelledLivelinessGuard,
+    claim: Box<dyn Claim>,
+}
+
+impl Claim for ReClaim {
+    fn release(self: Box<Self>) -> anyhow::Result<()> {
+        // An error here should only occur if local execution had started without the claim.
+        self.released_liveliness_guard
+            .restore()
+            .context("Unable to restore CancelledLivelinessGuard!")?
+            .forget();
+
+        self.claim.release()?;
+
+        Ok(())
     }
 }

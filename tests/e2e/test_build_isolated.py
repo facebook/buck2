@@ -721,7 +721,11 @@ async def test_build_nested_subtargets(buck: Buck, tmpdir: LocalPath) -> None:
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
 async def test_hybrid_executor_threshold(buck: Buck) -> None:
-    await buck.build("root//executor_threshold_tests/...")
+    await buck.build(
+        "root//executor_threshold_tests/...",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
     out = await read_what_ran(buck)
 
     executors = {line["identity"]: line["reproducer"]["executor"] for line in out}
@@ -741,6 +745,8 @@ async def test_hybrid_executor_fallbacks(buck: Buck) -> None:
     await buck.build(
         "root//executor_fallback_tests:local_only",
         "root//executor_fallback_tests:local_only_full_hybrid",
+        "-c",
+        f"test.cache_buster={random_string()}",
     )
 
     # This one doesn't:
@@ -751,11 +757,40 @@ async def test_hybrid_executor_fallbacks(buck: Buck) -> None:
     )
 
 
-# TODO(marwhal): Fix and enable on Windows
+@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+async def test_hybrid_executor_cancels_local_execution(buck: Buck) -> None:
+    await buck.build(
+        "root//executor_race_tests:slower_locally",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
+
+    log = (await buck.log("show")).stdout.strip().splitlines()
+    commands = None
+
+    for line in log:
+        commands = commands or json_get(
+            line,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "ActionExecution",
+            "commands",
+        )
+
+    assert commands is not None
+    assert len(commands) == 2
+    assert commands[0]["status"] == {"ClaimCancelled": {}}
+    assert commands[1]["status"] == {"Success": {}}
+
+
 @buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
 async def test_hybrid_executor_logging(buck: Buck) -> None:
     await buck.build(
         "root//executor_fallback_tests:local_only",
+        "-c",
+        f"test.cache_buster={random_string()}",
     )
 
     log = (await buck.log("show")).stdout.strip().splitlines()
@@ -800,6 +835,8 @@ async def test_local_only(buck: Buck) -> None:
     await expect_failure(
         buck.build(
             "root//executor_fallback_tests:local_only_no_fallback",
+            "-c",
+            "test.cache_buster={random_string()}",
         )
     )
 

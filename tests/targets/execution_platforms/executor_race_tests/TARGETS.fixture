@@ -1,0 +1,8 @@
+load("@root//:rules.bzl", "command")
+
+command(
+    name="slower_locally",
+    command="slower_locally.sh",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:full_hybrid"],
+)

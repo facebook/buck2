@@ -126,10 +126,18 @@ def _command_impl(ctx):
             out.as_output(),
         ],
         category = "command",
+        env = {"cache_buster": ctx.attrs.cache_buster},
     )
     return [DefaultInfo(default_outputs = [out])]
 
-command = rule(impl = _command_impl, attrs = {"command": attrs.source()})
+command = rule(
+    impl = _command_impl,
+    attrs = {
+        # @lint-ignore BUCKRESTRICTEDSYNTAX
+        "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
+        "command": attrs.source(),
+    },
+)
 
 def _write_impl(ctx):
     # NOTE: This uses a run action so that we can exercise local uploads.
