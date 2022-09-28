@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 
 use crossterm::queue;
+use crossterm::style::Color;
 use crossterm::style::ContentStyle;
 use crossterm::style::PrintStyledContent;
 use crossterm::style::StyledContent;
@@ -143,6 +144,16 @@ impl Span {
             content,
             stylization: *span.style(),
         }
+    }
+
+    pub fn new_colored(text: &str, color: Color) -> anyhow::Result<Self> {
+        Self::new_styled(StyledContent::new(
+            ContentStyle {
+                foreground_color: Some(color),
+                ..ContentStyle::default()
+            },
+            text.to_owned(),
+        ))
     }
 
     /// Returns the number of graphemes in the span.
