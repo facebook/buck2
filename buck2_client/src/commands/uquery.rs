@@ -28,13 +28,8 @@ enum QueryOutputFormatArg {
     DotCompact,
 }
 
-/// Args common to all the query commands
 #[derive(Debug, clap::Parser)]
-#[clap(group = clap::ArgGroup::new("output_attribute_flags").multiple(false))]
-pub struct CommonQueryArgs {
-    #[clap(name = "QUERY", help = "the query to evaluate")]
-    query: String,
-
+pub(crate) struct CommonAttributeArgs {
     #[clap(
         short = 'A',
         long,
@@ -70,6 +65,27 @@ pub struct CommonQueryArgs {
         group = "output_attribute_flags"
     )]
     output_attributes: Vec<String>,
+}
+
+impl CommonAttributeArgs {
+    pub(crate) fn get(&self) -> Vec<String> {
+        if !self.output_attribute.is_empty() {
+            self.output_attribute.clone()
+        } else {
+            self.output_attributes.clone()
+        }
+    }
+}
+
+/// Args common to all the query commands
+#[derive(Debug, clap::Parser)]
+#[clap(group = clap::ArgGroup::new("output_attribute_flags").multiple(false))]
+pub struct CommonQueryArgs {
+    #[clap(name = "QUERY", help = "the query to evaluate")]
+    query: String,
+
+    #[clap(flatten)]
+    pub(crate) attributes: CommonAttributeArgs,
 
     #[clap(long, help = "Output in JSON format")]
     json: bool,
@@ -117,14 +133,6 @@ impl CommonQueryArgs {
         }
         s += ")";
         s
-    }
-
-    pub fn output_attributes(&self) -> &[String] {
-        if !self.output_attribute.is_empty() {
-            &self.output_attribute
-        } else {
-            &self.output_attributes
-        }
     }
 
     pub fn output_format(&self) -> QueryOutputFormat {
@@ -213,7 +221,7 @@ impl StreamingCommand for UqueryCommand {
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
-        let output_attributes = self.query_common.output_attributes().to_vec();
+        let output_attributes = self.query_common.attributes.get();
         let context = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd

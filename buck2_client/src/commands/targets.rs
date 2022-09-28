@@ -16,6 +16,7 @@ use gazebo::prelude::*;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
+use crate::commands::uquery::CommonAttributeArgs;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
@@ -111,41 +112,8 @@ pub struct TargetsCommand {
     #[clap(long, ignore_case = true, default_value = "fast", arg_enum)]
     target_hash_function: TargetHashFunction,
 
-    #[clap(
-        short = 'A',
-        long,
-        group = "output_attribute_flags",
-        name = "output_all_attributes",
-        help = "Output all attributes, equivalent of --output-attribute ''"
-    )]
-    output_all_attributes: bool,
-
-    #[clap(
-        short = 'a',
-        long,
-        group = "output_attribute_flags",
-        value_name = "ATTRIBUTE",
-        help = "List of attributes to output, --output-attribute attr1. Attributes can be \
-        regular expressions. Multiple attributes may be selected by specifying this option \
-        multiple times.",
-        // without limiting number_of_values, clap will read all space-separated values
-        // after the flag, we want to require that each value be preceded individually by the flag.
-        number_of_values = 1,
-         // If the output_all_attributes flag (-A) is set, use "" to select all
-         default_value_if("output_all_attributes", None, Some("")),
-    )]
-    output_attribute: Vec<String>,
-
-    /// Deprecated: Use `--output-attribute` instead.
-    ///
-    /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[clap(
-        long,
-        multiple_values = true,
-        value_name = "ATTRIBUTE",
-        group = "output_attribute_flags"
-    )]
-    output_attributes: Vec<String>,
+    #[clap(flatten)]
+    attributes: CommonAttributeArgs,
 
     /// Enables printing of default attributes. This would be attributes in a target that aren't
     /// explicitly set in the target but instead use the default set in the rule declaration.
@@ -204,7 +172,7 @@ impl StreamingCommand for TargetsCommand {
             IncompatibleArguments,
         }
 
-        let output_attributes = self.output_attributes();
+        let output_attributes = self.attributes.get();
         let target_hash_graph_type =
             match (self.show_target_hash, self.show_unconfigured_target_hash) {
                 (true, true) => {
@@ -324,14 +292,4 @@ async fn targets(
         crate::print!("{}", response.serialized_targets_output)?;
     }
     ExitResult::success()
-}
-
-impl TargetsCommand {
-    fn output_attributes(&self) -> Vec<String> {
-        if !self.output_attribute.is_empty() {
-            self.output_attribute.clone()
-        } else {
-            self.output_attributes.clone()
-        }
-    }
 }
