@@ -1,52 +1,45 @@
 load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
+load("@ovr_config//toolchain/xcode/constraints:defs.bzl", "XCODE_VERSIONS")
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 
-MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY = "x86_64-fbsource-xcode-13.4"
-MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode_13.4"
-MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY = "x86_64-fbsource-xcode-14.0"
-MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY = "x86_64_minimal_xcode_14.0"
+def get_exec_mac_platform_key(minimal: bool.type, xcode_version: str.type) -> str.type:
+    if minimal:
+        return "x86_64_minimal_xcode_{}".format(xcode_version)
+    else:
+        return "x86_64-fbsource-xcode-{}".format(xcode_version)
 
 def get_mac_exec_platform_keys():
-    return [
+    platform_keys = []
+    for version in XCODE_VERSIONS:
         # NB: The order of plaforms is important because the first
         # exec platform which matches gets picked. Most importantly,
         # minimal Xcode platform for _each Xcode version_ must always
         # come first, so that host tools use the minimal Xcode.
-        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
-        MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
-        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
-        MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
-    ]
+        platform_keys.append(get_exec_mac_platform_key(minimal = True, xcode_version = version))
+        platform_keys.append(get_exec_mac_platform_key(minimal = False, xcode_version = version))
+    return platform_keys
 
 def get_mac_exec_platforms_info():
     # NB: The platforms' constraints for Xcode must match the values defined
     #     by `re_subplatforms`. Mismatch will be detected as all
     #     toolchain actions will fail due to a version mismatch.
-    return {
-        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: struct(
-            name = "macos-minimal-xcode-13.4",
-            base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
-            re_subplatform = "xcode-13.4",
-        ),
-        MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: struct(
-            name = "macos-xcode-13.4",
-            base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
-            re_subplatform = "xcode-13.4",
-        ),
-        MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY: struct(
-            name = "macos-minimal-xcode-14.0",
-            base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-14.0",
-            re_subplatform = "xcode-14.0",
-        ),
-        MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: struct(
-            name = "macos-xcode-14.0",
-            base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-14.0",
-            re_subplatform = "xcode-14.0",
-        ),
-    }
+    platforms_info = {}
+    for version in XCODE_VERSIONS:
+        minimal_xcode_platform_key = get_exec_mac_platform_key(minimal = True, xcode_version = version)
+        platforms_info[minimal_xcode_platform_key] = struct(
+            name = "macos-minimal-xcode-{}".format(version),
+            base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-{}".format(version),
+            re_subplatform = "xcode-{}".format(version),
+        )
 
-FAT_PLATFORM_DEFAULT_MAC_PLATFORM_KEY = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY
+        full_xcode_platform_key = get_exec_mac_platform_key(minimal = False, xcode_version = version)
+        platforms_info[full_xcode_platform_key] = struct(
+            name = "macos-xcode-{}".format(version),
+            base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-{}".format(version),
+            re_subplatform = "xcode-{}".format(version),
+        )
+    return platforms_info
 
 linux_execution_base_platforms = {
     "platform009": "ovr_config//platform/linux:x86_64-fbcode-platform009-clang-nosan",
