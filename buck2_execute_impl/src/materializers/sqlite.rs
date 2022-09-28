@@ -354,7 +354,9 @@ impl MaterializerStateSqliteTable {
         let sql = format!(
             "DELETE FROM {} WHERE path IN ({})",
             Self::TABLE_NAME,
-            query_placeholder(paths.len()),
+            // According to rusqlite docs this is the best way to generate the right
+            // number of query placeholders.
+            itertools::repeat_n("?", paths.len()).join(","),
         );
         let rows_deleted = self
             .connection
@@ -368,13 +370,6 @@ impl MaterializerStateSqliteTable {
             .with_context(|| format!("deleting from sqlite table {}", Self::TABLE_NAME))?;
         Ok(rows_deleted)
     }
-}
-
-// According to rusqlite docs this is the recommended way to generate the right
-// number of query placeholders for multi-row deletions.
-fn query_placeholder(repeat: usize) -> String {
-    assert!(repeat > 0);
-    itertools::repeat_n("?", repeat).join(",")
 }
 
 #[derive(Error, Debug, PartialEq, Eq)]
