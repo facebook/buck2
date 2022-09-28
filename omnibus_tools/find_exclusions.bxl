@@ -39,7 +39,7 @@ def _find_exclusions_impl(ctx):
 
     all_analysis = ctx.analysis(nodes)
 
-    linkable_graphs = filter(None, [analysis.providers()[LinkableGraph] for analysis in all_analysis.values()])
+    linkable_graphs = filter(None, [analysis.providers().get(LinkableGraph) for analysis in all_analysis.values()])
     linkable_graph = ctx.bxl_actions.action_factory().tset(
         LinkableGraphTSet,
         children = [graph.nodes for graph in linkable_graphs],
