@@ -1,5 +1,5 @@
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
-load("@prelude//utils:utils.bzl", "expect", "map_idx")
+load("@prelude//utils:utils.bzl", "expect")
 load(
     ":link_info.bzl",
     "LinkInfo",  # @unused Used as a type
@@ -132,7 +132,7 @@ def create_linkable_graph(
         node: [LinkableGraphNode.type, None] = None,
         deps: ["dependency"] = [],
         children: [LinkableGraph.type] = []) -> LinkableGraph.type:
-    all_children_graphs = filter(None, map_idx(LinkableGraph, deps)) + children
+    all_children_graphs = filter(None, [x.get(LinkableGraph) for x in deps]) + children
     kwargs = {
         "children": [child_node.nodes for child_node in all_children_graphs],
     }
@@ -171,11 +171,11 @@ def linkable_graph(dep: "dependency") -> [LinkableGraph.type, None]:
     """
 
     # We only care about "linkable" deps.
-    if dep[PythonLibraryInfo] != None or dep[MergedLinkInfo] == None:
+    if PythonLibraryInfo in dep or MergedLinkInfo not in dep:
         return None
 
     expect(
-        dep[LinkableGraph] != None,
+        LinkableGraph in dep,
         "{} provides `MergedLinkInfo`".format(dep.label) +
         " but doesn't also provide `LinkableGraph`",
     )
