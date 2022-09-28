@@ -45,6 +45,7 @@ def cxx_toolchain_impl(ctx):
 
     linker_info = LinkerInfo(
         archiver = ctx.attrs.archiver[RunInfo],
+        archiver_supports_argfiles = ctx.attrs.archiver_supports_argfiles,
         archive_contents = ctx.attrs.archive_contents,
         archive_objects_locally = False,
         link_binaries_locally = not value_or(ctx.attrs.cache_links, True),
