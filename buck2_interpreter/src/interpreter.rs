@@ -127,7 +127,11 @@ impl ParseResult {
     ) -> anyhow::Result<Self> {
         let mut loads = implicit_imports;
         for x in ast.loads() {
-            loads.push(resolver.resolve_load(x.1, Some(&x.0))?);
+            loads.push(
+                resolver
+                    .resolve_load(x.1, Some(&x.0))
+                    .with_context(|| format!("When loading `load` of `{}` from `{}`", x.1, x.0))?,
+            );
         }
         Ok(Self(ast, Arc::new(loads)))
     }
