@@ -11,7 +11,6 @@ load(
     "expect",
     "flatten",
     "from_named_set",
-    "map_idx",
     "value_or",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
@@ -50,7 +49,7 @@ def cxx_inherited_link_info(ctx, first_order_deps: ["dependency"]) -> MergedLink
     # We filter out nones because some non-cxx rule without such providers could be a dependency, for example
     # cxx_binary "fbcode//one_world/cli/util/process_wrapper:process_wrapper" depends on
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
-    return merge_link_infos(ctx, filter(None, map_idx(MergedLinkInfo, first_order_deps)))
+    return merge_link_infos(ctx, filter(None, [x.get(MergedLinkInfo) for x in first_order_deps]))
 
 # Linker flags
 def cxx_attr_linker_flags(ctx: "context") -> [""]:

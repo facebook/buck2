@@ -15,7 +15,6 @@ load(
 load(
     "@prelude//utils:utils.bzl",
     "expect",
-    "map_idx",
 )
 
 # Types of group traversal
@@ -121,7 +120,7 @@ def get_group_mappings_and_info(group_info_type: "_a", deps: ["dependency"], gro
         return {}, None
 
     # If we have precomputed group info in deps, validate and use them
-    computed_groups_infos = filter(None, map_idx(group_info_type, deps))
+    computed_groups_infos = filter(None, [x.get(group_info_type) for x in deps])
     if computed_groups_infos:
         # While link groups can have different mappings, in practice, only one mapping is used for a specific build graph,
         # as otherwise ensuring the right links end up in the right group is hard to get right.

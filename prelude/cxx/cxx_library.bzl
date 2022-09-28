@@ -57,7 +57,6 @@ load(
     "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
-    "map_idx",
     "value_or",
 )
 load(":archive.bzl", "make_archive")
@@ -405,8 +404,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         providers.append(merge_shared_libraries(
             ctx.actions,
             create_shared_libraries(ctx, library_outputs.solibs),
-            filter(None, map_idx(SharedLibraryInfo, non_exported_deps)) +
-            filter(None, map_idx(SharedLibraryInfo, exported_deps)),
+            filter(None, [x.get(SharedLibraryInfo) for x in non_exported_deps]) +
+            filter(None, [x.get(SharedLibraryInfo) for x in exported_deps]),
         ))
 
     propagated_preprocessor_merge_list = inherited_exported_preprocessor_infos

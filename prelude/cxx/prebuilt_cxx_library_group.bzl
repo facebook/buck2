@@ -27,7 +27,7 @@ load(
     "create_shared_libraries",
     "merge_shared_libraries",
 )
-load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx", "flatten_dict")
+load("@prelude//utils:utils.bzl", "expect", "flatten_dict")
 load(
     ":cxx_library_utility.bzl",
     "cxx_inherited_link_info",
@@ -239,7 +239,7 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
     providers.append(merge_shared_libraries(
         ctx.actions,
         create_shared_libraries(ctx, solibs),
-        filter_and_map_idx(SharedLibraryInfo, deps + exported_deps),
+        filter(None, [x.get(SharedLibraryInfo) for x in deps + exported_deps]),
     ))
 
     # Create, augment and provide the linkable graph.

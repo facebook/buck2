@@ -2,7 +2,6 @@ load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
-    "map_idx",
     "value_or",
 )
 load(":attr_selection.bzl", "cxx_by_language_ext")
@@ -123,7 +122,7 @@ def cxx_inherited_preprocessor_infos(first_order_deps: ["dependency"]) -> [CPrep
     # We filter out nones because some non-cxx rule without such providers could be a dependency, for example
     # cxx_binary "fbcode//one_world/cli/util/process_wrapper:process_wrapper" depends on
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
-    return filter(None, map_idx(CPreprocessorInfo, first_order_deps))
+    return filter(None, [x.get(CPreprocessorInfo) for x in first_order_deps])
 
 def cxx_merge_cpreprocessors(ctx: "context", own: [CPreprocessor.type], xs: [CPreprocessorInfo.type]) -> "CPreprocessorInfo":
     kwargs = {"children": [x.set for x in xs]}
@@ -228,7 +227,7 @@ def cxx_private_preprocessor_info(
     test_preprocessors = []
     if is_test:
         for non_exported_dep in non_exported_deps:
-            preprocessor_for_tests = non_exported_dep[CPreprocessorForTestsInfo]
+            preprocessor_for_tests = non_exported_dep.get(CPreprocessorForTestsInfo)
             if preprocessor_for_tests and ctx.label.name in preprocessor_for_tests.test_names:
                 test_preprocessors.append(preprocessor_for_tests.own_non_exported_preprocessor)
 

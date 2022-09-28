@@ -41,7 +41,6 @@ load(
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
-    "map_idx",
 )
 load(
     ":comp_db.bzl",
@@ -229,7 +228,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_style == LinkStyle("shared") or use_link_groups:
         shlib_info = merge_shared_libraries(
             ctx.actions,
-            deps = filter(None, map_idx(SharedLibraryInfo, first_order_deps)),
+            deps = filter(None, [x.get(SharedLibraryInfo) for x in first_order_deps]),
         )
 
         def is_link_group_shlib(label: "label", labels_to_links_map: {"label": LinkGroupLinkInfo.type}):

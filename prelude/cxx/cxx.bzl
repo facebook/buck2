@@ -30,7 +30,6 @@ load(
     "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
-    "map_idx",
     "value_or",
 )
 load(
@@ -388,7 +387,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     providers.append(merge_shared_libraries(
         ctx.actions,
         create_shared_libraries(ctx, solibs),
-        filter(None, map_idx(SharedLibraryInfo, exported_first_order_deps)),
+        filter(None, [x.get(SharedLibraryInfo) for x in exported_first_order_deps]),
     ))
 
     # Create, augment and provide the linkable graph.
