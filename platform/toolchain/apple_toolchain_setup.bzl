@@ -8,6 +8,7 @@ AppleToolchainRuleType = enum(
 AppleToolchainType = enum(
     "apple-xcode-13.4-macos",
     "apple-xcode-14.0-macos",
+    "apple-xcode-14.1-macos",
     "meta-pika-13.3-linux",
     "meta-pika-13.3-macos",
     "meta-pika-14-linux",
@@ -26,6 +27,7 @@ _CXX_TOOLCHAIN_RULE_TYPE = AppleToolchainRuleType("cxx")
 
 _APPLE_XCODE_13_4_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-13.4-macos")
 _APPLE_XCODE_14_0_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-14.0-macos")
+_APPLE_XCODE_14_1_TOOLCHAIN_TYPE = AppleToolchainType("apple-xcode-14.1-macos")
 _META_PIKA_13_3_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-linux")
 _META_PIKA_13_3_MACOS_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-13.3-macos")
 _META_PIKA_14_LINUX_TOOLCHAIN_TYPE = AppleToolchainType("meta-pika-14-linux")
@@ -301,6 +303,14 @@ _APPLE_TOOLCHAINS = {
         selector = _get_apple_xcode_arch_select,
         selector_args = {
             "xcode_version": "14.0",
+        },
+        xcode_based = True,
+    ),
+    _APPLE_XCODE_14_1_TOOLCHAIN_TYPE: struct(
+        sdks = ["iphoneos", "iphonesimulator", "macosx", "watchos", "watchsimulator"],
+        selector = _get_apple_xcode_arch_select,
+        selector_args = {
+            "xcode_version": "14.1",
         },
         xcode_based = True,
     ),
