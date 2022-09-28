@@ -62,8 +62,6 @@ impl Forkserver for UnixForkserverService {
                 exe,
                 argv,
                 env,
-                env_clear,
-                env_remove,
                 cwd,
                 timeout,
             } = msg;
@@ -82,16 +80,22 @@ impl Forkserver for UnixForkserverService {
             }
             cmd.args(argv);
 
-            if env_clear {
-                cmd.env_clear();
-            }
+            {
+                use buck2_forkserver_proto::env_directive::Data;
 
-            for var in env_remove {
-                cmd.env_remove(OsStr::from_bytes(&var));
-            }
-
-            for var in env {
-                cmd.env(OsStr::from_bytes(&var.key), OsStr::from_bytes(&var.value));
+                for directive in env {
+                    match directive.data.context("EnvDirective is missing data")? {
+                        Data::Clear(..) => {
+                            cmd.env_clear();
+                        }
+                        Data::Set(var) => {
+                            cmd.env(OsStr::from_bytes(&var.key), OsStr::from_bytes(&var.value));
+                        }
+                        Data::Remove(var) => {
+                            cmd.env_remove(OsStr::from_bytes(&var.key));
+                        }
+                    }
+                }
             }
 
             let mut cmd = prepare_command(cmd);

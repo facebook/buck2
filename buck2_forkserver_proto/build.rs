@@ -12,6 +12,10 @@ fn main() -> io::Result<()> {
             "buck.forkserver.RequestEvent.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
         )
+        .type_attribute(
+            "buck.forkserver.EnvDirective.data",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
+        )
         .compile(proto_files, &["."])?;
 
     // Tell Cargo that if the given file changes, to rerun this build script.

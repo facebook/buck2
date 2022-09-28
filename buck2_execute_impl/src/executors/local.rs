@@ -745,12 +745,10 @@ mod unix {
                 .into_iter()
                 .map(|s| s.as_ref().as_bytes().to_vec())
                 .collect(),
-            env: vec![],
-            env_clear: false,
-            env_remove: vec![],
             cwd: Some(buck2_forkserver_proto::WorkingDirectory {
                 path: working_directory.as_os_str().as_bytes().to_vec(),
             }),
+            env: vec![],
             timeout: comand_timeout.map(|d| d.into()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
@@ -759,9 +757,26 @@ mod unix {
             .await
     }
 
+    trait CommandRequestExt {
+        fn push_env_directive<D>(&mut self, directive: D)
+        where
+            D: Into<buck2_forkserver_proto::env_directive::Data>;
+    }
+
+    impl CommandRequestExt for buck2_forkserver_proto::CommandRequest {
+        fn push_env_directive<D>(&mut self, directive: D)
+        where
+            D: Into<buck2_forkserver_proto::env_directive::Data>,
+        {
+            self.env.push(buck2_forkserver_proto::EnvDirective {
+                data: Some(directive.into()),
+            });
+        }
+    }
+
     impl EnvironmentBuilder for buck2_forkserver_proto::CommandRequest {
         fn clear(&mut self) {
-            self.env_clear = true;
+            self.push_env_directive(buck2_forkserver_proto::EnvClear {});
         }
 
         fn set<K, V>(&mut self, key: K, val: V)
@@ -769,7 +784,7 @@ mod unix {
             K: AsRef<OsStr>,
             V: AsRef<OsStr>,
         {
-            self.env.push(buck2_forkserver_proto::EnvVar {
+            self.push_env_directive(buck2_forkserver_proto::EnvSet {
                 key: key.as_ref().as_bytes().to_vec(),
                 value: val.as_ref().as_bytes().to_vec(),
             })
@@ -779,7 +794,9 @@ mod unix {
         where
             K: AsRef<OsStr>,
         {
-            self.env_remove.push(key.as_ref().as_bytes().to_vec())
+            self.push_env_directive(buck2_forkserver_proto::EnvRemove {
+                key: key.as_ref().as_bytes().to_vec(),
+            })
         }
     }
 }
