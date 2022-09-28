@@ -45,6 +45,7 @@ buck2_events = { path = "../buck2_events" }
 buck2_interpreter = { path = "../buck2_interpreter" }
 
 [dev-dependencies]
+assert_matches = { workspace = true }
 regex = { workspace = true }
 
 [features]

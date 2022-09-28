@@ -9,7 +9,7 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
-use crate::execute::claim::ClaimedRequest;
+use crate::execute::claim::Claim;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::name::ExecutorName;
 use crate::execute::output::CommandStdStreams;
@@ -114,8 +114,7 @@ pub struct CommandExecutionResult {
 /// Describes how a command executed.
 #[derive(Debug)]
 pub struct CommandExecutionReport {
-    /// This should contain the ClaimedRequest if this execution successfully claimed it.
-    pub claim: Option<ClaimedRequest>,
+    pub claim: Option<Box<dyn Claim>>,
     pub status: CommandExecutionStatus,
     pub executor: ExecutorName,
     pub timing: CommandExecutionTimingData,

@@ -24,7 +24,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
-use buck2_execute::execute::claim::ClaimManager;
+use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
@@ -309,7 +309,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         let action = self.target();
         let manager = CommandExecutionManager::new(
             self.executor.command_executor.name(),
-            <dyn ClaimManager>::new_simple(),
+            box MutexClaimManager::new(),
             self.executor.events.dupe(),
             NoopLivelinessManager::create(),
         );

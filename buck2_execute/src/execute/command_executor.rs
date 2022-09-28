@@ -33,6 +33,7 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
+use crate::execute::manager::CommandExecutionManagerExt;
 use crate::execute::name::ExecutorName;
 use crate::execute::prepared::ActionPaths;
 use crate::execute::prepared::PreparedAction;

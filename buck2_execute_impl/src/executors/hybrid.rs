@@ -15,6 +15,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::liveliness_manager::LivelinessManager;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::ClaimManager;
+use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -22,7 +23,6 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
-use futures::future;
 use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
@@ -49,7 +49,7 @@ impl HybridExecutor {
     async fn local_exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
-        claim_manager: Arc<dyn ClaimManager>,
+        claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> CommandExecutionResult {
@@ -65,7 +65,7 @@ impl HybridExecutor {
     async fn remote_exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
-        claim_manager: Arc<dyn ClaimManager>,
+        claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> CommandExecutionResult {
@@ -92,15 +92,17 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         // Note that this only sets up these futures, nothing will happen until they are awaited (this is important in the
         // case where we shouldn't be sending one of them).
+        let claim_manager = MutexClaimManager::new();
+
         let local_result = self.local_exec_cmd(
             command,
-            manager.claim_manager.dupe(),
+            box claim_manager.dupe(),
             manager.events.dupe(),
             manager.liveliness_manager.dupe(),
         );
         let remote_result = self.remote_exec_cmd(
             command,
-            manager.claim_manager.dupe(),
+            box claim_manager.dupe(),
             manager.events.dupe(),
             manager.liveliness_manager.dupe(),
         );
@@ -187,30 +189,17 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         // Note: We discard the fallback this yields here. That's because we already kicked off
         // that executor in `second` so we'll just reuse that future.
-        let (first_res, first_fallback) = first;
+        let (mut first_res, _unused_fallback) = first;
 
-        if is_claim_rejected(&first_res) {
-            // If the first result was rejected then wait for the second one and then if that
-            // provides a status we must retry, we'll use its fallback executor (which is the one
-            // that just produced the rejected claim).
-            exec_with_restart(command, manager, second, &is_retryable_status).await
-        } else if is_retryable_status(&first_res) {
-            // If the first result is retryable, then we have to watch out for the case where the
-            // second executor returns a rejected claim (meaning it didn't execute). When that
-            // happens, we should retry it on that executor itself, which is the first fallback we
-            // received.
-            let (second_res, _unused_fallback) = second.await;
-            let mut out = exec_with_restart(
-                command,
-                manager,
-                future::ready((second_res, first_fallback)),
-                is_claim_rejected,
-            )
-            .await;
-            // NOTE: we passed is_claim_rejected as the `should_restart` condition so we definitely don't
-            // care about what we're overwriting here.
-            out.rejected_execution = Some(first_res.report);
-            out
+        if is_retryable_status(&first_res) {
+            // If the first result had made a claim, then cancel it now to let the other result
+            // proceed.
+            if let Some(claim) = first_res.report.claim.take() {
+                claim.release();
+            }
+            let (mut second_res, _unused_fallback) = second.await;
+            second_res.rejected_execution = Some(first_res.report);
+            second_res
         } else {
             // Everyone is happy, we got our result.
             first_res
@@ -234,13 +223,6 @@ impl PreparedCommandExecutor for HybridExecutor {
     }
 }
 
-fn is_claim_rejected(res: &CommandExecutionResult) -> bool {
-    match &res.report.status {
-        CommandExecutionStatus::ClaimRejected => true,
-        _ => false,
-    }
-}
-
 /// Execute `exec`, and restart on the FallbackExecutor it yields if `should_restart` passes.
 async fn exec_with_restart<S>(
     command: &PreparedCommand<'_, '_>,
@@ -260,7 +242,7 @@ where
     let fallback_manager = CommandExecutionManager::new(
         fallback.name,
         // We already obtained a result here so we need a new claim to allow it to proceed.
-        <dyn ClaimManager>::new_simple(),
+        box MutexClaimManager::new(),
         manager.events.dupe(),
         manager.liveliness_manager.dupe(),
     );

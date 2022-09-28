@@ -56,7 +56,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
-use buck2_execute::execute::claim::ClaimManager;
+use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
@@ -427,7 +427,7 @@ impl BuckTestOrchestrator {
 
         let manager = CommandExecutionManager::new(
             executor.name(),
-            <dyn ClaimManager>::new_simple(),
+            box MutexClaimManager::new(),
             self.events.dupe(),
             self.liveliness_manager.dupe(),
         );

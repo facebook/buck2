@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,8 +19,8 @@ use buck2_events::dispatch::EventDispatcher;
 use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
+use crate::execute::claim::Claim;
 use crate::execute::claim::ClaimManager;
-use crate::execute::claim::ClaimedRequest;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::name::ExecutorName;
 use crate::execute::output::CommandStdStreams;
@@ -29,12 +30,22 @@ use crate::execute::result::CommandExecutionResult;
 use crate::execute::result::CommandExecutionStatus;
 use crate::execute::result::CommandExecutionTimingData;
 
+trait CommandExecutionManagerLike: Sized {
+    /// Create a new Command execution result.
+    fn result(
+        self,
+        status: CommandExecutionStatus,
+        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        std_streams: CommandStdStreams,
+        exit_code: Option<i32>,
+        timing: CommandExecutionTimingData,
+    ) -> CommandExecutionResult;
+}
+
 /// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
 pub struct CommandExecutionManager {
     executor_name: ExecutorName,
-    claimed: bool,
-
-    pub claim_manager: Arc<dyn ClaimManager>,
+    pub claim_manager: Box<dyn ClaimManager>,
     pub events: EventDispatcher,
     pub liveliness_manager: Arc<dyn LivelinessManager>,
 }
@@ -42,17 +53,42 @@ pub struct CommandExecutionManager {
 impl CommandExecutionManager {
     pub fn new(
         executor_name: ExecutorName,
-        claim_manager: Arc<dyn ClaimManager>,
+        claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> Self {
         Self {
             executor_name,
             claim_manager,
-            claimed: false,
             events,
             liveliness_manager,
         }
+    }
+
+    /// Try to acquire a claim. Error out if that's not possible.
+    pub async fn try_claim(
+        mut self,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
+        match self.claim_manager.claim().await {
+            None => ControlFlow::Break(self.claim_rejected()),
+            Some(claim) => ControlFlow::Continue(CommandExecutionManagerWithClaim {
+                claim,
+                executor_name: self.executor_name,
+                events: self.events,
+                liveliness_manager: self.liveliness_manager,
+            }),
+        }
+    }
+
+    /// Error out with a rejected claim.
+    fn claim_rejected(self) -> CommandExecutionResult {
+        self.result(
+            CommandExecutionStatus::ClaimRejected,
+            IndexMap::new(),
+            Default::default(),
+            None,
+            CommandExecutionTimingData::default(),
+        )
     }
 
     pub fn stage<T, F: FnOnce() -> T>(
@@ -81,46 +117,51 @@ impl CommandExecutionManager {
         )
         .await
     }
+}
 
-    /// An exec_cmd request might go to multiple executors. try_claim() indicates that an executor wants to claim the work item.
-    ///
-    /// An executor must claim the request before making any local changes.
-    /// An executor can claim the request at an earlier point (for example, to indicate it has started working on it and others shouldn't bother).
-    ///
-    /// This is primarily used by the hybrid executor to support sending work to both a local and a remote executor but only allowing one to actually produce a result.
-    // TODO(cjhopman): Ideally there'd be some object that all local modifications of a command execution would flow through
-    // and we could require executors get that object via making a claim, but that's tough right now.
-    pub fn try_claim(&mut self) -> Option<ClaimedRequest> {
-        if self.claim_manager.try_claim() {
-            self.claimed = true;
-            Some(ClaimedRequest {})
-        } else {
-            None
+impl CommandExecutionManagerLike for CommandExecutionManager {
+    fn result(
+        self,
+        status: CommandExecutionStatus,
+        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        std_streams: CommandStdStreams,
+        exit_code: Option<i32>,
+        timing: CommandExecutionTimingData,
+    ) -> CommandExecutionResult {
+        CommandExecutionResult {
+            outputs,
+            report: CommandExecutionReport {
+                claim: None,
+                status,
+                executor: self.executor_name,
+                timing,
+                std_streams,
+                exit_code,
+            },
+            rejected_execution: None,
+            did_cache_upload: false,
         }
     }
+}
 
-    pub fn claim_rejected(self) -> CommandExecutionResult {
-        self.result(
-            CommandExecutionStatus::ClaimRejected,
-            IndexMap::new(),
-            Default::default(),
-            None,
-            CommandExecutionTimingData::default(),
-        )
-    }
+pub struct CommandExecutionManagerWithClaim {
+    executor_name: ExecutorName,
+    pub events: EventDispatcher,
+    pub liveliness_manager: Arc<dyn LivelinessManager>,
+    claim: Box<dyn Claim>,
+}
 
-    /// Explicitly takes a ClaimedRequest here (even though it's unused) to help implementors remember to claim things
-    /// since a command can't be successful without making local changes.
+/// Like CommandExecutionManager but provides access to things that are only allowed with a Claim;
+impl CommandExecutionManagerWithClaim {
+    /// Explicitly requires a Claim here to help implementors remember to claim things since a
+    /// command can't be successful without making local changes.
     pub fn success(
         self,
-        claim: ClaimedRequest,
         execution_kind: CommandExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         timing: CommandExecutionTimingData,
     ) -> CommandExecutionResult {
-        // just make the claim look used in the function signature.
-        let _ = claim;
         self.result(
             CommandExecutionStatus::Success { execution_kind },
             outputs,
@@ -130,7 +171,84 @@ impl CommandExecutionManager {
         )
     }
 
-    pub fn failure(
+    pub fn stage<T, F: FnOnce() -> T>(
+        &mut self,
+        stage: impl Into<buck2_data::executor_stage_start::Stage>,
+        f: F,
+    ) -> T {
+        let event = buck2_data::ExecutorStageStart {
+            stage: Some(stage.into()),
+        };
+
+        span(event, || (f(), buck2_data::ExecutorStageEnd {}))
+    }
+
+    pub async fn stage_async<F: Future>(
+        &mut self,
+        stage: impl Into<buck2_data::executor_stage_start::Stage>,
+        f: F,
+    ) -> <F as Future>::Output {
+        let event = buck2_data::ExecutorStageStart {
+            stage: Some(stage.into()),
+        };
+        span_async(
+            event,
+            async move { (f.await, buck2_data::ExecutorStageEnd {}) },
+        )
+        .await
+    }
+}
+
+impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
+    fn result(
+        self,
+        status: CommandExecutionStatus,
+        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        std_streams: CommandStdStreams,
+        exit_code: Option<i32>,
+        timing: CommandExecutionTimingData,
+    ) -> CommandExecutionResult {
+        CommandExecutionResult {
+            outputs,
+            report: CommandExecutionReport {
+                claim: Some(self.claim),
+                status,
+                executor: self.executor_name,
+                timing,
+                std_streams,
+                exit_code,
+            },
+            rejected_execution: None,
+            did_cache_upload: false,
+        }
+    }
+}
+
+pub trait CommandExecutionManagerExt: Sized {
+    fn failure(
+        self,
+        execution_kind: CommandExecutionKind,
+        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        std_streams: CommandStdStreams,
+        exit_code: Option<i32>,
+    ) -> CommandExecutionResult;
+
+    fn timeout(
+        self,
+        execution_kind: CommandExecutionKind,
+        duration: Duration,
+        std_streams: CommandStdStreams,
+        timing: CommandExecutionTimingData,
+    ) -> CommandExecutionResult;
+
+    fn error(self, stage: String, error: anyhow::Error) -> CommandExecutionResult;
+}
+
+impl<T> CommandExecutionManagerExt for T
+where
+    T: CommandExecutionManagerLike,
+{
+    fn failure(
         self,
         execution_kind: CommandExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
@@ -146,7 +264,7 @@ impl CommandExecutionManager {
         )
     }
 
-    pub fn timeout(
+    fn timeout(
         self,
         execution_kind: CommandExecutionKind,
         duration: Duration,
@@ -165,7 +283,7 @@ impl CommandExecutionManager {
         )
     }
 
-    pub fn error(self, stage: String, error: anyhow::Error) -> CommandExecutionResult {
+    fn error(self, stage: String, error: anyhow::Error) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::Error { stage, error },
             IndexMap::new(),
@@ -173,32 +291,5 @@ impl CommandExecutionManager {
             None,
             CommandExecutionTimingData::default(),
         )
-    }
-
-    fn result(
-        self,
-        status: CommandExecutionStatus,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
-        std_streams: CommandStdStreams,
-        exit_code: Option<i32>,
-        timing: CommandExecutionTimingData,
-    ) -> CommandExecutionResult {
-        CommandExecutionResult {
-            outputs,
-            report: CommandExecutionReport {
-                claim: if self.claimed {
-                    Some(ClaimedRequest {})
-                } else {
-                    None
-                },
-                status,
-                executor: self.executor_name,
-                timing,
-                std_streams,
-                exit_code,
-            },
-            rejected_execution: None,
-            did_cache_upload: false,
-        }
     }
 }

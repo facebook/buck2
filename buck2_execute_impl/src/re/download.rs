@@ -24,8 +24,9 @@ use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
-use buck2_execute::execute::claim::ClaimedRequest;
 use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::manager::CommandExecutionManagerExt;
+use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::ActionPaths;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -46,7 +47,7 @@ pub async fn download_action_results<'a>(
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
     re_use_case: RemoteExecutorUseCase,
-    mut manager: CommandExecutionManager,
+    manager: CommandExecutionManager,
     stage: buck2_data::executor_stage_start::Stage,
     action_paths: &ActionPaths,
     requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
@@ -54,10 +55,7 @@ pub async fn download_action_results<'a>(
     response: &dyn RemoteActionResult,
 ) -> CommandExecutionResult {
     // Claim the request before starting the download.
-    let claim = match manager.try_claim() {
-        None => return manager.claim_rejected(),
-        Some(v) => v,
-    };
+    let manager = manager.try_claim().await?;
 
     let downloader = CasDownloader {
         materializer,
@@ -68,7 +66,6 @@ pub async fn download_action_results<'a>(
     let download = downloader.download(
         manager,
         stage,
-        claim,
         action_paths,
         requested_outputs,
         action_digest,
@@ -85,10 +82,9 @@ pub async fn download_action_results<'a>(
     };
 
     let (download, std_streams) = future::join(download, std_streams).await;
-    let (manager, claim, outputs) = download?;
+    let (manager, outputs) = download?;
 
     manager.success(
-        claim,
         response.execution_kind(action_digest.dupe()),
         outputs,
         CommandStdStreams::Remote(std_streams),
@@ -105,9 +101,8 @@ pub struct CasDownloader<'a> {
 impl CasDownloader<'_> {
     async fn download<'a>(
         &self,
-        mut manager: CommandExecutionManager,
+        mut manager: CommandExecutionManagerWithClaim,
         stage: buck2_data::executor_stage_start::Stage,
-        claim: ClaimedRequest,
         action_paths: &ActionPaths,
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
@@ -115,8 +110,7 @@ impl CasDownloader<'_> {
     ) -> ControlFlow<
         CommandExecutionResult,
         (
-            CommandExecutionManager,
-            ClaimedRequest,
+            CommandExecutionManagerWithClaim,
             IndexMap<CommandExecutionOutput, ArtifactValue>,
         ),
     > {
@@ -137,7 +131,7 @@ impl CasDownloader<'_> {
             }
         };
 
-        ControlFlow::Continue((manager, claim, outputs))
+        ControlFlow::Continue((manager, outputs))
     }
 
     async fn materialize_files<'a>(

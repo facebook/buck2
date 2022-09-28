@@ -27,6 +27,7 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::prepared::ActionPaths;
 use buck2_execute::execute::prepared::PreparedCommand;

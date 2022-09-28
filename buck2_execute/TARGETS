@@ -11,6 +11,7 @@ rust_library(
         "edenfs": "//eden/fs/service:thrift-rust",
     },
     test_deps = [
+        "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:regex",
     ],
     deps = [

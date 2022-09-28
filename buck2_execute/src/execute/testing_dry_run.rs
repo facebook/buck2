@@ -22,6 +22,7 @@ use crate::artifact_value::ArtifactValue;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::manager::CommandExecutionManager;
+use crate::execute::manager::CommandExecutionManagerExt;
 use crate::execute::name::ExecutorName;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
@@ -55,7 +56,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
     async fn exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
-        mut manager: CommandExecutionManager,
+        manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
         let PreparedCommand {
             request,
@@ -64,10 +65,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             prepared_action: _prepared_action,
         } = command;
 
-        let claim = match manager.try_claim() {
-            Some(claim) => claim,
-            None => return manager.claim_rejected(),
-        };
+        let manager = manager.try_claim().await?;
 
         let args = request.args().to_owned();
         let outputs = request.outputs().map(|o| o.cloned()).collect();
@@ -96,7 +94,6 @@ impl PreparedCommandExecutor for DryRunExecutor {
             .collect::<anyhow::Result<_>>()
         {
             Ok(outputs) => manager.success(
-                claim,
                 exec_kind,
                 outputs,
                 Default::default(),

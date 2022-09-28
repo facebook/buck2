@@ -45,6 +45,7 @@ use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -190,11 +191,6 @@ impl LocalExecutor {
         request: &CommandExecutionRequest,
         mut manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
-        let claim = match manager.try_claim() {
-            None => return manager.claim_rejected(),
-            Some(v) => v,
-        };
-
         let args = request.args();
         if args.is_empty() {
             return manager.error("no_args".into(), LocalExecutionError::NoArgs.into());
@@ -233,6 +229,8 @@ impl LocalExecutor {
             Ok(_) => {}
             Err(e) => return manager.error("materialize_inputs_failed".into(), e),
         };
+
+        let mut manager = manager.try_claim().await?;
 
         let scratch_dir = self
             .artifact_fs
@@ -368,7 +366,7 @@ impl LocalExecutor {
                 };
 
                 match status.code() {
-                    Some(0) => manager.success(claim, execution_kind, outputs, std_streams, timing),
+                    Some(0) => manager.success(execution_kind, outputs, std_streams, timing),
                     v => manager.failure(execution_kind, outputs, std_streams, v),
                 }
             }
