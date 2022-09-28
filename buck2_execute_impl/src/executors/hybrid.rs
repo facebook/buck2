@@ -265,6 +265,19 @@ struct ReClaim {
 }
 
 impl Claim for ReClaim {
+    /// Releasing the ReClaim. When we do this, we need to let local execution proceed again. This
+    /// can happen if we do a fallback without full hybrid: RE goes, and fails, and then we want to
+    /// proceed with local.
+    ///
+    /// NOTE: this does NOT work in the following scenario:
+    ///
+    /// - Local claims
+    /// - RE has a result, asks local to cancel (successfully)
+    /// - RE claims
+    /// - RE fails
+    ///
+    /// In that case, RE will have failed. To fix this, we need local to release its claim instead
+    /// of returning ClaimCancelled.
     fn release(self: Box<Self>) -> anyhow::Result<()> {
         // An error here should only occur if local execution had started without the claim.
         self.released_liveliness_guard

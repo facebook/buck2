@@ -17,6 +17,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::FileDigestFromReExt;
@@ -141,6 +142,11 @@ impl CasDownloader<'_> {
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
     ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
+        static FAIL_RE_DOWNLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_RE_DOWNLOADS");
+        if FAIL_RE_DOWNLOADS.get()?.copied().unwrap_or_default() {
+            return Err(anyhow::anyhow!("Injected error"));
+        }
+
         let ttl: u64 = output_spec.ttl().try_into().unwrap_or(0);
         let expires = SystemTime::now() + std::time::Duration::from_secs(ttl);
 

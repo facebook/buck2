@@ -785,6 +785,25 @@ async def test_hybrid_executor_cancels_local_execution(buck: Buck) -> None:
     assert commands[1]["status"] == {"Success": {}}
 
 
+if False:
+    # Currently, this is not supported. This is a smaller issue than it might
+    # seem, since it only enters the picture if RE claims, cancels local, and
+    # *then* we need a fallback, which is fairly unlikely since most of the
+    # work is done by then.
+
+    @buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+    @env("BUCK2_TEST_FAIL_RE_DOWNLOADS", "true")
+    async def test_hybrid_executor_cancellation_allows_fallbacks_with_full_hybrid(
+        buck: Buck,
+    ) -> None:
+        # This will fail on the RE branch after acquiring the claim.
+        await buck.build(
+            "root//executor_race_tests:slower_locally",
+            "-c",
+            f"test.cache_buster={random_string()}",
+        )
+
+
 @buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
 async def test_hybrid_executor_logging(buck: Buck) -> None:
     await buck.build(
