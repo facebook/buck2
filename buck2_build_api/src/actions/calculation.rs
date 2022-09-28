@@ -290,6 +290,9 @@ async fn command_execution_report_to_proto(
         CommandExecutionStatus::ClaimRejected => {
             buck2_data::command_execution::ClaimRejected {}.into()
         }
+        CommandExecutionStatus::ClaimCancelled => {
+            buck2_data::command_execution::ClaimCancelled {}.into()
+        }
         CommandExecutionStatus::Failure { .. } => buck2_data::command_execution::Failure {}.into(),
         CommandExecutionStatus::TimedOut { duration, .. } => {
             buck2_data::command_execution::Timeout {

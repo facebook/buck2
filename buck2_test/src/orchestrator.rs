@@ -532,7 +532,10 @@ impl BuckTestOrchestrator {
                 outputs,
             ),
             CommandExecutionStatus::ClaimRejected => {
-                panic!("should be impossible for the executor to finish with a rejected claim")
+                return Err(anyhow::anyhow!("Internal error: ClaimRejected"));
+            }
+            CommandExecutionStatus::ClaimCancelled => {
+                return Err(anyhow::anyhow!("Internal error: ClaimCancelled"));
             }
         })
     }

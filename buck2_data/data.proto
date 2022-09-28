@@ -710,7 +710,13 @@ message CommandExecution {
     string error = 2;
   }
 
+  // (Hybrid execution only) Another executor claimed this execution first.
   message ClaimRejected {}
+
+  // (Hybrid execution only) This executor released its claim in order to allow
+  // another executor to proceed. We use this to cancel local tasks when racing
+  // local & RE.
+  message ClaimCancelled {}
 
   // Serialization of CommandExecutionStatus.
   oneof status {
@@ -719,6 +725,7 @@ message CommandExecution {
     Timeout timeout = 4;
     Error error = 5;
     ClaimRejected claim_rejected = 6;
+    ClaimCancelled claim_cancelled = 7;
   }
 }
 

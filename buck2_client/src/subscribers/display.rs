@@ -419,6 +419,7 @@ pub(crate) fn display_action_error<'a>(
 fn failure_reason_for_command_execution(
     command_execution: &buck2_data::CommandExecution,
 ) -> anyhow::Result<String> {
+    use buck2_data::command_execution::ClaimCancelled;
     use buck2_data::command_execution::ClaimRejected;
     use buck2_data::command_execution::Error;
     use buck2_data::command_execution::Failure;
@@ -464,6 +465,7 @@ fn failure_reason_for_command_execution(
             format!("Internal error (stage: {}): {}", stage, error)
         }
         Status::ClaimRejected(ClaimRejected {}) => "Command was rejected".to_owned(),
+        Status::ClaimCancelled(ClaimCancelled {}) => "Command was cancelled".to_owned(),
     })
 }
 

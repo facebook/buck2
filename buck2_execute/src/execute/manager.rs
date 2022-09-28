@@ -171,6 +171,16 @@ impl CommandExecutionManagerWithClaim {
         )
     }
 
+    pub fn cancel_claim(self) -> CommandExecutionResult {
+        self.result(
+            CommandExecutionStatus::ClaimCancelled,
+            IndexMap::new(),
+            Default::default(),
+            None,
+            CommandExecutionTimingData::default(),
+        )
+    }
+
     pub fn stage<T, F: FnOnce() -> T>(
         &mut self,
         stage: impl Into<buck2_data::executor_stage_start::Stage>,

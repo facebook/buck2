@@ -154,9 +154,14 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let is_retryable_status = move |r: &CommandExecutionResult| {
             match &r.report.status {
-                // This doesn't really matter sicne we only ever pass this with statuses known /
-                // expected to not be ClaimRejected.
+                // This doesn't really matter since ClaimRejected will not be returned before we
+                // drop the Claim (or release it) here, so in practice we'll never see this on the
+                // first command.
                 CommandExecutionStatus::ClaimRejected => false,
+                // This does need be retried since if we get a cancelled claim that would typically
+                // mean the other result asked for cancellation and we're about to receive the
+                // result here.
+                CommandExecutionStatus::ClaimCancelled => true,
                 // If the execution is successful, use the result.
                 CommandExecutionStatus::Success { .. } => false,
                 // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
