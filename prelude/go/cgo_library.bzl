@@ -148,5 +148,5 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
             pkgs,
             get_inherited_link_pkgs(ctx.attrs.deps + ctx.attrs.exported_deps),
         ])),
-        merge_link_infos(ctx, filter(None, [d[MergedLinkInfo] for d in ctx.attrs.deps])),
+        merge_link_infos(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
     ]

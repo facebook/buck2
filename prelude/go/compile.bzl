@@ -16,7 +16,7 @@ GoTestInfo = provider(fields = [
 ])
 
 def get_inherited_compile_pkgs(deps: ["dependency"]) -> {str.type: "artifact"}:
-    return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if d[GoPkgCompileInfo]])
+    return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
 def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool.type = False) -> "cmd_args":
     """

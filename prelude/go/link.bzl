@@ -15,7 +15,7 @@ GoPkgLinkInfo = provider(fields = [
 ])
 
 def get_inherited_link_pkgs(deps: ["dependency"]) -> {str.type: "artifact"}:
-    return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if d[GoPkgLinkInfo]])
+    return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if GoPkgLinkInfo in d])
 
 def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, deps: ["dependency"] = [], link_mode = None):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]

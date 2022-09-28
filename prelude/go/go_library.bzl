@@ -37,5 +37,5 @@ def go_library_impl(ctx: "context") -> ["provider"]:
             srcs = ctx.attrs.srcs,
             pkg_name = pkg_name,
         ),
-        merge_link_infos(ctx, filter(None, [d[MergedLinkInfo] for d in ctx.attrs.deps])),
+        merge_link_infos(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
     ]
