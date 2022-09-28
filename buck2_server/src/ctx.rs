@@ -62,7 +62,8 @@ use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
-use buck2_interpreter::extra::InterpreterConfiguror;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceDataProvider;
@@ -393,36 +394,21 @@ impl ServerCommandContext {
     }
 
     async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
-        let (cell_resolver, legacy_configs) = self.cell_configs_loader.cells_and_configs().await?;
-        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
-        // just be setting the config overrides and host platform override as leaves on the graph.
-
-        let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
-
         let (interpreter_platform, interpreter_architecture) =
             host_info::get_host_info(self.host_platform_override);
-        let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(cell_alias_resolver)?),
-            interpreter_platform,
-            interpreter_architecture,
-            self.record_target_call_stacks,
-            configure_build_file_globals,
-            configure_extension_file_globals,
-            self.configure_bxl_file_globals,
-            None,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
-        );
 
         Ok(DiceCommandUpdater {
             file_watcher: self.base_context.file_watcher.dupe(),
+            cell_config_loader: self.cell_configs_loader.dupe(),
             buck_out_dir: self.buck_out_dir.clone(),
-            cell_resolver,
-            configuror,
-            legacy_configs,
+            interpreter_platform,
+            interpreter_architecture,
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
                 .dupe(),
+            configure_bxl_file_globals: self.configure_bxl_file_globals,
             disable_starlark_types: self.disable_starlark_types,
+            record_target_call_stacks: self.record_target_call_stacks,
         })
     }
 
@@ -488,26 +474,46 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
 struct DiceCommandUpdater {
     file_watcher: Arc<dyn FileWatcher>,
+    cell_config_loader: Arc<CellConfigLoader>,
     buck_out_dir: ProjectRelativePathBuf,
-    cell_resolver: CellResolver,
-    configuror: Arc<dyn InterpreterConfiguror>,
-    legacy_configs: LegacyBuckConfigs,
+    interpreter_platform: InterpreterHostPlatform,
+    interpreter_architecture: InterpreterHostArchitecture,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    configure_bxl_file_globals: fn(&mut GlobalsBuilder),
     disable_starlark_types: bool,
+    record_target_call_stacks: bool,
 }
 
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater {
     async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+        let (cell_resolver, legacy_configs) = self.cell_config_loader.cells_and_configs().await?;
+        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
+        // just be setting the config overrides and host platform override as leaves on the graph.
+
+        let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
+
+        let configuror = BuildInterpreterConfiguror::new(
+            Some(prelude_path(cell_alias_resolver)?),
+            self.interpreter_platform,
+            self.interpreter_architecture,
+            self.record_target_call_stacks,
+            configure_build_file_globals,
+            configure_extension_file_globals,
+            self.configure_bxl_file_globals,
+            None,
+            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
+        );
+
         let ctx = self.file_watcher.sync(ctx).await?;
 
         ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 
         setup_interpreter(
             &ctx,
-            self.cell_resolver.dupe(),
-            self.configuror.dupe(),
-            self.legacy_configs.dupe(),
+            cell_resolver,
+            configuror,
+            legacy_configs,
             self.starlark_profiler_instrumentation_override.dupe(),
             self.disable_starlark_types,
         )?;
