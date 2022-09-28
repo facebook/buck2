@@ -56,6 +56,21 @@ def mac_execution_platform(name: str.type, platform_key: str.type):
         allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
     )
 
+def define_mac_execution_platforms():
+    return mac_execution_platform(
+        name = "macos-minimal",
+        platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
+    ) + mac_execution_platform(
+        name = "macos",
+        platform_key = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
+    ) + mac_execution_platform(
+        name = "macos-minimal-xcode-14.0",
+        platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
+    ) + mac_execution_platform(
+        name = "macos-xcode-14.0",
+        platform_key = MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
+    )
+
 def _execution_platform_impl(ctx: "context"):
     infos = [p[BuildModeInfo] for p in ctx.attrs.remote_execution_action_key_providers]
     kvs = ["{}={}".format(info.cell, info.mode) for info in infos if info.mode != None]

@@ -30,17 +30,14 @@ load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 load("@fbsource//tools/build_defs:fbsource_utils.bzl", "is_arvr_mode")
 load(
     ":defs.bzl",
-    "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY",
-    "MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY",
     "MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY",
-    "MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY",
     "allow_hybrid_fallbacks_on_failure",
+    "define_mac_execution_platforms",
     "execution_platform",
     "execution_platforms",
     "fat_platform_transition_helper",
     "linux_execution_base_platforms",
     "mac_execution_base_platforms",
-    "mac_execution_platform",
     "ordered_platforms_by_host_type",
     "remote_execution_action_key_providers",
 )
@@ -56,19 +53,7 @@ local_windows_execution = read_bool("build", "enable_local_windows_execution", h
 
 fat_platforms_enabled = read_bool("build", "enable_fat_platforms", True)
 
-mac_platforms = mac_execution_platform(
-    name = "macos-minimal",
-    platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY,
-) + mac_execution_platform(
-    name = "macos",
-    platform_key = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY,
-) + mac_execution_platform(
-    name = "macos-minimal-xcode-14.0",
-    platform_key = MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY,
-) + mac_execution_platform(
-    name = "macos-xcode-14.0",
-    platform_key = MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY,
-)
+mac_platforms = define_mac_execution_platforms()
 
 linux_platforms = execution_platform(
     name = "linux-x86_64",
