@@ -3,7 +3,7 @@ load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx")
+load("@prelude//utils:utils.bzl", "expect")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
 # package native libraries for one (or more, for multi-arch builds) ABIs into an Android APK.
@@ -47,7 +47,7 @@ def get_android_binary_native_library_info(
     for platform, deps in deps_by_platform.items():
         shared_library_info = merge_shared_libraries(
             ctx.actions,
-            deps = filter_and_map_idx(SharedLibraryInfo, deps),
+            deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
         )
         native_linkables = {so_name: shared_lib for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items() if shared_lib not in shared_libraries_to_exclude}
         all_shared_libraries.extend(native_linkables.values())

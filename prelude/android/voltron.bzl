@@ -2,7 +2,7 @@ load("@prelude//android:android_providers.bzl", "AndroidPackageableInfo", "merge
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@prelude//utils:utils.bzl", "expect", "filter_and_map_idx", "flatten")
+load("@prelude//utils:utils.bzl", "expect", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
 # modules can then be downloaded on demand rather than shipped with the "main" APK.
@@ -39,7 +39,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
+        deps = filter(None, [x.get(SharedLibraryInfo) for x in all_deps]),
     )
     traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
 
@@ -85,7 +85,7 @@ def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["arti
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter_and_map_idx(SharedLibraryInfo, all_deps),
+        deps = filter(None, [x.get(SharedLibraryInfo) for x in all_deps]),
     )
     traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
 

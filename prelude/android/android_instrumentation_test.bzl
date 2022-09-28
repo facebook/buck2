@@ -19,10 +19,10 @@ def android_instrumentation_test_impl(ctx: "context"):
 
     cmd.append(android_toolchain.instrumentation_test_runner_main_class)
 
-    apk_info = ctx.attrs.apk[AndroidApkInfo]
+    apk_info = ctx.attrs.apk.get(AndroidApkInfo)
     expect(apk_info != None, "Provided APK must have AndroidApkInfo!")
 
-    instrumentation_apk_info = ctx.attrs.apk[AndroidInstrumentationApkInfo]
+    instrumentation_apk_info = ctx.attrs.apk.get(AndroidInstrumentationApkInfo)
     if instrumentation_apk_info != None:
         cmd.extend(["--apk-under-test-path", instrumentation_apk_info.apk_under_test])
 

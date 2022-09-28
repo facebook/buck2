@@ -5,7 +5,6 @@ load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "to_list")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
-load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 
 def android_library_impl(ctx: "context") -> ["provider"]:
     java_providers = build_android_library(ctx)
@@ -52,10 +51,10 @@ def build_android_library(
 def _get_dummy_r_dot_java(
         ctx: "context",
         java_toolchain: "JavaToolchainInfo") -> ["artifact", None]:
-    android_resources = [resource for resource in filter_and_map_idx(
-        AndroidResourceInfo,
-        ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or []),
-    ) if resource.res != None]
+    android_resources = [resource for resource in filter(None, [
+        x.get(AndroidResourceInfo)
+        for x in ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
+    ]) if resource.res != None]
     if len(android_resources) == 0:
         return None
 

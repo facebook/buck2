@@ -1,5 +1,3 @@
-load("@prelude//utils:utils.bzl", "filter_and_map_idx")
-
 Aapt2LinkInfo = record(
     # "APK" containing resources to be used by the Android binary
     primary_resources_apk = "artifact",
@@ -192,7 +190,7 @@ def merge_android_packageable_info(
         manifest: ["artifact", None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
         resource_info: ["AndroidResourceInfo", None] = None) -> "AndroidPackageableInfo":
-    android_packageable_deps = filter_and_map_idx(AndroidPackageableInfo, deps)
+    android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 
     build_config_infos = _get_transitive_set(
         actions,
@@ -258,11 +256,11 @@ def merge_exported_android_resource_info(
         exported_deps: ["dependency"]) -> "ExportedAndroidResourceInfo":
     exported_android_resource_infos = []
     for exported_dep in exported_deps:
-        exported_resource_info = exported_dep[ExportedAndroidResourceInfo]
+        exported_resource_info = exported_dep.get(ExportedAndroidResourceInfo)
         if exported_resource_info:
             exported_android_resource_infos += exported_resource_info.resource_infos
 
-        android_resource = exported_dep[AndroidResourceInfo]
+        android_resource = exported_dep.get(AndroidResourceInfo)
         if android_resource:
             exported_android_resource_infos.append(android_resource)
 

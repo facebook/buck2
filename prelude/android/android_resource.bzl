@@ -123,8 +123,8 @@ def get_text_symbols(
 def _get_dep_symbols(deps: ["dependency"]) -> ["artifact"]:
     dep_symbols = []
     for dep in deps:
-        android_resource_info = dep[AndroidResourceInfo]
-        exported_android_resource_info = dep[ExportedAndroidResourceInfo]
+        android_resource_info = dep.get(AndroidResourceInfo)
+        exported_android_resource_info = dep.get(ExportedAndroidResourceInfo)
         expect(android_resource_info != None or exported_android_resource_info != None, "Dependencies of `android_resource` rules should be `android_resource`s or `android_library`s")
         if android_resource_info and android_resource_info.text_symbols:
             dep_symbols.append(android_resource_info.text_symbols)
