@@ -123,6 +123,7 @@ pub struct TargetsCommand {
     #[clap(
         short = 'a',
         long,
+        group = "output_attribute_flags",
         value_name = "ATTRIBUTE",
         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
         regular expressions. Multiple attributes may be selected by specifying this option \
@@ -135,16 +136,21 @@ pub struct TargetsCommand {
     )]
     output_attribute: Vec<String>,
 
+    /// Deprecated: Use `--output-attribute` instead.
+    ///
+    /// List of space-separated attributes to output, --output-attributes attr1 attr2.
+    #[clap(
+        long,
+        multiple_values = true,
+        value_name = "ATTRIBUTE",
+        group = "output_attribute_flags"
+    )]
+    output_attributes: Vec<String>,
+
     /// Enables printing of default attributes. This would be attributes in a target that aren't
     /// explicitly set in the target but instead use the default set in the rule declaration.
     #[structopt(long)]
     include_defaults: bool,
-
-    /// Deprecated: Use `--output-attribute` instead.
-    ///
-    /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[clap(long, multiple_values = true, value_name = "ATTRIBUTE")]
-    output_attributes: Vec<String>,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
     patterns: Vec<String>,
