@@ -96,6 +96,9 @@ def _get_xtensa_select_map():
 def _get_infra_asic_fw_select_map():
     return {"ovr_config//toolchain/fb/constraints:infra-asic-fw-riscv64": "fbcode//buck2/platform:infra-asic-fw-toolchain"}
 
+def _get_riscv32_select_map():
+    return {"ovr_config//toolchain/gcc/constraints:riscv32-gnu": "fbsource//third-party/toolchains/riscv:sifive-gcc-linux-centos6_cxx_toolchain"}
+
 def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
@@ -110,6 +113,7 @@ def default_cxx_toolchain_inner():
             _get_sledge_select_map(),
             _get_xtensa_select_map(),
             _get_infra_asic_fw_select_map(),
+            _get_riscv32_select_map(),
         ]),
     )
 
