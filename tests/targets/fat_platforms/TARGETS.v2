@@ -67,6 +67,6 @@ execution_platforms(
     name = "platforms",
     platforms = fat_platform + [
         "fbcode//buck2/platform/execution:linux-x86_64-remote-only",
-        "fbcode//buck2/platform/execution:macos-remote-only",
+        "fbcode//buck2/platform/execution:macos-xcode-14.0-remote-only",
     ],
 )

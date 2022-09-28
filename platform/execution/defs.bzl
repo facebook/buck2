@@ -2,10 +2,10 @@ load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 
-MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY = "x86_64-fbsource"
-MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode"
-MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY = "x86_64-fbsource-xcode-14"
-MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY = "x86_64_minimal_xcode_14"
+MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY = "x86_64-fbsource-xcode-13.4"
+MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode_13.4"
+MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY = "x86_64-fbsource-xcode-14.0"
+MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY = "x86_64_minimal_xcode_14.0"
 
 _MAC_EXEC_PLATFORM_KEYS = [
     # NB: The order of plaforms is important because the first
@@ -23,12 +23,12 @@ _MAC_EXEC_PLATFORM_KEYS = [
 #     toolchain actions will fail due to a version mismatch.
 _MAC_EXEC_PLATFORMS_INFO = {
     MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: struct(
-        name = "macos",
+        name = "macos-xcode-13.4",
         base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
         re_subplatform = "xcode-13.4",
     ),
     MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: struct(
-        name = "macos-minimal",
+        name = "macos-minimal-xcode-13.4",
         base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
         re_subplatform = "xcode-13.4",
     ),
