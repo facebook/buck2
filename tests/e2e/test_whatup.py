@@ -42,7 +42,9 @@ async def test_whatup_after_command(buck: Buck) -> None:
     for line in lines:
         if "Execute" in line:
             event = json.loads(line)
-            elapsed[0] = event["Event"]["timestamp"][0] - first_timestamp[0]
+            # Calculate elapsed seconds, we add 1 to give some padding in order to catch the open span
+            elapsed[0] = (event["Event"]["timestamp"][0] - first_timestamp[0]) + 1
+            # Calculate elapsed millliseconds
             elapsed[1] = (
                 event["Event"]["timestamp"][1] - first_timestamp[1]
             ) // 1000000
