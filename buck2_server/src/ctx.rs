@@ -46,6 +46,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
+use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -142,35 +143,6 @@ pub struct BaseServerCommandContext {
     pub declare_in_local_executor: bool,
     /// Start time to track daemon uptime
     pub daemon_start_time: Instant,
-}
-
-impl BaseServerCommandContext {
-    /// Provides a DiceComputations. This may be missing some data or injected keys that
-    /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    fn dice_data_with_more_data<F: FnOnce(UserComputationData) -> UserComputationData>(
-        &self,
-        func: F,
-    ) -> UserComputationData {
-        let mut data = DiceData::new();
-        data.set(self.events.dupe());
-
-        // For commands that don't set a fallback executor config, set a local one.
-        set_fallback_executor_config(
-            &mut data,
-            CommandExecutorConfig {
-                executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
-                path_separator: PathSeparatorKind::system_default(),
-                cache_upload_behavior: CacheUploadBehavior::Disabled,
-            },
-        );
-
-        let data = UserComputationData {
-            data,
-            tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
-            ..Default::default()
-        };
-        func(data)
-    }
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -309,12 +281,6 @@ impl ServerCommandContext {
     }
 
     async fn dice_data_constructor(&self) -> DiceCommandDataProvider {
-        DiceCommandDataProvider {
-            data: self.construct_dice_data().await,
-        }
-    }
-
-    async fn construct_dice_data(&self) -> anyhow::Result<UserComputationData> {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -322,15 +288,6 @@ impl ServerCommandContext {
             .map_or(ExecutionStrategy::LocalOnly, |strategy| {
                 ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
             });
-
-        let (cell_resolver, legacy_configs) = self.cell_configs_loader.cells_and_configs().await?;
-
-        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
-        // just be setting the config overrides and host platform override as leaves on the graph.
-
-        let root_config = legacy_configs
-            .get(cell_resolver.root_cell())
-            .context("No config for root cell")?;
 
         let mut run_action_knobs = RunActionKnobs {
             hash_all_commands: self.base_context.hash_all_commands,
@@ -342,20 +299,11 @@ impl ServerCommandContext {
             run_action_knobs.eager_dep_files = build_options.eager_dep_files;
         }
 
-        let config_threads = root_config.parse("build", "threads")?.unwrap_or(0);
-
         let concurrency = self
             .build_options
             .as_ref()
             .and_then(|opts| opts.concurrency.as_ref())
-            .map_or_else(
-                || parse_concurrency(config_threads),
-                |obj| parse_concurrency(obj.concurrency),
-            )?;
-
-        let executor_global_knobs = ExecutorGlobalKnobs {
-            declare_in_local_executor: self.base_context.declare_in_local_executor,
-        };
+            .map(|obj| parse_concurrency(obj.concurrency));
 
         let executor_config =
             get_executor_config_for_strategy(execution_strategy, self.host_platform_override);
@@ -363,8 +311,7 @@ impl ServerCommandContext {
         let materializer = self.base_context.materializer.dupe();
         let re_connection = self.get_re_connection();
         let build_signals = self.build_signals.dupe();
-        let host_sharing_broker =
-            HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
+
         let forkserver = self.base_context.forkserver.dupe();
 
         let upload_all_actions = self
@@ -372,25 +319,20 @@ impl ServerCommandContext {
             .as_ref()
             .map_or(false, |opts| opts.upload_all_actions);
 
-        Ok(self.base_context.dice_data_with_more_data(move |mut data| {
-            set_fallback_executor_config(&mut data.data, executor_config);
-            data.set_command_executor(box CommandExecutorFactory::new(
-                re_connection,
-                host_sharing_broker,
-                materializer.dupe(),
-                blocking_executor.dupe(),
-                execution_strategy,
-                executor_global_knobs,
-                upload_all_actions,
-                forkserver,
-            ));
-            data.set_blocking_executor(blocking_executor);
-            data.set_materializer(materializer);
-            data.set_build_signals(build_signals);
-            data.set_run_action_knobs(run_action_knobs);
-            data.spawner = Arc::new(BuckSpawner::default());
-            data
-        }))
+        DiceCommandDataProvider {
+            cell_configs_loader: self.cell_configs_loader.dupe(),
+            events: self.events().dupe(),
+            execution_strategy,
+            run_action_knobs,
+            concurrency,
+            executor_config,
+            blocking_executor,
+            materializer,
+            re_connection,
+            build_signals,
+            forkserver,
+            upload_all_actions,
+        }
     }
 
     async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
@@ -459,7 +401,18 @@ impl CellConfigLoader {
 }
 
 struct DiceCommandDataProvider {
-    data: anyhow::Result<UserComputationData>,
+    cell_configs_loader: Arc<CellConfigLoader>,
+    execution_strategy: ExecutionStrategy,
+    events: EventDispatcher,
+    concurrency: Option<anyhow::Result<usize>>,
+    executor_config: CommandExecutorConfig,
+    blocking_executor: Arc<dyn BlockingExecutor>,
+    materializer: Arc<dyn Materializer>,
+    re_connection: ReConnectionHandle,
+    build_signals: BuildSignalSender,
+    forkserver: Option<ForkserverClient>,
+    upload_all_actions: bool,
+    run_action_knobs: RunActionKnobs,
 }
 
 #[async_trait]
@@ -468,7 +421,69 @@ impl DiceDataProvider for DiceCommandDataProvider {
         self: Box<Self>,
         _ctx: &DiceComputations,
     ) -> anyhow::Result<UserComputationData> {
-        self.data
+        let (cell_resolver, legacy_configs) = self.cell_configs_loader.cells_and_configs().await?;
+
+        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
+        // just be setting the config overrides and host platform override as leaves on the graph.
+
+        let root_config = legacy_configs
+            .get(cell_resolver.root_cell())
+            .context("No config for root cell")?;
+
+        let config_threads = root_config.parse("build", "threads")?.unwrap_or(0);
+
+        let concurrency = self
+            .concurrency
+            .unwrap_or_else(|| parse_concurrency(config_threads))?;
+
+        let declare_in_local_executor = root_config
+            .parse::<RolloutPercentage>("buck2", "declare_in_local_executor")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
+
+        let executor_global_knobs = ExecutorGlobalKnobs {
+            declare_in_local_executor,
+        };
+
+        let host_sharing_broker =
+            HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
+
+        let mut data = DiceData::new();
+        data.set(self.events.dupe());
+
+        // For commands that don't set a fallback executor config, set a local one.
+        set_fallback_executor_config(
+            &mut data,
+            CommandExecutorConfig {
+                executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
+                path_separator: PathSeparatorKind::system_default(),
+                cache_upload_behavior: CacheUploadBehavior::Disabled,
+            },
+        );
+
+        let mut data = UserComputationData {
+            data,
+            tracker: Arc::new(BuckDiceTracker::new(self.events)),
+            ..Default::default()
+        };
+
+        set_fallback_executor_config(&mut data.data, self.executor_config);
+        data.set_command_executor(box CommandExecutorFactory::new(
+            self.re_connection,
+            host_sharing_broker,
+            self.materializer.dupe(),
+            self.blocking_executor.dupe(),
+            self.execution_strategy,
+            executor_global_knobs,
+            self.upload_all_actions,
+            self.forkserver,
+        ));
+        data.set_blocking_executor(self.blocking_executor);
+        data.set_materializer(self.materializer);
+        data.set_build_signals(self.build_signals);
+        data.set_run_action_knobs(self.run_action_knobs);
+        data.spawner = Arc::new(BuckSpawner::default());
+        Ok(data)
     }
 }
 
