@@ -117,7 +117,10 @@ impl<'a> StarlarkPath<'a> {
 /// The imports are under a separate Arc so that that can be shared with
 /// the evaluation result (which needs the imports but no longer needs the AST).
 #[derive(Debug)]
-pub struct ParseResult(pub AstModule, pub Arc<Vec<OwnedStarlarkModulePath>>);
+pub struct ParseResult(
+    pub AstModule,
+    pub Arc<Vec<(Option<FileSpan>, OwnedStarlarkModulePath)>>,
+);
 
 impl ParseResult {
     fn new(
@@ -125,13 +128,12 @@ impl ParseResult {
         implicit_imports: Vec<OwnedStarlarkModulePath>,
         resolver: &dyn LoadResolver,
     ) -> anyhow::Result<Self> {
-        let mut loads = implicit_imports;
+        let mut loads = implicit_imports.into_map(|x| (None, x));
         for x in ast.loads() {
-            loads.push(
-                resolver
-                    .resolve_load(x.1, Some(&x.0))
-                    .with_context(|| format!("When loading `load` of `{}` from `{}`", x.1, x.0))?,
-            );
+            let path = resolver
+                .resolve_load(x.1, Some(&x.0))
+                .with_context(|| format!("When loading `load` of `{}` from `{}`", x.1, x.0))?;
+            loads.push((Some(x.0), path));
         }
         Ok(Self(ast, Arc::new(loads)))
     }
@@ -140,7 +142,7 @@ impl ParseResult {
         &self.0
     }
 
-    pub fn imports(&self) -> &Arc<Vec<OwnedStarlarkModulePath>> {
+    pub fn imports(&self) -> &Arc<Vec<(Option<FileSpan>, OwnedStarlarkModulePath)>> {
         &self.1
     }
 }
@@ -1060,7 +1062,7 @@ mod tests {
                 "cell2//two.bzl@cell1",
                 "cell1//config/other.bzl"
             ],
-            parse_result.imports().map(|e| e.to_string()).as_slice()
+            parse_result.imports().map(|e| e.1.to_string()).as_slice()
         );
 
         Ok(())

@@ -33,6 +33,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use gazebo::prelude::*;
+use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 
 use crate::common::OwnedStarlarkModulePath;
@@ -253,16 +254,23 @@ impl<'c> DiceCalculationDelegate<'c> {
             .parse(starlark_path, content)
     }
 
-    async fn eval_deps(&self, modules: &[OwnedStarlarkModulePath]) -> SharedResult<ModuleDeps> {
+    async fn eval_deps(
+        &self,
+        modules: &[(Option<FileSpan>, OwnedStarlarkModulePath)],
+    ) -> anyhow::Result<ModuleDeps> {
         Ok(ModuleDeps(
-            futures::future::join_all(
-                modules
-                    .iter()
-                    .map(|import| self.eval_module(import.borrow())),
-            )
+            futures::future::join_all(modules.iter().map(|(span, import)| async move {
+                self.eval_module(import.borrow()).await.with_context(|| {
+                    format!(
+                        "From `load` at {}",
+                        span.as_ref()
+                            .map_or("implicit location".to_owned(), FileSpan::to_string)
+                    )
+                })
+            }))
             .await
             .into_iter()
-            .collect::<SharedResult<_>>()?,
+            .collect::<anyhow::Result<_>>()?,
         ))
     }
 
