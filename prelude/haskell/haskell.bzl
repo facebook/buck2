@@ -140,7 +140,7 @@ def _attr_deps(ctx: "context") -> ["dependency"]:
 #     return filter(None, [d[MergedLinkInfo] for d in _attr_deps(ctx)])
 
 def _attr_deps_haskell_link_infos(ctx: "context") -> ["HaskellLinkInfo"]:
-    return filter(None, [d[HaskellLinkInfo] for d in _attr_deps(ctx)])
+    return filter(None, [d.get(HaskellLinkInfo) for d in _attr_deps(ctx)])
 
 def _attr_deps_haskell_lib_infos(
         ctx: "context",
@@ -148,7 +148,7 @@ def _attr_deps_haskell_lib_infos(
     return [
         x.lib[link_style]
         for x in filter(None, [
-            d[HaskellLibraryProvider]
+            d.get(HaskellLibraryProvider)
             for d in _attr_deps(ctx)
         ])
     ]
@@ -183,16 +183,16 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
     shared_library_infos = []
     for dep in ctx.attrs.deps:
         used = False
-        if dep[HaskellLinkInfo] != None:
+        if HaskellLinkInfo in dep:
             used = True
             haskell_infos.append(dep[HaskellLinkInfo])
-        if dep[MergedLinkInfo] != None:
+        if MergedLinkInfo in dep:
             used = True
             native_infos.append(dep[MergedLinkInfo])
-        if dep[SharedLibraryInfo] != None:
+        if SharedLibraryInfo in dep:
             used = True
             shared_library_infos.append(dep[SharedLibraryInfo])
-        if dep[PythonLibraryInfo] != None:
+        if PythonLibraryInfo in dep:
             used = True
         if not used:
             fail("Unexpected link info encountered")
@@ -515,13 +515,13 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     shared_library_infos = []
 
     for lib in _attr_deps(ctx):
-        li = lib[HaskellLinkInfo]
+        li = lib.get(HaskellLinkInfo)
         if li != None:
             hlis.append(li)
-        li = lib[MergedLinkInfo]
+        li = lib.get(MergedLinkInfo)
         if li != None:
             nlis.append(li)
-        li = lib[SharedLibraryInfo]
+        li = lib.get(SharedLibraryInfo)
         if li != None:
             shared_library_infos.append(li)
 
@@ -654,8 +654,8 @@ def derive_indexing_tset(
         children: ["dependency"]) -> "HaskellIndexingTSet":
     index_children = []
     for dep in children:
-        li = dep[HaskellIndexInfo]
-        if (li):
+        li = dep.get(HaskellIndexInfo)
+        if li:
             if (link_style in li.info):
                 index_children.append(li.info[link_style])
 
@@ -694,13 +694,13 @@ def haskell_binary_impl(ctx: "context") -> ["provider"]:
     sos = {}
     indexing_tsets = {}
     for lib in _attr_deps(ctx):
-        li = lib[HaskellLinkInfo]
+        li = lib.get(HaskellLinkInfo)
         if li != None:
             hlis.extend(li.info[link_style])
-        li = lib[MergedLinkInfo]
+        li = lib.get(MergedLinkInfo)
         if li != None:
             nlis.append(li)
-        li = lib[SharedLibraryInfo]
+        li = lib.get(SharedLibraryInfo)
         if li != None:
             # TODO This should probably use merged_shared_libraries to check
             # for soname conflicts.
