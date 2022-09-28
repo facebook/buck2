@@ -19,9 +19,11 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
@@ -41,6 +43,7 @@ use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::registry::DynamicRegistry;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
@@ -132,54 +135,54 @@ impl<'v> AnalysisRegistry<'v> {
     }
 
     /// Takes a string or artifact/output artifact and converts it into an output artifact
-    /// Additionally, associated_artifacts represents any associated artifacts that should
-    /// be attached to the StarlarkArtifact / StarlarkDeclaredArtifact returned by this function
     ///
     /// This is handy for functions like `ctx.actions.write` where it's nice to just let
     /// the user give us a string if they want as the output name.
     ///
+    /// This function can declare new artifacts depending on the input.
+    /// If there is no error, it returns a wrapper around the artifact (ArtifactDeclaration) and the corresponding OutputArtifact
+    ///
     /// The valid types for `value` and subsequent actions are as follows:
-    ///  - `str`: a new file is declared with this name. The `StarlarkDeclaredArtifact` and
-    ///         its `OutputArtifact` are returned
-    ///  - `StarlarkArtifact`/`StarlarkDeclaredArtifact`: If the artifact has not been bound yet,
-    ///         the original value and its `OutputArtifact` will be returned. If the artifact
-    ///         has been bound, an error is returned
-    ///  - `StarlarkOutputArtifact`: The artifact as a `StarlarkDeclaredArtifact` and its `OutputArtifact` are returned
+    ///  - `str`: A new file is declared with this name.
+    ///  - `StarlarkOutputArtifact`: The original artifact is returned
+    ///  - `StarlarkArtifact`/`StarlarkDeclaredArtifact`: If the artifact is already bound, an error is raised. Otherwise we proceed with the original artifact.
     pub(crate) fn get_or_declare_output<'v2>(
         &mut self,
         eval: &Evaluator<'v2, '_>,
         value: Value<'v2>,
         param_name: &str,
-        associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
-    ) -> anyhow::Result<(Value<'v2>, OutputArtifact)> {
+    ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
+        let declaration_location = eval.call_stack_top_location();
+        let heap = eval.heap();
         if let Some(dest_str) = value.unpack_str() {
             let artifact = self.declare_output(None, dest_str)?;
-            let output_artifact = artifact.as_output();
-            let output_value = eval.heap().alloc(StarlarkDeclaredArtifact::new(
-                eval.call_stack_top_location(),
-                artifact,
-                associated_artifacts,
-            ));
-
-            Ok((output_value, output_artifact))
+            Ok((
+                ArtifactDeclaration {
+                    artifact: ArtifactDeclarationKind::DeclaredArtifact(artifact.dupe()),
+                    declaration_location,
+                    heap,
+                },
+                artifact.as_output().dupe(),
+            ))
         } else if let Some(output) = StarlarkOutputArtifact::unpack_value(value) {
             let output_artifact = output.artifact();
-            let output_value = eval.heap().alloc(StarlarkDeclaredArtifact::new(
-                eval.call_stack_top_location(),
-                (*output_artifact).dupe(),
-                associated_artifacts,
-            ));
-            Ok((output_value, output_artifact))
-        } else if let Some(a) = value.as_artifact() {
-            let value = if associated_artifacts.is_empty() {
-                value
-            } else {
-                a.allocate_artifact_with_extended_associated_artifacts(
-                    eval.heap(),
-                    &associated_artifacts,
-                )
-            };
-            Ok((value, a.output_artifact()?))
+            Ok((
+                ArtifactDeclaration {
+                    artifact: ArtifactDeclarationKind::DeclaredArtifact((*output_artifact).dupe()),
+                    declaration_location,
+                    heap,
+                },
+                output_artifact,
+            ))
+        } else if let Some(artifact) = value.as_artifact() {
+            Ok((
+                ArtifactDeclaration {
+                    artifact: ArtifactDeclarationKind::Artifact(value, artifact),
+                    declaration_location,
+                    heap,
+                },
+                artifact.output_artifact()?,
+            ))
         } else {
             Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into())
         }
@@ -261,6 +264,40 @@ impl<'v> AnalysisRegistry<'v> {
             artifact_groups.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             Ok((frozen_env, deferred))
+        }
+    }
+}
+
+enum ArtifactDeclarationKind<'v> {
+    Artifact(Value<'v>, &'v dyn StarlarkArtifactLike),
+    DeclaredArtifact(DeclaredArtifact),
+}
+
+pub struct ArtifactDeclaration<'v> {
+    artifact: ArtifactDeclarationKind<'v>,
+    declaration_location: Option<FileSpan>,
+    heap: &'v Heap,
+}
+
+impl<'v> ArtifactDeclaration<'v> {
+    pub fn into_declared_artifact(
+        self,
+        associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
+    ) -> Value<'v> {
+        match self.artifact {
+            ArtifactDeclarationKind::Artifact(v, a) => {
+                if associated_artifacts.is_empty() {
+                    v
+                } else {
+                    a.allocate_artifact_with_extended_associated_artifacts(
+                        self.heap,
+                        &associated_artifacts,
+                    )
+                }
+            }
+            ArtifactDeclarationKind::DeclaredArtifact(d) => self.heap.alloc(
+                StarlarkDeclaredArtifact::new(self.declaration_location, d, associated_artifacts),
+            ),
         }
     }
 }

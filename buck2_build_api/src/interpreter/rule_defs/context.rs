@@ -13,6 +13,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -328,11 +329,11 @@ fn create_dir_tree<'v>(
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state();
-    let (output_value, output_artifact) =
-        this.get_or_declare_output(eval, output, "output", unioned_associated_artifacts)?;
+    let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
-    Ok(output_value)
+    let value = declaration.into_declared_artifact(unioned_associated_artifacts);
+    Ok(value)
 }
 
 fn copy_file<'v>(
@@ -348,8 +349,7 @@ fn copy_file<'v>(
 
     let (artifact, associated_artifacts) = src.get_bound_artifact_and_associated_artifacts()?;
     let mut this = this.state();
-    let (output_value, output_artifact) =
-        this.get_or_declare_output(eval, dest, "dest", associated_artifacts.dupe())?;
+    let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, "dest")?;
 
     this.register_action(
         indexset![ArtifactGroup::Artifact(artifact)],
@@ -357,7 +357,9 @@ fn copy_file<'v>(
         UnregisteredCopyAction::new(copy),
         None,
     )?;
-    Ok(output_value)
+
+    let value = declaration.into_declared_artifact(associated_artifacts.dupe());
+    Ok(value)
 }
 
 #[starlark_module]
@@ -388,8 +390,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        let (output_value, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", Default::default())?;
+        let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
 
         UnregisteredWriteJsonAction::validate(content)?;
         this.register_action(
@@ -398,13 +399,15 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             UnregisteredWriteJsonAction::new(),
             Some(content),
         )?;
+
+        let value = declaration.into_declared_artifact(Default::default());
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
         if with_inputs {
-            let cli = UnregisteredWriteJsonAction::cli(output_value, content)?;
+            let cli = UnregisteredWriteJsonAction::cli(value, content)?;
             Ok(eval.heap().alloc(cli))
         } else {
-            Ok(output_value)
+            Ok(value)
         }
     }
 
@@ -450,6 +453,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             cli.visit_write_to_file_macros(&mut counter)?;
             Ok(counter.count)
         }
+        let mut this = this.state();
+        let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
 
         let (content_cli, written_macro_count) =
             if let Some(content_arg) = content.as_command_line() {
@@ -460,10 +465,6 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 let count = count_write_to_file_macros(allow_args, &cli)?;
                 (eval.heap().alloc(cli), count)
             };
-
-        let mut this = this.state();
-        let (output_value, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", Default::default())?;
 
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
@@ -515,15 +516,28 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(content_cli),
         )?;
 
+        let associated_artifacts = if allow_args {
+            let mut macro_files = IndexSet::new();
+            for a in &written_macro_files {
+                macro_files.insert(ArtifactGroup::Artifact(
+                    a.dupe().ensure_bound()?.into_artifact(),
+                ));
+            }
+            Arc::new(SortedIndexSet::new(macro_files))
+        } else {
+            Default::default()
+        };
+        let value = declaration.into_declared_artifact(associated_artifacts);
+
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()
                 .map(|a| StarlarkDeclaredArtifact::new(None, a, Default::default()))
                 .collect();
-            Ok(eval.heap().alloc((output_value, macro_files)))
+            Ok(eval.heap().alloc((value, macro_files)))
         } else {
             // Prefer simpler API when there is no possibility for write-to-file macros to be present in a content
-            Ok(output_value)
+            Ok(value)
         }
     }
 
@@ -730,8 +744,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        let (output_value, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", Default::default())?;
+        let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
 
         let checksum = match (
             sha1.into_option().map(Arc::from),
@@ -754,7 +767,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             ),
             None,
         )?;
-        Ok(output_value)
+
+        let value = declaration.into_declared_artifact(Default::default());
+        Ok(value)
     }
 
     fn tset<'v>(

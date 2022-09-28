@@ -242,16 +242,14 @@ pub mod testing {
                 target_label.dupe(),
             )));
 
-            let associated_artifacts: IndexSet<ArtifactGroup> = associated_artifacts
-                .iter()
-                .map(|a| ArtifactGroup::Artifact(a.artifact()))
-                .collect();
-            let (value, output_artifact) = analysis_registry.get_or_declare_output(
-                eval,
-                artifact,
-                "param_name",
-                Arc::new(SortedIndexSet::new(associated_artifacts)),
-            )?;
+            let associated_artifacts = Arc::new(SortedIndexSet::new(
+                associated_artifacts
+                    .iter()
+                    .map(|a| ArtifactGroup::Artifact(a.artifact()))
+                    .collect(),
+            ));
+            let (declaration, output_artifact) =
+                analysis_registry.get_or_declare_output(eval, artifact, "param_name")?;
 
             actions_registry.register(
                 &mut deferred,
@@ -263,6 +261,8 @@ pub mod testing {
                     None,
                 ),
             )?;
+
+            let value = declaration.into_declared_artifact(associated_artifacts);
             Ok(value)
         }
 
