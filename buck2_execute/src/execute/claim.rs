@@ -10,11 +10,21 @@ use tokio::sync::OwnedMutexGuard;
 
 #[async_trait]
 pub trait ClaimManager: Send + Sync + 'static {
-    async fn claim(&mut self) -> Option<Box<dyn Claim>>;
+    /// Acquire a claim. the Claim mamanger is normally internally mutable and will likely lock out
+    /// other executions from acquiring a claim.
+    ///
+    /// Actions *must* acquire a claim before writing to outputs for an action or declaring
+    /// output artifacts in the materializer.
+    ///
+    /// The expectation is that multiple actions that attempt to write to the same output directory
+    /// should not be allowed to obtain claims concurrently.
+    async fn claim(self: Box<Self>) -> Option<Box<dyn Claim>>;
 }
 
 pub trait Claim: Send + Sync + fmt::Debug + 'static {
-    fn release(self: Box<Self>);
+    /// Release a claim. This can be done to make it available again after acquiring it. Once the
+    /// claim is released, the claim holder should no longer write any output.
+    fn release(self: Box<Self>) -> anyhow::Result<()>;
 }
 
 #[derive(Debug)]
@@ -40,7 +50,7 @@ impl MutexClaimManager {
 
 #[async_trait]
 impl ClaimManager for MutexClaimManager {
-    async fn claim(&mut self) -> Option<Box<dyn Claim>> {
+    async fn claim(self: Box<Self>) -> Option<Box<dyn Claim>> {
         let mut guard = self.mutex.dupe().lock_owned().await;
         match *guard {
             ClaimStatus::NotClaimed => {}
@@ -61,8 +71,9 @@ pub struct MutexClaim {
 }
 
 impl Claim for MutexClaim {
-    fn release(mut self: Box<Self>) {
+    fn release(mut self: Box<Self>) -> anyhow::Result<()> {
         *self.guard = ClaimStatus::NotClaimed;
+        Ok(())
     }
 }
 
@@ -76,14 +87,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_mutex_claim_release() {
-        let mut claim_manager = MutexClaimManager::new();
-        let claim = claim_manager.claim().await.expect("Have a claim");
+        let claim_manager = MutexClaimManager::new();
+        let claim = (box claim_manager.dupe())
+            .claim()
+            .await
+            .expect("Have a claim");
 
-        let claim2 = claim_manager.claim();
+        let claim2 = (box claim_manager.dupe()).claim();
         futures::pin_mut!(claim2);
         assert_matches!(futures::poll!(claim2.as_mut()), Poll::Pending);
 
-        claim.release();
+        claim.release().expect("Can release claim");
         assert_matches!(futures::poll!(claim2.as_mut()), Poll::Ready(Some(..)));
     }
 }

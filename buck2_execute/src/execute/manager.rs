@@ -63,27 +63,27 @@ impl CommandExecutionManager {
 
     /// Try to acquire a claim. Error out if that's not possible.
     pub async fn try_claim(
-        mut self,
+        self,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
         match self.claim_manager.claim().await {
-            None => ControlFlow::Break(self.claim_rejected()),
+            None => ControlFlow::Break(CommandExecutionResult {
+                outputs: Default::default(),
+                report: CommandExecutionReport {
+                    claim: None,
+                    status: CommandExecutionStatus::ClaimRejected,
+                    timing: Default::default(),
+                    std_streams: Default::default(),
+                    exit_code: Default::default(),
+                },
+                rejected_execution: None,
+                did_cache_upload: false,
+            }),
             Some(claim) => ControlFlow::Continue(CommandExecutionManagerWithClaim {
                 claim,
                 events: self.events,
                 liveliness_manager: self.liveliness_manager,
             }),
         }
-    }
-
-    /// Error out with a rejected claim.
-    fn claim_rejected(self) -> CommandExecutionResult {
-        self.result(
-            CommandExecutionStatus::ClaimRejected,
-            IndexMap::new(),
-            Default::default(),
-            None,
-            CommandExecutionTimingData::default(),
-        )
     }
 
     pub fn stage<T, F: FnOnce() -> T>(

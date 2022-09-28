@@ -17,6 +17,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
@@ -163,7 +164,12 @@ impl PreparedCommandExecutor for HybridExecutor {
             // If the first result had made a claim, then cancel it now to let the other result
             // proceed.
             if let Some(claim) = first_res.report.claim.take() {
-                claim.release();
+                if let Err(e) = claim.release() {
+                    return manager.error(
+                        "hybrid".to_owned(),
+                        e.context("Local execution started executing without a Claim"),
+                    );
+                }
             }
             let mut second_res = second.await;
             second_res.rejected_execution = Some(first_res.report);
