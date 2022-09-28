@@ -227,12 +227,15 @@ impl FileChangeTracker {
     }
 
     fn dir_existence_modify(&mut self, path: CellPath) {
-        let parent = path
-            .parent()
-            .unwrap_or_else(|| panic_expected_parent(&path));
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
-        self.dirs_to_dirty
-            .extend([ReadDirKey(path), ReadDirKey(parent)]);
+        if let Some(parent) = path.parent() {
+            // The above can be None (validly!) if we have a cell we either create or delete.
+            // That never happens in established repos, but if you are setting one up, it's not uncommon.
+            // Since we don't include paths in different cells, the fact we don't dirty the parent
+            // (which is in an enclosing cell) doesn't matter.
+            self.dirs_to_dirty
+                .extend([ReadDirKey(path), ReadDirKey(parent)]);
+        }
     }
 }
 
