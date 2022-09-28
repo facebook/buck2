@@ -69,7 +69,7 @@ fn create_callable_function_signature(
 }
 
 #[derive(Debug, Trace)]
-enum ProviderCallableImpl {
+enum UserProviderCallableImpl {
     Unbound,
     Bound(
         ParametersSpec<FrozenValue>,
@@ -78,15 +78,15 @@ enum ProviderCallableImpl {
     ),
 }
 
-impl ProviderCallableImpl {
+impl UserProviderCallableImpl {
     fn invoke<'v>(
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         match self {
-            ProviderCallableImpl::Unbound => Err(ProviderCallableError::NotBound.into()),
-            ProviderCallableImpl::Bound(signature, id, fields) => {
+            UserProviderCallableImpl::Unbound => Err(ProviderCallableError::NotBound.into()),
+            UserProviderCallableImpl::Bound(signature, id, fields) => {
                 signature.parser(args, eval, |parser, eval| {
                     user_provider_creator(id.dupe(), fields, eval, parser)
                 })
@@ -102,7 +102,7 @@ impl ProviderCallableImpl {
 ///
 /// Field values default to `None`
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize)]
-pub struct ProviderCallable {
+pub struct UsedProviderCallable {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
     #[trace(unsafe_ignore)]
@@ -117,10 +117,10 @@ pub struct ProviderCallable {
     /// The names of the fields used in `callable`
     fields: Vec<String>,
     /// The actual callable that creates instances of `UserProvider`
-    callable: RefCell<ProviderCallableImpl>,
+    callable: RefCell<UserProviderCallableImpl>,
 }
 
-impl Display for ProviderCallable {
+impl Display for UsedProviderCallable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.id() {
             None => write!(f, "unnamed provider"),
@@ -138,7 +138,7 @@ impl Display for ProviderCallable {
     }
 }
 
-impl ProviderCallable {
+impl UsedProviderCallable {
     pub fn new(
         path: CellPath,
         docs: Option<DocString>,
@@ -158,7 +158,7 @@ impl ProviderCallable {
             docs,
             field_docs,
             fields,
-            callable: RefCell::new(ProviderCallableImpl::Unbound),
+            callable: RefCell::new(UserProviderCallableImpl::Unbound),
         }
     }
 
@@ -173,21 +173,21 @@ impl ProviderCallable {
     }
 }
 
-impl ProviderCallableLike for ProviderCallable {
+impl ProviderCallableLike for UsedProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
         // Safe because once we set id, we never change it
         unsafe { self.id.try_borrow_unguarded().unwrap().as_ref() }
     }
 }
 
-impl<'v> AllocValue<'v> for ProviderCallable {
+impl<'v> AllocValue<'v> for UsedProviderCallable {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }
 
-impl Freeze for ProviderCallable {
-    type Frozen = FrozenProviderCallable;
+impl Freeze for UsedProviderCallable {
+    type Frozen = FrozenUserProviderCallable;
     fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let callable = self.callable.into_inner();
         let id = match self.id.into_inner() {
@@ -199,7 +199,7 @@ impl Freeze for ProviderCallable {
             }
         };
 
-        Ok(FrozenProviderCallable::new(
+        Ok(FrozenUserProviderCallable::new(
             id,
             self.docs,
             self.field_docs,
@@ -209,7 +209,7 @@ impl Freeze for ProviderCallable {
     }
 }
 
-impl<'v> StarlarkValue<'v> for ProviderCallable {
+impl<'v> StarlarkValue<'v> for UsedProviderCallable {
     starlark_type!("provider_callable");
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
@@ -221,7 +221,7 @@ impl<'v> StarlarkValue<'v> for ProviderCallable {
                 name: variable_name.to_owned(),
             });
             *id = Some(new_id.dupe());
-            *self.callable.borrow_mut() = ProviderCallableImpl::Bound(
+            *self.callable.borrow_mut() = UserProviderCallableImpl::Bound(
                 create_callable_function_signature(&new_id.name, &self.fields),
                 new_id,
                 self.fields.clone(),
@@ -259,7 +259,7 @@ impl<'v> StarlarkValue<'v> for ProviderCallable {
 }
 
 #[derive(Debug, ProvidesStaticType, NoSerialize)]
-pub struct FrozenProviderCallable {
+pub struct FrozenUserProviderCallable {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
     id: Arc<ProviderId>,
@@ -270,11 +270,11 @@ pub struct FrozenProviderCallable {
     /// The names of the fields used in `callable`
     fields: Vec<String>,
     /// The actual callable that creates instances of `UserProvider`
-    callable: ProviderCallableImpl,
+    callable: UserProviderCallableImpl,
 }
-starlark_simple_value!(FrozenProviderCallable);
+starlark_simple_value!(FrozenUserProviderCallable);
 
-impl Display for FrozenProviderCallable {
+impl Display for FrozenUserProviderCallable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", self.id.name)?;
         for (i, x) in self.fields.iter().enumerate() {
@@ -287,13 +287,13 @@ impl Display for FrozenProviderCallable {
     }
 }
 
-impl FrozenProviderCallable {
+impl FrozenUserProviderCallable {
     fn new(
         id: Arc<ProviderId>,
         docs: Option<DocString>,
         field_docs: Vec<Option<DocString>>,
         fields: Vec<String>,
-        callable: ProviderCallableImpl,
+        callable: UserProviderCallableImpl,
     ) -> Self {
         assert_eq!(
             field_docs.len(),
@@ -312,13 +312,13 @@ impl FrozenProviderCallable {
     }
 }
 
-impl ProviderCallableLike for FrozenProviderCallable {
+impl ProviderCallableLike for FrozenUserProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
         Some(&self.id)
     }
 }
 
-impl<'v> StarlarkValue<'v> for FrozenProviderCallable {
+impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     starlark_type!("provider_callable");
 
     fn get_methods() -> Option<&'static Methods> {
@@ -354,12 +354,12 @@ impl<'v> StarlarkValue<'v> for FrozenProviderCallable {
 fn provider_callable_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        if let Some(x) = this.downcast_ref::<ProviderCallable>() {
+        if let Some(x) = this.downcast_ref::<UsedProviderCallable>() {
             match &*x.id.borrow() {
                 None => Err(ProviderCallableError::ProviderNotAssigned(x.fields.clone()).into()),
                 Some(id) => Ok(heap.alloc(id.name.as_str())),
             }
-        } else if let Some(x) = this.downcast_ref::<FrozenProviderCallable>() {
+        } else if let Some(x) = this.downcast_ref::<FrozenUserProviderCallable>() {
             Ok(heap.alloc(x.id.name.as_str()))
         } else {
             unreachable!(

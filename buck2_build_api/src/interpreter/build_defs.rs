@@ -19,7 +19,7 @@ use starlark::values::docs::DocString;
 use starlark::values::docs::DocStringKind;
 use starlark::values::Value;
 
-use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
+use crate::interpreter::rule_defs::provider::callable::UsedProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
@@ -32,7 +32,7 @@ fn natives(builder: &mut GlobalsBuilder) {
         #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<ProviderCallable> {
+    ) -> anyhow::Result<UsedProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = BuildContext::from_context(eval)?.starlark_path.path();
 
@@ -51,7 +51,7 @@ fn natives(builder: &mut GlobalsBuilder) {
                 (field_names, field_docs)
             }
         };
-        Ok(ProviderCallable::new(
+        Ok(UsedProviderCallable::new(
             path.into_owned(),
             docstring,
             field_docs,

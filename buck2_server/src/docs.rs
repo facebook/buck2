@@ -16,7 +16,7 @@ use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
-use buck2_build_api::interpreter::rule_defs::provider::callable::ProviderCallable;
+use buck2_build_api::interpreter::rule_defs::provider::callable::UsedProviderCallable;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::bzl::ImportPath;
@@ -99,7 +99,7 @@ fn get_builtin_global_starlark_docs() -> Doc {
 }
 
 fn get_builtin_provider_docs() -> Vec<Doc> {
-    ProviderCallable::builtin_provider_documentation()
+    UsedProviderCallable::builtin_provider_documentation()
         .into_iter()
         .filter_map(|(name, docs)| docs.map(|item| builtin_doc(name, "providers", item)))
         .collect()
