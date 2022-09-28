@@ -116,13 +116,13 @@ def _attr_deps(ctx: "context") -> ["dependency"]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
 def _attr_deps_merged_link_infos(ctx: "context") -> ["MergedLinkInfo"]:
-    return filter(None, [d[MergedLinkInfo] for d in _attr_deps(ctx)])
+    return filter(None, [d.get(MergedLinkInfo) for d in _attr_deps(ctx)])
 
 def _attr_deps_ocaml_link_infos(ctx: "context") -> ["OCamlLinkInfo"]:
-    return filter(None, [d[OCamlLinkInfo] for d in _attr_deps(ctx)])
+    return filter(None, [d.get(OCamlLinkInfo) for d in _attr_deps(ctx)])
 
 def _attr_deps_other_outputs_infos(ctx: "context") -> ["OtherOutputsInfo"]:
-    return filter(None, [d[OtherOutputsInfo] for d in _attr_deps(ctx)])
+    return filter(None, [d.get(OtherOutputsInfo) for d in _attr_deps(ctx)])
 
 # ---
 
@@ -446,7 +446,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
     # 'cmxs_order' without regard for which.
     cmxs_order = ctx.actions.declare_output("cmxs_order_" + bytecode_or_native.value + ".lst")
 
-    pre = cxx_merge_cpreprocessors(ctx, [], filter(None, [d[CPreprocessorInfo] for d in _attr_deps(ctx)]))
+    pre = cxx_merge_cpreprocessors(ctx, [], filter(None, [d.get(CPreprocessorInfo) for d in _attr_deps(ctx)]))
     pre_args = pre.set.project_as_args("args")
     cc_sh_filename = "cc_" + bytecode_or_native.value + ".sh"
     cc = _mk_cc(ctx, [pre_args], cc_sh_filename)
@@ -815,13 +815,13 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
     native_infos, ocaml_infos = ([], [])
     for dep in ctx.attrs.deps:
         used = False
-        if dep[OCamlLinkInfo] != None:
+        if OCamlLinkInfo in dep:
             used = True
             ocaml_infos.append(dep[OCamlLinkInfo])
-        if dep[MergedLinkInfo] != None:
+        if MergedLinkInfo in dep:
             used = True
             native_infos.append(dep[MergedLinkInfo])
-        if dep[PythonLibraryInfo] != None:
+        if PythonLibraryInfo in dep:
             used = True
         if not used:
             fail("Unexpected link info encountered")
