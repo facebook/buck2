@@ -740,19 +740,34 @@ async def test_hybrid_executor_threshold(buck: Buck) -> None:
 
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
-async def test_hybrid_executor_fallbacks(buck: Buck) -> None:
+@pytest.mark.parametrize(
+    "low_pass_filter",
+    [
+        "true",
+        "false",
+    ],
+)
+async def test_hybrid_executor_fallbacks(buck: Buck, low_pass_filter: str) -> None:
+    opts = [
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "-c",
+        f"test.experimental_low_pass_filter={low_pass_filter}",
+    ]
+
     # Those work as they are allowed to fallback:
     await buck.build(
         "root//executor_fallback_tests:local_only",
         "root//executor_fallback_tests:local_only_full_hybrid",
-        "-c",
-        f"test.cache_buster={random_string()}",
+        "root//executor_fallback_tests:remote_only_prefer_local",
+        *opts,
     )
 
     # This one doesn't:
     await expect_failure(
         buck.build(
             "root//executor_fallback_tests:local_only_no_fallback",
+            *opts,
         )
     )
 

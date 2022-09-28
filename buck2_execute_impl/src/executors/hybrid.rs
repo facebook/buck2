@@ -32,7 +32,9 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use derivative::Derivative;
+use futures::future::BoxFuture;
 use futures::future::Either;
+use futures::future::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -158,6 +160,12 @@ impl PreparedCommandExecutor for HybridExecutor {
             return local_result.await;
         };
 
+        let jobs = HybridExecutorJobs {
+            local: local_result,
+            remote: remote_result,
+            executor_preference,
+        };
+
         let (is_limited, fallback_only, fallback_on_failure, low_pass_filter) = match self.level {
             HybridExecutionLevel::Limited => (true, false, false, false),
             HybridExecutionLevel::Fallback {
@@ -169,35 +177,8 @@ impl PreparedCommandExecutor for HybridExecutor {
             } => (false, false, fallback_on_failure, low_pass_filter),
         };
 
-        let local_result = if low_pass_filter {
-            async move {
-                // Block local unless we only have a few actions (that's low_pass_filter), or if the
-                // remote executor aborts entirely (that's remote_execution_liveliness_guard).
-                let access = low_pass_filer_instance.access();
-                let alive = remote_execution_liveliness_manager.while_alive();
-                futures::pin_mut!(access);
-                futures::pin_mut!(alive);
-                let _guard = futures::future::select(access, alive).await;
-                local_result.await
-            }
-            .left_future()
-        } else {
-            local_result.right_future()
-        }
-        .left_future();
-
-        let remote_result = remote_result.right_future();
-
-        let (primary, secondary) = if executor_preference.prefers_local() {
-            (local_result, remote_result)
-        } else {
-            (remote_result, local_result)
-        };
-
         if is_limited {
-            // Drop any lifetime guards owned by the secondary.
-            drop(secondary);
-            return primary.await;
+            return jobs.into_primary().await;
         }
 
         let is_retryable_status = move |r: &CommandExecutionResult| {
@@ -218,15 +199,35 @@ impl PreparedCommandExecutor for HybridExecutor {
             }
         };
 
-        futures::pin_mut!(primary);
-        futures::pin_mut!(secondary);
-
         let (mut first_res, second) = if fallback_only {
             // In the fallback-only case, the primary always "wins" the race, since we don't start
             // the secondary.
+            let (primary, secondary) = jobs.into_boxfutures();
             (primary.await, Either::Right(secondary))
         } else {
-            // In the full-hybrid case, we do race both executors.
+            // In the full-hybrid case, we do race both executors. If the low-pass filter is in
+            // use, then we wrap the local execution with that.
+
+            let jobs = jobs.map_local(move |local| {
+                if low_pass_filter {
+                    async move {
+                        // Block local until either conditon is met:
+                        // - we only have a few actions (that's low_pass_filter)
+                        // - the remote executor aborts (that's remote_execution_liveliness_guard)
+                        let access = low_pass_filer_instance.access();
+                        let alive = remote_execution_liveliness_manager.while_alive();
+                        futures::pin_mut!(access);
+                        futures::pin_mut!(alive);
+                        let _guard = futures::future::select(access, alive).await;
+                        local.await
+                    }
+                    .left_future()
+                } else {
+                    local.right_future()
+                }
+            });
+
+            let (primary, secondary) = jobs.into_boxfutures();
             Either::factor_first(futures::future::select(primary, secondary).await)
         };
 
@@ -354,5 +355,60 @@ impl Claim for ReClaim {
         self.claim.release()?;
 
         Ok(())
+    }
+}
+
+/// The local and remote side of the executor, and a preference to select which future is the
+/// primary and which is the secondary.
+struct HybridExecutorJobs<L, R> {
+    local: L,
+    remote: R,
+    executor_preference: ExecutorPreference,
+}
+
+impl<L, R> HybridExecutorJobs<L, R>
+where
+    L: Future<Output = CommandExecutionResult>,
+    R: Future<Output = CommandExecutionResult>,
+{
+    /// Modify the local side future.
+    fn map_local<L2>(self, f: impl FnOnce(L) -> L2) -> HybridExecutorJobs<L2, R> {
+        HybridExecutorJobs {
+            local: f(self.local),
+            remote: self.remote,
+            executor_preference: self.executor_preference,
+        }
+    }
+
+    /// Return only the primary future.
+    fn into_primary(self) -> Either<L, R> {
+        self.into_futures().0
+    }
+
+    /// Return both futures, but box them, which makes them Upin and also erases their type.
+    fn into_boxfutures<'a>(
+        self,
+    ) -> (
+        BoxFuture<'a, CommandExecutionResult>,
+        BoxFuture<'a, CommandExecutionResult>,
+    )
+    where
+        L: Send + 'a,
+        R: Send + 'a,
+    {
+        let (primary, secondary) = self.into_futures();
+        (primary.boxed(), secondary.boxed())
+    }
+
+    /// Return both futures.
+    fn into_futures(self) -> (Either<L, R>, Either<L, R>) {
+        let local = self.local.left_future();
+        let remote = self.remote.right_future();
+
+        if self.executor_preference.prefers_local() {
+            (local, remote)
+        } else {
+            (remote, local)
+        }
     }
 }

@@ -30,6 +30,7 @@ def _platform(ctx):
             allow_hybrid_fallbacks_on_failure = ctx.attrs.allow_hybrid_fallbacks_on_failure,
             remote_execution_use_case = "buck2-default",
             allow_cache_uploads = ctx.attrs.allow_cache_uploads,
+            experimental_low_pass_filter = ctx.attrs.experimental_low_pass_filter,
         ),
     )
 
@@ -44,6 +45,10 @@ platform = rule(
     attrs = {
         "allow_cache_uploads": attrs.bool(default = False),
         "allow_hybrid_fallbacks_on_failure": attrs.bool(default = False),
+        "experimental_low_pass_filter": attrs.bool(
+            # @lint-ignore BUCKRESTRICTEDSYNTAX
+            default = read_config("test", "experimental_low_pass_filter", "") in ["true", "True"],
+        ),
         "setting": attrs.configuration_label(),
         "use_limited_hybrid": attrs.bool(default = True),
     },
@@ -127,6 +132,7 @@ def _command_impl(ctx):
         ],
         category = "command",
         env = {"cache_buster": ctx.attrs.cache_buster},
+        prefer_local = ctx.attrs.prefer_local,
     )
     return [DefaultInfo(default_outputs = [out])]
 
@@ -136,6 +142,7 @@ command = rule(
         # @lint-ignore BUCKRESTRICTEDSYNTAX
         "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
         "command": attrs.source(),
+        "prefer_local": attrs.bool(default = False),
     },
 )
 

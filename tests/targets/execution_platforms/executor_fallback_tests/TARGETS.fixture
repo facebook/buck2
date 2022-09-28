@@ -8,6 +8,14 @@ command(
 )
 
 command(
+    name="remote_only_prefer_local",
+    command="remote_only.sh",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:default"],
+    prefer_local = True
+)
+
+command(
     name="local_only_no_fallback",
     command="local_only.sh",
     default_target_platform="//platforms:target",
