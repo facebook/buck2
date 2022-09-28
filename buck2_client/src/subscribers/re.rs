@@ -42,6 +42,14 @@ impl ReState {
             if last.re_upload_bytes > 0 || last.re_download_bytes > 0 {
                 let part = match draw_mode {
                     DrawMode::Normal => {
+                        fn format_byte_per_second(bytes_per_second: u64) -> String {
+                            if bytes_per_second == 0 {
+                                " ".repeat(HumanizedBytesPerSecond::FIXED_WIDTH_WIDTH)
+                            } else {
+                                HumanizedBytesPerSecond::fixed_width(bytes_per_second).to_string()
+                            }
+                        }
+
                         let re_upload_bytes_per_second = self
                             .two_snapshots
                             .re_upload_bytes_per_second()
@@ -51,16 +59,16 @@ impl ReState {
                             .re_download_bytes_per_second()
                             .unwrap_or_default();
                         format!(
-                            "{} {}▲  {} {}▼",
-                            HumanizedBytes::new(last.re_upload_bytes),
-                            HumanizedBytesPerSecond::new(re_upload_bytes_per_second),
-                            HumanizedBytes::new(last.re_download_bytes),
-                            HumanizedBytesPerSecond::new(re_download_bytes_per_second),
+                            "Up: {} {}  Down: {} {}",
+                            HumanizedBytes::fixed_width(last.re_upload_bytes),
+                            format_byte_per_second(re_upload_bytes_per_second),
+                            HumanizedBytes::fixed_width(last.re_download_bytes),
+                            format_byte_per_second(re_download_bytes_per_second),
                         )
                     }
                     DrawMode::Final => {
                         format!(
-                            "{}▲  {}▼",
+                            "Up: {}  Down: {}",
                             HumanizedBytes::new(last.re_upload_bytes),
                             HumanizedBytes::new(last.re_download_bytes),
                         )
