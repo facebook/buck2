@@ -24,7 +24,6 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use futures::future::Either;
-use futures::future::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution as RE;
@@ -120,30 +119,14 @@ impl PreparedCommandExecutor for HybridExecutor {
         let local_result = local_result.left_future();
         let remote_result = remote_result.right_future();
 
-        let remote = Executable {
-            job: remote_result,
-            fallback: FallbackExecutor {
-                executor: &self.local as _,
-                name: ExecutorName("local_fallback"),
-            },
-        };
-
-        let local = Executable {
-            job: local_result,
-            fallback: FallbackExecutor {
-                executor: &self.remote as _,
-                name: ExecutorName("remote_fallback"),
-            },
-        };
-
         let (primary, secondary) = if executor_preference.prefers_local() {
-            (local, remote)
+            (local_result, remote_result)
         } else {
-            (remote, local)
+            (remote_result, local_result)
         };
 
         let (fallback_only, fallback_on_failure) = match self.level {
-            HybridExecutionLevel::Limited => return primary.job.await,
+            HybridExecutionLevel::Limited => return primary.await,
             HybridExecutionLevel::Fallback {
                 fallback_on_failure,
             } => (true, fallback_on_failure),
@@ -174,27 +157,17 @@ impl PreparedCommandExecutor for HybridExecutor {
             }
         };
 
-        if fallback_only {
-            return exec_with_restart(
-                command,
-                manager,
-                primary.into_future(),
-                &is_retryable_status,
-            )
-            .await;
-        }
-
-        let primary = primary.into_future();
-        let secondary = secondary.into_future();
         futures::pin_mut!(primary);
         futures::pin_mut!(secondary);
 
-        let (first, second) =
-            Either::factor_first(futures::future::select(primary, secondary).await);
-
-        // Note: We discard the fallback this yields here. That's because we already kicked off
-        // that executor in `second` so we'll just reuse that future.
-        let (mut first_res, _unused_fallback) = first;
+        let (mut first_res, second) = if fallback_only {
+            // In the fallback-only case, the primary always "wins" the race, since we don't start
+            // the secondary.
+            (primary.await, Either::Right(secondary))
+        } else {
+            // In the full-hybrid case, we do race both executors.
+            Either::factor_first(futures::future::select(primary, secondary).await)
+        };
 
         if is_retryable_status(&first_res) {
             // If the first result had made a claim, then cancel it now to let the other result
@@ -202,7 +175,7 @@ impl PreparedCommandExecutor for HybridExecutor {
             if let Some(claim) = first_res.report.claim.take() {
                 claim.release();
             }
-            let (mut second_res, _unused_fallback) = second.await;
+            let mut second_res = second.await;
             second_res.rejected_execution = Some(first_res.report);
             second_res
         } else {
@@ -225,53 +198,5 @@ impl PreparedCommandExecutor for HybridExecutor {
             HybridExecutionLevel::Fallback { .. } => ExecutorName("fallback-hybrid"),
             HybridExecutionLevel::Full { .. } => ExecutorName("hybrid"),
         }
-    }
-}
-
-/// Execute `exec`, and restart on the FallbackExecutor it yields if `should_restart` passes.
-async fn exec_with_restart<S>(
-    command: &PreparedCommand<'_, '_>,
-    manager: CommandExecutionManager,
-    exec: impl Future<Output = (CommandExecutionResult, FallbackExecutor<'_>)>,
-    should_restart: S,
-) -> CommandExecutionResult
-where
-    S: FnOnce(&CommandExecutionResult) -> bool,
-{
-    let (result, fallback) = exec.await;
-
-    if !should_restart(&result) {
-        return result;
-    }
-
-    let fallback_manager = CommandExecutionManager::new(
-        fallback.name,
-        // We already obtained a result here so we need a new claim to allow it to proceed.
-        box MutexClaimManager::new(),
-        manager.events.dupe(),
-        manager.liveliness_manager.dupe(),
-    );
-
-    let mut res = fallback.executor.exec_cmd(command, fallback_manager).await;
-    res.rejected_execution = Some(result.report);
-    res
-}
-
-struct Executable<'a, F> {
-    job: F,
-    fallback: FallbackExecutor<'a>,
-}
-
-struct FallbackExecutor<'a> {
-    executor: &'a dyn PreparedCommandExecutor,
-    name: ExecutorName,
-}
-
-impl<'a, F> Executable<'a, F>
-where
-    F: Future,
-{
-    async fn into_future(self) -> (<F as Future>::Output, FallbackExecutor<'a>) {
-        (self.job.await, self.fallback)
     }
 }
