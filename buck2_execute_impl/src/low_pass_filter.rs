@@ -1,4 +1,6 @@
 use async_condvar_fair::Condvar;
+use futures::future::Future;
+use futures::future::FutureExt;
 use parking_lot::Mutex;
 
 struct LowPassFilterState {
@@ -28,21 +30,37 @@ impl LowPassFilter {
         }
     }
 
+    /// To make things predictable, we synchronously increment the accessors count. This ensures
+    /// that there is no ambiguity about whether an accessor has already incremented the count or
+    /// not depending on whether it was polled.
     #[allow(clippy::await_holding_lock)] // wait() actually releases the lock.
-    pub async fn access(&self) -> LowPassFilterGuard<'_> {
-        let mut state = self.state.lock();
-        state.accessors += 1;
+    #[allow(clippy::manual_async_fn)] // so you don't need to poll before access() takes effect
+    pub fn access(&self) -> impl Future<Output = LowPassFilterGuard<'_>> {
+        let go = {
+            let mut state = self.state.lock();
+            state.accessors += 1;
+            state.dispatch_more()
+        };
 
-        // This needs to be created *here* and not below so that if this future gets dropped
-        // while we await, the guard will re-acquire the mutex and update the accessors count.
+        // This needs to be created *here* and not at the return point so that if this future gets
+        // dropped while we await (or possible en before we await), the guard will re-acquire the
+        // mutex and update the accessors count.
         let guard = LowPassFilterGuard { filter: self };
 
-        loop {
-            if state.dispatch_more() {
-                return guard;
-            }
-            state = self.cv.wait(state).await;
+        if go {
+            return futures::future::ready(guard).left_future();
         }
+
+        async move {
+            let mut state = self.state.lock();
+            loop {
+                if state.dispatch_more() {
+                    return guard;
+                }
+                state = self.cv.wait(state).await;
+            }
+        }
+        .right_future()
     }
 }
 
@@ -70,6 +88,19 @@ mod tests {
     async fn test_access() {
         let filter = LowPassFilter::new(1);
         filter.access().await;
+    }
+
+    #[tokio::test]
+    async fn test_access_does_not_require_poll() {
+        let filter = LowPassFilter::new(1);
+        let t1 = filter.access().await;
+
+        let t2 = filter.access();
+        futures::pin_mut!(t2);
+        assert!(futures::poll!(t2.as_mut()).is_pending());
+
+        drop(t1);
+        assert!(futures::poll!(t2.as_mut()).is_ready());
     }
 
     #[tokio::test]
