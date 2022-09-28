@@ -481,9 +481,11 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     ///
     /// The three methods [`get_attr`](StarlarkValue::get_attr),
     /// [`has_attr`](StarlarkValue::has_attr) and [`dir_attr`](StarlarkValue::dir_attr)
-    /// must be consistent - if you implement one, you should probably implement all three.
-    fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
-        false
+    /// must be consistent.
+    ///
+    /// Default implementation of this function delegates to [`get_attr`](Self::get_attr).
+    fn has_attr(&self, attribute: &str, heap: &'v Heap) -> bool {
+        self.get_attr(attribute, heap).is_some()
     }
 
     /// Return a vector of string listing all attribute of the current value.
