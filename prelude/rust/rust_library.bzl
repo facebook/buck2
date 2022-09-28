@@ -528,7 +528,7 @@ def _compute_transitive_deps(ctx: "context", link_style: LinkStyle.type) -> ({"a
     transitive_deps = {}
     transitive_rmeta_deps = {}
     for dep in resolve_deps(ctx):
-        info = dep.dep[RustLinkInfo]
+        info = dep.dep.get(RustLinkInfo)
         if info == None:
             continue
 

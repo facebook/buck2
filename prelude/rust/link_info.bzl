@@ -95,8 +95,7 @@ def _non_rust_link_deps(ctx: "context") -> ["dependency"]:
     return [
         d
         for d in first_order_deps
-        if d[RustLinkInfo] == None and
-           d[MergedLinkInfo] != None
+        if RustLinkInfo not in d and MergedLinkInfo in d
     ]
 
 # Returns native link dependencies.
@@ -123,14 +122,13 @@ def _non_rust_shared_lib_infos(ctx: "context") -> ["SharedLibraryInfo"]:
     return [
         d[SharedLibraryInfo]
         for d in first_order_deps
-        if d[RustLinkInfo] == None and
-           d[SharedLibraryInfo] != None
+        if RustLinkInfo not in d and SharedLibraryInfo in d
     ]
 
 # Returns native link dependencies.
 def _rust_link_infos(ctx: "context") -> ["RustLinkInfo"]:
     first_order_deps = resolve_deps(ctx)
-    return filter(None, [d.dep[RustLinkInfo] for d in first_order_deps])
+    return filter(None, [d.dep.get(RustLinkInfo) for d in first_order_deps])
 
 def normalize_crate(label: str.type) -> str.type:
     return label.replace("-", "_")

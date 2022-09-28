@@ -142,7 +142,7 @@ def generate_rustdoc(
         if rust_dependency.name:
             name = normalize_crate(rust_dependency.name)
         else:
-            info = dep[RustLinkInfo]
+            info = dep.get(RustLinkInfo)
             if info == None:
                 continue
             name = info.crate
@@ -357,7 +357,7 @@ def _dependency_args(
         deps.append(dep)
 
         # Rust dependency
-        info = dep[RustLinkInfo]
+        info = dep.get(RustLinkInfo)
         if info == None:
             continue
         crate = crate or info.crate
