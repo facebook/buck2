@@ -18,5 +18,5 @@ command(
     name="local_only_full_hybrid",
     command="local_only.sh",
     default_target_platform="//platforms:target",
-    exec_compatible_with=["//platforms:full_hybrid"],
+    exec_compatible_with=["//platforms:full_hybrid_will_failure_fallbacks"],
 )
