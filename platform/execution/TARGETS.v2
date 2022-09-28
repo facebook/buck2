@@ -30,7 +30,7 @@ load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 load("@fbsource//tools/build_defs:fbsource_utils.bzl", "is_arvr_mode")
 load(
     ":defs.bzl",
-    "MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY",
+    "FAT_PLATFORM_DEFAULT_MAC_PLATFORM_KEY",
     "allow_hybrid_fallbacks_on_failure",
     "define_mac_execution_platforms",
     "execution_platform",
@@ -225,7 +225,7 @@ prelude.platform(
     # the fbsource platforms just aren't that useful yet.
     constraint_values = [
         ":fat_platform_enabled",
-        ":fat_platform_mac={}".format(MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY),
+        ":fat_platform_mac={}".format(FAT_PLATFORM_DEFAULT_MAC_PLATFORM_KEY),
         ":fat_platform_linux=platform010",
     ],
     visibility = ["PUBLIC"],

@@ -7,6 +7,8 @@ MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY = "x86_64_minimal_xcode"
 MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY = "x86_64-fbsource-xcode-14"
 MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY = "x86_64_minimal_xcode_14"
 
+FAT_PLATFORM_DEFAULT_MAC_PLATFORM_KEY = MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY
+
 # NB: The platforms' constraints for Xcode must match the values defined
 #     by `mac_execution_subplatforms`. Mismatch will be detected as all
 #     toolchain actions will fail due to a version mismatch.
