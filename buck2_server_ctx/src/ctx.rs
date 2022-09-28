@@ -19,6 +19,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
 use buck2_events::dispatch::EventDispatcher;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 
@@ -42,7 +43,10 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
 
     async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
 
-    async fn config_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
+    async fn config_metadata(
+        &self,
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<HashMap<String, String>>;
 
     fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPattern>]);
 }
@@ -82,7 +86,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                 |dice| async move {
                     let events = self.events().dupe();
 
-                    let metadata = self.config_metadata().await?;
+                    let metadata = self.config_metadata(&dice).await?;
 
                     events
                         .span_async(

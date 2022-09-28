@@ -80,7 +80,6 @@ use cli_proto::ClientContext;
 use cli_proto::CommonBuildOptions;
 use cli_proto::ConfigOverride;
 use dice::data::DiceData;
-use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
@@ -252,9 +251,6 @@ impl ServerCommandContext {
         let heartbeat_guard_handle = HeartbeatGuard::new(&base_context);
 
         let cell_configs_loader = Arc::new(CellConfigLoader {
-            // TODO this is wrong and racey as the dice manager could evict the current
-            // active dice ctx before the command that reuses config gets there.
-            dice: base_context.dice_manager.unsafe_dice().dupe(),
             project_root: base_context.project_root.clone(),
             working_dir: project_path.to_buf().into(),
             reuse_current_config: client_context.reuse_current_config,
@@ -360,7 +356,6 @@ impl ServerCommandContext {
 }
 
 struct CellConfigLoader {
-    dice: Arc<Dice>,
     project_root: ProjectRoot,
     working_dir: ProjectRelativePathBuf,
     /// Reuses build config from the previous invocation if there is one
@@ -370,10 +365,12 @@ struct CellConfigLoader {
 }
 
 impl CellConfigLoader {
-    pub async fn cells_and_configs(&self) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
+    pub async fn cells_and_configs(
+        &self,
+        dice_ctx: &DiceComputations,
+    ) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.loaded_cell_configs
             .get_or_init(async move {
-                let dice_ctx = self.dice.ctx();
                 if self.reuse_current_config {
                     if dice_ctx.is_cell_resolver_key_set().await?
                         && dice_ctx.is_legacy_configs_key_set().await?
@@ -419,9 +416,10 @@ struct DiceCommandDataProvider {
 impl DiceDataProvider for DiceCommandDataProvider {
     async fn provide(
         self: Box<Self>,
-        _ctx: &DiceComputations,
+        ctx: &DiceComputations,
     ) -> anyhow::Result<UserComputationData> {
-        let (cell_resolver, legacy_configs) = self.cell_configs_loader.cells_and_configs().await?;
+        let (cell_resolver, legacy_configs) =
+            self.cell_configs_loader.cells_and_configs(ctx).await?;
 
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
@@ -502,7 +500,8 @@ struct DiceCommandUpdater {
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater {
     async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
-        let (cell_resolver, legacy_configs) = self.cell_config_loader.cells_and_configs().await?;
+        let (cell_resolver, legacy_configs) =
+            self.cell_config_loader.cells_and_configs(&ctx).await?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
 
@@ -596,7 +595,10 @@ impl ServerCommandContextTrait for ServerCommandContext {
 
     /// Gathers metadata from buckconfig to attach to events for when a command enters the critical
     /// section
-    async fn config_metadata(&self) -> anyhow::Result<HashMap<String, String>> {
+    async fn config_metadata(
+        &self,
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
@@ -624,7 +626,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
         let mut metadata = HashMap::new();
         // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
         // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-        let (cells, configs) = self.cell_configs_loader.cells_and_configs().await?;
+        let (cells, configs) = self.cell_configs_loader.cells_and_configs(ctx).await?;
         let root_cell_config = configs.get(cells.root_cell());
         if let Ok(config) = root_cell_config {
             add_config(&mut metadata, config, "log", "repository", "repository");
