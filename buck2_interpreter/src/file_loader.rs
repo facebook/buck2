@@ -40,7 +40,7 @@ pub trait LoadResolver {
     fn resolve_load(
         &self,
         path: &str,
-        location: Option<FileSpan>,
+        location: Option<&FileSpan>,
     ) -> anyhow::Result<OwnedStarlarkModulePath>;
 }
 
@@ -153,7 +153,7 @@ mod tests {
         fn resolve_load(
             &self,
             path: &str,
-            _location: Option<FileSpan>,
+            _location: Option<&FileSpan>,
         ) -> anyhow::Result<OwnedStarlarkModulePath> {
             match path {
                 "//some/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(

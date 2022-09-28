@@ -127,7 +127,7 @@ impl ParseResult {
     ) -> anyhow::Result<Self> {
         let mut loads = implicit_imports;
         for x in ast.loads() {
-            loads.push(resolver.resolve_load(x.1, Some(x.0))?);
+            loads.push(resolver.resolve_load(x.1, Some(&x.0))?);
         }
         Ok(Self(ast, Arc::new(loads)))
     }
@@ -298,7 +298,7 @@ impl LoadResolver for InterpreterLoadResolver {
     fn resolve_load(
         &self,
         path: &str,
-        location: Option<FileSpan>,
+        location: Option<&FileSpan>,
     ) -> anyhow::Result<OwnedStarlarkModulePath> {
         let path = parse_import(&self.config.cell_names, &self.loader_path, path)?;
 
