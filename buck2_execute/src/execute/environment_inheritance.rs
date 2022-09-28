@@ -61,6 +61,22 @@ impl EnvironmentInheritance {
         }
     }
 
+    /// Exclude some vars that are known to cause issues. In an ideal world we should do a
+    /// migration to lock this down everywhere.
+    pub fn local_command_exclusions() -> Self {
+        Self {
+            clear: false,
+            values: &[],
+            exclusions: &[
+                "PYTHONPATH",
+                "PYTHONHOME",
+                "PYTHONSTARTUP",
+                "LD_LIBRARY_PATH",
+                "LD_PRELOAD",
+            ],
+        }
+    }
+
     pub fn empty() -> Self {
         Self {
             values: &[],

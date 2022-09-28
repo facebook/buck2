@@ -237,3 +237,13 @@ buck_genrule(
     bash = "echo HELLO > $OUT",
     cmd_exe = "echo HELLO> %OUT%",
 )
+
+# Local only, echoes PYTHONPATH, used to test environment sanitization.
+buck_genrule(
+    name = "echo_pythonpath",
+    srcs = [],
+    out = "output.txt",
+    cacheable = False,
+    cmd = "python3 -E -c \"import os; open(os.getenv('OUT'), 'w').write(os.environ.get('PYTHONPATH', ''))\"",
+    labels = ["buck2_test_local_exec"],
+)

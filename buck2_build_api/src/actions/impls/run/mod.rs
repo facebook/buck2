@@ -16,6 +16,7 @@ use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionRequest;
@@ -386,7 +387,8 @@ impl IncrementalActionExecutable for RunAction {
         .with_executor_preference(self.inner.executor_preference)
         .with_host_sharing_requirements(host_sharing_requirements)
         .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
-        .with_allow_cache_upload(self.inner.allow_cache_upload);
+        .with_allow_cache_upload(self.inner.allow_cache_upload)
+        .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions());
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 
