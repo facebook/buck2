@@ -81,10 +81,6 @@ where
         self.attributes.keys().cloned().collect()
     }
 
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
-        self.attributes.contains_key(attribute)
-    }
-
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
         self.get_attr_hashed(Hashed::new(attribute), heap)
     }
