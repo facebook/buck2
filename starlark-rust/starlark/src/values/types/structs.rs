@@ -198,10 +198,6 @@ where
         Ok(())
     }
 
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
-        coerce(&self.fields).contains_key(attribute)
-    }
-
     fn dir_attr(&self) -> Vec<String> {
         self.fields.keys().map(|x| x.as_str().to_owned()).collect()
     }

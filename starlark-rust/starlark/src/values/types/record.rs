@@ -414,10 +414,6 @@ where
         Ok(())
     }
 
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
-        self.get_record_fields().contains_key(attribute)
-    }
-
     fn dir_attr(&self) -> Vec<String> {
         self.get_record_fields().keys().cloned().collect()
     }

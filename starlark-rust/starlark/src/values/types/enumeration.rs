@@ -329,10 +329,6 @@ where
         }
     }
 
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
-        attribute == "index" || attribute == "value"
-    }
-
     fn dir_attr(&self) -> Vec<String> {
         vec!["index".to_owned(), "value".to_owned()]
     }
