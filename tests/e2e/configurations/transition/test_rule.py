@@ -22,7 +22,7 @@ async def test_configuration_transition_rule_cquery_actual_attr(buck: Buck) -> N
     result = await buck.cquery(
         "--target-platforms=fbcode//buck2/tests/targets/configurations/transition/rule:iphoneos-p",
         "fbcode//buck2/tests/targets/configurations/transition/rule:watchos-resource",
-        "--output-attributes=actual",
+        "--output-attribute=actual",
     )
     result.check_returncode()
     q = json.loads(result.stdout)

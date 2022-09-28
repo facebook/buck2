@@ -76,7 +76,7 @@ ipcMain.handle('buck2-targets', async (_, target, host, mode) => {
 
 ipcMain.handle('buck2-attributes', async (_, target, host, mode) => {
     validateTarget(target);
-    return await runCommand(["uquery", `'${target}'`, "--output-attributes=.*"], host, mode);
+    return await runCommand(["uquery", `'${target}'`, "--output-attribute=.*"], host, mode);
 });
 
 ipcMain.handle('buck2-providers', async (_, target, host, mode) => {

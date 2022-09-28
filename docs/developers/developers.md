@@ -39,7 +39,7 @@ Increment this number if you do, I guess: 3.
 
 ## Working with Buck1
 
-* To see the JSON encoded graph of a target run `buck query "deps('$TARGET')" --output-format json --output-attributes '.*'`
+* To see the JSON encoded graph of a target run `buck query "deps('$TARGET')" --output-format json --output-all-attributes`
 * To see the command line of a command, introduce an error in the file (e.g. syntax error for compiling, undefined symbol for linking) and run `buck build $TARGET -c modern_build_rule.strategy=remote -c remoteexecution.is_local_fallback_enabled=false -v 9 -c cache.key_seed=$RANDOM`
 * To understand Starlark performance in Buck1 use `STARLARK_RT_STATS=~/stats.txt buck uquery //fbandroid/apps/fb4a:example_art_pgo`, which will produce a file `~/stats.txt`.
 
