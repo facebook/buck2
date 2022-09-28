@@ -24,7 +24,7 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # Some call "buck run" & "buck root" recursively.
     "uses_buck_run",
 
-    # Some antlir genrules use clowder for downloading from everstore
+    # Some antlir and telephoto genrules use clowder for downloading from everstore
     "uses_clowder",
 
     # Some antlir genrules use cpio for unpacking rpms
