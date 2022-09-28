@@ -22,7 +22,6 @@ use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
 use crate::execute::claim::ClaimManager;
 use crate::execute::kind::CommandExecutionKind;
-use crate::execute::name::ExecutorName;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
 use crate::execute::result::CommandExecutionReport;
@@ -44,7 +43,6 @@ trait CommandExecutionManagerLike: Sized {
 
 /// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
 pub struct CommandExecutionManager {
-    executor_name: ExecutorName,
     pub claim_manager: Box<dyn ClaimManager>,
     pub events: EventDispatcher,
     pub liveliness_manager: Arc<dyn LivelinessManager>,
@@ -52,13 +50,11 @@ pub struct CommandExecutionManager {
 
 impl CommandExecutionManager {
     pub fn new(
-        executor_name: ExecutorName,
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> Self {
         Self {
-            executor_name,
             claim_manager,
             events,
             liveliness_manager,
@@ -73,7 +69,6 @@ impl CommandExecutionManager {
             None => ControlFlow::Break(self.claim_rejected()),
             Some(claim) => ControlFlow::Continue(CommandExecutionManagerWithClaim {
                 claim,
-                executor_name: self.executor_name,
                 events: self.events,
                 liveliness_manager: self.liveliness_manager,
             }),
@@ -133,7 +128,6 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             report: CommandExecutionReport {
                 claim: None,
                 status,
-                executor: self.executor_name,
                 timing,
                 std_streams,
                 exit_code,
@@ -145,7 +139,6 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
 }
 
 pub struct CommandExecutionManagerWithClaim {
-    executor_name: ExecutorName,
     pub events: EventDispatcher,
     pub liveliness_manager: Arc<dyn LivelinessManager>,
     claim: Box<dyn Claim>,
@@ -223,7 +216,6 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             report: CommandExecutionReport {
                 claim: Some(self.claim),
                 status,
-                executor: self.executor_name,
                 timing,
                 std_streams,
                 exit_code,

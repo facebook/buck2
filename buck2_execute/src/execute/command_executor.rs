@@ -34,7 +34,6 @@ use crate::execute::blobs::ActionBlobs;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::manager::CommandExecutionManagerExt;
-use crate::execute::name::ExecutorName;
 use crate::execute::prepared::ActionPaths;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
@@ -87,10 +86,6 @@ impl CommandExecutor {
             artifact_fs,
             path_separator,
         }))
-    }
-
-    pub fn name(&self) -> ExecutorName {
-        self.0.inner.name()
     }
 
     pub fn fs(&self) -> &ArtifactFs {

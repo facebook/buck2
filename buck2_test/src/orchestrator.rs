@@ -426,7 +426,6 @@ impl BuckTestOrchestrator {
         }
 
         let manager = CommandExecutionManager::new(
-            executor.name(),
             box MutexClaimManager::new(),
             self.events.dupe(),
             self.liveliness_manager.dupe(),

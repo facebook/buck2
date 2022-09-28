@@ -20,7 +20,6 @@ use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
-use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::ActionPaths;
 use buck2_execute::execute::prepared::PreparedAction;
@@ -273,10 +272,6 @@ impl PreparedCommandExecutor for ReExecutor {
 
     fn re_use_case(&self) -> RemoteExecutorUseCase {
         self.re_use_case
-    }
-
-    fn name(&self) -> ExecutorName {
-        ExecutorName("remote")
     }
 }
 

@@ -7,7 +7,6 @@ use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
-use crate::execute::name::ExecutorName;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
@@ -50,6 +49,4 @@ pub trait PreparedCommandExecutor: Send + Sync {
     fn re_platform(&self) -> Option<&RE::Platform>;
 
     fn re_use_case(&self) -> RemoteExecutorUseCase;
-
-    fn name(&self) -> ExecutorName;
 }

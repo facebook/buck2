@@ -9,7 +9,6 @@ pub mod environment_inheritance;
 pub mod inputs_directory;
 pub mod kind;
 pub mod manager;
-pub mod name;
 pub mod output;
 pub mod prepared;
 pub mod request;

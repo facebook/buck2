@@ -11,7 +11,6 @@ use indexmap::IndexMap;
 use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
 use crate::execute::kind::CommandExecutionKind;
-use crate::execute::name::ExecutorName;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
 
@@ -119,7 +118,6 @@ pub struct CommandExecutionResult {
 pub struct CommandExecutionReport {
     pub claim: Option<Box<dyn Claim>>,
     pub status: CommandExecutionStatus,
-    pub executor: ExecutorName,
     pub timing: CommandExecutionTimingData,
     pub std_streams: CommandStdStreams,
     pub exit_code: Option<i32>,

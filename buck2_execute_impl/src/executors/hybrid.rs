@@ -17,7 +17,6 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::ClaimManager;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::name::ExecutorName;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
@@ -52,12 +51,7 @@ impl HybridExecutor {
         events: EventDispatcher,
         liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> CommandExecutionResult {
-        let local_manager = CommandExecutionManager::new(
-            self.local.name(),
-            claim_manager,
-            events,
-            liveliness_manager,
-        );
+        let local_manager = CommandExecutionManager::new(claim_manager, events, liveliness_manager);
         self.local.exec_cmd(command, local_manager).await
     }
 
@@ -68,12 +62,8 @@ impl HybridExecutor {
         events: EventDispatcher,
         liveliness_manager: Arc<dyn LivelinessManager>,
     ) -> CommandExecutionResult {
-        let remote_manager = CommandExecutionManager::new(
-            self.remote.name(),
-            claim_manager,
-            events,
-            liveliness_manager,
-        );
+        let remote_manager =
+            CommandExecutionManager::new(claim_manager, events, liveliness_manager);
         self.remote.exec_cmd(command, remote_manager).await
     }
 }
@@ -190,13 +180,5 @@ impl PreparedCommandExecutor for HybridExecutor {
 
     fn re_use_case(&self) -> RemoteExecutorUseCase {
         self.remote.re_use_case()
-    }
-
-    fn name(&self) -> ExecutorName {
-        match self.level {
-            HybridExecutionLevel::Limited => ExecutorName("limited-hybrid"),
-            HybridExecutionLevel::Fallback { .. } => ExecutorName("fallback-hybrid"),
-            HybridExecutionLevel::Full { .. } => ExecutorName("hybrid"),
-        }
     }
 }

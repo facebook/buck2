@@ -471,7 +471,6 @@ mod tests {
     use buck2_execute::execute::dice_data::HasCommandExecutor;
     use buck2_execute::execute::dice_data::SetCommandExecutor;
     use buck2_execute::execute::kind::CommandExecutionKind;
-    use buck2_execute::execute::name::ExecutorName;
     use buck2_execute::execute::output::CommandStdStreams;
     use buck2_execute::execute::prepared::PreparedCommandExecutor;
     use buck2_execute::execute::result::CommandExecutionReport;
@@ -885,7 +884,6 @@ mod tests {
                     env: hashmap![],
                 },
             },
-            executor: ExecutorName("test"),
             timing: Default::default(),
             std_streams: CommandStdStreams::Local {
                 stdout: "stdout".to_owned().into_bytes(),

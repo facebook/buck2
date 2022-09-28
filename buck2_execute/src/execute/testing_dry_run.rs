@@ -23,7 +23,6 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::manager::CommandExecutionManagerExt;
-use crate::execute::name::ExecutorName;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::request::CommandExecutionOutput;
@@ -110,9 +109,5 @@ impl PreparedCommandExecutor for DryRunExecutor {
 
     fn re_use_case(&self) -> RemoteExecutorUseCase {
         RemoteExecutorUseCase::buck2_default()
-    }
-
-    fn name(&self) -> ExecutorName {
-        ExecutorName("dry-run")
     }
 }

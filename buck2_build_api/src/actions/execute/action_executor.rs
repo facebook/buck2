@@ -308,7 +308,6 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     )> {
         let action = self.target();
         let manager = CommandExecutionManager::new(
-            self.executor.command_executor.name(),
             box MutexClaimManager::new(),
             self.executor.events.dupe(),
             NoopLivelinessManager::create(),
