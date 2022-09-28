@@ -357,7 +357,7 @@ impl FrozenHeap {
     }
 
     /// Allocate any value, use `Debug` implementation for `Display`.
-    pub(crate) fn alloc_any_display_from_debug<T: Debug + Send + Sync>(
+    pub fn alloc_any_display_from_debug<T: Debug + Send + Sync>(
         &self,
         value: T,
     ) -> FrozenRef<'static, T> {
