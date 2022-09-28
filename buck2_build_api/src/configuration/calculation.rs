@@ -22,7 +22,6 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use buck2_node::compatibility::IncompatiblePlatformReason;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
@@ -30,6 +29,7 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
+use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -147,34 +147,6 @@ async fn get_execution_platforms(
         platforms.push(platform.to_execution_platform()?);
     }
     Ok(Some(Arc::new(platforms)))
-}
-
-/// The constraint introduced on execution platform resolution by
-/// a toolchain rule (reached via a toolchain_dep).
-#[derive(Dupe, Clone, PartialEq, Eq)]
-pub struct ToolchainConstraints {
-    // We know the set of execution platforms is fixed throughout the build,
-    // so we can record just the ones we are incompatible with,
-    // and assume all others we _are_ compatible with.
-    incompatible: Arc<SmallMap<ExecutionPlatform, Arc<IncompatiblePlatformReason>>>,
-}
-
-impl ToolchainConstraints {
-    fn new(incompatible: SmallMap<ExecutionPlatform, Arc<IncompatiblePlatformReason>>) -> Self {
-        Self {
-            incompatible: Arc::new(incompatible),
-        }
-    }
-
-    fn allows(
-        &self,
-        exec_platform: &ExecutionPlatform,
-    ) -> Result<(), Arc<IncompatiblePlatformReason>> {
-        match self.incompatible.get(exec_platform) {
-            None => Ok(()),
-            Some(e) => Err(e.dupe()),
-        }
-    }
 }
 
 /// Check if a particular execution platform is compatible with the constraints or not.

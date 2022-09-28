@@ -19,9 +19,8 @@ use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
+use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use indexmap::IndexSet;
-
-use crate::configuration::calculation::ToolchainConstraints;
 
 pub mod calculation;
 

@@ -42,6 +42,7 @@ use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
+use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
@@ -58,7 +59,6 @@ use starlark::collections::SmallSet;
 use thiserror::Error;
 
 use crate::calculation::BuildErrors;
-use crate::configuration::calculation::ToolchainConstraints;
 use crate::configuration::ConfigurationCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 
