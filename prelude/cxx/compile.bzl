@@ -186,7 +186,7 @@ def create_compile_cmds(
         if not ext in cxx_compile_cmd_by_ext:
             toolchain = get_cxx_toolchain_info(ctx)
             compiler_info = _get_compiler_info(toolchain, ext)
-            base_compile_cmd = _get_compile_base(compiler_info, ext)
+            base_compile_cmd = _get_compile_base(compiler_info)
 
             headers_dep_files = None
             if _supports_dep_files(ext) and toolchain.use_dep_files:
@@ -198,7 +198,7 @@ def create_compile_cmds(
                         tag = headers_tag,
                     )
 
-            argsfile_by_ext[ext.value] = _mk_argsfile(ctx, pre, ext, headers_tag)
+            argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag)
             cxx_compile_cmd_by_ext[ext] = _CxxCompileCommand(
                 base_compile_cmd = base_compile_cmd,
                 argsfile = argsfile_by_ext[ext.value],
@@ -353,19 +353,12 @@ def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) ->
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
 
-def _get_compile_base(compiler_info: "_compiler_info", ext: CxxExtension.type) -> "cmd_args":
+def _get_compile_base(compiler_info: "_compiler_info") -> "cmd_args":
     """
     Given a compiler info returned by _get_compiler_info, form the base compile args.
     """
 
     cmd = cmd_args(compiler_info.compiler)
-    cmd.add(compiler_info.preprocessor_flags)
-    cmd.add(compiler_info.compiler_flags)
-    cmd.add(get_flags_for_reproducible_build(compiler_info.compiler_type))
-
-    if ext.value not in (".asm", ".asmpp"):
-        # Clang's asm compiler doesn't support colorful output, so we skip this there.
-        cmd.add(get_flags_for_colorful_output(compiler_info.compiler_type))
 
     return cmd
 
@@ -379,11 +372,22 @@ def _supports_dep_files(ext: CxxExtension.type) -> bool.type:
         return False
     return True
 
-def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxExtension.type, headers_tag: "artifact_tag") -> _CxxCompileArgsfile.type:
+def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.type, cmd: "cmd_args"):
+    cmd.add(compiler_info.preprocessor_flags)
+    cmd.add(compiler_info.compiler_flags)
+    cmd.add(get_flags_for_reproducible_build(compiler_info.compiler_type))
+
+    if ext.value not in (".asm", ".asmpp"):
+        # Clang's asm compiler doesn't support colorful output, so we skip this there.
+        cmd.add(get_flags_for_colorful_output(compiler_info.compiler_type))
+
+def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: CPreprocessorInfo.type, ext: CxxExtension.type, headers_tag: "artifact_tag") -> _CxxCompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
     args = cmd_args()
+
+    _add_compiler_info_flags(compiler_info, ext, args)
 
     args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
