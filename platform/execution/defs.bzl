@@ -22,24 +22,24 @@ _MAC_EXEC_PLATFORM_KEYS = [
 #     by `re_subplatforms`. Mismatch will be detected as all
 #     toolchain actions will fail due to a version mismatch.
 _MAC_EXEC_PLATFORMS_INFO = {
-    MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: struct(
-        name = "macos-xcode-13.4",
-        base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
-        re_subplatform = "xcode-13.4",
-    ),
     MAC_X86_64_FBSOURCE_MINIMAL_XCODE_13_4_PLATFORM_KEY: struct(
         name = "macos-minimal-xcode-13.4",
         base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-13.4",
         re_subplatform = "xcode-13.4",
     ),
-    MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: struct(
-        name = "macos-xcode-14.0",
-        base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-14.0",
-        re_subplatform = "xcode-14.0",
+    MAC_X86_64_FBSOURCE_XCODE_13_4_PLATFORM_KEY: struct(
+        name = "macos-xcode-13.4",
+        base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-13.4",
+        re_subplatform = "xcode-13.4",
     ),
     MAC_X86_64_FBSOURCE_MINIMAL_XCODE_14_0_PLATFORM_KEY: struct(
         name = "macos-minimal-xcode-14.0",
         base_platform = "ovr_config//platform/macos:x86_64-fbsource-minimal-xcode-14.0",
+        re_subplatform = "xcode-14.0",
+    ),
+    MAC_X86_64_FBSOURCE_XCODE_14_0_PLATFORM_KEY: struct(
+        name = "macos-xcode-14.0",
+        base_platform = "ovr_config//platform/macos:x86_64-fbsource-xcode-14.0",
         re_subplatform = "xcode-14.0",
     ),
 }
