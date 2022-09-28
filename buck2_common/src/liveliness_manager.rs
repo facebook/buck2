@@ -33,38 +33,88 @@ impl dyn LivelinessManager {
     }
 }
 
-/// While the associated LivelinessGuard is alive, `while_alive` will be Pending. When the guard is
-/// dropped, that stops being the case.
-#[derive(Clone, Dupe)]
-pub struct GuardedLivelinessManager {
-    mutex: Arc<RwLock<()>>,
-}
+/// A liveliness manager with an implementation backed by an RW Lock. The way it works is as
+/// follows:
+///
+/// - The LivelinessGuard holds a RW lock with write access.
+/// - The `while_alive()` implementation attempts to acquire the lock with read access.
+/// - This means that while the guard hasn't been dropped, the manager is considered alive.
+///
+/// We also allow the LivelinessGuard be "forgotten", which drops it but still forces `while_alive`
+/// to stay pending (we do this by tracking this with a state flag in the mutex).
+///
+/// In an ideal world, this would be a newtype, but that means it needs to contain an `Arc<RwLock>`
+/// to support `try_write_owned()`, and now we have 2 Arcs unnecessarily.
+type LivelinessManagerForGuard = RwLock<LivelinessManagerState>;
 
 pub struct LivelinessGuard {
-    // This is only used for the fact that it releases the lock on drop.
-    _guard: OwnedRwLockWriteGuard<LivelinessGuardMarker>,
+    guard: OwnedRwLockWriteGuard<LivelinessManagerState>,
+
+    // A reference to the underyling manager to support `cancel`.
+    manager: Arc<LivelinessManagerForGuard>,
 }
 
 impl LivelinessGuard {
     pub fn create() -> (Arc<dyn LivelinessManager>, LivelinessGuard) {
-        let mutex = Arc::new(RwLock::new(LivelinessGuardMarker));
+        let manager = Arc::new(LivelinessManagerForGuard::new(
+            LivelinessManagerState::AliveWhenLocked,
+        ));
 
-        let guard = mutex
+        let guard = manager
             .dupe()
             .try_write_owned()
-            .expect("This mutex was just created");
+            .expect("This lock was just created");
 
-        (mutex as _, LivelinessGuard { _guard: guard })
+        (manager.dupe() as _, LivelinessGuard { guard, manager })
+    }
+
+    /// Declare that this liveliness manager is no longer alive. Dropping the guard does the same,
+    /// but this allows potentially restoring it later.
+    pub fn cancel(self) -> CancelledLivelinessGuard {
+        CancelledLivelinessGuard {
+            manager: self.manager,
+        }
+    }
+
+    /// Declare that the underlying liveliness manager should stay alive forever, even when we drop
+    /// this guard.
+    pub fn forget(mut self) {
+        *self.guard = LivelinessManagerState::ForeverAlive;
     }
 }
 
-/// Just a type that can't be constructed elesewhere
-struct LivelinessGuardMarker;
+#[derive(Debug)]
+pub struct CancelledLivelinessGuard {
+    manager: Arc<LivelinessManagerForGuard>,
+}
+
+impl CancelledLivelinessGuard {
+    /// If the lock is available, re-acquire it, thus allowing things to stay alive again.
+    pub fn restore(self) -> Option<LivelinessGuard> {
+        let guard = self.manager.dupe().try_write_owned().ok()?;
+        Some(LivelinessGuard {
+            guard,
+            manager: self.manager,
+        })
+    }
+}
+
+/// The state of this liveliness manager. By default, it's alive if and only if the LivelinessGuard
+/// is holding the lock, but if `forget` was called, then we'll record that even upon a successful
+/// lock acquisition, the manager should be considered alive.
+#[derive(Debug)]
+enum LivelinessManagerState {
+    AliveWhenLocked,
+    ForeverAlive,
+}
 
 #[async_trait]
-impl LivelinessManager for RwLock<LivelinessGuardMarker> {
+impl LivelinessManager for LivelinessManagerForGuard {
     async fn while_alive(&self) {
-        let _unused = self.read().await;
+        match *self.read().await {
+            LivelinessManagerState::AliveWhenLocked => {}
+            LivelinessManagerState::ForeverAlive => futures::future::pending().await,
+        }
     }
 }
 
@@ -147,5 +197,20 @@ mod tests {
         assert!(manager.is_alive().await);
         drop(guard);
         assert!(!manager.is_alive().await);
+    }
+
+    #[tokio::test]
+    async fn test_cancel_restore_forget() {
+        let (manager, guard) = LivelinessGuard::create();
+        assert!(manager.is_alive().await);
+
+        let cancelled = guard.cancel();
+        assert!(!manager.is_alive().await);
+
+        let restored = cancelled.restore().expect("This is not currently held");
+        assert!(manager.is_alive().await);
+
+        restored.forget();
+        assert!(manager.is_alive().await);
     }
 }
