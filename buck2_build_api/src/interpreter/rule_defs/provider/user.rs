@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
 use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serializer;
@@ -97,28 +98,26 @@ where
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match other.as_provider() {
-            None => Ok(false),
-            Some(o) => {
-                if self.id != *o.id() {
-                    return Ok(false);
-                }
-
-                let items = o.items();
-                if self.attributes.len() != items.len() {
-                    return Ok(false);
-                }
-                for ((k1, v1), (k2, v2)) in self.attributes.iter().zip(items.iter()) {
-                    if k1 != k2 {
-                        return Ok(false);
-                    }
-                    if !v1.equals(*v2)? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
+        let this: &UserProvider = coerce(self);
+        let other: &UserProvider = match UserProvider::from_value(other) {
+            Some(other) => other,
+            None => return Ok(false),
+        };
+        if this.id != other.id {
+            return Ok(false);
+        }
+        if this.attributes.len() != other.attributes.len() {
+            return Ok(false);
+        }
+        for ((k1, v1), (k2, v2)) in this.attributes.iter().zip(other.attributes.iter()) {
+            if k1 != k2 {
+                return Ok(false);
+            }
+            if !v1.equals(*v2)? {
+                return Ok(false);
             }
         }
+        Ok(true)
     }
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
