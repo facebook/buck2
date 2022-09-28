@@ -14,7 +14,9 @@ use once_cell::sync::OnceCell;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct EnvironmentInheritance {
+    clear: bool,
     values: &'static [(&'static str, OsString)],
+    exclusions: &'static [&'static str],
 }
 
 impl EnvironmentInheritance {
@@ -52,14 +54,30 @@ impl EnvironmentInheritance {
             ret
         });
 
-        Self { values }
+        Self {
+            clear: true,
+            values,
+            exclusions: &[],
+        }
     }
 
     pub fn empty() -> Self {
-        Self { values: &[] }
+        Self {
+            values: &[],
+            exclusions: &[],
+            clear: true,
+        }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&'static str, &'static OsString)> {
+    pub fn values(&self) -> impl Iterator<Item = (&'static str, &'static OsString)> {
         self.values.iter().map(|(k, v)| (*k, v))
+    }
+
+    pub fn exclusions(&self) -> impl Iterator<Item = &'static str> {
+        self.exclusions.iter().copied()
+    }
+
+    pub fn clear(&self) -> bool {
+        self.clear
     }
 }

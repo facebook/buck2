@@ -961,6 +961,13 @@ impl EnvironmentBuilder for LossyEnvironment {
             val.as_ref().to_string_lossy().into_owned(),
         );
     }
+
+    fn remove<K>(&mut self, key: K)
+    where
+        K: AsRef<OsStr>,
+    {
+        self.inner.remove(&*key.as_ref().to_string_lossy());
+    }
 }
 
 struct TestActionKey<'a> {

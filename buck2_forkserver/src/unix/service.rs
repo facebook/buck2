@@ -63,6 +63,7 @@ impl Forkserver for UnixForkserverService {
                 argv,
                 env,
                 env_clear,
+                env_remove,
                 cwd,
                 timeout,
             } = msg;
@@ -83,6 +84,10 @@ impl Forkserver for UnixForkserverService {
 
             if env_clear {
                 cmd.env_clear();
+            }
+
+            for var in env_remove {
+                cmd.env_remove(OsStr::from_bytes(&var));
             }
 
             for var in env {

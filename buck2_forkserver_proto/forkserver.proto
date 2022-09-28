@@ -17,6 +17,8 @@ message CommandRequest {
   WorkingDirectory cwd = 5;
   // The max duration this command should be allowed to run for.
   google.protobuf.Duration timeout = 6;
+  // An individual env var to remove.
+  repeated bytes env_remove = 7;
 }
 
 message WorkingDirectory {

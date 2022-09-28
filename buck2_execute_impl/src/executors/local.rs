@@ -667,8 +667,15 @@ pub fn apply_local_execution_environment(
     env_inheritance: Option<&EnvironmentInheritance>,
 ) {
     if let Some(env_inheritance) = env_inheritance {
-        builder.clear();
-        for (key, val) in env_inheritance.iter() {
+        if env_inheritance.clear() {
+            builder.clear();
+        }
+
+        for key in env_inheritance.exclusions() {
+            builder.remove(key);
+        }
+
+        for (key, val) in env_inheritance.values() {
             builder.set(key, val);
         }
     }
@@ -685,6 +692,10 @@ pub trait EnvironmentBuilder {
     where
         K: AsRef<OsStr>,
         V: AsRef<OsStr>;
+
+    fn remove<K>(&mut self, key: K)
+    where
+        K: AsRef<OsStr>;
 }
 
 impl EnvironmentBuilder for Command {
@@ -698,6 +709,13 @@ impl EnvironmentBuilder for Command {
         V: AsRef<OsStr>,
     {
         Command::env(self, key, val);
+    }
+
+    fn remove<K>(&mut self, key: K)
+    where
+        K: AsRef<OsStr>,
+    {
+        Command::env_remove(self, key);
     }
 }
 
@@ -729,6 +747,7 @@ mod unix {
                 .collect(),
             env: vec![],
             env_clear: false,
+            env_remove: vec![],
             cwd: Some(buck2_forkserver_proto::WorkingDirectory {
                 path: working_directory.as_os_str().as_bytes().to_vec(),
             }),
@@ -754,6 +773,13 @@ mod unix {
                 key: key.as_ref().as_bytes().to_vec(),
                 value: val.as_ref().as_bytes().to_vec(),
             })
+        }
+
+        fn remove<K>(&mut self, key: K)
+        where
+            K: AsRef<OsStr>,
+        {
+            self.env_remove.push(key.as_ref().as_bytes().to_vec())
         }
     }
 }
