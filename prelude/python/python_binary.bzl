@@ -330,13 +330,10 @@ def convert_python_library_to_executable(
             runtime_files.append(symlink_tree_path)
         runtime_files.extend(hidden_resources)
 
-    else:
         # Standalone PEXs don't know how to handle hidden/extra manifest outputs.
-        expect(
-            not has_hidden_resources,
-            "Cannot package hidden srcs/resources in a standalone python_binary. " +
-            'Eliminate resources in non-Python dependencies of this binary, or use `package_style = "inplace"`.',
-        )
+    elif has_hidden_resources:
+        error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
+        fail(error_msg)
 
     # Build the PEX.
     hidden = make_pex(
@@ -398,3 +395,34 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
         ),
         RunInfo(cmd_args(run_args).hidden(runtime_files)),
     ]
+
+def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str.type:
+    """
+    Friendlier error message about putting non-python resources into standalone bins
+    """
+    owner_to_artifacts = {}
+
+    for resource_set in hidden_resources:
+        for resources in resource_set.traverse():
+            for r in resources:
+                if r.is_source:
+                    # Source files; do a string repr so that we get the
+                    # package path in there too
+                    owner_to_artifacts.setdefault("", []).append(str(r))
+                else:
+                    owner_to_artifacts.setdefault(r.owner, []).append(r.short_path)
+
+    msg = (
+        "Cannot package hidden srcs/resources in a standalone python_binary. " +
+        'Eliminate resources in non-Python dependencies of this binary, or use `package_style = "inplace"`.\n'
+    )
+
+    for (rule, resources) in owner_to_artifacts.items():
+        if rule != "":
+            msg += "Hidden srcs/resources for {}\n".format(rule)
+        else:
+            msg += "Source files:\n"
+            msg += "Find the reason this file was included with `buck2 cquery 'allpaths({}, owner(%s))' <file paths>`\n".format(current_target.raw_target())
+        for resource in sorted(resources):
+            msg += "  {}\n".format(resource)
+    return msg
