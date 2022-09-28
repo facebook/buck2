@@ -245,6 +245,11 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         None
     }
 
+    fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
+        // TODO(nga): implement properly.
+        false
+    }
+
     fn dir_attr(&self) -> Vec<String> {
         if self.typ.is_some() {
             vec!["type".to_owned()]
