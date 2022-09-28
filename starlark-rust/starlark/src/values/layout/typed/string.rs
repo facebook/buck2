@@ -155,6 +155,8 @@ pub trait StringValueLike<'v>:
     + Display
     + Debug
     + Default
+    + Eq
+    + Ord
     + Copy
     + Clone
     + Dupe
