@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_core::soft_error;
 use cli_proto::QueryOutputFormat;
 use cli_proto::UqueryRequest;
 use gazebo::dupe::Dupe;
@@ -69,6 +70,18 @@ pub(crate) struct CommonAttributeArgs {
 
 impl CommonAttributeArgs {
     pub(crate) fn get(&self) -> Vec<String> {
+        if !self.output_attributes.is_empty() {
+            // This unwrap is safe because we won't turn this into a hard error, we'll just delete the
+            // flag so it doesn't happen in the first place
+            soft_error!(
+                "output_attributes",
+                anyhow::anyhow!(
+                    "`--output-attributes` is deprecated, use `--output-attribute` instead"
+                )
+            )
+            .unwrap();
+        }
+
         if !self.output_attribute.is_empty() {
             self.output_attribute.clone()
         } else {
