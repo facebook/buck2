@@ -140,7 +140,10 @@ pub enum HybridExecutionLevel {
     /// `fallback_on_failure` is set, then we also fallback on failures.
     Fallback { fallback_on_failure: bool },
     /// Race both executors.
-    Full { fallback_on_failure: bool },
+    Full {
+        fallback_on_failure: bool,
+        low_pass_filter: bool,
+    },
 }
 
 impl CommandExecutorKind {

@@ -17,6 +17,9 @@ use buck2_common::liveliness_manager::CancelledLivelinessGuard;
 use buck2_common::liveliness_manager::LivelinessGuard;
 use buck2_common::liveliness_manager::LivelinessManager;
 use buck2_common::liveliness_manager::LivelinessManagerExt;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
+use buck2_core::env_helper::EnvHelper;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
@@ -28,13 +31,29 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use derivative::Derivative;
 use futures::future::Either;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 use remote_execution as RE;
 
 use crate::executors::local::LocalExecutor;
 use crate::executors::re::ReExecutor;
+use crate::low_pass_filter::LowPassFilter;
+
+// This is still POC-grade, this should be configurable in config.
+static LOW_PASS_FILTER: Lazy<SharedResult<LowPassFilter>> = Lazy::new(|| {
+    static LOW_PASS_FILTER_CONCURRENCY: EnvHelper<usize> =
+        EnvHelper::new("BUCK2_LOW_PASS_FILTER_CONCURRENCY");
+    Ok(LowPassFilter::new(
+        LOW_PASS_FILTER_CONCURRENCY
+            .get()
+            .shared_error()?
+            .copied()
+            .unwrap_or(32),
+    ))
+});
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
 /// executor, unless the CommandExecutionRequest expresses a preference. That will allow them to
@@ -81,6 +100,11 @@ impl PreparedCommandExecutor for HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
+        let low_pass_filer_instance = match &*LOW_PASS_FILTER {
+            Ok(i) => i,
+            Err(e) => return manager.error("low_pass_filter".to_owned(), e.dupe().into()),
+        };
+
         // inspect that and construct our own result. Especially in the case of secondary fallback,
         // the current approach effectively loses the data from the primary result (for example, we
         // should have stage events the reflect the full duration not just the fallback part).
@@ -92,6 +116,11 @@ impl PreparedCommandExecutor for HybridExecutor {
         // local's claim, and then resume RE.
         let (local_execution_liveliness_manager, local_execution_liveliness_guard) =
             LivelinessGuard::create();
+
+        // Used to monitor that the RE execution is alive.
+        let (remote_execution_liveliness_manager, remote_execution_liveliness_guard) =
+            LivelinessGuard::create();
+
         let claim_manager = MutexClaimManager::new();
 
         // Note that this only sets up these futures, nothing will happen until they are awaited
@@ -110,7 +139,11 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let remote_result = self.remote_exec_cmd(
             command,
-            box ReClaimManager::new(local_execution_liveliness_guard, box claim_manager),
+            box ReClaimManager::new(
+                local_execution_liveliness_guard,
+                box claim_manager,
+                remote_execution_liveliness_guard,
+            ),
             manager.events.dupe(),
             manager.liveliness_manager.dupe(),
         );
@@ -125,7 +158,34 @@ impl PreparedCommandExecutor for HybridExecutor {
             return local_result.await;
         };
 
-        let local_result = local_result.left_future();
+        let (is_limited, fallback_only, fallback_on_failure, low_pass_filter) = match self.level {
+            HybridExecutionLevel::Limited => (true, false, false, false),
+            HybridExecutionLevel::Fallback {
+                fallback_on_failure,
+            } => (false, true, fallback_on_failure, false),
+            HybridExecutionLevel::Full {
+                fallback_on_failure,
+                low_pass_filter,
+            } => (false, false, fallback_on_failure, low_pass_filter),
+        };
+
+        let local_result = if low_pass_filter {
+            async move {
+                // Block local unless we only have a few actions (that's low_pass_filter), or if the
+                // remote executor aborts entirely (that's remote_execution_liveliness_guard).
+                let access = low_pass_filer_instance.access();
+                let alive = remote_execution_liveliness_manager.while_alive();
+                futures::pin_mut!(access);
+                futures::pin_mut!(alive);
+                let _guard = futures::future::select(access, alive).await;
+                local_result.await
+            }
+            .left_future()
+        } else {
+            local_result.right_future()
+        }
+        .left_future();
+
         let remote_result = remote_result.right_future();
 
         let (primary, secondary) = if executor_preference.prefers_local() {
@@ -134,15 +194,11 @@ impl PreparedCommandExecutor for HybridExecutor {
             (remote_result, local_result)
         };
 
-        let (fallback_only, fallback_on_failure) = match self.level {
-            HybridExecutionLevel::Limited => return primary.await,
-            HybridExecutionLevel::Fallback {
-                fallback_on_failure,
-            } => (true, fallback_on_failure),
-            HybridExecutionLevel::Full {
-                fallback_on_failure,
-            } => (false, fallback_on_failure),
-        };
+        if is_limited {
+            // Drop any lifetime guards owned by the secondary.
+            drop(secondary);
+            return primary.await;
+        }
 
         let is_retryable_status = move |r: &CommandExecutionResult| {
             match &r.report.status {
@@ -211,11 +267,13 @@ impl ReClaimManager {
     fn new(
         local_execution_liveliness_guard: LivelinessGuard,
         claim_manager: Box<dyn ClaimManager>,
+        remote_execution_liveliness_guard: LivelinessGuard,
     ) -> Self {
         Self {
             inner: Some(ReClaimManagerInner {
                 local_execution_liveliness_guard,
                 claim_manager,
+                remote_execution_liveliness_guard,
             }),
         }
     }
@@ -231,8 +289,12 @@ impl Drop for ReClaimManager {
 }
 
 struct ReClaimManagerInner {
+    /// Used to control and potentially cancel the execution of local comands.
     local_execution_liveliness_guard: LivelinessGuard,
     claim_manager: Box<dyn ClaimManager>,
+
+    /// Only kept aive while the ReClaimManager (or its Claim) is alive.
+    remote_execution_liveliness_guard: LivelinessGuard,
 }
 
 #[async_trait::async_trait]
@@ -250,14 +312,22 @@ impl ClaimManager for ReClaimManager {
         box ReClaim {
             released_liveliness_guard,
             claim,
+            _remote_execution_liveliness_guard: inner.remote_execution_liveliness_guard,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)] // None of the fields have meaningful debug here.
 struct ReClaim {
+    #[derivative(Debug = "ignore")]
     released_liveliness_guard: CancelledLivelinessGuard,
+    #[derivative(Debug = "ignore")]
     claim: Box<dyn Claim>,
+
+    /// Only used for its lifetime.
+    #[derivative(Debug = "ignore")]
+    _remote_execution_liveliness_guard: LivelinessGuard,
 }
 
 impl Claim for ReClaim {

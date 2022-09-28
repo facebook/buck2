@@ -61,6 +61,8 @@ struct StarlarkCommandExecutorConfig<'v> {
     pub(super) use_windows_path_separators: bool,
     /// Whether to upload local actions to the RE cache
     pub(super) allow_cache_uploads: bool,
+    /// Whether to use the experimental low pass filter.
+    pub(super) experimental_low_pass_filter: bool,
 }
 
 impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
@@ -170,6 +172,7 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             (true, false) => HybridExecutionLevel::Limited,
             (false, _) => HybridExecutionLevel::Full {
                 fallback_on_failure,
+                low_pass_filter: self.experimental_low_pass_filter,
             },
         };
 
@@ -254,6 +257,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
         #[starlark(default = false, require = named)] use_windows_path_separators: bool,
         #[starlark(default = false, require = named)] allow_cache_uploads: bool,
+        #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let config = StarlarkCommandExecutorConfig {
@@ -269,6 +273,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             allow_hybrid_fallbacks_on_failure,
             use_windows_path_separators,
             allow_cache_uploads,
+            experimental_low_pass_filter,
         };
         // This checks that the values are valid.
         config.to_command_executor_config()?;
