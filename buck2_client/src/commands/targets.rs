@@ -112,6 +112,15 @@ pub struct TargetsCommand {
     target_hash_function: TargetHashFunction,
 
     #[clap(
+        short = 'A',
+        long,
+        group = "output_attribute_flags",
+        name = "output_all_attributes",
+        help = "Output all attributes, equivalent of --output-attribute ''"
+    )]
+    output_all_attributes: bool,
+
+    #[clap(
         short = 'a',
         long,
         value_name = "ATTRIBUTE",
@@ -120,7 +129,9 @@ pub struct TargetsCommand {
         multiple times.",
         // without limiting number_of_values, clap will read all space-separated values
         // after the flag, we want to require that each value be preceded individually by the flag.
-        number_of_values = 1
+        number_of_values = 1,
+         // If the output_all_attributes flag (-A) is set, use "" to select all
+         default_value_if("output_all_attributes", None, Some("")),
     )]
     output_attribute: Vec<String>,
 
