@@ -124,6 +124,9 @@ where
         match other.as_provider() {
             None => ValueError::unsupported_with(self, "compare", other),
             Some(o) => {
+                // TODO(nga): we compare providers of different types,
+                //   but builtin providers do not implement `compare`,
+                //   this violates the contract of `compare`.
                 match self.id.cmp(o.id()) {
                     Ordering::Equal => {}
                     v => return Ok(v),
