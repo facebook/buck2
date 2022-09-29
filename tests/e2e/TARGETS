@@ -29,6 +29,7 @@ buck2_e2e_test(
         "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
     },
     deps = [
+        "fbsource//third-party/pypi/aiohttp:aiohttp",
         ":assert_occurrences",
     ],
 )

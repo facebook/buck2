@@ -1,0 +1,5 @@
+# @lint-ignore-every BUCKRESTRICTEDSYNTAX
+
+load(":defs.bzl", "test")
+
+test(name = "test", url = read_config("test", "url"), sha1 = read_config("test", "sha1"))

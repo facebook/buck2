@@ -9,6 +9,7 @@
 
 use std::io::Write;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
@@ -91,6 +92,26 @@ pub enum HttpError {
     },
 }
 
+impl HttpError {
+    /// Decide whether to retry this HTTP error. If we got a response but the server errored or
+    /// told us to come back later, we retry. If we didn't get a response, then we retry only if we
+    /// suceeded in connecting (so as to ensure we don't waste time retrying when the domain
+    /// portion of the URL is just wrong or when we don't have the right TLS credentials).
+    ///
+    /// NOTE: not retrying *any* connect errors may not be ideal, but we dont get access to more
+    /// detail with Reqwest. To fix this we should migrate to raw Hyper (which probably wouldn't be
+    /// a bad idea anyway).
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::HttpErrorStatus { status, .. } => {
+                status.is_server_error() || *status == StatusCode::TOO_MANY_REQUESTS
+            }
+            Self::HttpHeadersTransferError { source, .. }
+            | Self::HttpTransferError { source, .. } => !source.is_connect(),
+        }
+    }
+}
+
 fn http_error_label(status: StatusCode) -> &'static str {
     if status.is_server_error() {
         return "Server";
@@ -119,6 +140,27 @@ enum HttpDownloadError {
 
     #[error(transparent)]
     IoError(anyhow::Error),
+}
+
+trait AsHttpError {
+    fn as_http_error(&self) -> Option<&HttpError>;
+}
+
+impl AsHttpError for HttpHeadError {
+    fn as_http_error(&self) -> Option<&HttpError> {
+        match self {
+            Self::HttpError(e) => Some(e),
+        }
+    }
+}
+
+impl AsHttpError for HttpDownloadError {
+    fn as_http_error(&self) -> Option<&HttpError> {
+        match self {
+            Self::HttpError(e) => Some(e),
+            Self::InvalidChecksum(..) | Self::IoError(..) => None,
+        }
+    }
 }
 
 pub fn http_client() -> anyhow::Result<Client> {
@@ -264,7 +306,33 @@ pub async fn http_download(
 async fn http_retry<Exec, F, T, E>(exec: Exec) -> Result<T, E>
 where
     Exec: Fn() -> F,
+    E: AsHttpError + std::fmt::Display,
     F: Future<Output = Result<T, E>>,
 {
-    exec().await
+    let mut backoff = [0, 2, 4, 8].into_iter().peekable();
+
+    while let Some(duration) = backoff.next() {
+        tokio::time::sleep(Duration::from_secs(duration)).await;
+
+        let res = exec().await;
+
+        let http_error = res.as_ref().err().and_then(|err| err.as_http_error());
+
+        if let Some(http_error) = http_error {
+            if http_error.is_retryable() {
+                if let Some(b) = backoff.peek() {
+                    tracing::warn!(
+                        "Retrying a HTTP error after {} seconds: {:#}",
+                        b,
+                        http_error
+                    );
+                    continue;
+                }
+            }
+        }
+
+        return res;
+    }
+
+    unreachable!("The loop above will exit before we get to the end")
 }

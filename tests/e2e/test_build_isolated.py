@@ -1,4 +1,5 @@
 import fileinput
+import hashlib
 import json
 import os
 import platform
@@ -14,6 +15,8 @@ import typing
 from pathlib import Path
 
 import pytest
+
+from aiohttp import web
 
 from buck2.tests.e2e.helper.assert_occurrences import (
     assert_occurrences,
@@ -326,6 +329,46 @@ async def test_simple_run(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="actions")
 async def test_dynamic_outputs(buck: Buck) -> None:
     await buck.build("//dynamic:")
+
+
+@buck_test(inplace=False, data_dir="actions")
+async def test_download_file(buck: Buck) -> None:
+    routes = web.RouteTableDef()
+
+    attempt = 0
+    body = b"foobar"
+    sha1 = hashlib.sha1(body).hexdigest()
+
+    @routes.get("/")
+    async def hello(request):
+        nonlocal attempt
+        attempt += 1
+        if attempt > 2:
+            return web.Response(body=body)
+        if attempt > 1:
+            return web.Response(status=500)
+        return web.Response(status=429)
+
+    app = web.Application()
+    app.add_routes(routes)
+
+    sock = socket.socket()
+    sock.bind(("localhost", 0))
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.SockSite(runner, sock)
+    await site.start()
+
+    port = sock.getsockname()[1]
+    url = f"http://localhost:{port}"
+    await buck.build(
+        "//download_file:", "-c", f"test.sha1={sha1}", "-c", f"test.url={url}"
+    )
+
+    await runner.cleanup()
+
+    assert attempt == 3
 
 
 @buck_test(inplace=False, data_dir="args")
