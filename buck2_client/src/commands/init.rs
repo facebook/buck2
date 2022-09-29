@@ -235,8 +235,8 @@ fn set_up_project(
         }
 
         std::fs::create_dir(path.join("toolchains"))?;
-        writeln!(buck_config, "prelude = ./prelude")?;
-        writeln!(buck_config, "toolchains = ./toolchains")?;
+        writeln!(buck_config, "prelude = prelude")?;
+        writeln!(buck_config, "toolchains = toolchains")?;
 
         for (lang, files) in discovered_langs.iter() {
             match lang {
