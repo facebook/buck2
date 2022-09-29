@@ -3,7 +3,7 @@ load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:utils.bzl", "expect")
 
 def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "target_label"}) -> {"artifact": "target_label"}:
-    sh_script, macro_files = ctx.actions.write(
+    sh_script, _ = ctx.actions.write(
         "preprocessed_java_classes/script.sh",
         cmd_args(ctx.attrs.preprocess_java_classes_bash),
         is_executable = True,
@@ -11,7 +11,6 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "tar
     )
 
     preprocess_cmd = cmd_args(["/bin/bash", sh_script])
-    preprocess_cmd.hidden(macro_files)
     preprocess_cmd.hidden(cmd_args(ctx.attrs.preprocess_java_classes_bash))
     for dep in ctx.attrs.preprocess_java_classes_deps:
         preprocess_cmd.hidden(dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs)

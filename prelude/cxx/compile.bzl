@@ -408,10 +408,9 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
         args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
     shell_quoted_args = cmd_args(args, quote = "shell")
-    argfile, macro_files = ctx.actions.write(ext.value + ".argsfile", shell_quoted_args, allow_args = True)
+    argfile, _ = ctx.actions.write(ext.value + ".argsfile", shell_quoted_args, allow_args = True)
 
     hidden_args = [args]
-    hidden_args.extend(macro_files)
 
     cmd_form = cmd_args(argfile, format = "@{}").hidden(hidden_args)
 

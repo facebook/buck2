@@ -27,7 +27,7 @@ def worker_tool(ctx: "context") -> ["provider"]:
 
     worker_args = ctx.attrs.args
     if worker_args:
-        worker_args_file, worker_macro_file = ctx.actions.write(
+        worker_args_file, _ = ctx.actions.write(
             "worker_tool_args",
             worker_args,
             allow_args = True,
@@ -35,7 +35,6 @@ def worker_tool(ctx: "context") -> ["provider"]:
 
         worker_tool_cmd.add("--worker-args-file")
         worker_tool_cmd.add(worker_args_file)
-        worker_tool_cmd.hidden([worker_macro_file])
 
     worker_env = ctx.attrs.env
     if worker_env:
@@ -44,7 +43,7 @@ def worker_tool(ctx: "context") -> ["provider"]:
             env_args.append(key)
             env_args.append(value)
 
-        env_args_file, env_macro_file = ctx.actions.write(
+        env_args_file, _ = ctx.actions.write(
             "worker_tool_envs",
             env_args,
             allow_args = True,
@@ -52,7 +51,6 @@ def worker_tool(ctx: "context") -> ["provider"]:
 
         worker_tool_cmd.add("--worker-env-file")
         worker_tool_cmd.add(env_args_file)
-        worker_tool_cmd.hidden([env_macro_file])
 
     return [
         DefaultInfo(default_outputs = []),

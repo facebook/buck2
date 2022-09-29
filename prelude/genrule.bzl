@@ -260,7 +260,7 @@ def process_genrule(
         # Should be in the beginning.
         script = [cmd_args("@echo off")] + script
 
-    sh_script, macro_files = ctx.actions.write(
+    sh_script, _ = ctx.actions.write(
         "sh/genrule.{}".format(script_extension) if not identifier else "sh/{}-genrule.{}".format(identifier, script_extension),
         script,
         is_executable = True,
@@ -276,7 +276,7 @@ def process_genrule(
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(script_args).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
+        cmd_args(script_args).hidden([cmd, srcs_artifact] + [a.as_output() for a in all_outputs]),
         env = env_vars,
         local_only = local_only,
         allow_cache_upload = cacheable,

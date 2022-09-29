@@ -37,7 +37,7 @@ def command_alias_impl(ctx):
         non_materialized_reference = ctx.actions.write("dummy", "")
         trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
 
-        trampoline_tmp, deps = ctx.actions.write("__command_alias_trampoline.sh.pre", trampoline_args, allow_args = True)
+        trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.sh.pre", trampoline_args, allow_args = True)
 
         # FIXME (T111687922): Avert your eyes... We want to add
         # $BUCK_COMMAND_ALIAS_ABSOLUTE a prefix on all the args we include, but
@@ -57,7 +57,7 @@ def command_alias_impl(ctx):
         ], category = "sed")
 
         run_info_args.add(trampoline)
-        run_info_args.hidden([trampoline_args, deps])
+        run_info_args.hidden([trampoline_args])
     else:
         run_info_args.add(base.args)
         run_info_args.add(ctx.attrs.args)

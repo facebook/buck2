@@ -250,13 +250,12 @@ def rust_compile(
             ],
             "{}-{}".format(subdir, tempfile),
         )
-        linker_argsfile, macro_files = ctx.actions.write(
+        linker_argsfile, _ = ctx.actions.write(
             "{}/__{}_linker_args.txt".format(subdir, tempfile),
             link_args,
             allow_args = True,
         )
         rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-        rustc_cmd.hidden(macro_files)
         rustc_cmd.hidden(hidden)
 
     # If we're using failure filtering then we need to make sure the final
@@ -508,7 +507,7 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
     clippy_driver = cmd_args(ctx_toolchain_info(ctx).clippy_driver)
     rustc = cmd_args(ctx_toolchain_info(ctx).compiler)
 
-    wrapper_file, macro_files = ctx.actions.write(
+    wrapper_file, _ = ctx.actions.write(
         ctx.actions.declare_output("__clippy_driver_wrapper.sh"),
         [
             "#!/bin/bash",
@@ -521,7 +520,7 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
         allow_args = True,
     )
 
-    return cmd_args(wrapper_file).hidden(macro_files, clippy_driver, rustc)
+    return cmd_args(wrapper_file).hidden(clippy_driver, rustc)
 
 # This is a hack because we need to pass the linker to rustc
 # using -Clinker=path and there is currently no way of doing this
@@ -537,7 +536,7 @@ def _linker_args(ctx: "context") -> "cmd_args":
 
     # Now we create a wrapper to actually run the linker. Use $(cat <<heredoc) to
     # combine the multiline command into a single logical command.
-    wrapper, macro_files = ctx.actions.write(
+    wrapper, _ = ctx.actions.write(
         ctx.actions.declare_output("__linker_wrapper.sh"),
         [
             "#!/bin/bash",
@@ -547,7 +546,7 @@ def _linker_args(ctx: "context") -> "cmd_args":
         allow_args = True,
     )
 
-    return cmd_args(wrapper, format = "-Clinker={}").hidden(linker, macro_files)
+    return cmd_args(wrapper, format = "-Clinker={}").hidden(linker)
 
 def _shell_quote(args: "cmd_args") -> "cmd_args":
     return cmd_args(args, quote = "shell")

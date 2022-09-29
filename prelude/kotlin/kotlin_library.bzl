@@ -59,13 +59,13 @@ def _create_kotlin_sources(
     )
 
     # write joined classpath string into args file
-    classpath_args_file, classpath_macro_files = ctx.actions.write(
+    classpath_args_file, _ = ctx.actions.write(
         "kotlinc_classpath",
         classpath_args,
         allow_args = True,
     )
 
-    compile_kotlin_cmd.hidden([compiling_classpath, classpath_macro_files])
+    compile_kotlin_cmd.hidden([compiling_classpath])
 
     kotlinc_cmd_args.add(["-classpath"])
     kotlinc_cmd_args.add(cmd_args(classpath_args_file, format = "@{}"))
@@ -154,12 +154,11 @@ def _create_kotlin_sources(
         ksp_kotlinc_cmd_args = cmd_args(kotlinc_cmd_args)
         _add_plugins(ctx, ksp_kotlinc_cmd_args, ksp_cmd, is_ksp = True)
 
-        ksp_cmd_args_file, ksp_macro_files = ctx.actions.write(
+        ksp_cmd_args_file, _ = ctx.actions.write(
             "ksp_kotlinc_cmd",
             ksp_kotlinc_cmd_args,
             allow_args = True,
         )
-        ksp_cmd.hidden(ksp_macro_files)
 
         ksp_cmd.add("--kotlinc_cmd_file")
         ksp_cmd.add(ksp_cmd_args_file)
@@ -177,13 +176,13 @@ def _create_kotlin_sources(
         compile_kotlin_cmd.add(["--zipped_sources_file", zipped_sources_file])
         compile_kotlin_cmd.hidden(zipped_sources)
 
-    args_file, macro_files = ctx.actions.write(
+    args_file, _ = ctx.actions.write(
         "kotlinc_cmd",
         kotlinc_cmd_args,
         allow_args = True,
     )
 
-    compile_kotlin_cmd.hidden([plain_sources, macro_files])
+    compile_kotlin_cmd.hidden([plain_sources])
 
     compile_kotlin_cmd.add("--kotlinc_cmd_file")
     compile_kotlin_cmd.add(args_file)

@@ -107,10 +107,9 @@ def get_text_symbols(
     dep_symbols = _get_dep_symbols(deps)
     dep_symbol_paths.add(dep_symbols)
 
-    dep_symbol_paths_file, dep_symbol_macro_files = ctx.actions.write("{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file", dep_symbol_paths, allow_args = True)
+    dep_symbol_paths_file, _ = ctx.actions.write("{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file", dep_symbol_paths, allow_args = True)
 
     mini_aapt_cmd.add(["--dep-symbol-paths", dep_symbol_paths_file])
-    mini_aapt_cmd.hidden(dep_symbol_macro_files)
     mini_aapt_cmd.hidden(dep_symbols)
 
     text_symbols = ctx.actions.declare_output("{}_R.txt".format(identifier) if identifier else "R.txt")

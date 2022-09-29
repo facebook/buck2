@@ -195,7 +195,7 @@ def _compile_with_argsfile(
         additional_flags: "cmd_args",
         toolchain: "SwiftToolchainInfo") -> "CxxAdditionalArgsfileParams":
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
-    argfile, macro_files = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
+    argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
@@ -207,14 +207,13 @@ def _compile_with_argsfile(
 
     # Argsfile should also depend on all artifacts in it,
     # otherwise they won't be materialised.
-    cmd.hidden(macro_files + [shell_quoted_args])
+    cmd.hidden([shell_quoted_args])
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
     ctx.actions.run(cmd, category = name, prefer_local = prefer_local, allow_cache_upload = prefer_local)
 
     hidden_args = [shared_flags]
-    hidden_args.extend(macro_files)
     return CxxAdditionalArgsfileParams(file = argfile, hidden_args = hidden_args, extension = ".swift")
 
 def _get_shared_flags(

@@ -40,8 +40,8 @@ def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, 
 
     if toolchain.linker_info.archiver_supports_argfiles:
         shell_quoted_args = cmd_args(args, quote = "shell")
-        argfile, macro_files = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
-        command.hidden(macro_files + [shell_quoted_args])
+        argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
+        command.hidden([shell_quoted_args])
         command.add(cmd_args(["@", argfile], delimiter = ""))
     else:
         command.add(args)

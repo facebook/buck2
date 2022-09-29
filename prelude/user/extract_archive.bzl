@@ -8,7 +8,7 @@ load(":rule_spec.bzl", "RuleRegistrationSpec")
 def _impl(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output(value_or(ctx.attrs.directory_name, ctx.label.name))
     archive = ctx.attrs.contents_archive
-    script, hidden = ctx.actions.write(
+    script, _ = ctx.actions.write(
         "unpack.sh",
         [
             cmd_args(output, format = "mkdir -p {}"),
@@ -19,7 +19,7 @@ def _impl(ctx: "context") -> ["provider"]:
         allow_args = True,
     )
     ctx.actions.run(cmd_args(["/bin/sh", script])
-        .hidden(hidden + [archive, output.as_output()]), category = "extract_archive")
+        .hidden([archive, output.as_output()]), category = "extract_archive")
 
     return [DefaultInfo(default_outputs = [output])]
 

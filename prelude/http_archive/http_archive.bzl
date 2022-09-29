@@ -51,7 +51,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         exclude_hidden.append(exclusions)
 
     output = ctx.actions.declare_output(value_or(ctx.attrs.out, ctx.label.name))
-    script, hidden = ctx.actions.write(
+    script, _ = ctx.actions.write(
         "unpack.sh",
         [
             cmd_args(output, format = "mkdir -p {}"),
@@ -71,6 +71,6 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         allow_args = True,
     )
     ctx.actions.run(cmd_args(["/bin/sh", script])
-        .hidden(hidden + exclude_hidden + [archive, output.as_output()]), category = "http_archive", local_only = local_only)
+        .hidden(exclude_hidden + [archive, output.as_output()]), category = "http_archive", local_only = local_only)
 
     return [DefaultInfo(default_outputs = [output])]

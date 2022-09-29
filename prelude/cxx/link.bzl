@@ -100,7 +100,7 @@ def cxx_link(
         external_debug_info.append(dwo_dir)
 
     shell_quoted_args = cmd_args(link_args, quote = "shell")
-    argfile, macro_files = ctx.actions.write(
+    argfile, _ = ctx.actions.write(
         output.short_path + ".linker.argsfile",
         shell_quoted_args,
         allow_args = True,
@@ -108,7 +108,7 @@ def cxx_link(
     command = cxx_link_cmd(ctx)
     command.add("-o", output.as_output())
     command.add(cmd_args(argfile, format = "@{}"))
-    command.hidden([hidden, macro_files])
+    command.hidden([hidden])
     category = "cxx_link"
     if category_suffix != None:
         category += "_" + category_suffix

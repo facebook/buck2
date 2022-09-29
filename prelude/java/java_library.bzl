@@ -63,14 +63,14 @@ def _process_classpath(
         args_file_name: "string",
         option_name: "string"):
     # write joined classpath string into args file
-    classpath_args_file, classpath_macro_files = actions.write(
+    classpath_args_file, _ = actions.write(
         args_file_name,
         classpath_args,
         allow_args = True,
     )
 
     # mark classpath artifacts as input
-    cmd.hidden(classpath_args, classpath_macro_files)
+    cmd.hidden(classpath_args)
 
     # add classpath args file to cmd
     cmd.add(option_name, classpath_args_file)
@@ -229,7 +229,7 @@ def _append_javac_params(
     zipped_sources, plain_sources = split_on_archives_and_plain_files(srcs, _JAVA_FILE_EXTENSION)
 
     javac_args.add(*plain_sources)
-    args_file, macro_files = actions.write(
+    args_file, _ = actions.write(
         "{}javac_args".format(actions_prefix),
         javac_args,
         allow_args = True,
@@ -237,7 +237,7 @@ def _append_javac_params(
     cmd.hidden(javac_args)
 
     # mark plain srcs artifacts as input
-    cmd.hidden(plain_sources, macro_files)
+    cmd.hidden(plain_sources)
 
     cmd.add("--javac_args_file", args_file)
 

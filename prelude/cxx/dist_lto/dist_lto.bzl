@@ -349,7 +349,7 @@ def cxx_dist_link(
             add_linkables_args(len(index_link_data))
             add_post_flags(len(index_link_data))
 
-            index_argfile, index_argfile_inputs = ctx.actions.write(
+            index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
                 prepend_index_args.add(index_args),
                 allow_args = True,
@@ -383,7 +383,6 @@ def cxx_dist_link(
             plan_extra_inputs = cmd_args()
             plan_extra_inputs.add(index_meta)
             plan_extra_inputs.add(index_args)
-            plan_extra_inputs.add(index_argfile_inputs)
             plan_cmd.hidden(plan_extra_inputs)
 
             ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)

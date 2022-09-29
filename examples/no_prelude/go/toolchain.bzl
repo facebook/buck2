@@ -32,7 +32,7 @@ def http_archive_impl(ctx: "context", url, sha1) -> ["provider"]:
     compress_flag = "-z"
 
     output = ctx.actions.declare_output(ctx.label.name)
-    script, hidden = ctx.actions.write(
+    script, _ = ctx.actions.write(
         "unpack.sh",
         [
             cmd_args(output, format = "mkdir -p {}"),
@@ -44,6 +44,6 @@ def http_archive_impl(ctx: "context", url, sha1) -> ["provider"]:
     )
 
     ctx.actions.run(cmd_args(["/bin/sh", script])
-        .hidden(hidden + [archive, output.as_output()]), category = "http_archive")
+        .hidden([archive, output.as_output()]), category = "http_archive")
 
     return [DefaultInfo(default_outputs = [output])]

@@ -136,13 +136,13 @@ def _mk_script(ctx: "context", file: str.type, args: [""], env: {str.type: ""}) 
     for name, val in env.items():
         lines.append(cmd_args(val, format = "export {}={{}}".format(name)))
     lines.append(cmd_args([cmd_args(args, quote = "shell"), "\"$@\""], delimiter = " "))
-    script, deps = ctx.actions.write(
+    script, _ = ctx.actions.write(
         file,
         lines,
         is_executable = True,
         allow_args = True,
     )
-    return cmd_args(script).hidden(deps, args)
+    return cmd_args(script).hidden(args)
 
 # An environment in which a custom `bin` is at the head of `$PATH`.
 def _mk_env(ctx: "context"):
@@ -347,13 +347,13 @@ def _depends(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.t
     dep_cmdline.add(cmd_args([cmd_args(src).parent() for src in srcs], format = "-I {}"))
     dep_cmdline.add(srcs)
     dep_script_name = "deps_" + bytecode_or_native.value + ".sh"
-    dep_sh, dep_files = ctx.actions.write(
+    dep_sh, _ = ctx.actions.write(
         dep_script_name,
         ["#!/usr/bin/env bash", cmd_args([dep_cmdline, ">", dep_output], delimiter = " ")],
         is_executable = True,
         allow_args = True,
     )
-    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline, dep_files), category = "ocaml_dep_" + bytecode_or_native.value)
+    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline), category = "ocaml_dep_" + bytecode_or_native.value)
     return dep_output
 
 # Compile all the context's sources. If bytecode compiling, 'cmxs' & 'objs' will

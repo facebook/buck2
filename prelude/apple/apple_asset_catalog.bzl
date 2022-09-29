@@ -89,7 +89,7 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
 
     # `actool` expects the output directory to be present.
     # Use the wrapper script to create the directory first and then actually call `actool`.
-    wrapper_script, hidden = ctx.actions.write(
+    wrapper_script, _ = ctx.actions.write(
         "actool_wrapper.sh",
         [
             cmd_args(catalog_output, format = "mkdir -p {}"),
@@ -97,5 +97,5 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
         ],
         allow_args = True,
     )
-    command = cmd_args(["/bin/sh", wrapper_script]).hidden(hidden + [actool_command])
+    command = cmd_args(["/bin/sh", wrapper_script]).hidden([actool_command])
     return command

@@ -65,13 +65,13 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
             ],
             delimiter = " ",
         )
-        linker_wrapper, macro_files = ctx.actions.write(
+        linker_wrapper, _ = ctx.actions.write(
             "__{}_cxx_link_wrapper__.sh".format(ctx.label.name),
             ["#!/bin/sh", cxx_link_cmd],
             allow_args = True,
             is_executable = True,
         )
-        cmd.add("-extld", linker_wrapper).hidden(cxx_link_cmd).hidden(macro_files)
+        cmd.add("-extld", linker_wrapper).hidden(cxx_link_cmd)
 
     if ctx.attrs.linker_flags:
         cmd.add(ctx.attrs.linker_flags)

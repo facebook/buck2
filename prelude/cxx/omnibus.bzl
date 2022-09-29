@@ -563,7 +563,7 @@ def _extract_global_symbols_from_link_args(
     # We intentionally drop the artifacts referenced in the args when generating
     # the argsfile -- we just want to parse out symbol name flags and don't need
     # to materialize artifacts to do this.
-    argsfile, macros = ctx.actions.write(name + ".args", link_args, allow_args = True)
+    argsfile, _ = ctx.actions.write(name + ".args", link_args, allow_args = True)
 
     # TODO(T110378133): Make this work with other platforms.
     param = "--export-dynamic-symbol"
@@ -581,7 +581,7 @@ def _extract_global_symbols_from_link_args(
         [
             "/bin/bash",
             "-c",
-            cmd_args(output.as_output(), format = script).hidden(macros),
+            cmd_args(output.as_output(), format = script),
             "",
             argsfile,
         ],

@@ -34,7 +34,7 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
     # See https://fb.workplace.com/groups/1042353022615812/permalink/1872164996301273/
     # As a workaround create a directory in tmp, use it for Xcode tools, then
     # copy the result to buck-out.
-    wrapper_script, hidden = ctx.actions.write(
+    wrapper_script, _ = ctx.actions.write(
         "momc_wrapper.sh",
         [
             cmd_args('export TMPDIR="$(mktemp -d)"'),
@@ -43,7 +43,7 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
         ],
         allow_args = True,
     )
-    combined_command = cmd_args(["/bin/sh", wrapper_script]).hidden(hidden + momc_commands + [output.as_output()])
+    combined_command = cmd_args(["/bin/sh", wrapper_script]).hidden(momc_commands + [output.as_output()])
     processing_options = get_bundle_resource_processing_options(ctx)
     ctx.actions.run(combined_command, prefer_local = processing_options.prefer_local, category = "apple_core_data")
     return output

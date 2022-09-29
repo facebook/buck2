@@ -214,7 +214,7 @@ def _run_ibtool(
         # See https://fb.workplace.com/groups/1042353022615812/permalink/1872164996301273/
         # As a workaround create a directory in tmp, use it for Xcode tools, then
         # copy the result to buck-out.
-        wrapper_script, hidden = ctx.actions.write(
+        wrapper_script, _ = ctx.actions.write(
             "ibtool_wrapper.sh",
             [
                 cmd_args('export TMPDIR="$(mktemp -d)"'),
@@ -223,7 +223,7 @@ def _run_ibtool(
             ],
             allow_args = True,
         )
-        command = cmd_args(["/bin/sh", wrapper_script]).hidden(hidden + [ibtool_command, output])
+        command = cmd_args(["/bin/sh", wrapper_script]).hidden([ibtool_command, output])
     else:
         command = ibtool_command
 
