@@ -31,6 +31,7 @@ def _platform(ctx):
             remote_execution_use_case = "buck2-default",
             allow_cache_uploads = ctx.attrs.allow_cache_uploads,
             experimental_low_pass_filter = ctx.attrs.experimental_low_pass_filter,
+            max_cache_upload_mebibytes = 1,
         ),
     )
 
@@ -148,17 +149,19 @@ command = rule(
 
 def _write_impl(ctx):
     # NOTE: This uses a run action so that we can exercise local uploads.
+    tmp = ctx.actions.write("tmp", ctx.attrs.text)
+
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
             "sh",
             "-c",
-            'mkdir -p $(dirname "$2") && echo -n "$1" > "$2"',
+            'mkdir -p $(dirname "$2") && cp "$1" "$2"',
             "--",
-            ctx.attrs.text,
+            tmp,
             cmd_args(out.as_output(), format = ctx.attrs.format),
         ],
-        category = "write",
+        category = "cp",
         local_only = ctx.attrs.local_only,
         allow_cache_upload = ctx.attrs.allow_cache_upload,
     )

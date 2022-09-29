@@ -61,6 +61,8 @@ struct StarlarkCommandExecutorConfig<'v> {
     pub(super) use_windows_path_separators: bool,
     /// Whether to upload local actions to the RE cache
     pub(super) allow_cache_uploads: bool,
+    /// Maximum size to upload in cache uploads
+    pub(super) max_cache_upload_mebibytes: Option<i32>,
     /// Whether to use the experimental low pass filter.
     pub(super) experimental_low_pass_filter: bool,
 }
@@ -176,6 +178,13 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             },
         };
 
+        let max_cache_upload_bytes = self
+            .max_cache_upload_mebibytes
+            .map(u64::try_from)
+            .transpose()
+            .context("max_cache_upload_mebibytes is negative")?
+            .map(|b| b * 1024 * 1024);
+
         Ok(CommandExecutorConfig {
             executor_kind: CommandExecutorKind::new(local_options, remote_options, hybrid_level)?,
             path_separator: if self.use_windows_path_separators {
@@ -184,7 +193,9 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
                 PathSeparatorKind::Unix
             },
             cache_upload_behavior: if self.allow_cache_uploads {
-                CacheUploadBehavior::Enabled
+                CacheUploadBehavior::Enabled {
+                    max_bytes: max_cache_upload_bytes,
+                }
             } else {
                 CacheUploadBehavior::Disabled
             },
@@ -257,6 +268,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
         #[starlark(default = false, require = named)] use_windows_path_separators: bool,
         #[starlark(default = false, require = named)] allow_cache_uploads: bool,
+        #[starlark(default = NoneOr::None, require = named)] max_cache_upload_mebibytes: NoneOr<
+            i32,
+        >,
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
@@ -273,6 +287,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             allow_hybrid_fallbacks_on_failure,
             use_windows_path_separators,
             allow_cache_uploads,
+            max_cache_upload_mebibytes: max_cache_upload_mebibytes.into_option(),
             experimental_low_pass_filter,
         };
         // This checks that the values are valid.

@@ -174,13 +174,16 @@ impl CachingExecutor {
         digest: &ActionDigest,
         result: &CommandExecutionResult,
     ) -> anyhow::Result<Option<CacheUploadOutcome>> {
-        if !self.cache_upload_behavior.is_enabled() {
-            return Ok(None);
-        }
+        let max_bytes = match self.cache_upload_behavior {
+            CacheUploadBehavior::Enabled { max_bytes } => max_bytes,
+            CacheUploadBehavior::Disabled => return Ok(None),
+        };
 
         if !request.allow_cache_upload() {
             return Ok(None);
         }
+
+        let output_bytes = result.outputs.values().calc_output_bytes();
 
         match &result.report.status {
             CommandExecutionStatus::Success {
@@ -209,9 +212,22 @@ impl CachingExecutor {
                 let mut file_digests = Vec::new();
                 let mut tree_digests = Vec::new();
 
-                let res = self
-                    .perform_cache_upload(digest, result, &mut file_digests, &mut tree_digests)
-                    .await;
+                let res = async {
+                    // NOTE: If the size exceeds the limit, we still log that attempt, since
+                    // whoever is configuring this can't easily anticipate how large the outputs
+                    // will be, so some logging is useful.
+                    if let Some(max_bytes) = max_bytes {
+                        if output_bytes > max_bytes {
+                            return Ok(CacheUploadOutcome::Rejected(
+                                CacheUploadRejectionReason::OutputExceedsLimit { max_bytes },
+                            ));
+                        }
+                    }
+
+                    self.perform_cache_upload(digest, result, &mut file_digests, &mut tree_digests)
+                        .await
+                }
+                .await;
 
                 let (success, error) = match &res {
                     Ok(CacheUploadOutcome::Success) => (true, String::new()),
@@ -231,7 +247,7 @@ impl CachingExecutor {
                         error,
                         file_digests,
                         tree_digests,
-                        output_bytes: Some(result.outputs.values().calc_output_bytes()),
+                        output_bytes: Some(output_bytes),
                     },
                 )
             },
@@ -490,7 +506,10 @@ enum CacheUploadOutcome {
 /// A reason why we chose not to upload.
 #[derive(Copy, Clone, Dupe, Debug, Display)]
 enum CacheUploadRejectionReason {
+    #[display(fmt = "SymlinkOutput")]
     SymlinkOutput,
+    #[display(fmt = "OutputExceedsLimit({})", max_bytes)]
+    OutputExceedsLimit { max_bytes: u64 },
 }
 
 fn systemtime_to_ttimestamp(time: SystemTime) -> anyhow::Result<TTimestamp> {

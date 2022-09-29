@@ -18,3 +18,12 @@ write(
     default_target_platform="//platforms:target",
     exec_compatible_with=["//platforms:cache_uploads"],
 )
+
+write(
+    name="write_xxl",
+    text="x" * 1024 * 1024 * 4, # 4MB of X
+    allow_cache_upload=True,
+    local_only=True,
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:cache_uploads"],
+)

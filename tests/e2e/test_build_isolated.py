@@ -926,12 +926,12 @@ async def test_local_only(buck: Buck) -> None:
     )
 
 
-def _assert_upload_attempted(stderr):
+def _assert_upload_attempted(stderr, count=1):
     # Tolerate permission denied errors because we don't have a choice on CI :(
     assert_occurrences_regex(
         "Cache upload for .+ (succeeded|failed:.+uploading_action_result_raw)",
         stderr,
-        1,
+        count,
     )
 
 
@@ -951,6 +951,14 @@ async def test_re_uploads_dir(buck: Buck) -> None:
     args = ["-c", f"write.text={random_string()}"]
     res = await buck.build("root//upload_tests:write_in_dir", *args)
     _assert_upload_attempted(res.stderr)
+
+
+@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
+async def test_re_uploads_limit(buck: Buck) -> None:
+    args = ["-c", f"write.text={random_string()}"]
+    res = await buck.build("root//upload_tests:write_xxl", *args)
+    _assert_upload_attempted(res.stderr, 0)
 
 
 # TODO(marwhal): Fix and enable on Windows

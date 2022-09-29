@@ -104,17 +104,8 @@ impl PathSeparatorKind {
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
 pub enum CacheUploadBehavior {
-    Enabled,
+    Enabled { max_bytes: Option<u64> },
     Disabled,
-}
-
-impl CacheUploadBehavior {
-    pub fn is_enabled(self) -> bool {
-        match self {
-            Self::Enabled => true,
-            Self::Disabled => false,
-        }
-    }
 }
 
 impl Default for CacheUploadBehavior {
