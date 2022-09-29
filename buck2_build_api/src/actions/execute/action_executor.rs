@@ -15,13 +15,10 @@ use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_manager::NoopLivelinessManager;
-use buck2_core::directory::unordered_entry_walk;
-use buck2_core::directory::DirectoryEntry;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::MutexClaimManager;
@@ -156,21 +153,8 @@ impl ActionOutputs {
         self.0.outputs.iter()
     }
 
-    pub fn calc_output_bytes(&self) -> u64 {
-        let mut output_bytes = 0;
-        for output in &self.0.outputs {
-            let mut walk = unordered_entry_walk(output.1.entry().as_ref());
-            while let Some((_path, entry)) = walk.next() {
-                match entry {
-                    DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                        output_bytes += f.digest.size();
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        output_bytes
+    pub fn values(&self) -> impl Iterator<Item = &ArtifactValue> {
+        self.0.outputs.values()
     }
 }
 

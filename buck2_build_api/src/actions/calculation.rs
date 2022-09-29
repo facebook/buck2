@@ -20,6 +20,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::output_size::OutputSize;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -150,7 +151,7 @@ async fn build_action_no_redirect(
                     });
                 }
 
-                output_size = outputs.calc_output_bytes();
+                output_size = outputs.values().calc_output_bytes();
                 action_result = Ok(outputs);
                 execution_kind = Some(meta.execution_kind.as_enum());
                 wall_time = Some(meta.timing.wall_time);
