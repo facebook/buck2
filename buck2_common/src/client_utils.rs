@@ -46,13 +46,14 @@ async fn get_channel_uds(
 ) -> anyhow::Result<Channel> {
     use buck2_core::fs::fs_util;
 
+    use crate::home_buck_tmp::home_buck_tmp_dir;
     use crate::temp_path::TempPath;
 
     // Symlink to temp file to connect to unix domain socket
     // since the unix domain socket path is limited to 108 characters.
     // https://man7.org/linux/man-pages/man7/unix.7.html
     if change_to_parent_dir {
-        let symlink = TempPath::new()?;
+        let symlink = TempPath::new_in(home_buck_tmp_dir()?)?;
 
         fs_util::symlink(unix_socket, symlink.path())?;
 
