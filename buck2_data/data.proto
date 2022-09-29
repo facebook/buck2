@@ -1122,6 +1122,8 @@ message InvocationRecord {
   ResolvedTargetPatterns resolved_target_patterns = 29;
   // Whether repository is Eden filesystem / mount (EdenFS)
   string filesystem = 30;
+  // Test session
+  optional string test_info = 31;
 }
 
 message CacheUploadStart {

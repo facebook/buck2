@@ -73,6 +73,7 @@ mod imp {
         resolved_target_patterns: Option<buck2_data::ResolvedTargetPatterns>,
         invocation_root_path: AbsPathBuf,
         filesystem: Option<String>,
+        test_info: Option<String>,
     }
 
     impl InvocationRecorder {
@@ -112,6 +113,7 @@ mod imp {
                 resolved_target_patterns: None,
                 invocation_root_path,
                 filesystem: None,
+                test_info: None,
             }
         }
 
@@ -162,6 +164,7 @@ mod imp {
                     cache_upload_attempt_count: self.cache_upload_attempt_count,
                     resolved_target_patterns: self.resolved_target_patterns.take(),
                     filesystem: self.filesystem.take().unwrap_or_default(),
+                    test_info: self.test_info.take(),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -312,6 +315,21 @@ mod imp {
         ) -> anyhow::Result<()> {
             self.re_session_id = Some(session.session_id.clone());
             self.re_experiment_name = Some(session.experiment_name.clone());
+            Ok(())
+        }
+
+        async fn handle_test_discovery(
+            &mut self,
+            test_info: &buck2_data::TestDiscovery,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            match &test_info.data {
+                Some(buck2_data::test_discovery::Data::Session(session_info)) => {
+                    self.test_info = Some(session_info.info.clone());
+                }
+                Some(buck2_data::test_discovery::Data::Tests(..)) | None => {}
+            }
+
             Ok(())
         }
 
