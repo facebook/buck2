@@ -20,7 +20,6 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
-use gazebo::dupe::Dupe;
 use serde::Serializer;
 use starlark::collections::Hashed;
 use starlark::collections::SmallMap;
@@ -51,9 +50,7 @@ use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 #[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub struct UserProviderGen<'v, V: ValueLike<'v>> {
-    #[trace(unsafe_ignore)]
-    #[freeze(identity)]
-    id: Arc<ProviderId>,
+    callable: FrozenRef<'static, UserProviderCallableData>,
     // TODO(nga): make key `StringValue`.
     attributes: SmallMap<String, V>,
     _marker: PhantomData<&'v ()>,
@@ -65,7 +62,7 @@ impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_keyed_container(
             f,
-            &format!("{}(", self.id.name),
+            &format!("{}(", self.callable.provider_id.name),
             ")",
             "=",
             self.attributes.iter(),
@@ -80,7 +77,7 @@ where
     starlark_type!("provider");
 
     fn matches_type(&self, ty: &str) -> bool {
-        ty == "provider" || ty == self.id.name
+        ty == "provider" || ty == self.callable.provider_id.name
     }
 
     fn dir_attr(&self) -> Vec<String> {
@@ -106,7 +103,7 @@ where
             Some(other) => other,
             None => return Ok(false),
         };
-        if this.id != other.id {
+        if this.callable.provider_id != other.callable.provider_id {
             return Ok(false);
         }
         if this.attributes.len() != other.attributes.len() {
@@ -130,7 +127,7 @@ where
                 // TODO(nga): we compare providers of different types,
                 //   but builtin providers do not implement `compare`,
                 //   this violates the contract of `compare`.
-                match self.id.cmp(o.id()) {
+                match self.id().cmp(o.id()) {
                     Ordering::Equal => {}
                     v => return Ok(v),
                 }
@@ -156,7 +153,7 @@ where
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        self.id.hash(hasher);
+        self.callable.provider_id.hash(hasher);
         for (k, v) in self.attributes.iter() {
             k.hash(hasher);
             v.write_hash(hasher)?;
@@ -192,7 +189,7 @@ impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<'v, V> {
 
 impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
     fn id(&self) -> &Arc<ProviderId> {
-        &self.id
+        &self.callable.provider_id
     }
 
     fn get_field(&self, name: &str) -> Option<Value<'v>> {
@@ -223,7 +220,7 @@ pub(crate) fn user_provider_creator<'v>(
         })
         .collect::<anyhow::Result<SmallMap<String, Value>>>()?;
     Ok(heap.alloc(UserProvider {
-        id: callable.provider_id.dupe(),
+        callable,
         attributes: values,
         _marker: PhantomData,
     }))
