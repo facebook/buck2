@@ -172,7 +172,7 @@ impl StreamingCommand for TargetsCommand {
             IncompatibleArguments,
         }
 
-        let output_attributes = self.attributes.get();
+        let output_attributes = self.attributes.get()?;
         let target_hash_graph_type =
             match (self.show_target_hash, self.show_unconfigured_target_hash) {
                 (true, true) => {

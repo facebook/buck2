@@ -69,23 +69,20 @@ pub(crate) struct CommonAttributeArgs {
 }
 
 impl CommonAttributeArgs {
-    pub(crate) fn get(&self) -> Vec<String> {
+    pub(crate) fn get(&self) -> anyhow::Result<Vec<String>> {
         if !self.output_attributes.is_empty() {
-            // This unwrap is safe because we won't turn this into a hard error, we'll just delete the
-            // flag so it doesn't happen in the first place
             soft_error!(
                 "output_attributes",
                 anyhow::anyhow!(
                     "`--output-attributes` is deprecated, use `--output-attribute` instead"
                 )
-            )
-            .unwrap();
+            )?;
         }
 
         if !self.output_attribute.is_empty() {
-            self.output_attribute.clone()
+            Ok(self.output_attribute.clone())
         } else {
-            self.output_attributes.clone()
+            Ok(self.output_attributes.clone())
         }
     }
 }
@@ -234,7 +231,7 @@ impl StreamingCommand for UqueryCommand {
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
-        let output_attributes = self.query_common.attributes.get();
+        let output_attributes = self.query_common.attributes.get()?;
         let context = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
