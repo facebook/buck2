@@ -236,6 +236,41 @@ pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `None` if file does not exist.
+fn symlink_metadata_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<fs::Metadata>> {
+    let _guard = IoCounterKey::Stat.guard();
+    match fs::symlink_metadata(&path) {
+        Ok(metadata) => Ok(Some(metadata)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(err) => {
+            Err(err).with_context(|| format!("symlink_metadata({})", path.as_ref().display()))
+        }
+    }
+}
+
+/// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
+/// Do nothing if `path` does not exist.
+pub fn remove_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let guard = IoCounterKey::RmDirAll.guard();
+    let metadata = match symlink_metadata_if_exists(&path)? {
+        Some(s) => s,
+        None => return Ok(()),
+    };
+
+    drop(guard);
+
+    let r = if metadata.is_dir() {
+        remove_dir_all(&path)
+    } else {
+        remove_file(&path)
+    };
+    if r.is_err() && symlink_metadata_if_exists(&path)?.is_none() {
+        // Other process removed it, our goal is achieved.
+        return Ok(());
+    }
+    r
+}
+
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     let _guard = IoCounterKey::Read.guard();
     fs::read_to_string(&path)
@@ -254,13 +289,17 @@ pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::fs::File;
+    use std::path::Path;
+    use std::path::PathBuf;
 
     use assert_matches::assert_matches;
 
     use crate::fs::fs_util::create_dir_all;
     use crate::fs::fs_util::metadata;
     use crate::fs::fs_util::read_to_string;
+    use crate::fs::fs_util::remove_all;
     use crate::fs::fs_util::remove_dir_all;
     use crate::fs::fs_util::remove_file;
     use crate::fs::fs_util::symlink;
@@ -382,6 +421,59 @@ mod tests {
         let tempdir = tempfile::tempdir()?;
         let file_path = tempdir.path().join("file_doesnt_exist");
         assert_matches!(remove_file(&file_path), Err(..));
+        Ok(())
+    }
+
+    #[test]
+    fn remove_all_nonexistent() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        remove_all(tempdir.path().join("nonexistent"))?;
+        Ok(())
+    }
+
+    #[test]
+    fn remove_all_regular() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let path = tempdir.path().join("file");
+        fs::write(&path, b"regular")?;
+        remove_all(&path)?;
+        assert!(!fs::try_exists(&path)?);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_all_dir() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let path = tempdir.path().join("dir");
+        fs::create_dir(&path)?;
+        fs::write(path.join("file"), b"regular file in a dir")?;
+        remove_all(&path)?;
+        assert!(!fs::try_exists(&path)?);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_all_broken_symlink() -> anyhow::Result<()> {
+        fn ls(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
+            let mut entries = fs::read_dir(path)?
+                .map(|entry| Ok(entry.map(|entry| entry.path())?))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            entries.sort();
+            Ok(entries)
+        }
+
+        let tempdir = tempfile::tempdir()?;
+        let target = tempdir.path().join("non-existent-target");
+        let path = tempdir.path().join("symlink");
+        symlink(&target, &path)?;
+
+        assert_eq!(vec![path.clone()], ls(tempdir.path())?, "Sanity check");
+
+        remove_all(&path)?;
+
+        // We cannot use `exists` here because it does not report what we need on broken symlink.
+        assert_eq!(Vec::<PathBuf>::new(), ls(tempdir.path())?);
+
         Ok(())
     }
 }
