@@ -1,3 +1,4 @@
+load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
     "@prelude//java:java_toolchain.bzl",
@@ -42,6 +43,14 @@ def select_dex_toolchain():
         },
     )
 
+def dex_min_sdk_version():
+    min_sdk_version_dict = {"DEFAULT": None}
+    for min_sdk in get_min_sdk_version_range():
+        constraint = "fbsource//xplat/buck2/platform/android:{}".format(get_min_sdk_version_constraint_value_name(min_sdk))
+        min_sdk_version_dict[constraint] = min_sdk
+
+    return select(min_sdk_version_dict)
+
 def select_junit_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/java:junit"
@@ -84,6 +93,7 @@ extra_attributes = {
     "java_library": {
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
+        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": attrs.option(attrs.exec_dep(
             providers = [
                 DexToolchainInfo,
@@ -123,6 +133,7 @@ extra_attributes = {
         # often a source of annotations and constants. To ease migration to ABI generation from
         # source without deps, we have them present during ABI gen by default.
         "required_for_source_only_abi": attrs.bool(default = True),
+        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": attrs.option(attrs.exec_dep(
             providers = [
                 DexToolchainInfo,

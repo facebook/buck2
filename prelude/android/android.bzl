@@ -1,6 +1,6 @@
 load("@prelude//:attributes.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "select_junit_toolchain")
+load("@prelude//java:java.bzl", "dex_min_sdk_version", "select_junit_toolchain")
 load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//genrule.bzl", "genrule_attributes")
@@ -127,6 +127,7 @@ extra_attributes = {
     "android_library": {
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
+        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
         "_kotlin_toolchain": _kotlin_toolchain(),
@@ -140,6 +141,7 @@ extra_attributes = {
         # source without deps, we have them present during ABI gen by default.
         "required_for_source_only_abi": attrs.bool(default = True),
         "_android_toolchain": android_toolchain(),
+        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
     },
