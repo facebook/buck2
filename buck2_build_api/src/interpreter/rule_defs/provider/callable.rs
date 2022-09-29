@@ -70,9 +70,9 @@ fn create_callable_function_signature(
 }
 
 #[derive(Debug)]
-struct UserProviderCallableData {
-    provider_id: Arc<ProviderId>,
-    fields: Vec<String>,
+pub(crate) struct UserProviderCallableData {
+    pub(crate) provider_id: Arc<ProviderId>,
+    pub(crate) fields: Vec<String>,
 }
 
 #[derive(Debug, Trace)]
@@ -94,7 +94,7 @@ impl UserProviderCallableImpl {
             UserProviderCallableImpl::Unbound => Err(ProviderCallableError::NotBound.into()),
             UserProviderCallableImpl::Bound(signature, data) => {
                 signature.parser(args, eval, |parser, eval| {
-                    user_provider_creator(data.provider_id.dupe(), &data.fields, eval, parser)
+                    user_provider_creator(*data, eval, parser)
                 })
             }
         }
