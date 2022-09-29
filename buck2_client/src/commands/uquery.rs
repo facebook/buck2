@@ -73,6 +73,10 @@ pub(crate) struct CommonAttributeArgs {
 enum ArgErrors {
     #[error("`--output-attributes` is deprecated, use `--output-attribute` instead")]
     OutputAttributesDeprecated,
+    #[error(
+        "Passed both `--output-attribute` and `--output-attributes`, use only `--output-attribute`"
+    )]
+    BothOutputAttributes,
 }
 
 impl CommonAttributeArgs {
@@ -84,10 +88,12 @@ impl CommonAttributeArgs {
             )?;
         }
 
-        if !self.output_attribute.is_empty() {
+        if self.output_attributes.is_empty() {
             Ok(self.output_attribute.clone())
-        } else {
+        } else if self.output_attribute.is_empty() {
             Ok(self.output_attributes.clone())
+        } else {
+            Err(ArgErrors::BothOutputAttributes.into())
         }
     }
 }
