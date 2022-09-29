@@ -6,9 +6,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    features = [
-        "extra_logging",
-    ],
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
         "fbsource//third-party/rust:anyhow",

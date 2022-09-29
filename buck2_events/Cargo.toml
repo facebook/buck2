@@ -23,20 +23,18 @@ uuid = { workspace = true }
 crossbeam-channel = { workspace = true }
 crossbeam-epoch = { workspace = true }
 
-# @oss-disable: build_info = { path = "../../common/rust/build_info", optional = true }
+# @oss-disable: build_info = { path = "../../common/rust/build_info" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-# @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
-# @oss-disable: user = { path = "../../common/rust/user", optional = true }
+# @oss-disable: hostname = { path = "../../common/rust/shed/hostname" }
+# @oss-disable: user = { path = "../../common/rust/user" }
 
 cli_proto = { path = "../cli_proto" }
 buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
 
 [features]
-# @oss-disable: default = ["gazebo_lint", "extra_logging"]
-# @oss-disable: extra_logging = ["build_info", "hostname", "user"]
-extra_logging = [] # @oss-enable
+# @oss-disable: default = ["gazebo_lint"]
