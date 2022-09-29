@@ -248,7 +248,11 @@ fn test_transitive_sets_iteration() -> anyhow::Result<()> {
             assert_eq([3, 1, 2], list(f4.traverse()))
             assert_eq([3, 1, 2], list(f4.traverse(ordering = "preorder")))
 
+            assert_eq([1, 2, 3], list(f4.traverse(ordering = "postorder")))
+
             assert_eq([3, 2, 1], list(f4.traverse(ordering = "topological")))
+
+            assert_eq([3, 1, 2], list(f4.traverse(ordering = "bfs")))
         "#
     ))?;
 
@@ -282,7 +286,11 @@ fn test_transitive_sets_iteration() -> anyhow::Result<()> {
             assert_eq([9, 5, 1, 2, 6, 3, 7, 8, 4], list(f9.traverse()))
             assert_eq([9, 5, 1, 2, 6, 3, 7, 8, 4], list(f9.traverse(ordering = "preorder")))
 
+            assert_eq([1, 2, 5, 3, 6, 7, 4, 8, 9], list(f9.traverse(ordering = "postorder")))
+
             assert_eq([9, 5, 2, 6, 1, 3, 8, 4, 7], list(f9.traverse(ordering = "topological")))
+
+            assert_eq([9, 5, 6, 7, 8, 1, 2, 3, 4], list(f9.traverse(ordering = "bfs")))
         "#
     ))?;
 
