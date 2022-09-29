@@ -83,7 +83,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
 // fall back to slow paths that give terrible performance.
 // Therefore, if we are using cargo, warn strongly.
 fn check_cargo() {
-    if !cfg!(fbcode_build) {
+    if !cfg!(fbcode_build) && !buck2_core::is_open_source() {
         eprintln!("=====================================================================");
         eprintln!("WARNING: You are using Buck v2 compiled with `cargo`, not `buck`.");
         eprintln!("         Some operations may go slower and logging may be impaired.");
