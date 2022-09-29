@@ -291,6 +291,7 @@ pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
 mod tests {
     use std::fs;
     use std::fs::File;
+    use std::io;
     use std::path::Path;
     use std::path::PathBuf;
 
@@ -355,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn create_symlink_to_file_which_doesnt_exist() -> anyhow::Result<()> {
+    fn symlink_to_file_which_doesnt_exist() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let symlink_path = tempdir.path().join("symlink");
         let target_path = tempdir.path().join("file");
@@ -366,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn create_symlink_to_symlinked_dir() -> anyhow::Result<()> {
+    fn symlink_to_symlinked_dir() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let dir_path = tempdir.path().join("dir");
         let file_path = dir_path.join("file");
@@ -383,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_symlink_to_directory() -> anyhow::Result<()> {
+    fn remove_file_removes_symlink_to_directory() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let symlink_path = tempdir.path().join("symlink_dir");
         let dir_path = tempdir.path().join("dir");
@@ -394,30 +395,38 @@ mod tests {
         let symlinked_path = symlink_path.join("file");
         assert_eq!(read_to_string(&symlinked_path)?, "File content");
         remove_file(&symlink_path)?;
+        assert_eq!(
+            io::ErrorKind::NotFound,
+            fs::metadata(&symlink_path).unwrap_err().kind()
+        );
         Ok(())
     }
 
     #[test]
-    fn remove_directory_as_file() -> anyhow::Result<()> {
+    fn remove_file_does_not_remove_directory() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let dir_path = tempdir.path().join("dir");
         create_dir_all(&dir_path)?;
         assert_matches!(remove_file(&dir_path), Err(..));
-        remove_dir_all(&dir_path)?;
+        assert!(fs::try_exists(&dir_path)?);
         Ok(())
     }
 
     #[test]
-    fn remove_broken_symlink() -> anyhow::Result<()> {
+    fn remove_file_broken_symlink() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let symlink_path = tempdir.path().join("symlink");
         symlink("path_which_doesnt_exist", &symlink_path)?;
         remove_file(&symlink_path)?;
+        assert_eq!(
+            io::ErrorKind::NotFound,
+            fs::symlink_metadata(&symlink_path).unwrap_err().kind()
+        );
         Ok(())
     }
 
     #[test]
-    fn remove_non_existing_file() -> anyhow::Result<()> {
+    fn remove_file_non_existing_file() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let file_path = tempdir.path().join("file_doesnt_exist");
         assert_matches!(remove_file(&file_path), Err(..));
