@@ -22,7 +22,6 @@ use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serializer;
 use starlark::collections::Hashed;
-use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
@@ -51,12 +50,22 @@ use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 #[repr(C)]
 pub struct UserProviderGen<'v, V: ValueLike<'v>> {
     callable: FrozenRef<'static, UserProviderCallableData>,
-    // TODO(nga): make key `StringValue`.
-    attributes: SmallMap<String, V>,
+    attributes: Vec<V>,
     _marker: PhantomData<&'v ()>,
 }
 
 starlark_complex_value!(pub UserProvider<'v>);
+
+impl<'v, V: ValueLike<'v>> UserProviderGen<'v, V> {
+    fn iter_items(&self) -> impl Iterator<Item = (&str, V)> {
+        assert_eq!(self.callable.fields.len(), self.attributes.len());
+        self.callable
+            .fields
+            .iter()
+            .map(|s| s.as_str())
+            .zip(self.attributes.iter().copied())
+    }
+}
 
 impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -65,7 +74,7 @@ impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
             &format!("{}(", self.callable.provider_id.name),
             ")",
             "=",
-            self.attributes.iter(),
+            self.iter_items(),
         )
     }
 }
@@ -81,7 +90,7 @@ where
     }
 
     fn dir_attr(&self) -> Vec<String> {
-        self.attributes.keys().cloned().collect()
+        self.callable.fields.iter().cloned().collect()
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
@@ -89,7 +98,8 @@ where
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
-        Some(self.attributes.get_hashed(attribute)?.to_value())
+        let index = self.callable.fields.get_index_of_hashed(attribute)?;
+        Some(self.attributes[index].to_value())
     }
 
     fn get_methods() -> Option<&'static Methods> {
@@ -109,11 +119,11 @@ where
         if this.attributes.len() != other.attributes.len() {
             return Ok(false);
         }
-        for ((k1, v1), (k2, v2)) in this.attributes.iter().zip(other.attributes.iter()) {
+        for ((k1, v1), (k2, v2)) in this.iter_items().zip(other.iter_items()) {
             if k1 != k2 {
                 return Ok(false);
             }
-            if !v1.equals(*v2)? {
+            if !v1.equals(v2)? {
                 return Ok(false);
             }
         }
@@ -132,8 +142,8 @@ where
                     v => return Ok(v),
                 }
                 let items = o.items();
-                for ((k1, v1), (k2, v2)) in self.attributes.iter().zip(items.iter()) {
-                    match k1.as_str().cmp(k2) {
+                for ((k1, v1), (k2, v2)) in self.iter_items().zip(items.iter()) {
+                    match k1.cmp(k2) {
                         Ordering::Equal => {}
                         v => return Ok(v),
                     }
@@ -154,7 +164,7 @@ where
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.callable.provider_id.hash(hasher);
-        for (k, v) in self.attributes.iter() {
+        for (k, v) in self.iter_items() {
             k.hash(hasher);
             v.write_hash(hasher)?;
         }
@@ -162,15 +172,7 @@ where
     }
 
     fn extra_memory(&self) -> usize {
-        self.attributes.extra_memory()
-            + self
-                .attributes
-                .keys()
-                .map(|k| {
-                    // Ignoring malloc overhead.
-                    k.capacity()
-                })
-                .sum::<usize>()
+        self.attributes.capacity() * std::mem::size_of::<V>()
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -183,7 +185,7 @@ impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<'v, V> {
     where
         S: Serializer,
     {
-        s.collect_map(self.attributes.iter())
+        s.collect_map(self.iter_items())
     }
 }
 
@@ -193,14 +195,12 @@ impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
     }
 
     fn get_field(&self, name: &str) -> Option<Value<'v>> {
-        self.attributes.get(name).map(|v| v.to_value())
+        let index = self.callable.fields.get_index_of(name)?;
+        Some(self.attributes[index].to_value())
     }
 
     fn items(&self) -> Vec<(&str, Value<'v>)> {
-        self.attributes
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.to_value()))
-            .collect()
+        self.iter_items().map(|(k, v)| (k, v.to_value())).collect()
     }
 }
 
@@ -214,11 +214,8 @@ pub(crate) fn user_provider_creator<'v>(
     let values = callable
         .fields
         .iter()
-        .map(|field| {
-            let user_value = param_parser.next(field)?;
-            Ok((field.to_owned(), user_value))
-        })
-        .collect::<anyhow::Result<SmallMap<String, Value>>>()?;
+        .map(|field| param_parser.next(field))
+        .collect::<anyhow::Result<Vec<Value>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,
