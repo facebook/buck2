@@ -16,6 +16,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
+use futures::future::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use reqwest::Client;
@@ -133,10 +134,13 @@ async fn http_dispatch(req: RequestBuilder, url: &str) -> anyhow::Result<Respons
 }
 
 pub async fn http_head(client: &Client, url: &str) -> anyhow::Result<Response> {
-    let response = http_dispatch(client.head(url), url)
-        .await
-        .context("Error dispatching a http_head request")?;
-    Ok(response)
+    http_retry(|| async {
+        let response = http_dispatch(client.head(url), url)
+            .await
+            .context("Error dispatching a http_head request")?;
+        Ok(response)
+    })
+    .await
 }
 
 pub async fn http_download(
@@ -152,80 +156,92 @@ pub async fn http_download(
         fs_util::create_dir_all(fs.resolve(dir))?;
     }
 
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(path.to_string())
-        .with_context(|| format!("open({})", abs_path))?;
+    http_retry(|| async {
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path.to_string())
+            .with_context(|| format!("open({})", abs_path))?;
 
-    let response = http_dispatch(client.get(url), url)
-        .await
-        .context("Error dispatching a http_download request")?;
+        let response = http_dispatch(client.get(url), url)
+            .await
+            .context("Error dispatching a http_download request")?;
 
-    let mut stream = response.bytes_stream();
-    let mut buf_writer = std::io::BufWriter::new(file);
+        let mut stream = response.bytes_stream();
+        let mut buf_writer = std::io::BufWriter::new(file);
 
-    // We always build a SHA1 hash, as it'll be used for the file digest. We optionally build a
-    // sha256 hasher if a sha256 hash was provided for validation.
-    let mut sha1_hasher = Sha1::new();
-    let mut sha256_hasher_and_expected = checksum.sha256().map(|sha256| (Sha256::new(), sha256));
+        // We always build a SHA1 hash, as it'll be used for the file digest. We optionally build a
+        // sha256 hasher if a sha256 hash was provided for validation.
+        let mut sha1_hasher = Sha1::new();
+        let mut sha256_hasher_and_expected =
+            checksum.sha256().map(|sha256| (Sha256::new(), sha256));
 
-    let mut file_len = 0u64;
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.with_context(|| HttpDownloadError::HttpTransferError {
-            received: file_len,
-            url: url.to_owned(),
-        })?;
+        let mut file_len = 0u64;
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.with_context(|| HttpDownloadError::HttpTransferError {
+                received: file_len,
+                url: url.to_owned(),
+            })?;
+            buf_writer
+                .write(&chunk)
+                .with_context(|| format!("write({})", abs_path))?;
+            sha1_hasher.update(&chunk);
+            if let Some((sha256_hasher, ..)) = &mut sha256_hasher_and_expected {
+                sha256_hasher.update(&chunk);
+            }
+            file_len += chunk.len() as u64;
+        }
         buf_writer
-            .write(&chunk)
-            .with_context(|| format!("write({})", abs_path))?;
-        sha1_hasher.update(&chunk);
-        if let Some((sha256_hasher, ..)) = &mut sha256_hasher_and_expected {
-            sha256_hasher.update(&chunk);
+            .flush()
+            .with_context(|| format!("flush({})", abs_path))?;
+
+        // Form the SHA1, and verify any fingerprints that were provided. Note that, by construction,
+        // we always require at least one, since one can't construct a Checksum that has neither SHA1
+        // nor SHA256
+        let download_sha1 = hex::encode(sha1_hasher.finalize().as_slice());
+
+        if let Some(expected_sha1) = checksum.sha1() {
+            if expected_sha1 != download_sha1 {
+                return Err(HttpDownloadError::InvalidChecksum(
+                    "sha1",
+                    expected_sha1.to_owned(),
+                    download_sha1,
+                    url.to_owned(),
+                )
+                .into());
+            }
         }
-        file_len += chunk.len() as u64;
-    }
-    buf_writer
-        .flush()
-        .with_context(|| format!("flush({})", abs_path))?;
 
-    // Form the SHA1, and verify any fingerprints that were provided. Note that, by construction,
-    // we always require at least one, since one can't construct a Checksum that has neither SHA1
-    // nor SHA256
-    let download_sha1 = hex::encode(sha1_hasher.finalize().as_slice());
-
-    if let Some(expected_sha1) = checksum.sha1() {
-        if expected_sha1 != download_sha1 {
-            return Err(HttpDownloadError::InvalidChecksum(
-                "sha1",
-                expected_sha1.to_owned(),
-                download_sha1,
-                url.to_owned(),
-            )
-            .into());
+        if let Some((sha256_hasher, expected_sha256)) = sha256_hasher_and_expected {
+            let download_sha256 = hex::encode(sha256_hasher.finalize().as_slice());
+            if expected_sha256 != download_sha256 {
+                return Err(HttpDownloadError::InvalidChecksum(
+                    "sha256",
+                    expected_sha256.to_owned(),
+                    download_sha256,
+                    url.to_owned(),
+                )
+                .into());
+            }
         }
-    }
 
-    if let Some((sha256_hasher, expected_sha256)) = sha256_hasher_and_expected {
-        let download_sha256 = hex::encode(sha256_hasher.finalize().as_slice());
-        if expected_sha256 != download_sha256 {
-            return Err(HttpDownloadError::InvalidChecksum(
-                "sha256",
-                expected_sha256.to_owned(),
-                download_sha256,
-                url.to_owned(),
-            )
-            .into());
+        if executable {
+            fs.set_executable(path)?
         }
-    }
 
-    if executable {
-        fs.set_executable(path)?
-    }
+        Ok(TrackedFileDigest::new(FileDigest {
+            sha1: FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
+            size: file_len,
+        }))
+    })
+    .await
+}
 
-    Ok(TrackedFileDigest::new(FileDigest {
-        sha1: FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
-        size: file_len,
-    }))
+async fn http_retry<E, F, T>(exec: E) -> anyhow::Result<T>
+where
+    E: Fn() -> F,
+    F: Future<Output = anyhow::Result<T>>,
+{
+    exec().await
 }
