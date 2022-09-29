@@ -309,7 +309,6 @@ impl DaemonState {
         Ok(Arc::new(DaemonStateData {
             dice_manager: ConcurrencyHandler::new(
                 dice,
-                true, /* TODO stop bypassing semaphores when its safe. after T129571357 */
                 nested_invocation_config,
                 parallel_invocation_config,
             ),

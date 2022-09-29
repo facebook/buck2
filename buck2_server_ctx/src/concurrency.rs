@@ -92,9 +92,6 @@ pub struct ConcurrencyHandler {
     // the entire command execution).
     cond: Arc<Condvar>,
     dice: Arc<Dice>,
-    // whether to bypass the lock around dice for concurrent commands
-    // TODO this should be removed when we turn on semaphores for concurrent commands
-    bypass_semaphore: bool,
     // configuration on how to handle nested invocations with different states
     nested_invocation_config: NestedInvocation,
     // configuration on how to handle parallel invocations with different states
@@ -127,7 +124,6 @@ pub trait DiceDataProvider: Send + Sync + 'static {
 impl ConcurrencyHandler {
     pub fn new(
         dice: Arc<Dice>,
-        bypass_semaphore: bool,
         nested_invocation_config: NestedInvocation,
         parallel_invocation_config: ParallelInvocation,
     ) -> Self {
@@ -138,7 +134,6 @@ impl ConcurrencyHandler {
             })),
             cond: Default::default(),
             dice,
-            bypass_semaphore,
             nested_invocation_config,
             parallel_invocation_config,
         }
@@ -252,7 +247,7 @@ impl ConcurrencyHandler {
                     }
                 };
 
-                if bypass_semaphore || self.bypass_semaphore {
+                if bypass_semaphore {
                     *data.active_traces.entry(trace.dupe()).or_default() += 1;
 
                     break;
@@ -389,7 +384,7 @@ mod tests {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency =
-            ConcurrencyHandler::new(dice, false, NestedInvocation::Run, ParallelInvocation::Run);
+            ConcurrencyHandler::new(dice, NestedInvocation::Run, ParallelInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -444,12 +439,8 @@ mod tests {
     async fn nested_invocation_should_error() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice,
-            false,
-            NestedInvocation::Error,
-            ParallelInvocation::Run,
-        );
+        let concurrency =
+            ConcurrencyHandler::new(dice, NestedInvocation::Error, ParallelInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -500,7 +491,7 @@ mod tests {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency =
-            ConcurrencyHandler::new(dice, false, NestedInvocation::Run, ParallelInvocation::Run);
+            ConcurrencyHandler::new(dice, NestedInvocation::Run, ParallelInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -557,7 +548,6 @@ mod tests {
 
         let concurrency = ConcurrencyHandler::new(
             dice.dupe(),
-            false,
             NestedInvocation::Run,
             ParallelInvocation::Block,
         );
@@ -670,12 +660,8 @@ mod tests {
     async fn parallel_invocation_different_traceid_bypass_semaphore() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            true,
-            NestedInvocation::Run,
-            ParallelInvocation::Run,
-        );
+        let concurrency =
+            ConcurrencyHandler::new(dice.dupe(), NestedInvocation::Run, ParallelInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -758,12 +744,8 @@ mod tests {
     async fn different_traceid_bypass_semaphore() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            true,
-            NestedInvocation::Run,
-            ParallelInvocation::Run,
-        );
+        let concurrency =
+            ConcurrencyHandler::new(dice.dupe(), NestedInvocation::Run, ParallelInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
