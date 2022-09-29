@@ -112,17 +112,7 @@ impl<T> SmallSet<T> {
     /// Iterate the element references.
     #[inline]
     pub fn iter(&self) -> Iter<T> {
-        Iter {
-            iter: self.0.iter(),
-        }
-    }
-
-    /// Convert the set into the iterator over the elements.
-    #[inline]
-    pub fn into_iter(self) -> IntoIter<T> {
-        IntoIter {
-            iter: self.0.into_iter(),
-        }
+        self.into_iter()
     }
 
     /// Insert the element into the set.
@@ -298,6 +288,30 @@ impl<T> SmallSet<T> {
     #[inline]
     pub fn last(&self) -> Option<&T> {
         self.0.last().map(|(k, ())| k)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a SmallSet<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        Iter {
+            iter: self.0.iter(),
+        }
+    }
+}
+
+impl<T> IntoIterator for SmallSet<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            iter: self.0.into_iter(),
+        }
     }
 }
 
