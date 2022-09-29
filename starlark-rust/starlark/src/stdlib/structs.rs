@@ -27,6 +27,10 @@ pub fn global(builder: &mut GlobalsBuilder) {
     #[starlark(type = Struct::TYPE)]
     fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Struct<'v>> {
         args.no_positional_args(heap)?;
+        // TODO(nga): missing optimization: practically most `struct` invocations are
+        //   performed with fixed named arguments, e.g. `struct(a = 1, b = 2)`.
+        //   In this case we can avoid allocating the map, but instead
+        //   allocate field index once at compilation time and store field values in a vector.
         Ok(Struct::new(args.names_map()?))
     }
 }
