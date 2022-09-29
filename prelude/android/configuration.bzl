@@ -1,13 +1,18 @@
 load("@prelude//android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 
 # FIXME: prelude// should be standalone (not refer to ovr_config//)
 _REFS = {
     "arm64": "ovr_config//cpu/constraints:arm64",
     "armv7": "ovr_config//cpu/constraints:arm32",
     "cpu": "ovr_config//cpu/constraints:cpu",
+    "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
     "x86": "ovr_config//cpu/constraints:x86_32",
     "x86_64": "ovr_config//cpu/constraints:x86_64",
 }
+for min_sdk in get_min_sdk_version_range():
+    constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
+    _REFS[constraint_value_name] = "fbsource//xplat/buck2/platform/android:{}".format(constraint_value_name)
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
@@ -39,6 +44,9 @@ def _cpu_split_transition_impl(
         if constraint_setting_label != cpu[ConstraintSettingInfo].label
     }
 
+    if attrs.min_sdk_version:
+        base_constraints[refs.min_sdk_version[ConstraintSettingInfo].label] = _get_min_sdk_constraint_value(attrs.min_sdk_version, refs)
+
     new_configs = {}
     for platform_name, cpu_constraint in cpu_name_to_cpu_constraint.items():
         updated_constraints = dict(base_constraints)
@@ -64,6 +72,7 @@ cpu_split_transition = transition(
     refs = _REFS,
     attrs = [
         "cpu_filters",
+        "min_sdk_version",
     ],
     split = True,
 )
@@ -80,6 +89,7 @@ cpu_transition = transition(
     refs = _REFS,
     attrs = [
         "cpu_filters",
+        "min_sdk_version",
     ],
 )
 
@@ -92,3 +102,11 @@ def get_deps_by_platform(ctx: "context") -> {str.type: ["dependency"]}:
             deps_by_platform[platform] = deps
 
     return deps_by_platform
+
+def _get_min_sdk_constraint_value(min_sdk_version: int.type, refs: struct.type) -> ConstraintValueInfo.type:
+    constraint_name = get_min_sdk_version_constraint_value_name(min_sdk_version)
+    constraint = getattr(refs, constraint_name, None)
+    if not constraint:
+        fail("Unsupported min_sdk_version {}, please report!".format(min_sdk_version))
+
+    return constraint[ConstraintValueInfo]
