@@ -196,7 +196,7 @@ async fn try_clean_eden_buck_out(
     crate::eprintln!(
         "The following command will be executed: `eden rm -y {}`",
         buck_out
-    );
+    )?;
 
     if !dryrun {
         eden_rm_cmd
