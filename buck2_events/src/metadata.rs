@@ -14,7 +14,9 @@ use std::env;
 use buck2_core::facebook_only;
 use once_cell::sync::Lazy;
 
-use crate::trace::TraceId;
+use crate::TraceId;
+
+pub static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
 pub fn collect() -> HashMap<String, String> {
@@ -50,7 +52,6 @@ pub fn collect() -> HashMap<String, String> {
     }
 
     // Global trace ID
-    static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
     map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
 
     // The operating system - "linux" "darwin" "windows" etc.

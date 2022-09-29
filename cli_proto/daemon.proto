@@ -64,6 +64,7 @@ message ClientContext {
   bool disable_starlark_types = 8;
   string trace_id = 9;
   bool reuse_current_config = 10;
+  optional string daemon_uuid = 11;
 }
 
 message TargetsRequest {

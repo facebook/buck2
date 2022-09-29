@@ -279,6 +279,8 @@ impl LocalExecutor {
             None
         };
 
+        let daemon_uuid: &str = &buck2_events::metadata::DAEMON_UUID.to_string();
+
         let iter_env = || {
             tmpdir
                 .into_iter()
@@ -289,6 +291,10 @@ impl LocalExecutor {
                         .iter()
                         .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
                 )
+                .chain(std::iter::once((
+                    "BUCK2_DAEMON_UUID",
+                    StrOrOsStr::from(daemon_uuid),
+                )))
         };
 
         let liveliness_manager = manager.liveliness_manager.dupe();

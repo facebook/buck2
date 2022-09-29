@@ -150,6 +150,11 @@ impl ClientCommandContext {
             _ => TraceId::new(),
         };
 
+        let daemon_uuid = match std::env::var("BUCK2_DAEMON_UUID") {
+            Ok(daemon_uuid) => Some(daemon_uuid),
+            _ => None,
+        };
+
         Ok(ClientContext {
             working_dir: self
                 .working_dir
@@ -163,6 +168,7 @@ impl ClientCommandContext {
             disable_starlark_types: false,
             trace_id: format!("{}", trace_id),
             reuse_current_config: false,
+            daemon_uuid,
         })
     }
 
