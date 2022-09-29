@@ -39,6 +39,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
@@ -52,12 +53,12 @@ enum ProviderCallableError {
     #[error(
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]
-    ProviderNotAssigned(Vec<String>),
+    ProviderNotAssigned(SmallSet<String>),
 }
 
 fn create_callable_function_signature(
     function_name: &str,
-    fields: &[String],
+    fields: &SmallSet<String>,
 ) -> ParametersSpec<FrozenValue> {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
     // TODO(nmj): Should double check we don't actually need positional args in-repo
@@ -72,7 +73,7 @@ fn create_callable_function_signature(
 #[derive(Debug)]
 pub(crate) struct UserProviderCallableData {
     pub(crate) provider_id: Arc<ProviderId>,
-    pub(crate) fields: Vec<String>,
+    pub(crate) fields: SmallSet<String>,
 }
 
 #[derive(Debug, Trace)]
@@ -121,7 +122,8 @@ pub struct UsedProviderCallable {
     /// The docstrings for each field. The length of must be identical to `fields`
     field_docs: Vec<Option<DocString>>,
     /// The names of the fields used in `callable`
-    fields: Vec<String>,
+    #[trace(unsafe_ignore)]
+    fields: SmallSet<String>,
     /// The actual callable that creates instances of `UserProvider`
     callable: RefCell<UserProviderCallableImpl>,
 }
@@ -149,7 +151,7 @@ impl UsedProviderCallable {
         path: CellPath,
         docs: Option<DocString>,
         field_docs: Vec<Option<DocString>>,
-        fields: Vec<String>,
+        fields: SmallSet<String>,
     ) -> Self {
         assert_eq!(
             field_docs.len(),
@@ -260,7 +262,7 @@ impl<'v> StarlarkValue<'v> for UsedProviderCallable {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
             &self.docs,
-            &self.fields,
+            &self.fields.iter().cloned().collect::<Vec<String>>(),
             &self.field_docs,
             &return_types,
         )
@@ -277,7 +279,7 @@ pub struct FrozenUserProviderCallable {
     /// The docstrings for each field. The length of must be identical to `fields`
     field_docs: Vec<Option<DocString>>,
     /// The names of the fields used in `callable`
-    fields: Vec<String>,
+    fields: SmallSet<String>,
     /// The actual callable that creates instances of `UserProvider`
     callable: UserProviderCallableImpl,
 }
@@ -301,7 +303,7 @@ impl FrozenUserProviderCallable {
         id: Arc<ProviderId>,
         docs: Option<DocString>,
         field_docs: Vec<Option<DocString>>,
-        fields: Vec<String>,
+        fields: SmallSet<String>,
         callable: UserProviderCallableImpl,
     ) -> Self {
         assert_eq!(
@@ -352,7 +354,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
             &self.docs,
-            &self.fields,
+            &self.fields.iter().cloned().collect::<Vec<String>>(),
             &self.field_docs,
             &return_types,
         )

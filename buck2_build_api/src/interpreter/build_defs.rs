@@ -12,12 +12,14 @@ use buck2_interpreter::functions::host_info::register_host_info;
 use buck2_interpreter::functions::read_config::register_read_config;
 use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
 use either::Either;
+use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::docs::DocString;
 use starlark::values::docs::DocStringKind;
 use starlark::values::Value;
+use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::callable::UsedProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
@@ -25,6 +27,12 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionKind;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionSpec;
+
+#[derive(Debug, thiserror::Error)]
+enum NativesError {
+    #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{}`", s)).join(", "))]
+    NonUniqueFields(Vec<String>),
+}
 
 #[starlark_module]
 fn natives(builder: &mut GlobalsBuilder) {
@@ -39,13 +47,18 @@ fn natives(builder: &mut GlobalsBuilder) {
         let (field_names, field_docs) = match fields {
             Either::Left(f) => {
                 let docs = vec![None; f.len()];
-                (f, docs)
+                let field_names: SmallSet<String> = f.iter().cloned().collect();
+                if field_names.len() != f.len() {
+                    return Err(NativesError::NonUniqueFields(f).into());
+                }
+                (field_names, docs)
             }
             Either::Right(fields_with_docs) => {
-                let mut field_names = Vec::with_capacity(fields_with_docs.len());
+                let mut field_names = SmallSet::with_capacity(fields_with_docs.len());
                 let mut field_docs = Vec::with_capacity(fields_with_docs.len());
                 for (name, docs) in fields_with_docs {
-                    field_names.push(name.to_owned());
+                    let inserted = field_names.insert(name.to_owned());
+                    assert!(inserted);
                     field_docs.push(DocString::from_docstring(DocStringKind::Starlark, docs));
                 }
                 (field_names, field_docs)
