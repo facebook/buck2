@@ -63,3 +63,9 @@ pub mod truncate;
 /// not intended to be complete, but intended to be useful to audit
 /// en-mass at some point in the future.
 pub fn facebook_only() {}
+
+#[inline]
+pub fn is_open_source() -> bool {
+    // @oss-disable: false
+    true // @oss-enable
+}
