@@ -89,9 +89,6 @@ pub enum HttpError {
         #[source]
         source: reqwest::Error,
     },
-
-    #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
-    InvalidChecksum(&'static str, String, String, String),
 }
 
 fn http_error_label(status: StatusCode) -> &'static str {
@@ -104,6 +101,24 @@ fn http_error_label(status: StatusCode) -> &'static str {
     }
 
     "Unknown"
+}
+
+#[derive(Debug, Error)]
+enum HttpHeadError {
+    #[error("Error performing a http_head request")]
+    HttpError(#[from] HttpError),
+}
+
+#[derive(Debug, Error)]
+enum HttpDownloadError {
+    #[error("Error performing a http_download request")]
+    HttpError(#[from] HttpError),
+
+    #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
+    InvalidChecksum(&'static str, String, String, String),
+
+    #[error(transparent)]
+    IoError(anyhow::Error),
 }
 
 pub fn http_client() -> anyhow::Result<Client> {
@@ -143,13 +158,11 @@ async fn http_dispatch(req: RequestBuilder, url: &str) -> Result<Response, HttpE
 }
 
 pub async fn http_head(client: &Client, url: &str) -> anyhow::Result<Response> {
-    http_retry(|| async {
-        let response = http_dispatch(client.head(url), url)
-            .await
-            .context("Error dispatching a http_head request")?;
-        Ok(response)
+    Ok(http_retry(|| async {
+        let response = http_dispatch(client.head(url), url).await?;
+        Result::<_, HttpHeadError>::Ok(response)
     })
-    .await
+    .await?)
 }
 
 pub async fn http_download(
@@ -165,17 +178,16 @@ pub async fn http_download(
         fs_util::create_dir_all(fs.resolve(dir))?;
     }
 
-    http_retry(|| async {
+    Ok(http_retry(|| async {
         let file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
             .open(path.to_string())
-            .with_context(|| format!("open({})", abs_path))?;
+            .with_context(|| format!("open({})", abs_path))
+            .map_err(HttpDownloadError::IoError)?;
 
-        let response = http_dispatch(client.get(url), url)
-            .await
-            .context("Error dispatching a http_download request")?;
+        let response = http_dispatch(client.get(url), url).await?;
 
         let mut stream = response.bytes_stream();
         let mut buf_writer = std::io::BufWriter::new(file);
@@ -195,7 +207,8 @@ pub async fn http_download(
             })?;
             buf_writer
                 .write(&chunk)
-                .with_context(|| format!("write({})", abs_path))?;
+                .with_context(|| format!("write({})", abs_path))
+                .map_err(HttpDownloadError::IoError)?;
             sha1_hasher.update(&chunk);
             if let Some((sha256_hasher, ..)) = &mut sha256_hasher_and_expected {
                 sha256_hasher.update(&chunk);
@@ -204,7 +217,8 @@ pub async fn http_download(
         }
         buf_writer
             .flush()
-            .with_context(|| format!("flush({})", abs_path))?;
+            .with_context(|| format!("flush({})", abs_path))
+            .map_err(HttpDownloadError::IoError)?;
 
         // Form the SHA1, and verify any fingerprints that were provided. Note that, by construction,
         // we always require at least one, since one can't construct a Checksum that has neither SHA1
@@ -213,45 +227,44 @@ pub async fn http_download(
 
         if let Some(expected_sha1) = checksum.sha1() {
             if expected_sha1 != download_sha1 {
-                return Err(HttpError::InvalidChecksum(
+                return Err(HttpDownloadError::InvalidChecksum(
                     "sha1",
                     expected_sha1.to_owned(),
                     download_sha1,
                     url.to_owned(),
-                )
-                .into());
+                ));
             }
         }
 
         if let Some((sha256_hasher, expected_sha256)) = sha256_hasher_and_expected {
             let download_sha256 = hex::encode(sha256_hasher.finalize().as_slice());
             if expected_sha256 != download_sha256 {
-                return Err(HttpError::InvalidChecksum(
+                return Err(HttpDownloadError::InvalidChecksum(
                     "sha256",
                     expected_sha256.to_owned(),
                     download_sha256,
                     url.to_owned(),
-                )
-                .into());
+                ));
             }
         }
 
         if executable {
-            fs.set_executable(path)?
+            fs.set_executable(path)
+                .map_err(HttpDownloadError::IoError)?;
         }
 
-        Ok(TrackedFileDigest::new(FileDigest {
+        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(FileDigest {
             sha1: FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
             size: file_len,
         }))
     })
-    .await
+    .await?)
 }
 
-async fn http_retry<E, F, T>(exec: E) -> anyhow::Result<T>
+async fn http_retry<Exec, F, T, E>(exec: Exec) -> Result<T, E>
 where
-    E: Fn() -> F,
-    F: Future<Output = anyhow::Result<T>>,
+    Exec: Fn() -> F,
+    F: Future<Output = Result<T, E>>,
 {
     exec().await
 }
