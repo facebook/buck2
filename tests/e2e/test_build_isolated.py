@@ -151,6 +151,7 @@ async def test_write_files(buck: Buck) -> None:
         "//write:writes_array_of_commands",
         "//write:writes_command_lines",
         "//write:writes_frozen_command_lines",
+        "//write:with_inputs_and_copy",
     )
     build_report = result.get_build_report()
 
@@ -183,6 +184,9 @@ async def test_write_files(buck: Buck) -> None:
     output = build_report.output_for_target("//write:writes_frozen_command_lines")
     assert output.read_text().rstrip() == str(simple)
     asserts.assert_not_executable(output)
+
+    output = build_report.output_for_target("//write:with_inputs_and_copy")
+    assert output.read_text().rstrip() == "some content"
 
     await expect_failure(
         buck.build("//write:fails_on_invalid_contents"),

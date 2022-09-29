@@ -31,3 +31,8 @@ write_file(
 write_file(name = "fails_on_invalid_contents")
 
 write_file(name = "fails_on_invalid_output")
+
+write_file(
+    name = "with_inputs_and_copy",
+    dep = ":simple",
+)

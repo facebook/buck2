@@ -417,6 +417,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] allow_args: bool,
+        // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
+        #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         fn count_write_to_file_macros(
@@ -453,17 +455,45 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             cli.visit_write_to_file_macros(&mut counter)?;
             Ok(counter.count)
         }
+
+        fn get_cli_inputs(
+            with_inputs: bool,
+            cli: &dyn CommandLineArgLike,
+        ) -> anyhow::Result<IndexSet<ArtifactGroup>> {
+            if !with_inputs {
+                return Ok(Default::default());
+            }
+
+            #[derive(Default)]
+            struct CommandLineInputVisitor {
+                inputs: IndexSet<ArtifactGroup>,
+            }
+            impl CommandLineArtifactVisitor for CommandLineInputVisitor {
+                fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+                    self.inputs.insert(input);
+                }
+
+                fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+            }
+
+            let mut visitor = CommandLineInputVisitor::default();
+            cli.visit_artifacts(&mut visitor)?;
+            Ok(visitor.inputs)
+        }
+
         let mut this = this.state();
         let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
 
-        let (content_cli, written_macro_count) =
+        let (content_cli, written_macro_count, mut associated_artifacts) =
             if let Some(content_arg) = content.as_command_line() {
                 let count = count_write_to_file_macros(allow_args, content_arg)?;
-                (content, count)
+                let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
+                (content, count, cli_inputs)
             } else {
                 let cli = StarlarkCommandLine::try_from_value(content)?;
                 let count = count_write_to_file_macros(allow_args, &cli)?;
-                (eval.heap().alloc(cli), count)
+                let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
+                (eval.heap().alloc(cli), count, cli_inputs)
             };
 
         let written_macro_files = if written_macro_count > 0 {
@@ -516,19 +546,16 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(content_cli),
         )?;
 
-        let associated_artifacts = if allow_args {
-            let mut macro_files = IndexSet::new();
+        if allow_args {
             for a in &written_macro_files {
-                macro_files.insert(ArtifactGroup::Artifact(
+                associated_artifacts.insert(ArtifactGroup::Artifact(
                     a.dupe().ensure_bound()?.into_artifact(),
                 ));
             }
-            Arc::new(SortedIndexSet::new(macro_files))
-        } else {
-            Default::default()
-        };
-        let value = declaration.into_declared_artifact(associated_artifacts);
+        }
 
+        let value =
+            declaration.into_declared_artifact(Arc::new(SortedIndexSet::new(associated_artifacts)));
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()

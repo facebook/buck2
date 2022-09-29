@@ -367,7 +367,7 @@ def create_jar_artifact_javacd(
             "--command-file",
             proto_with_inputs,
         ])
-        cmd.hidden(proto_with_inputs)
+        #cmd.hidden(proto_with_inputs)
 
         # TODO(cjhopman): make sure this works both locally and remote.
         event_pipe_out = declare_prefixed_output(actions_prefix, "events.data")
