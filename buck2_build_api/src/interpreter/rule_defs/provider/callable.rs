@@ -31,6 +31,7 @@ use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -68,13 +69,18 @@ fn create_callable_function_signature(
     signature.finish()
 }
 
+#[derive(Debug)]
+struct UserProviderCallableData {
+    provider_id: Arc<ProviderId>,
+    fields: Vec<String>,
+}
+
 #[derive(Debug, Trace)]
 enum UserProviderCallableImpl {
     Unbound,
     Bound(
         ParametersSpec<FrozenValue>,
-        #[trace(unsafe_ignore)] Arc<ProviderId>,
-        Vec<String>,
+        FrozenRef<'static, UserProviderCallableData>,
     ),
 }
 
@@ -86,9 +92,9 @@ impl UserProviderCallableImpl {
     ) -> anyhow::Result<Value<'v>> {
         match self {
             UserProviderCallableImpl::Unbound => Err(ProviderCallableError::NotBound.into()),
-            UserProviderCallableImpl::Bound(signature, id, fields) => {
+            UserProviderCallableImpl::Bound(signature, data) => {
                 signature.parser(args, eval, |parser, eval| {
-                    user_provider_creator(id.dupe(), fields, eval, parser)
+                    user_provider_creator(data.provider_id.dupe(), &data.fields, eval, parser)
                 })
             }
         }
@@ -212,7 +218,7 @@ impl Freeze for UsedProviderCallable {
 impl<'v> StarlarkValue<'v> for UsedProviderCallable {
     starlark_type!("provider_callable");
 
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
         // First export wins
         let mut id = self.id.borrow_mut();
         if id.is_none() {
@@ -223,8 +229,11 @@ impl<'v> StarlarkValue<'v> for UsedProviderCallable {
             *id = Some(new_id.dupe());
             *self.callable.borrow_mut() = UserProviderCallableImpl::Bound(
                 create_callable_function_signature(&new_id.name, &self.fields),
-                new_id,
-                self.fields.clone(),
+                eval.frozen_heap()
+                    .alloc_any_display_from_debug(UserProviderCallableData {
+                        provider_id: new_id,
+                        fields: self.fields.clone(),
+                    }),
             );
         }
     }
