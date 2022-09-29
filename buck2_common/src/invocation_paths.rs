@@ -13,6 +13,7 @@
 
 use std::borrow::Cow;
 
+use anyhow::Context;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileName;
@@ -21,8 +22,25 @@ use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use once_cell::sync::Lazy;
 
 use crate::invocation_roots::InvocationRoots;
+use crate::result::SharedResult;
+use crate::result::ToSharedResultExt;
+
+/// `~/.buck`.
+#[allow(clippy::needless_borrow)] // False positive.
+fn home_buck_dir() -> anyhow::Result<&'static AbsPath> {
+    fn find_dir() -> anyhow::Result<AbsPathBuf> {
+        let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
+        let home = AbsPathBuf::new(home).context("Expected an absolute HOME directory")?;
+        Ok(home.join(FileName::new(".buck")?))
+    }
+
+    static DIR: Lazy<SharedResult<AbsPathBuf>> = Lazy::new(|| find_dir().shared_error());
+
+    Ok(&Lazy::force(&DIR).as_ref()?)
+}
 
 #[derive(Clone)]
 pub struct InvocationPaths {
@@ -85,25 +103,22 @@ impl InvocationPaths {
         // start a new one.
         // 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
         // output directories between different buckd instances.
-        let home = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("Expected a HOME directory to be available"))?;
-        let paths = AbsPath::new(&home)
-            .map_err(|e| anyhow::anyhow!("Expected an absolute HOME directory. {}", e))?;
+        let home_buck_dir = home_buck_dir()?;
 
-        let prefix = ".buck/buckd";
+        let prefix = "buckd";
 
         let mut ret = AbsPathBuf::with_capacity(
-            paths.as_os_str().len()
+            home_buck_dir.as_os_str().len()
                 + 1
                 + prefix.len()
                 + 1
                 + root_relative.as_str().len()
                 + 1
                 + self.isolation.as_str().len(),
-            paths,
+            &home_buck_dir,
         );
 
-        ret.push(ForwardRelativePath::unchecked_new(".buck/buckd"));
+        ret.push(ForwardRelativePath::new(prefix)?);
         ret.push(root_relative.as_ref());
         ret.push(&self.isolation);
 
