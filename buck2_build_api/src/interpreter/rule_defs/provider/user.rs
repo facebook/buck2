@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -34,13 +33,11 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
 use crate::interpreter::rule_defs::provider::provider_methods;
 use crate::interpreter::rule_defs::provider::ProviderLike;
-use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 /// The result of calling the output of `provider()`. This is just a simple data structure of
 /// either immediately available values or, later, `FutureValue` types that are resolved
@@ -132,38 +129,6 @@ where
             }
         }
         Ok(true)
-    }
-
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
-        match other.as_provider() {
-            None => ValueError::unsupported_with(self, "compare", other),
-            Some(o) => {
-                // TODO(nga): we compare providers of different types,
-                //   but builtin providers do not implement `compare`,
-                //   this violates the contract of `compare`.
-                match self.id().cmp(o.id()) {
-                    Ordering::Equal => {}
-                    v => return Ok(v),
-                }
-                let items = o.items();
-                for ((k1, v1), (k2, v2)) in self.iter_items().zip(items.iter()) {
-                    match k1.cmp(k2) {
-                        Ordering::Equal => {}
-                        v => return Ok(v),
-                    }
-
-                    match v1.compare(*v2)? {
-                        Ordering::Equal => {}
-                        v => return Ok(v),
-                    }
-                }
-                match self.attributes.len().cmp(&items.len()) {
-                    Ordering::Equal => {}
-                    v => return Ok(v),
-                }
-                Ok(Ordering::Equal)
-            }
-        }
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {

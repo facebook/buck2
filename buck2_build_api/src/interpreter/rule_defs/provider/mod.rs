@@ -156,7 +156,6 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use buck2_build_api_derive::internal_provider;
-    use buck2_common::result::SharedResult;
     use gazebo::any::ProvidesStaticType;
     use gazebo::coerce::Coerce;
     use indoc::indoc;
@@ -290,40 +289,5 @@ mod tests {
         ))?;
 
         Ok(())
-    }
-
-    #[test]
-    fn provider_compare() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
-        tester.add_import(
-            &import("root", "providers", "defs.bzl"),
-            indoc!(
-                r#"
-                FooInfo = provider(fields=["foo"])
-                BarInfo = provider(fields=["bar"])
-                "#
-            ),
-        )?;
-        tester.run_starlark_bzl_test(indoc!(
-            r#"
-            load("//providers:defs.bzl", DefsFooInfo="FooInfo", DefsBarInfo="BarInfo")
-            FooInfo = provider(fields=["foo"])
-            BarInfo = provider(fields=["bar"])
-            ComplexInfo = provider(fields=["foo", "bar"])
-            def assert_less(left, right):
-                if not left < right:
-                    fail("expected `%s < %s`" % (left, right))
-                if right < left:
-                    fail("expected `!(%s > %s)`" % (right, left))
-
-            def test():
-                assert_less(DefsFooInfo(foo=1), FooInfo(foo=1))
-                assert_less(DefsBarInfo(bar=1), BarInfo(bar=1))
-                assert_less(BarInfo(bar=1), FooInfo(foo=1))
-                assert_less(FooInfo(foo=1), FooInfo(foo=2))
-                # ensure that ordering of fields when creating the provider doesn't affect the ordering.
-                assert_less(ComplexInfo(foo=1, bar=1), ComplexInfo(bar=2, foo=1))
-            "#
-        ))
     }
 }
