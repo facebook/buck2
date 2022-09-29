@@ -15,6 +15,7 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 #![feature(backtrace)]
 #![feature(box_syntax)]
+#![feature(fs_try_exists)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]
 #![feature(never_type)]
@@ -49,3 +50,4 @@ mod sorted_hash_map;
 pub mod sorted_index_set;
 pub mod sqlite;
 pub mod target_aliases;
+pub mod temp_path;

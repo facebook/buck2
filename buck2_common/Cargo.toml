@@ -16,6 +16,7 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 prost-types = { workspace = true }
+rand = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 rusqlite = { workspace = true }
