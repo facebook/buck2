@@ -1151,6 +1151,7 @@ message CacheUploadEnd {
   repeated string file_digests = 6;
   // The directories we uploaded.
   repeated string tree_digests = 7;
+  optional uint64 output_bytes = 8;
 }
 
 message CreateOutputSymlinksStart {};

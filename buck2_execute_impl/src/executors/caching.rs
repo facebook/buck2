@@ -37,6 +37,7 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derive_more::Display;
 use futures::future;
@@ -230,6 +231,7 @@ impl CachingExecutor {
                         error,
                         file_digests,
                         tree_digests,
+                        output_bytes: Some(result.outputs.values().calc_output_bytes()),
                     },
                 )
             },
