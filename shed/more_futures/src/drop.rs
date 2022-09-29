@@ -92,8 +92,8 @@ mod tests {
     fn streamable() {
         let fut = {
             let mut fut = FuturesOrdered::new();
-            fut.push(future::ready(1));
-            fut.push(future::ready(2));
+            fut.push_back(future::ready(1));
+            fut.push_back(future::ready(2));
             fut
         };
         let mut drop_together = DropTogether::new(fut, ());
