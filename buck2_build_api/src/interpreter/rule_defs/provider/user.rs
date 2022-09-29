@@ -117,10 +117,14 @@ where
             return Ok(false);
         }
         if this.attributes.len() != other.attributes.len() {
+            // If provider ids are equal, then providers point to the same provider callable,
+            // and lengths should be equal. So this code is unreachable.
             return Ok(false);
         }
         for ((k1, v1), (k2, v2)) in this.iter_items().zip(other.iter_items()) {
             if k1 != k2 {
+                // If provider ids are equal, then providers point to the same provider callable,
+                // and keys should be equal. So this code is unreachable.
                 return Ok(false);
             }
             if !v1.equals(v2)? {
