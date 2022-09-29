@@ -44,6 +44,7 @@ use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_server_ctx::concurrency::NestedInvocation;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
 use fbinit::FacebookInit;
@@ -291,6 +292,10 @@ impl DaemonState {
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
 
+        let nested_invocation_config = root_config
+            .parse::<NestedInvocation>("buck2", "nested_invocation")?
+            .unwrap_or(NestedInvocation::Run);
+
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).
 
@@ -300,6 +305,7 @@ impl DaemonState {
             dice_manager: ConcurrencyHandler::new(
                 dice,
                 true, /* TODO stop bypassing semaphores when its safe. after T129571357 */
+                nested_invocation_config,
             ),
             file_watcher,
             io,

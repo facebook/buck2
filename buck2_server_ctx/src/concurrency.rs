@@ -8,6 +8,7 @@
 
 use std::fmt::Debug;
 use std::future::Future;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use async_condvar_fair::BatonExt;
@@ -36,6 +37,28 @@ enum ConcurrencyHandlerError {
     NestedInvocationWithDifferentStates(String),
 }
 
+#[derive(Clone, Dupe, Copy, Debug)]
+pub enum NestedInvocation {
+    Error,
+    Run,
+}
+
+#[derive(Error, Debug)]
+#[error("Invalid type of `{0}`: `{1}`")]
+pub struct InvalidType(String, String);
+
+impl FromStr for NestedInvocation {
+    type Err = InvalidType;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "ERROR" => Ok(NestedInvocation::Error),
+            "RUN" => Ok(NestedInvocation::Run),
+            _ => Err(InvalidType("NestedInvocation".to_owned(), s.to_owned())),
+        }
+    }
+}
+
 /// Manages concurrent commands, blocking when appropriate.
 ///
 /// Currently, we allow concurrency if two `DiceTransactions` are deemed equivalent, such that
@@ -50,6 +73,8 @@ pub struct ConcurrencyHandler {
     // whether to bypass the lock around dice for concurrent commands
     // TODO this should be removed when we turn on semaphores for concurrent commands
     bypass_semaphore: bool,
+    // configuration on how to handle nested invocations with different states
+    nested_invocation_config: NestedInvocation,
 }
 
 struct ConcurrencyHandlerData {
@@ -76,7 +101,11 @@ pub trait DiceDataProvider: Send + Sync + 'static {
 }
 
 impl ConcurrencyHandler {
-    pub fn new(dice: Arc<Dice>, bypass_semaphore: bool) -> Self {
+    pub fn new(
+        dice: Arc<Dice>,
+        bypass_semaphore: bool,
+        nested_invocation_config: NestedInvocation,
+    ) -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 active_dice: None,
@@ -85,6 +114,7 @@ impl ConcurrencyHandler {
             cond: Default::default(),
             dice,
             bypass_semaphore,
+            nested_invocation_config,
         }
     }
 
@@ -138,8 +168,10 @@ impl ConcurrencyHandler {
             if let Some(active_dice) = &data.active_dice {
                 let is_same_state = active_dice.equivalent(&transaction);
 
-                if is_nested_invocation {
-                    if is_same_state {
+                let bypass_semaphore = if is_same_state {
+                    // if the dice context is equivalent, then we can run concurrently with the
+                    // current command.
+                    if is_nested_invocation {
                         soft_error!(
                             "nested_invocation_same_dice_state",
                             anyhow::anyhow!(
@@ -148,22 +180,35 @@ impl ConcurrencyHandler {
                                 )
                             )
                         )?;
-                    } else {
-                        soft_error!(
-                            "nested_invocation_different_dice_state",
-                            anyhow::anyhow!(
+                    }
+                    true
+                } else if is_nested_invocation {
+                    match self.nested_invocation_config {
+                        NestedInvocation::Error => {
+                            return Err(anyhow::Error::new(
                                 ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
                                     trace.to_string(),
                                 ),
-                            )
-                        )?;
+                            ));
+                        }
+                        NestedInvocation::Run => {
+                            soft_error!(
+                                "nested_invocation_different_dice_state",
+                                anyhow::anyhow!(
+                                    ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
+                                        trace.to_string(),
+                                    ),
+                                )
+                            )?;
+                            true
+                        }
                     }
-                }
+                } else {
+                    // TODO(wendyy) handle parallel invocations with different states here
+                    self.bypass_semaphore
+                };
 
-                if is_same_state || self.bypass_semaphore {
-                    // if the dice context is equivalent, then we can run concurrently with the
-                    // current command.
-
+                if bypass_semaphore || self.bypass_semaphore {
                     *data.active_traces.entry(trace.dupe()).or_default() += 1;
 
                     break;
@@ -254,6 +299,7 @@ mod tests {
     use crate::concurrency::ConcurrencyHandler;
     use crate::concurrency::DiceDataProvider;
     use crate::concurrency::DiceUpdater;
+    use crate::concurrency::NestedInvocation;
 
     #[async_trait]
     impl<F> DiceUpdater for F
@@ -294,10 +340,115 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn concurrent_same_transaction() {
+    async fn nested_invocation_same_transaction() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice, false);
+        let concurrency = ConcurrencyHandler::new(dice, false, NestedInvocation::Run);
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+        let traces3 = TraceId::new();
+
+        let barrier = Arc::new(Barrier::new(3));
+
+        let fut1 = concurrency.enter(
+            traces1,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            true,
+        );
+        let fut2 = concurrency.enter(
+            traces2,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            true,
+        );
+        let fut3 = concurrency.enter(
+            traces3,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            true,
+        );
+
+        let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
+        r1.unwrap();
+        r2.unwrap();
+        r3.unwrap();
+    }
+
+    #[tokio::test]
+    async fn nested_invocation_should_error() {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(dice, false, NestedInvocation::Error);
+
+        let traces1 = TraceId::new();
+        let traces2 = TraceId::new();
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        let ctx_different = |ctx: DiceTransaction| {
+            ctx.changed(vec![K])?;
+            Ok(ctx)
+        };
+
+        let fut1 = concurrency.enter(
+            traces1,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            true,
+        );
+
+        let fut2 = concurrency.enter(
+            traces2,
+            box TestDiceDataProvider,
+            &ctx_different,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            true,
+        );
+
+        match futures::future::try_join(fut1, fut2).await {
+            Err(e) => assert!(e.to_string().contains("Recursive invocation")),
+            Ok(_) => {
+                panic!("Futures should not have completed successfully")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn parallel_invocation_same_transaction() {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(dice, false, NestedInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -349,10 +500,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn different_traceid_blocks() -> anyhow::Result<()> {
+    async fn parallel_invocation_different_traceid_blocks() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), false);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), false, NestedInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -458,11 +609,12 @@ mod tests {
         Ok(())
     }
 
+    // TODO(wendyy) delete this unit test when ConcurrentHandler's bypass_semaphore field is removed
     #[tokio::test]
     async fn different_traceid_bypass_semaphore() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), true);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), true, NestedInvocation::Run);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
