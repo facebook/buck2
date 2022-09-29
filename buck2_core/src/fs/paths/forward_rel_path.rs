@@ -24,7 +24,6 @@ use thiserror::Error;
 use crate::fs::paths::AbsPath;
 use crate::fs::paths::AbsPathBuf;
 use crate::fs::paths::FileName;
-use crate::fs::paths::FileNameBuf;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
 /// This means that there is no '.' or '..' in this path, and does not begin
@@ -886,12 +885,6 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ForwardRelativePath {
 impl From<ForwardRelativePathBuf> for RelativePathBuf {
     fn from(p: ForwardRelativePathBuf) -> Self {
         RelativePathBuf::from(p.0)
-    }
-}
-
-impl From<FileNameBuf> for ForwardRelativePathBuf {
-    fn from(p: FileNameBuf) -> Self {
-        ForwardRelativePathBuf::unchecked_new(p.into_inner())
     }
 }
 

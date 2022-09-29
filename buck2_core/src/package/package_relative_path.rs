@@ -17,7 +17,6 @@ use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
 use crate::fs::paths::FileName;
-use crate::fs::paths::FileNameBuf;
 use crate::fs::paths::ForwardRelativePath;
 use crate::fs::paths::ForwardRelativePathBuf;
 use crate::fs::paths::ForwardRelativePathIter;
@@ -381,12 +380,6 @@ impl From<ForwardRelativePathBuf> for PackageRelativePathBuf {
 impl From<PackageRelativePathBuf> for ForwardRelativePathBuf {
     fn from(p: PackageRelativePathBuf) -> Self {
         p.0
-    }
-}
-
-impl From<FileNameBuf> for PackageRelativePathBuf {
-    fn from(n: FileNameBuf) -> Self {
-        PackageRelativePathBuf::unchecked_new(n.into_inner())
     }
 }
 
