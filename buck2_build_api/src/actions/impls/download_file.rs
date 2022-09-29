@@ -22,7 +22,7 @@ use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::http::Checksum;
-use buck2_execute::materialize::http::HttpDownloadError;
+use buck2_execute::materialize::http::HttpError;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -48,7 +48,7 @@ enum DownloadFileActionError {
     #[error("Exactly one output file must be specified for a download file action, got {0}")]
     WrongNumberOfOutputs(usize),
     #[error(transparent)]
-    Http(#[from] HttpDownloadError),
+    Http(#[from] HttpError),
 }
 
 #[derive(Debug)]

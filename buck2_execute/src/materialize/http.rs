@@ -54,7 +54,7 @@ impl Checksum {
 }
 
 #[derive(Debug, Error)]
-pub enum HttpDownloadError {
+pub enum HttpError {
     #[error(
         "HTTP {} Error ({}) when querying URL: {}. Response text: {}",
         http_error_label(*.status),
@@ -72,14 +72,23 @@ pub enum HttpDownloadError {
         "HTTP Transfer Error when querying URL: {}. Failed before receiving headers.",
         .url,
     )]
-    HttpHeadersTransferError { url: String },
+    HttpHeadersTransferError {
+        url: String,
+        #[source]
+        source: reqwest::Error,
+    },
 
     #[error(
         "HTTP Transfer Error when querying URL: {}. Failed after {} bytes",
         .url,
         .received
     )]
-    HttpTransferError { received: u64, url: String },
+    HttpTransferError {
+        received: u64,
+        url: String,
+        #[source]
+        source: reqwest::Error,
+    },
 
     #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
     InvalidChecksum(&'static str, String, String, String),
@@ -106,13 +115,14 @@ pub fn http_client() -> anyhow::Result<Client> {
         .context("Error creating http client")
 }
 
-async fn http_dispatch(req: RequestBuilder, url: &str) -> anyhow::Result<Response> {
-    let response =
-        req.send()
-            .await
-            .with_context(|| HttpDownloadError::HttpHeadersTransferError {
-                url: url.to_owned(),
-            })?;
+async fn http_dispatch(req: RequestBuilder, url: &str) -> Result<Response, HttpError> {
+    let response = req
+        .send()
+        .await
+        .map_err(|source| HttpError::HttpHeadersTransferError {
+            url: url.to_owned(),
+            source,
+        })?;
 
     let status = response.status();
 
@@ -122,12 +132,11 @@ async fn http_dispatch(req: RequestBuilder, url: &str) -> anyhow::Result<Respons
             Err(e) => format!("Error decoding response text: {}", e),
         };
 
-        return Err(HttpDownloadError::HttpErrorStatus {
+        return Err(HttpError::HttpErrorStatus {
             status,
             url: url.to_owned(),
             text,
-        }
-        .into());
+        });
     }
 
     Ok(response)
@@ -179,9 +188,10 @@ pub async fn http_download(
 
         let mut file_len = 0u64;
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.with_context(|| HttpDownloadError::HttpTransferError {
+            let chunk = chunk.map_err(|source| HttpError::HttpTransferError {
                 received: file_len,
                 url: url.to_owned(),
+                source,
             })?;
             buf_writer
                 .write(&chunk)
@@ -203,7 +213,7 @@ pub async fn http_download(
 
         if let Some(expected_sha1) = checksum.sha1() {
             if expected_sha1 != download_sha1 {
-                return Err(HttpDownloadError::InvalidChecksum(
+                return Err(HttpError::InvalidChecksum(
                     "sha1",
                     expected_sha1.to_owned(),
                     download_sha1,
@@ -216,7 +226,7 @@ pub async fn http_download(
         if let Some((sha256_hasher, expected_sha256)) = sha256_hasher_and_expected {
             let download_sha256 = hex::encode(sha256_hasher.finalize().as_slice());
             if expected_sha256 != download_sha256 {
-                return Err(HttpDownloadError::InvalidChecksum(
+                return Err(HttpError::InvalidChecksum(
                     "sha256",
                     expected_sha256.to_owned(),
                     download_sha256,
