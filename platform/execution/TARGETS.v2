@@ -126,7 +126,19 @@ asic_devinfra_xtensa_platform = execution_platform(
     remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 300 * 1024),
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
-asic_devinfra_platforms = asic_devinfra_xtensa_platform if is_arvr_mode() else []
+arvr_firmware_platforms = execution_platform(
+    name = "riscv32-gcc-embedded",
+    base_platform = "ovr_config//platform/none:riscv32-gcc-base",
+    local_enabled = not host_is_linux_aarch64,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "linux-remote-execution",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 512 * 1024),
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+)
+asic_devinfra_platforms = (asic_devinfra_xtensa_platform + arvr_firmware_platforms) if is_arvr_mode() else []
 
 execution_platforms(
     name = "platforms",
