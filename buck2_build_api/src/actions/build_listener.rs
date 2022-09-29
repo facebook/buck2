@@ -20,6 +20,7 @@ use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::metadata;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
@@ -154,6 +155,7 @@ impl BuildSignalReceiver {
                     action_key: Some(action.key().as_proto()),
                     duration: Some(duration.into()),
                 }),
+            metadata: metadata::collect(),
         });
         Ok(())
     }
