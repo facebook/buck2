@@ -189,6 +189,9 @@ pub struct ServerCommandContext {
     heartbeat_guard_handle: Option<HeartbeatGuard>,
 
     configure_bxl_file_globals: fn(&mut GlobalsBuilder),
+
+    /// Daemon uuid passed in from the client side to detect nested invocation
+    pub(crate) daemon_uuid_from_client: Option<String>,
 }
 
 impl ServerCommandContext {
@@ -273,6 +276,7 @@ impl ServerCommandContext {
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             configure_bxl_file_globals,
+            daemon_uuid_from_client: client_context.daemon_uuid.clone(),
         })
     }
 
@@ -555,10 +559,17 @@ impl ServerCommandContextTrait for ServerCommandContext {
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
+        let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
+            uuid == &metadata::DAEMON_UUID.to_string()
+        } else {
+            false
+        };
+
         Ok(DiceAccessor {
             dice_handler: self.base_context.dice_manager.dupe(),
             data: box self.dice_data_constructor().await,
             setup: box self.dice_updater().await?,
+            is_nested_invocation,
         })
     }
 

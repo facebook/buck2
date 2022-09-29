@@ -6,12 +6,14 @@
 
 #![allow(clippy::extra_unused_lifetimes)] // FIXME?
 
+use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
 
 use async_condvar_fair::BatonExt;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
+use buck2_core::soft_error;
 use buck2_events::trace::TraceId;
 use dice::Dice;
 use dice::DiceComputations;
@@ -20,6 +22,19 @@ use dice::UserComputationData;
 use gazebo::prelude::*;
 use parking_lot::FairMutex;
 use starlark_map::small_map::SmallMap;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum ConcurrencyHandlerError {
+    #[error(
+        "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Id: {0}"
+    )]
+    NestedInvocationWithSameStates(String),
+    #[error(
+        "Recursive invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Id: {0}"
+    )]
+    NestedInvocationWithDifferentStates(String),
+}
 
 /// Manages concurrent commands, blocking when appropriate.
 ///
@@ -65,7 +80,7 @@ impl ConcurrencyHandler {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 active_dice: None,
-                active_traces: SmallMap::new(),
+                active_traces: SmallMap::<TraceId, usize>::new(),
             })),
             cond: Default::default(),
             dice,
@@ -81,12 +96,15 @@ impl ConcurrencyHandler {
         data: Box<dyn DiceDataProvider>,
         updates: &dyn DiceUpdater,
         exec: F,
+        is_nested_invocation: bool,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send,
     {
-        let (_guard, transaction) = self.wait_for_others(data, updates, trace).await?;
+        let (_guard, transaction) = self
+            .wait_for_others(data, updates, trace, is_nested_invocation)
+            .await?;
 
         Ok(exec(transaction).await)
     }
@@ -101,6 +119,7 @@ impl ConcurrencyHandler {
         user_data: Box<dyn DiceDataProvider>,
         updates: &dyn DiceUpdater,
         trace: TraceId,
+        is_nested_invocation: bool,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let mut data = self.data.lock();
         let mut baton = None;
@@ -117,7 +136,31 @@ impl ConcurrencyHandler {
             transaction = transaction.commit();
 
             if let Some(active_dice) = &data.active_dice {
-                if active_dice.equivalent(&transaction) || self.bypass_semaphore {
+                let is_same_state = active_dice.equivalent(&transaction);
+
+                if is_nested_invocation {
+                    if is_same_state {
+                        soft_error!(
+                            "nested_invocation_same_dice_state",
+                            anyhow::anyhow!(
+                                ConcurrencyHandlerError::NestedInvocationWithSameStates(
+                                    trace.to_string(),
+                                )
+                            )
+                        )?;
+                    } else {
+                        soft_error!(
+                            "nested_invocation_different_dice_state",
+                            anyhow::anyhow!(
+                                ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
+                                    trace.to_string(),
+                                ),
+                            )
+                        )?;
+                    }
+                }
+
+                if is_same_state || self.bypass_semaphore {
                     // if the dice context is equivalent, then we can run concurrently with the
                     // current command.
 
@@ -262,24 +305,42 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(3));
 
-        let fut1 = concurrency.enter(traces1, box TestDiceDataProvider, &no_changes, |_| {
-            let b = barrier.dupe();
-            async move {
-                b.wait().await;
-            }
-        });
-        let fut2 = concurrency.enter(traces2, box TestDiceDataProvider, &no_changes, |_| {
-            let b = barrier.dupe();
-            async move {
-                b.wait().await;
-            }
-        });
-        let fut3 = concurrency.enter(traces3, box TestDiceDataProvider, &no_changes, |_| {
-            let b = barrier.dupe();
-            async move {
-                b.wait().await;
-            }
-        });
+        let fut1 = concurrency.enter(
+            traces1,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            false,
+        );
+        let fut2 = concurrency.enter(
+            traces2,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            false,
+        );
+        let fut3 = concurrency.enter(
+            traces3,
+            box TestDiceDataProvider,
+            &no_changes,
+            |_| {
+                let b = barrier.dupe();
+                async move {
+                    b.wait().await;
+                }
+            },
+            false,
+        );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
         r1.unwrap();
@@ -328,6 +389,7 @@ mod tests {
                             barrier.wait().await;
                             let _g = b.read().await;
                         },
+                        false,
                     )
                     .await
             }
@@ -348,6 +410,7 @@ mod tests {
                             barrier.wait().await;
                             let _g = b.read().await;
                         },
+                        false,
                     )
                     .await
             }
@@ -370,6 +433,7 @@ mod tests {
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
                         },
+                        false,
                     )
                     .await
             }
@@ -424,6 +488,7 @@ mod tests {
                         |_| async move {
                             barrier.wait().await;
                         },
+                        false,
                     )
                     .await
             }
@@ -442,6 +507,7 @@ mod tests {
                         |_| async move {
                             barrier.wait().await;
                         },
+                        false,
                     )
                     .await
             }
@@ -460,6 +526,7 @@ mod tests {
                         |_| async move {
                             barrier.wait().await;
                         },
+                        false,
                     )
                     .await
             }

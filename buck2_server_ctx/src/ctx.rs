@@ -57,6 +57,7 @@ pub struct DiceAccessor {
     pub dice_handler: ConcurrencyHandler,
     pub data: Box<dyn DiceDataProvider>,
     pub setup: Box<dyn DiceUpdater>,
+    pub is_nested_invocation: bool,
 }
 
 #[async_trait]
@@ -97,6 +98,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                         )
                         .await
                 },
+                dice_accessor.is_nested_invocation,
             )
             .await?
     }
