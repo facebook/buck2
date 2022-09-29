@@ -1,7 +1,3 @@
-# Enable workspace inheritance feature explicitly for now as the fbcode
-# toolchain is not on cargo >= 1.64 yet.
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "host_sharing"
 version = "0.1.0"
