@@ -20,7 +20,7 @@ buck2_core = { path = "../buck2_core" }
 buck2_data = { path = "../buck2_data" }
 buck2_events = { path = "../buck2_events" }
 cli_proto = { path = "../cli_proto" }
-starlark_map = { path = "../starlark-rust/starlark_map" }
+starlark_map = { workspace = true }
 
 [dev-dependencies]
 derive_more = { workspace = true }

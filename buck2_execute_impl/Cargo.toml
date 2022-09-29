@@ -28,7 +28,7 @@ host_sharing = { path = "../host_sharing" }
 # @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
 more_futures = { path = "../shed/more_futures" }
 remote_execution = { workspace = true }
-starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
+starlark_map = { workspace = true }
 
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
