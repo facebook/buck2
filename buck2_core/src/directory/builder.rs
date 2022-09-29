@@ -7,12 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-
 use derivative::Derivative;
 use either::Either;
 use gazebo::prelude::*;
+use starlark_map::small_map::Entry;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use super::Directory;
@@ -64,7 +63,7 @@ where
     H: HasDirectoryDigest,
 {
     /// This has a dedicated copy and we can mutate it.
-    Mutable(HashMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>>),
+    Mutable(SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>>),
     Immutable(ImmutableDirectory<L, H>),
 }
 
@@ -231,13 +230,13 @@ where
 
     pub(super) fn as_mut(
         &mut self,
-    ) -> &mut HashMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>> {
+    ) -> &mut SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>> {
         if let Self::Mutable(ref mut dir) = self {
             return dir;
         };
 
         let entries = match std::mem::replace(self, DirectoryBuilder::Mutable(Default::default())) {
-            Self::Immutable(d) => d.into_entries::<HashMap<_, _>>(),
+            Self::Immutable(d) => d.into_entries::<SmallMap<_, _>>(),
             Self::Mutable(..) => unreachable!(),
         };
 

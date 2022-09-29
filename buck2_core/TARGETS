@@ -43,6 +43,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/shed/internment_tweaks:internment_tweaks",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ],
 )

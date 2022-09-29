@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::iter::once;
 
 use either::Either;
 use gazebo::prelude::*;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use super::Directory;
@@ -55,7 +55,7 @@ pub enum DirectoryFilterError {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DirectorySelector {
     /// Traverse only the netries that match this filename.
-    Traverse(HashMap<FileNameBuf, DirectorySelector>),
+    Traverse(SmallMap<FileNameBuf, DirectorySelector>),
     /// Take this entire tree.
     Take,
 }
@@ -115,7 +115,7 @@ impl DirectorySelector {
 
 fn filter_inner<L, H>(
     dir: &mut DirectoryBuilder<L, H>,
-    filter: &HashMap<FileNameBuf, DirectorySelector>,
+    filter: &SmallMap<FileNameBuf, DirectorySelector>,
     res: &mut Result<(), DirectoryFilterError>,
 ) where
     L: Clone,
@@ -165,7 +165,7 @@ macro_rules! impl_directory_search {
 
                 /// Continue the search.
                 Search {
-                    search: &'a HashMap<FileNameBuf, DirectorySelector>,
+                    search: &'a SmallMap<FileNameBuf, DirectorySelector>,
                     name: Option<&'b FileName>,
                     entries: $entries_ty<'b, L, H>,
                 },

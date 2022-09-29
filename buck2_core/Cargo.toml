@@ -28,6 +28,7 @@ assert_matches = { workspace = true }
 tracing = { workspace = true }
 rand = { workspace = true }
 smartstring = { workspace = true }
+starlark_map = { workspace = true }
 
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
