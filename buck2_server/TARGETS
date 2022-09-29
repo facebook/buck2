@@ -8,6 +8,7 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",
+        "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -27,7 +28,6 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:shlex",
         "fbsource//third-party/rust:sync_wrapper",
-        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",

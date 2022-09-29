@@ -13,7 +13,9 @@ use std::sync::Arc;
 use std::task;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
+use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::FileName;
 use futures::Stream;
 use futures::TryFutureExt;
 use tokio::io::AsyncRead;
@@ -42,11 +44,14 @@ pub async fn create_listener(
         // since the unix domain socket path is limited to 108 characters.
         // https://man7.org/linux/man-pages/man7/unix.7.html
         let uds = {
-            let tempdir = tempfile::tempdir()?;
-            let socket_dir_symlink = tempdir.path().join("d");
-            fs_util::symlink(daemon_dir, &socket_dir_symlink)?;
-            let socket_path = socket_dir_symlink.join(UDS_DAEMON_FILENAME);
-            UnixListener::bind(socket_path)?
+            let socket_dir_symlink = TempPath::new()?;
+            fs_util::symlink(daemon_dir, socket_dir_symlink.path())?;
+            let socket_path = socket_dir_symlink
+                .path()
+                .join(FileName::new(UDS_DAEMON_FILENAME)?);
+            let uds = UnixListener::bind(socket_path)?;
+            socket_dir_symlink.close()?;
+            uds
         };
 
         async_stream::stream! {
