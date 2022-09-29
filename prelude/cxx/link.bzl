@@ -90,7 +90,7 @@ def cxx_link(
     # If we're not stripping the output linked object, than add-in an externally
     # referenced debug info that the linked object may reference (and which may
     # need to be available for debugging).
-    if not strip:
+    if not (strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
         for link in links:
             external_debug_info.extend(unpack_external_debug_info(link))
 

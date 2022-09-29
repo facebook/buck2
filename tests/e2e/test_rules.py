@@ -749,6 +749,25 @@ if fbcode_linux_only():
             "fbcode.use_link_groups=True",
         )
 
+    @buck_test(inplace=True)
+    async def test_link_groups_split_dwarf(buck: Buck) -> None:
+        await buck.build(
+            "fbcode//tools/build/test/cpp/link_groups/...",
+            "@//mode/opt",
+            "-c",
+            "fbcode.use_link_groups=True",
+            "-c",
+            "fbcode.split-dwarf=True",
+        )
+        await buck.test(
+            "fbcode//tools/build/test/cpp/link_groups/...",
+            "@//mode/opt",
+            "-c",
+            "fbcode.use_link_groups=True",
+            "-c",
+            "fbcode.split-dwarf=True",
+        )
+
     async def dist_lto_build_and_verify(buck: Buck, target: str) -> None:
         result = await buck.build(
             target,
