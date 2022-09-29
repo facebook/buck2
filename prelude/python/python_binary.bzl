@@ -414,7 +414,8 @@ def _hidden_resources_error_message(current_target: "label", hidden_resources) -
 
     msg = (
         "Cannot package hidden srcs/resources in a standalone python_binary. " +
-        'Eliminate resources in non-Python dependencies of this binary, or use `package_style = "inplace"`.\n'
+        'Eliminate resources in non-Python dependencies of this python binary, use `package_style = "inplace"`, ' +
+        'use `strip_mode="full"` or turn off Split DWARF `-c fbcode.split-dwarf=false` on C++ binary resources.\n'
     )
 
     for (rule, resources) in owner_to_artifacts.items():
