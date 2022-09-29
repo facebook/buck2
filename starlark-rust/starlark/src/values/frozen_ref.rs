@@ -28,6 +28,8 @@ use std::sync::atomic;
 
 use gazebo::prelude::*;
 
+use crate::values::Freeze;
+use crate::values::Freezer;
 use crate::values::Trace;
 use crate::values::Tracer;
 
@@ -135,6 +137,14 @@ where
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self as &T).hash(state);
+    }
+}
+
+impl<'f, T: 'f + ?Sized> Freeze for FrozenRef<'f, T> {
+    type Frozen = Self;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        Ok(self)
     }
 }
 
