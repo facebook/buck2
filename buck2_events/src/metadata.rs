@@ -27,7 +27,7 @@ pub fn collect() -> HashMap<String, String> {
 
     let mut map = HashMap::new();
 
-    #[cfg(feature = "extra_logging")]
+    #[cfg(off)] // @oss-enable
     {
         map.insert(
             "hostname".to_owned(),
@@ -47,11 +47,6 @@ pub fn collect() -> HashMap<String, String> {
             "buck2_build_time".to_owned(),
             build_info::BuildInfo::get_time_iso8601().to_owned(),
         );
-    }
-    #[cfg(not(feature = "extra_logging"))]
-    {
-        #[cfg(fbcode_build)]
-        compile_error!("extra_logging must be enabled when compiling in fbcode");
     }
 
     // Global trace ID
