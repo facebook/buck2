@@ -12,6 +12,7 @@ use buck2_core::soft_error;
 use cli_proto::QueryOutputFormat;
 use cli_proto::UqueryRequest;
 use gazebo::dupe::Dupe;
+use thiserror::Error;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -68,14 +69,18 @@ pub(crate) struct CommonAttributeArgs {
     output_attributes: Vec<String>,
 }
 
+#[derive(Error, Debug)]
+enum ArgErrors {
+    #[error("`--output-attributes` is deprecated, use `--output-attribute` instead")]
+    OutputAttributesDeprecated,
+}
+
 impl CommonAttributeArgs {
     pub(crate) fn get(&self) -> anyhow::Result<Vec<String>> {
         if !self.output_attributes.is_empty() {
             soft_error!(
                 "output_attributes",
-                anyhow::anyhow!(
-                    "`--output-attributes` is deprecated, use `--output-attribute` instead"
-                )
+                ArgErrors::OutputAttributesDeprecated.into()
             )?;
         }
 
