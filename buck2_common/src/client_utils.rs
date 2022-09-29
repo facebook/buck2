@@ -45,53 +45,55 @@ pub async fn get_channel_uds(
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
     use buck2_core::fs::fs_util;
-    use tonic::codegen::http::Uri;
-    use tower::service_fn;
-
-    let tempdir;
-    let connect_to;
 
     // Symlink to temp file to connect to unix domain socket
     // since the unix domain socket path is limited to 108 characters.
     // https://man7.org/linux/man-pages/man7/unix.7.html
-    let connect_to = if change_to_parent_dir {
-        tempdir = tempfile::tempdir()?;
-        connect_to = tempdir.path().join("s");
+    if change_to_parent_dir {
+        let tempdir = tempfile::tempdir()?;
+        let symlink = tempdir.path().join("s");
 
-        fs_util::symlink(unix_socket, &connect_to)?;
+        fs_util::symlink(unix_socket, &symlink)?;
 
-        &connect_to
-    } else {
-        unix_socket
-    };
-
-    let io = tokio::net::UnixStream::connect(&connect_to)
-        .await
-        .with_context(|| {
+        get_channel_uds_no_symlink(&symlink).await.with_context(|| {
             format!(
-                "Failed to connect to unix domain socket `{}`",
-                unix_socket.display()
+                "Failed to connect to unix domain socket `{}` using symlink `{}`",
+                unix_socket.display(),
+                symlink.display(),
             )
-        })?;
+        })
+    } else {
+        get_channel_uds_no_symlink(unix_socket)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed to connect to unix domain socket `{}`",
+                    unix_socket.display()
+                )
+            })
+    }
+}
+
+#[cfg(unix)]
+async fn get_channel_uds_no_symlink(connect_to: &Path) -> anyhow::Result<Channel> {
+    use tonic::codegen::http::Uri;
+    use tower::service_fn;
+
+    let io = tokio::net::UnixStream::connect(&connect_to).await?;
 
     let mut io = Some(io);
     // This URL string is not relevant to the connection. Some URL is required for the function to work but the closure running inside connect_with_connector()
     // deals with connecting to the unix domain socket.
-    Endpoint::try_from("http://[::]:50051")?
+    Ok(Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(move |_: Uri| {
             let io = io
                 .take()
                 .with_context(|| "Cannot reconnect after connection loss to uds");
             futures::future::ready(io)
         }))
-        .await
-        .with_context(|| {
-            format!(
-                "Failed to connect to unix domain socket `{}`",
-                unix_socket.display()
-            )
-        })
+        .await?)
 }
+
 #[cfg(windows)]
 pub async fn get_channel_uds(_unix_filename: &Path, _chg_dir: bool) -> anyhow::Result<Channel> {
     Err(anyhow::Error::msg(
