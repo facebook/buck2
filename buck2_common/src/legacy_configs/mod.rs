@@ -1257,7 +1257,7 @@ pub mod testing {
         let path = &AbsPathBuf::from(path.into())?;
         // Need to add some disk drive on Windows to make path absolute.
         #[cfg(windows)]
-        let path = &AbsPathBuf::from("C:".to_owned() + path)?;
+        let path = &AbsPathBuf::from(format!("C:{}", path))?;
         LegacyBuckConfig::parse_with_file_ops(path, &file_ops, config_args)
     }
 
@@ -1273,7 +1273,7 @@ pub mod testing {
                 let file_path = (*file).to_owned();
                 // Need to add some disk drive on Windows to make path absolute.
                 #[cfg(windows)]
-                let file_path = "C:".to_owned() + file;
+                let file_path = format!("C:{}", file);
                 holder_data.insert(AbsPathBuf::from(file_path)?, (*content).to_owned());
             }
             Ok(TestConfigParserFileOps { data: holder_data })

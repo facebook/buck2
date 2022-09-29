@@ -287,7 +287,7 @@ mod tests {
         interpreter.eval_build_file::<TesterExtraContext>(
             &buildfile_path,
             &buckconfig,
-            PackageListing::empty(FileNameBuf::unchecked_new("BUCK".to_owned())),
+            PackageListing::empty(FileNameBuf::unchecked_new("BUCK")),
             false,
             ast,
             loaded_modules,

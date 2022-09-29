@@ -96,7 +96,7 @@ impl IoProvider for FsIoProvider {
                     .ok_or_else(|| ReadDirError::NotUtf8(file_name.clone()))?;
                 entries.push(SimpleDirEntry {
                     file_type: e.file_type()?.into(),
-                    file_name: FileNameBuf::unchecked_new(file_name.to_owned()),
+                    file_name: FileNameBuf::unchecked_new(file_name),
                 });
             }
 

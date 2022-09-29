@@ -128,7 +128,7 @@ pub mod testing {
                 SortedIndexSet::new(files),
                 IndexSet::new(),
                 Vec::new(),
-                FileNameBuf::unchecked_new(buildfile.to_owned()),
+                FileNameBuf::unchecked_new(buildfile),
             )
         }
     }

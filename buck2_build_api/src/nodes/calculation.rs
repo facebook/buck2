@@ -931,7 +931,7 @@ mod tests {
         let eval_result = EvaluationResult::new(
             Arc::new(BuildFilePath::new(
                 pkg.dupe(),
-                FileNameBuf::unchecked_new("BUCK".to_owned()),
+                FileNameBuf::unchecked_new("BUCK"),
             )),
             Vec::new(),
             indexmap![name1 => node1.dupe(), name2 => node2.dupe()],

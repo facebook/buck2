@@ -27,6 +27,7 @@ either = { workspace = true }
 assert_matches = { workspace = true }
 tracing = { workspace = true }
 rand = { workspace = true }
+smartstring = { workspace = true }
 
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"

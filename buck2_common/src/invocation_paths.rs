@@ -197,7 +197,7 @@ mod tests {
                 cell_root: AbsPathBuf::unchecked_new(cell_root.to_owned()),
                 project_root: ProjectRoot::new(AbsPathBuf::unchecked_new(project_root.to_owned())),
             },
-            isolation: FileNameBuf::unchecked_new("isolation".to_owned()),
+            isolation: FileNameBuf::unchecked_new("isolation"),
         };
 
         let expected_path = if cfg!(windows) {

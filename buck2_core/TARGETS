@@ -36,6 +36,7 @@ rust_library(
         "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:sequence_trie",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:smartstring",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",

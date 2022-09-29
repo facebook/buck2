@@ -23,6 +23,7 @@ use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
@@ -57,7 +58,7 @@ use crate::AuditSubcommand;
 #[derive(Debug, Error)]
 enum AuditIncludesError {
     #[error("When loading buildfile for `{0}` found a mismatched buildfile name (`{1}`)")]
-    WrongBuildfilePath(CellPath, String),
+    WrongBuildfilePath(CellPath, FileNameBuf),
     #[error("invalid buildfile path `{0}`")]
     InvalidPath(CellPath),
 }
@@ -188,7 +189,7 @@ async fn load_and_collect_includes(
     {
         return Err(anyhow::anyhow!(AuditIncludesError::WrongBuildfilePath(
             path.clone(),
-            buildfile_name.to_owned().into_inner(),
+            buildfile_name.to_owned(),
         )))
         .shared_error();
     }

@@ -471,7 +471,7 @@ pub mod testing {
 
             let buildfile_path = Arc::new(BuildFilePath::new(
                 label.pkg().dupe(),
-                FileNameBuf::unchecked_new("BUCK".to_owned()),
+                FileNameBuf::unchecked_new("BUCK"),
             ));
             TargetNode::new(
                 label,

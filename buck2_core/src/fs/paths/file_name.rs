@@ -16,6 +16,8 @@ use std::path::Path;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
+use smartstring::LazyCompact;
+use smartstring::SmartString;
 use thiserror::Error;
 
 use crate::fs::paths::ForwardRelativePath;
@@ -181,20 +183,23 @@ impl ToOwned for FileName {
     type Owned = FileNameBuf;
 
     fn to_owned(&self) -> FileNameBuf {
-        FileNameBuf(self.0.to_owned())
+        FileNameBuf(self.0.into())
     }
 }
 
 /// Owned version of [`FileName`].
 #[derive(Ord, PartialOrd, Eq, Display, Debug, Clone)]
-pub struct FileNameBuf(String);
+pub struct FileNameBuf(SmartString<LazyCompact>);
 
 impl FileNameBuf {
-    pub fn unchecked_new(s: String) -> Self {
-        Self(s)
+    pub fn unchecked_new<T>(s: T) -> Self
+    where
+        T: Into<SmartString<LazyCompact>>,
+    {
+        Self(s.into())
     }
 
-    pub fn into_inner(self) -> String {
+    pub fn into_inner(self) -> SmartString<LazyCompact> {
         self.0
     }
 
@@ -203,15 +208,12 @@ impl FileNameBuf {
     }
 }
 
-impl PartialEq for FileNameBuf {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
-    }
-}
-
-impl PartialEq<String> for FileNameBuf {
-    fn eq(&self, other: &String) -> bool {
-        &self.0 == other
+impl<T> PartialEq<T> for FileNameBuf
+where
+    T: AsRef<str>,
+{
+    fn eq(&self, other: &T) -> bool {
+        self.0 == other.as_ref()
     }
 }
 
@@ -243,7 +245,7 @@ impl Borrow<str> for FileNameBuf {
 
 impl AsRef<FileName> for FileNameBuf {
     fn as_ref(&self) -> &FileName {
-        FileName::unchecked_new(&self.0)
+        FileName::unchecked_new(self.0.as_str())
     }
 }
 
@@ -276,6 +278,6 @@ impl TryFrom<String> for FileNameBuf {
 
     fn try_from(value: String) -> anyhow::Result<FileNameBuf> {
         FileNameVerifier::verify(value.as_str())?;
-        Ok(FileNameBuf(value))
+        Ok(FileNameBuf(value.into()))
     }
 }

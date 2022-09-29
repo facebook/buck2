@@ -45,7 +45,7 @@ impl BuildFilePath {
             &CellName::unchecked_new(cell.to_owned()),
             &CellRelativePathBuf::unchecked_new(package.to_owned()),
         );
-        let filename = FileNameBuf::unchecked_new(filename.to_owned());
+        let filename = FileNameBuf::unchecked_new(filename);
         Self::new(package, filename)
     }
 
