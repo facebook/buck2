@@ -30,7 +30,7 @@ use crate::result::ToSharedResultExt;
 
 /// `~/.buck`.
 #[allow(clippy::needless_borrow)] // False positive.
-fn home_buck_dir() -> anyhow::Result<&'static AbsPath> {
+pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsPath> {
     fn find_dir() -> anyhow::Result<AbsPathBuf> {
         let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
         let home = AbsPathBuf::new(home).context("Expected an absolute HOME directory")?;
