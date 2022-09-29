@@ -26,7 +26,10 @@ pub struct TempPath {
 
 impl TempPath {
     pub fn new() -> anyhow::Result<TempPath> {
-        let temp_dir = AbsPathBuf::new(env::temp_dir())?;
+        TempPath::new_in(AbsPath::new(&env::temp_dir())?)
+    }
+
+    pub fn new_in(temp_dir: &AbsPath) -> anyhow::Result<TempPath> {
         let mut name = String::with_capacity(10);
         for _ in 0..10 {
             name.push(rand::thread_rng().gen_range('a'..='z'));
