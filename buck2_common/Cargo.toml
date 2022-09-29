@@ -40,7 +40,7 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 internment_tweaks = { path = "../shed/internment_tweaks" }
-more_futures = { path = "../shed/more_futures" }
+more_futures = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark_map = { workspace = true }
 

@@ -194,6 +194,8 @@ sorted_vector_map.version = "0.1"
 gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"
+host_sharing = { path = "host_sharing" }
+more_futures = { path = "shed/more_futures" }
 remote_execution = { path = "remote_execution/stub" }
 starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }

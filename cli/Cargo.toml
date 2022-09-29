@@ -30,7 +30,7 @@ gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-host_sharing = { path = "../host_sharing" }
+host_sharing = { workspace = true }
 starlark = { workspace = true }
 # @oss-disable: user = { path = "../../common/rust/user", optional = true }
 

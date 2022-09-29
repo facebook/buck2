@@ -19,8 +19,10 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
+gazebo = { workspace = true }
+host_sharing = { workspace = true }
+more_futures = { workspace = true }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }
@@ -35,7 +37,5 @@ cli_proto = { path = "../cli_proto" }
 downward_api = { path = "../downward_api" }
 buck2_events = { path = "../buck2_events" }
 buck2_execute = { path = "../buck2_execute" }
-host_sharing = { path = "../host_sharing" }
 buck2_test_api = { path = "../buck2_test_api" }
 buck2_grpc = { path = "../buck2_grpc" }
-more_futures = { path = "../shed/more_futures" }

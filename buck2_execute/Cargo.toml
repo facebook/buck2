@@ -33,8 +33,8 @@ dice = { path = "../dice/dice" }
 # @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
-host_sharing = { path = "../host_sharing" }
-more_futures = { path = "../shed/more_futures" }
+host_sharing = { workspace = true }
+more_futures = { workspace = true }
 remote_execution = { workspace = true }
 starlark_map = { workspace = true }
 

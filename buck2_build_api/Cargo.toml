@@ -53,8 +53,8 @@ gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-host_sharing = { path = "../host_sharing" }
-more_futures = { path = "../shed/more_futures" }
+host_sharing = { workspace = true }
+more_futures = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 

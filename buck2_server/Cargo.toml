@@ -33,7 +33,7 @@ tracing = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
-more_futures = { path = "../shed/more_futures" }
+more_futures = { workspace = true }
 starlark = { workspace = true }
 watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
@@ -50,7 +50,7 @@ buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
 cli_proto = { path = "../cli_proto" }
 buck2_events = { path = "../buck2_events" }
-host_sharing = { path = "../host_sharing" }
+host_sharing = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 jemalloc-ctl = { workspace = true }
