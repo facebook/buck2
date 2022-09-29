@@ -485,4 +485,14 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn remove_dir_all_does_not_remove_file() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let file_path = tempdir.path().join("file");
+        fs::write(&file_path, b"File content")?;
+        assert!(remove_dir_all(&file_path).is_err());
+        assert!(fs::try_exists(&file_path)?);
+        Ok(())
+    }
 }
