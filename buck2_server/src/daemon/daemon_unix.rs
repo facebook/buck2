@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::task;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
+use buck2_common::home_buck_tmp::home_buck_tmp_dir;
 use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::FileName;
@@ -44,7 +45,7 @@ pub async fn create_listener(
         // since the unix domain socket path is limited to 108 characters.
         // https://man7.org/linux/man-pages/man7/unix.7.html
         let uds = {
-            let socket_dir_symlink = TempPath::new()?;
+            let socket_dir_symlink = TempPath::new_in(home_buck_tmp_dir()?)?;
             fs_util::symlink(daemon_dir, socket_dir_symlink.path())?;
             let socket_path = socket_dir_symlink
                 .path()
