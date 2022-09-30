@@ -54,9 +54,6 @@ pub fn handle_soft_error(
     }
 
     if HARD_ERROR.get_copied().ok() == Some(Some(true)) {
-        // We can't anyhow::Error out of here because we don't return a Result.
-        // We don't want to panic out of here in case that goes into our panic handler.
-        // So cheat and drop an `exit` (this branch is only ever taken in our tests).
         eprintln!("Important warning caused failure due to $BUCK2_TEST_HARD_ERROR");
         Err(err)
     } else {
