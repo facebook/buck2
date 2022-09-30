@@ -70,7 +70,10 @@ impl PackageImplicits {
     }
 
     fn lookup(&self, name: &str) -> Option<OwnedFrozenValue> {
-        self.env.get(self.import_spec.lookup_alias(name)).ok()
+        self.env
+            .get_option(self.import_spec.lookup_alias(name))
+            .ok()
+            .flatten()
     }
 }
 
