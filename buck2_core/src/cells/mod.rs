@@ -225,16 +225,16 @@ impl CellAliasResolver {
     }
 
     /// resolves a 'CellAlias' into its corresponding 'CellName'
-    pub fn resolve<T: ?Sized>(&self, alias: &T) -> anyhow::Result<&CellName>
+    pub fn resolve<T: ?Sized>(&self, alias: &T) -> Result<&CellName, CellError>
     where
         CellAlias: Borrow<T>,
         T: Hash + Eq + Display,
     {
         self.0.get(alias).ok_or_else(|| {
-            anyhow::Error::new(CellError::UnknownCellAlias(
+            CellError::UnknownCellAlias(
                 CellAlias::new(alias.to_string()),
                 self.0.keys().cloned().collect(),
-            ))
+            )
         })
     }
 

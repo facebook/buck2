@@ -59,9 +59,6 @@ impl AuditSubcommand for AuditPreludeCommand {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
                 let prelude_path = prelude_path(cell_alias_resolver)?;
-                let interpreter_calculation = ctx
-                    .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
-                    .await?;
                 // Slightly odd that to get the build_file_global_env out of global_interpreter_state
                 // we first have to wrap it in an InterpreterConfig with a fake CellAliasResolver
                 let aliases = hashmap![
@@ -77,15 +74,24 @@ impl AuditSubcommand for AuditPreludeCommand {
                     "{}",
                     interpreter_config.build_file_global_env().describe()
                 )?;
-                writeln!(
-                    stdout,
-                    "{}",
-                    interpreter_calculation
-                        .eval_module(StarlarkModulePath::LoadFile(&prelude_path))
-                        .await?
-                        .env()
-                        .describe()
-                )?;
+
+                if let Some(prelude_path) = prelude_path {
+                    let interpreter_calculation = ctx
+                        .get_interpreter_calculator(
+                            prelude_path.cell(),
+                            prelude_path.build_file_cell(),
+                        )
+                        .await?;
+                    writeln!(
+                        stdout,
+                        "{}",
+                        interpreter_calculation
+                            .eval_module(StarlarkModulePath::LoadFile(&prelude_path))
+                            .await?
+                            .env()
+                            .describe()
+                    )?;
+                }
 
                 Ok(())
             })

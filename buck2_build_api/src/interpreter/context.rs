@@ -12,6 +12,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellError;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::build_defs::register_natives;
@@ -20,13 +21,18 @@ use crate::interpreter::rule_defs::command_executor_config::register_command_exe
 use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::rule_defs::transition::starlark::register_transition_defs;
 
-pub fn prelude_path(alias_resolver: &CellAliasResolver) -> anyhow::Result<ImportPath> {
-    let prelude_cell = alias_resolver.resolve("prelude")?;
+pub fn prelude_path(alias_resolver: &CellAliasResolver) -> anyhow::Result<Option<ImportPath>> {
+    let prelude_cell = match alias_resolver.resolve("prelude") {
+        // allow the prelude cell to not exist, in which case the prelude is not available
+        Err(CellError::UnknownCellAlias(_, _)) => return Ok(None),
+        e => e?,
+    };
     let prelude_file = CellRelativePathBuf::unchecked_new("prelude.bzl".to_owned());
     ImportPath::new(
         CellPath::new(prelude_cell.clone(), prelude_file),
         BuildFileCell::new(prelude_cell.clone()),
     )
+    .map(Some)
 }
 
 pub fn configure_build_file_globals(globals_builder: &mut GlobalsBuilder) {

@@ -512,7 +512,7 @@ impl DiceUpdater for DiceCommandUpdater {
         let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
 
         let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(cell_alias_resolver)?),
+            prelude_path(cell_alias_resolver)?,
             self.interpreter_platform,
             self.interpreter_architecture,
             self.record_target_call_stacks,
