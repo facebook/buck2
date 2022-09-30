@@ -75,7 +75,7 @@ pub struct BuildSignalSender {
 
 impl BuildSignalSender {
     pub fn signal(&self, signal: impl Into<BuildSignal>) {
-        self.sender.send(signal.into()).ok();
+        let _ignore_error = self.sender.send(signal.into());
     }
 }
 
