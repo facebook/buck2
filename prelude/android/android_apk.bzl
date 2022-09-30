@@ -289,6 +289,7 @@ def _verify_params(ctx: "context"):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
     expect(ctx.attrs.allow_r_dot_java_in_secondary_dex == True)
+    expect(not ctx.attrs.manifest_entries, "manifest_entries is not supported!")
 
 def generate_install_config(ctx: "context") -> "artifact":
     data = get_install_config()
