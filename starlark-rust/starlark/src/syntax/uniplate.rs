@@ -84,8 +84,9 @@ impl<P: AstPayload> StmtP<P> {
                 ret.iter().for_each(|x| f(Visit::Expr(x)));
             }
             StmtP::Expression(e) => f(Visit::Expr(e)),
-            StmtP::Assign(lhs, rhs) => {
+            StmtP::Assign(lhs, box (ty, rhs)) => {
                 lhs.visit_expr(|x| f(Visit::Expr(x)));
+                ty.iter().for_each(|x| f(Visit::Expr(x)));
                 f(Visit::Expr(rhs));
             }
             StmtP::AssignModify(lhs, _, rhs) => {
@@ -128,8 +129,9 @@ impl<P: AstPayload> StmtP<P> {
                 ret.iter_mut().for_each(|x| f(VisitMut::Expr(x)));
             }
             StmtP::Expression(e) => f(VisitMut::Expr(e)),
-            StmtP::Assign(lhs, rhs) => {
+            StmtP::Assign(lhs, box (ty, rhs)) => {
                 lhs.visit_expr_mut(|x| f(VisitMut::Expr(x)));
+                ty.iter_mut().for_each(|x| f(VisitMut::Expr(x)));
                 f(VisitMut::Expr(rhs));
             }
             StmtP::AssignModify(lhs, _, rhs) => {

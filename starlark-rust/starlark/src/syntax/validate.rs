@@ -296,7 +296,7 @@ impl Stmt {
         }
         let lhs = Self::check_assign(codemap, lhs)?;
         Ok(match op {
-            None => Stmt::Assign(lhs, box rhs),
+            None => Stmt::Assign(lhs, box (None, rhs)),
             Some(op) => Stmt::AssignModify(lhs, op, box rhs),
         })
     }

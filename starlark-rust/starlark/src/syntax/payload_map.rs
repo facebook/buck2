@@ -62,9 +62,10 @@ impl<A: AstPayload> StmtP<A> {
             StmtP::Return(None) => StmtP::Return(None),
             StmtP::Return(Some(e)) => StmtP::Return(Some(e.into_map_payload(f))),
             StmtP::Expression(e) => StmtP::Expression(e.into_map_payload(f)),
-            StmtP::Assign(lhs, rhs) => {
-                StmtP::Assign(lhs.into_map_payload(f), box rhs.into_map_payload(f))
-            }
+            StmtP::Assign(lhs, box (ty, rhs)) => StmtP::Assign(
+                lhs.into_map_payload(f),
+                box (ty.map(|ty| ty.into_map_payload(f)), rhs.into_map_payload(f)),
+            ),
             StmtP::AssignModify(lhs, op, rhs) => {
                 StmtP::AssignModify(lhs.into_map_payload(f), op, box rhs.into_map_payload(f))
             }

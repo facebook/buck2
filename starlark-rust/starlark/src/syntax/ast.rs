@@ -270,7 +270,8 @@ pub(crate) enum StmtP<P: AstPayload> {
     Pass,
     Return(Option<AstExprP<P>>),
     Expression(AstExprP<P>),
-    Assign(AstAssignP<P>, Box<AstExprP<P>>),
+    // LHS : TYPE = RHS for the fields
+    Assign(AstAssignP<P>, Box<(Option<AstExprP<P>>, AstExprP<P>)>),
     AssignModify(AstAssignP<P>, AssignOp, Box<AstExprP<P>>),
     Statements(Vec<AstStmtP<P>>),
     If(AstExprP<P>, Box<AstStmtP<P>>),
@@ -556,7 +557,13 @@ impl Stmt {
             Stmt::Return(Some(e)) => writeln!(f, "{}return {}", tab, e.node),
             Stmt::Return(None) => writeln!(f, "{}return", tab),
             Stmt::Expression(e) => writeln!(f, "{}{}", tab, e.node),
-            Stmt::Assign(l, r) => writeln!(f, "{}{} = {}", tab, l.node, r.node),
+            Stmt::Assign(l, box (ty, r)) => {
+                write!(f, "{}{} ", tab, l.node)?;
+                if let Some(ty) = ty {
+                    write!(f, ": {} ", ty.node)?;
+                }
+                writeln!(f, "= {}", r.node)
+            }
             Stmt::AssignModify(l, op, r) => writeln!(f, "{}{}{}{}", tab, l.node, op, r.node),
             Stmt::Statements(v) => {
                 for s in v {

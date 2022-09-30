@@ -277,7 +277,8 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             stmt(body, &mut inner);
             res.push(Bind::Scope(Scope::new(inner)));
         }
-        Stmt::Assign(lhs, rhs) => {
+        Stmt::Assign(lhs, box (ty, rhs)) => {
+            opt_expr(ty.as_ref(), res);
             expr(rhs, res);
             expr_lvalue(lhs, res);
         }

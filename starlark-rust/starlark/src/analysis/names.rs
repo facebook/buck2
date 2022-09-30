@@ -226,8 +226,8 @@ fn inappropriate_underscore(
             }
             inappropriate_underscore(codemap, x, false, res)
         }
-        Stmt::Assign(lhs, rhs) | Stmt::AssignModify(lhs, _, rhs) if !top => {
-            match (&**lhs, &***rhs) {
+        Stmt::Assign(lhs, box (_, rhs)) | Stmt::AssignModify(lhs, _, box rhs) if !top => {
+            match (&**lhs, &**rhs) {
                 (Assign::Identifier(name), Expr::Lambda(..)) if name.0.starts_with('_') => res
                     .push(LintT::new(
                         codemap,

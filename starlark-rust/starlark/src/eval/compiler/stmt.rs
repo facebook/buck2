@@ -771,8 +771,12 @@ impl Compiler<'_, '_, '_> {
                 r
             }
             StmtP::Expression(e) => self.stmt_expr(e),
-            StmtP::Assign(lhs, rhs) => {
-                let rhs = self.expr(*rhs);
+            StmtP::Assign(lhs, box (ty, rhs)) => {
+                assert!(
+                    ty.is_none(),
+                    "FIXME(ndmitchell): implement type annotations on assignment"
+                );
+                let rhs = self.expr(rhs);
                 let lhs = self.assign(lhs);
                 StmtsCompiled::one(IrSpanned {
                     span,
