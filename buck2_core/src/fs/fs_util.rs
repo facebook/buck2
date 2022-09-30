@@ -237,7 +237,7 @@ pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
 }
 
 /// `None` if file does not exist.
-fn symlink_metadata_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<fs::Metadata>> {
+pub fn symlink_metadata_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<fs::Metadata>> {
     let _guard = IoCounterKey::Stat.guard();
     match fs::symlink_metadata(&path) {
         Ok(metadata) => Ok(Some(metadata)),

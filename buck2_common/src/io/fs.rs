@@ -9,7 +9,6 @@
 
 use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -164,8 +163,8 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
         curr_abspath.push(c);
         curr_path.push(c);
 
-        match curr_abspath.symlink_metadata() {
-            Ok(path_meta) => {
+        match fs_util::symlink_metadata_if_exists(&curr_abspath)? {
+            Some(path_meta) => {
                 if path_meta.file_type().is_symlink() {
                     let dest = curr_abspath.read_link()?;
                     let rest = relpath_components.collect();
@@ -199,12 +198,8 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
 
                 meta = Some(path_meta);
             }
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            None => {
                 return Ok(None);
-            }
-            Err(e) => {
-                return Err(anyhow::Error::new(e)
-                    .context(format!("Error accessing path at `{}`", curr_path)));
             }
         }
     }
