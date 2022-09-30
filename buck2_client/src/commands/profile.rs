@@ -150,8 +150,7 @@ impl StreamingCommand for ProfileSubcommand {
         let destination_path = destination_path
             .into_os_string()
             .into_string()
-            .ok()
-            .ok_or(PathCannotBeConvertedToUtf8)?;
+            .map_err(|_| PathCannotBeConvertedToUtf8)?;
 
         let response = buckd
             .with_flushing()
