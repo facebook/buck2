@@ -3,8 +3,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 buck_genrule(
     name = "long_build",
     out = "out.txt",
-    bash = "sleep 5 && echo HELLO, WORLD > $OUT",
-    cmd_exe = "sleep 5 && echo HELLO, WORLD> %OUT%",
+    bash = "python3 -c \"import time; time.sleep(5)\" ; echo HELLO, WORLD > $OUT",
+    cmd_exe = "python3 -c \"import time; time.sleep(5)\"  ; echo HELLO, WORLD> %OUT%",
 )
 
 buck_genrule(

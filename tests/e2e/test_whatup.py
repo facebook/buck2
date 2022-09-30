@@ -31,11 +31,15 @@ async def test_whatup_command(buck: Buck) -> None:
     assert "running analysis" in ext.stdout
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_if_windows=True)
+@buck_test(inplace=True)
 @env("BUCK2_TEST_DISABLE_CACHING", "true")
 async def test_whatup_after_command(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/whatup:long_build", "--local-only")
+    target = "fbcode//buck2/tests/targets/whatup:long_build"
+    args = [target, "--local-only"]
+    if sys.platform == "win32":
+        args.append("@mode/win")
+    await buck.build(*args)
+
     # Get event log
     log = (await buck.log("show")).stdout.strip()
     elapsed = [0, 0]
