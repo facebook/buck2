@@ -1,19 +1,25 @@
 import json
+import sys
 import tempfile
 
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_if_windows=True)
+@buck_test(inplace=True)
 async def test_whatup_command(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/whatup:simple_build")
+    target = "fbcode//buck2/tests/targets/whatup:simple_build"
+    args = [target]
+    if sys.platform == "win32":
+        args.append("@mode/win")
+    await buck.build(*args)
 
     log = (await buck.log("show")).stdout.strip()
-    log_file = tempfile.NamedTemporaryFile(suffix=".json-lines")
-    # Truncate log when alaysis started
-    with open(log_file.name, "w") as f:
+    log_file = tempfile.NamedTemporaryFile(
+        suffix=".json-lines", mode="w+", delete=False
+    )
+    # Truncate log when analysis started
+    with log_file as f:
         lines = log.splitlines()
         for line in lines:
             f.write(line + "\n")
@@ -54,9 +60,3 @@ async def test_whatup_after_command(buck: Buck) -> None:
     action_start = (elapsed[0] * 1000) + abs(elapsed[1])
     ext = (await buck.log("whatup", "--after", str(action_start))).stdout.strip()
     assert "action (genrule)" in ext
-
-
-# TODO(marwhal): Add this back one at least one test in this file passes on Windows
-@buck_test(inplace=True)
-async def test_noop(buck: Buck) -> None:
-    return
