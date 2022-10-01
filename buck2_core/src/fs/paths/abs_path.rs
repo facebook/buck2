@@ -27,13 +27,20 @@ use crate::fs::paths::ForwardRelativePath;
 use crate::fs::paths::ForwardRelativePathNormalizer;
 
 /// An absolute path. This path is not platform agnostic.
+///
+/// The path is normalized:
+/// * it is absolute
+/// * not dot in path
+/// * no dot-dot in path
+/// * TODO(nga): normalize slashes on Windows
+/// * TODO(nga): validate UTF-8
+/// * the path is **not** canonicalized
 #[derive(Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, RefCast)]
 #[display(fmt = "{}", "_0.display()")]
 #[repr(transparent)]
 pub struct AbsPath(Path);
 
-///
-/// The owned version of 'AbsPath', like how 'PathBuf' relates to 'Path'
+/// The owned version of [`AbsPath`].
 #[derive(Clone, Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 #[display(fmt = "{}", "_0.display()")]
 pub struct AbsPathBuf(PathBuf);
