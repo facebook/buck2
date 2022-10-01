@@ -1,6 +1,5 @@
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:custom_rule.bzl", "custom_rule")
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
@@ -26,13 +25,12 @@ buck_rust_binary(
 )
 
 # Runs lalrpop on grammar.lalrpop to generate grammar.rs
-custom_rule(
+buck_genrule(
     name = "grammar",
     srcs = ["src/syntax/grammar.lalrpop"],
-    add_install_dir = False,
-    build_args = "src/syntax/grammar.lalrpop --out-dir $OUT",
-    build_script_dep = "fbsource//third-party/rust:lalrpop-lalrpop",
-    output_gen_files = ["."],
+    out = ".",
+    # We can't use $SRCS, because in Buck1 that is absolute, and lalrpop --out-dir only works with relative sources
+    cmd = "$(exe fbsource//third-party/rust:lalrpop-lalrpop) src/syntax/grammar.lalrpop --out-dir $OUT",
 )
 
 buck_filegroup(
