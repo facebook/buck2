@@ -9,10 +9,10 @@ rust_protobuf_library(
     build_script = "build.rs",
     spec = "data.proto",
     deps = [
-        "fbcode//buck2/gazebo/gazebo:gazebo",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:serde",
         "//buck2/buck2_core:buck2_core",
+        "//buck2/gazebo/gazebo:gazebo",
     ],
 )

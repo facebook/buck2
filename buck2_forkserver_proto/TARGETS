@@ -9,7 +9,7 @@ rust_protobuf_library(
     build_script = "build.rs",
     spec = "forkserver.proto",
     deps = [
-        "fbcode//buck2/gazebo/gazebo:gazebo",
         "fbsource//third-party/rust:derive_more",
+        "//buck2/gazebo/gazebo:gazebo",
     ],
 )
