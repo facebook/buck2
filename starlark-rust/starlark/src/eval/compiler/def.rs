@@ -319,7 +319,10 @@ impl Compiler<'_, '_, '_> {
     }
 
     /// Compile expression when it is expected to be interpreted as type.
-    fn expr_for_type(&mut self, expr: Option<Box<CstExpr>>) -> Option<IrSpanned<ExprCompiled>> {
+    pub(crate) fn expr_for_type(
+        &mut self,
+        expr: Option<Box<CstExpr>>,
+    ) -> Option<IrSpanned<ExprCompiled>> {
         if !self.check_types {
             return None;
         }

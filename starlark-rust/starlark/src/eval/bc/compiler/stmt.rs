@@ -20,11 +20,13 @@ use crate::eval::bc::compiler::if_compiler::write_if_else;
 use crate::eval::bc::compiler::if_compiler::write_if_then;
 use crate::eval::bc::instr_impl::InstrBeforeStmt;
 use crate::eval::bc::instr_impl::InstrBreak;
+use crate::eval::bc::instr_impl::InstrCheckType;
 use crate::eval::bc::instr_impl::InstrContinue;
 use crate::eval::bc::instr_impl::InstrPossibleGc;
 use crate::eval::bc::instr_impl::InstrReturn;
 use crate::eval::bc::instr_impl::InstrReturnCheckType;
 use crate::eval::bc::instr_impl::InstrReturnConst;
+use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr::MaybeNot;
@@ -92,9 +94,11 @@ impl StmtCompiled {
                 let _ = e;
             }
             StmtCompiled::Expr(e) => e.mark_definitely_assigned_after(bc),
-            StmtCompiled::Assign(lhs, rhs) => {
+            StmtCompiled::Assign(lhs, ty, rhs) => {
                 lhs.mark_definitely_assigned_after(bc);
                 rhs.mark_definitely_assigned_after(bc);
+                // We might have evaluate types turned off
+                let _ = ty;
             }
             StmtCompiled::AssignModify(lhs, _op, rhs) => {
                 rhs.mark_definitely_assigned_after(bc);
@@ -214,12 +218,26 @@ impl IrSpanned<StmtCompiled> {
             StmtCompiled::Expr(ref expr) => {
                 expr.write_bc_for_effect(bc);
             }
-            StmtCompiled::Assign(ref lhs, ref rhs) => {
+            StmtCompiled::Assign(ref lhs, ref ty, ref rhs) => {
+                fn check_type(
+                    ty: &Option<IrSpanned<ExprCompiled>>,
+                    slot_expr: BcSlotIn,
+                    bc: &mut BcWriter,
+                ) {
+                    if let Some(ty) = ty {
+                        ty.write_bc_cb(bc, |slot_ty, bc| {
+                            bc.write_instr::<InstrCheckType>(ty.span, (slot_expr, slot_ty))
+                        })
+                    }
+                }
+
                 if let Some(local) = lhs.as_local_non_captured() {
                     // Write expression directly to local slot.
                     rhs.write_bc(local.to_bc_slot().to_out(), bc);
+                    check_type(ty, local.to_bc_slot().to_in(), bc);
                 } else {
                     rhs.write_bc_cb(bc, |slot, bc| {
+                        check_type(ty, slot, bc);
                         lhs.write_bc(slot, bc);
                     });
                 }

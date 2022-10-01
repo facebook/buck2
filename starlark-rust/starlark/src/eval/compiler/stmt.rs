@@ -77,7 +77,11 @@ pub(crate) enum StmtCompiled {
     PossibleGc,
     Return(IrSpanned<ExprCompiled>),
     Expr(IrSpanned<ExprCompiled>),
-    Assign(IrSpanned<AssignCompiledValue>, IrSpanned<ExprCompiled>),
+    Assign(
+        IrSpanned<AssignCompiledValue>,
+        Option<IrSpanned<ExprCompiled>>,
+        IrSpanned<ExprCompiled>,
+    ),
     AssignModify(AssignModifyLhs, AssignOp, IrSpanned<ExprCompiled>),
     If(Box<(IrSpanned<ExprCompiled>, StmtsCompiled, StmtsCompiled)>),
     For(
@@ -140,12 +144,13 @@ impl IrSpanned<StmtCompiled> {
                 let expr = expr.optimize(ctx);
                 StmtsCompiled::expr(expr)
             }
-            StmtCompiled::Assign(ref lhs, ref rhs) => {
+            StmtCompiled::Assign(ref lhs, ref ty, ref rhs) => {
                 let lhs = lhs.optimize(ctx);
+                let ty = ty.as_ref().map(|x| x.optimize(ctx));
                 let rhs = rhs.optimize(ctx);
                 StmtsCompiled::one(IrSpanned {
                     span,
-                    node: StmtCompiled::Assign(lhs, rhs),
+                    node: StmtCompiled::Assign(lhs, ty, rhs),
                 })
             }
             StmtCompiled::If(box (ref cond, ref t, ref f)) => {
@@ -735,7 +740,7 @@ impl Compiler<'_, '_, '_> {
                 });
                 StmtsCompiled::one(IrSpanned {
                     span,
-                    node: StmtCompiled::Assign(lhs, rhs),
+                    node: StmtCompiled::Assign(lhs, None, rhs),
                 })
             }
             StmtP::For(var, box (over, body)) => {
@@ -772,15 +777,12 @@ impl Compiler<'_, '_, '_> {
             }
             StmtP::Expression(e) => self.stmt_expr(e),
             StmtP::Assign(lhs, box (ty, rhs)) => {
-                assert!(
-                    ty.is_none(),
-                    "FIXME(ndmitchell): implement type annotations on assignment"
-                );
                 let rhs = self.expr(rhs);
+                let ty = self.expr_for_type(ty.map(|x| box x));
                 let lhs = self.assign(lhs);
                 StmtsCompiled::one(IrSpanned {
                     span,
-                    node: StmtCompiled::Assign(lhs, rhs),
+                    node: StmtCompiled::Assign(lhs, ty, rhs),
                 })
             }
             StmtP::AssignModify(lhs, op, rhs) => {

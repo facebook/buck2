@@ -20,12 +20,14 @@
 use std::cmp::Ordering;
 use std::marker;
 use std::ptr;
+use std::time::Instant;
 
 use gazebo::coerce::coerce;
 
 use crate::collections::symbol_map::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
+use crate::const_frozen_string;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::bc::addr::BcAddrOffset;
 use crate::eval::bc::addr::BcPtrAddr;
@@ -1106,6 +1108,35 @@ impl BcInstr for InstrComprDictInsert {
         let mut dict = unsafe { Dict::from_value_unchecked_mut(dict) };
         dict.insert_hashed(key, value);
         InstrControl::LoopContinue
+    }
+}
+
+pub(crate) struct InstrCheckTypeImpl;
+pub(crate) type InstrCheckType = InstrNoFlow<InstrCheckTypeImpl>;
+
+impl InstrNoFlowImpl for InstrCheckTypeImpl {
+    type Arg = (BcSlotIn, BcSlotIn);
+
+    #[inline(always)]
+    fn run_with_args<'v>(
+        eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr,
+        (expr, ty): &(BcSlotIn, BcSlotIn),
+    ) -> anyhow::Result<()> {
+        let expr = frame.get_bc_slot(*expr);
+        let ty = frame.get_bc_slot(*ty);
+        let start = if eval.typecheck_profile.enabled {
+            Some(Instant::now())
+        } else {
+            None
+        };
+        let res = expr.check_type(ty, None, eval.heap());
+        if let Some(start) = start {
+            let name = const_frozen_string!("assignment");
+            eval.typecheck_profile.add(name, start.elapsed());
+        }
+        res
     }
 }
 
