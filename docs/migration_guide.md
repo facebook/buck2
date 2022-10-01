@@ -1,5 +1,7 @@
 # Migration Guide
 
+_Porting an RL project? [This guide](https://www.internalfb.com/sdoc/arvr/eng/buck/buck2_porting/) might be a useful first read._
+
 Buck2 is supported in `fbcode` on Linux for existing Buck v1 projects using the languages C++, Rust, Python, OCaml and Go.
 Keep in mind that these are early days and new issues may be uncovered as more projects make the jump.
 Early adopters can use this guide to migrate from `buck` to `buck2` and we will work to resolve issues as they arise.
