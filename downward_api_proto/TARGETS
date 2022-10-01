@@ -1,5 +1,5 @@
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
-load("//buck2:proto_defs.bzl", "rust_protobuf_library")
 
 rust_protobuf_library(
     name = "downward_api_proto",

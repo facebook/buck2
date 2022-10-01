@@ -1,7 +1,7 @@
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
-load("//buck2:proto_defs.bzl", "rust_protobuf_library")
-load("//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
 
 rust_protobuf_library(
     name = "install_proto",

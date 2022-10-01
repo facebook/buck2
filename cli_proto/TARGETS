@@ -1,4 +1,4 @@
-load("//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 
 rust_protobuf_library(
     name = "cli_proto",
