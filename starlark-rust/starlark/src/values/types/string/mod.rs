@@ -237,13 +237,25 @@ pub(crate) fn str_methods() -> Option<&'static Methods> {
     RES.methods(crate::stdlib::string::string_methods)
 }
 
-// We don't actually use `str` on the heap, but it's helpful to have an instance
-// for people who want to get access to repr/json "like string"
-impl<'v> StarlarkValue<'v> for str {
+impl<'v> StarlarkValue<'v> for StarlarkStr {
     starlark_type!(STRING_TYPE);
 
     fn get_type_starlark_repr() -> String {
         "str.type".to_owned()
+    }
+
+    fn is_special(_: Private) -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
+
+    fn extra_memory(&self) -> usize {
+        // We don't include the extra_memory for the size because it is
+        // allocated inline in the Starlark heap (which knows about it),
+        // not on the malloc heap.
+        0
     }
 
     fn get_methods() -> Option<&'static Methods> {
@@ -260,16 +272,14 @@ impl<'v> StarlarkValue<'v> for str {
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        let mut s = StarlarkHasher::new();
-        hash_string_value(self, &mut s);
-        let hash = s.finish_small();
-        hasher.write_u32(hash.get());
+        // Don't defer to str because we cache the Hash in StarlarkStr
+        hasher.write_u32(self.get_hash().get());
         Ok(())
     }
 
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         if let Some(other) = other.unpack_str() {
-            Ok(self == other)
+            Ok(self.as_str() == other)
         } else {
             Ok(false)
         }
@@ -277,13 +287,13 @@ impl<'v> StarlarkValue<'v> for str {
 
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
         if let Some(other) = other.unpack_str() {
-            Ok(self.cmp(other))
+            Ok(self.as_str().cmp(other))
         } else {
             ValueError::unsupported_with(self, "cmp()", other)
         }
     }
 
-    fn at(&self, index: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // This method is disturbingly hot. Use the logic from `convert_index`,
         // but modified to be UTF8 string friendly.
         let i = i32::unpack_param(index)?;
@@ -317,9 +327,9 @@ impl<'v> StarlarkValue<'v> for str {
 
     fn slice(
         &self,
-        start: Option<Value>,
-        stop: Option<Value>,
-        stride: Option<Value>,
+        start: Option<Value<'v>>,
+        stop: Option<Value<'v>>,
+        stride: Option<Value<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let s = self;
@@ -369,88 +379,6 @@ impl<'v> StarlarkValue<'v> for str {
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(interpolation::percent(self, other)?))
-    }
-}
-
-impl<'v> StarlarkValue<'v> for StarlarkStr {
-    starlark_type!(STRING_TYPE);
-
-    fn get_type_starlark_repr() -> String {
-        "str.type".to_owned()
-    }
-
-    fn is_special(_: Private) -> bool
-    where
-        Self: Sized,
-    {
-        true
-    }
-
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        // Don't defer to str because we cache the Hash in StarlarkStr
-        hasher.write_u32(self.get_hash().get());
-        Ok(())
-    }
-
-    fn extra_memory(&self) -> usize {
-        // We don't include the extra_memory for the size because it is
-        // allocated inline in the Starlark heap (which knows about it),
-        // not on the malloc heap.
-        0
-    }
-
-    fn get_methods() -> Option<&'static Methods> {
-        str_methods()
-    }
-
-    fn collect_repr(&self, collector: &mut String) {
-        self.as_str().collect_repr(collector)
-    }
-
-    fn to_bool(&self) -> bool {
-        self.as_str().to_bool()
-    }
-
-    fn equals(&self, other: Value) -> anyhow::Result<bool> {
-        self.as_str().equals(other)
-    }
-
-    fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
-        self.as_str().compare(other)
-    }
-
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        self.as_str().at(index, heap)
-    }
-
-    fn length(&self) -> anyhow::Result<i32> {
-        self.as_str().length()
-    }
-
-    fn is_in(&self, other: Value) -> anyhow::Result<bool> {
-        self.as_str().is_in(other)
-    }
-
-    fn slice(
-        &self,
-        start: Option<Value<'v>>,
-        stop: Option<Value<'v>>,
-        stride: Option<Value<'v>>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        self.as_str().slice(start, stop, stride, heap)
-    }
-
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        self.as_str().add(other, heap)
-    }
-
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        self.as_str().mul(other, heap)
-    }
-
-    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        self.as_str().percent(other, heap)
     }
 }
 

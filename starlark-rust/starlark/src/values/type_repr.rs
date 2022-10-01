@@ -23,6 +23,7 @@ use std::marker::PhantomData;
 use either::Either;
 
 use crate::values::none::NoneType;
+use crate::values::string::StarlarkStr;
 use crate::values::StarlarkValue;
 
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
@@ -60,13 +61,13 @@ impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
 
 impl StarlarkTypeRepr for String {
     fn starlark_type_repr() -> String {
-        str::starlark_type_repr()
+        StarlarkStr::starlark_type_repr()
     }
 }
 
 impl StarlarkTypeRepr for &str {
     fn starlark_type_repr() -> String {
-        str::starlark_type_repr()
+        StarlarkStr::starlark_type_repr()
     }
 }
 
