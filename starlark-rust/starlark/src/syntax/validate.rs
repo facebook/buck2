@@ -29,6 +29,7 @@ use crate::syntax::ast::Argument;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstAssign;
 use crate::syntax::ast::AstAssignIdent;
@@ -59,6 +60,10 @@ enum ValidateError {
     InvalidLhs,
     #[error("left-hand-side of modifying assignment cannot be a list or tuple")]
     InvalidModifyLhs,
+    #[error("type annotations not allowed on augmented assignments")]
+    TypeAnnotationOnAssignOp,
+    #[error("type annotations not allowed on multiple assignments")]
+    TypeAnnotationOnTupleAssign,
 }
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
@@ -278,6 +283,7 @@ impl Stmt {
     pub(crate) fn check_assignment(
         codemap: &CodeMap,
         lhs: AstExpr,
+        ty: Option<Box<AstExpr>>,
         op: Option<AssignOp>,
         rhs: AstExpr,
     ) -> anyhow::Result<Stmt> {
@@ -295,8 +301,20 @@ impl Stmt {
             }
         }
         let lhs = Self::check_assign(codemap, lhs)?;
+        if let Some(ty) = &ty {
+            let err = if op.is_some() {
+                Some(ValidateError::TypeAnnotationOnAssignOp)
+            } else if matches!(lhs.node, AssignP::Tuple(_)) {
+                Some(ValidateError::TypeAnnotationOnTupleAssign)
+            } else {
+                None
+            };
+            if let Some(err) = err {
+                return Err(Diagnostic::new(err, ty.span, codemap));
+            }
+        }
         Ok(match op {
-            None => Stmt::Assign(lhs, box (None, rhs)),
+            None => Stmt::Assign(lhs, box (ty.map(|x| *x), rhs)),
             Some(op) => Stmt::AssignModify(lhs, op, box rhs),
         })
     }

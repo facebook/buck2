@@ -89,6 +89,7 @@ pub(crate) enum BcOpcode {
     DictConstKeys,
     ComprListAppend,
     ComprDictInsert,
+    CheckType,
     Br,
     IfBr,
     IfNotBr,

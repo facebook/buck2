@@ -167,7 +167,7 @@ AssignOp: Option<AssignOp> = {
 };
 
 AssignStmt: AstStmt = ASTS<AssignStmt_>;
-AssignStmt_: Stmt = <lhs:TestList> <op:AssignOp> <rhs:TestList>
+AssignStmt_: Stmt = <lhs:TestList> <ty:Type> <op:AssignOp> <rhs:TestList>
         =>? Ok(Stmt::check_assignment(codemap, <>)?);
 
 // In python ExprStmt is an AssignStmt (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::assert;
 use crate::assert::Assert;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
@@ -49,4 +50,18 @@ fn test_types_enable() {
     let mut a = Assert::new();
     a.dialect(&dialect);
     a.fail(PROGRAM, "does not match the type annotation");
+}
+
+#[test]
+fn test_type_assign_annotation() {
+    assert::pass(
+        r#"
+x : str.type = "test"
+xs: "" = [1,2]
+xs[0] : int.type = 4
+"#,
+    );
+    assert::fail("a, b : '' = 1, 2", "not allowed on multiple assignments");
+    assert::fail("a = 1\na : '' += 1", "not allowed on augmented assignments");
+    assert::fail("a : str.type = 1", "does not match the type annotation");
 }
