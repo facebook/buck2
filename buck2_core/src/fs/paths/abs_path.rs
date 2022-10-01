@@ -693,6 +693,21 @@ impl Deref for AbsPathBuf {
     }
 }
 
+// Separate function so windows path verification can be tested on Unix.
+fn verify_abs_path_windows_part(path: &str) -> bool {
+    // UNC device path.
+    // TODO(nga): behavior of UNC paths is under-specified in `AbsPath`.
+    let path = path.strip_prefix("\\\\.\\").unwrap_or(path);
+
+    for component in path.split(|c| c == '/' || c == '\\') {
+        if component == "." || component == ".." {
+            return false;
+        }
+    }
+
+    true
+}
+
 /// Verifier for AbsPath to ensure the path is absolute
 fn verify_abs_path<P: ?Sized + AsRef<Path>>(path: &P) -> anyhow::Result<()> {
     let path = path.as_ref();
@@ -713,7 +728,6 @@ fn verify_abs_path<P: ?Sized + AsRef<Path>>(path: &P) -> anyhow::Result<()> {
 
         // `as_bytes` function is not available on Windows.
         // This is equivalent but faster to generic code below.
-        // Until D39951419 when split by backslashes too on Windows.
         for component in path.as_os_str().as_bytes().split(|c| *c == b'/') {
             if component == b"." || component == b".." {
                 return Err(anyhow::anyhow!(AbsPathError::PathNotNormalized(
@@ -723,13 +737,12 @@ fn verify_abs_path<P: ?Sized + AsRef<Path>>(path: &P) -> anyhow::Result<()> {
         }
     }
 
-    if cfg!(not(unix)) {
-        for component in path.to_string_lossy().split('/') {
-            if component == "." || component == ".." {
-                return Err(anyhow::anyhow!(AbsPathError::PathNotNormalized(
-                    path.to_owned()
-                )));
-            }
+    if !cfg!(unix) {
+        let path_str = path.to_string_lossy();
+        if !verify_abs_path_windows_part(&path_str) {
+            return Err(anyhow::anyhow!(AbsPathError::PathNotNormalized(
+                path.to_owned()
+            )));
         }
     }
 
@@ -762,6 +775,7 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 
+    use crate::fs::paths::abs_path::verify_abs_path_windows_part;
     use crate::fs::paths::AbsPath;
     use crate::fs::paths::AbsPathBuf;
 
@@ -859,13 +873,27 @@ mod tests {
             assert!(AbsPath::new("c:/").is_ok());
             assert!(AbsPath::new("c:/normalize/./bar").is_err());
             assert!(AbsPath::new("c:/normalize/../bar").is_err());
+            assert!(AbsPath::new("c:\\normalize\\.\\bar").is_err());
+            assert!(AbsPath::new("c:\\normalize\\..\\bar").is_err());
             assert!(AbsPath::new("/foo/bar").is_err());
 
             assert!(AbsPath::new(Path::new("c:/foo/bar")).is_ok());
             assert!(AbsPath::new(Path::new("c:/")).is_ok());
             assert!(AbsPath::new(Path::new("c:/normalize/./bar")).is_err());
             assert!(AbsPath::new(Path::new("c:/normalize/../bar")).is_err());
+
+            // UNC paths.
+            assert!(AbsPath::new(Path::new(r"\\.\COM42")).is_ok());
+            assert!(AbsPath::new(Path::new(r"\\?\c:\test")).is_ok());
         }
+    }
+
+    #[test]
+    fn test_verify_windows() {
+        assert!(verify_abs_path_windows_part(r"c:\foo\bar"));
+        assert!(verify_abs_path_windows_part(r"\\.\COM42"));
+        assert!(verify_abs_path_windows_part(r"\\?\c:\test"));
+        assert!(!verify_abs_path_windows_part(r"\\?\c:\.\test"));
     }
 
     #[test]
