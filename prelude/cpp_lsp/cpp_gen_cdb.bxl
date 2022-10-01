@@ -1,0 +1,126 @@
+load(
+    "@prelude//cxx:comp_db.bzl",
+    "CxxCompilationDbInfo",
+)
+
+BUCK_CPP_RULE_KINDS = [
+    "apple_binary",
+    "apple_library",
+    "apple_test",
+    "cxx_python_extension",
+    ".*xx_binary",
+    ".*xx_library",
+    ".*xx_.*_library",
+    ".*xx_test",
+    ".*xx_resources",
+]
+
+# Update this whenever this file is changed.
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.5"
+
+def _impl(ctx):
+    filename = ctx.cli_args.filename
+    owner = findOwningTarget(ctx, filename)
+    if owner != None:
+        buckRoot = ctx.root()
+        providers = ctx.analysis(owner).providers()
+        platform = providers[CxxCompilationDbInfo].platform.name
+        toolchain = parseToolChain(platform, str(providers[CxxCompilationDbInfo].toolchain.linker_info.archiver.args))
+        cxx_compile_info = providers[CxxCompilationDbInfo].info.values()[0]
+        sourceLabel = owner.get_source(filename, ctx)
+        if sourceLabel in providers[CxxCompilationDbInfo].info:
+            cxx_compile_info = providers[CxxCompilationDbInfo].info[sourceLabel]
+        compileCommands = []
+        arguments = cmd_args()
+        arguments.add(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
+
+        # `_CxxCompileArgsfile.argfile_args` are shell quoted
+        # use `args` for original values to store in compile_commands.json
+        # see: https://fburl.com/code/5x7td4h1
+        arguments.add(cxx_compile_info.cxx_compile_cmd.argsfile.args)
+        arguments.add(cxx_compile_info.args)
+
+        # @unsorted-dict-items
+        compileCommands.append({"file": cxx_compile_info.src, "directory": buckRoot, "arguments": arguments})
+        actionFactory = ctx.bxl_actions.action_factory()
+        compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
+
+        # HMAP CONVERTER
+        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:hmapconverter").providers()[RunInfo]
+        outputDir = actionFactory.declare_output("merged_cdb")
+        cmd = cmd_args(hmapConverter)
+        cmd.add("--input-file")
+        cmd.add(compdbArtifact)
+        cmd.add("--working-dir")
+        cmd.add(buckRoot)
+        cmd.add("--output-dir")
+        cmd.add(outputDir.as_output())
+        cmd.add("--filename")
+        cmd.add(filename)
+        cmd.add("--use-dotslash")
+
+        # TODO: do we need these as well?
+        # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
+        # cmd.hidden(arguments.add(cxx_compile_info.args[:-1]))
+        cmd.hidden(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
+        actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
+        ensured = ctx.output.ensure(outputDir)
+        ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain, "version": CPP_GEN_CDB_SCRIPT_VERSION})
+    elif genRuleTargetExist(ctx, filename):
+        ctx.output.print_json({"errorMessage": "This file belongs to a genrule target and is not supported right now"})
+    else:
+        ctx.output.print_json({"errorMessage": "Cannot find build target for this file"})
+
+def parseToolChain(platform, toolchain):
+    if "llvm-fb" in toolchain:
+        if "llvm-fb/9.0.0" in toolchain:
+            return "llvm9"
+        elif "llvm-fb/12" in toolchain:
+            return "llvm12"
+        elif "platform010" in platform:
+            return "llvm12"
+
+        # TODO: llvm11 for windows
+    elif "xcode" in toolchain:
+        return "xcode"
+    return toolchain
+
+def findOwningTarget(ctx, filename):
+    owners = ctx.cquery().kind("|".join(BUCK_CPP_RULE_KINDS), ctx.cquery().owner(filename))
+    if len(owners) >= 1:
+        return pickTarget(ctx, owners)
+    return None
+
+def genRuleTargetExist(ctx, filename):
+    unfilteredOwners = ctx.cquery().owner(filename)
+    for target in unfilteredOwners:
+        if "genrule" in target.rule_type:
+            return True
+    return False
+
+def pickTarget(ctx, targets):
+    if len(targets) == 1:
+        for target in targets:
+            return target
+
+    if ctx.cli_args.os == "darwin":
+        for target in targets:
+            if str(target.label).endswith("applemac"):
+                return target
+
+    # todo: identify fobjc mode
+
+    # pick a target that's prefix for all other targets
+    sortedTargets = sorted(targets, key = lambda target: str(target.label))
+    for sortedTarget in sortedTargets:
+        if not str(sortedTarget.label).startswith(str(sortedTargets[0].label)):
+            return targets[0]
+    return sortedTargets[0]
+
+cpp_gen_cdb = bxl(
+    impl = _impl,
+    cli_args = {
+        "filename": cli_args.string(),
+        "os": cli_args.string(),
+    },
+)

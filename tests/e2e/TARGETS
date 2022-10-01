@@ -1,0 +1,195 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+bzl_native.python_library(
+    name = "assert_occurrences",
+    srcs = ["helper/assert_occurrences.py"],
+)
+
+buck2_e2e_test(
+    name = "test_audit",
+    srcs = ["test_audit.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    deps = [
+        ":assert_occurrences",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_isolated",
+    srcs = ["test_build_isolated.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+        "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+    },
+    deps = [
+        "fbsource//third-party/pypi/aiohttp:aiohttp",
+        ":assert_occurrences",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_materializer",
+    srcs = ["test_materializer.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_uquery",
+    srcs = ["test_uquery.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_build_inplace",
+    srcs = ["test_build_inplace.py"],
+)
+
+buck2_e2e_test(
+    name = "test_targets",
+    srcs = ["test_targets.py"],
+)
+
+buck2_e2e_test(
+    name = "test_build_serial",
+    srcs = ["test_build_serial.py"],
+    tags = ["serialize_test_cases"],
+)
+
+buck2_e2e_test(
+    name = "test_run_inplace",
+    srcs = ["test_run_inplace.py"],
+)
+
+buck2_e2e_test(
+    name = "test_bxl",
+    srcs = ["test_bxl.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_buck_test",
+    srcs = ["test_buck_test.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    test_with_compiled_buck2_and_deployed_buck2 = True,
+    test_with_compiled_buck2_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_rules",
+    srcs = ["test_rules.py"],
+    test_with_compiled_buck2_and_deployed_buck2 = True,
+    test_with_compiled_buck2_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_heterogeneous_builds",
+    srcs = ["test_heterogeneous_builds.py"],
+)
+
+buck2_e2e_test(
+    name = "test_docs",
+    srcs = ["test_docs.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_profile",
+    srcs = ["test_profile.py"],
+)
+
+buck2_e2e_test(
+    name = "test_clean",
+    srcs = ["test_clean.py"],
+)
+
+buck2_e2e_test(
+    name = "test_debug",
+    srcs = ["test_debug.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    test_with_compiled_buck2_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_install",
+    srcs = ["test_install.py"],
+)
+
+buck2_e2e_test(
+    name = "test_scrub_archive",
+    srcs = ["test_scrub_archive.py"],
+)
+
+buck2_e2e_test(
+    name = "test_python_runtime",
+    srcs = ["test_python_runtime.py"],
+)
+
+buck2_e2e_test(
+    name = "test_intellij_project",
+    srcs = ["intellij_project/test_intellij_project.py"],
+)
+
+buck2_e2e_test(
+    name = "test_linker_argsfile",
+    srcs = ["test_linker_argsfile.py"],
+)
+
+buck2_e2e_test(
+    name = "test_common_opts",
+    srcs = ["test_common_opts.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+# Those tests are racy
+# buck2_e2e_test(
+#     name = "test_apple_incremental",
+#     srcs = ["test_apple_incremental_bundling.py"],
+#     test_with_compiled_buck2_and_deployed_buck2 = True,
+# )
+
+buck2_e2e_test(
+    name = "test_lsp",
+    srcs = ["test_lsp.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+)
+
+buck2_e2e_test(
+    name = "test_cpp_gen_cdb",
+    srcs = ["test_cpp_gen_cdb.py"],
+)
+
+buck2_e2e_test(
+    name = "test_whatup",
+    srcs = ["test_whatup.py"],
+)

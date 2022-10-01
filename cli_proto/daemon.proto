@@ -1,0 +1,603 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+package buck.daemon;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "data.proto";
+
+message DaemonProcessInfo {
+  int64 pid = 1;
+  string endpoint = 2;
+  string version = 3;
+}
+
+message KillRequest {
+  string reason = 1;
+  google.protobuf.Duration timeout = 2;
+}
+
+message KillResponse {}
+
+message StatusRequest {
+  bool snapshot = 1;
+}
+
+message StatusResponse {
+  DaemonProcessInfo process_info = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Duration uptime = 3;
+  uint64 bytes_allocated = 4;
+  uint64 bytes_resident = 5;
+  uint64 bytes_retained = 6;
+  buck.data.Snapshot snapshot = 7;
+}
+
+message PingRequest {
+  google.protobuf.Duration delay = 1;
+}
+
+message PingResponse {}
+
+message ClientContext {
+  string working_dir = 1;
+  repeated ConfigOverride config_overrides = 3;
+  /// Empty string means not specified.
+  string target_platform = 5;
+  enum HostPlatformOverride {
+    DEFAULT = 0;
+    LINUX = 1;
+    MAC_OS = 2;
+    WINDOWS = 3;
+  }
+  HostPlatformOverride host_platform = 6;
+  string oncall = 7;
+  bool disable_starlark_types = 8;
+  string trace_id = 9;
+  bool reuse_current_config = 10;
+  optional string daemon_uuid = 11;
+}
+
+message TargetsRequest {
+  enum TargetHashFileMode {
+    PATHS_ONLY = 0;
+    PATHS_AND_CONTENTS = 1;
+  }
+
+  enum TargetHashGraphType {
+    NONE = 0;
+    UNCONFIGURED = 1;
+    CONFIGURED = 2;
+  }
+
+  ClientContext context = 1;
+  repeated buck.data.TargetPattern target_patterns = 2;
+
+  bool json = 3;
+  bool stats = 4;
+  repeated string output_attributes = 5;
+
+  TargetHashGraphType target_hash_graph_type = 6;
+  TargetHashFileMode target_hash_file_mode = 7;
+  repeated string target_hash_modified_paths = 8;
+  bool target_hash_use_fast_hash = 9;
+
+  bool target_call_stacks = 10;
+
+  bool include_default_attributes = 11;
+
+  /// These options may be removed at any time.
+  bool unstable_resolve_aliases = 4242000;
+}
+
+message TargetsResponse {
+  // TODO(nmj): Send back proper structured data so that
+  //            the target printing logic lives in the cli,
+  //            not in the daemon
+  string serialized_targets_output = 100;
+}
+
+message TargetsShowOutputsResponse {
+  message TargetPaths {
+    string target = 1;
+    repeated string paths = 2;
+  }
+  repeated TargetPaths targets_paths = 1;
+}
+
+enum QueryOutputFormat {
+  DEFAULT = 0;
+  JSON = 1;
+  DOT = 2;
+  DOT_COMPACT = 3;
+}
+
+message AqueryRequest {
+  ClientContext context = 1;
+  string query = 2;
+  repeated string output_attributes = 3;
+  // The literals for a repeated query (one containing `%s`).
+  repeated string query_args = 4;
+
+  // These should possibly be deleted and never become real options. Let's not
+  // pollute the low ids (and then forever need a comment about them).
+  QueryOutputFormat unstable_output_format = 4242000;
+}
+
+message AqueryResponse {
+  reserved 100;
+  // TODO(nmj): These should be more structured outputs for the client to print.
+  //            When they are, remove these fields.
+  // If present, errors to show the user. If any are present, the query command
+  // failed.
+  repeated string error_messages = 101;
+}
+
+message UqueryRequest {
+  ClientContext context = 1;
+  string query = 2;
+  repeated string output_attributes = 3;
+  // The literals for a repeated query (one containing `%s`).
+  repeated string query_args = 4;
+  bool target_call_stacks = 6;
+
+  // These should possibly be deleted and never become real options. Let's not
+  // pollute the low ids (and then forever need a comment about them).
+  QueryOutputFormat unstable_output_format = 4242000;
+}
+
+message UqueryResponse {
+  reserved 100;
+  // If present, errors to show the user. If any are present, the query command
+  // failed.
+  repeated string error_messages = 101;
+}
+
+message CqueryRequest {
+  ClientContext context = 1;
+  string query = 2;
+  repeated string output_attributes = 3;
+  // The literals for a repeated query (one containing `%s`).
+  repeated string query_args = 4;
+  repeated string target_universe = 5;
+  bool target_call_stacks = 6;
+
+  bool show_providers = 7;
+
+  // Correct or deprecated owner? https://fburl.com/1mf2d2xj
+  bool correct_owner = 8;
+
+  // These should possibly be deleted and never become real options. Let's not
+  // pollute the low ids (and then forever need a comment about them).
+  QueryOutputFormat unstable_output_format = 4242000;
+}
+
+message CqueryResponse {
+  // If present, errors to show the user. If any are present, the query command
+  // failed.
+  repeated string error_messages = 101;
+}
+
+message ConfigOverride {
+  // `override` is reserved keyword in Rust
+  string config_override = 1;
+  enum ConfigType {
+    VALUE = 0;
+    FILE = 1;
+  }
+  ConfigType config_type = 2;
+}
+message Concurrency {
+  // (Optional) How many builds to run concurrently on the local executor. If
+  // this is zero, then the concurrency will be inferred by the daemon based on
+  // the number of cores available.
+  uint32 concurrency = 1;
+}
+message CommonBuildOptions {
+  reserved 5, 8;
+  Concurrency concurrency = 10;
+  enum ExecutionStrategy {
+    Default = 0;
+    LocalOnly = 1;
+    RemoteOnly = 2;
+    Hybrid = 3;
+    HybridPreferLocal = 4;
+    NoExecution = 5;
+  }
+  ExecutionStrategy execution_strategy = 6;
+
+  /// Whether to load dep files eagerly.
+  bool eager_dep_files = 7;
+
+  bool upload_all_actions = 9;
+
+  // These should possibly be deleted and never become real options. Let's not
+  // pollute the low ids (and then forever need a comment about them). The only
+  // one of these that might stick around is print_build_report, it's unclear if
+  // that should be handled in the server or the client, though.
+  bool unstable_print_build_report = 4242000;
+  string unstable_build_report_filename = 4242003;
+}
+
+message BuildRequest {
+  reserved 5;
+
+  ClientContext context = 1;
+  repeated buck.data.TargetPattern target_patterns = 2;
+
+  message BuildProviders {
+    enum Action {
+      SKIP = 0;
+      BUILD_IF_AVAILABLE = 1;
+      BUILD = 2;
+    }
+    Action default_info = 1;
+    Action run_info = 2;
+    Action test_info = 3;
+  }
+  // The providers *MUST* be explicitly specified in the request. Otherwise,
+  // nothing is built.
+  BuildProviders build_providers = 3;
+
+  message ResponseOptions {
+    // Include target outputs? [default: false]
+    bool return_outputs = 1;
+    bool return_default_other_outputs = 2;
+    // TODO(rafaelc): bool return_targets_without_data
+    // TODO(rafaelc): bool return_run_args
+  }
+  // Options regarding which data to include in the response.
+  ResponseOptions response_options = 4;
+
+  CommonBuildOptions build_opts = 6;
+
+  enum Materializations {
+    // Use default behavior, as per configuration.
+    DEFAULT = 0;
+    MATERIALIZE = 1;
+    SKIP = 2;
+  }
+  // Materialize final artifacts?
+  Materializations final_artifact_materializations = 7;
+
+  bool unstable_print_providers = 4242001;
+}
+
+message TestSessionOptions {
+  bool allow_re = 10;
+  bool force_use_project_relative_paths = 11;
+  bool force_run_from_project_root = 12;
+}
+
+message TestRequest {
+  reserved 10;
+
+  ClientContext context = 1;
+  repeated buck.data.TargetPattern target_patterns = 2;
+
+  repeated string test_executor_args = 3;
+
+  repeated string excluded_labels = 4;
+
+  repeated string included_labels = 5;
+
+  bool always_exclude = 6;
+
+  bool build_filtered_targets = 7;
+
+  // How many tests to run concurrently on the local executor. If this is zero,
+  // then the concurrency will be inferred by the daemon based on the number of
+  // cores available.
+  // TODO(cjhopman): We claim that we have support for setting the number of
+  // concurrent tests, but we're currently only using the build -j flag and
+  // using it to set both concurrent executions and concurrent tests. If we
+  // actually intend to support explicitly setting the concurrent tests, we need
+  // to fix that.
+  uint32 concurrency = 8;
+
+  CommonBuildOptions build_opts = 9;
+
+  TestSessionOptions session_options = 11;
+}
+
+message BxlRequest {
+  ClientContext context = 1;
+
+  string bxl_label = 2;
+
+  repeated string bxl_args = 3;
+
+  CommonBuildOptions build_opts = 4;
+
+  BuildRequest.Materializations final_artifact_materializations = 6;
+}
+
+message BxlResponse {
+  // Absolute path to the repo root
+  string project_root = 2;
+  repeated string error_messages = 101;
+}
+
+message InstallRequest {
+  ClientContext context = 1;
+  repeated buck.data.TargetPattern target_patterns = 2;
+  CommonBuildOptions build_opts = 3;
+  repeated string installer_run_args = 4;
+}
+
+message BuildTarget {
+  string target = 1;
+  repeated string run_args = 2;
+  message BuildOutput {
+    // Path relative to the project root
+    string path = 1;
+    message BuildOutputProviders {
+      bool default_info = 1;
+      bool run_info = 2;
+      bool other = 3; // whether the artifact is not the main artifact on the
+                      // provider, but an "other"
+      bool test_info = 4;
+    }
+    // Which providers provided this output
+    BuildOutputProviders providers = 2;
+  }
+  repeated BuildOutput outputs = 3;
+  // the configuration of the target
+  string configuration = 4;
+}
+
+message BuildResponse {
+  repeated BuildTarget build_targets = 1;
+  // Absolute path to the repo root
+  string project_root = 2;
+  // TODO(nmj): These are temporary until we've moved the
+  //            printing logic for the build report into
+  //            the CLI. They *will* be removed
+  string serialized_build_report = 100;
+  repeated string error_messages = 101;
+}
+
+message CounterWithExamples {
+  uint64 count = 1;
+  uint64 max = 2;
+  repeated string example_tests = 3;
+}
+
+message TestResponse {
+  int32 exit_code = 1;
+  repeated string error_messages = 101;
+  message TestStatuses {
+    reserved 1 to 6;
+    CounterWithExamples passed = 10;
+    CounterWithExamples skipped = 11;
+    CounterWithExamples failed = 12;
+    CounterWithExamples fatals = 13;
+    CounterWithExamples listing_success = 14;
+    CounterWithExamples listing_failed = 15;
+  }
+  TestStatuses test_statuses = 3;
+}
+
+message InstallResponse {}
+
+message GenericRequest {
+  ClientContext context = 1;
+  string serialized_opts = 2;
+}
+
+message GenericResponse {}
+
+message UnstableCrashRequest {}
+
+message UnstableCrashResponse {}
+
+message SegfaultRequest {}
+
+message SegfaultResponse {}
+
+message UnstableDocsRequest {
+  ClientContext context = 1;
+  repeated string symbol_patterns = 2;
+  bool retrieve_builtins = 3;
+  bool retrieve_prelude = 4;
+}
+
+message UnstableDocsResponse {
+  reserved 1;
+
+  message DocItem {
+    // This is just a json repr of Doc object.
+    string json = 1;
+  }
+  repeated DocItem docs = 2;
+}
+
+message CommandError {
+  repeated string messages = 1;
+}
+
+message CommandResult {
+  oneof result {
+    CommandError error = 1;
+    // Ideally, this would be an Any, but tonic/prost doesn't support it yet.
+    KillResponse kill_response = 2;
+    StatusResponse status_response = 3;
+    PingResponse ping_response = 4;
+    BuildResponse build_response = 5;
+    TargetsResponse targets_response = 6;
+    CqueryResponse cquery_response = 7;
+    UqueryResponse uquery_response = 8;
+    TestResponse test_response = 9;
+    UnstableDocsResponse unstable_docs_response = 10;
+    ProfileResponse profile_response = 11;
+    TargetsShowOutputsResponse targets_show_outputs_response = 12;
+    InstallResponse install_response = 14;
+    AqueryResponse aquery_response = 15;
+    MaterializeResponse materialize_response = 16;
+    BxlResponse bxl_response = 17;
+    LspResponse lsp_response = 18;
+    GenericResponse generic_response = 100;
+  }
+}
+
+// A configuration, identified by its full name.
+message CommandProgress {
+  oneof progress {
+    buck.data.BuckEvent event = 1;
+    CommandResult result = 2;
+  }
+}
+
+/// A container for requests that streamed to
+/// to the server. The first one of these
+/// *MUST* have type "context". Subsequent
+/// packets *MUST NOT* have the type "context".
+message StreamingRequest {
+  oneof request {
+    ClientContext context = 1;
+    LspRequest lsp = 2;
+  }
+}
+
+message UnstableHeapDumpRequest {
+  // The path to write the heap dump to. If this path is relative, it is made
+  // absolute relative to the working directory of the daemon.
+  string destination_path = 1;
+}
+
+message UnstableHeapDumpResponse {}
+
+message UnstableAllocatorStatsRequest {
+  // Options to pass to the allocator stats backend (JEMalloc's
+  // malloc_stats_print, see <https://linux.die.net/man/3/jemalloc>).
+  string options = 1;
+}
+
+message UnstableAllocatorStatsResponse {
+  // The returned stats
+  string response = 1;
+}
+
+message UnstableDiceDumpRequest {
+  enum DiceDumpFormat {
+    TSV = 0;
+    SERDE = 1;
+  }
+  // The path to write the DICE dump to. If this path is relative, it is made
+  // absolute relative to the working directory of the daemon.
+  string destination_path = 1;
+  // Which format the dumpfile should be in.
+  DiceDumpFormat format = 2;
+}
+
+message UnstableDiceDumpResponse {}
+
+/// An individual starlark LSP request.
+message LspRequest {
+  // The raw json sent by LSP clients
+  string lsp_json = 1;
+}
+
+/// Not used at the moment, but signals that
+/// the starlark LSP server is complete for
+/// this request. Responses to individual
+/// LSP requsts are sent back in the event
+/// stream. See `buck.data.LspResult`
+message LspResponse {}
+
+message ProfileRequest {
+  enum Profiler {
+    HEAP_FLAME_ALLOCATED = 0;
+    HEAP_FLAME_RETAINED = 10;
+    HEAP_SUMMARY_ALLOCATED = 1;
+    HEAP_SUMMARY_RETAINED = 11;
+    TIME_FLAME = 2;
+    STATEMENT = 3;
+    BYTECODE = 4;
+    BYTECODE_PAIRS = 5;
+    TYPECHECK = 6;
+  }
+
+  enum Action {
+    ANALYSIS = 0;
+    LOADING = 1;
+  }
+
+  ClientContext context = 1;
+  buck.data.TargetPattern target_pattern = 2;
+  string destination_path = 3;
+  Profiler profiler = 4;
+  Action action = 5;
+  bool recursive = 6;
+}
+
+message ProfileResponse {
+  google.protobuf.Duration elapsed = 1;
+  uint64 total_retained_bytes = 2;
+}
+
+message MaterializeRequest {
+  ClientContext context = 1;
+  // The paths we want to materialize
+  repeated string paths = 2;
+}
+
+message MaterializeResponse {}
+
+message FlushDepFilesRequest {}
+
+// Note: When adding new request or response types, some of the declarations in
+// src/lib.rs need to be updated to derive common things for buck's cli package.
+service DaemonApi {
+  rpc Kill(KillRequest) returns (CommandResult);
+  rpc Status(StatusRequest) returns (CommandResult);
+  rpc Ping(PingRequest) returns (CommandResult);
+  rpc FlushDepFiles(FlushDepFilesRequest) returns (CommandResult);
+
+  // All streaming request types should have a ClientContext.
+  rpc Build(BuildRequest) returns (stream CommandProgress);
+  rpc Bxl(BxlRequest) returns (stream CommandProgress);
+  rpc Test(TestRequest) returns (stream CommandProgress);
+  rpc Targets(TargetsRequest) returns (stream CommandProgress);
+  rpc TargetsShowOutputs(TargetsRequest) returns (stream CommandProgress);
+  rpc Aquery(AqueryRequest) returns (stream CommandProgress);
+  rpc Cquery(CqueryRequest) returns (stream CommandProgress);
+  rpc Uquery(UqueryRequest) returns (stream CommandProgress);
+  rpc Audit(GenericRequest) returns (stream CommandProgress);
+  rpc UnstableDocs(UnstableDocsRequest) returns (stream CommandProgress);
+  rpc Install(InstallRequest) returns (stream CommandProgress);
+  rpc Materialize(MaterializeRequest) returns (stream CommandProgress);
+  rpc Profile2(ProfileRequest) returns (stream CommandProgress);
+
+  // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's
+  // panic behavior, you probably don't want this.
+  rpc Unstable_Crash(UnstableCrashRequest) returns (UnstableCrashResponse);
+
+  // Crashes the Buck daemon with a segfault.  Unless you are writing tests or
+  // checking Buck2's segfault behavior, you probably don't want this.
+  rpc Segfault(SegfaultRequest) returns (SegfaultResponse);
+
+  // Requests the daemon to perform a heap dump and save the dump to a file.
+  rpc Unstable_HeapDump(UnstableHeapDumpRequest)
+      returns (UnstableHeapDumpResponse);
+
+  // Requests allocator stats from the daemon.
+  rpc Unstable_AllocatorStats(UnstableAllocatorStatsRequest)
+      returns (UnstableAllocatorStatsResponse);
+
+  /// Requests the daemon dump the DICE graph to a directory.
+  rpc Unstable_DiceDump(UnstableDiceDumpRequest)
+      returns (UnstableDiceDumpResponse);
+
+  // Starts a starlark LSP server.
+  rpc Lsp(stream StreamingRequest) returns (stream CommandProgress);
+}

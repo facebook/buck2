@@ -1,0 +1,112 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.python_binary(
+    name = "hello",
+    main = "hello.py",
+    deps = [
+        ":my_print",
+    ],
+)
+
+bzl_native.python_binary(
+    name = "hello_with_main_module",
+    main_module = "buck2.tests.targets.rules.python.my_print",
+    deps = [
+        ":my_print",
+    ],
+)
+
+bzl_native.python_library(
+    name = "my_print",
+    srcs = [
+        "my_print.py",
+    ],
+    deps = [
+        ":my_strings",
+    ],
+)
+
+bzl_native.python_library(
+    name = "my_strings",
+    srcs = [
+        "my_strings.py",
+    ],
+)
+
+bzl_native.export_file(
+    name = "test_fixture",
+    src = "test.fixture",
+)
+
+# adding a genrule to actually run the binary
+bzl_native.genrule(
+    name = "run_hello",
+    out = "hello.txt",
+    cmd = "$(exe :hello) > $OUT",
+)
+
+bzl_native.genrule(
+    name = "run_hello_with_main_module",
+    out = "hello.txt",
+    cmd = "$(exe :hello_with_main_module) > $OUT",
+)
+
+bzl_native.genrule(
+    name = "verify_run_hello",
+    out = "out.txt",
+    bash = "echo 'Expected' && cat $(location :{}) && echo 'Got' && cat $(location :{}) && diff -sb $(location :{}) $(location :{}) > $OUT".format("test_fixture", "run_hello", "run_hello", "test_fixture"),
+)
+
+bzl_native.genrule(
+    name = "verify_run_hello_with_main_module",
+    out = "out.txt",
+    bash = "echo 'Expected' && cat $(location :{}) && echo 'Got' && cat $(location :{}) && diff -sb $(location :{}) $(location :{}) > $OUT".format("test_fixture", "run_hello_with_main_module", "run_hello_with_main_module", "test_fixture"),
+)
+
+bzl_native.python_binary(
+    name = "with_dependency",
+    default_host_platform = "ovr_config//platform/linux:x86_64-fbcode",
+    main = "with_dependency.py",
+    deps = [
+        "fbsource//third-party/pypi/click:click",
+    ],
+)
+
+bzl_native.genrule(
+    name = "run_with_dependency",
+    out = "hello.txt",
+    cmd = "$(exe :with_dependency) > $OUT",
+)
+
+python_binary(
+    name = "fbcode_hello",
+    srcs = ["fbcode_hello.py"],
+    base_module = "",
+    main_module = "fbcode_hello",
+)
+
+buck_genrule(
+    name = "fbcode_hello_run",
+    out = "hello.txt",
+    cmd = "$(exe :fbcode_hello) > $OUT",
+)
+
+python_binary(
+    name = "fbcode_import",
+    srcs = ["fbcode_import.py"],
+    base_module = "",
+    main_module = "fbcode_import",
+    deps = [
+        "fbcode//libfb/py:memoize",
+    ],
+)
+
+buck_genrule(
+    name = "fbcode_import_run",
+    out = "hello.txt",
+    cmd = "$(exe :fbcode_import) > $OUT",
+)

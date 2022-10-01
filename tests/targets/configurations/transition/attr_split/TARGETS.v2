@@ -1,0 +1,26 @@
+load(":rules.bzl", "my_android_binary", "my_cxx_library")
+
+prelude = native
+
+prelude.constraint_setting(
+    name = "cpu",
+)
+
+prelude.constraint_value(
+    name = "arm64",
+    constraint_setting = ":cpu",
+)
+
+prelude.constraint_value(
+    name = "arm32",
+    constraint_setting = ":cpu",
+)
+
+my_cxx_library(
+    name = "code",
+)
+
+my_android_binary(
+    name = "bb",
+    native_deps = [":code"],
+)

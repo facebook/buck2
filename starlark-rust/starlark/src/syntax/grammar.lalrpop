@@ -1,0 +1,474 @@
+// Copyright 2018 The Starlark in Rust Authors.
+// Copyright (c) Facebook, Inc. and its affiliates.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use crate::codemap::CodeMap;
+use crate::codemap::Spanned;
+use crate::syntax::lexer;
+use crate::syntax::dialect::Dialect;
+use crate::syntax::ast::*;
+
+grammar(codemap: &CodeMap, dialect: &Dialect);
+
+#[inline]
+ASTS<E>: AstStmt = <l:@L> <e:E> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+ASTE<E>: AstExpr = <l:@L> <e:E> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+ASTP<E>: AstParameter = <l:@L> <e:E> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+ASTA<E>: AstArgument = <l:@L> <e:E> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+integer: AstInt = <l:@L> <e:"INTEGER"> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+float: AstFloat = <l:@L> <e:"FLOAT"> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+string: AstString = <l:@L> <e:"STRING"> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
+identifier: AstString = <l:@L> <e:"IDENTIFIER"> <r:@R>
+    => e.ast(l, r);
+
+AssignIdent: AstAssignIdent = <id:identifier> => Spanned {
+    span: id.span,
+    node: AssignIdentP(id.node, ()),
+};
+
+COMMA<E>: Vec<E> =
+    <v0:(<E> ",")*> <e1:E?>
+        => v0.into_iter().chain(e1).collect();
+
+pub(crate) Starlark: AstStmt = ASTS<starlark_>;
+starlark_: Stmt = "\n"* <(<Stmt> "\n"*)*>
+    => Stmt::Statements(<>);
+
+DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(dialect.check_def(codemap, <>)?);
+DefStmt_: Stmt =
+  "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
+      =>? Ok(Stmt::check_def(<>, codemap)?);
+
+ReturnType: Option<Box<AstExpr>> = {
+    "->" <Test> =>? Ok(Some(box dialect.check_type(codemap, <>)?)),
+    => None,
+}
+
+Parameter: AstParameter = ASTP<Parameter_>;
+Parameter_: Parameter = {
+    <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, box e),
+    <AssignIdent>                => Parameter::Normal(<>, None),
+    "*" <AssignIdent>            => Parameter::Args(<>, None),
+    <l:@L> "*" <r:@R>                 =>? Ok(dialect.check_keyword_only_arguments(codemap, l, r, Parameter::NoArgs)?),
+    "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
+};
+
+ParameterTyped: AstParameter = ASTP<ParameterTyped_>;
+ParameterTyped_: Parameter = {
+    <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, box e),
+    <AssignIdent> <Type>                  => Parameter::Normal(<>),
+    "*" <AssignIdent> <Type>              => Parameter::Args(<>),
+    <l:@L> "*" <r:@R>                          =>? Ok(dialect.check_keyword_only_arguments(codemap, l, r, Parameter::NoArgs)?),
+    "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
+};
+
+Type: Option<Box<AstExpr>> = {
+    ":" <Test> =>? Ok(Some(box dialect.check_type(codemap, <>)?)),
+    => None,
+}
+
+Suite: AstStmt = {
+    SimpleStmt<SmallStmt>,
+    "\n"+ "INDENT" <l:@L> "\n"* <v:(<Stmt> "\n"*)+> <r:@R> "DEDENT"
+        => Stmt::Statements(v).ast(l, r)
+};
+
+Stmt: AstStmt = { DefStmt, IfStmt, ForStmt, SimpleStmt<SmallStmt> };
+
+IfBody: AstStmt = ASTS<IfBody_>;
+IfBody_: Stmt = <c:Test> ":" <s:Suite> <el:ElseStmt?> => {
+    match el {
+        None   => Stmt::If(c, box s),
+        Some(e) => Stmt::IfElse(c, box (s, e))
+    }
+};
+
+IfStmt: AstStmt = ASTS<IfStmt_>;
+IfStmt_: Stmt = "if" <IfBody_>;
+
+ElseStmt: AstStmt = {
+    "elif" <IfBody>,
+    "else" ":" <Suite>
+};
+
+ForStmt: AstStmt = ASTS<ForStmt_>;
+ForStmt_: Stmt = "for" <e:ExprList> "in" <c:Test> ":" <s:Suite>
+    =>? Ok(Stmt::For(Stmt::check_assign(codemap, e)?, box (c, s)));
+
+SimpleStmt<S>: AstStmt =
+    <l:@L> <e:S> <v:(";" <S>)*> ";"? <r:@R> "\n" => {
+        if v.is_empty() {
+            e
+        } else {
+            Stmt::Statements(
+                vec![e].into_iter().chain(v.into_iter()).collect())
+                    .ast(l, r)
+        }
+    };
+
+SmallStmt: AstStmt = {
+    <l:@L> "return" <e:TestList?> <r:@R>
+        => Stmt::Return(e).ast(l, r),
+    <@L> "break" <@R>
+        => Stmt::Break.ast(<>),
+    <@L> "continue" <@R>
+        => Stmt::Continue.ast(<>),
+    <@L> "pass" <@R>
+        => Stmt::Pass.ast(<>),
+    AssignStmt,
+    ExprStmt,
+    LoadStmt,
+};
+
+AssignOp: Option<AssignOp> = {
+    "=" => None,
+    "+=" => Some(AssignOp::Add),
+    "-=" => Some(AssignOp::Subtract),
+    "*=" => Some(AssignOp::Multiply),
+    "//=" => Some(AssignOp::FloorDivide),
+    "%=" => Some(AssignOp::Percent),
+    "&=" => Some(AssignOp::BitAnd),
+    "|=" => Some(AssignOp::BitOr),
+    "^=" => Some(AssignOp::BitXor),
+    "<<=" => Some(AssignOp::LeftShift),
+    ">>=" => Some(AssignOp::RightShift),
+};
+
+AssignStmt: AstStmt = ASTS<AssignStmt_>;
+AssignStmt_: Stmt = <lhs:TestList> <op:AssignOp> <rhs:TestList>
+        =>? Ok(Stmt::check_assignment(codemap, <>)?);
+
+// In python ExprStmt is an AssignStmt (
+// https://docs.python.org/3/reference/grammar.html). This ExprStmt is
+// according to the spec provided on https://github.com/google/skylark. It
+// enable parsing docstring and method calls.
+ExprStmt: AstStmt = ASTS<ExprStmt_>;
+ExprStmt_: Stmt = <Test> => Stmt::Expression(<>);
+
+LoadStmt: AstStmt = ASTS<LoadStmt_> =>? Ok(dialect.check_load(codemap, <>)?);
+LoadStmt_: Stmt = LoadStmtInner => Stmt::Load(<>);
+
+LoadStmtInner: AstLoad = <l:@L> <s:LoadStmtInner_> <r:@R> => s.ast(l, r);
+LoadStmtInner_: Load = "load" "(" <module:string> <args:("," <LoadStmtSyms>)+> ","? ")" => {
+    Load {
+        module,
+        args,
+    }
+};
+
+LoadStmtBindingName: AstString = <identifier> "=";
+
+LoadStmtSyms: (AstAssignIdent, AstString) = <id:LoadStmtBindingName?> <n:string> => {
+    let id = id.unwrap_or(n.clone());
+    (
+        Spanned { span: id.span, node: AssignIdentP(id.node, ()) },
+        n,
+    )
+};
+
+// Expression
+L<E>: AstExpr = <l:@L> <v:(<E> ",")*> <e:E> <f:","?> <r:@R>
+    => {
+        if f.is_some() || !v.is_empty() {
+            Expr::Tuple(v.into_iter().chain(vec![e].into_iter()).collect())
+                .ast(l, r)
+        } else {
+            e
+        }
+    };
+
+ExprList: AstExpr = L<Expr>;
+
+TestList: AstExpr = L<Test>;
+
+
+PrimaryExpr: AstExpr = {
+    <l:@L> <e:PrimaryExpr> "." <i:identifier> <r:@R>
+        => Expr::Dot(box e, i).ast(l, r),
+    <l:@L> <e:PrimaryExpr> "(" <a:COMMA<Argument>> ")" <r:@R>
+        =>? Ok(Expr::check_call(e, a, codemap)?.ast(l, r)),
+    <l:@L> <e:PrimaryExpr> "[" <i1:Test?> ":" <i2:Test?> <i3:(":" <Test?>)?> "]"
+        <r:@R> => {
+          Expr::Slice(box e, i1.map(|x| box x), i2.map(|x| box x), i3.unwrap_or(None).map(|x| box x))
+              .ast(l, r)
+        },
+    <l:@L> <e:PrimaryExpr> "[" <i:TestList> "]" <r:@R>
+        => Expr::ArrayIndirection(box (e, i)).ast(l, r),
+    Operand
+};
+
+OptionalSlice: AstExpr = ":" <Test>;
+
+// Note that the order of arguments (args, named, *args, **kwargs) is enforced
+// at the syntax evaluation, not by the Grammar.
+Argument: AstArgument = ASTA<Argument_>;
+Argument_: Argument = {
+    <Test>                    => Argument::Positional(<>),
+    <identifier> "=" <Test>   => Argument::Named(<>),
+    "*" <Test>                => Argument::Args(<>),
+    "**" <Test>               => Argument::KwArgs(<>)
+};
+
+Operand: AstExpr = {
+    <l:@L> <i:identifier> <r:@R>
+        => Expr::Identifier(i, ()).ast(l, r),
+    <l:@L> <i:integer> <r:@R>
+        => Expr::Literal(AstLiteral::Int(i)).ast(l, r),
+    <l:@L> <f:float> <r:@R>
+        => Expr::Literal(AstLiteral::Float(f)).ast(l, r),
+    <l:@L> <s:string> <r:@R>
+        => Expr::Literal(AstLiteral::String(s)).ast(l, r),
+    <l:@L> "[" <e:COMMA<Test>> "]" <r:@R>
+        => Expr::List(e).ast(l, r),
+    ListComp,
+    <l:@L> "{" <e:COMMA<DictEntry>> "}" <r:@R>
+        => Expr::Dict(e).ast(l, r),
+    DictComp,
+    <l:@L> "(" <e:TestList?> ")" <r:@R>
+        => match e {
+            Some(t) => t,
+            None => Expr::Tuple(vec![]).ast(l, r)
+        }
+};
+
+DictEntry: (AstExpr, AstExpr) = <Test> ":" <Test> => (<>);
+
+ListComp: AstExpr = ASTE<ListComp_>;
+ListComp_: Expr = "[" <t:Test> <c:CompClause> "]"
+    => Expr::ListComprehension(box t, box c.0, c.1);
+
+DictComp: AstExpr = ASTE<DictComp_>;
+DictComp_: Expr = "{" <k:DictEntry> <c:CompClause>"}"
+    => Expr::DictComprehension(box k, box c.0, c.1);
+
+// A comprehension must start with a for, otherwise its an error
+CompClause: (ForClause, Vec<Clause>) = <x:ForClause> <xs:Clause*>
+    => (x, xs);
+
+Clause: Clause = {
+    ForClause => Clause::For(<>),
+    "if" <OrTest> => Clause::If(<>),
+};
+ForClause: ForClause = "for" <var:ExprList> "in" <over:OrTest>
+    =>? Ok(ForClause {var: Stmt::check_assign(codemap, var)?, over});
+
+// Base expression. Priorities are taken from Python 3 grammar.
+Test: AstExpr = {
+    <l:@L> <e1:OrTest> "if" <t:OrTest> "else" <e2:Test> <r:@R>
+        => Expr::If(box (t, e1, e2)).ast(l, r),
+    OrTest,
+    LambDef
+};
+
+LambDef: AstExpr = {
+    <l:@L> "lambda" <p:COMMA<Parameter>> ":" <e:Test> <r:@R>
+        =>? Ok(dialect.check_lambda(codemap, Expr::check_lambda(p, e, codemap)?.ast(l, r))?),
+}
+
+// Binary operators
+OrTest: AstExpr = {
+    <l:@L> <e1:OrTest> "or" <e2:AndTest> <r:@R>
+        => Expr::Op(box e1, BinOp::Or, box e2).ast(l, r),
+    AndTest,
+};
+
+AndTest: AstExpr =  {
+    <l:@L> <e1:AndTest> "and" <e2:NotTest> <r:@R>
+        => Expr::Op(box e1, BinOp::And, box e2).ast(l, r),
+    NotTest,
+};
+
+NotTest: AstExpr = {
+  <l:@L> "not" <e:NotTest> <r:@R>
+      => Expr::Not(box e).ast(l, r),
+  CompTest,
+};
+
+CompTest: AstExpr = {
+    <l:@L> <e1:BitOrExpr> "==" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Equal, box e2).ast(l, r),
+    <l:@L> <e1:BitOrExpr> "!=" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::NotEqual, box e2).ast(l, r),
+    <l:@L> <e1:BitOrExpr> "<" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Less, box e2).ast(l, r),
+    <l:@L> <e1:BitOrExpr> ">" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Greater, box e2).ast(l, r),
+    <l:@L> <e1:BitOrExpr> "<=" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::LessOrEqual, box e2).ast(l, r),
+    <l:@L> <e1:BitOrExpr> ">=" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::GreaterOrEqual, box e2)
+                      .ast(l, r),
+    <l:@L> <e1:BitOrExpr> "in" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::In, box e2).ast(l, r),
+    <l:@L> <e1:BitOrExpr> "not" "in" <e2:BitOrExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::NotIn, box e2).ast(l, r),
+    BitOrExpr
+};
+
+Expr = {BitOrExpr};
+
+BitOrExpr: AstExpr = {
+    <l:@L> <e1:BitOrExpr> "|" <e2:BitXorExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::BitOr, box e2).ast(l, r),
+    BitXorExpr,
+};
+
+BitXorExpr: AstExpr = {
+    <l:@L> <e1:BitXorExpr> "^" <e2:BitAndExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::BitXor, box e2).ast(l, r),
+    BitAndExpr,
+};
+
+BitAndExpr: AstExpr = {
+    <l:@L> <e1:BitAndExpr> "&" <e2:ShiftExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::BitAnd, box e2).ast(l, r),
+    ShiftExpr,
+};
+
+ShiftExpr: AstExpr = {
+    <l:@L> <e1:ShiftExpr> "<<" <e2:ArithExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::LeftShift, box e2).ast(l, r),
+    <l:@L> <e1:ShiftExpr> ">>" <e2:ArithExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::RightShift, box e2).ast(l, r),
+    ArithExpr,
+};
+
+ArithExpr: AstExpr = {
+    <l:@L> <e1:ArithExpr> "+" <e2:ProductExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Add, box e2).ast(l, r),
+    <l:@L> <e1:ArithExpr> "-" <e2:ProductExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Subtract, box e2).ast(l, r),
+    ProductExpr,
+};
+
+ProductExpr: AstExpr = {
+    <l:@L> <e1:ProductExpr> "*" <e2:FactorExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Multiply, box e2)
+            .ast(l, r),
+    <l:@L> <e1:ProductExpr> "%" <e2:FactorExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Percent, box e2).ast(l, r),
+    <l:@L> <e1:ProductExpr> "/" <e2:FactorExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::Divide, box e2).ast(l, r),
+    <l:@L> <e1:ProductExpr> "//" <e2:FactorExpr> <r:@R>
+        => Expr::Op(box e1, BinOp::FloorDivide, box e2).ast(l, r),
+    FactorExpr
+};
+
+FactorExpr: AstExpr = {
+    <l:@L> "+" <e:FactorExpr> <r:@R>
+        => Expr::Plus(box e).ast(l, r),
+    <l:@L> "-" <e:FactorExpr> <r:@R>
+        => Expr::Minus(box e).ast(l, r),
+    <l:@L> "~" <e:FactorExpr> <r:@R>
+        => Expr::BitNot(box e).ast(l, r),
+    PrimaryExpr
+};
+
+extern {
+    type Location = usize;
+    type Error = anyhow::Error;
+
+    enum lexer::Token {
+      "INDENT" => lexer::Token::Indent,
+      "DEDENT" => lexer::Token::Dedent,
+      "\n"     => lexer::Token::Newline,
+      // Keywords
+      "and" => lexer::Token::And,
+      "else" => lexer::Token::Else,
+      "load" => lexer::Token::Load,
+      "break" => lexer::Token::Break,
+      "for" => lexer::Token::For,
+      "not" => lexer::Token::Not,
+      "continue" => lexer::Token::Continue,
+      "if" => lexer::Token::If,
+      "or" => lexer::Token::Or,
+      "def" => lexer::Token::Def,
+      "in" => lexer::Token::In,
+      "pass" => lexer::Token::Pass,
+      "elif" => lexer::Token::Elif,
+      "return" => lexer::Token::Return,
+      "lambda" => lexer::Token::Lambda,
+      // Symbols
+      "," => lexer::Token::Comma,
+      ";" => lexer::Token::Semicolon,
+      ":" => lexer::Token::Colon,
+      "+=" => lexer::Token::PlusEqual,
+      "-=" => lexer::Token::MinusEqual,
+      "*=" => lexer::Token::StarEqual,
+      "/=" => lexer::Token::SlashEqual,
+      "//=" => lexer::Token::SlashSlashEqual,
+      "%=" => lexer::Token::PercentEqual,
+      "==" => lexer::Token::EqualEqual,
+      "!=" => lexer::Token::BangEqual,
+      "<=" => lexer::Token::LessEqual,
+      ">=" => lexer::Token::GreaterEqual,
+      "**" => lexer::Token::StarStar,
+      "->" => lexer::Token::MinusGreater,
+      "=" => lexer::Token::Equal,
+      "<" => lexer::Token::LessThan,
+      ">" => lexer::Token::GreaterThan,
+      "-" => lexer::Token::Minus,
+      "+" => lexer::Token::Plus,
+      "*" => lexer::Token::Star,
+      "%" => lexer::Token::Percent,
+      "/" => lexer::Token::Slash,
+      "//" => lexer::Token::SlashSlash,
+      "." => lexer::Token::Dot,
+      "&" => lexer::Token::Ampersand,
+      "|" => lexer::Token::Pipe,
+      "^" => lexer::Token::Caret,
+      "<<" => lexer::Token::LessLess,
+      ">>" => lexer::Token::GreaterGreater,
+      "~" => lexer::Token::Tilde,
+      "&=" => lexer::Token::AmpersandEqual,
+      "|=" => lexer::Token::PipeEqual,
+      "^=" => lexer::Token::CaretEqual,
+      "<<=" => lexer::Token::LessLessEqual,
+      ">>=" => lexer::Token::GreaterGreaterEqual,
+      // Brackets
+      "[" => lexer::Token::OpeningSquare,
+      "{" => lexer::Token::OpeningCurly,
+      "(" => lexer::Token::OpeningRound,
+      "]" => lexer::Token::ClosingSquare,
+      "}" => lexer::Token::ClosingCurly,
+      ")" => lexer::Token::ClosingRound,
+
+
+      "IDENTIFIER" => lexer::Token::Identifier(<String>),
+      "INTEGER" => lexer::Token::Int(<lexer::TokenInt>),
+      "FLOAT" => lexer::Token::Float(<f64>),
+      "STRING" => lexer::Token::String(<String>)
+    }
+}

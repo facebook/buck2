@@ -1,0 +1,18 @@
+version: 2.1
+orbs:
+  rust: circleci/rust@1.6.0
+jobs:
+  build:
+    docker:
+      - image: cimg/rust:1.49.0
+    resource_class: xlarge
+    steps:
+      - run: sudo apt-get update
+      - run: sudo apt-get install libssl-dev cmake
+      - checkout
+      - rust/clippy:
+          with_cache: false
+      - rust/build:
+          with_cache: false
+      - rust/test:
+          with_cache: false

@@ -1,0 +1,54 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:ocaml_object.bzl", "ocaml_object")
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+# An OCaml program defining functions that can be called from C/Rust. One of
+# those functions calls an `extern C` function in `:fib-ffi`.
+ocaml_object(
+    name = "fib-ml",
+    srcs = ["fib.ml"],
+    deps = [":fib-ffi"],
+)
+
+# The library containing the `extern C` function called from `:fib-ml`.
+rust_library(
+    name = "fib-ffi",
+    srcs = ["fib_ffi.rs"],
+    crate_root = "fib_ffi.rs",
+)
+
+# This is a rust binary that calls the functions in `:fib-ml` (which in turn
+# calls the `extern C` function in `:fib-ffi`).
+rust_binary(
+    name = "fib-rs",
+    srcs = ["fib.rs"],
+    deps = [":fib-ml"],
+    crate_root = "fib.rs",
+    # Mode 'opt-clang' doesn't need this but 'dev' does.
+    link_style = "static",
+)
+
+# This is a C++ binary that calls the functions in `:fib-ml` (which in turn
+# calls the `extern C` function in `:fib-ffi`).
+cpp_binary(
+    name = "fib-cpp",
+    srcs = ["fib.cpp"],
+    deps = [":fib-ml"],
+    external_deps = [("supercaml", None, "ocaml-dev")],
+)
+
+# --
+
+# The point of this test is to check that the loop over ocaml libs in
+# `ocaml_object_impl` doesn't refer to record fields that don't exist (see
+# D39744573).
+ocaml_library(
+    name = "empty-lib",
+    srcs = [],
+    deps = [],
+)
+ocaml_object(
+    name = "empty-obj",
+    srcs = [],
+    deps = [":empty-lib"],
+)

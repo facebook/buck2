@@ -1,0 +1,74 @@
+[package]
+description = "Some parts of Buck client"
+edition = "2021"
+name = "buck2_client"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-compression = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+blake3 = { workspace = true }
+bytes = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+crossterm = { workspace = true }
+derive_more = { workspace = true }
+fs2 = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+humantime = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+libc = { workspace = true }
+linked-hash-map = { workspace = true }
+lsp-server = { workspace = true }
+memmap = { workspace = true }
+multimap = { workspace = true }
+nix = { workspace = true }
+object = { workspace = true }
+once_cell = { workspace = true }
+pin-project = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shlex = { workspace = true }
+sync_wrapper = { workspace = true }
+termwiz = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+httparse = { workspace = true }
+parking_lot = { workspace = true }
+walkdir = { workspace = true }
+num_cpus = { workspace = true }
+threadpool = { workspace = true }
+dice = { path = "../dice/dice" }
+gazebo = { workspace = true }
+fbinit = { workspace = true }
+# @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps" }
+superconsole = { version = "0.1.0", path = "../superconsole" }
+
+# Please do not add dependency on `buck2_build_api`.
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_execute = { path = "../buck2_execute"}
+buck2_events = { path = "../buck2_events" }
+buck2_test_api = { path = "../buck2_test_api" }
+cli_proto = { path = "../cli_proto" }
+
+[target.'cfg(unix)'.dependencies]
+termios = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }

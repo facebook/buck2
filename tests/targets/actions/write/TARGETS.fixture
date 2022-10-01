@@ -1,0 +1,38 @@
+load(":defs.bzl", "simple_write", "write_file")
+
+simple_write(name = "simple")
+
+write_file(name = "uses_declared_output")
+
+write_file(name = "uses_declared_output_as_output")
+
+write_file(name = "declares_output")
+
+write_file(
+    name = "is_executable",
+    exe = True,
+)
+
+write_file(
+    name = "writes_array_of_commands",
+    dep = ":simple",
+)
+
+write_file(
+    name = "writes_command_lines",
+    dep = ":simple",
+)
+
+write_file(
+    name = "writes_frozen_command_lines",
+    dep = ":simple",
+)
+
+write_file(name = "fails_on_invalid_contents")
+
+write_file(name = "fails_on_invalid_output")
+
+write_file(
+    name = "with_inputs_and_copy",
+    dep = ":simple",
+)

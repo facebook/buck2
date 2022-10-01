@@ -1,0 +1,34 @@
+prelude = native
+
+prelude.constraint_setting(
+    name = "os",
+)
+
+prelude.constraint_value(
+    name = "windows",
+    constraint_setting = ":os",
+)
+
+prelude.constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+)
+
+prelude.platform(
+    name = "p-linux",
+    constraint_values = [
+        ":linux",
+    ],
+)
+
+prelude.export_file(
+    name = "the-test",
+    compatible_with = [":windows"],
+    src = select({
+        # In test we run the query with target platform linux,
+        # this select does not have DEFAULT,
+        # but it should not fail because it should not be evaluated at all,
+        # because of `compatible_with` check.
+        ":windows": "TARGETS.v2",
+    }),
+)

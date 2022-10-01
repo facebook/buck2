@@ -1,0 +1,28 @@
+load(":defs.bzl", "check_platform")
+
+prelude = native
+
+check_platform(
+    name = "py3.8-platform009",
+    # Verify the Python versions used for extensions built with this target
+    # platform.
+    target_platform = "ovr_config//platform/linux:x86_64-fbcode-platform009-clang",
+    version = "3.8.6",
+)
+
+prelude.python_library(
+    name = "lib",
+    srcs = [
+        "ext_test.py",
+    ],
+    deps = [
+        ":ext",
+    ],
+)
+
+cpp_python_extension(
+    name = "ext",
+    srcs = [
+        "vers.c",
+    ],
+)

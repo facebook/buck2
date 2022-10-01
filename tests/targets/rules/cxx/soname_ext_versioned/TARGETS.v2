@@ -1,0 +1,15 @@
+prelude = native
+
+prelude.genrule(
+    name = "check",
+    cmd = "set -euo pipefail; objdump -p $(location :test[shared]) | grep SONAME | grep libtest.so.2.4 > $OUT",
+    out = "out.txt",
+)
+
+cpp_library(
+    name = "test",
+    soname = "libtest.$(ext 2.4)",
+    srcs = [
+        "test.cpp",
+    ],
+)

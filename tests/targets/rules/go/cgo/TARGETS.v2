@@ -1,0 +1,13 @@
+prelude = native
+
+prelude.genrule(
+    name = "check_simple",
+    cmd = "$(exe fbcode//tutorials/go/cgo/simple:bin) | grep 'fmt: return ' > $OUT",
+    out = "out.txt",
+)
+
+prelude.genrule(
+    name = "check_swig",
+    cmd = "$(exe fbcode//tutorials/go/swig/manual:bin) | grep '1 + 2 = 3' > $OUT",
+    out = "out.txt",
+)

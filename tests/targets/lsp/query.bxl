@@ -1,0 +1,6 @@
+# @lint-ignore-every BUCKRESTRICTEDSYNTAX STARLARK BUCKFORMAT
+
+def <dest_f>some_function</dest_f>(<dest_foo>foo</dest_foo>):
+    return <foo>f<foo_click>o</foo_click>o</foo> + 5
+
+<f>so<f_click>m</f_click>e_function</f>(3)

@@ -1,0 +1,15 @@
+[package]
+name = "remote_execution"
+version = "0.1.0"
+edition = "2021"
+description = "A library providing remote execution using internal Meta APIs"
+
+[dependencies]
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+re_grpc = { package = "re_tonic_grpc", path = "../../../remote_execution/rust/tonic_grpc" }
+re_client_lib = { path = "../../../remote_execution/client_lib/wrappers/rust/stub"}
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

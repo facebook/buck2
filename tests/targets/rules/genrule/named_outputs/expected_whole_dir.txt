@@ -1,0 +1,11 @@
+it's a dir
+========
+1.txt
+===BEGIN
+1
+=====END
+========
+2.txt
+===BEGIN
+2
+=====END

@@ -1,0 +1,77 @@
+native.java_test(
+    name = "simple_java_test",
+    srcs = ["com/example/SimpleJavaTest.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+)
+
+native.java_test(
+    name = "simple_java_test_with_java8",
+    srcs = ["com/example/SimpleJavaTest.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "8"},
+    labels = ["run_with_java8"],
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+)
+
+native.java_test(
+    name = "java_test_running_from_cell_root",
+    srcs = ["com/example/SimpleJavaTest.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+    labels = ["buck2_run_from_cell_root"],
+)
+
+native.java_test(
+    name = "java_test_with_cxx_library_allowlist",
+    srcs = ["com/example/JavaTestWithNativeLib.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
+    use_cxx_libraries = True,
+    cxx_library_whitelist = [":jlib-native"],
+    deps = [
+        "fbsource//third-party/junit:junit",
+        ":jlib",
+        ":lib-broken",
+    ],
+)
+
+native.java_test(
+    name = "java_test_with_no_cxx_library_allowlist",
+    srcs = ["com/example/JavaTestWithNativeLib.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
+    use_cxx_libraries = True,
+    deps = [
+        "fbsource//third-party/junit:junit",
+        ":jlib",
+        ":jlib-native",
+    ],
+)
+
+native.java_library(
+    name = "jlib",
+    srcs = ["com/example/JLib.java"],
+    deps = [
+        ":jlib-native",
+    ],
+)
+
+native.cxx_library(
+    name = "jlib-native",
+    srcs = ["jlib.c"],
+    soname = "libjtestlib.$(ext)",
+)
+
+native.cxx_library(
+    name = "lib-broken",
+    srcs = ["broken.c"],
+)

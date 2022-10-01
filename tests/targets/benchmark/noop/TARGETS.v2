@@ -1,0 +1,3 @@
+load(":targets.bzl", "targets")
+
+targets(n = 100)

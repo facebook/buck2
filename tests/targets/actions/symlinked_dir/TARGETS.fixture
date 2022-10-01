@@ -1,0 +1,11 @@
+load(":defs.bzl", "write_file", "symlink_files")
+
+write_file(name="dep", out="dep.txt", contents="dep contents")
+
+symlink_files(
+  name="out",
+  srcs=[
+    "dir1/dir1_1/file1.txt",
+    ":dep",
+  ],
+)

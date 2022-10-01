@@ -1,0 +1,21 @@
+[package]
+name = "more_futures"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures = "0.3"
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+pin-project = "0.4"
+tokio = { version = "1.5", features = ["full"]}
+tracing = "0.1.22"
+buck2_events = { path = "../../buck2_events" }
+buck2_data = { path = "../../buck2_data" }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

@@ -1,0 +1,12 @@
+native.java_library(
+    name = "lib",
+    srcs = ["JavacMain.java"],
+    resources = glob(["**/*.txt"]),
+    resources_root = ".",
+    java_version = "1.8",
+    manifest_file = "manifest.mf",
+    javac = "fbcode//tools/build/buck/wrappers:javac.sh",
+    visibility = [
+        "PUBLIC",
+    ],
+)

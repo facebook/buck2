@@ -1,0 +1,11 @@
+prelude = native
+
+prelude.cxx_library(
+    name = "foo",
+    srcs = [
+        "foo.c",
+    ],
+    deps = [
+        "fbsource//xplat/buck2/tests/cxx/empty_inc_dir:lib",
+    ],
+)

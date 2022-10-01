@@ -1,0 +1,107 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@prelude//:assert.bzl", "assert_artifact_properties", "assert_exists")
+
+export_file(
+    name = "exported.txt",
+)
+
+assert_artifact_properties(
+    name = "exported_properties",
+    src = ":exported.txt",
+    basename = "exported.txt",
+    short_path = "exported.txt",
+)
+
+assert_exists(
+    name = "exported_exists",
+    path = "$(location :exported.txt)",
+)
+
+export_file(
+    name = "renamed",
+    src = "exported.txt",
+    out = "renamed.txt",
+    mode = "copy",
+)
+
+assert_artifact_properties(
+    name = "renamed_properties",
+    src = ":renamed",
+    basename = "renamed.txt",
+    short_path = "renamed.txt",
+)
+
+assert_exists(
+    name = "renamed_exists",
+    path = "`dirname $(location :renamed)`/renamed.txt",
+)
+
+export_file(
+    name = "copy/nested",
+    src = "exported.txt",
+    mode = "copy",
+)
+
+assert_artifact_properties(
+    name = "copy/nested_properties",
+    src = ":copy/nested",
+    basename = "nested",
+    short_path = "copy/nested",
+)
+
+export_file(
+    name = "default_out",
+    src = "directory/inside.txt",
+)
+
+assert_artifact_properties(
+    name = "default_out_properties",
+    src = ":default_out",
+    basename = "inside.txt",
+    short_path = "directory/inside.txt",
+)
+
+export_file(
+    name = "directory",
+)
+
+assert_exists(
+    name = "directory_exists",
+    path = "$(location :directory)/inside.txt",
+)
+
+export_file(
+    name = "root",
+    src = ".",
+)
+
+assert_exists(
+    name = "root_exists",
+    path = "$(location :root)/directory/inside.txt",
+)
+
+buck_genrule(
+    name = "create_jar",
+    out = "generated_jar.jar",
+    bash = "TMP_OUTPUT_DIR=$TMP/create_jar_output && \
+            mkdir -p $TMP_OUTPUT_DIR && \
+            echo 'hello from generated jar script' > $TMP_OUTPUT_DIR/hello_jar.txt && \
+            $(exe fbsource//third-party/toolchains/jdk:jar) cfM $OUT -C $TMP_OUTPUT_DIR .",
+)
+
+native.prebuilt_jar(
+    name = "prebuilt_jar_target",
+    binary_jar = ":create_jar",
+)
+
+export_file(
+    name = "exported_symlink",
+    src = ":prebuilt_jar_target",
+    mode = "copy",
+)
+
+assert_exists(
+    name = "exported_symlink_exists",
+    path = "$(location :exported_symlink)",
+)

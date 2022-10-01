@@ -1,0 +1,26 @@
+prelude = native
+
+prelude.cxx_genrule(
+    name = "check-static",
+    cmd = 'echo $(location :foo[static]) | grep "foo[.]a" > "$OUT"',
+    out = "out",
+)
+
+prelude.cxx_genrule(
+    name = "check-static-pic",
+    cmd = 'echo $(location :foo[static-pic]) | grep "foo.pic[.]a" > "$OUT"',
+    out = "out",
+)
+
+prelude.cxx_genrule(
+    name = "check-shared",
+    cmd = 'echo $(location :foo[shared]) | grep "foo[.]so" > "$OUT"',
+    out = "out",
+)
+
+prelude.cxx_library(
+    name = "foo",
+    srcs = [
+        "foo.cpp",
+    ],
+)

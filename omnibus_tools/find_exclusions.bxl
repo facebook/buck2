@@ -1,0 +1,64 @@
+load(
+    "@prelude//cxx:omnibus.bzl",
+    "all_deps",
+    "get_omnibus_graph",
+)
+load(
+    "@prelude//linking:link_info.bzl",
+    "Linkage",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
+    "LinkableGraphTSet",
+)
+
+def _skip_node(n):
+    # LUA isn't supported in analysis so we need to skip them.
+    if "lua_library" in n.rule_type:
+        return True
+
+    return False
+
+def _find_exclusions_impl(ctx):
+    platform = (
+        "ovr_config//platform/linux:x86_64-fbcode-platform010-clang"
+    )
+
+    cquery = ctx.cquery(platform)
+
+    # Note: ideally we'd just do all of third-party here, but there are some
+    # targets files that don't parse there, so for now this adds ucc ad-hoc,
+    # which is depended on by Caffe2 (through Torch), which is where most of
+    # our large Omnibuses come from.
+    tp2_labels = cquery.eval("fbcode//third-party-buck/platform010/...")
+    tp2_labels += cquery.eval("fbsource//third-party/ucc/...")
+
+    nodes = list(tp2_labels)
+    nodes = [n for n in nodes if not _skip_node(n)]
+
+    all_analysis = ctx.analysis(nodes)
+
+    linkable_graphs = filter(None, [analysis.providers().get(LinkableGraph) for analysis in all_analysis.values()])
+    linkable_graph = ctx.bxl_actions.action_factory().tset(
+        LinkableGraphTSet,
+        children = [graph.nodes for graph in linkable_graphs],
+    )
+    linkable_graph = LinkableGraph(label = "bxl", nodes = linkable_graph)
+
+    omnibus_graph = get_omnibus_graph(linkable_graph, {}, {})
+
+    for label, node in omnibus_graph.nodes.items():
+        if node.preferred_linkage == Linkage("shared") and label not in omnibus_graph.roots:
+            omnibus_graph.excluded[label] = True
+
+    transitive_excluded = all_deps(omnibus_graph.nodes, omnibus_graph.excluded.keys())
+
+    transitive_excluded = [e.raw_target() for e in transitive_excluded]
+    transitive_excluded = sorted(transitive_excluded)
+    ctx.output.print_json(transitive_excluded)
+
+find_exclusions = bxl(
+    impl = _find_exclusions_impl,
+    cli_args = {},
+)

@@ -1,0 +1,13 @@
+lib1 = "root//lib:lib1"
+lib2 = "root//lib:lib2"
+lib3 = "root//lib:lib3"
+
+left = targets([lib1, lib2])
+right = targets([lib2, lib3])
+
+if targets([]) != difference(left, left):
+    fail("`difference(left, left) != []]` (left = `%s`)" % left)
+
+first = targets([lib1])
+if difference(left, right) != first:
+    fail("difference(left, right) != first (left=`%s`, right=`%s`, first=`%s`)" % (left, right, first))

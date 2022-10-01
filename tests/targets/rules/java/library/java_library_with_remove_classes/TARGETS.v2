@@ -1,0 +1,11 @@
+native.java_library(
+    name = "lib",
+    srcs = glob(["**/*.java"]),
+    remove_classes = [
+        "com.example.Fo",
+        "com.example.Foo$",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

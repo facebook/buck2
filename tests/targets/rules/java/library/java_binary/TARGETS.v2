@@ -1,0 +1,120 @@
+native.java_binary(
+    name = "bin-output",
+    main_class = "LibOutput",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":lib-output",
+    ],
+)
+
+native.java_binary(
+    name = "bin-output-with-wrapper",
+    main_class = "LibOutput",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":lib-output",
+    ],
+    generate_wrapper = True,
+)
+
+MANIFEST_TEMPLATE = "key1: value1{newline}key2: value2{newline}Main-Class: BLAH"
+NEWLINE_NAMES_AND_TYPES = [("carriage_return_and_newline", "\r\n"), ("carriage_return", "\r"), ("newline", "\n")]
+[
+    native.genrule(
+        name = "manifest_with_{}".format(name),
+        out = "outdir",
+        cmd = "mkdir $OUT && mkdir $OUT/META-INF && echo '{MANIFEST_TEMPLATE}' > $OUT/META-INF/MANIFEST.MF".format(MANIFEST_TEMPLATE = MANIFEST_TEMPLATE.format(newline = newline)),
+    )
+    for name, newline in NEWLINE_NAMES_AND_TYPES
+]
+
+[
+    native.genrule(
+        name = "jar_containing_manifest_with_{}".format(name),
+        out = "output_jar_containing_manifest.jar",
+        cmd = "OUT=\\$(realpath $OUT) && cd $(location :manifest_with_{}) && zip -r $OUT .".format(name),
+    )
+    for name, _ in NEWLINE_NAMES_AND_TYPES
+]
+
+[
+    native.prebuilt_jar(
+        name = "prebuilt_jar_containing_manifest_with_{}".format(name),
+        binary_jar = ":jar_containing_manifest_with_{}".format(name),
+    )
+    for name, _ in NEWLINE_NAMES_AND_TYPES
+]
+
+native.java_binary(
+    name = "bin-output-with-main-class-in-manifest",
+    deps = [
+        ":lib-output",
+        ":prebuilt_jar_containing_manifest_with_carriage_return_and_newline",
+        ":prebuilt_jar_containing_manifest_with_carriage_return",
+        ":prebuilt_jar_containing_manifest_with_newline",
+    ],
+    manifest_file = "manifest.mf",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_binary(
+    name = "bin-output-without-main-class-in-manifest",
+    deps = [
+        ":lib-output",
+    ],
+    main_class = "LibOutput",
+    manifest_file = "manifest_no_main_class.mf",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_binary(
+    name = "binary-with-blocklist",
+    main_class = "LibOutput",
+    deps = [
+        ":lib-output",
+        ":lib-resources",
+    ],
+    blacklist = ["^META-INF/.*\\.(SF|RSA|DSA|EC)$", "remove_me_pattern", "remove_me_patter"],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "lib-output",
+    srcs = [
+        "LibOutput.java",
+    ],
+    deps = [":lib-util"],
+)
+
+native.java_library(
+    name = "lib-util",
+    srcs = [
+        "LibUtil.java",
+    ],
+)
+
+native.java_library(
+    name = "lib-resources",
+    resources = glob(["resources/**/*"]),
+    resources_root = "resources",
+)
+
+native.java_binary(
+    name = "binary-with-file-with-space",
+    deps = [
+        "fbcode//buck2/tests/targets/rules/java/prebuilt_jar:prebuilt_jar_with_file_with_space",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

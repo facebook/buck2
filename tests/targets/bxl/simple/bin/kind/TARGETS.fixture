@@ -1,0 +1,5 @@
+load(":rules.bzl", "rule1", "rule2", "rule3")
+
+rule1(name = "foo", foo="hello")
+rule2(name = "bar", foo="world")
+rule3(name = "bzzt", foo="henlo")

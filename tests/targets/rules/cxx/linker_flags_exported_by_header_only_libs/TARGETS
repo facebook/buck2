@@ -1,0 +1,79 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+buck_genrule(
+    name = "main_run",
+    out = "out.txt",
+    bash = "$(exe :main) | grep success > $OUT",
+)
+
+# NOTE(agallagher): fbcode macros don't allow passing `link_style`, so use
+# raw rules for this test.  We also use `fb_native` instead of `native`, as
+# buckv1 parses these TARGETS via fbcode's TD and raw `cxx_binary` rules are
+# missing some default settings allowing them to parse.
+fb_native.cxx_binary(
+    name = "main",
+    srcs = [
+        "main.cpp",
+    ],
+    link_style = "static",
+    deps = [
+        ":exported_flag",
+        ":static_init",
+    ],
+)
+
+buck_genrule(
+    name = "main_prebuilt_run",
+    out = "out.txt",
+    bash = "$(exe :main_prebuilt) | grep success > $OUT",
+)
+
+# NOTE(agallagher): fbcode macros don't allow passing `link_style`, so use
+# raw rules for this test.  We also use `fb_native` instead of `native`, as
+# buckv1 parses these TARGETS via fbcode's TD and raw `cxx_binary` rules are
+# missing some default settings allowing them to parse.
+fb_native.cxx_binary(
+    name = "main_prebuilt",
+    srcs = [
+        "main.cpp",
+    ],
+    link_style = "static",
+    deps = [
+        ":exported_flag_prebuilt",
+        ":static_init",
+    ],
+)
+
+# A library that contains a static initializer that prints something and which
+# would normally get dropped at link time due to none of its symbols being
+# referenced.
+cpp_library(
+    name = "static_init",
+    srcs = [
+        "static_init.cpp",
+    ],
+)
+
+# A library which just exports a flag to mark a function in the `static_init`
+# library above as being needed, which should cause it to get pulled in.
+cpp_library(
+    name = "exported_flag",
+    linker_flags = [
+        "-ufunc",
+    ],
+)
+
+# A library which just exports a flag to mark a function in the `static_init`
+# library above as being needed, which should cause it to get pulled in.
+bzl_native.prebuilt_cxx_library(
+    name = "exported_flag_prebuilt",
+    exported_linker_flags = [
+        "-ufunc",
+    ],
+    header_only = True,
+)

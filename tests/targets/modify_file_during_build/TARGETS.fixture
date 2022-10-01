@@ -1,0 +1,4 @@
+load(":defs.bzl", "modify_file", "depend_file")
+
+modify_file(name = "modify_file", text = "text")
+depend_file(name = "check", modify_file = ":modify_file", text = "text")

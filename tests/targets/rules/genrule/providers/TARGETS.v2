@@ -1,0 +1,20 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load(":assert.bzl", "providers_assert")
+
+buck_genrule(
+    name = "genrule",
+    outs = {
+        "multiple": [
+            "multi0.txt",
+            "multi1.txt",
+        ],
+        "single": ["single.txt"],
+    },
+    bash = "echo 1 > $OUT/single.txt && echo 2 > $OUT/multi0.txt && echo 3 > $OUT/multi1.txt",
+)
+
+# Assert directly that the providers take the format we expect
+providers_assert(
+    name = "providers",
+    dep = ":genrule",
+)

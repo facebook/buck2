@@ -1,0 +1,73 @@
+[package]
+name = "starlark"
+edition = "2021"
+version = "0.9.0-pre"
+license = "Apache-2.0"
+description = "An implementation of the Starlark language in Rust."
+documentation = "https://docs.rs/starlark"
+repository = "https://github.com/facebookexperimental/starlark-rust"
+authors = [
+    "Damien Martin-Guillerez <dmarting@google.com>",
+    "Stepan Koltsov <stepan.koltsov@gmail.com>",
+    "Facebook"
+]
+build = "build.rs"
+keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
+categories = ["parser-implementations", "development-tools"]
+
+[build-dependencies]
+lalrpop = "0.19.7"
+
+[dependencies]
+annotate-snippets = { version = "0.9.0", features = ["color"] }
+anyhow = "1.0.65"
+derivative = "2.2"
+derive_more = "0.99"
+erased-serde = "0.3.20"
+lalrpop-util = "0.19.7"
+itertools = "0.10"
+once_cell = "1.8"
+bumpalo = "3.8"
+paste = "1.0"
+either = "1.6.1"
+static_assertions = "1.1.0"
+memoffset = "0.6.4"
+thiserror = "1.0.36"
+starlark_derive = { version = "0.9.0-pre", path = "../starlark_derive" }
+starlark_map = { version = "0.9.0-pre", path = "../starlark_map" }
+gazebo.version = "0.8.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+structopt = "0.3.23"
+walkdir = "2.3"
+serde = { version = "1.0", features = ["derive"] }
+logos = "0.12"
+serde_json = "1.0"
+rustyline = "9.1"
+maplit = "1.0.2"
+lsp-server = "0.5"
+lsp-types = "0.93.0"
+memchr = "2.4.1"
+debugserver-types = "0.5.0"
+hashbrown = { version = "0.12.3", features = ["raw"] }
+textwrap = "0.14.2"
+fancy-regex = "0.10.0"
+regex = "1.5.4"
+strsim = "0.10.0"
+argfile = "0.1.0"
+num-bigint = "0.4.3"
+num-traits = "0.2"
+inventory = "0.1.10"
+
+[dev-dependencies]
+rand      = { version = "0.8.4", features = ["small_rng"] }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]
+
+[[bin]]
+name = "starlark"
+path = "bin/main.rs"

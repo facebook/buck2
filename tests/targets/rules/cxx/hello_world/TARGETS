@@ -1,0 +1,6 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+
+cpp_binary(
+    name = "welcome",
+    srcs = ["main.cpp"],
+)

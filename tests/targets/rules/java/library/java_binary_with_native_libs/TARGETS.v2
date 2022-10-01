@@ -1,0 +1,52 @@
+native.java_binary(
+    name = "binary_with_native_lib",
+    main_class = "JavaBinaryWithNativeLibs",
+    deps = [
+        ":lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_binary(
+    name = "binary_with_native_lib_with_wrapper",
+    main_class = "JavaBinaryWithNativeLibs",
+    deps = [
+        ":lib",
+    ],
+    generate_wrapper = True,
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "lib",
+    srcs = [
+        "JavaBinaryWithNativeLibs.java",
+    ],
+    deps = [
+        ":native",
+    ],
+)
+
+native.cxx_library(
+    name = "native",
+    srcs = [
+        "Native.cpp",
+    ],
+    deps = [
+        ":dep",
+    ],
+)
+
+native.cxx_library(
+    name = "dep",
+    srcs = [
+        "Dep.cpp",
+    ],
+    exported_headers = [
+        "Dep.h",
+    ],
+)
