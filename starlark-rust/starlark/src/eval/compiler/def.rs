@@ -306,7 +306,6 @@ pub(crate) struct DefCompiled {
     pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
     pub(crate) return_type: Option<Box<IrSpanned<ExprCompiled>>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
-    pub(crate) check_types: bool,
 }
 
 impl Compiler<'_, '_, '_> {
@@ -321,6 +320,9 @@ impl Compiler<'_, '_, '_> {
 
     /// Compile expression when it is expected to be interpreted as type.
     fn expr_for_type(&mut self, expr: Option<Box<CstExpr>>) -> Option<IrSpanned<ExprCompiled>> {
+        if !self.check_types {
+            return None;
+        }
         let expr = self.expr_opt(expr)?;
         if let Some(value) = expr.as_value() {
             if TypeCompiled::is_wildcard_value(value.to_value()) {
@@ -424,7 +426,6 @@ impl Compiler<'_, '_, '_> {
             params,
             return_type,
             info,
-            check_types: self.check_types,
         })
     }
 }

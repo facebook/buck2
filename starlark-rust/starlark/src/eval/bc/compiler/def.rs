@@ -41,7 +41,6 @@ impl DefCompiled {
             ref params,
             ref return_type,
             info,
-            check_types,
         } = *self;
         let function_name = function_name.clone();
 
@@ -74,7 +73,6 @@ impl DefCompiled {
                 params,
                 return_type,
                 info,
-                check_types,
             };
 
             assert!(slots_i.next().is_none());
