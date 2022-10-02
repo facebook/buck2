@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::re::manager::ReConnectionManager;
+use dice::Dice;
 use gazebo::prelude::*;
 
 use crate::process_stats::process_stats;
@@ -24,6 +25,7 @@ pub struct SnapshotCollector {
     re_client_manager: Arc<ReConnectionManager>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     daemon_start_time: Instant,
+    dice: Arc<Dice>,
 }
 
 impl SnapshotCollector {
@@ -31,11 +33,13 @@ impl SnapshotCollector {
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         daemon_start_time: Instant,
+        dice: Arc<Dice>,
     ) -> SnapshotCollector {
         SnapshotCollector {
             re_client_manager,
             blocking_executor,
             daemon_start_time,
+            dice,
         }
     }
 
