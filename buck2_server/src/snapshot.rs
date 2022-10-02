@@ -58,6 +58,7 @@ impl SnapshotCollector {
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
+        self.add_dice_metrics(&mut snapshot);
         snapshot
     }
 
@@ -137,6 +138,12 @@ impl SnapshotCollector {
         if let Err(e) = inner(snapshot, &self.re_client_manager) {
             tracing::debug!("Error collecting network stats: {:#}", e);
         }
+    }
+
+    fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let metrics = self.dice.metrics();
+        snapshot.dice_key_count = metrics.key_count as u64;
+        snapshot.dice_currently_running_key_count = metrics.currently_running_key_count as u64;
     }
 }
 

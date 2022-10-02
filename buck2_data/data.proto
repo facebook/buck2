@@ -326,8 +326,9 @@ message Snapshot {
 
   // Time passed since buck2 deamon was started
   uint64 daemon_uptime_s = 7;
-  // TODO(jaspercb): Fill this with useful fields - total system usage,
-  // number of DICE nodes, etc.
+
+  uint64 dice_key_count = 101;
+  uint64 dice_currently_running_key_count = 102;
 }
 
 enum TestStatus {
