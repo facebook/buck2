@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -148,7 +149,7 @@ fn exec_impl(cmd: InitCommand, console: &FinalConsole) -> anyhow::Result<()> {
     set_up_project(name, &absolute, !cmd.no_prelude, &discovered_langs)
 }
 
-fn discover_project(path: &PathBuf) -> HashMap<FileType, Vec<PathBuf>> {
+fn discover_project(path: &Path) -> HashMap<FileType, Vec<PathBuf>> {
     let mut discovered_langs = HashMap::<FileType, Vec<PathBuf>>::new();
 
     // ignore common build folders
@@ -194,7 +195,7 @@ fn discover_project(path: &PathBuf) -> HashMap<FileType, Vec<PathBuf>> {
 
 fn set_up_project(
     name: &str,
-    path: &PathBuf,
+    path: &Path,
     prelude: bool,
     discovered_langs: &HashMap<FileType, Vec<PathBuf>>,
 ) -> anyhow::Result<()> {
@@ -258,7 +259,7 @@ fn set_up_project(
     Ok(())
 }
 
-fn generate_python_rule(name: &str, path: &PathBuf, files: &[PathBuf]) -> String {
+fn generate_python_rule(name: &str, path: &Path, files: &[PathBuf]) -> String {
     let srcs = files
         .iter()
         .map(|f| {
@@ -291,7 +292,7 @@ python_library(
     )
 }
 
-fn generate_cxx_rule(name: &str, path: &PathBuf, files: &[PathBuf]) -> String {
+fn generate_cxx_rule(name: &str, path: &Path, files: &[PathBuf]) -> String {
     let srcs = files
         .iter()
         .map(|f| {
