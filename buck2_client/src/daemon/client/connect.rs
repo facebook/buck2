@@ -365,8 +365,7 @@ impl BuckdConnectOptions {
         &self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BootstrapBuckdClient> {
-        let daemon_dir = paths.daemon_dir()?;
-        let location = daemon_dir.as_path().join("buckd.info");
+        let location = paths.buckd_info()?;
         let file = File::open(&location)
             .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
         let reader = BufReader::new(file);
@@ -394,7 +393,7 @@ impl BuckdConnectOptions {
 
         let client = DaemonApiClient::new(get_channel(connection_type, true).await?);
 
-        Ok(BootstrapBuckdClient::new(client, info, daemon_dir))
+        Ok(BootstrapBuckdClient::new(client, info, paths.daemon_dir()?))
     }
 }
 
