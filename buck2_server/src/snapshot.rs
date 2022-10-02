@@ -144,6 +144,7 @@ impl SnapshotCollector {
         let metrics = self.dice.metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_currently_running_key_count = metrics.currently_running_key_count as u64;
+        snapshot.dice_active_transaction_count = metrics.active_transaction_count;
     }
 }
 
