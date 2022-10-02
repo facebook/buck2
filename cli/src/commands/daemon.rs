@@ -29,6 +29,7 @@ use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
@@ -344,32 +345,12 @@ impl DaemonCommand {
 
             let checker_interval_seconds = self.checker_interval_seconds;
 
-            // We start a dedicated thread to periodically check that the files in the daemon
-            // dir still reflect that we are the current buckd and verify that when you connect
-            // to the server it is our server.
-            // It gets a dedicated thread so that if somehow the main runtime gets all jammed up,
-            // this will still run (and presumably connecting to the server or our request would
-            // then fail and we'd do a hard shutdown).
             std::thread::spawn(move || {
-                let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
-
-                this_rt.block_on(async move {
-                    loop {
-                        tokio::time::sleep(Duration::from_secs(checker_interval_seconds)).await;
-                        match verify_current_daemon(&daemon_dir) {
-                            Ok(()) => {}
-                            Err(e) => {
-                                // This bit of code cannot relay errors, ignoring that we can't log
-                                // a warning is reasonable.
-                                let _ignored = buck2_client::eprintln!(
-                                    "daemon verification failed, forcing shutdown: {:#}",
-                                    e
-                                );
-                                hard_shutdown_sender.unbounded_send(()).unwrap();
-                            }
-                        };
-                    }
-                })
+                Self::check_daemon_dir_thread(
+                    checker_interval_seconds,
+                    daemon_dir,
+                    hard_shutdown_sender,
+                )
             });
 
             // clippy doesn't get along well with the select!
@@ -388,6 +369,38 @@ impl DaemonCommand {
             anyhow::Ok(())
         })?;
         Ok(())
+    }
+
+    /// We start a dedicated thread to periodically check that the files in the daemon
+    /// dir still reflect that we are the current buckd and verify that when you connect
+    /// to the server it is our server.
+    /// It gets a dedicated thread so that if somehow the main runtime gets all jammed up,
+    /// this will still run (and presumably connecting to the server or our request would
+    /// then fail and we'd do a hard shutdown).
+    fn check_daemon_dir_thread(
+        checker_interval_seconds: u64,
+        daemon_dir: AbsPathBuf,
+        hard_shutdown_sender: UnboundedSender<()>,
+    ) {
+        let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
+
+        this_rt.block_on(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(checker_interval_seconds)).await;
+                match verify_current_daemon(&daemon_dir) {
+                    Ok(()) => {}
+                    Err(e) => {
+                        // This bit of code cannot relay errors, ignoring that we can't log
+                        // a warning is reasonable.
+                        let _ignored = buck2_client::eprintln!(
+                            "daemon verification failed, forcing shutdown: {:#}",
+                            e
+                        );
+                        hard_shutdown_sender.unbounded_send(()).unwrap();
+                    }
+                };
+            }
+        })
     }
 
     pub(crate) fn exec(
