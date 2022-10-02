@@ -216,7 +216,7 @@ pub(crate) async fn run_buckd(
     };
 
     // TODO(cjhopman): We shouldn't write this until the server is ready to accept clients, but tonic doesn't provide those hooks.
-    write_process_info(&daemon_dir, &process_info)?;
+    write_process_info(&paths, &process_info)?;
     listener_created();
     BuckdServer::run(
         fb,
@@ -231,10 +231,10 @@ pub(crate) async fn run_buckd(
 }
 
 pub(crate) fn write_process_info(
-    daemon_dir: &Path,
+    paths: &InvocationPaths,
     process_info: &DaemonProcessInfo,
 ) -> anyhow::Result<()> {
-    let file = File::create(daemon_dir.join("buckd.info"))?;
+    let file = File::create(paths.buckd_info()?)?;
     serde_json::to_writer(&file, &process_info)?;
     Ok(())
 }
