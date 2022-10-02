@@ -199,7 +199,7 @@ where
 /// [`StarlarkValue`] implementation in `crate::values::layout::avalue::Wrapper`. Otherwise,
 /// any implementations other than the default implementation will not be run.
 #[starlark_internal_vtable]
-pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Serialize {
+pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Serialize + Sized {
     /// Return a string describing the type of self, as returned by the type()
     /// function.
     ///
@@ -224,19 +224,14 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
 
     /// Please do not implement this method or `get_type`, but use `starlark_type!` macro.
     #[doc(hidden)]
-    fn please_use_starlark_type_macro()
-    where
-        Self: Sized;
+    fn please_use_starlark_type_macro();
 
     /// Type is special in Starlark, it is implemented differently than user defined types.
     /// For example, some special types like `bool` cannon be heap allocated.
     ///
     /// This function must not be implemented outside of starlark crate.
     #[doc(hidden)]
-    fn is_special(_: Private) -> bool
-    where
-        Self: Sized,
-    {
+    fn is_special(_: Private) -> bool {
         false
     }
 
