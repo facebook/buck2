@@ -14,6 +14,7 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
+use std::thread;
 use std::time::Duration;
 
 use anyhow::Context as _;
@@ -345,13 +346,15 @@ impl DaemonCommand {
 
             let checker_interval_seconds = self.checker_interval_seconds;
 
-            std::thread::spawn(move || {
-                Self::check_daemon_dir_thread(
-                    checker_interval_seconds,
-                    daemon_dir,
-                    hard_shutdown_sender,
-                )
-            });
+            thread::Builder::new()
+                .name("check-daemon-dir".to_owned())
+                .spawn(move || {
+                    Self::check_daemon_dir_thread(
+                        checker_interval_seconds,
+                        daemon_dir,
+                        hard_shutdown_sender,
+                    )
+                })?;
 
             // clippy doesn't get along well with the select!
             #[allow(clippy::mut_mut)]
