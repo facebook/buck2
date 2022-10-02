@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::Context;
+use buck2_core::fs::fs_util;
 use itertools::Itertools;
 use walkdir::DirEntry;
 
@@ -91,14 +92,8 @@ impl FileType {
 }
 
 fn exec_impl(cmd: InitCommand, console: &FinalConsole) -> anyhow::Result<()> {
-    let absolute = match std::fs::canonicalize(&cmd.path) {
-        Err(e) if e.kind().eq(&ErrorKind::NotFound) => {
-            std::fs::create_dir_all(&cmd.path)
-                .context("Could not initialize a project at the given path.")?;
-            std::fs::canonicalize(&cmd.path).expect("dir created")
-        }
-        r => r.context("Couldn't resolve target folder.")?,
-    };
+    fs_util::create_dir_all(&cmd.path)?;
+    let absolute = fs_util::canonicalize(&cmd.path)?;
 
     if absolute.is_file() {
         return Err(anyhow::anyhow!(
