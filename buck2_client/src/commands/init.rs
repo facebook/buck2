@@ -101,10 +101,10 @@ fn exec_impl(cmd: InitCommand, console: &FinalConsole) -> anyhow::Result<()> {
     };
 
     if absolute.is_file() {
-        anyhow::bail!(
+        return Err(anyhow::anyhow!(
             "Target path {} cannot be an existing file",
             absolute.display()
-        );
+        ));
     }
 
     let status = match Command::new("git")
@@ -114,7 +114,7 @@ fn exec_impl(cmd: InitCommand, console: &FinalConsole) -> anyhow::Result<()> {
     {
         Err(e) if e.kind().eq(&ErrorKind::NotFound) => {
             console.print_error(
-                "Warning: no git found on path, can't check for dirty repo. Proceeding anyways.",
+                "Warning: no git found on path, can't check for dirty repo. Proceeding anyway.",
             )?;
             None
         }
@@ -129,9 +129,9 @@ fn exec_impl(cmd: InitCommand, console: &FinalConsole) -> anyhow::Result<()> {
     });
 
     if let (Some(true), false) = (changes, cmd.allow_dirty) {
-        anyhow::bail!(
-            "Refusing to initialize in a dirty repo. Please stash your changes or use --allow-dirty to override."
-        );
+        return Err(anyhow::anyhow!(
+            "Refusing to initialize in a dirty repo. Stash your changes or use `--allow-dirty` to override."
+        ));
     }
 
     let name = match cmd
@@ -140,7 +140,12 @@ fn exec_impl(cmd: InitCommand, console: &FinalConsole) -> anyhow::Result<()> {
         .or_else(|| absolute.file_name().and_then(|s| s.to_str()))
     {
         Some(x) => x,
-        None => anyhow::bail!("Could not set project name. Is it valid unicode?"),
+        None => {
+            return Err(anyhow::anyhow!(
+                "Could not set project name `{}`. Is it valid unicode?",
+                absolute.display()
+            ));
+        }
     };
 
     let discovered_langs = discover_project(&absolute);
@@ -204,7 +209,7 @@ fn set_up_project(
         .status()?
         .success()
     {
-        anyhow::bail!("Unable to run git init.")
+        return Err(anyhow::anyhow!("Failure when running `git init`."));
     };
 
     let mut buck_config = {
@@ -231,7 +236,9 @@ fn set_up_project(
             .status()?
             .success()
         {
-            anyhow::bail!("Unable to clone the prelude. Is the folder in use?")
+            return Err(anyhow::anyhow!(
+                "Unable to clone the prelude. Is the folder in use?"
+            ));
         }
 
         std::fs::create_dir(path.join("toolchains"))?;
