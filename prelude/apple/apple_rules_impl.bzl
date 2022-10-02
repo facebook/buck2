@@ -158,6 +158,6 @@ extra_attributes = {
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-        "_swiftc_wrapper": attrs.dep(providers = [RunInfo], default = "@prelude//apple/tools:swift_exec"),
+        "_swiftc_wrapper": attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
     },
 }

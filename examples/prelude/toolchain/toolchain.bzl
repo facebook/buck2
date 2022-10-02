@@ -21,9 +21,9 @@ load(
     "PythonToolchainInfo",
 )
 
-DEFAULT_MAKE_COMP_DB = "@prelude//cxx/tools:make_comp_db"
-DEFAULT_MAKE_PEX_INPLACE = "@prelude//python/tools:make_pex_inplace"
-DEFAULT_MAKE_PEX_MODULES = "@prelude//python/tools:make_pex_modules"
+DEFAULT_MAKE_COMP_DB = "prelude//cxx/tools:make_comp_db"
+DEFAULT_MAKE_PEX_INPLACE = "prelude//python/tools:make_pex_inplace"
+DEFAULT_MAKE_PEX_MODULES = "prelude//python/tools:make_pex_modules"
 
 def _cxx_toolchain(ctx):
     """
