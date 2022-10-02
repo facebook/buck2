@@ -27,6 +27,7 @@ use crate::cycles::DetectCycles;
 use crate::data::DiceData;
 use crate::incremental::dep_trackers::BothDepTrackers;
 use crate::incremental::dep_trackers::BothDeps;
+use crate::incremental::transaction_ctx::ActiveTransactionCountGuard;
 use crate::incremental::transaction_ctx::Changes;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::MinorVersionGuard;
@@ -311,6 +312,7 @@ impl DiceComputationImpl {
                 version,
                 version_for_writes,
                 Changes::new(),
+                ActiveTransactionCountGuard::new(&dice),
             )),
             dep_trackers: BothDepTrackers::noop(),
             dice: dice.dupe(),

@@ -228,6 +228,7 @@ mod ctx;
 
 use std::fmt::Debug;
 use std::io::Write;
+use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::Weak;
@@ -311,6 +312,9 @@ pub struct Dice {
     pub(crate) map: Arc<RwLock<DiceMap>>,
     global_versions: Arc<VersionTracker>,
     detect_cycles: DetectCycles,
+    /// Number of active transactions.
+    /// Or more precisely, the number of alive transaction context objects.
+    active_transaction_count: AtomicU32,
 }
 
 impl Debug for Dice {
@@ -332,6 +336,7 @@ impl Dice {
             map: Arc::new(RwLock::new(DiceMap::new())),
             global_versions: VersionTracker::new(),
             detect_cycles,
+            active_transaction_count: AtomicU32::new(0),
         })
     }
 

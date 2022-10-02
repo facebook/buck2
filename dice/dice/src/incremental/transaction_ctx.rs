@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::Weak;
 
 use anymap::any::Any;
 use anymap::Map;
@@ -19,9 +20,39 @@ use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::MinorVersionGuard;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionNumber;
+use crate::Dice;
 use crate::DiceError;
 use crate::DiceResult;
 use crate::Key;
+
+/// Increment/decrement the number of active transactions.
+pub(crate) struct ActiveTransactionCountGuard {
+    dice: Weak<Dice>,
+}
+
+impl ActiveTransactionCountGuard {
+    pub(crate) fn new(dice: &Arc<Dice>) -> ActiveTransactionCountGuard {
+        dice.active_transaction_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        ActiveTransactionCountGuard {
+            dice: Arc::downgrade(dice),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new() -> ActiveTransactionCountGuard {
+        ActiveTransactionCountGuard { dice: Weak::new() }
+    }
+}
+
+impl Drop for ActiveTransactionCountGuard {
+    fn drop(&mut self) {
+        if let Some(dice) = self.dice.upgrade() {
+            dice.active_transaction_count
+                .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+}
 
 /// A context for evaluating in the Engine.
 /// The context is valid for computing the entire subgraph of a particular key
@@ -33,6 +64,7 @@ pub(crate) struct TransactionCtx {
     minor_version: MinorVersionGuard,
     version_for_writes: VersionForWrites,
     changes: Mutex<Changes>,
+    _active_transaction_count_guard: ActiveTransactionCountGuard,
 }
 
 impl TransactionCtx {
@@ -40,12 +72,14 @@ impl TransactionCtx {
         version: (VersionNumber, MinorVersionGuard),
         version_for_writes: VersionForWrites,
         changes: Changes,
+        active_transaction_count_guard: ActiveTransactionCountGuard,
     ) -> Self {
         Self {
             version: version.0,
             minor_version: version.1,
             version_for_writes,
             changes: Mutex::new(changes),
+            _active_transaction_count_guard: active_transaction_count_guard,
         }
     }
 
@@ -72,6 +106,7 @@ impl TransactionCtx {
             minor_version: MinorVersionGuard::testing_new(0),
             version_for_writes: VersionForWrites::testing_new(v),
             changes: Mutex::new(Changes::new()),
+            _active_transaction_count_guard: ActiveTransactionCountGuard::testing_new(),
         }
     }
 
