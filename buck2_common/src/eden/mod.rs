@@ -371,7 +371,10 @@ pub enum EdenError {
     #[error("Eden POSIX error: {}", .error.message)]
     PosixError {
         error: edenfs::types::EdenError,
+        #[cfg(unix)]
         code: nix::errno::Errno,
+        #[cfg(not(unix))]
+        code: i32,
     },
 
     #[error("Eden service error: {}", .error.message)]
@@ -387,7 +390,10 @@ impl From<edenfs::types::EdenError> for EdenError {
             if let Some(error_code) = error.errorCode {
                 return Self::PosixError {
                     error,
+                    #[cfg(unix)]
                     code: nix::errno::Errno::from_i32(error_code),
+                    #[cfg(not(unix))]
+                    code: error_code,
                 };
             }
         }

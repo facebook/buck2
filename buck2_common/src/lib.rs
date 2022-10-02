@@ -29,7 +29,7 @@ extern crate maplit;
 pub mod client_utils;
 pub mod convert;
 pub mod dice;
-#[cfg(all(unix, any(feature = "eden_io", feature = "eden_materializer")))]
+#[cfg(all(any(feature = "eden_io", feature = "eden_materializer")))]
 pub mod eden;
 pub mod events;
 pub mod executor_config;
