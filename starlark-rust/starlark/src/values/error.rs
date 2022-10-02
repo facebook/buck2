@@ -99,19 +99,19 @@ impl ValueError {
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
     #[cold]
     pub fn unsupported<'v, T, V: StarlarkValue<'v> + ?Sized>(
-        left: &V,
+        _left: &V,
         op: &str,
     ) -> anyhow::Result<T> {
-        Self::unsupported_owned(left.get_type(), op, None)
+        Self::unsupported_owned(V::TYPE, op, None)
     }
 
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupportedBinary) error.
     #[cold]
     pub fn unsupported_with<'v, T, V: StarlarkValue<'v> + ?Sized>(
-        left: &V,
+        _left: &V,
         op: &str,
         right: Value,
     ) -> anyhow::Result<T> {
-        Self::unsupported_owned(left.get_type(), op, Some(right.get_type()))
+        Self::unsupported_owned(V::TYPE, op, Some(right.get_type()))
     }
 }

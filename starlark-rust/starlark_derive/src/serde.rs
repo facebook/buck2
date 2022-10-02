@@ -50,7 +50,7 @@ pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenS
             where
                 __NoSerializeS: starlark::__derive_refs::serde::Serializer,
             {
-                Err(starlark::__derive_refs::serde::Error::custom(format!("Operation `serde::serialize` not supported on type `{}`", starlark::values::StarlarkValue::get_type(self))))
+                Err(starlark::__derive_refs::serde::Error::custom(format!("Operation `serde::serialize` not supported on type `{}`", <Self as starlark::values::StarlarkValue>::TYPE)))
             }
         }
     };

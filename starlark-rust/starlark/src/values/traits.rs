@@ -169,8 +169,8 @@ where
 /// * A type is _mutable_, if you ever need to get a `&mut self` reference to it.
 /// * A type _contains_ nested Starlark [`Value`]s.
 ///
-/// There are only two required methods of [`StarlarkValue`], namely
-/// [`get_type`](StarlarkValue::get_type)
+/// There are only two required members of [`StarlarkValue`], namely
+/// [`TYPE`](StarlarkValue::TYPE)
 /// and [`get_type_value_static`](StarlarkValue::get_type_value_static).
 /// Both these should be implemented with the [`starlark_type!`] macro:
 ///
@@ -204,9 +204,9 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// function.
     ///
     /// This can be only implemented by the [`starlark_type!`] macro.
-    fn get_type(&self) -> &'static str;
+    const TYPE: &'static str;
 
-    /// Like [`get_type`](Self::get_type), but returns a reusable [`FrozenStringValue`]
+    /// Like [`TYPE`](Self::TYPE), but returns a reusable [`FrozenStringValue`]
     /// pointer to it. This function deliberately doesn't take a heap,
     /// as it would not be performant to allocate a new value each time.
     ///
@@ -214,8 +214,8 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     fn get_type_value_static() -> FrozenStringValue;
 
     /// Return a string that is the representation of a type that a user would use in
-    /// type annotations. This often will be the same as [`Self::get_type()`], but in
-    /// some instances it might be slightly different than what is returned by `type()`
+    /// type annotations. This often will be the same as [`Self::TYPE`], but in
+    /// some instances it might be slightly different than what is returned by `TYPE`.
     ///
     /// This can be only implemented by the [`starlark_type!`] macro.
     fn get_type_starlark_repr() -> String {
@@ -238,7 +238,7 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// Is this value a match for a named type. Usually returns `true` for
     /// values matching `get_type`, but might also work for subtypes it implements.
     fn matches_type(&self, ty: &str) -> bool {
-        self.get_type() == ty
+        Self::TYPE == ty
     }
 
     /// Get the members associated with this type, accessible via `this_type.x`.
@@ -283,7 +283,7 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
 
     /// Invoked to print `repr` when a cycle is the object stack is detected.
     fn collect_repr_cycle(&self, collector: &mut String) {
-        write!(collector, "<{}...>", self.get_type()).unwrap()
+        write!(collector, "<{}...>", Self::TYPE).unwrap()
     }
 
     /// String used when printing call stack. `repr(self)` by default.
@@ -310,7 +310,7 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// Return an [`Err`] if there is no hash for this value (e.g. list).
     /// Must be stable between frozen and non-frozen values.
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        if self.get_type() == FUNCTION_TYPE {
+        if Self::TYPE == FUNCTION_TYPE {
             // The Starlark spec says values of type "function" must be hashable.
             // We could return the address of the function, but that changes
             // with frozen/non-frozen which breaks freeze for Dict.
@@ -320,7 +320,7 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
             let _ = hasher;
             Ok(())
         } else {
-            Err(ControlError::NotHashableValue(self.get_type().to_owned()).into())
+            Err(ControlError::NotHashableValue(Self::TYPE.to_owned()).into())
         }
     }
 
@@ -504,7 +504,7 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// # "#);
     /// ```
     fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        ValueError::unsupported_owned(other.get_type(), "in", Some(self.get_type()))
+        ValueError::unsupported_owned(other.get_type(), "in", Some(Self::TYPE))
     }
 
     /// Apply the `+` unary operator to the current value.

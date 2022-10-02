@@ -120,6 +120,7 @@ impl<'v, T: Display + Debug + AnyLifetime<'v> + erased_serde::Serialize> GetDynM
 pub(crate) struct AValueVTable {
     // Common `AValue` fields.
     static_type_of_value: TypeId,
+    type_name: &'static str,
     get_hash: fn(*const ()) -> anyhow::Result<StarlarkHashValue>,
 
     // `StarlarkValue`
@@ -161,6 +162,7 @@ impl AValueVTable {
             heap_freeze: |_, _| panic!("BlackHole"),
             heap_copy: |_, _| panic!("BlackHole"),
             get_hash: |_| panic!("BlackHole"),
+            type_name: "BlackHole",
 
             display: GetDynMetadata::<BlackHole>::DISPLAY_DYN_METADATA,
             debug: GetDynMetadata::<BlackHole>::DEBUG_DYN_METADATA,
@@ -196,6 +198,7 @@ impl AValueVTable {
                 let p = &*(p as *const T);
                 T::get_hash(p)
             },
+            type_name: T::StarlarkValue::TYPE,
             display: GetDynMetadata::<T::StarlarkValue>::DISPLAY_DYN_METADATA,
             debug: GetDynMetadata::<T::StarlarkValue>::DEBUG_DYN_METADATA,
             erased_serde_serialize:
@@ -231,7 +234,7 @@ impl<'v> AValueDyn<'v> {
 
     #[inline]
     pub(crate) fn get_type(self) -> &'static str {
-        (self.vtable.starlark_value.get_type)(StarlarkValueRawPtr::new(self.value))
+        self.vtable.type_name
     }
 
     #[inline]
