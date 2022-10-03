@@ -164,6 +164,7 @@ extra_attributes = {
     },
     "robolectric_test": {
         "resources_root": attrs.option(attrs.string(), default = None),
+        "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "_android_toolchain": android_toolchain(),
         "_java_toolchain": _java_toolchain(),
         "_junit_toolchain": attrs.exec_dep(

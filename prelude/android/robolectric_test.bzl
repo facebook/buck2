@@ -13,7 +13,15 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
 
     # Force robolectric to only use local dependency resolution.
     extra_cmds.append("-Drobolectric.offline=true")
-    extra_cmds.append(cmd_args(ctx.attrs.robolectric_runtime_dependency, format = "-Drobolectric.dependency.dir={}"))
+    if ctx.attrs.robolectric_runtime_dependency:
+        runtime_dependencies_dir = ctx.attrs.robolectric_runtime_dependency
+    else:
+        runtime_dependencies_dir = ctx.actions.symlinked_dir("runtime_dependencies", {
+            runtime_dep.basename: runtime_dep
+            for runtime_dep in ctx.attrs.robolectric_runtime_dependencies
+        })
+
+    extra_cmds.append(cmd_args(runtime_dependencies_dir, format = "-Drobolectric.dependency.dir={}"))
 
     all_packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_packaging_deps)
@@ -73,5 +81,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     ]
 
 def _verify_attributes(ctx: "context"):
-    expect(ctx.attrs.robolectric_runtime_dependencies == [], "robolectric_runtime_dependencies is not currently supported in buck2!")
-    expect(ctx.attrs.robolectric_runtime_dependency != None, "Must specify a robolectric_runtime_dependency!")
+    expect(
+        bool(ctx.attrs.robolectric_runtime_dependencies) != (ctx.attrs.robolectric_runtime_dependency != None),
+        "Exactly one of robolectric_runtime_dependencies and robolectric_runtime_dependency must be specified!",
+    )
