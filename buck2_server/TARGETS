@@ -4,7 +4,6 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 rust_library(
     name = "buck2_server",
     srcs = glob(["src/**/*.rs"]),
-    features = ["eden_materializer"],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",

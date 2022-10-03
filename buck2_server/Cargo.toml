@@ -58,8 +58,3 @@ jemalloc-ctl = { workspace = true }
 assert_matches = { workspace = true }
 maplit = { workspace = true }
 tempfile = { workspace = true }
-
-[features]
-# @oss-disable: default = ["eden_materializer"]
-# @oss-disable: eden_materializer = []
-eden_materializer = [] # @oss-enable
