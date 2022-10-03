@@ -124,7 +124,7 @@ impl DirEntry {
     pub fn path(&self) -> AbsPathBuf {
         // This is safe, because `read_dir` is called with absolute path,
         // and filename is not dot or dot-dot.
-        AbsPathBuf::unchecked_from_path(self.dir_entry.path())
+        AbsPathBuf::unchecked_new(self.dir_entry.path())
     }
 }
 

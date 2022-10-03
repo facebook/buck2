@@ -342,7 +342,7 @@ mod tests {
         let root_path = "/".to_owned();
         #[cfg(windows)]
         let root_path = "C:/".to_owned();
-        ProjectRoot::new(AbsPathBuf::unchecked_new(root_path))
+        ProjectRoot::new(AbsPathBuf::try_from(root_path).unwrap())
     }
 
     #[test]

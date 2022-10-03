@@ -214,8 +214,10 @@ mod tests {
         };
         let paths = InvocationPaths {
             roots: InvocationRoots {
-                cell_root: AbsPathBuf::unchecked_new(cell_root.to_owned()),
-                project_root: ProjectRoot::new(AbsPathBuf::unchecked_new(project_root.to_owned())),
+                cell_root: AbsPathBuf::try_from(cell_root.to_owned()).unwrap(),
+                project_root: ProjectRoot::new(
+                    AbsPathBuf::try_from(project_root.to_owned()).unwrap(),
+                ),
             },
             isolation: FileNameBuf::unchecked_new("isolation"),
         };

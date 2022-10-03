@@ -472,11 +472,7 @@ impl AbsPathBuf {
         Ok(AbsPathBuf(path))
     }
 
-    pub fn unchecked_new(s: String) -> Self {
-        Self(PathBuf::from(s))
-    }
-
-    pub(crate) fn unchecked_from_path(path: PathBuf) -> Self {
+    pub fn unchecked_new(path: PathBuf) -> Self {
         Self(path)
     }
 
@@ -520,17 +516,22 @@ impl AbsPathBuf {
     /// Pushes a `ForwardRelativePath` to the existing buffer
     /// ```
     ///
+    /// use std::path::PathBuf;
     /// use buck2_core::fs::paths::{ForwardRelativePath, AbsPathBuf};
     ///
-    /// let mut path = AbsPathBuf::unchecked_new("/foo".to_owned());
+    /// let prefix = if cfg!(windows) {
+    ///    "C:"
+    /// } else {
+    ///   ""
+    /// };
+    ///
+    /// let mut path = AbsPathBuf::try_from(format!("{prefix}/foo")).unwrap();
     /// path.push(ForwardRelativePath::unchecked_new("bar"));
     ///
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo/bar")).unwrap(), path);
     ///
     /// path.push(ForwardRelativePath::unchecked_new("more/file.rs"));
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar/more/file.rs".to_owned()), path);
-    ///
-    /// # anyhow::Ok(())
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo/bar/more/file.rs")).unwrap(), path);
     /// ```
     pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
         if cfg!(windows) {
@@ -547,25 +548,31 @@ impl AbsPathBuf {
     ///
     /// use buck2_core::fs::paths::{RelativePath, AbsPathBuf};
     ///
-    /// let mut path = AbsPathBuf::unchecked_new("/foo".to_owned());
+    /// let prefix = if cfg!(windows) {
+    ///   "C:"
+    /// } else {
+    ///  ""
+    /// };
+    ///
+    /// let mut path = AbsPathBuf::try_from(format!("{prefix}/foo")).unwrap();
     /// path.push_normalized(RelativePath::new("bar"))?;
     ///
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo/bar")).unwrap(), path);
     ///
     /// path.push_normalized(RelativePath::new("more/file.rs"))?;
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar/more/file.rs".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo/bar/more/file.rs")).unwrap(), path);
     ///
     /// path.push_normalized(RelativePath::new("../other.rs"))?;
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar/more/other.rs".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo/bar/more/other.rs")).unwrap(), path);
     ///
     /// path.push_normalized(RelativePath::new(".."))?;
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo/bar/more".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo/bar/more")).unwrap(), path);
     ///
     /// path.push_normalized(RelativePath::new("../.."))?;
-    /// assert_eq!(AbsPathBuf::unchecked_new("/foo".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/foo")).unwrap(), path);
     ///
     /// path.push_normalized(RelativePath::new(".."))?;
-    /// assert_eq!(AbsPathBuf::unchecked_new("/".to_owned()), path);
+    /// assert_eq!(AbsPathBuf::try_from(format!("{prefix}/")).unwrap(), path);
     ///
     /// assert!(path.push_normalized(RelativePath::new("..")).is_err());
     ///

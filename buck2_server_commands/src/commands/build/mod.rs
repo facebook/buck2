@@ -566,21 +566,22 @@ mod test {
 
     #[test]
     fn test_iter_reverse_ancestors() {
-        let root = AbsPathBuf::unchecked_new("/repo/buck-out/v2".to_owned());
-        let path = AbsPathBuf::unchecked_new("/repo/buck-out/v2/foo/bar/some".to_owned());
+        let prefix = if cfg!(windows) { "C:" } else { "" };
+        let root = AbsPathBuf::try_from(format!("{prefix}/repo/buck-out/v2")).unwrap();
+        let path = AbsPathBuf::try_from(format!("{prefix}/repo/buck-out/v2/foo/bar/some")).unwrap();
 
         let mut iter = iter_reverse_ancestors(&path, &root);
         assert_eq!(
-            iter.next().and_then(|v| v.to_str()),
-            Some("/repo/buck-out/v2/foo")
+            iter.next().unwrap().to_str().unwrap(),
+            &format!("{prefix}/repo/buck-out/v2/foo"),
         );
         assert_eq!(
-            iter.next().and_then(|v| v.to_str()),
-            Some("/repo/buck-out/v2/foo/bar")
+            iter.next().unwrap().to_str().unwrap(),
+            &format!("{prefix}/repo/buck-out/v2/foo/bar"),
         );
         assert_eq!(
-            iter.next().and_then(|v| v.to_str()),
-            Some("/repo/buck-out/v2/foo/bar/some")
+            iter.next().unwrap().to_str().unwrap(),
+            &format!("{prefix}/repo/buck-out/v2/foo/bar/some"),
         );
         assert_eq!(iter.next(), None);
     }
