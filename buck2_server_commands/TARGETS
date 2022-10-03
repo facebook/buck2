@@ -4,7 +4,6 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 rust_library(
     name = "buck2_server_commands",
     srcs = glob(["src/**/*.rs"]),
-    features = ["eden_materializer"],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-recursion",

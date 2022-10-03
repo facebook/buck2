@@ -8,9 +8,6 @@ oncall("build_infra")
 rust_library(
     name = "cli",
     srcs = glob(["src/**/*.rs"]),
-    features = [
-        "eden_materializer",
-    ],
     os_deps = [
         (
             "linux",

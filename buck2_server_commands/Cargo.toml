@@ -44,8 +44,3 @@ buck2_query = { path = "../buck2_query" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
 cli_proto = { path = "../cli_proto" }
 install_proto = { path = "../install_proto" }
-
-[features]
-# @oss-disable: default = ["eden_materializer"]
-# @oss-disable: eden_materializer = []
-eden_materializer = [] # @oss-enable
