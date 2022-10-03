@@ -6,7 +6,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    features = ["eden_io"],
     named_deps = {
         "edenfs": "//eden/fs/service:thrift-rust",
         "fb303_core": "//fb303/thrift:fb303_core-rust",

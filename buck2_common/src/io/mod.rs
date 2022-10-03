@@ -1,8 +1,5 @@
-#[cfg(feature = "eden_io")]
+#[cfg(off)] // @oss-enable
 pub mod eden;
-
-#[cfg(all(not(feature = "eden_io"), fbcode_build))]
-compile_error!("eden_io must be enabled when compiling in fbcode");
 
 pub mod fs;
 
@@ -50,7 +47,7 @@ pub async fn create_io_provider(
     project_fs: ProjectRoot,
     root_config: Option<&LegacyBuckConfig>,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
-    #[cfg(all(unix, feature = "eden_io"))]
+    #[cfg(off)] // @oss-enable
     {
         use buck2_core::rollout_percentage::RolloutPercentage;
 
@@ -68,8 +65,6 @@ pub async fn create_io_provider(
             }
         }
     }
-    #[cfg(all(not(feature = "eden_io"), unix, fbcode_build))]
-    compile_error!("eden_io must be enabled when compiling in fbcode");
 
     let _allow_unused = fb;
     let _allow_unused = root_config;
