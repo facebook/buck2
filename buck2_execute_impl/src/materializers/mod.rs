@@ -7,11 +7,8 @@
  * of this source tree.
  */
 
-#[cfg(feature = "eden_materializer")]
+#[cfg(off)] // @oss-enable
 pub mod eden;
-
-#[cfg(all(not(feature = "eden_materializer"), fbcode_build))]
-compile_error!("eden_materializer must be enabled when compiling in fbcode");
 
 pub mod deferred;
 pub mod filetree;
