@@ -24,11 +24,14 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
         if "_cxx_toolchain" in attributes or "_apple_toolchain" in attributes:
             fat_platform_compatible = False
 
+    # Fat platforms is an idea specific to our toolchains, so doesn't apply to
+    # open source. Ideally this restriction would be done at the toolchain level.
+    # oss-enable: fat_platform_compatible = True
+
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
         attributes = dict(attributes)
 
-        # FIXME: prelude// should be standalone (not refer to fbcode//)
         attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
 
     return rule(
