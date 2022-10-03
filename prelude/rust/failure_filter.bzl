@@ -20,7 +20,7 @@ def failure_filter(
         predecl_out: ["artifact", None],
         failprov: "RustFailureFilter",
         short_cmd: str.type) -> "artifact":
-    failure_filter_action = ctx_toolchain_info(ctx).failure_filter_action[RunInfo]
+    failure_filter_action = ctx_toolchain_info(ctx).failure_filter_action
 
     buildstatus = failprov.buildstatus
     required = failprov.required

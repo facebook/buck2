@@ -114,7 +114,7 @@ def generate_rustdoc(
     plain_env, path_env = _process_env(ctx)
 
     rustdoc_cmd = cmd_args(
-        toolchain_info.rustc_action[RunInfo],
+        toolchain_info.rustc_action,
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         toolchain_info.rustdoc,
@@ -680,7 +680,7 @@ def _rustc_invoke(
     json_diag = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
     txt_diag = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
 
-    rustc_action = toolchain_info.rustc_action[RunInfo]
+    rustc_action = toolchain_info.rustc_action
 
     compile_cmd = cmd_args(
         rustc_action,
