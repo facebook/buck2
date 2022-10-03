@@ -331,7 +331,7 @@ def _compile(
         extra_args = []) -> CompileResultInfo.type:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
-    compile = cmd_args(haskell_toolchain.compiler[RunInfo])
+    compile = cmd_args(haskell_toolchain.compiler)
     compile.add(haskell_toolchain.compiler_flags)
     compile.add(ctx.attrs.compiler_flags)
     compile.add("-no-link", "-i")
@@ -554,7 +554,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
 
         if link_style == LinkStyle("shared"):
             lib = ctx.actions.declare_output(libfile)
-            link = cmd_args(haskell_toolchain.linker[RunInfo])
+            link = cmd_args(haskell_toolchain.linker)
             link.add(haskell_toolchain.linker_flags)
             link.add(ctx.attrs.linker_flags)
             link.add("-o", lib.as_output())
@@ -678,7 +678,7 @@ def haskell_binary_impl(ctx: "context") -> ["provider"]:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     output = ctx.actions.declare_output(ctx.attrs.name)
-    link = cmd_args(haskell_toolchain.compiler[RunInfo])
+    link = cmd_args(haskell_toolchain.compiler)
     link.add("-o", output.as_output())
     link.add(haskell_toolchain.linker_flags)
     link.add(ctx.attrs.linker_flags)
