@@ -65,7 +65,7 @@ enum DaemonError {
     PidFileMismatch(PathBuf, u32, u32),
 }
 
-/// Run buck daemon.
+/// Start or run buck daemon.
 ///
 /// This is an internal command, not intended to be used directly.
 /// Buck client invokes it to spawn a server process.
