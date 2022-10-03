@@ -168,7 +168,7 @@ fn clean_buck_out(path: &AbsPathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "eden_materializer")]
+#[cfg(off)] // @oss-enable
 async fn try_clean_eden_buck_out(
     buck_out: &AbsPathBuf,
     dryrun: bool,
@@ -218,12 +218,10 @@ async fn try_clean_eden_buck_out(
     Ok(Some(vec![buck_out.display().to_string()]))
 }
 
-#[cfg(not(feature = "eden_materializer"))]
+// @oss-disable: #[cfg(off)]
 async fn try_clean_eden_buck_out(
     _buck_out: &AbsPathBuf,
     _dryrun: bool,
 ) -> anyhow::Result<Option<Vec<String>>> {
-    #[cfg(fbcode_build)]
-    compile_error!("eden_materializer must be enabled when compiling in fbcode");
     Ok(None)
 }
