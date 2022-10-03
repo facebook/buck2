@@ -130,6 +130,11 @@ impl SnapshotCollector {
                 stats.write_action_results.finished_successfully;
             snapshot.re_write_action_results_finished_with_error =
                 stats.write_action_results.finished_with_error;
+            snapshot.re_get_digest_expirations_started = stats.get_digest_expirations.started;
+            snapshot.re_get_digest_expirations_finished_successfully =
+                stats.get_digest_expirations.finished_successfully;
+            snapshot.re_get_digest_expirations_finished_with_error =
+                stats.get_digest_expirations.finished_with_error;
 
             Ok(())
         }

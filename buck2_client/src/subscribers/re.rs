@@ -146,6 +146,12 @@ impl ReState {
                 last.re_write_action_results_finished_successfully,
                 last.re_write_action_results_finished_with_error,
             )?);
+            r.extend(self.render_detailed_items(
+                "get_digest_expirations",
+                last.re_get_digest_expirations_started,
+                last.re_get_digest_expirations_finished_successfully,
+                last.re_get_digest_expirations_finished_with_error,
+            )?);
         }
         Ok(r)
     }

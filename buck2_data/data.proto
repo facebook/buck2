@@ -303,6 +303,9 @@ message Snapshot {
   uint32 re_write_action_results_started = 1061;
   uint32 re_write_action_results_finished_successfully = 1062;
   uint32 re_write_action_results_finished_with_error = 1063;
+  uint32 re_get_digest_expirations_started = 1064;
+  uint32 re_get_digest_expirations_finished_successfully = 1065;
+  uint32 re_get_digest_expirations_finished_with_error = 1066;
 
   // I/O operations in progress.
   uint32 io_in_flight_copy = 1101;

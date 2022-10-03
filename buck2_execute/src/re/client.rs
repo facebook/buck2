@@ -19,6 +19,8 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
+use chrono::DateTime;
+use chrono::Utc;
 use either::Either;
 use fbinit::FacebookInit;
 use futures::stream::BoxStream;
@@ -39,6 +41,7 @@ use remote_execution::EmbeddedCASDaemonClientCfg;
 use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
+use remote_execution::GetDigestsTtlRequest;
 use remote_execution::HostResourceRequirements;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
@@ -170,6 +173,7 @@ pub struct RemoteExecutionClientStats {
     pub executes: RemoteExecutionClientOpStats,
     pub materializes: RemoteExecutionClientOpStats,
     pub write_action_results: RemoteExecutionClientOpStats,
+    pub get_digest_expirations: RemoteExecutionClientOpStats,
 }
 
 #[derive(Clone, Dupe)]
@@ -213,6 +217,7 @@ struct RemoteExecutionClientData {
     executes: OpStats,
     materializes: OpStats,
     write_action_results: OpStats,
+    get_digest_expirations: OpStats,
 }
 
 impl RemoteExecutionClient {
@@ -247,6 +252,7 @@ impl RemoteExecutionClient {
                 executes: OpStats::default(),
                 materializes: OpStats::default(),
                 write_action_results: OpStats::default(),
+                get_digest_expirations: OpStats::default(),
             }),
         })
     }
@@ -422,6 +428,21 @@ impl RemoteExecutionClient {
             .await
     }
 
+    pub async fn get_digest_expiration(
+        &self,
+        digest: TDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<DateTime<Utc>> {
+        self.data
+            .get_digest_expirations
+            .op(self
+                .data
+                .client
+                .get_digest_expiration(digest, use_case)
+                .map_err(|e| self.decorate_error(e)))
+            .await
+    }
+
     pub async fn write_action_result(
         &self,
         digest: TDigest,
@@ -475,6 +496,9 @@ impl RemoteExecutionClient {
                 &self.data.write_action_results,
             ),
             materializes: RemoteExecutionClientOpStats::from(&self.data.materializes),
+            get_digest_expirations: RemoteExecutionClientOpStats::from(
+                &self.data.get_digest_expirations,
+            ),
         })
     }
 }
@@ -959,6 +983,30 @@ impl RemoteExecutionClientImpl {
         futures::future::try_join_all(futs).await?;
 
         Ok(())
+    }
+
+    async fn get_digest_expiration(
+        &self,
+        digest: TDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<DateTime<Utc>> {
+        let ttl = self
+            .client()
+            .get_cas_client()
+            .get_digests_ttl(
+                use_case.metadata(),
+                GetDigestsTtlRequest {
+                    digests: vec![digest],
+                    ..Default::default()
+                },
+            )
+            .await?
+            .digests_with_ttl
+            .pop()
+            .context("No ttl returned")?
+            .ttl;
+
+        Ok(Utc::now() + chrono::Duration::seconds(ttl))
     }
 
     async fn write_action_result(

@@ -23,6 +23,8 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::fs::project::ProjectRelativePath;
+use chrono::DateTime;
+use chrono::Utc;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use remote_execution as RE;
@@ -395,6 +397,18 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
         self.lock()?.get().await?.upload_blob(blob, use_case).await
+    }
+
+    pub async fn get_digest_expiration(
+        &self,
+        digest: TDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<DateTime<Utc>> {
+        self.lock()?
+            .get()
+            .await?
+            .get_digest_expiration(digest, use_case)
+            .await
     }
 
     pub async fn write_action_result(
