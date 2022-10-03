@@ -11,7 +11,7 @@ def zip_file_impl(ctx: "context") -> ["provider"]:
     """
 
     zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
-    create_zip_tool = zip_file_toolchain.create_zip[RunInfo]
+    create_zip_tool = zip_file_toolchain.create_zip
 
     zip_output_name = ctx.attrs.out if ctx.attrs.out else "{}.zip".format(ctx.label.name)
     output = ctx.actions.declare_output(zip_output_name)
