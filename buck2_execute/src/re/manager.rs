@@ -414,4 +414,10 @@ impl ManagedRemoteExecutionClient {
         let session_id = self.lock()?.get().await?.get_session_id().to_owned();
         Ok(session_id)
     }
+
+    /// Construct a dummy ManagedRemoteExecutionClient that won't actually work. This is only
+    /// remotely useful in tests.
+    pub fn testing_new_dummy() -> Self {
+        Self { data: Weak::new() }
+    }
 }

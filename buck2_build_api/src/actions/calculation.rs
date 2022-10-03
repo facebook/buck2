@@ -468,6 +468,7 @@ mod tests {
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_execute::execute::dice_data::HasCommandExecutor;
     use buck2_execute::execute::dice_data::SetCommandExecutor;
+    use buck2_execute::execute::dice_data::SetReClient;
     use buck2_execute::execute::kind::CommandExecutionKind;
     use buck2_execute::execute::output::CommandStdStreams;
     use buck2_execute::execute::prepared::PreparedCommandExecutor;
@@ -477,6 +478,7 @@ mod tests {
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::materializer::SetMaterializer;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
+    use buck2_execute::re::manager::ManagedRemoteExecutionClient;
     use dice::testing::DiceBuilder;
     use dice::DiceTransaction;
     use dice::UserComputationData;
@@ -597,6 +599,7 @@ mod tests {
         extra.set_command_executor(box CommandExecutorProvider { dry_run_tracker });
         extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
         extra.set_materializer(Arc::new(NoDiskMaterializer));
+        extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
         extra.data.set(EventDispatcher::null());
         extra.data.set(RunActionKnobs::default());
         extra.spawner = Arc::new(BuckSpawner::default());

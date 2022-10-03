@@ -50,6 +50,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
@@ -206,6 +207,8 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn artifact_values(&self, input: &ArtifactGroup) -> &ArtifactGroupValues;
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
+
+    fn re_client(&self) -> ManagedRemoteExecutionClient;
 
     /// Obtian per-command knobs for RunAction.
     fn run_action_knobs(&self) -> RunActionKnobs;

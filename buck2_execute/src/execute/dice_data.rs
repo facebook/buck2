@@ -16,9 +16,11 @@ use buck2_core::fs::project::ProjectRoot;
 use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;
+use gazebo::prelude::*;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::execute::prepared::PreparedCommandExecutor;
+use crate::re::manager::ManagedRemoteExecutionClient;
 
 pub trait SetCommandExecutor {
     fn set_command_executor(&mut self, init: Box<dyn HasCommandExecutor + Send + Sync + 'static>);
@@ -79,4 +81,27 @@ impl HasFallbackExecutorConfig for DiceComputations {
 
 pub fn set_fallback_executor_config(data: &mut DiceData, config: CommandExecutorConfig) {
     data.set(config)
+}
+
+pub trait SetReClient {
+    fn set_re_client(&mut self, re_client: ManagedRemoteExecutionClient);
+}
+
+pub trait GetReClient {
+    fn get_re_client(&self) -> ManagedRemoteExecutionClient;
+}
+
+impl SetReClient for UserComputationData {
+    fn set_re_client(&mut self, re_client: ManagedRemoteExecutionClient) {
+        self.data.set(re_client);
+    }
+}
+
+impl GetReClient for UserComputationData {
+    fn get_re_client(&self) -> ManagedRemoteExecutionClient {
+        self.data
+            .get::<ManagedRemoteExecutionClient>()
+            .expect("Materializer should be set")
+            .dupe()
+    }
 }

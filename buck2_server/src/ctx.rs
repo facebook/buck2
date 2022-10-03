@@ -53,6 +53,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
 use buck2_execute::execute::dice_data::SetCommandExecutor;
+use buck2_execute::execute::dice_data::SetReClient;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::SetMaterializer;
@@ -470,6 +471,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         };
 
         set_fallback_executor_config(&mut data.data, self.executor_config);
+        data.set_re_client(self.re_connection.get_client());
         data.set_command_executor(box CommandExecutorFactory::new(
             self.re_connection,
             host_sharing_broker,

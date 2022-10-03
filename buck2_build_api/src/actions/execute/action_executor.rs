@@ -25,6 +25,7 @@ use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
+use buck2_execute::execute::dice_data::GetReClient;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -37,6 +38,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::path::buck_out_path::BuckOutPath;
+use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_interpreter::dice::HasEvents;
 use derivative::Derivative;
 use derive_more::Display;
@@ -194,6 +196,7 @@ impl HasActionExecutor for DiceComputations {
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
+        let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
 
         Ok(Arc::new(BuckActionExecutor::new(
@@ -205,6 +208,7 @@ impl HasActionExecutor for DiceComputations {
             blocking_executor,
             materializer,
             events,
+            re_client,
             run_action_knobs,
         )))
     }
@@ -215,6 +219,7 @@ pub struct BuckActionExecutor {
     blocking_executor: Arc<dyn BlockingExecutor>,
     materializer: Arc<dyn Materializer>,
     events: EventDispatcher,
+    re_client: ManagedRemoteExecutionClient,
     run_action_knobs: RunActionKnobs,
 }
 
@@ -224,6 +229,7 @@ impl BuckActionExecutor {
         blocking_executor: Arc<dyn BlockingExecutor>,
         materializer: Arc<dyn Materializer>,
         events: EventDispatcher,
+        re_client: ManagedRemoteExecutionClient,
         run_action_knobs: RunActionKnobs,
     ) -> Self {
         Self {
@@ -231,6 +237,7 @@ impl BuckActionExecutor {
             blocking_executor,
             materializer,
             events,
+            re_client,
             run_action_knobs,
         }
     }
@@ -277,6 +284,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {
         self.executor.blocking_executor.as_ref()
+    }
+
+    fn re_client(&self) -> ManagedRemoteExecutionClient {
+        self.executor.re_client.dupe()
     }
 
     fn run_action_knobs(&self) -> RunActionKnobs {
@@ -488,6 +499,7 @@ mod tests {
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
+    use buck2_execute::re::manager::ManagedRemoteExecutionClient;
     use gazebo::prelude::*;
     use indexmap::indexset;
     use indexmap::IndexSet;
@@ -544,6 +556,7 @@ mod tests {
             Arc::new(DummyBlockingExecutor { fs: project_fs }),
             Arc::new(NoDiskMaterializer),
             EventDispatcher::null(),
+            ManagedRemoteExecutionClient::testing_new_dummy(),
             Default::default(),
         );
 
