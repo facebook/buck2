@@ -103,7 +103,7 @@ struct ConcurrencyHandlerData {
     // "equivalent".
     active_dice: Option<DiceTransaction>,
     // A list of the currently running traces. It's theoretically possible that we use the same
-    // trait twice if we support user supplied `TraceId` and have nested invocations, so we keep
+    // trace twice if we support user supplied `TraceId` and have nested invocations, so we keep
     // a map of number of occurrences.
     active_traces: SmallMap<TraceId, usize>,
 }
@@ -658,90 +658,6 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_different_traceid_bypass_semaphore() -> anyhow::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-
-        let concurrency =
-            ConcurrencyHandler::new(dice.dupe(), NestedInvocation::Run, ParallelInvocation::Run);
-
-        let traces1 = TraceId::new();
-        let traces2 = traces1.dupe();
-        let traces_different = TraceId::new();
-
-        let ctx_different = |ctx: DiceTransaction| {
-            ctx.changed(vec![K])?;
-            Ok(ctx)
-        };
-
-        let barrier = Arc::new(Barrier::new(3));
-
-        let fut1 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        traces1,
-                        box TestDiceDataProvider,
-                        &no_changes,
-                        |_| async move {
-                            barrier.wait().await;
-                        },
-                        false,
-                    )
-                    .await
-            }
-        });
-
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        traces2,
-                        box TestDiceDataProvider,
-                        &no_changes,
-                        |_| async move {
-                            barrier.wait().await;
-                        },
-                        false,
-                    )
-                    .await
-            }
-        });
-
-        let fut3 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        traces_different,
-                        box TestDiceDataProvider,
-                        &ctx_different,
-                        |_| async move {
-                            barrier.wait().await;
-                        },
-                        false,
-                    )
-                    .await
-            }
-        });
-
-        let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
-        r1??;
-        r2??;
-        r3??;
-
-        Ok(())
-    }
-
-    // TODO(wendyy) delete this unit test when ConcurrentHandler's bypass_semaphore field is removed
-    #[tokio::test]
-    async fn different_traceid_bypass_semaphore() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency =
