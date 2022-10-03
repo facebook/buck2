@@ -30,7 +30,7 @@ toml = { workspace = true }
 tracing = { workspace = true }
 
 dice = { path = "../dice/dice" }
-# @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service", optional = true }
+# @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
@@ -47,8 +47,3 @@ buck2_interpreter = { path = "../buck2_interpreter" }
 [dev-dependencies]
 assert_matches = { workspace = true }
 regex = { workspace = true }
-
-[features]
-# @oss-disable: default = ["eden_materializer"]
-# @oss-disable: eden_materializer = ["edenfs"]
-eden_materializer = [] # @oss-enable

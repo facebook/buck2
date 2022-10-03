@@ -31,21 +31,17 @@ use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::ActionDigest;
-#[cfg(feature = "eden_materializer")]
+#[cfg(off)] // @oss-enable
 use crate::materialize::eden_api::EdenBuckOut;
-
-#[cfg(all(not(feature = "eden_materializer"), fbcode_build))]
-compile_error!("eden_materializer must be enabled when compiling in fbcode");
-
 use crate::materialize::http::Checksum;
 
 // Add a stub EdenBuckOut for when we don't have Eden output enabled
-#[cfg(not(feature = "eden_materializer"))]
+// @oss-disable: #[cfg(off)]
 pub struct EdenBuckOut {
     not_implemented: !,
 }
 
-#[cfg(not(feature = "eden_materializer"))]
+// @oss-disable: #[cfg(off)]
 impl EdenBuckOut {
     pub async fn remove_paths_recursive(
         &self,

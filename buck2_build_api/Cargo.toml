@@ -84,5 +84,4 @@ path = "bin/utilities/macro_parse.rs"
 
 [features]
 # @oss-disable: default = ["gazebo_lint", "eden_materializer"]
-# @oss-disable: eden_materializer = ["buck2_execute/eden_materializer"]
-eden_materializer = [] # @oss-enable
+eden_materializer = []
