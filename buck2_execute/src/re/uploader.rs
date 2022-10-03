@@ -320,7 +320,11 @@ fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     // had 3 reports of this in a week), so for now we do accept some false positives (when RE
     // tells us a digest doesn't exist even though it does) in order to provide better UX when we
     // hit a true positive.
-    info.action_age() >= Duration::from_secs(3600 * 5)
+    if let Some(age) = info.action_age() {
+        age >= Duration::from_secs(3600 * 5)
+    } else {
+        true
+    }
 }
 
 fn directory_to_blob<D>(d: &D) -> InlinedBlobWithDigest

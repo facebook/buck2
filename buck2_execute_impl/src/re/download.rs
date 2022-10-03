@@ -208,7 +208,10 @@ impl CasDownloader<'_> {
         // Declare the outputs to the materializer
         self.materializer
             .declare_cas_many(
-                Arc::new(CasDownloadInfo::new(action_digest.dupe(), self.re_use_case)),
+                Arc::new(CasDownloadInfo::new_execution(
+                    action_digest.dupe(),
+                    self.re_use_case,
+                )),
                 to_declare,
             )
             .await

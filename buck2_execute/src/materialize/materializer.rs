@@ -346,37 +346,63 @@ impl CopiedArtifact {
     }
 }
 
+#[derive(Debug, Display)]
+enum CasDownloadInfoOrigin {
+    /// Declared by an action that executed on RE.
+    #[display(
+        fmt = "{} retrieved {:.3} seconds ago",
+        "action_digest",
+        "action_instant.elapsed().as_secs_f64()"
+    )]
+    Execution {
+        /// Digest of the action that led us to discover this CAS object.
+        action_digest: ActionDigest,
+
+        /// When did we learn of the connection between this diges and the download it allows. This
+        /// typically represents how much time has passed since we executed the action or hit in the
+        /// action cache.
+        action_instant: Instant,
+    },
+
+    /// Simply declared by an action.
+    #[display(fmt = "declared")]
+    Declared,
+}
+
 /// Information about a CAS download we might require when an artifact is not materialized.
 #[derive(Debug, Display)]
-#[display(
-    fmt = "{} retrieved {:.3} seconds ago",
-    "self.action_digest",
-    "self.action_instant.elapsed().as_secs_f64()"
-)]
+#[display(fmt = "{}", "self.origin")]
 pub struct CasDownloadInfo {
-    /// Digest of the action that led us to discover this CAS object.
-    action_digest: ActionDigest,
-
-    /// When did we learn of the connection between this diges and the download it allows. This
-    /// typically represents how much time has passed since we executed the action or hit in the
-    /// action cache.
-    action_instant: Instant,
-
+    origin: CasDownloadInfoOrigin,
     /// RE Use case to use whne downloading this
     pub re_use_case: RemoteExecutorUseCase,
 }
 
 impl CasDownloadInfo {
-    pub fn new(action_digest: ActionDigest, re_use_case: RemoteExecutorUseCase) -> Self {
+    pub fn new_execution(action_digest: ActionDigest, re_use_case: RemoteExecutorUseCase) -> Self {
         Self {
-            action_digest,
-            action_instant: Instant::now(),
+            origin: CasDownloadInfoOrigin::Execution {
+                action_digest,
+                action_instant: Instant::now(),
+            },
             re_use_case,
         }
     }
 
-    pub fn action_age(&self) -> Duration {
-        self.action_instant.elapsed()
+    pub fn new_declared(re_use_case: RemoteExecutorUseCase) -> Self {
+        Self {
+            origin: CasDownloadInfoOrigin::Declared,
+            re_use_case,
+        }
+    }
+
+    pub fn action_age(&self) -> Option<Duration> {
+        match self.origin {
+            CasDownloadInfoOrigin::Execution { action_instant, .. } => {
+                Some(action_instant.elapsed())
+            }
+            CasDownloadInfoOrigin::Declared => None,
+        }
     }
 }
 
