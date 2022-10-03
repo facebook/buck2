@@ -13,7 +13,6 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_common::external_symlink::ExternalSymlink;
@@ -39,6 +38,8 @@ use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
+use chrono::DateTime;
+use chrono::Utc;
 use derive_more::Display;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -246,14 +247,14 @@ pub fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE
 #[allow(clippy::trivially_copy_pass_by_ref)] // SystemTime is a different size on Windows
 pub fn re_tree_to_directory(
     tree: &RE::Tree,
-    leaf_expires: &SystemTime,
+    leaf_expires: &DateTime<Utc>,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
     // Recursively builds the directory
     fn dfs_build(
         re_dir: &RE::Directory,
         dir_digest: FileDigest,
         dirmap: &HashMap<FileDigest, &RE::Directory>,
-        leaf_expires: &SystemTime,
+        leaf_expires: &DateTime<Utc>,
     ) -> anyhow::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
@@ -878,7 +879,7 @@ mod tests {
         let dir = builder.fingerprint();
 
         let tree = directory_to_re_tree(&dir);
-        let dir2 = re_tree_to_directory(&tree, &SystemTime::now())?;
+        let dir2 = re_tree_to_directory(&tree, &Utc::now())?;
 
         assert_dirs_eq(&dir, &dir2);
 

@@ -10,8 +10,6 @@
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
@@ -22,6 +20,8 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
+use chrono::Duration;
+use chrono::Utc;
 use gazebo::prelude::*;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
@@ -56,9 +56,9 @@ impl Uploader {
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
-        let now = SystemTime::now();
+        let now = Utc::now();
         let ttl_wanted = 600i64;
-        let ttl_deadline = now + Duration::from_secs(ttl_wanted as u64);
+        let ttl_deadline = now + chrono::Duration::seconds(ttl_wanted);
 
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
@@ -133,7 +133,7 @@ impl Uploader {
                     }
                 }
             } else {
-                let ttl = Duration::from_secs(digest_ttl as u64);
+                let ttl = Duration::seconds(digest_ttl);
                 digest.update_expires(now + ttl);
             }
         }
@@ -321,7 +321,7 @@ fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     // tells us a digest doesn't exist even though it does) in order to provide better UX when we
     // hit a true positive.
     if let Some(age) = info.action_age() {
-        age >= Duration::from_secs(3600 * 5)
+        age >= std::time::Duration::from_secs(3600 * 5)
     } else {
         true
     }

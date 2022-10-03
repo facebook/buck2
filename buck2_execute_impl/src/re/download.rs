@@ -9,7 +9,6 @@
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_common::executor_config::RemoteExecutorUseCase;
@@ -38,6 +37,8 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use chrono::Duration;
+use chrono::Utc;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -147,8 +148,7 @@ impl CasDownloader<'_> {
             return Err(anyhow::anyhow!("Injected error"));
         }
 
-        let ttl: u64 = output_spec.ttl().try_into().unwrap_or(0);
-        let expires = SystemTime::now() + std::time::Duration::from_secs(ttl);
+        let expires = Utc::now() + Duration::seconds(output_spec.ttl());
 
         // Download process:
         // 1. merges all the outputs (files and trees) into the inputs structure

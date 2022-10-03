@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+chrono = { workspace = true }
 derive_more = { workspace = true }
 dirs = { workspace = true }
 faccess = { workspace = true }

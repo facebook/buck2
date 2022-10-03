@@ -14,11 +14,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::path::Path;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -31,6 +29,9 @@ use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use chrono::DateTime;
+use chrono::TimeZone;
+use chrono::Utc;
 use derive_more::Display;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
@@ -251,7 +252,7 @@ impl FileDigest {
 /// contents.
 struct FileDigestInner {
     data: FileDigest,
-    expires: AtomicU64,
+    expires: AtomicI64,
 }
 
 #[derive(Display, Clone, Dupe)]
@@ -318,12 +319,12 @@ impl TrackedFileDigest {
         Self {
             inner: Arc::new(FileDigestInner {
                 data,
-                expires: AtomicU64::new(0),
+                expires: AtomicI64::new(0),
             }),
         }
     }
 
-    pub fn new_expires(data: FileDigest, expiry: SystemTime) -> Self {
+    pub fn new_expires(data: FileDigest, expiry: DateTime<Utc>) -> Self {
         let res = Self::new(data);
         res.update_expires(expiry);
         res
@@ -336,7 +337,7 @@ impl TrackedFileDigest {
             .get_or_init(|| Self {
                 inner: Arc::new(FileDigestInner {
                     data: FileDigest::empty(),
-                    expires: AtomicU64::new(0),
+                    expires: AtomicI64::new(0),
                 }),
             })
             .dupe();
@@ -354,17 +355,14 @@ impl TrackedFileDigest {
         self.inner.data.size
     }
 
-    pub fn expires(&self) -> SystemTime {
-        SystemTime::UNIX_EPOCH + Duration::from_secs(self.inner.expires.load(Ordering::Relaxed))
+    pub fn expires(&self) -> DateTime<Utc> {
+        Utc.timestamp(self.inner.expires.load(Ordering::Relaxed), 0)
     }
 
-    pub fn update_expires(&self, time: SystemTime) {
-        self.inner.expires.store(
-            time.duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
-            Ordering::Relaxed,
-        )
+    pub fn update_expires(&self, time: DateTime<Utc>) {
+        self.inner
+            .expires
+            .store(time.timestamp(), Ordering::Relaxed)
     }
 }
 
