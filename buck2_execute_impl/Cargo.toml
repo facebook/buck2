@@ -41,8 +41,3 @@ buck2_forkserver_proto = { path = "../buck2_forkserver_proto" }
 [dev-dependencies]
 tempfile = { workspace = true }
 assert_matches = { workspace = true }
-
-[features]
-# @oss-disable: default = ["eden_materializer"]
-# @oss-disable: eden_materializer = []
-eden_materializer = [] # @oss-enable
