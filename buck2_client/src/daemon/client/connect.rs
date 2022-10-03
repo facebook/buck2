@@ -153,6 +153,10 @@ impl<'a> BuckdLifecycle<'a> {
             Ok(buf)
         };
 
+        // `buck2 daemon` will either:
+        // * fork and kill parent (daemonize) on Unix
+        // * or spawn another process and exit on Windows
+        // so we wait for termination of the child process.
         let joined = try_join3(status_fut, stdout_fut, stderr_fut).await;
         match joined {
             Err(e) => Err(BuckdConnectError::BuckDaemonStartupFailed {
