@@ -3,7 +3,7 @@ load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 _ROOT = "https://maven.thefacebook.com/nexus/content/groups/public"
 
-def _from_mvn_url(url):
+def _from_mvn_url(url: str.type) -> str.type:
     """
     Convert `mvn:` style URIs to a URL.
     """
