@@ -364,27 +364,38 @@ impl DaemonState {
                 )))
             }
             MaterializationMethod::Eden => {
-                #[cfg(all(unix, feature = "eden_materializer"))]
+                #[cfg(feature = "eden_materializer")]
                 {
                     use buck2_execute::materialize::eden_api::EdenBuckOut;
                     use buck2_execute_impl::materializers::eden::EdenMaterializer;
 
                     let buck_out_mount = fs.root().join(&buck_out_path);
 
-                    Ok(Arc::new(
-                        EdenMaterializer::new(
-                            fs,
-                            re_client_manager.dupe(),
-                            blocking_executor,
-                            EdenBuckOut::new(fb, buck_out_path, buck_out_mount, re_client_manager)
+                    if cfg!(unix) {
+                        Ok(Arc::new(
+                            EdenMaterializer::new(
+                                fs,
+                                re_client_manager.dupe(),
+                                blocking_executor,
+                                EdenBuckOut::new(
+                                    fb,
+                                    buck_out_path,
+                                    buck_out_mount,
+                                    re_client_manager,
+                                )
                                 .context("Failed to create EdenFS-based buck-out")?,
-                        )
-                        .context("Failed to create Eden materializer")?,
-                    ))
+                            )
+                            .context("Failed to create Eden materializer")?,
+                        ))
+                    } else {
+                        Err(anyhow::anyhow!(
+                            "`eden` materialization method is not supported on Windows"
+                        ))
+                    }
                 }
-                #[cfg(any(not(feature = "eden_materializer"), not(unix)))]
+                #[cfg(not(feature = "eden_materializer"))]
                 {
-                    #[cfg(all(fbcode_build, unix))]
+                    #[cfg(fbcode_build)]
                     compile_error!("eden_materializer must be enabled when compiling in fbcode");
 
                     let _unused = buck_out_path;
