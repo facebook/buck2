@@ -442,6 +442,44 @@ async def test_bxl_actions(buck: Buck) -> None:
     assert "[<source bin/TARGETS.fixture>]" in result.stdout
 
 
+@buck_test(inplace=True)
+async def test_bxl_artifact_path(buck: Buck) -> None:
+
+    result = await buck.bxl(
+        "fbcode//buck2/tests/targets/bxl/simple/bxl/artifacts.bxl:artifact_path_test",
+    )
+
+    outputs = json.loads(result.stdout)
+
+    assert outputs["sources"] == ["<source buck2/tests/targets/rules/shell/DATA>"]
+
+    assert outputs["source_artifact"] == "<source buck2/tests/targets/rules/shell/DATA>"
+    # The project relative path of the source artifact
+    assert (
+        outputs["source_artifact_project_rel_path"]
+        == "fbcode/buck2/tests/targets/rules/shell/DATA"
+    )
+
+    assert (
+        "build artifact out/out.txt bound to fbcode//buck2/tests/targets/rules/shell:gen"
+        in outputs["build_artifact"]
+    )
+
+    prefix = ""
+
+    if buck.isolation_prefix is None:
+        prefix = "buck-out/v2/gen/fbcode/"
+    else:
+        prefix = "buck-out/" + buck.isolation_prefix + "/gen/fbcode/"
+
+    # The project relative path to the buck-out directory with the output
+    assert prefix in outputs["build_artifact_project_rel_path"]
+    assert (
+        "/buck2/tests/targets/rules/shell/__gen__/out/out.txt"
+        in outputs["build_artifact_project_rel_path"]
+    )
+
+
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_dynamic_action(buck: Buck) -> None:
 

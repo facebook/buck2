@@ -45,6 +45,7 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::cli_args::ArgAccessor;
+use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_label_function;
 use crate::bxl::starlark_defs::functions::register_target_function;
 pub mod alloc_node;
@@ -101,6 +102,7 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
 fn register_bxl_defs(globals: &mut GlobalsBuilder) {
     globals.struct_("cli_args", cli_args::register_cli_args_module);
     register_bxl_function(globals);
+    register_artifact_function(globals);
     register_label_function(globals);
     register_target_function(globals);
     register_read_config(globals);

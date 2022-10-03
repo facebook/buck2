@@ -67,7 +67,7 @@ pub struct OutputStream<'v> {
     project_fs: ProjectRoot,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    artifact_fs: ArtifactFs,
+    pub(crate) artifact_fs: ArtifactFs,
 }
 
 impl<'v> OutputStream<'v> {

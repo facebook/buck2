@@ -1,4 +1,5 @@
 use anyhow::Context;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersLabel;
@@ -15,9 +16,12 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::list::FrozenList;
 use starlark::values::list::List;
+use starlark::values::Heap;
+use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[starlark_module]
@@ -57,6 +61,25 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
 pub fn register_target_function(builder: &mut GlobalsBuilder) {
     fn target_set() -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(StarlarkTargetSet::from(TargetSet::new()))
+    }
+}
+
+#[starlark_module]
+pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
+    /// The project relative path of the source or build artifact.
+    /// Note that this method returns an artifact path without asking for the artifact to be materialized,
+    /// (i.e. it may not actually exist on the disk yet).
+    fn get_path_without_materialization<'v>(
+        this: &'v StarlarkArtifact,
+        heap: &'v Heap,
+        ctx: &'v BxlContext<'v>,
+    ) -> anyhow::Result<StringValue<'v>> {
+        let resolved = ctx
+            .output_stream
+            .artifact_fs
+            .resolve(this.artifact().get_path())?;
+
+        Ok(heap.alloc_str(resolved.as_str()))
     }
 }
 
