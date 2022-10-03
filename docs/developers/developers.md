@@ -260,3 +260,23 @@ If you're trying to work out where a transition happens within a dependency chai
 ```
 scripts/torozco/parse_deps
 ```
+
+## Making a change to Buck2 Tpx
+
+Buck2 invokes Tpx when running tests. If you're changing Tpx, you can build your own Tpx and then have Buck2 use it, like so:
+
+```
+# Build Tpx
+buck2 build @fbcode//mode/opt fbcode//buck2/buck2_tpx_cli:buck2_tpx_cli --out /tmp/tpx
+
+# Use Tpx
+buck2 test -c test.v2_test_executor=/tmp/tpx
+```
+
+To get access to Tpx's output if you are print-debugging, you need to also get your Buck2 to have the right log level for it:
+
+```
+BUCK_LOG=buck2_test=debug buck2 test
+```
+
+Remember that you need a daemon restart to change `BUCK_LOG`.
