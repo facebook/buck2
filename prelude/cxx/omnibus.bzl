@@ -1014,4 +1014,7 @@ def omnibus_environment_attr():
         "prelude//cxx/tools:do_not_inject_omnibus_environment": None,
     })
 
+    # In open source, we don't want to use omnibus
+    # oss-enable: default = None
+
     return attrs.option(attrs.dep(), default = default)
