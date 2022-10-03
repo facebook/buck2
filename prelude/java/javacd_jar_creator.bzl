@@ -146,6 +146,17 @@ def create_jar_artifact_javacd(
             scratch = declare_prefixed_output(prefix, "scratch"),
         )
 
+    # buildifier: disable=uninitialized
+    def add_output_paths_to_cmd_args(cmd: "cmd_args", output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]) -> "cmd_args":
+        if path_to_class_hashes != None:
+            cmd.hidden(path_to_class_hashes.as_output())
+        cmd.hidden(output_paths.jar_parent.as_output())
+        cmd.hidden(output_paths.jar.as_output())
+        cmd.hidden(output_paths.classes.as_output())
+        cmd.hidden(output_paths.annotations.as_output())
+        cmd.hidden(output_paths.scratch.as_output())
+        return cmd
+
     def encode_output_paths(paths: OutputPaths.type, target_type: TargetType.type):
         paths = struct(
             classesDir = encode_path(paths.classes.as_output()),
@@ -355,7 +366,8 @@ def create_jar_artifact_javacd(
             abiJarCommand = abi_command,
         )
 
-    def define_javacd_action(actions_prefix: str.type, encoded_command: struct.type, qualified_name: str.type):
+    # buildifier: disable=uninitialized
+    def define_javacd_action(actions_prefix: str.type, encoded_command: struct.type, qualified_name: str.type, output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions_prefix, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
@@ -367,6 +379,7 @@ def create_jar_artifact_javacd(
             "--command-file",
             proto_with_inputs,
         ])
+        cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
 
         # TODO(cjhopman): make sure this works both locally and remote.
         event_pipe_out = declare_prefixed_output(actions_prefix, "events.data")
@@ -383,7 +396,7 @@ def create_jar_artifact_javacd(
     output_paths = define_output_paths(actions_prefix)
     path_to_class_hashes_out = declare_prefixed_output(actions_prefix, "classes.txt")
     command = encode_library_command(output_paths, path_to_class_hashes_out)
-    define_javacd_action(actions_prefix, command, base_qualified_name)
+    define_javacd_action(actions_prefix, command, base_qualified_name, output_paths, path_to_class_hashes_out)
 
     # If there's additional compiled srcs, we need to merge them in and if the
     # caller specified an output artifact we need to make sure the jar is in that
@@ -431,14 +444,14 @@ def create_jar_artifact_javacd(
         source_abi_qualified_name = get_qualified_name(source_abi_target_type)
         source_abi_output_paths = define_output_paths(source_abi_prefix)
         source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
-        define_javacd_action(source_abi_prefix, source_abi_command, source_abi_qualified_name)
+        define_javacd_action(source_abi_prefix, source_abi_command, source_abi_qualified_name, source_abi_output_paths, path_to_class_hashes = None)
 
         source_only_abi_prefix = "{}source_only_abi_".format(actions_prefix)
         source_only_abi_target_type = TargetType("source_only_abi")
         source_only_abi_qualified_name = get_qualified_name(source_only_abi_target_type)
         source_only_abi_output_paths = define_output_paths(source_only_abi_prefix)
         source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
-        define_javacd_action(source_only_abi_prefix, source_only_abi_command, source_only_abi_qualified_name)
+        define_javacd_action(source_only_abi_prefix, source_only_abi_command, source_only_abi_qualified_name, source_only_abi_output_paths, path_to_class_hashes = None)
 
         source_abi = source_abi_output_paths.jar
         source_only_abi = source_only_abi_output_paths.jar
