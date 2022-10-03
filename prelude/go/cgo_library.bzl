@@ -23,6 +23,15 @@ load(
     "MergedLinkInfo",
     "merge_link_infos",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+)
+load(
+    "@prelude//utils:utils.bzl",
+    "map_idx",
+)
 load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
@@ -109,6 +118,10 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         ).include_path,
     ])
 
+    link_style = ctx.attrs.link_style
+    if link_style == None:
+        link_style = "static"
+
     # Copmile C++ sources into object files.
     c_compile_cmds = cxx_compile_srcs(
         ctx,
@@ -121,11 +134,15 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         [own_pre, cgo_headers_pre],
         inherited_pre,
         [],
-        Linkage("static"),
+        Linkage(link_style),
     )
 
+    compiled_objects = c_compile_cmds.objects
+    if link_style != "static":
+        compiled_objects = c_compile_cmds.pic_objects
+
     # Merge all sources together to pass to the Go compile step.
-    all_srcs = cmd_args(go_srcs + c_compile_cmds.objects)
+    all_srcs = cmd_args(go_srcs + compiled_objects)
     if ctx.attrs.go_srcs:
         all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs))
 
@@ -149,4 +166,8 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
             get_inherited_link_pkgs(ctx.attrs.deps + ctx.attrs.exported_deps),
         ])),
         merge_link_infos(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
+        merge_shared_libraries(
+            ctx.actions,
+            deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
+        ),
     ]

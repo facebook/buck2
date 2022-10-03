@@ -43,16 +43,16 @@ def go_test_impl(ctx: "context") -> ["provider"]:
     main = compile(ctx, "main", cmd_args(gen_main), pkgs = {pkg_name: tests})
 
     # Link the above into a Go binary.
-    bin = link(ctx, main, pkgs = {pkg_name: tests}, deps = ctx.attrs.deps)
+    (bin, runtime_files) = link(ctx, main, pkgs = {pkg_name: tests}, deps = deps)
 
-    run_cmd = cmd_args(bin)
+    run_cmd = cmd_args(bin).hidden(runtime_files)
 
     # As per v1, copy in resources next to binary.
     for resource in ctx.attrs.resources:
         run_cmd.hidden(ctx.actions.copy_file(resource.short_path, resource))
 
     return [
-        DefaultInfo(default_outputs = [bin], other_outputs = [gen_main]),
+        DefaultInfo(default_outputs = [bin], other_outputs = [gen_main] + runtime_files),
         RunInfo(args = run_cmd),
         ExternalRunnerTestInfo(
             type = "go",

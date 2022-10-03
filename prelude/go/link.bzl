@@ -1,10 +1,24 @@
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_inherited_link_info")
+load(
+    "@prelude//cxx:cxx_link_utility.bzl",
+    "executable_shared_lib_arguments",
+)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "get_link_args",
     "unpack_link_args",
+)
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
+load(
+    "@prelude//utils:utils.bzl",
+    "map_idx",
 )
 load(":packages.bzl", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
@@ -16,6 +30,27 @@ GoPkgLinkInfo = provider(fields = [
 
 def get_inherited_link_pkgs(deps: ["dependency"]) -> {str.type: "artifact"}:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if GoPkgLinkInfo in d])
+
+def _process_shared_dependencies(ctx: "context", artifact: "artifact", deps: ["dependency"]):
+    """
+    Provides files and linker args needed to for binaries with shared library linkage.
+    - the runtime files needed to run binary linked with shared libraries
+    - linker arguments for shared libraries
+    """
+    if ctx.attrs.link_style != "shared":
+        return ([], [])
+
+    shlib_info = merge_shared_libraries(
+        ctx.actions,
+        deps = filter(None, map_idx(SharedLibraryInfo, deps)),
+    )
+    shared_libs = {}
+    for name, shared_lib in traverse_shared_library_info(shlib_info).items():
+        shared_libs[name] = shared_lib.lib
+
+    extra_link_args, runtime_files, _ = executable_shared_lib_arguments(ctx, artifact, shared_libs)
+
+    return (runtime_files, extra_link_args)
 
 def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, deps: ["dependency"] = [], link_mode = None):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -37,13 +72,19 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
     )
     cmd.add("-L", pkgs_dir)
 
+    link_style = ctx.attrs.link_style
+    if link_style == None:
+        link_style = "static"
+
+    runtime_files, extra_link_args = _process_shared_dependencies(ctx, main, deps)
+
     # Gather external link args from deps.
     ext_links = get_link_args(
         cxx_inherited_link_info(ctx, deps),
-        # TODO: support other link styles?
-        LinkStyle("static"),
+        LinkStyle(link_style),
     )
-    ext_link_args = unpack_link_args(ext_links)
+    ext_link_args = cmd_args(unpack_link_args(ext_links))
+    ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
 
     if not link_mode:
         link_mode = "external"
@@ -80,4 +121,4 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
 
     ctx.actions.run(cmd, category = "go_link")
 
-    return output
+    return (output, runtime_files)

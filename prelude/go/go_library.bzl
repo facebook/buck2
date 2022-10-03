@@ -3,6 +3,15 @@ load(
     "MergedLinkInfo",
     "merge_link_infos",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+)
+load(
+    "@prelude//utils:utils.bzl",
+    "map_idx",
+)
 load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
@@ -38,4 +47,8 @@ def go_library_impl(ctx: "context") -> ["provider"]:
             pkg_name = pkg_name,
         ),
         merge_link_infos(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
+        merge_shared_libraries(
+            ctx.actions,
+            deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
+        ),
     ]

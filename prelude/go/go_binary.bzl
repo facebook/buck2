@@ -1,10 +1,13 @@
-load("@prelude//utils:utils.bzl", "expect")
+load(
+    "@prelude//utils:utils.bzl",
+    "expect",
+)
 load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "link")
 
 def go_binary_impl(ctx: "context") -> ["provider"]:
     lib = compile(ctx, "main", get_filtered_srcs(ctx, ctx.attrs.srcs), deps = ctx.attrs.deps)
-    bin = link(ctx, lib, deps = ctx.attrs.deps, link_mode = ctx.attrs.link_mode)
+    (bin, runtime_files) = link(ctx, lib, deps = ctx.attrs.deps, link_mode = ctx.attrs.link_mode)
 
     hidden = []
     for resource in ctx.attrs.resources:
@@ -26,6 +29,9 @@ def go_binary_impl(ctx: "context") -> ["provider"]:
             hidden.extend(other)
 
     return [
-        DefaultInfo(default_outputs = [bin], other_outputs = hidden),
-        RunInfo(args = cmd_args(bin).hidden(hidden)),
+        DefaultInfo(
+            default_outputs = [bin],
+            other_outputs = hidden + runtime_files,
+        ),
+        RunInfo(args = cmd_args(bin).hidden(hidden + runtime_files)),
     ]
