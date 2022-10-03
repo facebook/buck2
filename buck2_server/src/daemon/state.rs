@@ -485,7 +485,7 @@ impl DaemonState {
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
 
-        let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
+        let drop_guard = ActiveCommandDropGuard::new(&dispatcher);
 
         // Sync any FS changes and invalidate DICE state if necessary.
         data.io.settle().await?;
