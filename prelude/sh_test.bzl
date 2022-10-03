@@ -1,4 +1,4 @@
-def sh_test_impl(ctx):
+def sh_test_impl(ctx: "context") -> ["provider"]:
     # This does not exist in v1 either, but v1 has those attributes presumably
     # to be compatible with this. We just fail if they're passed.
     if ctx.attrs.list_args or ctx.attrs.list_env or ctx.attrs.run_args or ctx.attrs.run_env:
