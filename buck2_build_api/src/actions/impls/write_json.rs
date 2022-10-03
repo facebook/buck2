@@ -9,7 +9,6 @@
 
 use std::borrow::Cow;
 use std::convert::TryFrom;
-use std::fmt;
 use std::io::sink;
 use std::io::Write;
 use std::time::Instant;
@@ -22,8 +21,6 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use gazebo::any::ProvidesStaticType;
-use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 use indexmap::indexmap;
 use indexmap::indexset;
@@ -40,11 +37,7 @@ use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::Struct;
 use starlark::values::tuple::Tuple;
-use starlark::values::Freeze;
-use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
-use starlark::values::StarlarkValue;
-use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -66,12 +59,10 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
@@ -289,13 +280,6 @@ impl UnregisteredWriteJsonAction {
         Self::write(x, None, &mut sink())
     }
 
-    pub fn cli<'v>(
-        artifact: Value<'v>,
-        content: Value<'v>,
-    ) -> anyhow::Result<WriteJsonCommandLineArg<'v>> {
-        Ok(WriteJsonCommandLineArg { artifact, content })
-    }
-
     fn write(x: Value, fs: Option<&ExecutorFs>, writer: impl Write) -> anyhow::Result<()> {
         serde_json::ser::to_writer(writer, &SerializeValue { value: x, fs })
             .context("When converting to JSON for `write_json`")
@@ -438,42 +422,13 @@ impl PristineActionExecutable for WriteJsonAction {
     }
 }
 
-/// WriteJsonCommandLineArgGen represents the artifact produced by write_json in a way that it can
-/// be added to commandlines while including the artifacts referenced by cmdargs in the content that
-/// was written.
-#[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType)]
-#[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
-#[repr(C)]
-pub struct WriteJsonCommandLineArgGen<V> {
-    artifact: V,
-    // The list of artifacts here could be large and we don't want to hold those explicitly (due to
-    // the memory cost) and so we hold the same content value that the write_json action itself will and
-    // only traverse it when artifacts are requested.
-    content: V,
-}
-
-impl<'v, V: ValueLike<'v>> fmt::Display for WriteJsonCommandLineArgGen<V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("<write_json_cli_args>")
-    }
-}
-
-starlark_complex_value!(pub WriteJsonCommandLineArg);
-
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
-where
-    Self: ProvidesStaticType,
-{
-    starlark_type!("write_json_cli_args");
-}
-
 pub(crate) fn gather_json_input_artifacts(v: Value) -> anyhow::Result<IndexSet<ArtifactGroup>> {
     let mut visitor = SimpleCommandLineArtifactVisitor::new();
     visit_json_artifacts(v, &mut visitor)?;
     Ok(visitor.inputs)
 }
 
-fn visit_json_artifacts(
+pub(crate) fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
 ) -> anyhow::Result<()> {
@@ -536,33 +491,4 @@ fn visit_json_artifacts(
         }
     }
     Ok(())
-}
-
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> {
-    fn add_to_command_line(&self, builder: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        self.artifact
-            .to_value()
-            .as_command_line_err()?
-            .add_to_command_line(builder)
-    }
-
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        let artifact = self.artifact.to_value();
-        let content = self.content.to_value();
-        artifact.as_command_line_err()?.visit_artifacts(visitor)?;
-        visit_json_artifacts(content, visitor)
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        // In the write_json implementation, the commandlinebuilders we use don't support args.
-        false
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        // In the write_json implementation, the commandlinebuilders we use don't support args.
-        Ok(())
-    }
 }
