@@ -364,7 +364,7 @@ impl DaemonState {
                 )))
             }
             MaterializationMethod::Eden => {
-                #[cfg(feature = "eden_materializer")]
+                #[cfg(off)] // @oss-enable
                 {
                     use buck2_execute::materialize::eden_api::EdenBuckOut;
                     use buck2_execute_impl::materializers::eden::EdenMaterializer;
@@ -393,16 +393,13 @@ impl DaemonState {
                         ))
                     }
                 }
-                #[cfg(not(feature = "eden_materializer"))]
+                // @oss-disable: #[cfg(off)]
                 {
-                    #[cfg(fbcode_build)]
-                    compile_error!("eden_materializer must be enabled when compiling in fbcode");
-
                     let _unused = buck_out_path;
                     let _unused = fs;
                     let _unused = fb;
                     Err(anyhow::anyhow!(
-                        "`eden` materialization method is not supported unless you build with `eden_materializer`"
+                        "`eden` materialization method is only supported in Meta internal builds"
                     ))
                 }
             }
