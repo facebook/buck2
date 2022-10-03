@@ -19,7 +19,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::io_counters::IoCounterKey;
 use derivative::Derivative;
 use edenfs::types::FileAttributes;
-use edenfs::types::GetAttributesFromFilesParams;
 use edenfs::types::ReaddirParams;
 use edenfs::types::SourceControlType;
 use edenfs::types::SyncBehavior;
@@ -31,13 +30,9 @@ use tokio::sync::Semaphore;
 
 use crate::eden::EdenConnectionManager;
 use crate::eden::EdenDataIntoResult;
-use crate::eden::EdenError;
-use crate::file_ops::FileDigest;
-use crate::file_ops::FileMetadata;
 use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::SimpleDirEntry;
-use crate::file_ops::TrackedFileDigest;
 use crate::io::fs::FsIoProvider;
 use crate::io::IoProvider;
 
@@ -163,10 +158,33 @@ impl IoProvider for EdenIoProvider {
         Ok(entries)
     }
 
+    #[cfg(not(unix))]
+    async fn read_path_metadata_if_exists(
+        &self,
+        _path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        #[derive(thiserror::Error, Debug)]
+        #[error(
+            "read_path_metadata_if_exists() is not supported on Windows \
+            because of dependency on nix crate"
+        )]
+        struct NotImplemented;
+
+        Err(NotImplemented.into())
+    }
+
+    #[cfg(unix)]
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        use edenfs::types::GetAttributesFromFilesParams;
+
+        use crate::eden::EdenError;
+        use crate::file_ops::FileDigest;
+        use crate::file_ops::FileMetadata;
+        use crate::file_ops::TrackedFileDigest;
+
         let _guard = IoCounterKey::StatEden.guard();
 
         let requested_attributes = i64::from(

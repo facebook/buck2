@@ -1,7 +1,7 @@
-#[cfg(all(unix, feature = "eden_io"))]
+#[cfg(feature = "eden_io")]
 pub mod eden;
 
-#[cfg(all(not(feature = "eden_io"), unix, fbcode_build))]
+#[cfg(all(not(feature = "eden_io"), fbcode_build))]
 compile_error!("eden_io must be enabled when compiling in fbcode");
 
 pub mod fs;
