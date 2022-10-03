@@ -75,7 +75,9 @@ def qualify_srcs(
               base module will be prepended to the destination.
     """
     prefix = dest_prefix(label, base_module)
-    return {prefix + dest: src for dest, src in srcs.items()}
+
+    # Use `path.normalize` here in case items in `srcs` contains relative paths.
+    return {paths.normalize(prefix + dest): src for dest, src in srcs.items()}
 
 def create_python_needed_coverage_info(
         label: "label",

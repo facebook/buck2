@@ -54,6 +54,6 @@ prelude.python_library(
     name = "dep",
     base_module = "bar",
     srcs = [
-        "dep.py",
+        "./dep.py",
     ],
 )
