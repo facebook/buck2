@@ -68,6 +68,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
@@ -466,7 +467,13 @@ where
     starlark_type!("write_json_cli_args");
 }
 
-pub(crate) fn visit_json_artifacts(
+pub(crate) fn gather_json_input_artifacts(v: Value) -> anyhow::Result<IndexSet<ArtifactGroup>> {
+    let mut visitor = SimpleCommandLineArtifactVisitor::new();
+    visit_json_artifacts(v, &mut visitor)?;
+    Ok(visitor.inputs)
+}
+
+fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
 ) -> anyhow::Result<()> {

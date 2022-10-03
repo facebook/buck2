@@ -33,12 +33,11 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::actions::impls::write_json::visit_json_artifacts;
+use crate::actions::impls::write_json::gather_json_input_artifacts;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetProjectionKind;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
@@ -189,10 +188,9 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         let mut sub_inputs = Vec::new();
 
         if let Some(projection) = self.get_projection_value(projection)? {
-            let mut visitor = SimpleCommandLineArtifactVisitor::new();
-            // It's either an args-like or a json projection. visit_json_artifacts handles both the way we want.
-            visit_json_artifacts(projection.to_value(), &mut visitor)?;
-            sub_inputs.extend(visitor.inputs);
+            // It's either an args-like or a json projection. gather_json_input_artifacts handles both the way we want.
+            let inputs = gather_json_input_artifacts(projection.to_value())?;
+            sub_inputs.extend(inputs);
         }
 
         // Reuse the same projection for children sets.

@@ -116,10 +116,9 @@ def _write_json_with_inputs_test(ctx: "context") -> ["provider"]:
 
     output = ctx.actions.declare_output("output")
 
-    # as_json will contain a quoted-path and we want to cat the contents of that path. piping through xargs allows us to interpret it again as cli args (and so the quotes are removed).
-    script = ctx.actions.write("script", cmd_args(["cat", as_json, "| xargs cat", ">", output], delimiter = " "))
-    cmd = cmd_args("/bin/sh", script)
-    cmd.hidden(as_json, output.as_output())
+    # as_json will contain a quoted-path and we want to read the contents of that path
+    script = ctx.actions.write("script.py", ["import sys;p_fp=open(sys.argv[1],'r');p=p_fp.read().replace('\"',\"\");i_fp=open(p,'r');i=i_fp.read();o_fp=open(sys.argv[2],'w');o_fp.write(i)"])
+    cmd = cmd_args("python3", script, as_json, output.as_output())
     ctx.actions.run(cmd, category = "cmd")
 
     marker = ctx.actions.declare_output("marker")
