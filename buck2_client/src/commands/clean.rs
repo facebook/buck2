@@ -168,7 +168,7 @@ fn clean_buck_out(path: &AbsPathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(all(unix, feature = "eden_materializer"))]
+#[cfg(feature = "eden_materializer")]
 async fn try_clean_eden_buck_out(
     buck_out: &AbsPathBuf,
     dryrun: bool,
@@ -177,6 +177,10 @@ async fn try_clean_eden_buck_out(
 
     use buck2_core::process::async_background_command;
     use buck2_execute::materialize::eden_api::is_recas_eden_mount;
+
+    if !cfg!(unix) {
+        return Ok(None);
+    }
 
     if !is_recas_eden_mount(buck_out)? {
         return Ok(None);
@@ -214,12 +218,12 @@ async fn try_clean_eden_buck_out(
     Ok(Some(vec![buck_out.display().to_string()]))
 }
 
-#[cfg(any(not(feature = "eden_materializer"), not(unix)))]
+#[cfg(not(feature = "eden_materializer"))]
 async fn try_clean_eden_buck_out(
     _buck_out: &AbsPathBuf,
     _dryrun: bool,
 ) -> anyhow::Result<Option<Vec<String>>> {
-    #[cfg(all(fbcode_build, unix))]
+    #[cfg(fbcode_build)]
     compile_error!("eden_materializer must be enabled when compiling in fbcode");
     Ok(None)
 }
