@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod cas_artifact;
 pub mod copy;
 pub mod download_file;
 pub mod run;
