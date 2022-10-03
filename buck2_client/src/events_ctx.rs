@@ -36,6 +36,7 @@ use crate::ticker::Ticker;
 const TICKS_PER_SECOND: u32 = 10;
 
 #[derive(Debug, Error)]
+#[allow(clippy::large_enum_variant)]
 enum BuckdCommunicationError {
     #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
     UnexpectedResultType(command_result::Result),
