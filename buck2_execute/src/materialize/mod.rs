@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-#[cfg(all(unix, feature = "eden_materializer"))]
+#[cfg(feature = "eden_materializer")]
 pub mod eden_api;
 pub mod http;
 
-#[cfg(all(not(feature = "eden_materializer"), fbcode_build, unix))]
+#[cfg(all(not(feature = "eden_materializer"), fbcode_build))]
 compile_error!("eden_materializer must be enabled when compiling in fbcode");
 
 pub mod materializer;
