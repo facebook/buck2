@@ -1,0 +1,9 @@
+load(":defs.bzl", "cas_artifact")
+
+cas_artifact(
+    name = "empty",
+    # The empty file is guaranteed to exist in RE.
+    digest = "da39a3ee5e6b4b0d3255bfef95601890afd80709:0",
+    use_case = "buck2-default",
+    expires_after_timestamp = 0,
+)

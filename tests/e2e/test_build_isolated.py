@@ -374,6 +374,11 @@ async def test_download_file(buck: Buck) -> None:
     assert attempt == 3
 
 
+@buck_test(inplace=False, data_dir="actions")
+async def test_cas_artifact(buck: Buck) -> None:
+    await buck.build("//cas_artifact:")
+
+
 @buck_test(inplace=False, data_dir="args")
 async def test_args(buck: Buck) -> None:
     result = await buck.build("//:bin")

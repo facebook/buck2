@@ -13,12 +13,16 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::Context as _;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::types::label::Label;
+use chrono::TimeZone;
+use chrono::Utc;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
@@ -52,6 +56,7 @@ use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::actions::artifact::OutputArtifact;
+use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
 use crate::actions::impls::copy::CopyMode;
 use crate::actions::impls::copy::UnregisteredCopyAction;
 use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
@@ -94,6 +99,12 @@ enum DynamicOutputError {
     EmptyDynamic,
     #[error("Final argument must be a function, got `{0}`")]
     NotAFunction(String),
+}
+
+#[derive(Error, Debug)]
+enum CasArtifactError {
+    #[error("Not a valid RE digest: `{0}`")]
+    InvalidDigest(String),
 }
 
 /// Functions to allow users to interact with the Actions registry.
@@ -798,6 +809,42 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
         let value = declaration.into_declared_artifact(Default::default());
         Ok(value)
+    }
+
+    fn cas_artifact<'v>(
+        this: &AnalysisActions<'v>,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] digest: &str,
+        #[starlark(require = pos)] use_case: &str,
+        #[starlark(require = named)] expires_after_timestamp: i64,
+        #[starlark(require = named, default = false)] is_executable: bool,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let mut this = this.state();
+
+        let digest = digest
+            .parse()
+            .with_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?;
+
+        let use_case = RemoteExecutorUseCase::new(use_case.to_owned());
+
+        let expires_after_timestamp = Utc.timestamp(expires_after_timestamp, 0);
+
+        let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+
+        this.register_action(
+            IndexSet::new(),
+            indexset![output_artifact],
+            UnregisteredCasArtifactAction::new(
+                digest,
+                use_case,
+                expires_after_timestamp,
+                is_executable,
+            ),
+            None,
+        )?;
+
+        Ok(output_value.into_declared_artifact(Default::default()))
     }
 
     fn tset<'v>(
