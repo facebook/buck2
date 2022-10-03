@@ -109,11 +109,11 @@ def _python_toolchain(ctx):
     return [
         DefaultInfo(),
         PythonToolchainInfo(
-            make_source_db = ctx.attrs.make_source_db,
+            make_source_db = ctx.attrs.make_source_db[RunInfo],
             host_interpreter = RunInfo(args = ["python3"]),
             interpreter = RunInfo(args = ["python3"]),
-            make_pex_modules = ctx.attrs.make_pex_modules,
-            make_pex_inplace = ctx.attrs.make_pex_inplace,
+            make_pex_modules = ctx.attrs.make_pex_modules[RunInfo],
+            make_pex_inplace = ctx.attrs.make_pex_inplace[RunInfo],
             compile = RunInfo(args = ["echo", "COMPILEINFO"]),
             package_style = "inplace",
             native_link_strategy = "merged",
