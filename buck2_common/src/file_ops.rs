@@ -14,6 +14,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -243,6 +244,34 @@ impl FileDigest {
             sha1,
             size: bytes.len() as u64,
         }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum FileDigestFromStrError {
+    #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
+    MissingSizeSeparator,
+
+    #[error("The SHA1 part of the digest is invalid")]
+    InvalidSha1,
+
+    #[error("The size part of the digest is invalid")]
+    InvalidSize(#[source] std::num::ParseIntError),
+}
+
+impl FromStr for FileDigest {
+    type Err = FileDigestFromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (sha1, size) = s
+            .split_once(':')
+            .ok_or(FileDigestFromStrError::MissingSizeSeparator)?;
+
+        let sha1 =
+            FileDigest::parse_digest(sha1.as_bytes()).ok_or(FileDigestFromStrError::InvalidSha1)?;
+        let size = size.parse().map_err(FileDigestFromStrError::InvalidSize)?;
+
+        Ok(FileDigest { size, sha1 })
     }
 }
 
@@ -1130,5 +1159,11 @@ mod tests {
 
         assert_eq!(hasher_digest.finish(), hasher_tracked_digest.finish());
         assert_eq!(digest.to_string(), tracked_digest.to_string());
+    }
+
+    #[test]
+    fn test_digest_from_str() {
+        let s = "0000000000000000000000000000000000000000:123";
+        assert_eq!(FileDigest::from_str(s).unwrap().to_string(), s);
     }
 }
