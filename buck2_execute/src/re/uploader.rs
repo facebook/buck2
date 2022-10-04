@@ -20,6 +20,7 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::soft_error;
 use chrono::Duration;
 use chrono::Utc;
 use gazebo::prelude::*;
@@ -235,11 +236,15 @@ impl Uploader {
                                     ));
                                 }
 
-                                tracing::debug!(
-                                    "{} is missing in the CAS but expected to exist as per: {:#}",
-                                    digest,
-                                    err
-                                );
+                                soft_error!(
+                                    "cas_missing",
+                                    anyhow::anyhow!(
+                                        "{} is missing in the CAS but expected to exist as per: {:#}",
+                                        digest,
+                                        err
+                                    )
+                                )?;
+
                                 continue;
                             }
                         }
