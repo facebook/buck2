@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use buck2_data::DiceComputationStateSnapshot;
 use buck2_data::DiceKeyState;
+use buck2_data::DiceStateSnapshot;
 use gazebo::prelude::*;
 use superconsole::Component;
 
@@ -18,7 +18,7 @@ impl DiceState {
         }
     }
 
-    pub(crate) fn update(&mut self, update: &DiceComputationStateSnapshot) {
+    pub(crate) fn update(&mut self, update: &DiceStateSnapshot) {
         for (k, v) in &update.key_states {
             self.key_states.insert(k.clone(), v.clone());
         }

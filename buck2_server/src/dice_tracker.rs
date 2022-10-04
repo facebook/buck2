@@ -81,7 +81,7 @@ impl BuckDiceTracker {
                 _ = interval.tick() => {
                     if needs_update {
                         needs_update = false;
-                        events.instant_event(DiceComputationStateSnapshot {
+                        events.instant_event(DiceStateSnapshot {
                             key_states: states
                                 .iter()
                                 .map(|(k, v)| ((*k).to_owned(), v.clone()))

@@ -125,7 +125,7 @@ message InstantEvent {
     RawOutput raw_output = 9;
     Snapshot snapshot = 10;
 
-    DiceComputationStateSnapshot dice_state_snapshot = 11;
+    DiceStateSnapshot dice_state_snapshot = 11;
 
     // Log is an instant event for info/warn/error logs.
     Log log = 12;
@@ -148,7 +148,7 @@ message LspResult {
   string lsp_json = 1;
 }
 
-message DiceComputationStateSnapshot {
+message DiceStateSnapshot {
   map<string, DiceKeyState> key_states = 1;
 }
 

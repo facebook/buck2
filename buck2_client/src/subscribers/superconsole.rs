@@ -582,7 +582,7 @@ impl EventSubscriber for StatefulSuperConsole {
 
     async fn handle_dice_snapshot(
         &mut self,
-        update: &buck2_data::DiceComputationStateSnapshot,
+        update: &buck2_data::DiceStateSnapshot,
     ) -> anyhow::Result<()> {
         self.state.dice_state.update(update);
         Ok(())

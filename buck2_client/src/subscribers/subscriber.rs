@@ -619,7 +619,7 @@ pub(crate) trait EventSubscriber: Send {
     }
     async fn handle_dice_snapshot(
         &mut self,
-        _update: &buck2_data::DiceComputationStateSnapshot,
+        _update: &buck2_data::DiceStateSnapshot,
     ) -> anyhow::Result<()> {
         Ok(())
     }
