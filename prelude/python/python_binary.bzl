@@ -267,9 +267,20 @@ def convert_python_library_to_executable(
         inherited_link_info = cxx_inherited_link_info(ctx, executable_deps)
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
         link_info = ctx.actions.tset(LinkInfosTSet, children = [extension_info.link_infos, inherited_link_info._infos[LinkStyle("static")]])
+
+        # Generate an additional C file as input
+        static_extension_info_out = ctx.actions.declare_output("static_extension_info.c")
+        cmd = cmd_args(python_toolchain.generate_static_extension_info[RunInfo])
+        cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
+        cmd.add(cmd_args(sorted(extension_info.python_module_names.keys()), format = "--extension={}"))
+
+        # TODO we don't need to do this ...
+        ctx.actions.run(cmd, category = "generate_static_extension_info")
+
         cxx_executable_srcs = [
             CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
             CxxSrcWithFlags(file = ctx.attrs._cxx_static_extension_utils, flags = []),
+            CxxSrcWithFlags(file = static_extension_info_out, flags = []),
         ]
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",

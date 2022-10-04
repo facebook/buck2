@@ -45,3 +45,15 @@ prelude.export_file(
     src = "compile.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.export_file(
+    name = "generate_static_extension_info.py",
+    src = "generate_static_extension_info.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.command_alias(
+    name = "generate_static_extension_info",
+    exe = ":generate_static_extension_info.py",
+    visibility = ["PUBLIC"],
+)

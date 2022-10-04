@@ -33,6 +33,7 @@ PythonToolchainInfo = provider(fields = [
     "interpreter",
     "version",
     "native_link_strategy",
+    "generate_static_extension_info",
     "package_style",
     "make_source_db",
     "make_pex_inplace",

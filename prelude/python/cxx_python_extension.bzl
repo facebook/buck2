@@ -31,7 +31,6 @@ load(
     "LinkInfos",
     "LinkInfosTSet",
     "LinkStyle",
-    "wrap_link_info",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -112,21 +111,21 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     static_output = None
     shared_libraries = []
     link_infos = []
+    python_module_names = {}
     if ctx.attrs.allow_embedding:
         static_output = libraries.outputs[LinkStyle("static")]
 
     # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
     # when linking into the main binary
     if static_output != None:
-        qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module).replace("/", "_")
+        qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module)
         static_info = libraries.libraries[LinkStyle("static")].default
         if qualified_name == "":
-            symbol_name = "PyInit_{}".format(module_name)
             static_link_info = static_info
             extension_artifacts = {}
+            python_module_names[module_name] = True
         else:
-            suffix = qualified_name + module_name
-            symbol_name = "PyInit_{}_{}".format(module_name, suffix)
+            suffix = qualified_name.replace("/", "_") + module_name
             cxx_toolchain = get_cxx_toolchain_info(ctx)
             new_linkable = suffix_symbols(
                 ctx,
@@ -141,6 +140,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 linkables = [new_linkable],
                 use_link_groups = static_info.use_link_groups,
             )
+            python_module_names[qualified_name.replace("/", ".") + module_name] = True
 
             lines = ["# auto generated stub\n"]
             stub_name = module_name + ".empty_stub"
@@ -152,12 +152,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         # we statically register symbols
         link_infos.append(ctx.actions.tset(
             LinkInfosTSet,
-            value = LinkInfos(
-                default = wrap_link_info(
-                    inner = static_link_info,
-                    pre_flags = ["-Wl,--export-dynamic-symbol={}".format(symbol_name)],
-                ),
-            ),
+            value = LinkInfos(default = static_link_info),
             children = [inherited_link._infos[LinkStyle("static")]],
         ))
 
@@ -179,6 +174,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         link_infos = link_infos,
         shared_libraries = shared_libraries,
         artifacts = extension_artifacts,
+        python_module_names = python_module_names,
     ))
     providers.extend(cxx_library_info.providers)
 

@@ -11,6 +11,7 @@ CxxExtensionLinkInfo = provider(
         "link_infos",  # LinkInfosTSet.type
         "shared_libraries",  # SharedLibrariesTSet.type
         "artifacts",  # {str.type: _a}
+        "python_module_names",  # {str.type: bool.type}
     ],
 )
 
@@ -19,10 +20,12 @@ def merge_cxx_extension_info(
         deps: ["dependency"],
         link_infos: [LinkInfosTSet.type] = [],
         shared_libraries: [SharedLibrariesTSet.type] = [],
-        artifacts: {str.type: "_a"} = {}) -> CxxExtensionLinkInfo.type:
+        artifacts: {str.type: "_a"} = {},
+        python_module_names: {str.type: bool.type} = {}) -> CxxExtensionLinkInfo.type:
     link_infos = list(link_infos)
     shared_libraries = list(shared_libraries)
     artifacts = dict(artifacts)
+    python_module_names = dict(python_module_names)
     for dep in deps:
         cxx_extension_info = dep.get(CxxExtensionLinkInfo)
         if cxx_extension_info == None:
@@ -30,10 +33,12 @@ def merge_cxx_extension_info(
         link_infos.append(cxx_extension_info.link_infos)
         shared_libraries.append(cxx_extension_info.shared_libraries)
         artifacts.update(cxx_extension_info.artifacts)
+        python_module_names.update(cxx_extension_info.python_module_names)
     return CxxExtensionLinkInfo(
         link_infos = actions.tset(LinkInfosTSet, children = link_infos),
         shared_libraries = actions.tset(SharedLibrariesTSet, children = shared_libraries),
         artifacts = artifacts,
+        python_module_names = python_module_names,
     )
 
 def suffix_symbols(
