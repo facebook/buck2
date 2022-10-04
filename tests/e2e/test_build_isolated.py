@@ -715,8 +715,7 @@ async def test_flagfiles_are_located_correctly(buck: Buck) -> None:
     )
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="early_action_cutoff", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="early_action_cutoff")
 async def test_early_action_cutoff(buck: Buck, tmpdir: LocalPath) -> None:
     sentinel = Path(str(tmpdir)) / "sentinel"
     sentinel.touch()

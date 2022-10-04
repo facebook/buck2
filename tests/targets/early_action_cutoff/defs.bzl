@@ -5,10 +5,9 @@ def _not_hermetic_action_impl(ctx):
 
     ctx.actions.run(
         cmd_args([
-            "sh",
+            "python3",
             "-c",
-            'test -f "$(cat "$1")" && touch "$2"',
-            "--",
+            "import sys, os.path; from pathlib import Path;\nif os.path.isfile(sys.argv[1]): Path(sys.argv[2]).touch()",
             sentinel,
             out.as_output(),
         ]).hidden(dep),
