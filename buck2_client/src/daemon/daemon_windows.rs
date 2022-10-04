@@ -145,3 +145,29 @@ pub fn spawn_background_process_on_windows<'a>(
     unsafe { CloseHandle(pinfo.hProcess) };
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use std::path::PathBuf;
+
+    use crate::daemon::daemon_windows::spawn_background_process_on_windows;
+
+    #[test]
+    fn test_smoke() {
+        if !cfg!(windows) {
+            return;
+        }
+
+        // We need absolute path to `cmd.exe`.
+        let cmd_exe_path = PathBuf::from(env::var("COMSPEC").expect("COMSPEC variable not set"));
+
+        // TODO(nga): check it actually spawns a process.
+        spawn_background_process_on_windows(
+            &env::current_dir().unwrap(),
+            &cmd_exe_path,
+            ["/c", "echo test"],
+        )
+        .unwrap();
+    }
+}
