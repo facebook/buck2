@@ -110,6 +110,16 @@ visited. This means their arguments will only be emitted once.
 
 For example:
 
+```mermaid
+flowchart TD
+  foo((foo))
+  bar((bar))
+  qux((qux))
+  qux --> foo
+  bar --> foo
+  qux --> bar
+```
+
 ```starlark
 set1 = ctx.actions.tset(MySet, value = "foo")
 set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
@@ -188,13 +198,51 @@ A few different traversal orders are supported with the `ordering` attribute:
 | `bfs` | Breadth-first-search (BFS) traversal, traverses nodes left-to-right before traversing children. |
 
 For example:
-```starlark
+```starlark src=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs
 set1 = ctx.actions.tset(MySet, value = "foo")
 set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
 set3 = ctx.actions.tset(MySet, value = "qux", children = [set1, set2])
 
 values = list(set3.traverse(ordering = "topological"))
+
+# This also works for projections
+args = set3.project_as_args("project", ordering = "topological"))
 ```
+
+Here is an example of how different orderings evaluate:
+
+```mermaid
+flowchart TD
+  foo((foo))
+  bar((bar))
+  qux((qux))
+  qux --> foo
+  bar --> foo
+  qux --> bar
+```
+
+| Ordering | Result |
+| -------- | ----------- |
+| `preorder` | `["qux", "foo", "bar"]` |
+| `postorder` | `["foo", "bar", "qux"]` |
+| `topological` | `["qux", "bar", "foo"]` |
+| `bfs` | `["qux", "foo", "bar"]` |
+
+
+<FbInternalOnly>
+
+This is verified by this test:
+
+```starlark src=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs title=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs
+# Test all orderings which show up in the table.
+assert_eq(list(set3.traverse()), ["qux", "foo", "bar"])
+assert_eq(list(set3.traverse(ordering = "preorder")), ["qux", "foo", "bar"])
+assert_eq(list(set3.traverse(ordering = "postorder")), ["foo", "bar", "qux"])
+assert_eq(list(set3.traverse(ordering = "topological")), ["qux", "bar", "foo"])
+assert_eq(list(set3.traverse(ordering = "bfs")), ["qux", "foo", "bar"])
+```
+
+</FbInternalOnly>
 
 ## Implementation details
 

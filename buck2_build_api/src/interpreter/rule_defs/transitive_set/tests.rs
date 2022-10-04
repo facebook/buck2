@@ -627,3 +627,55 @@ fn test_type() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
+    let mut tester = Tester::new()?;
+    tester.set_additional_globals(|builder| {
+        tset_factory(builder);
+        command_line_stringifier(builder);
+    });
+
+    /*
+     *  qux -> bar -> foo
+     *          \-----^
+     */
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def project(value):
+            return value
+
+        MySet = transitive_set(args_projections = {
+            "project": project
+        })
+
+        ctx = struct(
+            actions = struct(
+                tset = make_tset,
+            ),
+        )
+
+        def test():
+            set1 = ctx.actions.tset(MySet, value = "foo")
+            set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
+            set3 = ctx.actions.tset(MySet, value = "qux", children = [set1, set2])
+
+            values = list(set3.traverse(ordering = "topological"))
+
+            # This also works for projections
+            args = set3.project_as_args("project", ordering = "topological")
+
+            assert_eq(values, ["qux", "bar", "foo"])
+            assert_eq(["qux", "bar", "foo"], get_args(args))
+
+            # Test all orderings which show up in the table.
+            assert_eq(list(set3.traverse()), ["qux", "foo", "bar"])
+            assert_eq(list(set3.traverse(ordering = "preorder")), ["qux", "foo", "bar"])
+            assert_eq(list(set3.traverse(ordering = "postorder")), ["foo", "bar", "qux"])
+            assert_eq(list(set3.traverse(ordering = "topological")), ["qux", "bar", "foo"])
+            assert_eq(list(set3.traverse(ordering = "bfs")), ["qux", "foo", "bar"])
+        "#
+    ))?;
+
+    Ok(())
+}
