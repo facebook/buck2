@@ -36,7 +36,11 @@ impl<T> EnvHelper<T> {
         Self::with_converter(var, convert_from_str::<T>)
     }
 
-    pub fn get(&self) -> anyhow::Result<Option<&T>> {
+    // This code does not really require `'static` lifetime.
+    // `EnvHelper` caches computed value. When it is used like
+    // `EnvHelper::new(...).get(...)`, it performs unnecessary work.
+    // To avoid it, we require `'static` lifetime, to force placing `EnvHelper` in static variable.
+    pub fn get(&'static self) -> anyhow::Result<Option<&T>> {
         let var = self.var;
         let convert = self.convert;
 
@@ -53,7 +57,7 @@ impl<T> EnvHelper<T> {
             .with_context(|| format!("Invalid value for ${}", var))
     }
 
-    pub fn get_copied(&self) -> anyhow::Result<Option<T>>
+    pub fn get_copied(&'static self) -> anyhow::Result<Option<T>>
     where
         T: Copy,
     {
