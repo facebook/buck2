@@ -46,6 +46,12 @@ The starting type, usually bound as `ctx`.
 
 * `ctx.actions.tset(type, value = None, children = None)` creates a new transitive set. See [Transitive Sets](./transitive_sets.md) for details.
 
+* `ctx.actions.cas_artifact(output, digest : str.type, use_case: str.type, expires_after_timestamp: int.type, is_executable : bool.type = false)` download a CAS artifact to an output.
+  - The digest must look like `SHA1:SIZE`.
+  - The use case is your RE use case
+  - The `expires_after_timestamp` must be a UNIX timestamp. Your digest's TTL must exceed this timestamp. Your build *will* break once the digest expires, so make sure the expiry is long enough (i.e. preferably, years).
+  - The optional parameter `is_executable` says whether the resulting file should be marked with executable permissions.
+
 ## Type `cmd_args`
 
 The `cmd_args` type is created by `cmd_args` and is consumed by `ctx.actions.run`. The type is a mutable collection of strings and `artifact` values. In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value. All these methods operate mutably on `cmd` and return that value too.
