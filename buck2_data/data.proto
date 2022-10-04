@@ -411,6 +411,9 @@ message CommandCriticalStart {
   //
   // The metadata will contain information from buckconfigs
   map<string, string> metadata = 1;
+
+  // DICE transaction version number.
+  uint64 dice_version = 2;
 }
 
 message AuditCommandStart {

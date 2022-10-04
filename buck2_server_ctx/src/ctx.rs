@@ -93,6 +93,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                         .span_async(
                             CommandCriticalStart {
                                 metadata: metadata.clone(),
+                                dice_version: dice.version(),
                             },
                             async move { (exec(self, dice).await, CommandCriticalEnd { metadata }) },
                         )
