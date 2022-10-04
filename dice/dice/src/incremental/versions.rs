@@ -39,7 +39,7 @@ use parking_lot::RawMutex;
 // split this due to formatters not agreeing
 #[derive(PartialEq, Hash, Clone, Ord, PartialOrd)]
 #[display(fmt = "v{}", "_0")]
-pub(crate) struct VersionNumber(usize);
+pub(crate) struct VersionNumber(pub(crate) usize);
 
 impl VersionNumber {
     /// First transaction has version number zero.

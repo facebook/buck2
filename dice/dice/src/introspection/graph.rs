@@ -51,7 +51,18 @@ pub struct KeyID(pub usize);
 #[serde(transparent)]
 pub struct NodeID(pub usize);
 
-#[derive(PartialEq, Eq, Hash, Clone, Dupe, Copy, Ord, PartialOrd)]
+#[derive(
+    PartialEq,
+    Eq,
+    Hash,
+    Clone,
+    Dupe,
+    Copy,
+    Ord,
+    PartialOrd,
+    derive_more::Display
+)]
+#[display(fmt = "{}", self.0)]
 pub struct VersionNumber(pub usize);
 
 impl Serialize for VersionNumber {
@@ -162,7 +173,9 @@ pub struct SerializedGraphNodesForKey {
 pub trait EngineForIntrospection {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
-    fn keys_currently_running<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
+    fn keys_currently_running<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (AnyKey, VersionNumber)> + 'a>;
     fn nodes<'a>(
         &'a self,
         keys: &'a mut HashMap<AnyKey, KeyID>,

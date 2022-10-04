@@ -68,10 +68,15 @@ where
         })
     }
 
-    fn keys_currently_running<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
+    fn keys_currently_running<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (AnyKey, crate::introspection::graph::VersionNumber)> + 'a> {
         box self.currently_running.iter().map(|e| {
-            let (k, _v) = e.key();
-            AnyKey::new(k.clone())
+            let (k, v) = e.key();
+            (
+                AnyKey::new(k.clone()),
+                crate::introspection::graph::VersionNumber(v.0),
+            )
         })
     }
 
