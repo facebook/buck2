@@ -1,4 +1,3 @@
-# Copyright 2004-present Facebook. All Rights Reserved.
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
