@@ -153,6 +153,10 @@ impl DiceTransaction {
     pub fn equivalent(&self, other: &DiceTransaction) -> bool {
         self.0.0.transaction_ctx.get_version() == other.0.0.transaction_ctx.get_version()
     }
+
+    pub fn version(&self) -> u64 {
+        self.0.0.transaction_ctx.get_version().0 as u64
+    }
 }
 
 impl Deref for DiceTransaction {
