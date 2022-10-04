@@ -14,7 +14,7 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
         crate_root = build_script,
         deps = [
             "fbsource//third-party/rust:tonic-build",
-            "//buck2/buck2_protoc_dev:buck2_protoc_dev",
+            "//buck2/app/buck2_protoc_dev:buck2_protoc_dev",
         ],
     )
 

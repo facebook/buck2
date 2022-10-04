@@ -5,6 +5,7 @@ resolver = "2"
 members = [
     # @oss-disable: "attic/uniplate",
     # @oss-disable: "attic/uniplate_derive",
+    "app/buck2_protoc_dev",
     "buck2_audit",
     "buck2_bxl",
     "buck2_core",
@@ -25,7 +26,6 @@ members = [
     "buck2_interpreter_for_build",
     "buck2_forkserver",
     "buck2_forkserver_proto",
-    "buck2_protoc_dev",
     "buck2_node",
     "buck2_execute",
     "buck2_execute_impl",

@@ -15,5 +15,5 @@ tonic = { workspace = true }
 buck2_data = { path = "../buck2_data" }
 
 [build-dependencies]
-buck2_protoc_dev = { path = "../buck2_protoc_dev" }
+buck2_protoc_dev = { path = "../app/buck2_protoc_dev" }
 tonic-build = { workspace = true }
