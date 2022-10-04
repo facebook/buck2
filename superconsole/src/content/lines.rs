@@ -16,6 +16,7 @@ use crossterm::style::Attributes;
 use crossterm::style::Color;
 use termwiz::cell::Intensity;
 use termwiz::color::ColorSpec;
+use termwiz::color::RgbColor;
 use termwiz::escape::csi::Sgr;
 use termwiz::escape::csi::CSI;
 use termwiz::escape::Action;
@@ -66,7 +67,7 @@ impl ColoredStringParser {
         match spec {
             ColorSpec::Default => None,
             ColorSpec::PaletteIndex(idx) => Some(Color::AnsiValue(idx)),
-            ColorSpec::TrueColor(tc) => Some(Color::from(tc.to_tuple_rgb8())),
+            ColorSpec::TrueColor(srgba) => Some(RgbColor::from(srgba).to_tuple_rgb8().into()),
         }
     }
 
