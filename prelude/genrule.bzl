@@ -265,6 +265,7 @@ def process_genrule(
         script,
         is_executable = True,
         allow_args = True,
+        with_inputs = True,
     )
     if is_windows:
         script_args = ["cmd.exe", "/c", sh_script]
@@ -276,7 +277,7 @@ def process_genrule(
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(script_args).hidden([cmd, srcs_artifact] + [a.as_output() for a in all_outputs]),
+        cmd_args(script_args).hidden([a.as_output() for a in all_outputs]),
         env = env_vars,
         local_only = local_only,
         allow_cache_upload = cacheable,
