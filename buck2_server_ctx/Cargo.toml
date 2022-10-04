@@ -8,6 +8,7 @@ description = "Common parts of Buck commands"
 anyhow = { workspace = true }
 async-condvar-fair = { workspace = true }
 async-trait = { workspace = true }
+itertools = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

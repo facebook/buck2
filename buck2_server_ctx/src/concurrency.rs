@@ -21,6 +21,7 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::prelude::*;
+use itertools::Itertools;
 use parking_lot::FairMutex;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
@@ -28,15 +29,15 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 enum ConcurrencyHandlerError {
     #[error(
-        "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Id: {0}"
+        "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}"
     )]
     NestedInvocationWithSameStates(String),
     #[error(
-        "Recursive invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Id: {0}"
+        "Recursive invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Ids: {0}"
     )]
     NestedInvocationWithDifferentStates(String),
     #[error(
-        "Parallel invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Id: {0}"
+        "Parallel invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Ids: {0}"
     )]
     ParallelInvocationWithDifferentStates(String),
 }
@@ -79,6 +80,21 @@ impl FromStr for NestedInvocation {
             _ => Err(InvalidType("NestedInvocation".to_owned(), s.to_owned())),
         }
     }
+}
+
+#[derive(Clone, Dupe, Copy, Debug)]
+pub enum RunState {
+    NestedSameState,
+    NestedDifferentState,
+    ParallelSameState,
+    ParallelDifferentState,
+}
+
+#[derive(Clone, Dupe, Copy, Debug)]
+pub enum BypassSemaphore {
+    Run(RunState),
+    Block,
+    Error,
 }
 
 /// Manages concurrent commands, blocking when appropriate.
@@ -189,70 +205,31 @@ impl ConcurrencyHandler {
             if let Some(active_dice) = &data.active_dice {
                 let is_same_state = active_dice.equivalent(&transaction);
 
-                let bypass_semaphore = if is_same_state {
-                    // if the dice context is equivalent, then we can run concurrently with the
-                    // current command.
-                    if is_nested_invocation {
-                        soft_error!(
-                            "nested_invocation_same_dice_state",
-                            anyhow::anyhow!(
-                                ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                                    trace.to_string(),
-                                )
-                            )
-                        )?;
-                    }
-                    true
-                } else if is_nested_invocation {
-                    match self.nested_invocation_config {
-                        NestedInvocation::Error => {
-                            return Err(anyhow::Error::new(
-                                ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                                    trace.to_string(),
-                                ),
-                            ));
-                        }
-                        NestedInvocation::Run => {
-                            soft_error!(
-                                "nested_invocation_different_dice_state",
-                                anyhow::anyhow!(
-                                    ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                                        trace.to_string(),
-                                    ),
-                                )
-                            )?;
-                            true
-                        }
-                    }
-                } else {
-                    match self.parallel_invocation_config {
-                        ParallelInvocation::Run => {
-                            soft_error!(
-                                "parallel_invocation_different_dice_state",
-                                anyhow::anyhow!(
-                                    ConcurrencyHandlerError::ParallelInvocationWithDifferentStates(
-                                        trace.to_string(),
-                                    ),
-                                )
-                            )?;
-                            true
-                        }
-                        ParallelInvocation::Block => {
-                            tracing::info!(
-                                "Running parallel invocation with different states with blocking. Trace Id: {}",
-                                trace.to_string(),
-                            );
-                            false
-                        }
-                    }
-                };
+                let bypass_semaphore =
+                    self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
 
-                if bypass_semaphore {
-                    *data.active_traces.entry(trace.dupe()).or_default() += 1;
+                match bypass_semaphore {
+                    BypassSemaphore::Error => {
+                        return Err(anyhow::Error::new(
+                            ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
+                                format_traces(&data.active_traces, Some(trace.dupe())),
+                            ),
+                        ));
+                    }
+                    BypassSemaphore::Run(state) => {
+                        *data.active_traces.entry(trace.dupe()).or_default() += 1;
+                        self.emit_logs(state, &data.active_traces)?;
 
-                    break;
-                } else {
-                    (data, baton) = self.cond.wait_baton(data).await;
+                        break;
+                    }
+                    BypassSemaphore::Block => {
+                        tracing::info!(
+                            "Running parallel invocation with different states with blocking. Currently active trace IDs: {}",
+                            format_traces(&data.active_traces, Some(trace.dupe())),
+                        );
+
+                        (data, baton) = self.cond.wait_baton(data).await;
+                    }
                 }
             } else {
                 data.active_dice = Some(transaction.dupe());
@@ -270,16 +247,98 @@ impl ConcurrencyHandler {
         // this lets us dispose of the `Baton`, which is no longer necessary for
         // ensuring that on exit/cancellation, the `notify` is passed onto another
         // thread. (the drop of `OnExit` will take care of it).
-        let on_exit = OnExecExit(self.dupe(), trace);
+        let drop_guard = OnExecExit(self.dupe(), trace.dupe());
         baton.dispose();
 
-        Ok((on_exit, transaction))
+        Ok((drop_guard, transaction))
     }
 
     /// Access dice without locking for dumps.
     pub fn unsafe_dice(&self) -> &Arc<Dice> {
         &self.dice
     }
+
+    fn determine_bypass_semaphore(
+        &self,
+        is_same_state: bool,
+        is_nested_invocation: bool,
+    ) -> BypassSemaphore {
+        if is_same_state {
+            if is_nested_invocation {
+                BypassSemaphore::Run(RunState::NestedSameState)
+            } else {
+                BypassSemaphore::Run(RunState::ParallelSameState)
+            }
+        } else if is_nested_invocation {
+            match self.nested_invocation_config {
+                NestedInvocation::Error => BypassSemaphore::Error,
+                NestedInvocation::Run => BypassSemaphore::Run(RunState::NestedDifferentState),
+            }
+        } else {
+            match self.parallel_invocation_config {
+                ParallelInvocation::Run => BypassSemaphore::Run(RunState::ParallelDifferentState),
+                ParallelInvocation::Block => BypassSemaphore::Block,
+            }
+        }
+    }
+
+    fn emit_logs(
+        &self,
+        state: RunState,
+        active_traces: &SmallMap<TraceId, usize>,
+    ) -> anyhow::Result<()> {
+        let active_traces = format_traces(active_traces, None);
+
+        match state {
+            RunState::NestedSameState => {
+                soft_error!(
+                    "nested_invocation_same_dice_state",
+                    anyhow::anyhow!(ConcurrencyHandlerError::NestedInvocationWithSameStates(
+                        active_traces,
+                    ))
+                )?;
+            }
+            RunState::NestedDifferentState => {
+                soft_error!(
+                    "nested_invocation_different_dice_state",
+                    anyhow::anyhow!(
+                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(active_traces,),
+                    )
+                )?;
+            }
+            RunState::ParallelDifferentState => {
+                soft_error!(
+                    "parallel_invocation_different_dice_state",
+                    anyhow::anyhow!(
+                        ConcurrencyHandlerError::ParallelInvocationWithDifferentStates(
+                            active_traces,
+                        ),
+                    )
+                )?;
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+}
+
+fn format_traces(
+    active_traces: &SmallMap<TraceId, usize>,
+    current_trace: Option<TraceId>,
+) -> String {
+    let mut traces = active_traces
+        .keys()
+        .map(|trace| trace.to_string())
+        .join(", ");
+
+    if let Some(trace) = current_trace {
+        if !active_traces.contains_key(&trace) {
+            traces.push_str(&format!(". Current trace (not active yet): {}", &trace));
+        }
+    }
+
+    traces
 }
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
