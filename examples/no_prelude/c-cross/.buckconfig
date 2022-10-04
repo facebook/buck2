@@ -1,0 +1,18 @@
+[repositories]
+self = .
+fbsource = no
+fbcode = no
+buck = no
+fbcode_macros = no
+prelude = prelude
+ovr_config = prelude
+toolchains = toolchains
+
+[buildfile]
+name = TARGETS
+
+[build]
+execution_platforms = toolchains//:default-platform
+
+[parser]
+target_platform_detector_spec = target://...->toolchains//:default-platform

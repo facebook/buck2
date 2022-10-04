@@ -1,0 +1,105 @@
+load(
+    ":defs.bzl",
+    "c_toolchain",
+    "c_cross_toolchain",
+    "inner_toolchain",
+    "outer_toolchain",
+    "execution_platform",
+    "target_platform",
+    "host_config",
+)
+
+constraint_setting(
+    name = "cpu",
+)
+
+constraint_value(
+    name = "x86_64",
+    constraint_setting = ":cpu",
+)
+
+constraint_setting(
+    name = "os",
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+)
+
+constraint_value(
+    name = "windows",
+    constraint_setting = ":os",
+)
+
+config_setting(
+    name = "x86_64-linux",
+    constraint_values = [
+        ":x86_64",
+        ":linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "x86_64-windows",
+    constraint_values = [
+        ":x86_64",
+        ":windows",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+execution_platform(
+    name = "default-platform",
+    configuration = host_config(),
+)
+
+target_platform(
+    name = "x86_64-linux-target",
+    configuration = ":x86_64-linux",
+    visibility = ["PUBLIC"],
+)
+
+target_platform(
+    name = "x86_64-windows-target",
+    configuration = ":x86_64-windows",
+    visibility = ["PUBLIC"],
+)
+
+outer_toolchain(
+    name = "c",
+    toolchain = select({
+        ":x86_64-linux": ":x86_64-linux-inner",
+        ":x86_64-windows": ":x86_64-windows-inner",
+    }),
+    visibility = ["PUBLIC"],
+)
+
+inner_toolchain(
+    name = "x86_64-linux-inner",
+    toolchain = select({
+        ":x86_64-linux": ":x86_64-linux-native",
+    }),
+)
+
+inner_toolchain(
+    name = "x86_64-windows-inner",
+    toolchain = select({
+        ":x86_64-linux": ":x86_64-windows-cross-x86_64-linux",
+    }),
+)
+
+c_toolchain(
+    name = "x86_64-linux-native",
+    platform = "linux-x86_64",
+    sha256 = "be8da632c1d3273f766b69244d80669fe4f5e27798654681d77c992f17c237d7",
+    version = "0.9.1",
+)
+
+c_cross_toolchain(
+    name = "x86_64-windows-cross-x86_64-linux",
+    base = ":x86_64-linux-native",
+    target = "x86_64-windows-gnu",
+    visibility = ["PUBLIC"],
+)

@@ -1,0 +1,20 @@
+load(":rules.bzl", "c_binary")
+
+c_binary(
+    name = "main.exe",
+    srcs = glob(["*.c"]),
+    toolchain = "toolchains//:c",
+    deps = [],
+)
+
+configured_alias(
+    name = "x86_64-linux-main.exe",
+    actual = ":main.exe",
+    platform = "toolchains//:x86_64-linux-target",
+)
+
+configured_alias(
+    name = "x86_64-windows-main.exe",
+    actual = ":main.exe",
+    platform = "toolchains//:x86_64-windows-target",
+)
