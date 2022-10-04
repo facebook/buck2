@@ -9,8 +9,6 @@
 
 use std::path::Path;
 use std::pin::Pin;
-use std::sync::Arc;
-use std::task;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
 use buck2_common::home_buck_tmp::home_buck_tmp_dir;
@@ -19,11 +17,8 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::FileName;
 use futures::Stream;
 use futures::TryFutureExt;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncWrite;
-use tokio::io::ReadBuf;
 use tokio::net::UnixListener;
-use tonic::transport::server::Connected;
+use tokio::net::UnixStream;
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
@@ -57,7 +52,7 @@ pub async fn create_listener(
 
         async_stream::stream! {
             loop {
-                let item = uds.accept().map_ok(|(st, _)| UnixStream(st)).await;
+                let item = uds.accept().map_ok(|(st, _)| st).await;
                 yield item;
             }
         }
@@ -67,52 +62,4 @@ pub async fn create_listener(
         format!("{}:{}", "uds", uds_path.to_str().unwrap().to_owned()),
         Box::pin(listener),
     ))
-}
-
-#[derive(Debug)]
-pub struct UnixStream(pub tokio::net::UnixStream);
-
-impl Connected for UnixStream {
-    type ConnectInfo = ();
-    fn connect_info(&self) {}
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct UdsConnectInfo {
-    pub _peer_addr: Option<Arc<tokio::net::unix::SocketAddr>>,
-    pub _peer_cred: Option<tokio::net::unix::UCred>,
-}
-
-impl AsyncRead for UnixStream {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> task::Poll<std::io::Result<()>> {
-        Pin::new(&mut self.0).poll_read(cx, buf)
-    }
-}
-
-impl AsyncWrite for UnixStream {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context<'_>,
-        buf: &[u8],
-    ) -> task::Poll<std::io::Result<usize>> {
-        Pin::new(&mut self.0).poll_write(cx, buf)
-    }
-
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context<'_>,
-    ) -> task::Poll<std::io::Result<()>> {
-        Pin::new(&mut self.0).poll_flush(cx)
-    }
-
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context<'_>,
-    ) -> task::Poll<std::io::Result<()>> {
-        Pin::new(&mut self.0).poll_shutdown(cx)
-    }
 }
