@@ -2,7 +2,7 @@ load("@root//:rules.bzl", "command")
 
 command(
     name="slower_locally",
-    command="slower_locally.sh",
+    command="slower_locally.py",
     default_target_platform="//platforms:target",
     exec_compatible_with=["//platforms:full_hybrid"],
 )

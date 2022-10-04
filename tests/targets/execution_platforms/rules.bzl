@@ -96,10 +96,9 @@ def _file_impl(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
-            "sh",
+            "python3",
             "-c",
-            'head -c "$1" /dev/urandom > $2',
-            "--",
+            "import os; import sys; f = open(sys.argv[2], 'wb'); f.write(os.urandom(int(sys.argv[1]))); f.close()",
             str(ctx.attrs.file_size),
             out.as_output(),
         ],
@@ -114,7 +113,9 @@ def _cp_impl(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
-            "cp",
+            "python3",
+            "-c",
+            "import shutil; import sys; shutil.copy(sys.argv[1], sys.argv[2]);",
             ctx.attrs.file[DefaultInfo].default_outputs[0],
             out.as_output(),
         ],
@@ -128,6 +129,7 @@ def _command_impl(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
+            "python3",
             ctx.attrs.command,
             out.as_output(),
         ],

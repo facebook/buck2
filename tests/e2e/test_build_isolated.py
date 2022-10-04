@@ -768,8 +768,7 @@ async def test_build_nested_subtargets(buck: Buck, tmpdir: LocalPath) -> None:
     asserts.assert_not_executable(output)
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 async def test_hybrid_executor_threshold(buck: Buck) -> None:
     await buck.build(
         "root//executor_threshold_tests/...",
@@ -788,8 +787,7 @@ async def test_hybrid_executor_threshold(buck: Buck) -> None:
     assert executors == expected
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 @pytest.mark.parametrize(
     "low_pass_filter",
     [
@@ -822,7 +820,7 @@ async def test_hybrid_executor_fallbacks(buck: Buck, low_pass_filter: str) -> No
     )
 
 
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 async def test_hybrid_executor_cancels_local_execution(buck: Buck) -> None:
     await buck.build(
         "root//executor_race_tests:slower_locally",
@@ -869,7 +867,7 @@ if False:
         )
 
 
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 async def test_hybrid_executor_logging(buck: Buck) -> None:
     await buck.build(
         "root//executor_fallback_tests:local_only",
@@ -899,8 +897,7 @@ async def test_hybrid_executor_logging(buck: Buck) -> None:
     assert commands[1]["status"] == {"Success": {}}
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 async def test_prefer_local(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -913,8 +910,7 @@ async def test_prefer_local(buck: Buck) -> None:
     )
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 async def test_local_only(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -956,6 +952,7 @@ async def test_re_uploads_dir(buck: Buck) -> None:
     _assert_upload_attempted(res.stderr)
 
 
+# TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 async def test_re_uploads_limit(buck: Buck) -> None:
