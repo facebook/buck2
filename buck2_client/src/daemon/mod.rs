@@ -8,4 +8,4 @@
  */
 
 pub mod client;
-pub mod daemon_windows;
+pub(crate) mod daemon_windows;

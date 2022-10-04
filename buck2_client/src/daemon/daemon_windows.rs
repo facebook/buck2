@@ -10,7 +10,7 @@
 use std::path::Path;
 
 #[cfg(not(windows))]
-pub fn spawn_background_process_on_windows<'a>(
+pub(crate) fn spawn_background_process_on_windows<'a>(
     _working_dir: &Path,
     _exe: &Path,
     _args: impl IntoIterator<Item = &'a str>,
@@ -23,7 +23,7 @@ pub fn spawn_background_process_on_windows<'a>(
 }
 
 #[cfg(windows)]
-pub fn spawn_background_process_on_windows<'a>(
+pub(crate) fn spawn_background_process_on_windows<'a>(
     working_dir: &Path,
     exe: &Path,
     args: impl IntoIterator<Item = &'a str>,

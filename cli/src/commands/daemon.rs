@@ -438,10 +438,6 @@ impl DaemonCommand {
             }
         } else {
             self.daemonize(project_root.root(), &pid_path, stdout, stderr)?;
-            // On Windows process will be restarted.
-            if cfg!(windows) {
-                return Ok(());
-            }
         }
         gazebo::terminate_on_panic();
 
@@ -510,21 +506,11 @@ impl DaemonCommand {
     /// Restart current process in detached mode with '--dont-daemonize' flag.
     fn daemonize(
         &self,
-        project_root: &AbsPath,
+        _project_root: &AbsPath,
         _pid_path: &AbsPath,
         _stdout: File,
         _stderr: File,
     ) -> anyhow::Result<()> {
-        use std::env;
-        use std::iter;
-
-        let args: Vec<String> = env::args().collect();
-        buck2_client::daemon::daemon_windows::spawn_background_process_on_windows(
-            project_root,
-            &env::current_exe()?,
-            args.iter()
-                .map(|s| s.as_str())
-                .chain(iter::once("--dont-daemonize")),
-        )
+        Err(anyhow::anyhow!("Cannot daemonize on Windows"))
     }
 }

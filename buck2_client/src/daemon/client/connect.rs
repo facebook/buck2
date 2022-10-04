@@ -36,6 +36,7 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::ClientKind;
 use crate::daemon::client::VersionCheckResult;
+use crate::daemon::daemon_windows::spawn_background_process_on_windows;
 use crate::events_ctx::EventsCtx;
 use crate::replayer::Replayer;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
@@ -68,6 +69,26 @@ impl<'a> BuckdLifecycle<'a> {
     }
 
     async fn start_server(&self) -> anyhow::Result<()> {
+        if cfg!(unix) {
+            // On Unix we spawn a process which forks and exits,
+            // and here we wait for that spawned process to terminate.
+
+            self.start_server_unix().await
+        } else {
+            spawn_background_process_on_windows(
+                self.paths.project_root().root(),
+                &env::current_exe()?,
+                [
+                    "--isolation-dir",
+                    self.paths.isolation.as_str(),
+                    "daemon",
+                    "--dont-daemonize",
+                ],
+            )
+        }
+    }
+
+    async fn start_server_unix(&self) -> anyhow::Result<()> {
         let project_dir = self.paths.project_root();
         let timeout_secs = Duration::from_secs(env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
             t.parse::<u64>()
