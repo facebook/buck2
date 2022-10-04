@@ -23,6 +23,7 @@ OCamlToolchainInfo = provider(fields = [
     "binutils_as",
     "dep_tool",
     "yacc_compiler",
+    "menhir_compiler",
     "lex_compiler",
     "libasmrun",  # The location of 'libasmrun.a'.
     "ocaml_bytecode_compiler",

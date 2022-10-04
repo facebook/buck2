@@ -282,7 +282,9 @@ def _compiler_compile(ctx: "context", compiler: "cmd_args", cc: "cmd_args", incl
 def _preprocess(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.type) -> ["artifact"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamllex = ocaml_toolchain.lex_compiler
-    ocamlyacc = ocaml_toolchain.yacc_compiler
+    _ocamlyacc = ocaml_toolchain.yacc_compiler  # Not used.
+    menhir = ocaml_toolchain.menhir_compiler  # Rather, we use menhir exclusively.
+
     result = []
     gen_dir = "_" + bytecode_or_native.value + "_gen_/"
     for src in srcs:
@@ -298,7 +300,7 @@ def _preprocess(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMod
             parser_sig = ctx.actions.declare_output(name + ".mli")
             result.extend((parser_sig, parser))
 
-            cmd = cmd_args([ocamlyacc, "-b", cmd_args(prefix).ignore_artifacts(), src])
+            cmd = cmd_args([menhir, "--fixed-exception", "-b", cmd_args(prefix).ignore_artifacts(), src])
             cmd.hidden(parser.as_output(), parser_sig.as_output())
             ctx.actions.run(cmd, category = "ocaml_yacc_" + bytecode_or_native.value, identifier = src.short_path)
 
