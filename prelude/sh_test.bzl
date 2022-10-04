@@ -10,7 +10,7 @@ def sh_test_impl(ctx: "context") -> ["provider"]:
         if type(ctx.attrs.test) == "artifact":
             args.add(ctx.attrs.test)
         elif type(ctx.attrs.test) == "dependency":
-            run_info = ctx.attrs.test[RunInfo]
+            run_info = ctx.attrs.test.get(RunInfo)
             if run_info != None:
                 args.add(run_info.args)
             else:
