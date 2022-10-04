@@ -16,7 +16,7 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.5"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.6"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
@@ -67,9 +67,9 @@ def _impl(ctx):
         ensured = ctx.output.ensure(outputDir)
         ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain, "version": CPP_GEN_CDB_SCRIPT_VERSION})
     elif genRuleTargetExist(ctx, filename):
-        ctx.output.print_json({"errorMessage": "This file belongs to a genrule target and is not supported right now"})
+        ctx.output.print_json({"errorMessage": "This file belongs to a genrule target and is not supported right now", "version": CPP_GEN_CDB_SCRIPT_VERSION})
     else:
-        ctx.output.print_json({"errorMessage": "Cannot find build target for this file"})
+        ctx.output.print_json({"errorMessage": "Cannot find build target for this file", "version": CPP_GEN_CDB_SCRIPT_VERSION})
 
 def parseToolChain(platform, toolchain):
     if "llvm-fb" in toolchain:
