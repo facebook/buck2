@@ -40,7 +40,7 @@ pub async fn get_channel(
 }
 
 #[cfg(unix)]
-async fn get_channel_uds(
+pub async fn get_channel_uds(
     unix_socket: &Path,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
@@ -103,7 +103,7 @@ async fn get_channel_uds_no_symlink(connect_to: &Path) -> anyhow::Result<Channel
 }
 
 #[cfg(windows)]
-async fn get_channel_uds(_unix_filename: &Path, _chg_dir: bool) -> anyhow::Result<Channel> {
+pub async fn get_channel_uds(_unix_filename: &Path, _chg_dir: bool) -> anyhow::Result<Channel> {
     Err(anyhow::Error::msg(
         "Unix domain sockets are not supported on Windows",
     ))

@@ -561,9 +561,9 @@ async fn connect_to_installer(
 ) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
-    use buck2_common::client_utils::get_channel;
+    use buck2_common::client_utils::get_channel_tcp;
+    use buck2_common::client_utils::get_channel_uds;
     use buck2_common::client_utils::retrying;
-    use buck2_common::client_utils::ConnectionType;
 
     // These numbers might need to be configured based on the installer
     let initial_delay = Duration::from_millis(100);
@@ -572,13 +572,7 @@ async fn connect_to_installer(
 
     // try to connect using uds first
     let attempt_channel = retrying(initial_delay, max_delay, timeout, async || {
-        get_channel(
-            ConnectionType::Uds {
-                unix_socket: unix_socket.to_owned(),
-            },
-            false,
-        )
-        .await
+        get_channel_uds(&unix_socket, false).await
     })
     .await;
     let channel = match attempt_channel {
@@ -589,14 +583,7 @@ async fn connect_to_installer(
                 err, tcp_port
             );
             retrying(initial_delay, max_delay, timeout, async || {
-                get_channel(
-                    ConnectionType::Tcp {
-                        socket: DEFAULT_SOCKET_ADDR.to_owned(),
-                        port: tcp_port.to_string(),
-                    },
-                    false,
-                )
-                .await
+                get_channel_tcp(DEFAULT_SOCKET_ADDR, &tcp_port.to_string()).await
             })
             .await
             .context("Failed to connect to with TCP and UDS")?
