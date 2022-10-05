@@ -27,6 +27,7 @@
 extern crate maplit;
 
 pub mod client_utils;
+pub mod connection_endpoint;
 pub mod convert;
 pub mod daemon_dir;
 pub mod dice;

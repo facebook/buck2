@@ -9,7 +9,6 @@
 
 use std::cmp;
 use std::path::Path;
-use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -18,13 +17,11 @@ use tokio::time::Instant;
 use tonic::transport::Channel;
 use tonic::transport::Endpoint;
 
+use crate::connection_endpoint::ConnectionType;
+
 pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";
 
-pub enum ConnectionType {
-    Uds { unix_socket: PathBuf },
-    Tcp { port: u16 },
-}
 // This function could potentialy change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable
 pub async fn get_channel(

@@ -16,7 +16,7 @@ use std::time::Duration;
 use anyhow::Context;
 use buck2_common::client_utils::get_channel;
 use buck2_common::client_utils::retrying;
-use buck2_common::client_utils::ConnectionType;
+use buck2_common::connection_endpoint::ConnectionType;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
