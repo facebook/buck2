@@ -36,6 +36,8 @@ use crate::package_imports::ImplicitImport;
 
 pub mod buckconfig;
 pub mod cell_info;
+pub mod xcode;
+pub use xcode::XcodeVersionInfo;
 
 #[derive(Error, Debug)]
 enum BuildContextError {

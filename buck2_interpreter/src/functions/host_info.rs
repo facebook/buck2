@@ -21,6 +21,15 @@ use starlark::values::Value;
 use crate::extra::BuildContext;
 use crate::extra::InterpreterHostArchitecture;
 use crate::extra::InterpreterHostPlatform;
+use crate::extra::XcodeVersionInfo;
+
+fn alloc_option_str(heap: &FrozenHeap, s: Option<String>) -> FrozenValue {
+    if let Some(unwrapped) = s {
+        heap.alloc(unwrapped)
+    } else {
+        heap.alloc(FrozenValue::new_none())
+    }
+}
 
 fn new_host_info(
     host_platform: InterpreterHostPlatform,
@@ -77,6 +86,41 @@ fn new_host_info(
         ],
     );
 
+    // Hack: Xcode version must be inferred from the platform we're running on
+    // since multiple Xcodes can live side-by-side and this is external state.
+    // Only try to populate this struct if we're running on macOS.
+    let xcode_info = if host_platform == InterpreterHostPlatform::MacOS {
+        XcodeVersionInfo::new().unwrap_or_default()
+    } else {
+        XcodeVersionInfo::default()
+    };
+    let xcode = new_struct(
+        &heap,
+        &[
+            (
+                "version_string",
+                alloc_option_str(&heap, xcode_info.version_string),
+            ),
+            (
+                "major_version",
+                alloc_option_str(&heap, xcode_info.major_version),
+            ),
+            (
+                "minor_version",
+                alloc_option_str(&heap, xcode_info.minor_version),
+            ),
+            (
+                "patch_version",
+                alloc_option_str(&heap, xcode_info.patch_version),
+            ),
+            ("is_beta", heap.alloc(xcode_info.is_beta)),
+            (
+                "build_number",
+                alloc_option_str(&heap, xcode_info.build_number),
+            ),
+        ],
+    );
+
     let info = new_struct(
         &heap,
         &[
@@ -86,6 +130,7 @@ fn new_host_info(
             // We want to be able to determine if we are on Buck v2 or not, this mechanism
             // is quick, cheap and Buck v1 compatible.
             ("buck2", FrozenValue::new_bool(true)),
+            ("xcode", xcode),
         ],
     );
 
