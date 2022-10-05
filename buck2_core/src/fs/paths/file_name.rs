@@ -35,28 +35,21 @@ enum FileNameError {
     Slashes(String),
 }
 
-struct FileNameVerifier;
-
-impl FileNameVerifier {
-    fn verify<P: ?Sized + AsRef<str>>(file_name: &P) -> anyhow::Result<()> {
-        let file_name = file_name.as_ref();
-        if file_name.is_empty() {
-            Err(anyhow::anyhow!(FileNameError::Empty))
-        } else if file_name == "." {
-            Err(anyhow::anyhow!(FileNameError::Dot))
-        } else if file_name == ".." {
-            Err(anyhow::anyhow!(FileNameError::DotDot))
-        } else if file_name.contains('/') || file_name.contains('\\') {
-            // Note we do not allow backslashes in file names
-            // even if it is valid file name on Linux.
-            Err(anyhow::anyhow!(FileNameError::Slashes(
-                file_name.to_owned()
-            )))
-        } else {
-            // At the moment we allow characters like '\0'
-            // even if they are not valid at least on Linux.
-            Ok(())
-        }
+fn verify_file_name(file_name: &str) -> anyhow::Result<()> {
+    if file_name.is_empty() {
+        Err(FileNameError::Empty.into())
+    } else if file_name == "." {
+        Err(FileNameError::Dot.into())
+    } else if file_name == ".." {
+        Err(FileNameError::DotDot.into())
+    } else if file_name.contains('/') || file_name.contains('\\') {
+        // Note we do not allow backslashes in file names
+        // even if it is valid file name on Linux.
+        Err(FileNameError::Slashes(file_name.to_owned()).into())
+    } else {
+        // At the moment we allow characters like '\0'
+        // even if they are not valid at least on Linux.
+        Ok(())
     }
 }
 
@@ -117,7 +110,7 @@ impl FileName {
     /// assert!(FileName::new("foo\\bar").is_err());
     /// ```
     pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> anyhow::Result<&Self> {
-        FileNameVerifier::verify(s)?;
+        verify_file_name(s.as_ref())?;
         Ok(Self::unchecked_new(s))
     }
 
@@ -277,7 +270,7 @@ impl TryFrom<String> for FileNameBuf {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> anyhow::Result<FileNameBuf> {
-        FileNameVerifier::verify(value.as_str())?;
+        verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value.into()))
     }
 }
