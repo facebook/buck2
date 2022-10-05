@@ -10,6 +10,7 @@
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
 use std::future;
+use std::io;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
@@ -54,9 +55,6 @@ use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::environment::GlobalsBuilder;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncWrite;
-use tonic::transport::server::Connected;
 use tonic::transport::Server;
 use tonic::Code;
 use tonic::Request;
@@ -67,6 +65,7 @@ use tracing::debug_span;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
+use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 use crate::jemalloc_stats::jemalloc_stats;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
@@ -212,7 +211,7 @@ pub struct BuckdServer {
 }
 
 impl BuckdServer {
-    pub async fn run<I, IO, IE>(
+    pub async fn run<I>(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
@@ -222,9 +221,7 @@ impl BuckdServer {
         callbacks: &'static dyn BuckdServerDependencies,
     ) -> anyhow::Result<()>
     where
-        I: Stream<Item = Result<IO, IE>>,
-        IO: AsyncRead + AsyncWrite + Connected + Unpin + Send + 'static,
-        IE: Into<Box<dyn std::error::Error + Send + Sync>> + Send,
+        I: Stream<Item = Result<TcpOrUnixStream, io::Error>>,
     {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
