@@ -63,7 +63,7 @@ def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
 
     return BuildTargetPattern(kind = kind, cell = cell, path = path, name = name)
 
-def label_matches_build_target_pattern(label: "label", pattern: BuildTargetPattern.type) -> bool.type:
+def label_matches_build_target_pattern(label: ["label", "target_label"], pattern: BuildTargetPattern.type) -> bool.type:
     if pattern.cell and pattern.cell != label.cell:
         return False
 
