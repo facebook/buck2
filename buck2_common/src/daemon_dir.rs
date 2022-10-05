@@ -8,10 +8,18 @@
  */
 
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileName;
 
 /// `~/.buck/buckd/repo-path` directory.
 #[derive(Debug, Clone, derive_more::Display)]
 #[display(fmt = "{}", path.display())]
 pub struct DaemonDir {
     pub path: AbsPathBuf,
+}
+
+impl DaemonDir {
+    /// Path to `buckd.info` file.
+    pub fn buckd_info(&self) -> anyhow::Result<AbsPathBuf> {
+        Ok(self.path.join(FileName::new("buckd.info")?))
+    }
 }

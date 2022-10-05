@@ -320,7 +320,7 @@ impl BuckdConnectOptions {
         &self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BootstrapBuckdClient> {
-        match self.try_connect_existing(paths).await {
+        match self.try_connect_existing(&paths.daemon_dir()?).await {
             Ok(mut client) => {
                 if self.existing_only || client.0.client.check_version().await?.is_match() {
                     // either the version matches or we don't care about the version, return the client.
@@ -345,7 +345,7 @@ impl BuckdConnectOptions {
 
         // Even if we didn't connect before, it's possible that we just raced with another invocation
         // starting the server, so we try to connect again while holding the lock.
-        if let Ok(mut client) = self.try_connect_existing(paths).await {
+        if let Ok(mut client) = self.try_connect_existing(&paths.daemon_dir()?).await {
             if self.existing_only || client.0.with_flushing().check_version().await?.is_match() {
                 // either the version matches or we don't care about the version, return the client.
                 return Ok(client);
@@ -367,7 +367,7 @@ impl BuckdConnectOptions {
             Duration::from_millis(100),
             buckd_startup_timeout()?,
             async || {
-                self.try_connect_existing(paths)
+                self.try_connect_existing(&paths.daemon_dir()?)
                     .await
                     .with_context(|| "Failed to start server")
             },
@@ -388,9 +388,9 @@ impl BuckdConnectOptions {
 
     async fn try_connect_existing(
         &self,
-        paths: &InvocationPaths,
+        daemon_dir: &DaemonDir,
     ) -> anyhow::Result<BootstrapBuckdClient> {
-        let location = paths.buckd_info()?;
+        let location = daemon_dir.buckd_info()?;
         let file = File::open(&location)
             .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
         let reader = BufReader::new(file);
@@ -418,7 +418,7 @@ impl BuckdConnectOptions {
 
         let client = DaemonApiClient::new(get_channel(connection_type, true).await?);
 
-        Ok(BootstrapBuckdClient::new(client, info, paths.daemon_dir()?))
+        Ok(BootstrapBuckdClient::new(client, info, daemon_dir.clone()))
     }
 }
 

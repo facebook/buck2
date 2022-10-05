@@ -126,11 +126,6 @@ impl InvocationPaths {
         Ok(DaemonDir { path: ret })
     }
 
-    /// Path to `buckd.info` file.
-    pub fn buckd_info(&self) -> anyhow::Result<AbsPathBuf> {
-        Ok(self.daemon_dir()?.path.join(FileName::new("buckd.info")?))
-    }
-
     pub fn cell_root(&self) -> &AbsPath {
         &self.roots.cell_root
     }

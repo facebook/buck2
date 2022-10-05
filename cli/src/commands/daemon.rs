@@ -201,12 +201,11 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
 }
 
 pub(crate) async fn init_listener(
-    paths: &InvocationPaths,
+    daemon_dir: &DaemonDir,
 ) -> anyhow::Result<(
     BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
     DaemonProcessInfo,
 )> {
-    let daemon_dir = paths.daemon_dir()?;
     let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf()).await?;
 
     buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
@@ -218,15 +217,15 @@ pub(crate) async fn init_listener(
     };
 
     // TODO(cjhopman): We shouldn't write this until the server is ready to accept clients, but tonic doesn't provide those hooks.
-    write_process_info(paths, &process_info)?;
+    write_process_info(daemon_dir, &process_info)?;
     Ok((listener, process_info))
 }
 
 pub(crate) fn write_process_info(
-    paths: &InvocationPaths,
+    daemon_dir: &DaemonDir,
     process_info: &DaemonProcessInfo,
 ) -> anyhow::Result<()> {
-    let file = File::create(paths.buckd_info()?)?;
+    let file = File::create(daemon_dir.buckd_info()?)?;
     serde_json::to_writer(&file, &process_info)?;
     Ok(())
 }
@@ -330,7 +329,7 @@ impl DaemonCommand {
             };
             let daemon_dir = paths.daemon_dir()?;
 
-            let (listener, process_info) = init_listener(&paths).await?;
+            let (listener, process_info) = init_listener(&daemon_dir).await?;
 
             listener_created();
 
