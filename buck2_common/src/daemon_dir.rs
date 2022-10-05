@@ -32,4 +32,9 @@ impl DaemonDir {
     pub fn buckd_stderr(&self) -> anyhow::Result<AbsPathBuf> {
         Ok(self.path.join(FileName::new("buckd.stderr")?))
     }
+
+    /// Path to `buckd.pid` file.
+    pub fn buckd_pid(&self) -> anyhow::Result<AbsPathBuf> {
+        Ok(self.path.join(FileName::new("buckd.pid")?))
+    }
 }

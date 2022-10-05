@@ -31,8 +31,6 @@ use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::paths::FileName;
-use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -231,7 +229,7 @@ pub(crate) fn write_process_info(
 }
 
 fn verify_current_daemon(daemon_dir: &DaemonDir) -> anyhow::Result<()> {
-    let file = daemon_dir.path.join(FileName::new("buckd.pid")?);
+    let file = daemon_dir.buckd_pid()?;
     let my_pid = process::id();
 
     let recorded_pid: u32 = fs_util::read_to_string(&file)?.trim().parse()?;
@@ -420,7 +418,7 @@ impl DaemonCommand {
         let daemon_dir = paths.daemon_dir()?;
         let stdout_path = daemon_dir.buckd_stdout()?;
         let stderr_path = daemon_dir.buckd_stderr()?;
-        let pid_path = daemon_dir.path.join(ForwardRelativePath::new("buckd.pid")?);
+        let pid_path = daemon_dir.buckd_pid()?;
 
         if !daemon_dir.path.is_dir() {
             fs_util::create_dir_all(&daemon_dir.path)?;
