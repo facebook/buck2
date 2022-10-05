@@ -36,6 +36,7 @@ use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerDependencies;
+use buck2_server::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 use buck2_server::docs::docs_command;
 use buck2_server::profile::profile_command;
 use buck2_server_commands::commands::build::build_command;
@@ -53,6 +54,7 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
 use futures::select;
+use futures::stream::BoxStream;
 use futures::FutureExt;
 use futures::StreamExt;
 use starlark::environment::GlobalsBuilder;
@@ -197,17 +199,14 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
 }
 
-pub(crate) async fn run_buckd(
-    fb: fbinit::FacebookInit,
-    paths: InvocationPaths,
-    detect_cycles: Option<DetectCycles>,
-    delegate: Box<dyn BuckdServerDelegate>,
-    // Called when TCP/UDS socket is created, address is written,
-    // and server is ready to accept connections.
-    listener_created: impl FnOnce(),
-) -> anyhow::Result<()> {
+pub(crate) async fn init_listener(
+    paths: &InvocationPaths,
+) -> anyhow::Result<(
+    BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
+    DaemonProcessInfo,
+)> {
     let daemon_dir = paths.daemon_dir()?;
-    let (endpoint, listener) = create_listener(&daemon_dir).await?;
+    let (endpoint, listener) = create_listener(daemon_dir.into_path_buf()).await?;
 
     buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
     let pid = process::id();
@@ -218,18 +217,8 @@ pub(crate) async fn run_buckd(
     };
 
     // TODO(cjhopman): We shouldn't write this until the server is ready to accept clients, but tonic doesn't provide those hooks.
-    write_process_info(&paths, &process_info)?;
-    listener_created();
-    BuckdServer::run(
-        fb,
-        paths,
-        delegate,
-        detect_cycles,
-        process_info,
-        listener,
-        &BuckdServerDependenciesImpl,
-    )
-    .await
+    write_process_info(paths, &process_info)?;
+    Ok((listener, process_info))
 }
 
 pub(crate) fn write_process_info(
@@ -338,8 +327,20 @@ impl DaemonCommand {
             };
             let daemon_dir = paths.daemon_dir()?;
 
-            let buckd_server =
-                run_buckd(fb, paths, detect_cycles, delegate, listener_created).fuse();
+            let (listener, process_info) = init_listener(&paths).await?;
+
+            listener_created();
+
+            let buckd_server = BuckdServer::run(
+                fb,
+                paths,
+                delegate,
+                detect_cycles,
+                process_info,
+                listener,
+                &BuckdServerDependenciesImpl,
+            )
+            .fuse();
             let shutdown_future = async move { hard_shutdown_receiver.next().await }.fuse();
             pin_mut!(buckd_server);
             pin_mut!(shutdown_future);

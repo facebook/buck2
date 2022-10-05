@@ -8,20 +8,19 @@
  */
 
 use std::net::SocketAddr;
-use std::path::Path;
-use std::pin::Pin;
+use std::path::PathBuf;
 
 use buck2_common::client_utils::SOCKET_ADDR;
+use futures::stream::BoxStream;
 use futures::stream::TryStreamExt;
-use futures::Stream;
 
 use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 
 pub async fn create_listener(
-    _daemon_dir: &Path,
+    _daemon_dir: PathBuf,
 ) -> anyhow::Result<(
     String,
-    Pin<Box<dyn Stream<Item = Result<TcpOrUnixStream, std::io::Error>>>>,
+    BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
 )> {
     let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
     let tcp_listener = tokio::net::TcpListener::bind(addr).await?;

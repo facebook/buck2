@@ -8,14 +8,14 @@
  */
 
 use std::path::Path;
-use std::pin::Pin;
+use std::path::PathBuf;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
 use buck2_common::home_buck_tmp::home_buck_tmp_dir;
 use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::FileName;
-use futures::Stream;
+use futures::stream::BoxStream;
 use futures::TryFutureExt;
 use tokio::net::UnixListener;
 
@@ -24,10 +24,10 @@ use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
 pub async fn create_listener(
-    daemon_dir: &Path,
+    daemon_dir: PathBuf,
 ) -> anyhow::Result<(
     String,
-    Pin<Box<dyn Stream<Item = Result<TcpOrUnixStream, std::io::Error>>>>,
+    BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
 )> {
     let uds_path = daemon_dir.join(UDS_DAEMON_FILENAME);
 
