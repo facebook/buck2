@@ -16,6 +16,7 @@ use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::soft_error;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
@@ -276,11 +277,17 @@ where
     fn at(&self, index: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),
-            Either::Right(provider_id) => Err(ProviderCollectionError::AtNotFound(
-                provider_id.name.clone(),
-                self.providers.keys().map(|k| k.name.clone()).collect(),
-            )
-            .into()),
+            Either::Right(provider_id) => {
+                soft_error!(
+                    "provider_collection_at_not_found",
+                    ProviderCollectionError::AtNotFound(
+                        provider_id.name.clone(),
+                        self.providers.keys().map(|k| k.name.clone()).collect(),
+                    )
+                    .into()
+                )?;
+                Ok(Value::new_none())
+            }
         }
     }
 
@@ -568,7 +575,7 @@ mod tests {
             load("//provider:defs2.bzl", "foo1", "bar1")
             def test():
                 col = create_collection([foo1, bar1, DefaultInfo()])
-                assert_eq(None, col.get(BazInfo))
+                assert_eq(None, col[BazInfo])
                 assert_eq("foo1", col[FooInfo].foo)
                 assert_eq("bar1", col[BarInfo].bar)
                 assert_eq([], col[DefaultInfo].default_outputs)
