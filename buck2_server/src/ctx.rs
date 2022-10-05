@@ -46,7 +46,6 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
-use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -320,6 +319,8 @@ impl ServerCommandContext {
             .as_ref()
             .map_or(false, |opts| opts.upload_all_actions);
 
+        let declare_in_local_executor = self.base_context.declare_in_local_executor;
+
         DiceCommandDataProvider {
             cell_configs_loader: self.cell_configs_loader.dupe(),
             events: self.events().dupe(),
@@ -333,6 +334,7 @@ impl ServerCommandContext {
             build_signals,
             forkserver,
             upload_all_actions,
+            declare_in_local_executor,
         }
     }
 
@@ -415,6 +417,7 @@ struct DiceCommandDataProvider {
     forkserver: Option<ForkserverClient>,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
+    declare_in_local_executor: bool,
 }
 
 #[async_trait]
@@ -439,13 +442,8 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .concurrency
             .unwrap_or_else(|| parse_concurrency(config_threads))?;
 
-        let declare_in_local_executor = root_config
-            .parse::<RolloutPercentage>("buck2", "declare_in_local_executor")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
         let executor_global_knobs = ExecutorGlobalKnobs {
-            declare_in_local_executor,
+            declare_in_local_executor: self.declare_in_local_executor,
         };
 
         let host_sharing_broker =
