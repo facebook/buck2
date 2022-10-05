@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::path::Path;
 use std::path::PathBuf;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
@@ -31,9 +30,9 @@ pub async fn create_listener(
 )> {
     let uds_path = daemon_dir.join(UDS_DAEMON_FILENAME);
 
-    tokio::fs::create_dir_all(&uds_path.parent().unwrap()).await?;
-    if Path::exists(&uds_path) {
-        std::fs::remove_file(&uds_path)?;
+    fs_util::create_dir_all(&uds_path.parent().unwrap())?;
+    if fs_util::try_exists(&uds_path)? {
+        fs_util::remove_file(&uds_path)?;
     }
 
     let listener = {
