@@ -9,6 +9,7 @@
 
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 
+use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -423,17 +424,19 @@ impl DaemonCommand {
         if !daemon_dir.is_dir() {
             fs_util::create_dir_all(daemon_dir)?;
         }
+
+        // TODO(nga): this breaks relative paths in `--no-buckd`.
+        //   `--no-buckd` should capture correct directories earlier.
+        //   Or even better, client should set current directory to project root,
+        //   and resolve all paths relative to original cwd.
+        env::set_current_dir(project_root.root())?;
+
         let stdout = File::create(stdout_path)?;
         let stderr = File::create(stderr_path)?;
 
         if self.dont_daemonize {
             let mut pid_file = File::create(pid_path)?;
             write!(pid_file, "{}", std::process::id())?;
-            // TODO(nga): this breaks relative paths in `--no-buckd`.
-            //   `--no-buckd` should capture correct directories earlier.
-            //   Or even better, client should set current directory to project root,
-            //   and resolve all paths relative to original cwd.
-            std::env::set_current_dir(project_root.root())?;
             if !self.dont_redirect_output {
                 self.redirect_output(stdout, stderr)?;
             }
