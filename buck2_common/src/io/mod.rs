@@ -1,4 +1,4 @@
-#[cfg(off)] // @oss-enable
+#[cfg(any(fbcode_build, cargo_internal_build))]
 pub mod eden;
 
 pub mod fs;
@@ -47,7 +47,7 @@ pub async fn create_io_provider(
     project_fs: ProjectRoot,
     root_config: Option<&LegacyBuckConfig>,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
-    #[cfg(off)] // @oss-enable
+    #[cfg(any(fbcode_build, cargo_internal_build))]
     {
         use buck2_core::rollout_percentage::RolloutPercentage;
 

@@ -364,7 +364,7 @@ impl DaemonState {
                 )))
             }
             MaterializationMethod::Eden => {
-                #[cfg(off)] // @oss-enable
+                #[cfg(any(fbcode_build, cargo_internal_build))]
                 {
                     use buck2_execute::materialize::eden_api::EdenBuckOut;
                     use buck2_execute_impl::materializers::eden::EdenMaterializer;
@@ -393,7 +393,7 @@ impl DaemonState {
                         ))
                     }
                 }
-                // @oss-disable: #[cfg(off)]
+                #[cfg(not(any(fbcode_build, cargo_internal_build)))]
                 {
                     let _unused = buck_out_path;
                     let _unused = fs;

@@ -29,7 +29,7 @@ pub fn collect() -> HashMap<String, String> {
 
     let mut map = HashMap::new();
 
-    #[cfg(off)] // @oss-enable
+    #[cfg(any(fbcode_build, cargo_internal_build))]
     {
         map.insert(
             "hostname".to_owned(),

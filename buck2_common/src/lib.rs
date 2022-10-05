@@ -31,7 +31,7 @@ pub mod connection_endpoint;
 pub mod convert;
 pub mod daemon_dir;
 pub mod dice;
-#[cfg(off)] // @oss-enable
+#[cfg(any(fbcode_build, cargo_internal_build))]
 pub mod eden;
 pub mod events;
 pub mod executor_config;

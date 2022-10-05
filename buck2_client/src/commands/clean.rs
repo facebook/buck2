@@ -169,7 +169,7 @@ fn clean_buck_out(path: &AbsPathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(off)] // @oss-enable
+#[cfg(any(fbcode_build, cargo_internal_build))]
 async fn try_clean_eden_buck_out(
     buck_out: &AbsPathBuf,
     dryrun: bool,
@@ -219,7 +219,7 @@ async fn try_clean_eden_buck_out(
     Ok(Some(vec![buck_out.display().to_string()]))
 }
 
-// @oss-disable: #[cfg(off)]
+#[cfg(not(any(fbcode_build, cargo_internal_build)))]
 async fn try_clean_eden_buck_out(
     _buck_out: &AbsPathBuf,
     _dryrun: bool,

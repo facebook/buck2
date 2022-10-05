@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-#[cfg(off)] // @oss-enable
+#[cfg(any(fbcode_build, cargo_internal_build))]
 pub mod eden;
 
 pub mod deferred;

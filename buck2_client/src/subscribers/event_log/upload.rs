@@ -123,13 +123,13 @@ pub(crate) async fn log_upload(
 
 /// Return the place to upload logs, or None to not upload logs at all
 pub(crate) fn log_upload_url() -> Option<&'static str> {
-    #[cfg(off)] // @oss-enable
+    #[cfg(any(fbcode_build, cargo_internal_build))]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
     } else {
         Some("https://manifold.c2p.facebook.net")
     }
-    // @oss-disable: #[cfg(off)]
+    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
     {
         #[cfg(fbcode_build)]
         compile_error!("this code is not meant to be compiled in fbcode");

@@ -31,17 +31,17 @@ use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::ActionDigest;
-#[cfg(off)] // @oss-enable
+#[cfg(any(fbcode_build, cargo_internal_build))]
 use crate::materialize::eden_api::EdenBuckOut;
 use crate::materialize::http::Checksum;
 
 // Add a stub EdenBuckOut for when we don't have Eden output enabled
-// @oss-disable: #[cfg(off)]
+#[cfg(not(any(fbcode_build, cargo_internal_build)))]
 pub struct EdenBuckOut {
     not_implemented: !,
 }
 
-// @oss-disable: #[cfg(off)]
+#[cfg(not(any(fbcode_build, cargo_internal_build)))]
 impl EdenBuckOut {
     pub async fn remove_paths_recursive(
         &self,
