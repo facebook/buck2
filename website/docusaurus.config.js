@@ -58,6 +58,12 @@ const itemFilter = require('./sidebars.js').itemFilter;
             label: 'User guide',
           },
           {
+            type: 'doc',
+            docId: '/generated/starlark/prelude',
+            position: 'left',
+            label: 'API',
+          },
+          {
             href: 'https://www.internalfb.com/code/buck2',
             label: 'CodeHub',
             position: 'right',
