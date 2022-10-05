@@ -407,7 +407,9 @@ impl BuckdConnectOptions {
             },
             "tcp" => ConnectionType::Tcp {
                 socket: SOCKET_ADDR.to_owned(),
-                port: endpoint.to_owned(),
+                port: endpoint
+                    .parse()
+                    .with_context(|| format!("port number is incorrect in `{}`", endpoint))?,
             },
             _ => {
                 return Err(anyhow::anyhow!(BuckdConnectError::ParseError(

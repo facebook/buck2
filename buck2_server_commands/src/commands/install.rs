@@ -583,7 +583,7 @@ async fn connect_to_installer(
                 err, tcp_port
             );
             retrying(initial_delay, max_delay, timeout, async || {
-                get_channel_tcp(DEFAULT_SOCKET_ADDR, &tcp_port.to_string()).await
+                get_channel_tcp(DEFAULT_SOCKET_ADDR, tcp_port).await
             })
             .await
             .context("Failed to connect to with TCP and UDS")?
@@ -599,7 +599,7 @@ async fn connect_to_installer(
 ) -> anyhow::Result<InstallerClient<Channel>> {
     println!("Trying to connect using TCP port: {}", tcp_port);
 
-    let channel = get_channel_tcp(DEFAULT_SOCKET_ADDR, &tcp_port.to_string()).await?;
+    let channel = get_channel_tcp(DEFAULT_SOCKET_ADDR, tcp_port).await?;
 
     Ok(InstallerClient::new(channel))
 }
