@@ -10,7 +10,6 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-use std::path::Path;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -24,7 +23,6 @@ use buck2_core::process::async_background_command;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
 use futures::future::try_join3;
-use gazebo::prelude::StrExt;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
@@ -399,22 +397,8 @@ impl BuckdConnectOptions {
                 location.display(),
             )
         })?;
-        let (protocol, endpoint) = info.endpoint.split1(":");
-        let connection_type = match protocol {
-            "uds" => ConnectionType::Uds {
-                unix_socket: Path::new(endpoint).to_path_buf(),
-            },
-            "tcp" => ConnectionType::Tcp {
-                port: endpoint
-                    .parse()
-                    .with_context(|| format!("port number is incorrect in `{}`", endpoint))?,
-            },
-            _ => {
-                return Err(anyhow::anyhow!(BuckdConnectError::ParseError(
-                    endpoint.to_owned()
-                )));
-            }
-        };
+
+        let connection_type = ConnectionType::parse(&info.endpoint)?;
 
         let client = DaemonApiClient::new(get_channel(connection_type, true).await?);
 
@@ -434,6 +418,4 @@ enum BuckdConnectError {
     },
     #[error("during buck daemon startup, the started process had the wrong version.")]
     BuckDaemonVersionWrongAfterStart { expected: String, actual: String },
-    #[error("Failed to parse correct endpoint information {0}")]
-    ParseError(String),
 }
