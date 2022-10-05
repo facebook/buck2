@@ -21,7 +21,3 @@ buck2_core = { path = "../buck2_core" }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
-
-[[bin]]
-name = "queryparse"
-path = "bin/query_parse.rs"
