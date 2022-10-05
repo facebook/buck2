@@ -224,6 +224,7 @@ pub(crate) fn display_event(
                 "Sending {} at path {}",
                 info.artifact_name, info.file_path
             )),
+            Data::DiceStateUpdate(..) => Ok("Syncing changes to graph".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

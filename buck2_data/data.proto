@@ -64,6 +64,7 @@ message SpanStartEvent {
     CreateOutputSymlinksStart create_output_symlinks = 64;
     CommandCriticalStart command_critical = 65;
     InstallEventInfoStart install_event_info = 66;
+    DiceStateUpdateStart dice_state_update = 67;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -94,6 +95,7 @@ message SpanEndEvent {
     CreateOutputSymlinksEnd create_output_symlinks = 65;
     CommandCriticalEnd command_critical = 66;
     InstallEventInfoEnd install_event_info = 67;
+    DiceStateUpdateEnd dice_state_update = 68;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1175,3 +1177,7 @@ message InstallEventInfoStart {
 };
 
 message InstallEventInfoEnd {};
+
+message DiceStateUpdateStart {}
+
+message DiceStateUpdateEnd {}

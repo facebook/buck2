@@ -267,6 +267,7 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             | Data::SharedTask(..)
             | Data::CreateOutputSymlinks(..)
             | Data::InstallEventInfo(..)
+            | Data::DiceStateUpdate(..)
             | Data::Fake(..),
         ) => true,
         None => false,

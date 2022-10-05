@@ -195,6 +195,7 @@ mod fbcode {
                     Some(Data::CreateOutputSymlinks(..)) => false,
                     Some(Data::CommandCritical(..)) => false,
                     Some(Data::InstallEventInfo(..)) => false,
+                    Some(Data::DiceStateUpdate(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -221,6 +222,7 @@ mod fbcode {
                     Some(Data::CreateOutputSymlinks(..)) => false,
                     Some(Data::CommandCritical(..)) => false,
                     Some(Data::InstallEventInfo(..)) => false,
+                    Some(Data::DiceStateUpdate(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }
