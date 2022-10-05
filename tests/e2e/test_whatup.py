@@ -27,7 +27,7 @@ async def test_whatup_command(buck: Buck) -> None:
                 break
         f.close()
 
-    ext = await buck.log("whatup", "--path", log_file.name)
+    ext = await buck.log("whatup", log_file.name)
     assert "running analysis" in ext.stdout
 
 

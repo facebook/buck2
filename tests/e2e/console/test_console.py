@@ -12,7 +12,7 @@ def fixture(name: str) -> str:
 @buck_test(inplace=True)
 async def test_console_facts(buck: Buck) -> None:
     res = await buck.debug(
-        "replay", "--path", fixture("my_genrule0"), "--", "build", "--console", "simple"
+        "replay", fixture("my_genrule0"), "--", "build", "--console", "simple"
     )
     assert re.search("RE: .*([0-9.]+)([KMG]?) B", res.stderr) is not None
     assert "Cache hits: 100%" in res.stderr
@@ -22,7 +22,7 @@ async def test_console_facts(buck: Buck) -> None:
 @buck_test(inplace=True)
 async def test_super_console_facts(buck: Buck) -> None:
     res = await buck.debug(
-        "replay", "--path", fixture("my_genrule0"), "--", "build", "--console", "super"
+        "replay", fixture("my_genrule0"), "--", "build", "--console", "super"
     )
     assert re.search("RE: .*([0-9.]+)([KMG]?) B", res.stderr) is not None
     assert "Cache hits: 100%" in res.stderr
@@ -33,7 +33,6 @@ async def test_super_console_facts(buck: Buck) -> None:
 async def test_whatran(buck: Buck) -> None:
     res = await buck.log(
         "what-ran",
-        "--path",
         fixture("my_genrule0"),
     )
     assert "cache" in res.stdout

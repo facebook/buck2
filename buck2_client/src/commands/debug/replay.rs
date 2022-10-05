@@ -26,7 +26,6 @@ use crate::subscribers::event_log::file_names::retrieve_nth_recent_log;
 pub struct ReplayCommand {
     /// The path to read the event log from.
     #[clap(
-        long,
         help = "A path to an event-log file to read from. Only works for log files with a single command in them.",
         group = "event_log",
         value_name = "PATH"

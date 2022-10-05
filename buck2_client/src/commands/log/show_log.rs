@@ -25,7 +25,6 @@ use crate::subscribers::event_log::SerializeForLog;
 pub struct ShowLogCommand {
     /// The path to read the event log from.
     #[clap(
-        long,
         help = "A path to an event-log file to read from. Only works for log files with a single command in them.",
         group = "event_log",
         value_name = "PATH"

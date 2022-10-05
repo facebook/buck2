@@ -37,7 +37,7 @@ use crate::verbosity::Verbosity;
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct WhatUpCommand {
     /// A path to an event-log file to read from. Only works for log files with a single command in them.
-    #[clap(long, group = "event_log", value_name = "PATH")]
+    #[clap(group = "event_log", value_name = "PATH")]
     path: Option<PathBuf>,
 
     /// Which recent command to read the event log from.
