@@ -41,6 +41,13 @@ const itemFilter = require('./sidebars.js').itemFilter;
     ],
   ],
 
+  plugins: [
+    [require.resolve('docusaurus-lunr-search'), {
+        excludeRoutes: [
+        ]
+    }]
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
