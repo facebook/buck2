@@ -23,7 +23,7 @@ pub static SOCKET_ADDR: &str = "127.0.0.1";
 
 pub enum ConnectionType {
     Uds { unix_socket: PathBuf },
-    Tcp { socket: String, port: u16 },
+    Tcp { port: u16 },
 }
 // This function could potentialy change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable
@@ -35,7 +35,7 @@ pub async fn get_channel(
         ConnectionType::Uds { unix_socket } => {
             get_channel_uds(&unix_socket, change_to_parent_dir).await
         }
-        ConnectionType::Tcp { socket, port } => get_channel_tcp(&socket, port).await,
+        ConnectionType::Tcp { port } => get_channel_tcp(SOCKET_ADDR, port).await,
     }
 }
 
