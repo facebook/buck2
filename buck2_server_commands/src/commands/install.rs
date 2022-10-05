@@ -30,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::InstallInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::executor_config::PathSeparatorKind;
@@ -561,7 +562,6 @@ async fn connect_to_installer(
 ) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
-    use buck2_common::client_utils::get_channel_tcp;
     use buck2_common::client_utils::get_channel_uds;
     use buck2_common::client_utils::retrying;
 
@@ -597,16 +597,11 @@ async fn connect_to_installer(
     _unix_socket: PathBuf,
     tcp_port: u16,
 ) -> anyhow::Result<InstallerClient<Channel>> {
-    use tonic::transport::Endpoint;
-    let url = format!("http://{}:{}", DEFAULT_SOCKET_ADDR, tcp_port);
     println!("Trying to connect using TCP port: {}", tcp_port);
 
-    let channel = Endpoint::try_from(url)?
-        .connect()
-        .await
-        .context("Failed to connect to installer domain socket file")?;
-    let client = InstallerClient::new(channel);
-    Ok(client)
+    let channel = get_channel_tcp(DEFAULT_SOCKET_ADDR, &tcp_port.to_string()).await?;
+
+    Ok(InstallerClient::new(channel))
 }
 
 async fn send_file(
