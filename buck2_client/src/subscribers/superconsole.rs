@@ -254,7 +254,7 @@ impl SuperConsoleState {
             &self.current_tick,
             &self.time_speed,
             &self.dice_state,
-            self.simple_console.re_state(),
+            self.simple_console.re_panel(),
             &self.simple_console.io_state,
             &self.debug_events,
             &self.timed_list,
@@ -351,7 +351,7 @@ impl EventSubscriber for StatefulSuperConsole {
                 .await?;
         } else if c == 'r' {
             self.toggle("Detailed RE", 'r', |s| {
-                &mut s.state.simple_console.re_state_mut().detailed
+                &mut s.state.simple_console.re_panel_mut().detailed
             })
             .await?;
         } else if c == 'i' {
@@ -438,7 +438,7 @@ impl EventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         self.state
             .simple_console
-            .re_state_mut()
+            .re_panel_mut()
             .add_re_session(session);
         Ok(())
     }

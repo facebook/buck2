@@ -7,14 +7,14 @@ use crate::subscribers::humanized_bytes::HumanizedBytes;
 use crate::subscribers::humanized_bytes::HumanizedBytesPerSecond;
 use crate::subscribers::two_snapshots::TwoSnapshots;
 
-pub(crate) struct ReState {
+pub(crate) struct RePanel {
     session_id: Option<String>,
     two_snapshots: TwoSnapshots,
     /// Detailed RE stats.
     pub(crate) detailed: bool,
 }
 
-impl ReState {
+impl RePanel {
     pub(crate) fn new() -> Self {
         Self {
             session_id: None,

@@ -31,7 +31,7 @@ use crate::subscribers::io::io_in_flight_non_zero_counters;
 use crate::subscribers::io::IoState;
 use crate::subscribers::last_command_execution_kind::get_last_command_execution_kind;
 use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
-use crate::subscribers::re::ReState;
+use crate::subscribers::re_panel::RePanel;
 use crate::subscribers::span_tracker::SpanTracker;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -193,7 +193,7 @@ pub(crate) struct SimpleConsole {
     last_print_time: Instant,
     test_session: Option<String>,
     action_stats: ActionStats,
-    re_state: ReState,
+    re_panel: RePanel,
     pub(crate) io_state: IoState,
     two_snapshots: TwoSnapshots,
 }
@@ -209,7 +209,7 @@ impl SimpleConsole {
             last_print_time: Instant::now(),
             test_session: None,
             action_stats: ActionStats::default(),
-            re_state: ReState::new(),
+            re_panel: RePanel::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
         }
@@ -225,7 +225,7 @@ impl SimpleConsole {
             last_print_time: Instant::now(),
             test_session: None,
             action_stats: ActionStats::default(),
-            re_state: ReState::new(),
+            re_panel: RePanel::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
         }
@@ -251,12 +251,12 @@ impl SimpleConsole {
         &mut self.action_stats
     }
 
-    pub(crate) fn re_state(&self) -> &ReState {
-        &self.re_state
+    pub(crate) fn re_panel(&self) -> &RePanel {
+        &self.re_panel
     }
 
-    pub(crate) fn re_state_mut(&mut self) -> &mut ReState {
-        &mut self.re_state
+    pub(crate) fn re_panel_mut(&mut self) -> &mut RePanel {
+        &mut self.re_panel
     }
 
     pub(crate) async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
@@ -287,7 +287,7 @@ impl SimpleConsole {
     }
 
     fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
-        if let Some(h) = self.re_state.render_header(DrawMode::Normal) {
+        if let Some(h) = self.re_panel.render_header(DrawMode::Normal) {
             echo!("{}", h)?;
         }
 
@@ -415,7 +415,7 @@ impl EventSubscriber for SimpleConsole {
             )?;
         }
 
-        if let Some(re) = &self.re_state.render_header(DrawMode::Final) {
+        if let Some(re) = &self.re_panel.render_header(DrawMode::Final) {
             echo!("{}", re)?;
         }
 
@@ -439,7 +439,7 @@ impl EventSubscriber for SimpleConsole {
         session: &buck2_data::RemoteExecutionSessionCreated,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.re_state_mut().add_re_session(session);
+        self.re_panel_mut().add_re_session(session);
         let message = format!("RE Session: {}", session.session_id);
         self.handle_stderr(&message).await
     }
@@ -606,7 +606,7 @@ impl EventSubscriber for SimpleConsole {
         update: &buck2_data::Snapshot,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.re_state_mut().update(event.timestamp, update);
+        self.re_panel_mut().update(event.timestamp, update);
         self.io_state.update(event.timestamp, update);
         self.two_snapshots.update(event.timestamp, update);
         Ok(())

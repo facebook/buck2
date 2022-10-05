@@ -13,7 +13,7 @@ pub mod get;
 pub(crate) mod humanized_bytes;
 pub(crate) mod io;
 pub mod last_command_execution_kind;
-pub mod re;
+pub mod re_panel;
 pub mod recorder;
 pub mod simpleconsole;
 pub mod span_tracker;
