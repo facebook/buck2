@@ -10,6 +10,7 @@
 use std::path::PathBuf;
 
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
+use buck2_common::connection_endpoint::ConnectionType;
 use buck2_common::home_buck_tmp::home_buck_tmp_dir;
 use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
@@ -25,7 +26,7 @@ use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 pub async fn create_listener(
     daemon_dir: PathBuf,
 ) -> anyhow::Result<(
-    String,
+    ConnectionType,
     BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
 )> {
     let uds_path = daemon_dir.join(UDS_DAEMON_FILENAME);
@@ -59,7 +60,9 @@ pub async fn create_listener(
     };
 
     Ok((
-        format!("{}:{}", "uds", uds_path.to_str().unwrap().to_owned()),
+        ConnectionType::Uds {
+            unix_socket: uds_path,
+        },
         Box::pin(listener),
     ))
 }

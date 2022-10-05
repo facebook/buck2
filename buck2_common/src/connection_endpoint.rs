@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -24,6 +25,16 @@ pub enum ConnectionType {
     Tcp { port: u16 },
 }
 
+impl Display for ConnectionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // NOTE: `Display` must be compatible with `parse`.
+        match self {
+            ConnectionType::Uds { unix_socket } => write!(f, "uds:{}", unix_socket.display()),
+            ConnectionType::Tcp { port } => write!(f, "tcp:{}", port),
+        }
+    }
+}
+
 impl ConnectionType {
     pub fn parse(endpoint: &str) -> anyhow::Result<ConnectionType> {
         let (protocol, endpoint) = endpoint.split1(":");
@@ -38,5 +49,30 @@ impl ConnectionType {
             }),
             _ => Err(ConnectionTypeError::ParseError(endpoint.to_owned()).into()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::connection_endpoint::ConnectionType;
+
+    #[test]
+    fn test_fmt_parse() {
+        assert_eq!(
+            "tcp:1719",
+            &format!("{}", ConnectionType::Tcp { port: 1719 })
+        );
+
+        let path = if cfg!(windows) {
+            PathBuf::from("c:\\path")
+        } else {
+            PathBuf::from("/path")
+        };
+        assert_eq!(
+            &format!("uds:{}", path.display()),
+            &format!("{}", ConnectionType::Uds { unix_socket: path })
+        );
     }
 }

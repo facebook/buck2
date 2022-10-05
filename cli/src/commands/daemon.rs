@@ -210,7 +210,7 @@ pub(crate) async fn init_listener(
     let pid = process::id();
     let process_info = DaemonProcessInfo {
         pid: pid as i64,
-        endpoint,
+        endpoint: endpoint.to_string(),
         version: BuckVersion::get().unique_id().to_owned(),
     };
 
