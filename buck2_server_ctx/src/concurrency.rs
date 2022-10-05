@@ -22,7 +22,9 @@ use dice::DiceTransaction;
 use dice::UserComputationData;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use parking_lot::lock_api::MutexGuard;
 use parking_lot::FairMutex;
+use parking_lot::RawFairMutex;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
@@ -212,20 +214,19 @@ impl ConcurrencyHandler {
                     BypassSemaphore::Error => {
                         return Err(anyhow::Error::new(
                             ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                                format_traces(&data.active_traces, Some(trace.dupe())),
+                                format_traces(&data.active_traces, trace.dupe()),
                             ),
                         ));
                     }
                     BypassSemaphore::Run(state) => {
-                        *data.active_traces.entry(trace.dupe()).or_default() += 1;
-                        self.emit_logs(state, &data.active_traces)?;
+                        self.emit_logs(state, &data.active_traces, trace.dupe())?;
 
                         break;
                     }
                     BypassSemaphore::Block => {
                         tracing::info!(
                             "Running parallel invocation with different states with blocking. Currently active trace IDs: {}",
-                            format_traces(&data.active_traces, Some(trace.dupe())),
+                            format_traces(&data.active_traces, trace.dupe()),
                         );
 
                         (data, baton) = self.cond.wait_baton(data).await;
@@ -233,21 +234,16 @@ impl ConcurrencyHandler {
                 }
             } else {
                 data.active_dice = Some(transaction.dupe());
-                *data.active_traces.entry(trace.dupe()).or_default() += 1;
 
                 break;
             }
         }
 
-        // free the lock. We are done managing the command semaphore state such that we
-        // are now registered to be running.
-        drop(data);
-
         // create the on exit drop handler, which will take care of notifying tasks.
         // this lets us dispose of the `Baton`, which is no longer necessary for
         // ensuring that on exit/cancellation, the `notify` is passed onto another
         // thread. (the drop of `OnExit` will take care of it).
-        let drop_guard = OnExecExit(self.dupe(), trace.dupe());
+        let drop_guard = OnExecExit::new(self.dupe(), trace.dupe(), data);
         baton.dispose();
 
         Ok((drop_guard, transaction))
@@ -286,8 +282,9 @@ impl ConcurrencyHandler {
         &self,
         state: RunState,
         active_traces: &SmallMap<TraceId, usize>,
+        current_trace: TraceId,
     ) -> anyhow::Result<()> {
-        let active_traces = format_traces(active_traces, None);
+        let active_traces = format_traces(active_traces, current_trace);
 
         match state {
             RunState::NestedSameState => {
@@ -323,19 +320,14 @@ impl ConcurrencyHandler {
     }
 }
 
-fn format_traces(
-    active_traces: &SmallMap<TraceId, usize>,
-    current_trace: Option<TraceId>,
-) -> String {
+fn format_traces(active_traces: &SmallMap<TraceId, usize>, current_trace: TraceId) -> String {
     let mut traces = active_traces
         .keys()
         .map(|trace| trace.to_string())
         .join(", ");
 
-    if let Some(trace) = current_trace {
-        if !active_traces.contains_key(&trace) {
-            traces.push_str(&format!(". Current trace (not active yet): {}", &trace));
-        }
+    if !active_traces.contains_key(&current_trace) {
+        traces.push_str(&format!(", {}", &current_trace));
     }
 
     traces
@@ -345,7 +337,18 @@ fn format_traces(
 /// from the handler so that it's no longer registered as a ongoing command.
 struct OnExecExit(ConcurrencyHandler, TraceId);
 
-impl<'a> Drop for OnExecExit {
+impl OnExecExit {
+    pub fn new(
+        handler: ConcurrencyHandler,
+        trace: TraceId,
+        mut guard: MutexGuard<'_, RawFairMutex, ConcurrencyHandlerData>,
+    ) -> Self {
+        *guard.active_traces.entry(trace.dupe()).or_default() += 1;
+        Self(handler, trace)
+    }
+}
+
+impl Drop for OnExecExit {
     fn drop(&mut self) {
         let mut data = self.0.data.lock();
         let refs = {
