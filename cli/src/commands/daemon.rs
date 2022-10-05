@@ -418,12 +418,8 @@ impl DaemonCommand {
     ) -> anyhow::Result<()> {
         let project_root = paths.project_root();
         let daemon_dir = paths.daemon_dir()?;
-        let stdout_path = daemon_dir
-            .path
-            .join(ForwardRelativePath::new("buckd.stdout")?);
-        let stderr_path = daemon_dir
-            .path
-            .join(ForwardRelativePath::new("buckd.stderr")?);
+        let stdout_path = daemon_dir.buckd_stdout()?;
+        let stderr_path = daemon_dir.buckd_stderr()?;
         let pid_path = daemon_dir.path.join(ForwardRelativePath::new("buckd.pid")?);
 
         if !daemon_dir.path.is_dir() {

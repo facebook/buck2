@@ -22,4 +22,14 @@ impl DaemonDir {
     pub fn buckd_info(&self) -> anyhow::Result<AbsPathBuf> {
         Ok(self.path.join(FileName::new("buckd.info")?))
     }
+
+    /// Path to `buckd.stdout` file.
+    pub fn buckd_stdout(&self) -> anyhow::Result<AbsPathBuf> {
+        Ok(self.path.join(FileName::new("buckd.stdout")?))
+    }
+
+    /// Path to `buckd.stderr` file.
+    pub fn buckd_stderr(&self) -> anyhow::Result<AbsPathBuf> {
+        Ok(self.path.join(FileName::new("buckd.stderr")?))
+    }
 }
