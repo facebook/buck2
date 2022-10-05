@@ -114,7 +114,7 @@ impl ClientCommandContext {
         let config_overrides = config_opts.config_overrides(arg_matches)?;
         if !config_overrides.is_empty() && config_opts.reuse_current_config {
             tracing::warn!(
-                "Found config overrides while using --reuse_current_config flag. Ignoring overrides [{}] and using current config instead",
+                "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
                 truncate_container(config_overrides.iter().map(|e| &*e.config_override), 200),
             );
         }
