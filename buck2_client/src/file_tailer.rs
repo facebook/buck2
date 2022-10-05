@@ -12,10 +12,10 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Seek;
 use std::io::SeekFrom;
-use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_core::fs::paths::AbsPathBuf;
 use futures::FutureExt;
 use tokio::runtime;
 use tokio::sync::mpsc;
@@ -43,7 +43,7 @@ impl Drop for FileTailer {
 }
 
 impl FileTailer {
-    pub fn tail_file(file: PathBuf) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
+    pub fn tail_file(file: AbsPathBuf) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
         let mut reader = BufReader::new(
             File::open(&file)
                 .with_context(|| format!("when setting up tailer for {}", file.display()))?,

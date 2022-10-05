@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use std::path::Path;
-
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileName;
 use cli_proto::command_result;
 use cli_proto::CommandResult;
 use futures::Future;
@@ -347,9 +347,11 @@ impl EventSubscriber for EventsCtx {
 }
 
 impl FileTailers {
-    pub fn new(daemon_dir: &Path) -> anyhow::Result<Self> {
-        let (stdout, stdout_tailer) = FileTailer::tail_file(daemon_dir.join("buckd.stdout"))?;
-        let (stderr, stderr_tailer) = FileTailer::tail_file(daemon_dir.join("buckd.stderr"))?;
+    pub fn new(daemon_dir: &AbsPath) -> anyhow::Result<Self> {
+        let (stdout, stdout_tailer) =
+            FileTailer::tail_file(daemon_dir.join(FileName::new("buckd.stdout")?))?;
+        let (stderr, stderr_tailer) =
+            FileTailer::tail_file(daemon_dir.join(FileName::new("buckd.stderr")?))?;
         let this = Self {
             _stdout_tailer: stdout_tailer,
             _stderr_tailer: stderr_tailer,

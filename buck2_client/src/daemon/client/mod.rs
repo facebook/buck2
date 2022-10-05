@@ -588,7 +588,8 @@ mod tests {
 
         // If we could control the interval for tailer polling, we could reliably
         // test more of the behavior. For now, just test a simple case.
-        let (mut receiver, tailer) = FileTailer::tail_file(file.path().to_owned())?;
+        let (mut receiver, tailer) =
+            FileTailer::tail_file(AbsPathBuf::new(file.path().to_owned())?)?;
         writeln!(file, "after")?;
         // have to sleep long enough for a read or else this test is racy.
         tokio::time::sleep(Duration::from_millis(250)).await;
