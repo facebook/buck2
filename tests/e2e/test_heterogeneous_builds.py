@@ -12,7 +12,7 @@ def running_on_linux() -> bool:
 
 def _apple_build_command_args(use_macos_toolchain: bool) -> List[str]:
     toolchain_mode_file = (
-        "@fbsource//fbobjc/mode/buck2/toolchains/xcode-13.4"
+        "@fbsource//fbobjc/mode/buck2/toolchains/xcode"
         if use_macos_toolchain
         else "@fbsource//fbobjc/mode/buck2/toolchains/pika-14-linux"
     )
