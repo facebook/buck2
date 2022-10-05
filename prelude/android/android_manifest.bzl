@@ -40,7 +40,7 @@ def generate_android_manifest(
     generate_manifest_cmd.hidden(manifests)
 
     placeholder_entries_args = cmd_args()
-    for key, val in placeholder_entries:
+    for key, val in placeholder_entries.items():
         placeholder_entries_args.add(cmd_args(key, val, delimiter = " "))
     placeholder_entries_file = ctx.actions.write("placeholder_entries_file", placeholder_entries_args)
 
