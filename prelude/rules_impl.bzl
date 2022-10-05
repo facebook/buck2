@@ -17,6 +17,7 @@ load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
+load("@prelude//go:coverage.bzl", "GoCoverageMode")
 
 # Go
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
@@ -421,6 +422,7 @@ extra_attributes = struct(
         "_go_toolchain": _go_toolchain(),
     },
     go_test = {
+        "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),

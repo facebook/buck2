@@ -1,8 +1,14 @@
 load(":compile.bzl", "GoTestInfo", "compile", "get_filtered_srcs")
+load(":coverage.bzl", "GoCoverageMode", "cover")
 load(":link.bzl", "link")
 load(":packages.bzl", "go_attr_pkg_name")
 
-def _gen_test_main(ctx: "context", pkg_name: str.type, srcs: "cmd_args") -> "artifact":
+def _gen_test_main(
+        ctx: "context",
+        pkg_name: str.type,
+        coverage_mode: [GoCoverageMode.type, None],
+        coverage_vars: {str.type: "artifact"},
+        srcs: "cmd_args") -> "artifact":
     """
     Generate a `main.go` which calls tests from the given sources.
     """
@@ -13,6 +19,13 @@ def _gen_test_main(ctx: "context", pkg_name: str.type, srcs: "cmd_args") -> "art
         cmd.add(cmd_args(ctx.attrs.coverage_mode, format = "--cover-mode={}"))
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(pkg_name, format = "--import-path={}"))
+    if coverage_mode != None:
+        cmd.add("--cover-mode", coverage_mode.value)
+    if coverage_vars:
+        pkg_vars = cmd_args(delimiter = ",")
+        for var_name, src in coverage_vars.items():
+            pkg_vars.add(cmd_args(var_name, src, delimiter = "="))
+        cmd.add("--cover-pkgs", cmd_args(pkg_vars, format = pkg_name + ":{}"))
     cmd.add(srcs)
     ctx.actions.run(cmd, category = "go_test_main_gen")
     return output
@@ -32,6 +45,16 @@ def go_test_impl(ctx: "context") -> ["provider"]:
         # TODO: should we assert that pkg_name != None here?
         pkg_name = lib.pkg_name
 
+    # If coverage is enabled for this test, we need to preprocess the sources
+    # with the Go cover tool.
+    coverage_mode = None
+    coverage_vars = {}
+    if ctx.attrs.coverage_mode != None:
+        coverage_mode = GoCoverageMode(ctx.attrs.coverage_mode)
+        cov_res = cover(ctx, coverage_mode, srcs)
+        srcs = cov_res.srcs
+        coverage_vars = cov_res.variables
+
     srcs = get_filtered_srcs(ctx, srcs, tests = True)
 
     # Compile all tests into a package.
@@ -39,7 +62,7 @@ def go_test_impl(ctx: "context") -> ["provider"]:
 
     # Generate a main function which runs the tests and build that into another
     # package.
-    gen_main = _gen_test_main(ctx, pkg_name, srcs)
+    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, srcs)
     main = compile(ctx, "main", cmd_args(gen_main), pkgs = {pkg_name: tests})
 
     # Link the above into a Go binary.

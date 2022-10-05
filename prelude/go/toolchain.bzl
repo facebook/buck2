@@ -4,6 +4,7 @@ GoToolchainInfo = provider(fields = [
     "cgo_wrapper",
     "compile_wrapper",
     "compiler",
+    "cover",
     "env_go_arch",
     "env_go_os",
     "env_go_root",
