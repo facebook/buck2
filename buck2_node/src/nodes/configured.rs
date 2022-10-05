@@ -40,7 +40,6 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::configured_info::ConfiguredAttrInfo;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
@@ -289,24 +288,6 @@ impl ConfiguredTargetNode {
             exec_deps: LabelIndexedSet::new(),
             platform_cfgs,
         }))
-    }
-
-    /// This concept of "declared deps" is really specific and should've been removed from buck1 a long time ago. It
-    /// refers specifically to the deps in the "deps" attr (and only for rules that specifically indicate that it
-    /// means declared deps). It's been exposed to users in one specific way, it's used in the `classpath()` function
-    /// in query macros. There almost certainly should not be used for anything else, and even for this use it should
-    /// probably be updated so that rules explicitly indicate what attrs should be considered "declared deps".
-    pub fn get_declared_deps(
-        &self,
-    ) -> anyhow::Result<Option<impl Iterator<Item = ConfiguredProvidersLabel>>> {
-        match self.get("deps", AttrInspectOptions::All) {
-            Some(attr) => {
-                let mut info = ConfiguredAttrInfo::new();
-                attr.traverse(&mut info)?;
-                Ok(Some(info.deps.into_iter()))
-            }
-            None => Ok(None),
-        }
     }
 
     pub fn target_compatible_with(&self) -> impl Iterator<Item = TargetLabel> {
