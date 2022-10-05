@@ -24,6 +24,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use once_cell::sync::Lazy;
 
+use crate::daemon_dir::DaemonDir;
 use crate::invocation_roots::InvocationRoots;
 use crate::result::SharedResult;
 use crate::result::ToSharedResultExt;
@@ -69,7 +70,7 @@ pub struct InvocationPaths {
 }
 
 impl InvocationPaths {
-    pub fn daemon_dir(&self) -> anyhow::Result<AbsPathBuf> {
+    pub fn daemon_dir(&self) -> anyhow::Result<DaemonDir> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
             use buck2_core::fs::paths::ForwardRelativePathNormalizer;
@@ -122,12 +123,12 @@ impl InvocationPaths {
         ret.push(root_relative.as_ref());
         ret.push(&self.isolation);
 
-        Ok(ret)
+        Ok(DaemonDir { path: ret })
     }
 
     /// Path to `buckd.info` file.
     pub fn buckd_info(&self) -> anyhow::Result<AbsPathBuf> {
-        Ok(self.daemon_dir()?.join(FileName::new("buckd.info")?))
+        Ok(self.daemon_dir()?.path.join(FileName::new("buckd.info")?))
     }
 
     pub fn cell_root(&self) -> &AbsPath {
@@ -228,7 +229,7 @@ mod tests {
             ".buck/buckd/my/project/isolation"
         };
         assert_eq!(
-            paths.daemon_dir().unwrap().as_os_str(),
+            paths.daemon_dir().unwrap().path.as_os_str(),
             AbsPathBuf::try_from(
                 dirs::home_dir().expect("Expected a HOME directory to be available")
             )

@@ -9,8 +9,7 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::paths::FileName;
 use cli_proto::command_result;
 use cli_proto::CommandResult;
@@ -63,7 +62,7 @@ impl From<tonic::Status> for BuckdCommunicationError {
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// fowards them to the appropriate subscribers registered on this struct
 pub(crate) struct EventsCtx {
-    pub(crate) daemon_dir: AbsPathBuf,
+    pub(crate) daemon_dir: DaemonDir,
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,
 }
@@ -80,7 +79,7 @@ pub struct FileTailers {
 }
 
 impl EventsCtx {
-    pub(crate) fn new(daemon_dir: AbsPathBuf, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+    pub(crate) fn new(daemon_dir: DaemonDir, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
         Self {
             daemon_dir,
             subscribers,
@@ -347,11 +346,11 @@ impl EventSubscriber for EventsCtx {
 }
 
 impl FileTailers {
-    pub fn new(daemon_dir: &AbsPath) -> anyhow::Result<Self> {
+    pub fn new(daemon_dir: &DaemonDir) -> anyhow::Result<Self> {
         let (stdout, stdout_tailer) =
-            FileTailer::tail_file(daemon_dir.join(FileName::new("buckd.stdout")?))?;
+            FileTailer::tail_file(daemon_dir.path.join(FileName::new("buckd.stdout")?))?;
         let (stderr, stderr_tailer) =
-            FileTailer::tail_file(daemon_dir.join(FileName::new("buckd.stderr")?))?;
+            FileTailer::tail_file(daemon_dir.path.join(FileName::new("buckd.stderr")?))?;
         let this = Self {
             _stdout_tailer: stdout_tailer,
             _stderr_tailer: stderr_tailer,

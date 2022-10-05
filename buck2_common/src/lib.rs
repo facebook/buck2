@@ -28,6 +28,7 @@ extern crate maplit;
 
 pub mod client_utils;
 pub mod convert;
+pub mod daemon_dir;
 pub mod dice;
 #[cfg(off)] // @oss-enable
 pub mod eden;

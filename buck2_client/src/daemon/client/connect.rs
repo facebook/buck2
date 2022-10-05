@@ -18,9 +18,9 @@ use buck2_common::client_utils::get_channel;
 use buck2_common::client_utils::retrying;
 use buck2_common::client_utils::ConnectionType;
 use buck2_common::client_utils::SOCKET_ADDR;
+use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::process::async_background_command;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
@@ -210,7 +210,7 @@ impl BootstrapBuckdClient {
     pub fn new(
         client: DaemonApiClient<Channel>,
         info: DaemonProcessInfo,
-        daemon_dir: AbsPathBuf,
+        daemon_dir: DaemonDir,
     ) -> Self {
         // Start with basic output forwarding to catch any output (usually errors or panics) at startup.
         // This subscriber gets replaced with the actual subscribers once the startup stage of the daemon lifecycle is complete.
@@ -268,8 +268,8 @@ impl BuckdConnectOptions {
 
     pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
-        buck2_core::fs::fs_util::create_dir_all(&daemon_dir)
-            .with_context(|| format!("When creating daemon dir: {}", daemon_dir.display()))?;
+        buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
+            .with_context(|| format!("When creating daemon dir: {}", daemon_dir))?;
         let client = self
             .establish_connection(paths)
             .await

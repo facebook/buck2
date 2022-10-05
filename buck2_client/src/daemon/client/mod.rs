@@ -15,7 +15,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_common::client_utils::retrying;
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_common::daemon_dir::DaemonDir;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
 use fs2::FileExt;
@@ -95,11 +95,11 @@ pub struct BuckdLifecycleLock {
 
 impl BuckdLifecycleLock {
     pub async fn lock_with_timeout(
-        daemon_dir: AbsPathBuf,
+        daemon_dir: DaemonDir,
         timeout: Duration,
     ) -> anyhow::Result<BuckdLifecycleLock> {
-        create_dir_all(daemon_dir.as_path())?;
-        let lifecycle_path = daemon_dir.as_path().join("buckd.lifecycle");
+        create_dir_all(&daemon_dir.path)?;
+        let lifecycle_path = daemon_dir.path.as_path().join("buckd.lifecycle");
         let file = File::create(lifecycle_path)?;
         retrying(
             Duration::from_millis(5),
@@ -576,6 +576,7 @@ fn create_client_stream<
 mod tests {
     use std::io::Write;
 
+    use buck2_core::fs::paths::AbsPathBuf;
     use futures::StreamExt;
 
     use super::*;

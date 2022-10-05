@@ -74,7 +74,7 @@ impl RootCommand {
                 Some(dir) => find_invocation_roots(&dir)?.project_root.root().to_owned(),
                 None => ctx.paths()?.project_root().root().to_owned(),
             },
-            RootKind::Daemon => ctx.paths()?.daemon_dir()?,
+            RootKind::Daemon => ctx.paths()?.daemon_dir()?.path,
         };
 
         crate::println!("{}", root.to_string_lossy())?;

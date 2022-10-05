@@ -12,6 +12,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::fs_util::remove_dir_all;
 use buck2_core::fs::paths::AbsPathBuf;
@@ -85,7 +86,7 @@ impl CleanCommand {
 
 async fn clean(
     buck_out_dir: AbsPathBuf,
-    daemon_dir: AbsPathBuf,
+    daemon_dir: DaemonDir,
     dry_run: bool,
     console: &FinalConsole,
 ) -> anyhow::Result<()> {
@@ -105,10 +106,10 @@ async fn clean(
         }
     }
 
-    if daemon_dir.exists() {
-        paths_to_clean.push(daemon_dir.display().to_string());
+    if daemon_dir.path.exists() {
+        paths_to_clean.push(daemon_dir.to_string());
         if !dry_run {
-            remove_dir_all(&daemon_dir)?;
+            remove_dir_all(&daemon_dir.path)?;
         }
     }
 

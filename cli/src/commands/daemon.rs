@@ -12,7 +12,6 @@
 use std::env;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::thread;
@@ -26,12 +25,13 @@ use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_client::version::BuckVersion;
+use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPath;
-use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
@@ -207,7 +207,7 @@ pub(crate) async fn init_listener(
     DaemonProcessInfo,
 )> {
     let daemon_dir = paths.daemon_dir()?;
-    let (endpoint, listener) = create_listener(daemon_dir.into_path_buf()).await?;
+    let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf()).await?;
 
     buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
     let pid = process::id();
@@ -231,13 +231,15 @@ pub(crate) fn write_process_info(
     Ok(())
 }
 
-fn verify_current_daemon(daemon_dir: &Path) -> anyhow::Result<()> {
-    let file = daemon_dir.join("buckd.pid");
+fn verify_current_daemon(daemon_dir: &DaemonDir) -> anyhow::Result<()> {
+    let file = daemon_dir.path.join(FileName::new("buckd.pid")?);
     let my_pid = process::id();
 
     let recorded_pid: u32 = fs_util::read_to_string(&file)?.trim().parse()?;
     if recorded_pid != my_pid {
-        return Err(DaemonError::PidFileMismatch(file, my_pid, recorded_pid).into());
+        return Err(
+            DaemonError::PidFileMismatch(file.into_path_buf(), my_pid, recorded_pid).into(),
+        );
     }
 
     Ok(())
@@ -384,7 +386,7 @@ impl DaemonCommand {
     /// then fail and we'd do a hard shutdown).
     fn check_daemon_dir_thread(
         checker_interval_seconds: u64,
-        daemon_dir: AbsPathBuf,
+        daemon_dir: DaemonDir,
         hard_shutdown_sender: UnboundedSender<()>,
     ) {
         let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
@@ -417,12 +419,16 @@ impl DaemonCommand {
     ) -> anyhow::Result<()> {
         let project_root = paths.project_root();
         let daemon_dir = paths.daemon_dir()?;
-        let stdout_path = daemon_dir.join(ForwardRelativePath::new("buckd.stdout")?);
-        let stderr_path = daemon_dir.join(ForwardRelativePath::new("buckd.stderr")?);
-        let pid_path = daemon_dir.join(ForwardRelativePath::new("buckd.pid")?);
+        let stdout_path = daemon_dir
+            .path
+            .join(ForwardRelativePath::new("buckd.stdout")?);
+        let stderr_path = daemon_dir
+            .path
+            .join(ForwardRelativePath::new("buckd.stderr")?);
+        let pid_path = daemon_dir.path.join(ForwardRelativePath::new("buckd.pid")?);
 
-        if !daemon_dir.is_dir() {
-            fs_util::create_dir_all(daemon_dir)?;
+        if !daemon_dir.path.is_dir() {
+            fs_util::create_dir_all(&daemon_dir.path)?;
         }
 
         // TODO(nga): this breaks relative paths in `--no-buckd`.
