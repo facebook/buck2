@@ -138,10 +138,12 @@ A build configures a fixed list of one or more execution platforms.
 ## Execution deps
 
 Some target deps are "execution deps". These are the dependencies of the target that should be built for the execution platform. For example,
-a compiler or other build tool would be an execution dep. This includes all exe macro deps (ex. `$(exe //:tool)`) and includes all `attrs.tool()` deps.
+a compiler or other build tool would be an execution dep. This includes all exe macro deps (ex. `$(exe //:tool)`) and includes all `attrs.exec_dep()` deps.
 
-TODO(cjhopman): `attrs.tool()` is just a placeholder i guess, should it be a separate attr? or an arg to `attrs.dep()` (and maybe
-`attrs.src()`)? Or should it be an attr "type" itself like `attrs.exe(attrs.list(attrs.dep()))`?
+## Running non-execution deps
+
+If you have a binary that you want to run, but it isn't a build tool, then you should use `$(exe_target //:binary)` rather than `$(exe //:binary)`. That
+will run the same binary that you'd get from `buck2 build`, rather than one that is built for the execution platform.
 
 ## Execution platform resolution
 
