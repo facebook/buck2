@@ -117,7 +117,7 @@ pub struct TargetsCommand {
 
     /// Enables printing of default attributes. This would be attributes in a target that aren't
     /// explicitly set in the target but instead use the default set in the rule declaration.
-    #[structopt(long)]
+    #[clap(long)]
     include_defaults: bool,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
