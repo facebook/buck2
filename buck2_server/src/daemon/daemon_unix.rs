@@ -18,7 +18,8 @@ use buck2_core::fs::paths::FileName;
 use futures::Stream;
 use futures::TryFutureExt;
 use tokio::net::UnixListener;
-use tokio::net::UnixStream;
+
+use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
@@ -26,7 +27,7 @@ pub async fn create_listener(
     daemon_dir: &Path,
 ) -> anyhow::Result<(
     String,
-    Pin<Box<dyn Stream<Item = Result<UnixStream, std::io::Error>>>>,
+    Pin<Box<dyn Stream<Item = Result<TcpOrUnixStream, std::io::Error>>>>,
 )> {
     let uds_path = daemon_dir.join(UDS_DAEMON_FILENAME);
 
@@ -52,7 +53,7 @@ pub async fn create_listener(
 
         async_stream::stream! {
             loop {
-                let item = uds.accept().map_ok(|(st, _)| st).await;
+                let item = uds.accept().map_ok(|(st, _)| TcpOrUnixStream(st)).await;
                 yield item;
             }
         }
