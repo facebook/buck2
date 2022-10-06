@@ -23,6 +23,9 @@ static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Ve
 /// * The category string that will remain constant and identifies this specific soft error
 ///   (used to report as a key).
 /// * The error is an `anyhow::Error` will in the future will be propagated as the error.
+///
+/// Soft errors from Meta internal runs can be viewed
+/// [in logview](https://www.internalfb.com/logview/overview/buck2).
 #[macro_export]
 macro_rules! soft_error(
     ($category:expr, $err:expr) => { {
