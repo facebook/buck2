@@ -20,6 +20,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
+use crate::actions::impls::write_json::FrozenWriteJsonCommandLineArg;
+use crate::actions::impls::write_json::WriteJsonCommandLineArg;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -92,6 +94,8 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
         check!(TransitiveSetArgsProjection);
         check!(FrozenTaggedArtifacts);
         check!(TaggedArtifacts);
+        check!(FrozenWriteJsonCommandLineArg);
+        check!(WriteJsonCommandLineArg);
         None
     }
 

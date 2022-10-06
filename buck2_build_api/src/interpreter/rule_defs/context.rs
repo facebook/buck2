@@ -66,7 +66,6 @@ use crate::actions::impls::run::MetadataParameter;
 use crate::actions::impls::run::UnregisteredRunAction;
 use crate::actions::impls::symlinked_dir::UnregisteredSymlinkedDirAction;
 use crate::actions::impls::write::UnregisteredWriteAction;
-use crate::actions::impls::write_json::gather_json_input_artifacts;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 use crate::analysis::registry::AnalysisRegistry;
@@ -398,7 +397,6 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
         #[starlark(require = pos)] content: Value<'v>,
-        // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
         #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -413,14 +411,15 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(content),
         )?;
 
-        let associated_artifacts = if with_inputs {
-            Arc::new(SortedIndexSet::new(gather_json_input_artifacts(content)?))
+        let value = declaration.into_declared_artifact(Default::default());
+        // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
+        // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
+        if with_inputs {
+            let cli = UnregisteredWriteJsonAction::cli(value, content)?;
+            Ok(eval.heap().alloc(cli))
         } else {
-            Default::default()
-        };
-
-        let value = declaration.into_declared_artifact(associated_artifacts);
-        Ok(value)
+            Ok(value)
+        }
     }
 
     fn write<'v>(
