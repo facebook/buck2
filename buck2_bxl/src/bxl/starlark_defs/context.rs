@@ -75,7 +75,7 @@ use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::get_uquery_env;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
-use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
+use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 pub mod actions;
 pub mod analysis;

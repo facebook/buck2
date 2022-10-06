@@ -11,4 +11,4 @@ pub mod calculation;
 mod deferred;
 pub mod eval;
 pub mod starlark_defs;
-pub(crate) mod value_as_starlak_target_label;
+pub(crate) mod value_as_starlark_target_label;

@@ -41,7 +41,7 @@ use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
-use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
+use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.

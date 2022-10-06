@@ -25,7 +25,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
-use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
+use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(Debug, Error)]
 enum ProviderExprError {
