@@ -14,6 +14,7 @@ use more_futures::spawn::WeakJoinHandle;
 
 use crate::dice_future::DiceFuture;
 use crate::dice_task::DiceTask;
+use crate::dice_task::DiceTaskStateForDebugging;
 use crate::DiceResult;
 use crate::GraphNode;
 use crate::StorageProperties;
@@ -22,7 +23,20 @@ pub(crate) struct WeakDiceFutureHandle<S: StorageProperties> {
     handle: WeakJoinHandle<DiceResult<GraphNode<S>>>,
 }
 
-impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {}
+impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {
+    fn state_for_debugging(&self) -> DiceTaskStateForDebugging {
+        match self.handle.pollable() {
+            Some(p) => {
+                if p.inner().inner().peek().is_some() {
+                    DiceTaskStateForDebugging::AsyncReady
+                } else {
+                    DiceTaskStateForDebugging::AsyncInProgress
+                }
+            }
+            None => DiceTaskStateForDebugging::AsyncDropped,
+        }
+    }
+}
 
 impl<S: StorageProperties> WeakDiceFutureHandle<S> {
     pub(crate) fn async_cancellable(

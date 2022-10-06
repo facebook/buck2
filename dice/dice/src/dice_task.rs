@@ -7,5 +7,23 @@
  * of this source tree.
  */
 
+use gazebo::dupe::Dupe;
+
+#[derive(Debug, Clone, Copy, Dupe)]
+pub(crate) enum DiceTaskStateForDebugging {
+    /// Async task finished.
+    AsyncReady,
+    /// Async task in progress.
+    AsyncInProgress,
+    /// Weak handle is empty.
+    AsyncDropped,
+    /// Sync task finished.
+    SyncReady,
+    /// Sync in progress.
+    SyncInProgress,
+}
+
 /// Marker trait for a task currently executed in `IncrementalEngine`.
-pub(crate) trait DiceTask: Send + Sync + 'static {}
+pub(crate) trait DiceTask: Send + Sync + 'static {
+    fn state_for_debugging(&self) -> DiceTaskStateForDebugging;
+}

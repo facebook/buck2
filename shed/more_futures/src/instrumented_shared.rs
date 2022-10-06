@@ -45,6 +45,10 @@ where
             owner_trace_id: dispatcher.trace_id().dupe(),
         }
     }
+
+    pub fn inner(&self) -> &Shared<F> {
+        &self.inner
+    }
 }
 
 impl<F> Clone for SharedEventsFuture<F>

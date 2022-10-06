@@ -102,6 +102,12 @@ pub struct StrongCancellableJoinHandle<F> {
     fut: F,
 }
 
+impl<F: Future> StrongCancellableJoinHandle<F> {
+    pub fn inner(&self) -> &F {
+        &self.fut
+    }
+}
+
 impl<F: Future> Future for StrongCancellableJoinHandle<F> {
     type Output = F::Output;
 

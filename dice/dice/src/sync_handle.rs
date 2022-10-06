@@ -11,6 +11,7 @@ use futures::future::Shared;
 use gazebo::prelude::*;
 
 use crate::dice_task::DiceTask;
+use crate::dice_task::DiceTaskStateForDebugging;
 use crate::GraphNode;
 use crate::StorageProperties;
 
@@ -22,4 +23,12 @@ pub(crate) struct SyncDiceTaskHandle<S: StorageProperties> {
 
 impl<S: StorageProperties> Dupe for SyncDiceTaskHandle<S> {}
 
-impl<S: StorageProperties> DiceTask for SyncDiceTaskHandle<S> {}
+impl<S: StorageProperties> DiceTask for SyncDiceTaskHandle<S> {
+    fn state_for_debugging(&self) -> DiceTaskStateForDebugging {
+        if self.rx.peek().is_some() {
+            DiceTaskStateForDebugging::SyncReady
+        } else {
+            DiceTaskStateForDebugging::SyncInProgress
+        }
+    }
+}
