@@ -148,14 +148,14 @@ def main(argv):
                 "index": data["index"],
                 "bitcode_file": bc_file,
                 "path": path,
-                "is_lto": True,
+                "is_bc": True,
             }
         else:
             non_lto_objects[data["index"]] = 1
             with open(output_loc, "w"):
                 pass
             plan = {
-                "is_lto": False,
+                "is_bc": False,
             }
 
         with open(data["plan_output"], "w") as planout:
@@ -190,7 +190,7 @@ def main(argv):
                         imports_list.append(entry["index"])
                 object_plans.append(
                     {
-                        "is_lto": True,
+                        "is_bc": True,
                         "path": obj,
                         "imports": imports_list,
                         "archive_imports": archives_list,
@@ -202,7 +202,7 @@ def main(argv):
             else:
                 object_plans.append(
                     {
-                        "is_lto": False,
+                        "is_bc": False,
                         "path": obj,
                     }
                 )

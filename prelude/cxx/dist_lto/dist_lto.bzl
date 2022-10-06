@@ -476,7 +476,7 @@ def cxx_dist_link(
             # If the object was not compiled with thinlto flags, then there
             # won't be valid outputs for it from the indexing, but we still
             # need to bind the artifact.
-            if not plan_json["is_lto"]:
+            if not plan_json["is_bc"]:
                 ctx.actions.write(outputs[opt_object], "")
                 return
 
@@ -524,7 +524,7 @@ def cxx_dist_link(
             for entry in plan_json["objects"]:
                 base_dir = plan_json["base_dir"]
                 source_path = paths.relativize(entry["path"], base_dir)
-                if not entry["is_lto"]:
+                if not entry["is_bc"]:
                     opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
                     output_manifest.add(opt_object)
                     copy_cmd = cmd_args([
