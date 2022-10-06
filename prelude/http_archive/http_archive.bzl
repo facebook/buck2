@@ -3,12 +3,13 @@ load("@prelude//utils:utils.bzl", "expect", "value_or")
 # Flags to apply to decompress the various types of archives.
 _FLAGS = {
     "tar.gz": "-z",
+    "tar.xz": "-J",
     "tar.zst": "--use-compress-program=unzstd",
 }
 
 def _type(ctx: "context") -> str.type:
     typ = value_or(ctx.attrs.type, "tar.gz")
-    if typ not in ("tar.gz", "tar.zst"):
+    if typ not in _FLAGS:
         fail("unsupported `type`: {}".format(typ))
     return typ
 
