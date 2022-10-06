@@ -39,6 +39,7 @@ def _gen_filename(filename: str, num_of_instance: int) -> str:
 
 
 def identify_file(path: str) -> Tuple[ArchiveKind, str]:
+    path = os.path.realpath(path)
     output = subprocess.check_output(["file", "-b", path]).decode()
     if "ar archive" in output:
         return (ArchiveKind.ARCHIVE, output)
