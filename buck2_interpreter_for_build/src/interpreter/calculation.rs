@@ -110,7 +110,7 @@ mod keys {
 
     // Key for 'InterpreterCalculation::get_interpreter_results'
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    #[display(fmt = "InterpreterResults({})", _0)]
+    #[display(fmt = "{}", _0)]
     pub struct InterpreterResultsKey(pub Package);
 }
 

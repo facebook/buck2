@@ -42,7 +42,7 @@ pub struct DicePackageListingResolver<'compute>(&'compute DiceComputations);
 impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
     async fn resolve(&self, package: &Package) -> SharedResult<PackageListing> {
         #[derive(Clone, Dupe, derive_more::Display, Debug, Eq, Hash, PartialEq)]
-        #[display(fmt = "PackageListing({})", _0)]
+        #[display(fmt = "{}", _0)]
         struct PackageListingKey(Package);
 
         #[async_trait]

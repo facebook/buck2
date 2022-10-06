@@ -245,7 +245,7 @@ impl ActionCalculation for DiceComputations {
         debug!("build_action {}", action_key);
 
         #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash)]
-        #[display(fmt = "Build({})", _0)]
+        #[display(fmt = "{}", _0)]
         struct BuildKey(ActionKey);
 
         #[async_trait]

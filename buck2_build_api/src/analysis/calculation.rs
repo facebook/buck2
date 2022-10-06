@@ -398,11 +398,11 @@ mod keys {
     use gazebo::prelude::*;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    #[display(fmt = "AnalysisKey({})", "_0")]
+    #[display(fmt = "{}", "_0")]
     pub(crate) struct AnalysisKey(pub ConfiguredTargetLabel);
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    #[display(fmt = "ConfiguredGraphKey({})", "_0")]
+    #[display(fmt = "{}", "_0")]
     pub struct ConfiguredGraphKey(pub ConfiguredTargetLabel);
 }
 
