@@ -31,7 +31,7 @@ use serde::Serializer;
 use crate::introspection::serialize_dense_graph;
 
 pub struct GraphIntrospectable {
-    pub introspectables: Vec<Arc<dyn EngineForIntrospection + Send + Sync + 'static>>,
+    pub(crate) introspectables: Vec<Arc<dyn EngineForIntrospection + Send + Sync + 'static>>,
 }
 
 impl Serialize for GraphIntrospectable {
@@ -170,7 +170,7 @@ pub struct SerializedGraphNodesForKey {
     pub nodes: BTreeMap<VersionNumber, Option<SerializedGraphNode>>,
 }
 
-pub trait EngineForIntrospection {
+pub(crate) trait EngineForIntrospection {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
     fn keys_currently_running<'a>(
@@ -184,7 +184,7 @@ pub trait EngineForIntrospection {
     fn currently_running_key_count(&self) -> usize;
 }
 
-pub trait KeyForIntrospection: Display + 'static {
+pub(crate) trait KeyForIntrospection: Display + 'static {
     fn get_key_equality(&self) -> PartialEqAny;
 
     fn hash(&self, state: &mut dyn Hasher);
@@ -207,7 +207,7 @@ where
     }
 }
 
-pub struct AnyKey {
+pub(crate) struct AnyKey {
     pub inner: Box<dyn KeyForIntrospection>,
 }
 
