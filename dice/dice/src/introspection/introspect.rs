@@ -38,7 +38,7 @@ pub fn serialize_graph(
             }
         }
 
-        for (k, v) in engine.keys_currently_running() {
+        for (k, v, _) in engine.keys_currently_running() {
             let k_short_type_name = k.short_type_name();
             let k_str = k.to_string();
             let k_n = reg.map(k);

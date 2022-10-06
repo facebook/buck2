@@ -16,6 +16,8 @@ use std::sync::Arc;
 
 use gazebo::prelude::*;
 
+use crate::dice_task::DiceTask;
+use crate::dice_task::DiceTaskStateForDebugging;
 use crate::incremental::graph::dependencies::VersionedDependencies;
 use crate::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::incremental::graph::storage_properties::StorageProperties;
@@ -70,12 +72,21 @@ where
 
     fn keys_currently_running<'a>(
         &'a self,
-    ) -> Box<dyn Iterator<Item = (AnyKey, crate::introspection::graph::VersionNumber)> + 'a> {
+    ) -> Box<
+        dyn Iterator<
+                Item = (
+                    AnyKey,
+                    crate::introspection::graph::VersionNumber,
+                    DiceTaskStateForDebugging,
+                ),
+            > + 'a,
+    > {
         box self.currently_running.iter().map(|e| {
             let (k, v) = e.key();
             (
                 AnyKey::new(k.clone()),
                 crate::introspection::graph::VersionNumber(v.0),
+                e.value().state_for_debugging(),
             )
         })
     }

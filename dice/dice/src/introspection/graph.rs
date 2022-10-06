@@ -28,6 +28,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::dice_task::DiceTaskStateForDebugging;
 use crate::introspection::serialize_dense_graph;
 
 pub struct GraphIntrospectable {
@@ -175,7 +176,7 @@ pub(crate) trait EngineForIntrospection {
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
     fn keys_currently_running<'a>(
         &'a self,
-    ) -> Box<dyn Iterator<Item = (AnyKey, VersionNumber)> + 'a>;
+    ) -> Box<dyn Iterator<Item = (AnyKey, VersionNumber, DiceTaskStateForDebugging)> + 'a>;
     fn nodes<'a>(
         &'a self,
         keys: &'a mut HashMap<AnyKey, KeyID>,
