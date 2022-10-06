@@ -3,6 +3,8 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 
+oncall("buck2")
+
 python_binary(
     name = "compile",
     # Note the leading `./`. This is a regression test for compile.py, which

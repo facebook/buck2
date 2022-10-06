@@ -1,6 +1,8 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load(":b.bzl", "nothing_b")
 
+oncall("buck2")
+
 nothing_b()
 
 buck_genrule(

@@ -1,5 +1,7 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 
+oncall("buck2")
+
 rust_protobuf_library(
     name = "cli_proto",
     srcs = glob(["src/**/*.rs"]),

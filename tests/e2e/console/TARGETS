@@ -2,6 +2,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
 
+oncall("buck2")
+
 buck2_e2e_test(
     name = "test_console",
     srcs = ["test_console.py"],

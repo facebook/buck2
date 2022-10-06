@@ -1,5 +1,7 @@
 load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
 
+oncall("buck2")
+
 buck2_e2e_test(
     name = "test_compatible_with_before_select",
     srcs = ["test_compatible_with_before_select.py"],

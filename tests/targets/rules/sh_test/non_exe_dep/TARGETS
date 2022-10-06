@@ -1,5 +1,7 @@
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+oncall("buck2")
+
 bzl_native.export_file(
     name = "test_binary.py",
     src = "test_binary.py",

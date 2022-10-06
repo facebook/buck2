@@ -2,6 +2,8 @@
 
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
+oncall("buck2")
+
 # Should fail because it doesn't generate out.txt
 buck_genrule(
     name = "my_genrule_bad",

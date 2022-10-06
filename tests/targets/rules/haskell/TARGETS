@@ -5,6 +5,8 @@ load("@fbcode_macros//build_defs:haskell_library.bzl", "haskell_library")
 load("@fbcode_macros//build_defs:haskell_unittest.bzl", "haskell_unittest")
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 
+oncall("buck2")
+
 haskell_binary(
     name = "hello_world",
     srcs = [

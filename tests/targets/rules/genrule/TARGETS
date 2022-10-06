@@ -4,6 +4,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+oncall("buck2")
+
 # Simplest possible
 bzl_native.genrule(
     name = "my_genrule0",

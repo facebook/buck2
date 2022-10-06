@@ -4,6 +4,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+oncall("buck2")
+
 bzl_native.python_binary(
     name = "hello",
     main = "hello.py",

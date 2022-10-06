@@ -5,6 +5,8 @@ load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
 load("@fbcode_macros//build_defs:cpp_unittest.bzl", "cpp_unittest")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
+oncall("buck2")
+
 # Simplest we can do
 cpp_binary(
     name = "my_cpp1",

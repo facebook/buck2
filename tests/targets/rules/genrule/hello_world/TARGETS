@@ -1,5 +1,7 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
+oncall("buck2")
+
 buck_genrule(
     name = "welcome",
     out = "out.txt",

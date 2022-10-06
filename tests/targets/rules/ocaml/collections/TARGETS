@@ -1,5 +1,7 @@
 load("@fbcode_macros//build_defs:ocaml_library.bzl", "ocaml_library")
 
+oncall("buck2")
+
 ocaml_library(
     name = "collections",
     srcs = [

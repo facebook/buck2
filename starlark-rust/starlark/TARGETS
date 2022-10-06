@@ -3,6 +3,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genr
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
+oncall("buck2")
+
 buck_rust_binary(
     name = "starlark-bin",
     srcs = glob(

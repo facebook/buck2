@@ -4,6 +4,8 @@ load("@fbcode_macros//build_defs:rust_python_extension.bzl", "rust_python_extens
 load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+oncall("buck2")
+
 rust_python_extension(
     name = "ext",
     srcs = ["ext.rs"],

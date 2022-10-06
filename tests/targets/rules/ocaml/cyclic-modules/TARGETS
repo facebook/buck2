@@ -17,6 +17,8 @@ load("@fbcode_macros//build_defs:ocaml_binary.bzl", "ocaml_binary")
 #```
 # to see the error).
 
+oncall("buck2")
+
 enabled = read_config("ocaml", "enable-compile-fail-tests") == "yes"
 
 ocaml_binary(

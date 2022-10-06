@@ -9,6 +9,8 @@ load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 load(":check_subtarget.bzl", "check_subtarget")
 
+oncall("buck2")
+
 bzl_native.rust_binary(
     name = "hello_explicit",
     srcs = [

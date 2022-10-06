@@ -3,6 +3,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genr
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 
+oncall("buck2")
+
 buck_filegroup(
     name = "proto_sources",
     srcs = [

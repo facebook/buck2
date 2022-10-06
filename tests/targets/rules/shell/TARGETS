@@ -2,6 +2,8 @@
 
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+oncall("buck2")
+
 bzl_native.genrule(
     name = "copy_data",
     srcs = ["DATA"],

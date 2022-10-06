@@ -1,5 +1,7 @@
 load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
 
+oncall("buck2")
+
 python_unittest(
     name = "broken",
     srcs = [

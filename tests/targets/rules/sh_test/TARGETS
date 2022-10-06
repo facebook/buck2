@@ -1,6 +1,8 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
+oncall("buck2")
+
 buck_genrule(
     name = "check_test",
     out = "out.txt",

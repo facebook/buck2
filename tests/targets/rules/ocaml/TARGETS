@@ -5,6 +5,8 @@ load("@fbcode_macros//build_defs:ocaml_library.bzl", "ocaml_library")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("//flow/facebook:ppx.bzl", "get_lwt_ppx", "get_ppx_deriving")
 
+oncall("buck2")
+
 ocaml_binary(
     name = "ppx_deriving_test",
     srcs = [

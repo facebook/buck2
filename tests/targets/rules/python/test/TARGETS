@@ -2,6 +2,8 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
 load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
 
+oncall("buck2")
+
 buck_genrule(
     name = "check_test",
     out = "out.txt",
