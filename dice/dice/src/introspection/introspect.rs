@@ -38,13 +38,13 @@ pub fn serialize_graph(
             }
         }
 
-        for (k, v, _) in engine.keys_currently_running() {
+        for (k, v, s) in engine.keys_currently_running() {
             let k_short_type_name = k.short_type_name();
             let k_str = k.to_string();
             let k_n = reg.map(k);
             writeln!(
                 nodes_currently_running,
-                "{k_n}\t{v}\t{k_short_type_name}\t{k_str}",
+                "{k_n}\t{v}\t{s:?}\t{k_short_type_name}\t{k_str}",
             )?;
         }
     }
