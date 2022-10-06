@@ -14,11 +14,27 @@ for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
     _REFS[constraint_value_name] = "fbsource//xplat/buck2/platform/android:{}".format(constraint_value_name)
 
+def _cpu_split_transition_instrumentation_test_apk_impl(
+        platform: PlatformInfo.type,
+        refs: struct.type,
+        attrs: struct.type) -> {str.type: PlatformInfo.type}:
+    cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+
+    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version)
+
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+
+    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version)
+
+def _cpu_split_transition(
+        platform: PlatformInfo.type,
+        refs: struct.type,
+        cpu_filters: [str.type],
+        min_sdk_version: [int.type, None]) -> {str.type: PlatformInfo.type}:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -44,8 +60,8 @@ def _cpu_split_transition_impl(
         if constraint_setting_label != cpu[ConstraintSettingInfo].label
     }
 
-    if attrs.min_sdk_version:
-        base_constraints[refs.min_sdk_version[ConstraintSettingInfo].label] = _get_min_sdk_constraint_value(attrs.min_sdk_version, refs)
+    if min_sdk_version:
+        base_constraints[refs.min_sdk_version[ConstraintSettingInfo].label] = _get_min_sdk_constraint_value(min_sdk_version, refs)
 
     new_configs = {}
     for platform_name, cpu_constraint in cpu_name_to_cpu_constraint.items():
@@ -69,6 +85,16 @@ def _cpu_transition_impl(
 
 cpu_split_transition = transition(
     impl = _cpu_split_transition_impl,
+    refs = _REFS,
+    attrs = [
+        "cpu_filters",
+        "min_sdk_version",
+    ],
+    split = True,
+)
+
+cpu_split_transition_instrumentation_test_apk = transition(
+    impl = _cpu_split_transition_instrumentation_test_apk_impl,
     refs = _REFS,
     attrs = [
         "cpu_filters",
