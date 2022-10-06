@@ -119,7 +119,10 @@ def _get_base_cmd_and_output(
     deps_map = {deps_info.name: deps_info.deps for deps_info in deps_infos}
 
     target_graph_file = actions.write_json("target_graph.json", deps_map)
-    application_module_configs_map = {module_name: [seed.label.raw_target() for seed in seeds if seed[AndroidPackageableInfo]] for module_name, seeds in application_module_configs.items()}
+    application_module_configs_map = {
+        module_name: [seed.label.raw_target() for seed in seeds if seed.get(AndroidPackageableInfo)]
+        for module_name, seeds in application_module_configs.items()
+    }
     application_module_configs_file = actions.write_json("application_module_configs.json", application_module_configs_map)
     application_module_dependencies_file = actions.write_json("application_module_dependencies.json", application_module_dependencies or {})
     output = actions.declare_output("apk_module_metadata.txt")
