@@ -84,6 +84,6 @@ rust_library(
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/superconsole:superconsole",
         "//common/rust/shed/fbinit:fbinit",
-        "//common/rust/shed/hostcaps:hostcaps",
+        # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
     ],
 )

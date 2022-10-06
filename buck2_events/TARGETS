@@ -29,9 +29,9 @@ rust_library(
         "//buck2/cli_proto:cli_proto",
         "//buck2/facebook/scribe_client:scribe_client",
         "//buck2/gazebo/gazebo:gazebo",
-        "//common/rust/build_info:build_info",
+        # @oss-disable: "//common/rust/build_info:build_info", 
         "//common/rust/shed/fbinit:fbinit",
-        "//common/rust/shed/hostname:hostname",
-        "//common/rust/user:user",
+        # @oss-disable: "//common/rust/shed/hostname:hostname", 
+        # @oss-disable: "//common/rust/user:user", 
     ],
 )
