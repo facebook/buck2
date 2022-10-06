@@ -225,8 +225,10 @@ def main(argv):
         "glibc/lib/crt1.o",
         "glibc/lib/crti.o",
         "crtbegin.o",
+        "crtbeginS.o",
         ".build_info.o",
         "crtend.o",
+        "crtendS.o",
         "glibc/lib/crtn.o",
     ]
     with open(index_path("index")) as indexfile:
