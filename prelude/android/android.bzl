@@ -39,7 +39,7 @@ def _dex_toolchain():
         ],
     )
 
-def _java_toolchain():
+def java_toolchain_for_android():
     return attrs.toolchain_dep(
         # FIXME: prelude// should be standalone (not refer to fbcode//)
         default = "fbcode//buck2/platform/toolchain:java_for_android",
@@ -103,11 +103,11 @@ extra_attributes = {
         ),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
     },
     "android_build_config": {
         "_android_toolchain": android_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_apk": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
@@ -118,18 +118,18 @@ extra_attributes = {
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_test": {
         "_android_toolchain": android_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
     },
     "android_library": {
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": _dex_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
         "_kotlin_toolchain": _kotlin_toolchain(),
     },
     "android_manifest": {
@@ -143,7 +143,7 @@ extra_attributes = {
         "_android_toolchain": android_toolchain(),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": _dex_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
     },
     "android_resource": {
         "assets": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
@@ -157,7 +157,7 @@ extra_attributes = {
     },
     "gen_aidl": {
         "_android_toolchain": android_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
     },
     "prebuilt_native_library": {
         "native_libs": attrs.source(allow_directory = True),
@@ -166,7 +166,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "_android_toolchain": android_toolchain(),
-        "_java_toolchain": _java_toolchain(),
+        "_java_toolchain": java_toolchain_for_android(),
         "_junit_toolchain": attrs.exec_dep(
             default = select_junit_toolchain(),
             providers = [
