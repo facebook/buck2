@@ -18,10 +18,14 @@ def main(argv):
     for python_name in args.extension:
         if python_name == "_static_extension_utils":
             continue
-
-        module_name = python_name.split(".")[-1]
-        pyinit_suffix = python_name.replace(".", "_")
-        pyinit_func = f"PyInit_{module_name}_{pyinit_suffix}"
+        # If this is a top level module we do not suffix the PyInit_ symbol
+        index = python_name.rfind(".")
+        if index > 0:
+            module_name = python_name[index + 1 :]
+            pyinit_suffix = python_name.replace(".", "_")
+            pyinit_func = f"PyInit_{module_name}_{pyinit_suffix}"
+        else:
+            pyinit_func = f"PyInit_{python_name}"
         externs.append(f"PyMODINIT_FUNC {pyinit_func}(void);")
         table.append(f'  {{ "{python_name}", {pyinit_func} }},')
     table.append("  { NULL, NULL },")
