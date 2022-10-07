@@ -169,7 +169,7 @@ def _rust_toolchain(ctx):
             rustc_check_flags = [],
             rustc_flags = [],
             default_edition = "2021",
-            rustc_target_triple = "x86_64-unknown-linux-gnu",
+            rustc_target_triple = "x86_64-pc-windows-msvc" if host_info().os.is_windows else "x86_64-unknown-linux-gnu",
             rustc_test_flags = "",
             rustdoc = "rustdoc",
             rustdoc_flags = [],
