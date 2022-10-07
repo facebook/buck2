@@ -1,0 +1,30 @@
+load("@root//:rules.bzl", "command")
+
+command(
+    name="local_only",
+    command="local_only.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:default"],
+)
+
+command(
+    name="remote_only_prefer_local",
+    command="remote_only.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:default"],
+    prefer_local = True
+)
+
+command(
+    name="local_only_no_fallback",
+    command="local_only.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:no_fallback"],
+)
+
+command(
+    name="local_only_full_hybrid",
+    command="local_only.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:full_hybrid_will_failure_fallbacks"],
+)

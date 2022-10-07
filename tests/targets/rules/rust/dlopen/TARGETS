@@ -1,0 +1,30 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+oncall("buck2")
+
+# Test that a Rust binary can load a shared library successfully if the shared
+# library depends on symbols found in the binary itself.
+rust_binary(
+    name = "dlopen",
+    srcs = ["dlopen.rs"],
+    deps = [
+        "fbsource//third-party/rust:libloading",
+    ],
+)
+
+cpp_library(
+    name = "openable",
+    srcs = ["openable.cpp"],
+    preferred_linkage = "shared",
+    undefined_symbols = True,
+)
+
+buck_genrule(
+    name = "dlopen_run",
+    out = "out.txt",
+    cmd = "$(exe :dlopen) $(location :openable) > $OUT",
+)

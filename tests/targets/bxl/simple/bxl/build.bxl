@@ -1,0 +1,27 @@
+def _impl(ctx):
+    outputs = {}
+    for target, value in ctx.build(ctx.cli_args.target).items():
+        outputs.update({target.raw_target(): ctx.output.ensure_multiple(value.artifacts())})
+
+    ctx.output.print_json(outputs)
+
+build_test = bxl(
+    impl = _impl,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)
+
+def _cquery_build(ctx):
+    targets = ctx.cquery().kind("foo_buildable", "...")
+
+    outputs = []
+    for value in ctx.build(targets).values():
+        outputs.extend(ctx.output.ensure_multiple(value.artifacts()))
+
+    ctx.output.print(sep = "\n", *outputs)
+
+cquery_build_test = bxl(
+    impl = _cquery_build,
+    cli_args = {},
+)

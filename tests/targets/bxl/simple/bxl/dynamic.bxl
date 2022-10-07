@@ -1,0 +1,21 @@
+def _dynamic(ctx):
+    action_factory = ctx.bxl_actions.action_factory()
+
+    foo = action_factory.write("foo", "content")
+    dynamic = action_factory.declare_output("dynamic")
+
+    def my_deferred(ctx, artifacts, outputs):
+        content = artifacts[foo].read_string()
+        ctx.actions.write(outputs[dynamic], content)
+
+        # todo support access bxl context here
+
+    action_factory.dynamic_output(dynamic = [foo], inputs = [], outputs = [dynamic], f = my_deferred)
+
+    ctx.output.print(ctx.output.ensure(dynamic).abs_path())
+
+dynamic_test = bxl(
+    impl = _dynamic,
+    cli_args = {
+    },
+)

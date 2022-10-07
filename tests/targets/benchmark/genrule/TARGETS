@@ -1,0 +1,7 @@
+# @noautodeps
+
+load(":targets.bzl", "targets")
+
+oncall("buck2")
+
+targets(n = 100)

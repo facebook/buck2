@@ -1,0 +1,44 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:rust_python_extension.bzl", "rust_python_extension")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+rust_python_extension(
+    name = "ext",
+    srcs = ["ext.rs"],
+    base_module = "",
+    crate_root = "ext.rs",
+    deps = [
+        "fbsource//third-party/rust:cpython",
+    ],
+)
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    main_module = "bin",
+    native_link_strategy = "merged",
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    deps = [
+        ":ext",
+    ],
+)
+
+bzl_native.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :bin) | grep 'the_test_string' && touch $OUT",
+)

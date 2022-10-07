@@ -1,0 +1,28 @@
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("buck2")
+
+buck2_e2e_test(
+    name = "test_target_call_stacks",
+    srcs = ["test_target_call_stacks.py"],
+)
+
+buck2_e2e_test(
+    name = "test_cquery",
+    srcs = ["test_cquery.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_owner",
+    srcs = ["test_owner.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)

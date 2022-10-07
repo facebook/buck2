@@ -1,0 +1,8 @@
+def _impl(ctx):
+    ctx.output.print(read_config("key", "section"))
+    ctx.output.print(hasattr(host_info(), "os"))
+
+read_config_test = bxl(
+    impl = _impl,
+    cli_args = {},
+)

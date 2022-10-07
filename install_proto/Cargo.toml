@@ -1,0 +1,14 @@
+[package]
+name = "install_proto"
+
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic = { workspace = true }
+
+[build-dependencies]
+buck2_protoc_dev = { path = "../app/buck2_protoc_dev" }
+tonic-build = { workspace = true }

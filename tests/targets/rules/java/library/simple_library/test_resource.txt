@@ -1,0 +1,2 @@
+Hey!
+This is a dummy test file that should be included into jar as resource

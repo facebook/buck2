@@ -1,0 +1,12 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+
+oncall("buck2")
+
+cpp_binary(
+    name = "bin",
+    srcs = [(
+        "main.cpp",
+        ["-Wno-shadow"],
+    )],
+    compiler_flags = ["-Wshadow"],
+)

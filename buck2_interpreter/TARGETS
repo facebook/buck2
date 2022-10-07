@@ -1,0 +1,41 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_interpreter",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/lib.rs",
+    test_deps = [
+        "fbsource//third-party/rust:indoc",
+        "fbsource//third-party/rust:maplit",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:tokio",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:glob",
+        "fbsource//third-party/rust:hashbrown",
+        "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:plist",
+        "fbsource//third-party/rust:ref-cast",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:sha2",
+        "fbsource//third-party/rust:thiserror",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_events:buck2_events",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)

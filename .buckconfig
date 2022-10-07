@@ -1,0 +1,19 @@
+[repositories]
+root = .
+prelude = prelude
+ovr_config = prelude
+shim = shim
+toolchains = shim
+fbcode = shim
+fbcode_macros = shim
+fbsource = shim
+buck = shim
+
+[buildfile]
+name = TARGETS
+
+[build]
+execution_platforms = ovr_config//platforms:default
+
+[parser]
+target_platform_detector_spec = target://...->ovr_config//platforms:default

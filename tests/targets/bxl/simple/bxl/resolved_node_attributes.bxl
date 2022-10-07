@@ -1,0 +1,25 @@
+def _impl(ctx):
+    node = ctx.cquery().owner("bin/TARGETS.fixture")[0]
+    attrs = node.resolved_attrs(ctx)
+
+    outputs = {}
+
+    outputs.update({"name": attrs.name})
+    outputs.update({"default_target_platform_label": str(attrs.default_target_platform.label)})
+    outputs.update({"default_target_platform_providers": str(attrs.default_target_platform.providers)})
+    outputs.update({"foo_toolchain_label": str(attrs._foo_toolchain.label)})
+    outputs.update({"foo_toolchain_providers": str(attrs._foo_toolchain.providers)})
+    outputs.update({"cmd": str(attrs.cmd)})
+
+    deps = {}
+    for dep in attrs.deps:
+        deps.update({str(dep.label): str(dep.providers)})
+    outputs.update({"deps": deps})
+
+    outputs.update({"src": str(attrs.srcs[0])})
+    ctx.output.print_json(outputs)
+
+resolved_attrs_test = bxl(
+    impl = _impl,
+    cli_args = {},
+)

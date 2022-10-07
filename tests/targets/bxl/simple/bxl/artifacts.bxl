@@ -1,0 +1,22 @@
+def _artifact_path_test_impl(ctx):
+    outputs = {}
+    owner = ctx.cquery().owner("fbcode//buck2/tests/targets/rules/shell/DATA")[0]
+    artifact = owner.get_source("fbcode/buck2/tests/targets/rules/shell/DATA", ctx)
+
+    outputs.update({"sources": owner.sources()})
+    outputs.update({"source_artifact": artifact})
+    outputs.update({"source_artifact_project_rel_path": get_path_without_materialization(artifact, ctx)})
+
+    node = ctx.configured_targets("fbcode//buck2/tests/targets/rules/shell:gen")
+    providers = ctx.analysis(node).providers()
+    default_output = providers[DefaultInfo].default_outputs[0]
+
+    outputs.update({"build_artifact": default_output})
+    outputs.update({"build_artifact_project_rel_path": get_path_without_materialization(default_output, ctx)})
+    ctx.output.print_json(outputs)
+
+artifact_path_test = bxl(
+    impl = _artifact_path_test_impl,
+    cli_args = {
+    },
+)

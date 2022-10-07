@@ -1,0 +1,15 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+bzl_native.sh_test(
+    name = "pass",
+    args = ["true"],
+    labels = ["label-pass"],
+)
+
+bzl_native.sh_test(
+    name = "fail",
+    args = ["false"],
+    labels = ["label-fail"],
+)

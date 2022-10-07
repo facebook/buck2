@@ -1,0 +1,68 @@
+load("@fbcode//buck2/install_proto:install.bzl", "installer")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+native.export_file(
+    name = "artifact_a",
+    src = "artifact_a.txt",
+)
+
+native.export_file(
+    name = "artifact_b",
+    src = "artifact_b.txt",
+)
+
+python_binary(
+    # @autodeps-skip
+    name = "installer_sends_err",
+    srcs = ["bad_server.py"],
+    base_module = "",
+    main_module = "bad_server",
+    deps = [
+        "fbcode//buck2/install_proto:install-py",
+    ],
+)
+
+installer(
+    name = "installer_test",
+    files = {
+        "artifact_a": "artifact_a.txt",
+        "artifact_b": "artifact_b.txt",
+    },
+    installer = "fbcode//buck2/install_proto:installer",
+)
+
+installer(
+    name = "bad_installer_target",
+    files = {
+        "artifact_a": "artifact_a.txt",
+        "artifact_b": "artifact_b.txt",
+    },
+    installer = "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_3",
+)
+
+installer(
+    name = "bad_artifacts",
+    files = {
+        "artifact_a": "artifact_a.txt",
+        "bad_genrule": "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2",
+    },
+    installer = "fbcode//buck2/install_proto:installer",
+)
+
+installer(
+    name = "installer_server_sends_error",
+    files = {"artifact_a": "artifact_a.txt"},
+    installer = ":installer_sends_err",
+)
+
+fb_native.command_alias(
+    name = "installer_sends_wrong_install_id",
+    args = ["--with_wrong_install_id"],
+    exe = ":installer_sends_err",
+)
+
+installer(
+    name = "installer_server_sends_wrong_install_info_response",
+    files = {"artifact_a": "artifact_a.txt"},
+    installer = ":installer_sends_wrong_install_id",
+)

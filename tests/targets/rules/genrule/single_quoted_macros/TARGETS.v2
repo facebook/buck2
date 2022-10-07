@@ -1,0 +1,13 @@
+prelude = native
+
+prelude.genrule(
+    name = "check",
+    cmd = "cp '$(location :gen)' $OUT",
+    out = "out.txt",
+)
+
+prelude.genrule(
+    name = "gen",
+    cmd = "touch $OUT",
+    out = "out.txt",
+)

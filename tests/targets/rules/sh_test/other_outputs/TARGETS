@@ -1,0 +1,19 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+# This will have Python link tree so it will not work if we don't include it.
+python_binary(
+    name = "test_binary",
+    srcs = [
+        "test_binary.py",
+    ],
+    base_module = "",
+    main_module = "test_binary",
+)
+
+bzl_native.sh_test(
+    name = "test",
+    test = ":test_binary",
+)

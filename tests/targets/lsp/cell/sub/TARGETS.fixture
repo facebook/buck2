@@ -1,0 +1,2 @@
+dummy_binary(name = "bar")
+<baz>dummy_binary</baz>(name = "baz")

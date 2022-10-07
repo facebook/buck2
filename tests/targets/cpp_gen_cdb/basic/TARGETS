@@ -1,0 +1,9 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+
+oncall("buck2")
+
+cpp_library(
+    name = "library",
+    srcs = ["src/main.cpp"],
+    preprocessor_flags = ["-DM_FOO_BAR=1"],  # an argument that would be shell quoted in an @argsfile
+)

@@ -1,0 +1,69 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+buck_genrule(
+    name = "check_test",
+    out = "out.txt",
+    cmd = "$(exe :test) > $OUT",
+)
+
+bzl_native.sh_test(
+    name = "test",
+    args = ["arg1"],
+    test = "test.py",
+)
+
+bzl_native.sh_test(
+    name = "test_fail",
+    args = ["fail"],
+    test = "test.py",
+)
+
+bzl_native.sh_test(
+    name = "test_with_env",
+    args = ["arg1"],
+    env = {
+        "FOO": "$(location :file)",
+    },
+    test = "test.py",
+)
+
+bzl_native.filegroup(
+    name = "file",
+    srcs = [
+        "TARGETS",
+    ],
+)
+
+bzl_native.sh_test(
+    name = "test_cwd",
+    test = "test_cwd.py",
+)
+
+bzl_native.sh_test(
+    name = "test_fail_extended",
+    args = ["fail"],
+    labels = ["extended"],
+    test = "test.py",
+)
+
+bzl_native.export_file(
+    name = "test_file",
+    mode = "reference",
+)
+
+bzl_native.sh_test(
+    name = "test_deps",
+    test = "test_deps.sh",
+    deps = [":test_file"],
+)
+
+# Actually *run* the test_deps script so that we run it on RE and can check if
+# test_file actually is there.
+bzl_native.genrule(
+    name = "check_test_deps",
+    out = "OUT",
+    cmd = "$(exe :test_deps) && touch $OUT",
+)

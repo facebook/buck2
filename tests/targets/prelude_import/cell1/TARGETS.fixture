@@ -1,0 +1,5 @@
+# @lint-ignore BUCKRESTRICTEDSYNTAX
+
+# This calls check_config from the prelude, so this will have the function
+# exported by the prelude, which will use the prelude cell's config.
+check_config(name = "cell1")

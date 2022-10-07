@@ -1,0 +1,12 @@
+load(<load>"@cell//s<load_click>u</load_click>b:defs.bzl"</load>, <dummy>"du<dummy_click>m</dummy_click>my_binary"</dummy>)
+
+<missing>"cell//non<missing_click>e</missing_click>xistent:foo"</missing>
+# Does not exist
+<missing_foo>"cell//s<missing_foo_click>u</missing_foo_click>b:foo"</missing_foo>
+
+<rule>dummy_b<rule_click>i</rule_click>nary</rule>(
+  name="foo",
+  deps=[
+    <baz>"cell//s<baz_click>u</baz_click>b:baz"</baz>,
+  ],
+)

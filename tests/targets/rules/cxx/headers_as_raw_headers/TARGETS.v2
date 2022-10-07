@@ -1,0 +1,19 @@
+prelude = native
+
+prelude.cxx_library(
+    name = "lib",
+    # Only "activate" this test if the platform is set to allow raw headers
+    # conversions.
+    srcs = [] if not read_config("cxx", "headers_as_raw_headers_mode") else [
+        "private.cpp",
+        "public.cpp",
+    ],
+    headers_as_raw_headers_mode = "required",
+    header_namespace = "",
+    headers = [
+        "private.h",
+    ],
+    exported_headers = [
+        "public.h",
+    ],
+)

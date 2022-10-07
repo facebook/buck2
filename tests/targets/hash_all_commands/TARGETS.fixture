@@ -1,0 +1,13 @@
+echo_test(
+    name="test",
+    seed=read_config("test", "seed", ""),
+    param=read_config("test", "param", ""),
+    category=read_config("test", "category", "dummy"),
+    local_only=read_config("test", "local_only", "false"),
+)
+
+symlink_test(
+    name="symlink_test",
+    param=read_config("test", "param", ""),
+    category=read_config("test", "category", "dummy"),
+)

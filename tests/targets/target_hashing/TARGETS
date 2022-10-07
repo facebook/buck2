@@ -1,0 +1,64 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+oncall("buck2")
+
+# Add a `srcs`
+buck_genrule(
+    name = "rule1",
+    srcs = [
+        "foo.txt",
+        ":rule5",
+    ],
+    out = "out.txt",
+    bash = "cat $SRCDIR/src.txt > $OUT",
+)
+
+# Add a dependency
+buck_genrule(
+    name = "rule2",
+    srcs = [":rule1"],
+    out = "out.txt",
+    bash = "cat $SRCDIR/out.txt > $OUT",
+)
+
+# Add a dependency with a source file
+buck_genrule(
+    name = "rule3",
+    srcs = [":rule2"],
+    out = "out.txt",
+    bash = "cat $SRCDIR/out.txt > $OUT",
+)
+
+# No dependency
+buck_genrule(
+    name = "rule4",
+    srcs = [],
+    out = "out.txt",
+    bash = "cat $SRCDIR/out.txt > $OUT",
+)
+
+# Reverse dependency (no modification expected)
+buck_genrule(
+    name = "rule5",
+    srcs = [],
+    out = "out.txt",
+    bash = "cat $SRCDIR/out.txt > $OUT",
+)
+
+# Add a new `srcs`
+buck_genrule(
+    name = "rule6",
+    srcs = [
+        "bar.txt",
+    ],
+    out = "out.txt",
+    bash = "cat $SRCDIR/src.txt > $OUT",
+)
+
+# Add a new dependency
+buck_genrule(
+    name = "rule7",
+    srcs = [":rule6"],
+    out = "out.txt",
+    bash = "cat $SRCDIR/out.txt > $OUT",
+)

@@ -1,0 +1,60 @@
+load(
+    "@prelude//cxx:omnibus.bzl",
+    "all_deps",
+)
+load(
+    "@prelude//python:python_binary.bzl",
+    "OmnibusMetadataInfo",
+)
+
+def _analyze_sharing_impl(ctx):
+    metadata = ctx.analysis(sub_target(ctx.cli_args.target, "omnibus")).providers()[OmnibusMetadataInfo]
+    if metadata == None:
+        fail("Metadata generation must be enabled")
+
+    omnibus_libs = metadata.omnibus_libs
+    omnibus_graph = metadata.omnibus_graph
+
+    reused = 0
+    not_reused = 0
+
+    causes = {}
+
+    for root, state in omnibus_libs.roots.items():
+        priv = state.product.private
+        if priv == None:
+            reused += 1
+            continue
+
+        not_reused += 1
+
+        k = ((priv.label and priv.label or root).raw_target(), priv.category, priv.disposition)
+        causes.setdefault(k, 0)
+        causes[k] += 1
+
+    causes = [(v, k) for (k, v) in causes.items()]
+    causes = sorted(causes, reverse = True)
+
+    for (count, (label, category, disposition)) in causes:
+        ctx.output.print("%s\t%s\t%s\t%s" % (count, label, category, disposition))
+
+    ctx.output.print()
+    ctx.output.print("Reused:     %s" % reused)
+    ctx.output.print("Not Reused: %s" % not_reused)
+
+    explain_exclusion = ctx.cli_args.explain_exclusion
+    if explain_exclusion:
+        for exclusion_root in omnibus_libs.exclusion_roots:
+            deps = all_deps(omnibus_graph.nodes, [exclusion_root])
+            for d in deps:
+                if d.raw_target() == explain_exclusion:
+                    ctx.output.print("%s excluded by %s" % (explain_exclusion, exclusion_root))
+                    break
+
+analyze_sharing = bxl(
+    impl = _analyze_sharing_impl,
+    cli_args = {
+        "explain_exclusion": cli_args.option(cli_args.target_label()),
+        "target": cli_args.target_label(),
+    },
+)

@@ -1,0 +1,11 @@
+[buildfile]
+name=BUILD
+
+[repositories]
+root = .
+prelude = prelude
+buck = no
+fbcode = no
+fbsource = no
+ovr_config = no
+toolchains = no

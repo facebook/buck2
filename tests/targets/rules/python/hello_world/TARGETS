@@ -1,0 +1,12 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+oncall("buck2")
+
+python_binary(
+    name = "welcome",
+    srcs = [
+        "hello_world.py",
+    ],
+    base_module = "",
+    main_module = "hello_world",
+)

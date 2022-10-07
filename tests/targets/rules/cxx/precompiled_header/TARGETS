@@ -1,0 +1,21 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+bzl_native.cxx_precompiled_header(
+    name = "my_pch",
+    src = "common.h",
+    deps = [":my_library"],
+)
+
+bzl_native.cxx_library(
+    name = "my_library",
+    exported_headers = ["foo.h"],
+)
+
+cpp_binary(
+    name = "my_binary",
+    srcs = ["main.cpp"],
+    precompiled_header = ":my_pch",
+)

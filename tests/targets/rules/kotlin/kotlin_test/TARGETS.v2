@@ -1,0 +1,7 @@
+native.kotlin_test(
+    name = "simple_kotlin_test",
+    srcs = ["com/example/SimpleKotlinTest.kt"],
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+)

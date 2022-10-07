@@ -1,0 +1,9 @@
+# To silence the linter warnings about native
+prelude = native
+
+prelude.command_alias(
+    name = "with_env",
+    env = {"FOO": "bar"},
+    exe = "//buck2/tests/targets/rules/alias/subpackage/deeper:with_env.sh",
+    visibility = ["PUBLIC"],
+)

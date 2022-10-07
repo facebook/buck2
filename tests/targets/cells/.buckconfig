@@ -1,0 +1,12 @@
+[bar]
+  a = 1
+[foo]
+  a = $(config bar.a)
+  b = $(config foo.a)
+
+[repositories]
+source = fbs
+code = fbc
+b = buck
+root = .
+prelude = prelude

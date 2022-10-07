@@ -1,0 +1,7 @@
+load(":rules.bzl", "write_string")
+
+write_string(
+    name = "writer",
+    content = "HELLO\n",
+    out = "out.txt",
+)

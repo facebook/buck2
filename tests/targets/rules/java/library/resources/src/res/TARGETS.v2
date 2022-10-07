@@ -1,0 +1,6 @@
+native.genrule(
+    name = "create_resource",
+    cmd = "echo 'Hello World' > $OUT",
+    out = "output.txt",
+    visibility = ["fbcode//buck2/tests/..."],
+)

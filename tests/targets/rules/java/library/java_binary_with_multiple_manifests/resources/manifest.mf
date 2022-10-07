@@ -1,0 +1,4 @@
+key4: overridden value
+uniq_manifest_key_1: 123
+Main-Class: com.example.OverriddenMainClass
+uniq_manifest_key_2: 789

@@ -1,0 +1,5 @@
+load(":defs.bzl", "copy", "download")
+
+copy(name="copy", src="src", hidden="hidden")
+
+download(name="download")

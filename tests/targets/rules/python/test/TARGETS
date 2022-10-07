@@ -1,0 +1,93 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+
+oncall("buck2")
+
+buck_genrule(
+    name = "check_test",
+    out = "out.txt",
+    cmd = "set -euo pipefail; $(exe :test) | grep TESTED; touch $OUT",
+)
+
+python_unittest(
+    name = "test",
+    srcs = [
+        "test.py",
+    ],
+    env = {
+        "TEST_ENV": "pass",
+    },
+)
+
+python_unittest(
+    name = "test_fail",
+    srcs = [
+        "test.py",
+    ],
+    env = {
+        "TEST_ENV": "fail",
+    },
+)
+
+python_unittest(
+    name = "test_fatal",
+    srcs = [
+        "test.py",
+    ],
+    env = {
+        "TEST_ENV": "fatal",
+    },
+)
+
+buck_genrule(
+    name = "asset",
+    out = "asset",
+    cmd = "touch $OUT",
+)
+
+python_unittest(
+    name = "test_env",
+    srcs = [
+        "test_env.py",
+    ],
+    env = {
+        "ASSET": "$(location :asset)",
+    },
+)
+
+python_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    tests = [":tests_for_lib"],
+)
+
+python_unittest(
+    name = "tests_for_lib",
+    srcs = [
+        "tests_for_lib.py",
+    ],
+    deps = [":lib"],
+)
+
+python_unittest(
+    name = "multi_tests",
+    srcs = [
+        "multi_tests.py",
+    ],
+    env = {
+        "TEST_ENV": "pass",
+    },
+    tags = [
+        "run_as_bundle",
+        "tpx:experimental-shard-size-for-bundle=1",
+    ],
+)
+
+python_unittest(
+    name = "cancellation",
+    srcs = [
+        "cancellation.py",
+    ],
+    tags = ["serialize_test_cases"],
+)

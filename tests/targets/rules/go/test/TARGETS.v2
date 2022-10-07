@@ -1,0 +1,65 @@
+buck_genrule(
+    name = "check",
+    cmd = "$(exe :test) | grep PASS > $OUT",
+    out = "out.txt",
+)
+
+native.go_test(
+    name = "test",
+    srcs = [
+        "foo_test.go",
+        "bar_test.go",
+    ],
+    target_compatible_with = [
+        "ovr_config//runtime:fbcode",
+    ],
+)
+
+native.go_library(
+    name = "lib",
+    srcs = [
+        "lib.go",
+    ],
+)
+
+native.go_test(
+    name = "lib_test",
+    srcs = [
+        "lib_test.go",
+    ],
+    library = ":lib",
+    target_compatible_with = [
+        "ovr_config//runtime:fbcode",
+    ],
+)
+
+buck_genrule(
+    name = "check_lib",
+    cmd = "$(exe :lib_test) | grep PASS > $OUT",
+    out = "out.txt",
+)
+
+native.go_test(
+    name = "resources_test",
+    srcs = [
+        "resources_test.go",
+    ],
+    resources = [
+        "testdata/input",
+    ],
+)
+
+buck_genrule(
+    name = "check_coverage",
+    cmd = "$(exe_target :coverage_test) 2>&1 | grep \"coverage: 100.0% of statements in buck2/tests/targets/rules/go/test_test\" > $OUT",
+    out = "out.txt",
+)
+
+native.go_test(
+    name = "coverage_test",
+    coverage_mode = "set",
+    srcs = [
+        "coverage_test.go",
+        "coverage.go",
+    ],
+)

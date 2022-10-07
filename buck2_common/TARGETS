@@ -1,0 +1,75 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_common",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    named_deps = {
+        "edenfs": "//eden/fs/service:thrift-rust",
+        "fb303_core": "//fb303/thrift:fb303_core-rust",
+    },
+    os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:xattr",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:xattr",
+            ],
+        ),
+    ],
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:indoc",
+        "fbsource//third-party/rust:maplit",
+        "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:test-case",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:chrono",
+        "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:dirs",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:globset",
+        "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:nix",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:rand",
+        "fbsource//third-party/rust:ref-cast",
+        "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:rusqlite",
+        "fbsource//third-party/rust:sha-1",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-rusqlite",
+        "fbsource//third-party/rust:tonic",
+        "fbsource//third-party/rust:tower",
+        "fbsource//third-party/rust:tracing",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/dice/dice:dice",
+        "//buck2/facebook/allocator-stats:allocator-stats",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/shed/internment_tweaks:internment_tweaks",
+        "//buck2/shed/more_futures:more_futures",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
+        "//common/rust/folly/memory:memory",
+        "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
+        "//common/rust/thrift/bareclient:thriftclient",
+    ],
+)

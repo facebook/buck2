@@ -1,0 +1,38 @@
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("buck2")
+
+buck2_e2e_test(
+    name = "test_compatible_with_before_select",
+    srcs = ["test_compatible_with_before_select.py"],
+)
+
+buck2_e2e_test(
+    name = "test_configuration_rule_unbound",
+    srcs = ["test_configuration_rule_unbound.py"],
+)
+
+buck2_e2e_test(
+    name = "test_select_buckconfig",
+    srcs = ["test_select_buckconfig.py"],
+)
+
+buck2_e2e_test(
+    name = "test_select_refine",
+    srcs = ["test_select_refine.py"],
+)
+
+buck2_e2e_test(
+    name = "test_target_incompatible",
+    srcs = ["test_target_incompatible.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_target_platforms_arg",
+    srcs = ["test_target_platforms_arg.py"],
+)

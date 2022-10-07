@@ -1,0 +1,34 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+oncall("buck2")
+
+buck_genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :outer) | grep HELLO > $OUT",
+)
+
+cpp_binary(
+    name = "outer",
+    srcs = [
+        "outer.cpp",
+    ],
+    resources = {
+        "inner": ":inner",
+    },
+    deps = [
+        "fbsource//xplat/tools/cxx:resourcesFbcode",
+        "//folly:subprocess",
+    ],
+)
+
+python_binary(
+    name = "inner",
+    srcs = [
+        "inner.py",
+    ],
+    base_module = "",
+    main_module = "inner",
+)

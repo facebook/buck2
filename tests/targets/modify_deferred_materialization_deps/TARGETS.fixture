@@ -1,0 +1,7 @@
+load(":defs.bzl", "remote_text", "symlink_dir", "check")
+
+remote_text(name="remote_text", text="text")
+
+symlink_dir(name="symlink_dir", remote_text=":remote_text")
+
+check(name="check", symlink_dir=":symlink_dir", text="text")

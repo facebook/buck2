@@ -1,0 +1,29 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+cpp_binary(
+    # @autodeps-skip
+    name = "exported_deps_propagated",
+    srcs = ["main.cpp"],
+    deps = [":top_dep"],
+)
+
+bzl_native.cxx_library(
+    name = "top_dep",
+    reexport_all_header_dependencies = True,
+    deps = [":middle_dep"],
+)
+
+bzl_native.cxx_library(
+    name = "middle_dep",
+    reexport_all_header_dependencies = True,
+    exported_deps = [":bottom_dep"],
+)
+
+bzl_native.cxx_library(
+    name = "bottom_dep",
+    exported_headers = ["exported_header.h"],
+    reexport_all_header_dependencies = True,
+)

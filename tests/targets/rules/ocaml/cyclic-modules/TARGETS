@@ -1,0 +1,41 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:ocaml_binary.bzl", "ocaml_binary")
+
+# In the current implementation of the OCaml programming language, the
+# compilation unit dependency graph must be acyclic and compilations of the
+# graph's compilation units ("modules") must proceed in topological order.
+#
+# This target tests the quality of the error message that results from
+# attempting to build a target for which there exists a dependency cycle between
+# modules.
+#
+# Since this is a negative test (i.e. produces a build error by design) it is
+# disabled by default (run with e.g.
+#```
+#    buck2 build -c ocaml.enable-compile-fail-tests=yes :cyclic-modules`
+#```
+# to see the error).
+
+oncall("buck2")
+
+enabled = read_config("ocaml", "enable-compile-fail-tests") == "yes"
+
+ocaml_binary(
+    name = "cyclic_modules",
+    srcs = [
+        "bar.ml",  # uses foo.ml...
+        "foo.ml",  # ...uses bar.ml
+    ] if enabled else ["empty.ml"],
+)
+
+# As starlark doesn't support try/catch style exceptions, about the best
+# we can do is make sure there is a good message associated with `fail`s (which
+# is a bit of a shame since it would be nice if we could provide context
+# sensitive error messages).
+#
+# At the time of writing (D38864308), on the above target, buck2 produces the
+# output "error: fail: cycle in graph detected in `topo_sort`".
+#
+# I judge that to be at least a little better than the cryptic "error: Index
+# `-1` is out of bound" that it once did (see T128196852).

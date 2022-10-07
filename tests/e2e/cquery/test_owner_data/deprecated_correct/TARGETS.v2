@@ -1,0 +1,30 @@
+prelude = native
+
+prelude.sh_binary(
+    name = "bin",
+    main = "bin.sh",
+)
+
+prelude.constraint_setting(
+    name = "cs",
+)
+
+prelude.constraint_value(
+    name = "cv",
+    constraint_setting = ":cs",
+)
+
+prelude.platform(
+    name = "p",
+    constraint_values = [
+        ":cv",
+    ],
+)
+
+prelude.genrule(
+    name = "test",
+    out = "test.txt",
+    default_target_platform = ":p",
+    # We use exe to switch configuration.
+    cmd = "echo $(exe :bin) > $OUT",
+)

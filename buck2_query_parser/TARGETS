@@ -1,0 +1,18 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_query_parser",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:enum-map",
+        "fbsource//third-party/rust:nom",
+        "fbsource//third-party/rust:thiserror",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
+)

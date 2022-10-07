@@ -1,0 +1,6 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "buck2_protoc_dev",
+    srcs = glob(["src/**/*.rs"]),
+)

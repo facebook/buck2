@@ -1,0 +1,47 @@
+# @noautodeps
+
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+oncall("buck2")
+
+bzl_native.cxx_library(
+    name = "lib",
+    srcs = ["foo.cpp"],
+    platform_srcs = [
+        (
+            ".*",
+            ["foo.cpp"],
+        ),
+    ],
+)
+
+bzl_native.cxx_library(
+    name = "lib_with_flags",
+    srcs = [(
+        "foo.cpp",
+        ["-Werror"],
+    )],
+    platform_srcs = [
+        (
+            ".*",
+            [(
+                "foo.cpp",
+                ["-Werror"],
+            )],
+        ),
+    ],
+)
+
+# bzl_native.cxx_library(
+#     name = "should_fail",
+#     srcs = ["foo.cpp"],
+#     platform_srcs = [
+#         (
+#             ".*",
+#             [(
+#                 "foo.cpp",
+#                 ["-Wsome-flag"],
+#             )],
+#         ),
+#     ],
+# )

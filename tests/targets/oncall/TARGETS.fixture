@@ -1,0 +1,7 @@
+load(":defs.bzl", "noop")
+
+oncall("magic")
+
+noop(name = "foo")
+
+noop(name = "bar")

@@ -1,0 +1,66 @@
+load("@fbcode//buck2/tests/targets/rules/python_cxx/omnibus:defs.bzl", "check_omnibus")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+check_omnibus(
+    name = "check_bin",
+    binary = ":bin",
+    check_defined = [
+        ("lib1.so", "lib1_func"),
+    ],
+    check_deps = [
+        ("lib1.so", "libomnibus.so"),
+    ],
+    check_libs = [
+        "lib1.so",
+        "libomnibus.so",
+    ],
+    check_no_libs = [
+    ],
+    check_symlink = [
+        ("lib1.so", "$(location :cpp-lib1[omnibus-shared-root])"),
+    ],
+) if read_config("buck2", "enable_omnibus_explicit_roots", "false") in ["true", "True"] else None
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    package_style = "inplace",  # To get symlinks
+    main_module = "bin",
+    native_link_strategy = "merged",
+    prefer_stripped_native_objects = True,
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    deps = [
+        ":cpp-lib1",
+    ],
+)
+
+fb_native.cxx_library(
+    name = "cpp-lib1",
+    srcs = [
+        "lib1.cpp",
+    ],
+    soname = "lib1.so",
+    deps = [
+        ":cpp-lib2",
+    ],
+    supports_python_dlopen = True,
+)
+
+fb_native.cxx_library(
+    name = "cpp-lib2",
+    srcs = [
+        "lib2.cpp",
+    ],
+)

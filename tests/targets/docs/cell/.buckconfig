@@ -1,0 +1,13 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+cell = .
+root = ..
+fbcode = ../fbcode
+fbsource = ../fbsource
+buck = ../buck
+special = ../special

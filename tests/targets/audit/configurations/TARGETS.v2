@@ -1,0 +1,42 @@
+prelude = native
+
+prelude.platform(
+    name = "platform1",
+    constraint_values = [
+        ":constraint1",
+        ":constraint2",
+        ":constraint3",
+    ],
+)
+
+prelude.constraint_setting(
+    name = "setting1",
+)
+
+prelude.constraint_value(
+    name = "constraint1",
+    constraint_setting = ":setting1",
+)
+
+prelude.constraint_setting(
+    name = "setting2",
+)
+
+prelude.constraint_value(
+    name = "constraint2",
+    constraint_setting = ":setting2",
+)
+
+prelude.constraint_setting(
+    name = "setting3",
+)
+
+prelude.constraint_value(
+    name = "constraint3",
+    constraint_setting = ":setting3",
+)
+
+prelude.export_file(
+    name = "target",
+    default_target_platform = ":platform1",
+)

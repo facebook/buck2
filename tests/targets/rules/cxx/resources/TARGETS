@@ -1,0 +1,11 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+oncall("buck2")
+
+buck_genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe fbsource//xplat/tools/cxx:resources_test) > $OUT",
+)

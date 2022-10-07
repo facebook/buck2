@@ -1,0 +1,4 @@
+export_file(
+    name = "cargo_cfgs.awk",
+    visibility = ["PUBLIC"],
+)

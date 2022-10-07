@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package buck.forkserver;
+
+message CommandRequest {
+  reserved 3, 4, 7;
+  // The executable that should be run.
+  bytes exe = 1;
+  // The arguments to give the executable.
+  repeated bytes argv = 2;
+  // The working directory of the commmand as it's being spawned.
+  WorkingDirectory cwd = 5;
+  // The max duration this command should be allowed to run for.
+  google.protobuf.Duration timeout = 6;
+  // Control the environment
+  repeated EnvDirective env = 8;
+}
+
+message WorkingDirectory {
+  bytes path = 1;
+}
+
+// Clear all the env
+message EnvClear {}
+
+// Remove one var
+message EnvRemove {
+  bytes key = 1;
+}
+
+// Set one var
+message EnvSet {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message EnvDirective {
+  oneof data {
+    EnvClear clear = 1;
+    EnvRemove remove = 2;
+    EnvSet set = 3;
+  }
+}
+
+message CommandEvent {
+  oneof data {
+    ExitEvent exit = 1;
+    TimeoutEvent timeout = 2;
+    StreamEvent stdout = 4;
+    StreamEvent stderr = 5;
+    CancelEvent cancel = 6;
+  }
+}
+
+message ExitEvent {
+  int32 exit_code = 1;
+}
+
+message TimeoutEvent {
+  google.protobuf.Duration duration = 1;
+}
+
+message StreamEvent {
+  bytes data = 1;
+}
+
+message CancelEvent {}
+
+message CancelRequest {}
+
+message RequestEvent {
+  oneof data {
+    CommandRequest command_request = 1;
+    CancelRequest cancel_request = 2;
+  }
+}
+
+service Forkserver {
+  rpc Run(stream RequestEvent) returns (stream CommandEvent) {}
+}

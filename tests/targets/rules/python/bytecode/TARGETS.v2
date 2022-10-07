@@ -1,0 +1,14 @@
+prelude = native
+
+prelude.python_library(
+    name = "lib",
+    srcs = [
+        "foo.py",
+    ],
+)
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = 'set -euo pipefail; find $(location :lib[compile]) | grep pyc && touch "$OUT"',
+)

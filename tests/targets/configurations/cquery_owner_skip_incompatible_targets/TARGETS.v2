@@ -1,0 +1,37 @@
+prelude = native
+
+prelude.constraint_setting(
+    name = "constraint",
+)
+
+prelude.constraint_value(
+    name = "value1",
+    constraint_setting = ":constraint",
+)
+
+prelude.constraint_value(
+    name = "value2",
+    constraint_setting = ":constraint",
+)
+
+prelude.platform(
+    name = "platform1",
+    constraint_values = [
+        ":value1",
+    ],
+)
+
+prelude.platform(
+    name = "platform2",
+    constraint_values = [
+        ":value2",
+    ],
+)
+
+prelude.genrule(
+    name = "compatible_with_genrule",
+    srcs = ["src.txt"],
+    target_compatible_with = [":value1"],
+    out = "out.txt",
+    bash = "cat $SRCDIR/src.txt > $OUT",
+)
