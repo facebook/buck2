@@ -72,6 +72,7 @@ rust_library(
 buck_rust_binary(
     name = "buck2",
     srcs = ["bin/buck2.rs"],
+    crate_root = "bin/buck2.rs",
     unittests = False,
     deps = [
         "fbsource//third-party/rust:anyhow",
