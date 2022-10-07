@@ -7,11 +7,17 @@ load(":type_defs.bzl", "is_dict")
 # Get current target platform - hard-coded for example, matches one of the platforms
 # defined in reindeer.toml.
 def _get_plat():
-    return "linux-x86_64"
+    if host_info().os.is_windows:
+        return "windows"
+    else:
+        return "linux-x86_64"
 
 # Matching host triple
 def _get_native_host_triple():
-    return "x86_64-unknown-linux-gnu"
+    if host_info().os.is_windows:
+        return "x86_64-pc-windows-msvc"
+    else:
+        return "x86_64-unknown-linux-gnu"
 
 def extend(orig, new):
     if orig == None:
