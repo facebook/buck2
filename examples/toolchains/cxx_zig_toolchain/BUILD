@@ -1,0 +1,13 @@
+load("@prelude//platforms:defs.bzl", "execution_platform")
+
+cxx_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    headers = ["lib.h"],
+)
+
+cxx_binary(
+    name = "main",
+    srcs = ["main.cc"],
+    deps = [":lib"],
+)
