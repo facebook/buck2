@@ -188,12 +188,12 @@ impl<T> SmallSet<T> {
 
     /// Remove the element from the set if it is present.
     #[inline]
-    pub fn remove<Q>(&mut self, key: &Q)
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
     where
         Q: ?Sized + Hash + Equivalent<T>,
         T: Eq,
     {
-        self.0.remove(key);
+        self.0.remove(key).is_some()
     }
 
     /// Insert entry if it doesn't exist.
@@ -347,6 +347,7 @@ macro_rules! smallset {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::rc::Rc;
 
     use super::*;
@@ -470,5 +471,15 @@ mod tests {
         assert_eq!(s.last(), Some(&1));
         s.insert(2);
         assert_eq!(s.last(), Some(&2));
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut h: HashSet<u32> = HashSet::from_iter([17]);
+        let mut s: SmallSet<u32> = SmallSet::from_iter([17]);
+        assert!(h.remove(&17));
+        assert!(s.remove(&17));
+        assert!(!h.remove(&17));
+        assert!(!s.remove(&17));
     }
 }
