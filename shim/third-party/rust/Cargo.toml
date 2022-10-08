@@ -140,7 +140,7 @@ termimad = "0.20.1"
 termios = "0.3"
 termwiz = "0.18"
 test-case = "1.2.0"
-textwrap = "0.15"
+textwrap = { version = "0.15", default-features = false }
 thiserror = "1.0.36"
 threadpool = "1.8.1"
 tokio = { version = "1.5", features = ["full"] }
