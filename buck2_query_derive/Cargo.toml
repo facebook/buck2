@@ -11,12 +11,12 @@ proc-macro = true
 
 [dependencies]
 # TODO(nga): figure out how to use `= { workspace = true }` here
-#   when using, `cargo test -p buck2_query_derive --test ui` fails.
+#   when using, `cargo test -p buck2_query_derive --test ui` fails on Mac.
 itertools = "0.10.0"
 proc-macro2 = "1.0"
 syn = {version = "1.0.27", features = ["extra-traits", "full"]}
 quote = "1.0.3"
-textwrap = { workspace = true }
+textwrap = "0.15"
 
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
