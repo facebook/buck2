@@ -53,7 +53,7 @@ lsp-types = "0.93.0"
 memchr = "2.4.1"
 debugserver-types = "0.5.0"
 hashbrown = { version = "0.12.3", features = ["raw"] }
-textwrap = "0.14.2"
+textwrap = "0.15"
 fancy-regex = "0.10.0"
 regex = "1.5.4"
 strsim = "0.10.0"
