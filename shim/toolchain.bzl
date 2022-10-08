@@ -109,6 +109,9 @@ cxx_toolchain = rule(
     is_toolchain_rule = True,
 )
 
+# Seems Windows disagrees with what to call python3
+python = "python" if host_info().os.is_windows else "python3"
+
 def _python_toolchain(ctx):
     """
     A very simple toolchain that is hardcoded to the current environment.
@@ -118,8 +121,8 @@ def _python_toolchain(ctx):
         DefaultInfo(),
         PythonToolchainInfo(
             make_source_db = ctx.attrs.make_source_db,
-            host_interpreter = RunInfo(args = ["python3"]),
-            interpreter = RunInfo(args = ["python3"]),
+            host_interpreter = RunInfo(args = [python]),
+            interpreter = RunInfo(args = [python]),
             make_pex_modules = ctx.attrs.make_pex_modules,
             make_pex_inplace = ctx.attrs.make_pex_inplace,
             compile = RunInfo(args = ["echo", "COMPILEINFO"]),
@@ -142,7 +145,7 @@ python_toolchain = rule(
 def _python_bootstrap_toolchain(_ctx):
     return [
         DefaultInfo(),
-        PythonBootstrapToolchainInfo(interpreter = "python"),
+        PythonBootstrapToolchainInfo(interpreter = python),
     ]
 
 python_bootstrap_toolchain = rule(
