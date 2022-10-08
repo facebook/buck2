@@ -186,6 +186,8 @@ async def main() -> int:
             "PWD",
             "HOME",
             "TMPDIR",
+            # Required on Windows
+            "TEMP",
             # TODO(andirauter): Required by RE. Remove them when no longer required T119466023
             "EXECUTION_ID",
             "SESSION_ID",
