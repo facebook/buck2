@@ -19,13 +19,13 @@ tracing = { workspace = true }
 
 gazebo = { workspace = true }
 gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 gazebo_lint.version = "0.1"
 
-buck2_common = { path = "../buck2_common" }
-buck2_core = { path = "../buck2_core" }
+buck2_common = { path = "../../buck2_common" }
+buck2_core = { path = "../../buck2_core" }
 buck2_forkserver_proto = { path = "../buck2_forkserver_proto" }
-buck2_grpc = { path = "../buck2_grpc" }
+buck2_grpc = { path = "../../buck2_grpc" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true }

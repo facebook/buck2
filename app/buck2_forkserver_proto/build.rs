@@ -5,7 +5,7 @@ fn main() -> io::Result<()> {
 
     // Tonic build uses PROTOC to determine the protoc path.
     println!("cargo:rerun-if-env-changed=PROTOC");
-    buck2_protoc_dev::maybe_setup_protoc("../../..");
+    buck2_protoc_dev::maybe_setup_protoc("../../../..");
     tonic_build::configure()
         .protoc_arg("--experimental_allow_proto3_optional")
         .type_attribute(
