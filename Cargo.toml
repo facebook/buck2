@@ -5,6 +5,7 @@ resolver = "2"
 members = [
     # @oss-disable: "attic/uniplate",
     # @oss-disable: "attic/uniplate_derive",
+    "app/buck2_grpc",
     "app/buck2_test",
     "app/buck2_test_api",
     "app/buck2_test_proto",
@@ -25,7 +26,6 @@ members = [
     "buck2_build_api_derive",
     "buck2_client",
     "buck2_common",
-    "buck2_grpc",
     "buck2_interpreter",
     "buck2_interpreter_for_build",
     "buck2_node",
