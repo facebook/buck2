@@ -281,8 +281,10 @@ def convert_python_library_to_executable(
 
         cxx_executable_srcs = [
             CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
-            CxxSrcWithFlags(file = ctx.attrs._cxx_static_extension_utils, flags = []),
             CxxSrcWithFlags(file = static_extension_info_out, flags = []),
+        ] + [
+            CxxSrcWithFlags(file = i, flags = [])
+            for i in ctx.attrs._cxx_static_extension_utils
         ]
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",

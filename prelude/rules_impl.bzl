@@ -258,7 +258,7 @@ def _python_binary_attrs():
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
-        "_cxx_static_extension_utils": attrs.option(attrs.source(), default = None),
+        "_cxx_static_extension_utils": attrs.list(attrs.source(), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
