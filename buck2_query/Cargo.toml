@@ -26,8 +26,8 @@ gazebo_lint.optional = true
 starlark_map = { workspace = true }
 
 buck2_core = { path = "../buck2_core" }
-buck2_query_parser = { path = "../buck2_query_parser" }
-buck2_query_derive = { path = "../buck2_query_derive" }
+buck2_query_parser = { path = "../app/buck2_query_parser" }
+buck2_query_derive = { path = "../app/buck2_query_derive" }
 
 [lib]
 

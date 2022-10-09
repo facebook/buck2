@@ -28,7 +28,7 @@ starlark_map = { workspace = true }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }
-buck2_query_parser = { path = "../buck2_query_parser" }
+buck2_query_parser = { path = "../app/buck2_query_parser" }
 
 [dev-dependencies]
 maplit = { workspace = true }

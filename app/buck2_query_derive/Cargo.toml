@@ -20,7 +20,7 @@ textwrap = "0.15"
 
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 
 [dev-dependencies]
 trybuild = { workspace = true }
