@@ -1,0 +1,41 @@
+[package]
+name = "buck2_test"
+version = "0.1.0"
+edition = "2021"
+description = "Buck V2 test runner"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+futures = { workspace = true }
+chrono = { workspace = true }
+derive_more = { workspace = true }
+indexmap = { workspace = true }
+libc = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+dice = { path = "../../dice/dice" }
+gazebo = { workspace = true }
+host_sharing = { workspace = true }
+more_futures = { workspace = true }
+
+buck2_build_api = { path = "../../buck2_build_api" }
+buck2_common = { path = "../../buck2_common" }
+buck2_core = { path = "../../buck2_core" }
+buck2_data = { path = "../../buck2_data" }
+buck2_execute_impl = { path = "../../buck2_execute_impl" }
+buck2_interpreter = { path = "../../buck2_interpreter" }
+buck2_interpreter_for_build = { path = "../../buck2_interpreter_for_build" }
+buck2_node = { path = "../../buck2_node" }
+buck2_server_ctx = { path = "../../buck2_server_ctx" }
+cli_proto = { path = "../../cli_proto" }
+downward_api = { path = "../../downward_api" }
+buck2_events = { path = "../../buck2_events" }
+buck2_execute = { path = "../../buck2_execute" }
+buck2_test_api = { path = "../buck2_test_api" }
+buck2_grpc = { path = "../../buck2_grpc" }

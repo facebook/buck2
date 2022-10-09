@@ -70,7 +70,7 @@ buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
 buck2_node = { path = "../buck2_node" }
 buck2_query = { path = "../buck2_query" }
 buck2_query_parser = { path = "../buck2_query_parser" }
-buck2_test_api = { path = "../buck2_test_api" }
+buck2_test_api = { path = "../app/buck2_test_api" }
 cli_proto = { path = "../cli_proto" }
 
 [target.'cfg(unix)'.dependencies]

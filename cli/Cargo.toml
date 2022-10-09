@@ -47,7 +47,7 @@ buck2_forkserver = { path = "../app/buck2_forkserver" }
 buck2_server = { path = "../buck2_server" }
 buck2_server_commands = { path = "../buck2_server_commands" }
 buck2_server_ctx = { path = "../buck2_server_ctx" }
-buck2_test = { path = "../buck2_test" }
+buck2_test = { path = "../app/buck2_test" }
 cli_proto = { path = "../cli_proto" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
