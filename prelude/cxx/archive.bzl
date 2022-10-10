@@ -1,4 +1,5 @@
 load("@prelude//linking:link_info.bzl", "Archive")
+load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _supports_thin(linker_type: str.type) -> bool.type:
@@ -52,6 +53,12 @@ def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, 
     ctx.actions.run(command, category = category, identifier = name, prefer_local = prefer_local)
     return archive_output
 
+def _archive_locally(ctx: "context", linker_info: "LinkerInfo") -> bool.type:
+    archive_locally = linker_info.archive_objects_locally
+    if hasattr(ctx.attrs, "_archive_objects_locally_override"):
+        return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
+    return archive_locally
+
 # Creates a static library given a list of object files.
 def make_archive(
         ctx: "context",
@@ -66,7 +73,7 @@ def make_archive(
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     thin = _supports_thin(linker_info.type) and linker_info.archive_contents == "thin"
-    archive = _archive(ctx, name, args, thin = thin, prefer_local = linker_info.archive_objects_locally)
+    archive = _archive(ctx, name, args, thin = thin, prefer_local = _archive_locally(ctx, linker_info))
 
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.
     # TODO(T110378123): for BSD archiver, split long args over multiple invocations.
