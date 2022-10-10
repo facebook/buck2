@@ -4,7 +4,7 @@ def rust_library(os_deps = None, test_deps = None, test_env = None, named_deps =
 
 def rust_binary(unittests = None, deps = [], **kwargs):
     _unused = unittests  # @unused
-    native.rust_library(deps = filter(None, map(_fix_dep, deps)), **kwargs)
+    native.rust_binary(deps = filter(None, map(_fix_dep, deps)), **kwargs)
 
 def _fix_dep(x):
     if x == "//buck2/gazebo/gazebo:gazebo":
