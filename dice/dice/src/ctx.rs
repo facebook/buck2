@@ -185,6 +185,11 @@ impl Dupe for DiceTransaction {}
 /// owned.
 pub struct DiceComputations(pub(super) Arc<DiceComputationImpl>);
 
+fn _test_computations_sync_send() {
+    fn _assert_sync_send<T: Sync + Send>() {}
+    _assert_sync_send::<DiceComputations>();
+}
+
 impl DiceComputations {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
