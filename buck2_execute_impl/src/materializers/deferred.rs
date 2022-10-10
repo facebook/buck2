@@ -31,6 +31,8 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::FileDigestFromReExt;
 use buck2_execute::digest::FileDigestToReExt;
@@ -218,6 +220,7 @@ enum MaterializerCommand {
     /// concludes (whether successfuly or not).
     Ensure(
         Vec<ProjectRelativePathBuf>,
+        EventDispatcher,
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
@@ -251,7 +254,7 @@ impl std::fmt::Debug for MaterializerCommand {
             MaterializerCommand::InvalidateFilePaths(paths, _) => {
                 write!(f, "InvalidateFilePaths({:?})", paths)
             }
-            MaterializerCommand::Ensure(paths, _) => write!(f, "Ensure({:?}, _)", paths,),
+            MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
             MaterializerCommand::MaterializationFinished {
                 path,
                 version,
@@ -523,10 +526,16 @@ impl Materializer for DeferredMaterializer {
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<BoxStream<'static, Result<(), MaterializationError>>> {
+        let event_dispatcher = get_dispatcher().unwrap();
+
         // TODO: display [materializing] in superconsole
         let (sender, recv) = oneshot::channel();
         self.command_sender
-            .send(MaterializerCommand::Ensure(artifact_paths, sender))
+            .send(MaterializerCommand::Ensure(
+                artifact_paths,
+                event_dispatcher,
+                sender,
+            ))
             .context("Sending Ensure() command.")?;
         let materialization_fut = recv
             .await
@@ -684,9 +693,13 @@ impl DeferredMaterializerCommandProcessor {
                     sender.send(invalidation_fut).ok();
                 }
                 // Entry point for `ensure_materialized` calls
-                MaterializerCommand::Ensure(paths, fut_sender) => {
+                MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
                     fut_sender
-                        .send(self.dupe().materialize_many_artifacts(&mut tree, paths))
+                        .send(self.dupe().materialize_many_artifacts(
+                            &mut tree,
+                            paths,
+                            event_dispatcher,
+                        ))
                         .ok();
                 }
                 // Materialization of artifact succeeded
@@ -717,10 +730,11 @@ impl DeferredMaterializerCommandProcessor {
         self: Arc<Self>,
         tree: &mut ArtifactTree,
         paths: Vec<ProjectRelativePathBuf>,
+        event_dispatcher: EventDispatcher,
     ) -> BoxStream<'static, Result<(), MaterializationError>> {
         let tasks = paths.into_iter().filter_map(|path| {
             self.dupe()
-                .materialize_artifact(tree, path.as_ref())
+                .materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe())
                 .map(move |fut| {
                     fut.map_err(move |e| match e {
                         SharedMaterializingError::Error(source) => MaterializationError::Error {
@@ -895,6 +909,7 @@ impl DeferredMaterializerCommandProcessor {
         self: Arc<Self>,
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
+        event_dispatcher: EventDispatcher,
     ) -> Option<MaterializingFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
@@ -961,7 +976,13 @@ impl DeferredMaterializerCommandProcessor {
                 | ArtifactMaterializationMethod::Write { .. } => Vec::new(),
                 ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => copied_artifacts
                     .iter()
-                    .filter_map(|a| self.dupe().materialize_artifact(tree, a.src.as_ref()))
+                    .filter_map(|a| {
+                        self.dupe().materialize_artifact(
+                            tree,
+                            a.src.as_ref(),
+                            event_dispatcher.dupe(),
+                        )
+                    })
                     .collect::<Vec<_>>(),
             },
             _ => Vec::new(),
@@ -974,7 +995,10 @@ impl DeferredMaterializerCommandProcessor {
             Some(deps) => tree
                 .find_artifacts(deps)
                 .into_iter()
-                .filter_map(|p| self.dupe().materialize_artifact(tree, p.as_ref()))
+                .filter_map(|p| {
+                    self.dupe()
+                        .materialize_artifact(tree, p.as_ref(), event_dispatcher.dupe())
+                })
                 .collect::<Vec<_>>(),
         };
 
@@ -1009,7 +1033,12 @@ impl DeferredMaterializerCommandProcessor {
                 if let Some((entry, method)) = entry_and_method {
                     // All potential deps are materialized. Now materialize the entry.
                     self.dupe()
-                        .materialize_entry(path_buf.clone(), method, entry.dupe())
+                        .materialize_entry(
+                            path_buf.clone(),
+                            method,
+                            entry.dupe(),
+                            event_dispatcher.dupe(),
+                        )
                         .await?;
 
                     // Record in sqlite that this artifact is now materialized
@@ -1058,6 +1087,7 @@ impl DeferredMaterializerCommandProcessor {
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        event_dispatcher: EventDispatcher,
     ) -> Result<(), MaterializeEntryError> {
         // Materialize the dir structure, and symlinks
         self.io_executor
@@ -1097,18 +1127,27 @@ impl DeferredMaterializerCommandProcessor {
 
                 let connection = self.re_client_manager.get_re_connection();
                 let re_client = connection.get_client();
-
-                re_client
-                    .materialize_files(files, info.re_use_case)
-                    .await
-                    .map_err(|e| match e.downcast_ref::<REClientError>() {
-                        Some(e) if e.code == TCode::NOT_FOUND => {
-                            MaterializeEntryError::NotFound { info: info.dupe() }
-                        }
-                        _ => MaterializeEntryError::Error(e.context({
-                            format!("Error materializing files declared by action: {}", info)
-                        })),
-                    })?;
+                event_dispatcher
+                    .span_async(buck2_data::MaterializationStart {}, async {
+                        (
+                            re_client
+                                .materialize_files(files, info.re_use_case)
+                                .await
+                                .map_err(|e| match e.downcast_ref::<REClientError>() {
+                                    Some(e) if e.code == TCode::NOT_FOUND => {
+                                        MaterializeEntryError::NotFound { info: info.dupe() }
+                                    }
+                                    _ => MaterializeEntryError::Error(e.context({
+                                        format!(
+                                            "Error materializing files declared by action: {}",
+                                            info
+                                        )
+                                    })),
+                                }),
+                            buck2_data::MaterializationEnd {},
+                        )
+                    })
+                    .await?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {
                 async {

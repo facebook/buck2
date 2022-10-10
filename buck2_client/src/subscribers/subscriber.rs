@@ -177,6 +177,9 @@ pub(crate) trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::DiceStateUpdate(dice_update) => {
                 self.handle_dice_state_update_start(dice_update, event)
             }
+            buck2_data::span_start_event::Data::Materialization(materialization) => {
+                self.handle_materialization_start(materialization, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -246,6 +249,9 @@ pub(crate) trait EventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::DiceStateUpdate(dice_update) => {
                 self.handle_dice_state_update_end(dice_update, event)
+            }
+            buck2_data::span_end_event::Data::Materialization(materialization) => {
+                self.handle_materialization_end(materialization, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -619,6 +625,20 @@ pub(crate) trait EventSubscriber: Send {
     async fn handle_dice_state_update_end(
         &mut self,
         _dice_update: &buck2_data::DiceStateUpdateEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_materialization_start(
+        &mut self,
+        _materialization: &buck2_data::MaterializationStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_materialization_end(
+        &mut self,
+        _materialization: &buck2_data::MaterializationEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

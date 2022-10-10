@@ -65,6 +65,7 @@ message SpanStartEvent {
     CommandCriticalStart command_critical = 65;
     InstallEventInfoStart install_event_info = 66;
     DiceStateUpdateStart dice_state_update = 67;
+    MaterializationStart materialization = 68;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -96,6 +97,7 @@ message SpanEndEvent {
     CommandCriticalEnd command_critical = 66;
     InstallEventInfoEnd install_event_info = 67;
     DiceStateUpdateEnd dice_state_update = 68;
+    MaterializationEnd materialization = 69;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1183,3 +1185,7 @@ message InstallEventInfoEnd {};
 message DiceStateUpdateStart {}
 
 message DiceStateUpdateEnd {}
+
+message MaterializationStart {};
+
+message MaterializationEnd {};

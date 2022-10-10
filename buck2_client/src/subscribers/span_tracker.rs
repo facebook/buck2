@@ -253,7 +253,8 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             | Data::AnalysisStage(..)
             | Data::ExecutorStage(..)
             | Data::MatchDepFiles(..)
-            | Data::CacheUpload(..),
+            | Data::CacheUpload(..)
+            | Data::Materialization(..),
         ) => false,
         Some(
             Data::ActionExecution(..)

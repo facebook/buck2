@@ -4,6 +4,8 @@
 //! liberally duplicated and passed around to the depths of buck2 so that consumers can insert events into it.
 
 use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -171,6 +173,12 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
+    }
+}
+
+impl Debug for EventDispatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EventDispatcher(TraceId = {})", self.trace_id().dupe())
     }
 }
 
