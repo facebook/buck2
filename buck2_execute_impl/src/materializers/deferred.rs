@@ -1125,6 +1125,12 @@ impl DeferredMaterializerCommandProcessor {
                     }
                 }
 
+                let file_count: u64 = files.len().try_into().unwrap_or_default();
+                let total_bytes: u64 = files
+                    .iter()
+                    .map(|x| u64::try_from(x.named_digest.digest.size_in_bytes).unwrap_or_default())
+                    .sum();
+
                 let connection = self.re_client_manager.get_re_connection();
                 let re_client = connection.get_client();
                 event_dispatcher
@@ -1144,7 +1150,10 @@ impl DeferredMaterializerCommandProcessor {
                                         )
                                     })),
                                 }),
-                            buck2_data::MaterializationEnd {},
+                            buck2_data::MaterializationEnd {
+                                file_count,
+                                total_bytes,
+                            },
                         )
                     })
                     .await?;
