@@ -1,4 +1,5 @@
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//utils:utils.bzl", "value_or")
 
 def _is_core_tool(ctx: "context"):
     return "is_core_tool" in ctx.attrs.labels
@@ -10,7 +11,10 @@ def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", 
         return False
     if not cxx_toolchain:
         cxx_toolchain = get_cxx_toolchain_info(ctx)
-    return cxx_toolchain.linker_info.link_binaries_locally
+    link_locally = cxx_toolchain.linker_info.link_binaries_locally
+    if hasattr(ctx.attrs, "_link_binaries_locally_override"):
+        return value_or(ctx.attrs._link_binaries_locally_override, link_locally)
+    return link_locally
 
 def package_python_locally(ctx: "context", python_toolchain: "PythonToolchainInfo") -> bool.type:
     if _is_core_tool(ctx) or getattr(ctx.attrs, "_package_remotely", False):
