@@ -710,3 +710,8 @@ async def test_bxl_fs_list(buck: Buck) -> None:
         "root//bin/ignored.txt",
         "root//bin/kind",
     ]
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_bxl_fs_is_file(buck: Buck) -> None:
+    await buck.bxl("//bxl:fs.bxl:is_file", "--", "--root_path", buck.cwd)

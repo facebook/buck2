@@ -64,7 +64,7 @@ pub struct OutputStream<'v> {
     artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    project_fs: ProjectRoot,
+    pub(crate) project_fs: ProjectRoot,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     pub(crate) artifact_fs: ArtifactFs,

@@ -3,6 +3,9 @@
 
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectRoot;
+use buck2_execute::artifact::fs::ArtifactFs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -41,11 +44,25 @@ pub struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     dice: &'v BxlSafeDiceComputations<'v>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    project_fs: &'v ProjectRoot,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    artifact_fs: &'v ArtifactFs,
 }
 
 impl<'v> BxlFilesystem<'v> {
-    pub(crate) fn new(dice: &'v BxlSafeDiceComputations<'v>) -> Self {
-        Self { dice }
+    pub(crate) fn new(
+        dice: &'v BxlSafeDiceComputations<'v>,
+        project_fs: &'v ProjectRoot,
+        artifact_fs: &'v ArtifactFs,
+    ) -> Self {
+        Self {
+            dice,
+            project_fs,
+            artifact_fs,
+        }
     }
 }
 
@@ -120,4 +137,16 @@ fn fs_operations(builder: &mut MethodsBuilder) {
             Err(e) => Err(e),
         }
     }
+
+    /// Returns whether the provided path is a file. Returns false is the file does not exist.
+    fn is_file<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
+        Ok(std::path::Path::is_file(resolve(this, expr)?.as_ref()))
+    }
+}
+
+/// Returns the absolute path for a FileExpr.
+fn resolve<'v>(bxl_fs: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<AbsPathBuf> {
+    let cell_path = expr.get(bxl_fs.dice)?;
+    let project_rel_path = bxl_fs.artifact_fs.resolve_cell_path(&cell_path)?;
+    Ok(bxl_fs.project_fs.resolve(&project_rel_path))
 }

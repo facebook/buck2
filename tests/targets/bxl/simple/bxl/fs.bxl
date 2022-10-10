@@ -1,3 +1,5 @@
+load("//rules:unittest.bzl", "asserts")
+
 # exist() test rules
 def _impl_exists_absolute_path(ctx):
     ctx.output.print(ctx.fs.exists(ctx.cli_args.root_path + "/bin"))
@@ -103,5 +105,45 @@ list_file_node = bxl(
 list_include_ignored = bxl(
     impl = _impl_list_include_ignored,
     cli_args = {
+    },
+)
+
+# is_file() test rules
+def _impl_is_file_absolute_path(ctx):
+    asserts.true(ctx.fs.is_file(ctx.cli_args.root_path + "/bin/TARGETS.fixture"))
+
+def _impl_is_file_relative_path(ctx):
+    asserts.true(ctx.fs.is_file("bin/TARGETS.fixture"))
+
+def _impl_is_file_source_artifact(ctx):
+    node = ctx.configured_targets("root//bin:the_binary")
+    asserts.true(ctx.fs.is_file(node.sources()[0]))
+
+def _impl_is_file_file_node(ctx):
+    result = ctx.cquery().inputs("root//bin:the_binary")
+    asserts.true(ctx.fs.is_file(result[0]))
+
+def _impl_is_file_absolute_path_not_a_file(ctx):
+    asserts.false(ctx.fs.is_file(ctx.cli_args.root_path + "/bin"))
+
+def _impl_is_file_relative_path_not_a_file(ctx):
+    asserts.false(ctx.fs.is_file("bin"))
+
+def _impl_is_file_not_exists(ctx):
+    asserts.false(ctx.fs.is_file("does_not_exist"))
+
+def _is_file(ctx):
+    _impl_is_file_absolute_path(ctx)
+    _impl_is_file_relative_path(ctx)
+    _impl_is_file_source_artifact(ctx)
+    _impl_is_file_file_node(ctx)
+    _impl_is_file_absolute_path_not_a_file(ctx)
+    _impl_is_file_relative_path_not_a_file(ctx)
+    _impl_is_file_not_exists(ctx)
+
+is_file = bxl(
+    impl = _is_file,
+    cli_args = {
+        "root_path": cli_args.string(),
     },
 )
