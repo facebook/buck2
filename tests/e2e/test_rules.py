@@ -629,6 +629,12 @@ async def test_android(buck: Buck) -> None:
         ),
         stderr_regex="Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule",
     )
+    await expect_failure(
+        buck.build(
+            "fbsource//fbandroid/buck2/tests/bad/apk/dex:apk_with_pre_dexing_and_split_dex_but_no_primary_dex_patterns"
+        ),
+        stderr_regex="No primary dex classes were specified",
+    )
 
 
 # TODO(marwhal): Fix and enable on Windows

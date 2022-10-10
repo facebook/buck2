@@ -389,6 +389,11 @@ def merge_to_split_dex(
                     outputs[primary_dex_artifact_list],
                     class_names_to_include = primary_dex_class_list,
                 )
+            else:
+                expect(
+                    not is_root_module(module),
+                    "No primary dex classes were specified! Please add primary_dex_patterns to ensure that at least one class exists in the primary dex.",
+                )
 
             secondary_dex_inputs = sorted_pre_dexed_input.secondary_dex_inputs
             raw_secondary_dexes_for_compressing = {}
