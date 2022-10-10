@@ -1,7 +1,5 @@
 # @nolint
 
-load(":type_defs.bzl", "is_dict")
-
 # Get current target platform - hard-coded for example, matches one of the platforms
 # defined in reindeer.toml.
 def _get_plat():
@@ -22,7 +20,7 @@ def extend(orig, new):
         ret = new
     elif new == None:
         ret = orig
-    elif is_dict(orig):
+    elif type(orig) == type({}):
         ret = orig.copy()
         ret.update(new)
     else:  # list
