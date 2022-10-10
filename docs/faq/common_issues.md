@@ -1,4 +1,4 @@
-# FAQ
+# Common Issues
 
 In addition to the [migration guide](migration_guide.md), this document answers some common issues users have. For issues not covered, ask in the [Buck2 Users group][buck2_users]
 
