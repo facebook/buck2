@@ -46,7 +46,9 @@ pub async fn create_listener(
             let socket_path = socket_dir_symlink
                 .path()
                 .join(FileName::new(UDS_DAEMON_FILENAME)?);
-            let uds = UnixListener::bind(socket_path)?;
+            let uds = std::os::unix::net::UnixListener::bind(socket_path)?;
+            uds.set_nonblocking(true)?;
+            let uds = UnixListener::from_std(uds)?;
             socket_dir_symlink.close()?;
             uds
         };
