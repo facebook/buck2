@@ -1,7 +1,5 @@
 # @nolint
 
-load(":iterable.bzl", "iterable")
-load(":new_sets.bzl", "sets")
 load(":type_defs.bzl", "is_dict")
 
 # Get current target platform - hard-coded for example, matches one of the platforms
@@ -108,7 +106,7 @@ def rust_buildscript_genrule_srcs(name, buildscript_rule, files, package_name, v
 # for target platform (_get_plat) which isn't very flexible. A better approach would be to construct
 # srcs/deps/etc with `select` to conditionally configure each target, but that's out of scope for this.
 def platform_attrs(platformname, platformattrs, attrs):
-    for attr in sets.to_list(sets.make(iterable.concat(attrs.keys(), platformattrs.get(platformname, {}).keys()))):
+    for attr in (attrs | platformattrs.get(platformname, {})).keys():
         new = extend(attrs.get(attr), platformattrs.get(platformname, {}).get(attr))
         attrs[attr] = new
     return attrs
