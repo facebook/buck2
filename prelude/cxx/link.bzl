@@ -162,6 +162,11 @@ def cxx_link(
         linker_argsfile = argfile,
     )
 
+def _link_libraries_locally(ctx: "context", prefer_local: bool.type) -> bool.type:
+    if hasattr(ctx.attrs, "_link_libraries_locally_override"):
+        return value_or(ctx.attrs._link_libraries_locally_override, prefer_local)
+    return prefer_local
+
 def cxx_link_shared_library(
         ctx: "context",
         # The destination for the link output.
@@ -193,11 +198,12 @@ def cxx_link_shared_library(
     if name != None:
         extra_args.extend(get_shared_library_name_linker_flags(linker_type, name, shared_library_flags))
 
+    prefer_local_value = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False))
     return cxx_link(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
         output,
-        prefer_local = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False)),
+        prefer_local = _link_libraries_locally(ctx, prefer_local_value),
         local_only = value_or(local_only, False),
         link_weight = link_weight,
         category_suffix = category_suffix,
