@@ -11,13 +11,17 @@ from xplat.build_infra.buck_e2e.api.buck_result import BuckResult
 from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
 
-# builds targets in an fbcode target configuration, unsupported on mac RE workers
-def fbcode_linux_only() -> bool:
+
+def _is_running_on_linux() -> bool:
     return sys.platform == "linux"
 
 
-def mac_only() -> bool:
+def _is_running_on_mac() -> bool:
     return sys.platform == "darwin"
+
+
+def _is_running_on_windows() -> bool:
+    return sys.platform == "win32"
 
 
 # TODO(marwhal): Fix and enable on Windows
@@ -46,14 +50,14 @@ async def test_genrule(buck: Buck) -> None:
     )
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_haskell(buck: Buck) -> None:
         await buck.build("fbcode//buck2/tests/targets/rules/haskell/...")
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_ocaml(buck: Buck) -> None:
@@ -89,7 +93,7 @@ _RUST_EXPECT_FAIL = [
     ),
 ]
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_rust(buck: Buck) -> None:
@@ -101,7 +105,7 @@ if fbcode_linux_only():
             )
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_rust_pipelined(buck: Buck) -> None:
@@ -113,7 +117,7 @@ if fbcode_linux_only():
             )
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_rust_failure_filter(buck: Buck) -> None:
@@ -173,7 +177,7 @@ async def test_command_alias(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/command_alias/single_arg_exe:")
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_cxx(buck: Buck) -> None:
@@ -264,14 +268,14 @@ async def test_python(buck: Buck, package_style: str) -> None:
         "-c",
         f"python.package_style={package_style}",
     ]
-    if sys.platform == "darwin":
+    if _is_running_on_mac():
         args.append("@fbcode//mode/mac")
-    if sys.platform == "win32":
+    elif _is_running_on_windows():
         args.append("@fbcode//mode/win")
     await buck.build(*args)
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     @pytest.mark.parametrize("package_style", ["standalone", "inplace"])
@@ -356,7 +360,7 @@ if fbcode_linux_only():
         )
 
 
-if mac_only():
+if _is_running_on_mac():
 
     @buck_test(inplace=True)
     async def test_python_mac(buck: Buck) -> None:
@@ -567,7 +571,7 @@ async def run_java_tests(
     await test("fbcode//buck2/tests/targets/rules/java/java_test:")
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_java(buck: Buck) -> None:
@@ -582,7 +586,7 @@ if fbcode_linux_only():
         await run_java_tests(buck, True, True)
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_kotlin(buck: Buck) -> None:
@@ -643,7 +647,7 @@ async def test_sh_test(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/sh_test:check_test_deps")
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_android_tests(buck: Buck) -> None:
@@ -722,7 +726,7 @@ async def test_argsfiles_subtarget(buck: Buck) -> None:
     )
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_go(buck: Buck) -> None:
@@ -874,7 +878,7 @@ def _assert_not_incremental_build(
     assert len(rustc_incremental_flag) == 0
 
 
-if fbcode_linux_only():
+if _is_running_on_linux():
 
     @buck_test(inplace=True)
     async def test_rust_bin_incremental_compilation(buck: Buck) -> None:
