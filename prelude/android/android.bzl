@@ -58,6 +58,14 @@ def _kotlin_toolchain():
         ],
     )
 
+def is_build_only_native_code():
+    return select(
+        {
+            "DEFAULT": False,
+            "fbsource//xplat/buck2/platform/android:build_only_native_code": True,
+        },
+    )
+
 implemented_rules = {
     "android_app_modularity": android_app_modularity_impl,
     "android_binary": android_apk_impl,
@@ -152,6 +160,7 @@ extra_attributes = {
         "project_res": attrs.option(attrs.source(allow_directory = True), default = None),
         "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "_android_toolchain": android_toolchain(),
+        "_build_only_native_code": attrs.bool(default = is_build_only_native_code()),
     },
     "apk_genrule": genrule_attributes() | {
         "type": attrs.string(default = "apk"),

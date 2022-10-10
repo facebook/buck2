@@ -15,6 +15,9 @@ def _convert_to_artifact_dir(ctx: "context", attr: ["dependency", "dict", "artif
         return attr
 
 def android_resource_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        return [DefaultInfo()]
+
     # TODO(T100007184) filter res/assets by ignored filenames
     sub_targets = {}
     providers = []
