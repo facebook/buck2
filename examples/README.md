@@ -18,3 +18,7 @@ Preludeless examples for those wanting to use buck2 with their own
 rules and toolchains. In here you can learn about how BUILD
 files interact with rules, and how the provider abstraction can be
 used to encapsulate build logic.
+
+## toolchains
+
+Examples testing the various toolchains included in the prelude.
