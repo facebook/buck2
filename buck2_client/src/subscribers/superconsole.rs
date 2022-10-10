@@ -796,6 +796,7 @@ mod tests {
                 data: Some(buck2_data::span_end_event::Data::Load(LoadBuildFileEnd {
                     module_id: "foo".to_owned(),
                     cell: "bar".to_owned(),
+                    error: None,
                 })),
                 stats: None,
                 duration: None,

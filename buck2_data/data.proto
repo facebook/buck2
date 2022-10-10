@@ -577,6 +577,7 @@ message LoadPackageStart {
 
 message LoadPackageEnd {
   string path = 1;
+  optional string error = 2;
 }
 
 message LoadBuildFileStart {
@@ -587,6 +588,7 @@ message LoadBuildFileStart {
 message LoadBuildFileEnd {
   string module_id = 1;
   string cell = 2;
+  optional string error = 3;
 }
 
 message SharedTaskStart {}

@@ -347,10 +347,13 @@ impl<'c> DiceCalculationDelegate<'c> {
                 path: package.as_cell_path().to_string(),
             },
             async {
+                let result = self.resolve_package_listing(package).await;
+                let error = result.as_ref().err().map(|e| format!("{:#}", e));
                 (
-                    self.resolve_package_listing(package).await,
+                    result,
                     buck2_data::LoadPackageEnd {
                         path: package.as_cell_path().to_string(),
+                        error,
                     },
                 )
             },
@@ -383,12 +386,14 @@ impl<'c> DiceCalculationDelegate<'c> {
                     profiler,
                 )
                 .with_context(|| format!("evaluating build file: `{}`", build_file_path));
+            let error = result.as_ref().err().map(|e| format!("{:#}", e));
 
             (
                 result,
                 buck2_data::LoadBuildFileEnd {
                     module_id,
                     cell: cell_str,
+                    error,
                 },
             )
         })
