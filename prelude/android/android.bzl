@@ -14,7 +14,7 @@ load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
 load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load(":apk_genrule.bzl", "apk_genrule_impl")
-load(":configuration.bzl", "cpu_split_transition", "cpu_split_transition_instrumentation_test_apk", "cpu_transition")
+load(":configuration.bzl", "cpu_split_transition", "cpu_split_transition_instrumentation_test_apk", "cpu_transition", "do_not_build_only_native_code_transition")
 load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
@@ -111,6 +111,7 @@ extra_attributes = {
     },
     "android_instrumentation_apk": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "apk": attrs.transition_dep(cfg = do_not_build_only_native_code_transition),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
         "deps": attrs.list(_transition_dep_wrapper(attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk)), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1

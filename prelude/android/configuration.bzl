@@ -5,7 +5,10 @@ load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_va
 _REFS = {
     "arm64": "ovr_config//cpu/constraints:arm64",
     "armv7": "ovr_config//cpu/constraints:arm32",
+    "build_only_native_code": "fbsource//xplat/buck2/platform/android:build_only_native_code",
     "cpu": "ovr_config//cpu/constraints:cpu",
+    "do_not_build_only_native_code": "fbsource//xplat/buck2/platform/android:do_not_build_only_native_code",
+    "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
     "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
     "x86": "ovr_config//cpu/constraints:x86_32",
     "x86_64": "ovr_config//cpu/constraints:x86_64",
@@ -20,21 +23,23 @@ def _cpu_split_transition_instrumentation_test_apk_impl(
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
 
-    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version)
+    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version, build_only_native_code_on_secondary_platforms = False)
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    do_not_build_only_native_code = refs.do_not_build_only_native_code[ConstraintValueInfo].label in [constraint.label for constraint in platform.configuration.constraints.values()]
 
-    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version)
+    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version, build_only_native_code_on_secondary_platforms = not do_not_build_only_native_code)
 
 def _cpu_split_transition(
         platform: PlatformInfo.type,
         refs: struct.type,
         cpu_filters: [str.type],
-        min_sdk_version: [int.type, None]) -> {str.type: PlatformInfo.type}:
+        min_sdk_version: [int.type, None],
+        build_only_native_code_on_secondary_platforms: bool.type) -> {str.type: PlatformInfo.type}:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -57,7 +62,7 @@ def _cpu_split_transition(
     base_constraints = {
         constraint_setting_label: constraint_setting_value
         for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()
-        if constraint_setting_label != cpu[ConstraintSettingInfo].label
+        if constraint_setting_label != cpu[ConstraintSettingInfo].label and constraint_setting_label != refs.maybe_build_only_native_code[ConstraintSettingInfo].label
     }
 
     if min_sdk_version:
@@ -67,6 +72,9 @@ def _cpu_split_transition(
     for platform_name, cpu_constraint in cpu_name_to_cpu_constraint.items():
         updated_constraints = dict(base_constraints)
         updated_constraints[refs.cpu[ConstraintSettingInfo].label] = cpu_constraint
+        if len(new_configs) > 0 and build_only_native_code_on_secondary_platforms:
+            updated_constraints[refs.maybe_build_only_native_code[ConstraintSettingInfo].label] = refs.build_only_native_code[ConstraintValueInfo]
+
         new_configs[platform_name] = PlatformInfo(
             label = platform_name,
             configuration = ConfigurationInfo(
@@ -117,6 +125,28 @@ cpu_transition = transition(
         "cpu_filters",
         "min_sdk_version",
     ],
+)
+
+def _do_not_build_only_native_code_transition(
+        platform: PlatformInfo.type,
+        refs: struct.type) -> PlatformInfo.type:
+    constraints = dict(platform.configuration.constraints.items())
+    constraints[refs.maybe_build_only_native_code[ConstraintSettingInfo].label] = refs.do_not_build_only_native_code[ConstraintValueInfo]
+
+    return PlatformInfo(
+        label = platform.label,
+        configuration = ConfigurationInfo(
+            constraints = constraints,
+            values = platform.configuration.values,
+        ),
+    )
+
+do_not_build_only_native_code_transition = transition(
+    impl = _do_not_build_only_native_code_transition,
+    refs = {
+        "do_not_build_only_native_code": "fbsource//xplat/buck2/platform/android:do_not_build_only_native_code",
+        "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
+    },
 )
 
 def get_deps_by_platform(ctx: "context") -> {str.type: ["dependency"]}:
