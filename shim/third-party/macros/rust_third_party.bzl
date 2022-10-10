@@ -109,18 +109,7 @@ def platform_attrs(platformname, platformattrs, attrs):
         attrs[attr] = new
     return attrs
 
-def third_party_rust_library(name, platform = {}, dlopen_enable = False, python_ext = None, **kwargs):
-    # Rust crates which are python extensions need special handling to make sure they get linked
-    # properly. This is not enough on its own - it still assumes there's a dependency on the python
-    # library.
-    if dlopen_enable or python_ext:
-        # This is all pretty ELF/Linux-specific
-        linker_flags = ["-shared"]
-        if python_ext:
-            linker_flags.append("-uPyInit_{}".format(python_ext))
-            kwargs["preferred_linkage"] = "static"
-        native.cxx_binary(name = name + "-so", link_style = "static_pic", linker_flags = linker_flags, deps = [":" + name])
-
+def third_party_rust_library(name, platform = {}, **kwargs):
     native.rust_library(name = name, **platform_attrs(_get_plat(), platform, kwargs))
 
 # `platform` is a map from a platform (defined in reindeer.toml) to the attributes
