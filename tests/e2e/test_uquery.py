@@ -208,8 +208,6 @@ async def test_attributes(buck: Buck) -> None:
 
     attrs_out = await buck.uquery(
         "--output-attribute",
-        "\\$.*",
-        "--output-attribute",
         "buck\\..*",
         "--output-attribute",
         "srcs",
@@ -218,8 +216,6 @@ async def test_attributes(buck: Buck) -> None:
         "set(root//bin:the_binary //lib:file1)",
     )
     attrs_json_out = await buck.uquery(
-        "--output-attribute",
-        "\\$.*",
         "--output-attribute",
         "buck\\..*",
         "--output-attribute",
@@ -234,17 +230,6 @@ async def test_attributes(buck: Buck) -> None:
     attrs_json_out = json.loads(attrs_json_out.stdout)
     assert {
         "root//bin:the_binary": {
-            "$deps": [
-                "root//platforms:platform1",
-                "root//:data",
-                "root//lib:lib1",
-                "root//lib:lib2",
-                "root//lib:lib3",
-                "root//:foo_toolchain",
-                "root//:bin",
-            ],
-            "$package": "root//bin:TARGETS.fixture",
-            "$type": "_foo_binary",
             "buck.deps": [
                 "root//platforms:platform1",
                 "root//:data",
@@ -262,9 +247,6 @@ async def test_attributes(buck: Buck) -> None:
             "srcs": ["root//bin/TARGETS.fixture"],
         },
         "root//lib:file1": {
-            "$deps": ["root//platforms:platform1"],
-            "$package": "root//lib:TARGETS.fixture",
-            "$type": "_foo_genrule",
             "buck.deps": ["root//platforms:platform1"],
             "buck.package": "root//lib:TARGETS.fixture",
             "buck.type": "_foo_genrule",

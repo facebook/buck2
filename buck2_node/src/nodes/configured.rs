@@ -47,14 +47,11 @@ use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::nodes::attributes::DEPS;
-use crate::nodes::attributes::DEPS_LEGACY;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
-use crate::nodes::attributes::PACKAGE_LEGACY;
 use crate::nodes::attributes::TARGET_CONFIGURATION;
 use crate::nodes::attributes::TYPE;
-use crate::nodes::attributes::TYPE_LEGACY;
 use crate::nodes::unconfigured::RuleKind;
 use crate::nodes::unconfigured::TargetNode;
 use crate::rule_type::RuleType;
@@ -455,12 +452,9 @@ impl ConfiguredTargetNode {
         let package_attr =
             ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string()));
         vec![
-            (TYPE, typ_attr.clone()),
-            (DEPS, deps_attr.clone()),
-            (DEPS_LEGACY, deps_attr),
-            (TYPE_LEGACY, typ_attr),
-            (PACKAGE, package_attr.clone()),
-            (PACKAGE_LEGACY, package_attr),
+            (TYPE, typ_attr),
+            (DEPS, deps_attr),
+            (PACKAGE, package_attr),
             (
                 ONCALL,
                 ConfiguredAttr::new(match self.oncall() {

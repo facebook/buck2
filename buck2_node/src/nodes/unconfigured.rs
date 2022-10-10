@@ -33,12 +33,9 @@ use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
 use crate::nodes::attributes::DEPS;
-use crate::nodes::attributes::DEPS_LEGACY;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
-use crate::nodes::attributes::PACKAGE_LEGACY;
 use crate::nodes::attributes::TYPE;
-use crate::nodes::attributes::TYPE_LEGACY;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
 
@@ -216,7 +213,7 @@ impl TargetNode {
         let package_attr =
             CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string()));
         vec![
-            (TYPE, typ_attr.clone()),
+            (TYPE, typ_attr),
             (
                 CONFIGURATION_DEPS,
                 CoercedAttr::new_literal(AttrLiteral::List(
@@ -226,11 +223,8 @@ impl TargetNode {
                     AttrType::configuration_dep(),
                 )),
             ),
-            (DEPS, deps_attr.clone()),
-            (DEPS_LEGACY, deps_attr),
-            (TYPE_LEGACY, typ_attr),
-            (PACKAGE, package_attr.clone()),
-            (PACKAGE_LEGACY, package_attr),
+            (DEPS, deps_attr),
+            (PACKAGE, package_attr),
             (
                 ONCALL,
                 CoercedAttr::new_literal(match self.oncall() {

@@ -17,26 +17,21 @@ pub mod unconfigured;
 pub mod attributes {
     /// The nodes that this node depends on.
     pub static DEPS: &str = "buck.deps";
-    pub static DEPS_LEGACY: &str = "$deps";
 
     /// The oncall for this node.
     pub static ONCALL: &str = "buck.oncall";
 
     /// The package that this node belongs to.
     pub static PACKAGE: &str = "buck.package";
-    pub static PACKAGE_LEGACY: &str = "$package";
 
     /// A string representation of the target's rule type.
     pub static TYPE: &str = "buck.type";
-    pub static TYPE_LEGACY: &str = "$type";
 
     /// The target hash of this target.
     pub static TARGET_HASH: &str = "buck.target_hash";
-    pub static TARGET_HASH_LEGACY: &str = "$target_hash";
 
     /// The callstack for this target.
     pub static TARGET_CALL_STACK: &str = "buck.target_call_stack";
-    pub static TARGET_CALL_STACK_LEGACY: &str = "$target_call_stack";
 
     /// The configuration deps, deps that appear as conditions in selects.
     pub static CONFIGURATION_DEPS: &str = "buck.configuration_deps";

@@ -93,16 +93,12 @@ async def test_query_chunked_stream(buck: Buck) -> None:
 async def test_attributes(buck: Buck) -> None:
     attrs_out = await buck.cquery(
         "--output-attribute",
-        "\\$.*",
-        "--output-attribute",
         "buck\\..*",
         "--output-attribute",
         "srcs",
         "set(root//bin:the_binary //lib:file1)",
     )
     attrs_json_out = await buck.cquery(
-        "--output-attribute",
-        "\\$.*",
         "--output-attribute",
         "buck\\..*",
         "--output-attribute",
@@ -115,17 +111,6 @@ async def test_attributes(buck: Buck) -> None:
     attrs_json_out = json.loads(attrs_json_out.stdout)
     assert {
         "root//bin:the_binary (root//platforms:platform1)": {
-            "$deps": [
-                "root//platforms:platform1 (root//platforms:platform1)",
-                "root//:data (root//platforms:platform1)",
-                "root//lib:lib1 (root//platforms:platform1)",
-                "root//lib:lib2 (root//platforms:platform1)",
-                "root//lib:lib3 (root//platforms:platform1)",
-                "root//:foo_toolchain (root//platforms:platform1)",
-                "root//:bin (root//platforms:platform1)",
-            ],
-            "$package": "root//bin:TARGETS.fixture",
-            "$type": "_foo_binary",
             "buck.deps": [
                 "root//platforms:platform1 (root//platforms:platform1)",
                 "root//:data (root//platforms:platform1)",
@@ -143,9 +128,6 @@ async def test_attributes(buck: Buck) -> None:
             "srcs": ["root//bin/TARGETS.fixture"],
         },
         "root//lib:file1 (root//platforms:platform1)": {
-            "$deps": ["root//platforms:platform1 (root//platforms:platform1)"],
-            "$package": "root//lib:TARGETS.fixture",
-            "$type": "_foo_genrule",
             "buck.deps": ["root//platforms:platform1 (root//platforms:platform1)"],
             "buck.execution_platform": "<legacy_global_exec_platform>",
             "buck.package": "root//lib:TARGETS.fixture",
