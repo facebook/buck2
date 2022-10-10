@@ -15,6 +15,10 @@ def get_apple_xctoolchain_bundle_id_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
 
+APPLE_LINK_BINARIES_LOCALLY_OVERRIDE_ATTR_NAME = "_link_binaries_locally_override"
+APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME = "_link_libraries_locally_override"
+APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
+
 def apple_bundle_extra_attrs():
     return {
         "resource_group_map": resource_group_map_attr(),

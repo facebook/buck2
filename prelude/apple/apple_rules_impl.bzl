@@ -10,7 +10,16 @@ load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
 load(":apple_resource.bzl", "apple_resource_impl")
-load(":apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs", "get_apple_toolchain_attr", "get_apple_xctoolchain_attr", "get_apple_xctoolchain_bundle_id_attr")
+load(
+    ":apple_rules_impl_utility.bzl",
+    "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
+    "APPLE_LINK_BINARIES_LOCALLY_OVERRIDE_ATTR_NAME",
+    "APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME",
+    "apple_bundle_extra_attrs",
+    "get_apple_toolchain_attr",
+    "get_apple_xctoolchain_attr",
+    "get_apple_xctoolchain_bundle_id_attr",
+)
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
@@ -50,6 +59,7 @@ extra_attributes = {
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
+        APPLE_LINK_BINARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
@@ -66,6 +76,8 @@ extra_attributes = {
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
+        APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+        APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_resource": {
         "codesign_on_copy": attrs.bool(default = False),
@@ -100,6 +112,7 @@ extra_attributes = {
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attrs.bool(),
         "_omnibus_environment": omnibus_environment_attr(),
+        APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
