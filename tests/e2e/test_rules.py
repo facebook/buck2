@@ -161,7 +161,17 @@ async def test_apple_tests(buck: Buck) -> None:
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=True, skip_if_windows=True)
 async def test_ide(buck: Buck) -> None:
-    await buck.build("fbsource//xplat/buck2/tests/ide_integrations/...")
+    args = [
+        "fbsource//xplat/buck2/tests/ide_integrations/...",
+    ]
+    if _is_running_on_linux():
+        args.extend(
+            [
+                "-c",
+                "xplat.available_platforms=APPLE,CXX",
+            ]
+        )
+    await buck.build(*args)
 
 
 # TODO(marwhal): Fix and enable on Windows
