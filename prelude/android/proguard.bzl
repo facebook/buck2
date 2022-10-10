@@ -27,7 +27,7 @@ def _get_proguard_command_line_args(
     android_sdk_proguard_config = ctx.attrs.android_sdk_proguard_config or "none"
     if android_sdk_proguard_config == "optimized":
         cmd.add("-include", android_toolchain.optimized_proguard_config)
-        cmd.add("-optimizationpasses", ctx.attrs.optimization_passes)
+        cmd.add("-optimizationpasses", str(ctx.attrs.optimization_passes))
     elif android_sdk_proguard_config == "default":
         cmd.add("-include", android_toolchain.proguard_config)
     else:
