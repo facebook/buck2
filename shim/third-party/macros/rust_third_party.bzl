@@ -110,11 +110,6 @@ def platform_attrs(platformname, platformattrs, attrs):
     return attrs
 
 def third_party_rust_library(name, platform = {}, dlopen_enable = False, python_ext = None, **kwargs):
-    # This works around a bug in Buck, which complains if srcs is missing - but that can happen if all
-    # the sources are mapped_srcs
-    if "srcs" not in kwargs:
-        kwargs["srcs"] = []
-
     # Rust crates which are python extensions need special handling to make sure they get linked
     # properly. This is not enough on its own - it still assumes there's a dependency on the python
     # library.
@@ -131,10 +126,6 @@ def third_party_rust_library(name, platform = {}, dlopen_enable = False, python_
 # `platform` is a map from a platform (defined in reindeer.toml) to the attributes
 # specific to that platform.
 def third_party_rust_binary(name, platform = {}, **kwargs):
-    # This works around a bug in Buck, which complains if srcs is missing - but that can happen if all
-    # the sources are mapped_srcs
-    if "srcs" not in kwargs:
-        kwargs["srcs"] = []
     native.rust_binary(name = name, **platform_attrs(_get_plat(), platform, kwargs))
 
 def third_party_rust_cxx_library(name, **kwargs):
