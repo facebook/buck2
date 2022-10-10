@@ -138,7 +138,12 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Returns whether the provided path is a file. Returns false is the file does not exist.
+    /// Returns whether the provided path is a dir. Takes in a 'FileExpr'. Returns false is the dir does not exist.
+    fn is_dir<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
+        Ok(std::path::Path::is_dir(resolve(this, expr)?.as_ref()))
+    }
+
+    /// Returns whether the provided path is a file. Takes in a 'FileExpr'. Returns false is the file does not exist.
     fn is_file<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
         Ok(std::path::Path::is_file(resolve(this, expr)?.as_ref()))
     }

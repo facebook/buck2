@@ -147,3 +147,43 @@ is_file = bxl(
         "root_path": cli_args.string(),
     },
 )
+
+#is_dir() test rules
+def _impl_is_dir_absolute_path(ctx):
+    ctx.output.print(ctx.fs.is_dir(ctx.cli_args.root_path + "/bin"))
+
+def _impl_is_dir_relative_path(ctx):
+    ctx.output.print(ctx.fs.is_dir("bin"))
+
+def _impl_is_dir_source_artifact(ctx):
+    node = ctx.configured_targets("root//bin:the_binary")
+    ctx.output.print(ctx.fs.is_dir(node.sources()[0]))
+
+def _impl_is_dir_file_node(ctx):
+    result = ctx.cquery().inputs("root//bin:the_binary")
+    ctx.output.print(ctx.fs.is_dir(result[0]))
+
+def _impl_is_dir_absolute_path_not_a_dir(ctx):
+    ctx.output.print(ctx.fs.is_dir(ctx.cli_args.root_path + "/TARGETS.fixture"))
+
+def _impl_is_dir_relative_path_not_a_dir(ctx):
+    ctx.output.print(ctx.fs.is_dir("bin/TARGETS.fixture"))
+
+def _impl_is_dir_not_exists(ctx):
+    ctx.output.print(ctx.fs.is_dir("does_not_exist"))
+
+def _is_dir(ctx):
+    _impl_is_dir_absolute_path(ctx)
+    _impl_is_dir_relative_path(ctx)
+    _impl_is_dir_source_artifact(ctx)
+    _impl_is_dir_file_node(ctx)
+    _impl_is_dir_absolute_path_not_a_dir(ctx)
+    _impl_is_dir_relative_path_not_a_dir(ctx)
+    _impl_is_dir_not_exists(ctx)
+
+is_dir = bxl(
+    impl = _is_dir,
+    cli_args = {
+        "root_path": cli_args.string(),
+    },
+)

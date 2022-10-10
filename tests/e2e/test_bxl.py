@@ -715,3 +715,8 @@ async def test_bxl_fs_list(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_fs_is_file(buck: Buck) -> None:
     await buck.bxl("//bxl:fs.bxl:is_file", "--", "--root_path", buck.cwd)
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_bxl_fs_is_dir(buck: Buck) -> None:
+    await buck.bxl("//bxl:fs.bxl:is_dir", "--", "--root_path", buck.cwd)
