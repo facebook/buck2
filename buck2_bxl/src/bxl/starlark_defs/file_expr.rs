@@ -44,7 +44,7 @@ impl<'a> FileExpr<'a> {
     pub fn get(self, dice: &BxlSafeDiceComputations<'_>) -> anyhow::Result<CellPath> {
         match self {
             FileExpr::Literal(val) => {
-                let fs = dice.0.global_data().get_io_provider().fs().dupe();
+                let fs = dice.0.global_data().get_io_provider().project_root().dupe();
                 let rel = if Path::new(val).is_absolute() {
                     fs.relativize(AbsPath::new(val)?)?
                 } else {

@@ -260,7 +260,7 @@ fn register_context(builder: &mut MethodsBuilder) {
             .0
             .global_data()
             .get_io_provider()
-            .fs()
+            .project_root()
             .root()
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Non utf-8 path"))?

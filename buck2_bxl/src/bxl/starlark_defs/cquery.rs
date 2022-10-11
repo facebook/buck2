@@ -457,7 +457,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .await?
                     .get(this.ctx.current_bxl.label().bxl_path.cell())?
                     .path(),
-                ctx.global_data().get_io_provider().fs().dupe(),
+                ctx.global_data().get_io_provider().project_root().dupe(),
                 this.target_platform.dupe(),
                 CqueryOwnerBehavior::Deprecated,
             )

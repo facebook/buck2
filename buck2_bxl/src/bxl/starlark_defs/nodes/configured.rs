@@ -180,7 +180,13 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         ctx: &BxlContext,
     ) -> anyhow::Result<Option<StarlarkArtifact>> {
         let path = Path::new(path);
-        let fs = ctx.async_ctx.0.global_data().get_io_provider().fs().dupe();
+        let fs = ctx
+            .async_ctx
+            .0
+            .global_data()
+            .get_io_provider()
+            .project_root()
+            .dupe();
         let path = if path.is_absolute() {
             fs.relativize(AbsPath::new(path)?)
                 .context("Given path does not belong to the project root")?

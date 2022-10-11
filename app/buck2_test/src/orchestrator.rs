@@ -551,7 +551,7 @@ impl BuckTestOrchestrator {
         };
 
         let io_provider = self.dice.global_data().get_io_provider();
-        let project_fs = io_provider.fs();
+        let project_fs = io_provider.project_root();
         let executor = self
             .dice
             .get_command_executor(fs, project_fs, executor_config)?;

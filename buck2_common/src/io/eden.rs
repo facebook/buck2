@@ -298,8 +298,8 @@ impl IoProvider for EdenIoProvider {
         PartialEqAny::new(self)
     }
 
-    fn fs(&self) -> &ProjectRoot {
-        self.fs.fs()
+    fn project_root(&self) -> &ProjectRoot {
+        self.fs.project_root()
     }
 }
 

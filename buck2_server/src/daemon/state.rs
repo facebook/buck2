@@ -249,7 +249,7 @@ impl DaemonState {
         ));
         let materializer = Self::create_materializer(
             fb,
-            io.fs().dupe(),
+            io.project_root().dupe(),
             paths.buck_out_dir(),
             re_client_manager.dupe(),
             blocking_executor.dupe(),

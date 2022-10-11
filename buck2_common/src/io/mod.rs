@@ -33,7 +33,7 @@ pub trait IoProvider: Send + Sync {
 
     fn eq_token(&self) -> PartialEqAny<'_>;
 
-    fn fs(&self) -> &ProjectRoot;
+    fn project_root(&self) -> &ProjectRoot;
 }
 
 impl PartialEq for dyn IoProvider {

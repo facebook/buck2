@@ -159,7 +159,7 @@ async fn copy_output<W: Write>(
     dice: &DiceComputations,
     result: &buck2_build_api::bxl::result::BxlResult,
 ) -> anyhow::Result<()> {
-    let loc = dice.global_data().get_io_provider().fs().resolve(
+    let loc = dice.global_data().get_io_provider().project_root().resolve(
         &dice
             .get_artifact_fs()
             .await?

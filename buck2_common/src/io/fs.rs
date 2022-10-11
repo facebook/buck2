@@ -134,7 +134,7 @@ impl IoProvider for FsIoProvider {
         PartialEqAny::new(self)
     }
 
-    fn fs(&self) -> &ProjectRoot {
+    fn project_root(&self) -> &ProjectRoot {
         &self.fs
     }
 }

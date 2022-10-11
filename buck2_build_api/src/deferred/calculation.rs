@@ -241,7 +241,7 @@ async fn compute_deferred(
                 artifacts?,
                 materialized_artifacts?,
                 &mut registry,
-                ctx.global_data().get_io_provider().fs().dupe(),
+                ctx.global_data().get_io_provider().project_root().dupe(),
             );
             // TODO populate the deferred map
             Ok(DeferredResult::new(

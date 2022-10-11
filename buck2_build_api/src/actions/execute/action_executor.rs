@@ -189,7 +189,7 @@ impl HasActionExecutor for DiceComputations {
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await?;
         let io_provider = self.global_data().get_io_provider();
-        let project_fs = io_provider.fs();
+        let project_fs = io_provider.project_root();
 
         let command_executor =
             self.get_command_executor(&artifact_fs, project_fs, executor_config)?;
