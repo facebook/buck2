@@ -1,0 +1,29 @@
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("buck2")
+
+buck2_e2e_test(
+    name = "test_build_isolated",
+    srcs = ["test_build_isolated.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+        "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+    },
+    deps = [
+        "fbcode//buck2/tests/e2e:assert_occurrences",
+        "fbsource//third-party/pypi/aiohttp:aiohttp",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_inplace",
+    srcs = ["test_build_inplace.py"],
+)
+
+buck2_e2e_test(
+    name = "test_build_serial",
+    srcs = ["test_build_serial.py"],
+    tags = ["serialize_test_cases"],
+)

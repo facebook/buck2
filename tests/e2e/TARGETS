@@ -6,6 +6,7 @@ oncall("buck2")
 bzl_native.python_library(
     name = "assert_occurrences",
     srcs = ["helper/assert_occurrences.py"],
+    visibility = ["PUBLIC"],
 )
 
 buck2_e2e_test(
@@ -17,21 +18,6 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        ":assert_occurrences",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_build_isolated",
-    srcs = ["test_build_isolated.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-        "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
-    },
-    deps = [
-        "fbsource//third-party/pypi/aiohttp:aiohttp",
         ":assert_occurrences",
     ],
 )
@@ -57,19 +43,8 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_build_inplace",
-    srcs = ["test_build_inplace.py"],
-)
-
-buck2_e2e_test(
     name = "test_targets",
     srcs = ["test_targets.py"],
-)
-
-buck2_e2e_test(
-    name = "test_build_serial",
-    srcs = ["test_build_serial.py"],
-    tags = ["serialize_test_cases"],
 )
 
 buck2_e2e_test(
