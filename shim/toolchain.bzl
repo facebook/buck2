@@ -142,7 +142,7 @@ python_toolchain = rule(
 def _python_bootstrap_toolchain(_ctx):
     return [
         DefaultInfo(),
-        PythonBootstrapToolchainInfo(interpreter = "python"),
+        PythonBootstrapToolchainInfo(interpreter = "python3"),
     ]
 
 python_bootstrap_toolchain = rule(
