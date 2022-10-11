@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fs::File;
+use std::future;
 use std::io;
 use std::path;
 use std::path::Path;
@@ -57,7 +58,6 @@ use cli_proto::BuildRequest;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use futures::stream::futures_unordered::FuturesUnordered;
-use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -490,7 +490,7 @@ async fn build_targets_for_spec(
 
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
 
-    let mut futs: FuturesUnordered<_> = todo_targets
+    let futs: FuturesUnordered<_> = todo_targets
         .into_iter()
         .map(|build_spec| {
             let materialization_context = materialization_context.dupe();
@@ -508,15 +508,9 @@ async fn build_targets_for_spec(
         })
         .collect();
 
-    let mut results = BTreeMap::new();
-    while let Some(build_result) = futs.next().await {
-        let build_result = build_result?;
-        if let Some((providers_label, build_result)) = build_result {
-            results.insert(providers_label, build_result);
-        }
-    }
-
-    Ok(results)
+    futs.try_filter_map(|o| future::ready(Ok(o)))
+        .try_collect()
+        .await
 }
 
 async fn build_target(
