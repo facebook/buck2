@@ -393,7 +393,7 @@ impl BuckdConnectOptions {
         let reader = BufReader::new(file);
         let info: DaemonProcessInfo = serde_json::from_reader(reader).with_context(|| {
             format!(
-                "Parsing daemon info in `{}`. Try deleting that file and running `buck2 kill` before running your command again",
+                "Parsing daemon info in `{}`. Try deleting that file and running `buck2 killall` before running your command again",
                 location.display(),
             )
         })?;

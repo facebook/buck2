@@ -82,7 +82,7 @@ pub enum MaterializationError {
         RE CAS and Buck does not have it (path: {}, digest info: {}). \
         This likely happened because your Buck daemon \
         has been online for a long time. This error is currently unrecoverable. \
-        To proceed, you should restart Buck using `buck2 kill`.",
+        To proceed, you should restart Buck using `buck2 killall`.",
         .path,
         .info
     )]

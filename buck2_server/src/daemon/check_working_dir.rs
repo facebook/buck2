@@ -20,7 +20,7 @@ pub fn check_working_dir() -> anyhow::Result<()> {
 
     if err.kind() == io::ErrorKind::NotConnected {
         let err = "Buck2 is running in an Eden mount but Eden restarted uncleanly. \
-            This error is unrecoverable and you should restart Buck using `buck2 kill`.";
+            This error is unrecoverable and you should restart Buck using `buck2 killall`.";
         return Err(anyhow::anyhow!(err));
     }
 
