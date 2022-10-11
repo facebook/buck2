@@ -11,7 +11,7 @@ def _get_plat():
 # Matching host triple
 def _get_native_host_triple():
     if host_info().os.is_windows:
-        return "x86_64-pc-windows-msvc"
+        return "x86_64-pc-windows-gnu"
     else:
         return "x86_64-unknown-linux-gnu"
 
@@ -30,64 +30,49 @@ def extend(orig, new):
 # Invoke something with a default cargo-like environment. This is used to invoke buildscripts
 # from within a Buck rule to get it to do whatever it does (typically, either emit command-line
 # options for rustc, or generate some source).
-def _make_preamble(out_dir, package_name, version, features, cfgs, env, target_override):
-    # Work out what rustc to pass to the script
-    rustc = native.read_config("rust", "compiler", "rustc")
-    if "//" in rustc:
-        rustc = "(exe %s)" % rustc
+def _make_cmd(mode, buildscript, package_name, version, features, cfgs, env, target_override):
+    flags = [
+        ("mode", mode),
+        ("buildscript", "$(exe " + buildscript + ")"),
+        ("output", "$OUT"),
+        ("package-name", package_name),
+        ("version", version),
+        ("feature", features),
+        ("cfg", cfgs),
+        ("env", env),
+        ("target", target_override or _get_native_host_triple()),
+    ]
 
-    # CWD of a genrule script is the source directory but use $SRCDIR to make it an absolute path
-    return """
-        mkdir -p {out_dir}; \
-        env \
-            CARGO_MANIFEST_DIR=$SRCDIR/vendor/{package_name}-{version} \
-            RUST_BACKTRACE=1 \
-            OUT_DIR={out_dir} \
-            CARGO=/bin/false \
-            {features} \
-            {cfgs} \
-            CARGO_PKG_NAME={package_name} \
-            CARGO_PKG_VERSION={version} \
-            TARGET={target} \
-            HOST={host} \
-            RUSTC={rustc} \
-            RUSTC_LINKER=/bin/false \
-            `{rustc} --print cfg | awk -f $(location //third-party/macros:cargo_cfgs.awk)` \
-            {env} \
-    """.format(
-        out_dir = out_dir,
-        package_name = package_name,
-        version = version,
-        features = " ".join(["CARGO_FEATURE_{}=1".format(feature.upper().replace("-", "_")) for feature in features or []]),
-        cfgs = " ".join(["CARGO_CFG_{}=1".format(cfg.upper().replace("-", "_")) for cfg in cfgs or []]),
-        target = target_override or _get_native_host_triple(),
-        host = _get_native_host_triple(),
-        rustc = rustc,
-        env = "\\\n".join(["'{}'='{}'".format(var, val) for var, val in (env or {}).items()]),
-    )
+    cmd = "$(exe shim//third-party/macros:build_rs)"
+    for flag, value in flags:
+        if value == None:
+            pass
+        elif type(value) == type([]):
+            for x in value:
+                cmd += " --" + flag + "=" + x
+        else:
+            cmd += " --" + flag + "=" + value
+    return cmd
+
 
 # Invoke a Rust buildscript binary with the right surrounding
 # environment variables.
 def rust_buildscript_genrule_filter(name, buildscript_rule, outfile, package_name, version, features = None, cfgs = None, env = None, target = None):
-    pre = _make_preamble("\\$(dirname $OUT)", package_name, version, features, cfgs, env, target)
-    native.cxx_genrule(
+    cmd = _make_cmd("args", buildscript_rule, package_name, version, features, cfgs, env, target)
+    native.genrule(
         name = name,
         out = outfile,
-        cmd = pre + "$(exe {buildscript}) > $OUT".format(
-            buildscript = buildscript_rule,
-        ),
+        cmd = cmd,
     )
 
 # Invoke a build script for its generated sources.
 def rust_buildscript_genrule_srcs(name, buildscript_rule, files, package_name, version, features = None, cfgs = None, env = None, target = None, srcs = None):
-    pre = _make_preamble("$OUT", package_name, version, features, cfgs, env, target)
+    pre = _make_cmd("srcs", buildscript_rule, package_name, version, features, cfgs, env, target)
     native.cxx_genrule(
         name = name,
         srcs = srcs,
         out = name + "-outputs",
-        cmd = pre + "$(exe {buildscript})".format(
-            buildscript = buildscript_rule,
-        ),
+        cmd = pre,
     )
     mainrule = ":" + name
     for file in files:
