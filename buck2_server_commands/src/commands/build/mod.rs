@@ -515,7 +515,7 @@ async fn build_targets_for_spec(
 
 pub(crate) struct BuildTargetResult {
     pub outputs: Vec<SharedResult<ProviderArtifacts>>,
-    pub providers: Option<FrozenProviderCollectionValue>,
+    pub providers: FrozenProviderCollectionValue,
     pub run_args: Option<Vec<String>>,
 }
 
@@ -543,7 +543,7 @@ async fn build_target(
             providers_label,
             BuildTargetResult {
                 outputs,
-                providers: Some(providers),
+                providers,
                 run_args,
             },
         )
