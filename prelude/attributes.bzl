@@ -1,4 +1,4 @@
-# @generated SignedSource<<c4354c231a45cae7d8a1ba71eec6a85b>>
+# @generated SignedSource<<57647f7f34c4066d9aa2bcdc69c59123>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -173,6 +173,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
+        "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
     "android_app_modularity": {
@@ -423,6 +424,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
+        "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
     "android_manifest": {
@@ -2109,6 +2111,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
+        "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
     "kotlin_test": {
@@ -2160,6 +2163,7 @@ attributes = {
         "test_type": attrs.option(attrs.enum(TestType), default = None),
         "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
+        "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
@@ -2230,6 +2234,7 @@ attributes = {
         "linker_flags": attrs.list(attrs.string(), default = []),
         "ocamldep_flags": attrs.list(attrs.arg(), default = []),
         "platform": attrs.option(attrs.string(), default = None),
+        "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
@@ -2607,6 +2612,7 @@ attributes = {
         "test_type": attrs.option(attrs.enum(TestType), default = None),
         "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
+        "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
@@ -2848,6 +2854,7 @@ attributes = {
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
     "swift_toolchain": {
+        "can_toolchain_emit_obj_c_header_textually": attrs.bool(),
         "contacts": attrs.list(attrs.string(), default = []),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
