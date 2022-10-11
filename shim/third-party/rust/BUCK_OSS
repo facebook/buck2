@@ -14960,6 +14960,9 @@ third_party_rust_library(
     "vendor/unicode-linebreak-0.1.4/src/shared.rs",
     ],
     rustc_flags = ["--cap-lints=allow",],
+    env = {
+        "OUT_DIR": ".",
+    },
 )
 
 third_party_rust_binary(
@@ -14975,6 +14978,9 @@ third_party_rust_binary(
     deps = [":hashbrown",
     ":regex",
     ],
+    env = {
+        "OUT_DIR": ".",
+    },
 )
 
 third_party_rust_library(
