@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashSet;
-use std::io;
 use std::path;
 use std::path::Path;
 
@@ -101,13 +100,9 @@ fn create_unhashed_link(
 
     if let Some(parent) = abs_unhashed_path.parent() {
         for prefix in iter_reverse_ancestors(parent, buck_out_root) {
-            let meta = match std::fs::symlink_metadata(prefix) {
-                Ok(meta) => meta,
-                Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
-                Err(e) => {
-                    return Err(anyhow::Error::from(e)
-                        .context(format!("Error accessing `{}`", prefix.display())));
-                }
+            let meta = match fs_util::symlink_metadata_if_exists(prefix)? {
+                Some(meta) => meta,
+                None => continue,
             };
 
             if meta.is_file() || meta.is_symlink() {
