@@ -415,16 +415,7 @@ async fn build_targets(
         })
         .collect();
 
-    futures::pin_mut!(futs);
-
-    let mut results = BTreeMap::new();
-    while let Some(v) = futs.try_next().await? {
-        for (k, v) in v {
-            results.insert(k, v);
-        }
-    }
-
-    Ok(results)
+    futs.try_concat().await
 }
 
 struct TargetBuildSpec {
