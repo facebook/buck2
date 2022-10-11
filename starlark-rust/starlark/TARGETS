@@ -10,6 +10,7 @@ buck_rust_binary(
     srcs = glob(
         ["bin/**/*.rs"],
     ),
+    crate_root = "bin/main.rs",
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:argfile",
