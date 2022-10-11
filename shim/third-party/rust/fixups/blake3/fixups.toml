@@ -23,6 +23,7 @@ srcs = [
 # https://github.com/BLAKE3-team/BLAKE3/issues/79.
 compiler_flags = ["-mavx512f", "-mavx512vl"]
 headers = ["c/*.h"]
+compatible_with = ["prelude//os/constraints:linux"]
 
 [[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript]]
 [platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript.cxx_library]
@@ -40,6 +41,7 @@ srcs = [
 # https://github.com/BLAKE3-team/BLAKE3/issues/79.
 compiler_flags = ["-mavx512f", "-mavx512vl"]
 headers = ["c/*.h"]
+compatible_with = ["prelude//os/constraints:windows"]
 
 [[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.buildscript]]
 [platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.buildscript.cxx_library]
@@ -54,6 +56,7 @@ srcs = [
     "c/blake3_avx512_x86-64_windows_msvc.asm"
 ]
 headers = ["c/*.h"]
+compatible_with = ["prelude//os/constraints:windows"]
 
 ## ARM and AArch64 fixups
 
