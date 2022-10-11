@@ -19,9 +19,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::pattern::ProvidersPattern;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::target::TargetLabel;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -110,11 +108,8 @@ impl AuditSubcommand for AuditProvidersCommand {
                         }
                     };
 
-                    for ProvidersPattern { target, providers } in targets {
-                        let label = ProvidersLabel::new(
-                            TargetLabel::new(package.dupe(), target),
-                            providers,
-                        );
+                    for pattern in targets {
+                        let label = pattern.into_providers_label(package.dupe());
                         let providers_label = ctx
                             .get_configured_target(&label, target_platform.as_ref())
                             .await?;

@@ -471,8 +471,8 @@ async fn build_targets_for_spec(
             for ProvidersPattern { target, .. } in &targets {
                 res.resolve_target(target)?;
             }
-            targets.into_map(|ProvidersPattern { target, providers }| TargetBuildSpec {
-                target: ProvidersLabel::new(TargetLabel::new(package.dupe(), target), providers),
+            targets.into_map(|pattern| TargetBuildSpec {
+                target: pattern.into_providers_label(package.dupe()),
                 global_target_platform: global_target_platform.dupe(),
                 skippable: false,
             })

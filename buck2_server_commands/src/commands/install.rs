@@ -43,9 +43,7 @@ use buck2_core::package::Package;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
@@ -216,9 +214,8 @@ async fn install(
             }
         };
         let targets = targets?;
-        for ProvidersPattern { target, providers } in targets {
-            let label =
-                ProvidersLabel::new(TargetLabel::new(package.dupe(), target.dupe()), providers);
+        for pattern in targets {
+            let label = pattern.into_providers_label(package.dupe());
             let providers_label = ctx
                 .get_configured_target(&label, global_target_platform.dupe().as_ref())
                 .await?;
@@ -237,9 +234,11 @@ async fn install(
                         .push((install_id, install_info));
                 }
                 None => {
-                    return Err(
-                        InstallError::NoInstallProvider(target.dupe(), package.dupe()).into(),
-                    );
+                    return Err(InstallError::NoInstallProvider(
+                        label.target().name().dupe(),
+                        package.dupe(),
+                    )
+                    .into());
                 }
             };
         }

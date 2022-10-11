@@ -14,9 +14,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
-use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::TargetLabel;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -262,9 +259,8 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                 .literal_parser()
                 .parse_providers_pattern(literal)?;
             match label {
-                ParsedPattern::Target(package, ProvidersPattern { target, providers }) => {
-                    let target_label = TargetLabel::new(package, target);
-                    let label = ProvidersLabel::new(target_label.dupe(), providers);
+                ParsedPattern::Target(package, pattern) => {
+                    let label = pattern.into_providers_label(package);
                     let configured_label = self
                         .base_delegate
                         .ctx()

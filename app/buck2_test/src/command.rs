@@ -555,9 +555,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 let res = state.ctx.get_interpreter_results(&package).await?;
                 let SpecTargets { labels, skippable } = spec_to_targets(spec, res)?;
 
-                let labels = labels.into_map(|ProvidersPattern { target, providers }| {
-                    ProvidersLabel::new(TargetLabel::new(package.dupe(), target), providers)
-                });
+                let labels =
+                    labels.into_map(|pattern| pattern.into_providers_label(package.dupe()));
 
                 anyhow::Ok(TestDriverTask::ConfigureTargets { labels, skippable })
             }

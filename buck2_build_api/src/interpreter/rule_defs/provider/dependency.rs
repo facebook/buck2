@@ -115,8 +115,6 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
-    use buck2_core::provider::label::ProvidersLabel;
-    use buck2_core::target::TargetLabel;
     use buck2_interpreter::extra::BuildContext;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
@@ -139,10 +137,9 @@ mod tests {
                 c.cell_info().cell_alias_resolver(),
                 s,
             ) {
-                Ok(ParsedPattern::Target(package, ProvidersPattern { target, providers })) => {
-                    ProvidersLabel::new(TargetLabel::new(package, target), providers)
-                        .configure(Configuration::testing_new())
-                }
+                Ok(ParsedPattern::Target(package, pattern)) => pattern
+                    .into_providers_label(package)
+                    .configure(Configuration::testing_new()),
                 _ => {
                     eprintln!("Expected a target, not {}", s);
                     panic!();

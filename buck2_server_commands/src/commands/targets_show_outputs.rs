@@ -189,7 +189,7 @@ async fn retrieve_artifacts_for_spec(
             }
             targets.into_map(|t| {
                 (
-                    ProvidersLabel::new(TargetLabel::new(package.dupe(), t.target), t.providers),
+                    t.into_providers_label(package.dupe()),
                     global_target_platform.dupe(),
                 )
             })

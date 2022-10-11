@@ -21,7 +21,6 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_core::target::TargetLabel;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -122,9 +121,7 @@ impl BuildAttrCoercionContext {
     fn coerce_label_no_cache(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
         // TODO(nmj): Make this take an import path / package
         match self.parse_pattern::<ProvidersPattern>(value)? {
-            ParsedPattern::Target(package, ProvidersPattern { target, providers }) => Ok(
-                ProvidersLabel::new(TargetLabel::new(package, target), providers),
-            ),
+            ParsedPattern::Target(package, pattern) => Ok(pattern.into_providers_label(package)),
             _ => Err(BuildAttrCoercionContextError::RequiredLabel(value.to_owned()).into()),
         }
     }

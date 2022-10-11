@@ -119,6 +119,12 @@ pub struct ProvidersPattern {
     pub providers: ProvidersName,
 }
 
+impl ProvidersPattern {
+    pub fn into_providers_label(self, package: Package) -> ProvidersLabel {
+        ProvidersLabel::new(TargetLabel::new(package, self.target), self.providers)
+    }
+}
+
 impl PatternType for ProvidersPattern {
     type ExtraParts = ProvidersName;
 
@@ -202,12 +208,8 @@ impl ParsedPattern<TargetPattern> {
 impl ParsedPattern<ProvidersPattern> {
     /// Extract [`ProvidersLabel`] from a [`ParsedPattern`].
     pub fn as_providers_label(self, original: &str) -> anyhow::Result<ProvidersLabel> {
-        let (package, ProvidersPattern { target, providers }) = self.as_literal(original)?;
-
-        Ok(ProvidersLabel::new(
-            TargetLabel::new(package, target),
-            providers,
-        ))
+        let (package, pattern) = self.as_literal(original)?;
+        Ok(pattern.into_providers_label(package))
     }
 }
 
@@ -737,7 +739,6 @@ mod tests {
     use crate::cells::CellAlias;
     use crate::cells::CellName;
     use crate::package::testing::PackageExt;
-    use crate::provider::label::ProvidersLabel;
     use crate::target::TargetLabel;
 
     fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
@@ -1109,12 +1110,12 @@ mod tests {
             )?
         );
 
-        let (package, ProvidersPattern { target, providers }) =
+        let (package, pattern) =
             ParsedPattern::parse_precise(&resolver(), "//package/path:target#flavor")?
                 .as_literal("")?;
         assert_eq!(
             "root//package/path:target#flavor",
-            ProvidersLabel::new(TargetLabel::new(package, target), providers).to_string()
+            ProvidersPattern::into_providers_label(pattern, package).to_string(),
         );
         Ok(())
     }
