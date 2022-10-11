@@ -368,6 +368,8 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
+        // TODO(nga): explain how this is different from `dep`.
+        //   This probably meant to be similar to `label`, but not configurable.
         Attribute::attr(eval, None, doc, AttrType::dep(Vec::new()))
     }
 
