@@ -113,7 +113,11 @@ impl PatternType for TargetPattern {
 /// specifiers makes sense
 ///
 /// Ex. `//some/package:target[java-group]`
-pub type ProvidersPattern = (TargetName, ProvidersName);
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct ProvidersPattern {
+    pub target: TargetName,
+    pub providers: ProvidersName,
+}
 
 impl PatternType for ProvidersPattern {
     type ExtraParts = ProvidersName;
@@ -153,12 +157,12 @@ impl PatternType for ProvidersPattern {
         }
     }
 
-    fn from_parts(target: TargetName, extra: Self::ExtraParts) -> Self {
-        (target, extra)
+    fn from_parts(target: TargetName, providers: Self::ExtraParts) -> Self {
+        ProvidersPattern { target, providers }
     }
 
     fn target(&self) -> &TargetName {
-        &self.0
+        &self.target
     }
 }
 
@@ -198,11 +202,11 @@ impl ParsedPattern<TargetPattern> {
 impl ParsedPattern<ProvidersPattern> {
     /// Extract [`ProvidersLabel`] from a [`ParsedPattern`].
     pub fn as_providers_label(self, original: &str) -> anyhow::Result<ProvidersLabel> {
-        let (package, (target_name, providers_name)) = self.as_literal(original)?;
+        let (package, ProvidersPattern { target, providers }) = self.as_literal(original)?;
 
         Ok(ProvidersLabel::new(
-            TargetLabel::new(package, target_name),
-            providers_name,
+            TargetLabel::new(package, target),
+            providers,
         ))
     }
 }
@@ -323,7 +327,7 @@ impl<T: PatternType> ParsedPattern<T> {
 impl Display for ParsedPattern<ProvidersPattern> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParsedPattern::Target(package, (target, providers)) => {
+            ParsedPattern::Target(package, ProvidersPattern { target, providers }) => {
                 write!(f, "{}:{}{}", package.as_cell_path(), target, providers)
             }
             ParsedPattern::Package(package) => {
@@ -762,12 +766,12 @@ mod tests {
     ) -> ParsedPattern<ProvidersPattern> {
         ParsedPattern::Target(
             Package::testing_new(cell, path),
-            (
-                TargetName::unchecked_new(target),
-                providers.map_or(ProvidersName::Default, |n| {
+            ProvidersPattern {
+                target: TargetName::unchecked_new(target),
+                providers: providers.map_or(ProvidersName::Default, |n| {
                     ProvidersName::Named(n.map(|s| ProviderName::new((*s).to_owned()).unwrap()))
                 }),
-            ),
+            },
         )
     }
 
@@ -1105,12 +1109,12 @@ mod tests {
             )?
         );
 
-        let (package, (target_name, providers_name)) =
+        let (package, ProvidersPattern { target, providers }) =
             ParsedPattern::parse_precise(&resolver(), "//package/path:target#flavor")?
                 .as_literal("")?;
         assert_eq!(
             "root//package/path:target#flavor",
-            ProvidersLabel::new(TargetLabel::new(package, target_name), providers_name).to_string()
+            ProvidersLabel::new(TargetLabel::new(package, target), providers).to_string()
         );
         Ok(())
     }

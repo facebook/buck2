@@ -256,13 +256,16 @@ mod tests {
                 (
                     Package::testing_new("root", "some"),
                     PackageSpec::Targets(vec![
-                        (TargetName::unchecked_new("target"), ProvidersName::Default),
-                        (
-                            TargetName::unchecked_new("other_target"),
-                            ProvidersName::Named(vec![
+                        ProvidersPattern {
+                            target: TargetName::unchecked_new("target"),
+                            providers: ProvidersName::Default,
+                        },
+                        ProvidersPattern {
+                            target: TargetName::unchecked_new("other_target"),
+                            providers: ProvidersName::Named(vec![
                                 ProviderName::new("my-label".to_owned()).unwrap(),
                             ]),
-                        ),
+                        },
                     ]),
                 ),
                 (Package::testing_new("child", "a/package"), PackageSpec::All),

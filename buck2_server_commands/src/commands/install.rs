@@ -207,17 +207,18 @@ async fn install(
                     .targets()
                     .keys()
                     .duped()
-                    .map(|t| (t, ProvidersName::Default))
+                    .map(|target| ProvidersPattern {
+                        target,
+                        providers: ProvidersName::Default,
+                    })
                     .collect();
                 Ok(targets)
             }
         };
         let targets = targets?;
-        for (target_name, providers_name) in targets {
-            let label = ProvidersLabel::new(
-                TargetLabel::new(package.dupe(), target_name.dupe()),
-                providers_name,
-            );
+        for ProvidersPattern { target, providers } in targets {
+            let label =
+                ProvidersLabel::new(TargetLabel::new(package.dupe(), target.dupe()), providers);
             let providers_label = ctx
                 .get_configured_target(&label, global_target_platform.dupe().as_ref())
                 .await?;
@@ -236,11 +237,9 @@ async fn install(
                         .push((install_id, install_info));
                 }
                 None => {
-                    return Err(InstallError::NoInstallProvider(
-                        target_name.dupe(),
-                        package.dupe(),
-                    )
-                    .into());
+                    return Err(
+                        InstallError::NoInstallProvider(target.dupe(), package.dupe()).into(),
+                    );
                 }
             };
         }

@@ -79,8 +79,8 @@ impl LiteralParser {
     fn parse_target_pattern(&self, value: &str) -> anyhow::Result<ParsedPattern<TargetName>> {
         let providers_pattern = self.parse_providers_pattern(value)?;
         let target_pattern = match providers_pattern {
-            ParsedPattern::Target(package, (target_name, _)) => {
-                ParsedPattern::Target(package, target_name)
+            ParsedPattern::Target(package, ProvidersPattern { target, .. }) => {
+                ParsedPattern::Target(package, target)
             }
             ParsedPattern::Package(package) => ParsedPattern::Package(package),
             ParsedPattern::Recursive(path) => ParsedPattern::Recursive(path),

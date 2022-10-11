@@ -102,15 +102,18 @@ impl AuditSubcommand for AuditProvidersCommand {
                                 .targets()
                                 .keys()
                                 .duped()
-                                .map(|t| (t, ProvidersName::Default))
+                                .map(|target| ProvidersPattern {
+                                    target,
+                                    providers: ProvidersName::Default,
+                                })
                                 .collect()
                         }
                     };
 
-                    for (target, providers_name) in targets {
+                    for ProvidersPattern { target, providers } in targets {
                         let label = ProvidersLabel::new(
                             TargetLabel::new(package.dupe(), target),
-                            providers_name,
+                            providers,
                         );
                         let providers_label = ctx
                             .get_configured_target(&label, target_platform.as_ref())

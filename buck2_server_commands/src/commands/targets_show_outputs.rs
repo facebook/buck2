@@ -23,9 +23,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -168,7 +166,7 @@ async fn retrieve_artifacts_for_targets(
 async fn retrieve_artifacts_for_spec(
     ctx: &DiceComputations,
     package: Package,
-    spec: PackageSpec<(TargetName, ProvidersName)>,
+    spec: PackageSpec<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
@@ -186,12 +184,12 @@ async fn retrieve_artifacts_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            for (target, _provider) in &targets {
+            for ProvidersPattern { target, .. } in &targets {
                 res.resolve_target(target)?;
             }
             targets.into_map(|t| {
                 (
-                    ProvidersLabel::new(TargetLabel::new(package.dupe(), t.0), t.1),
+                    ProvidersLabel::new(TargetLabel::new(package.dupe(), t.target), t.providers),
                     global_target_platform.dupe(),
                 )
             })

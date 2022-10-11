@@ -122,8 +122,8 @@ impl BuildAttrCoercionContext {
     fn coerce_label_no_cache(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
         // TODO(nmj): Make this take an import path / package
         match self.parse_pattern::<ProvidersPattern>(value)? {
-            ParsedPattern::Target(package, (target_name, providers_name)) => Ok(
-                ProvidersLabel::new(TargetLabel::new(package, target_name), providers_name),
+            ParsedPattern::Target(package, ProvidersPattern { target, providers }) => Ok(
+                ProvidersLabel::new(TargetLabel::new(package, target), providers),
             ),
             _ => Err(BuildAttrCoercionContextError::RequiredLabel(value.to_owned()).into()),
         }

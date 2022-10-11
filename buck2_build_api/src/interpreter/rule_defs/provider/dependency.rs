@@ -139,8 +139,8 @@ mod tests {
                 c.cell_info().cell_alias_resolver(),
                 s,
             ) {
-                Ok(ParsedPattern::Target(package, (target_name, providers_name))) => {
-                    ProvidersLabel::new(TargetLabel::new(package, target_name), providers_name)
+                Ok(ParsedPattern::Target(package, ProvidersPattern { target, providers })) => {
+                    ProvidersLabel::new(TargetLabel::new(package, target), providers)
                         .configure(Configuration::testing_new())
                 }
                 _ => {

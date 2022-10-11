@@ -40,9 +40,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetName;
 use buck2_events::dispatch::span;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -389,7 +387,7 @@ fn create_unhashed_link(
 
 async fn build_targets(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<(TargetName, ProvidersName)>,
+    spec: ResolvedPattern<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
@@ -451,7 +449,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 async fn build_targets_for_spec(
     ctx: &DiceComputations,
     package: Package,
-    spec: PackageSpec<(TargetName, ProvidersName)>,
+    spec: PackageSpec<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
     build_providers: Arc<BuildProviders>,
@@ -470,11 +468,11 @@ async fn build_targets_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            for (target, _provider) in &targets {
+            for ProvidersPattern { target, .. } in &targets {
                 res.resolve_target(target)?;
             }
-            targets.into_map(|(t, p)| TargetBuildSpec {
-                target: ProvidersLabel::new(TargetLabel::new(package.dupe(), t), p),
+            targets.into_map(|ProvidersPattern { target, providers }| TargetBuildSpec {
+                target: ProvidersLabel::new(TargetLabel::new(package.dupe(), target), providers),
                 global_target_platform: global_target_platform.dupe(),
                 skippable: false,
             })

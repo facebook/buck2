@@ -406,7 +406,7 @@ impl BuckLspContext {
             Some(current_package),
             literal,
         ) {
-            Ok(ParsedPattern::Target(package, (target, _))) => {
+            Ok(ParsedPattern::Target(package, ProvidersPattern { target, .. })) => {
                 let res = self
                     .dice_ctx
                     .get_package_listing_resolver()
