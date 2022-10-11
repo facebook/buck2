@@ -204,7 +204,9 @@ pub(crate) async fn init_listener(
     BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
     DaemonProcessInfo,
 )> {
-    let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf()).await?;
+    let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf())?;
+
+    let listener = listener.into_accept_stream()?;
 
     buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
     let pid = process::id();

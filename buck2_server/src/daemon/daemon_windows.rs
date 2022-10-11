@@ -12,28 +12,20 @@ use std::path::PathBuf;
 
 use buck2_common::client_utils::SOCKET_ADDR;
 use buck2_common::connection_endpoint::ConnectionType;
-use futures::stream::BoxStream;
-use futures::stream::TryStreamExt;
 
-use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
+use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 
-pub async fn create_listener(
+pub fn create_listener(
     _daemon_dir: PathBuf,
-) -> anyhow::Result<(
-    ConnectionType,
-    BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
-)> {
+) -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
     let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
     let tcp_listener = std::net::TcpListener::bind(addr)?;
     tcp_listener.set_nonblocking(true)?;
     let local_addr = tcp_listener.local_addr()?;
-    let tcp_listener = tokio::net::TcpListener::from_std(tcp_listener)?;
-    let listener = tokio_stream::wrappers::TcpListenerStream::new(tcp_listener);
-    let listener = listener.map_ok(TcpOrUnixStream);
     Ok((
         ConnectionType::Tcp {
             port: local_addr.port(),
         },
-        Box::pin(listener),
+        TcpOrUnixListener(tcp_listener),
     ))
 }
