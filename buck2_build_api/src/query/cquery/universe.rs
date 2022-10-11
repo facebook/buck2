@@ -19,6 +19,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use either::Either;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::IterDuped;
 use itertools::Itertools;
@@ -76,28 +77,31 @@ impl CqueryUniverse {
     ) -> TargetSet<ConfiguredTargetNode> {
         let mut targets = TargetSet::new();
         for (package, spec) in &resolved_pattern.specs {
-            if let Some(package_universe) = self.targets.get(package) {
-                match spec {
-                    PackageSpec::Targets(names) => {
-                        for name in names {
-                            if let Some(nodelist) = package_universe.get(name) {
-                                for node in nodelist {
-                                    targets.insert(node.0.dupe());
-                                }
-                            }
-                        }
-                    }
-                    PackageSpec::All => {
-                        for nodelist in package_universe.values() {
-                            for node in nodelist {
-                                targets.insert(node.0.dupe());
-                            }
-                        }
-                    }
-                }
-            }
+            targets.extend(self.get_from_package(package, spec));
         }
         targets
+    }
+
+    fn get_from_package<'a>(
+        &'a self,
+        package: &Package,
+        spec: &'a PackageSpec<TargetName>,
+    ) -> impl Iterator<Item = &'a ConfiguredTargetNode> + 'a {
+        self.targets
+            .get(package)
+            .into_iter()
+            .flat_map(move |package_universe| match spec {
+                PackageSpec::Targets(names) => Either::Left(
+                    names
+                        .iter()
+                        .filter_map(|name| package_universe.get(name))
+                        .flatten()
+                        .map(|node| &node.0),
+                ),
+                PackageSpec::All => {
+                    Either::Right(package_universe.values().flatten().map(|node| &node.0))
+                }
+            })
     }
 
     pub(crate) fn owners(&self, path: &CellPath) -> Vec<ConfiguredTargetNode> {
