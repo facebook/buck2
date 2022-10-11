@@ -113,7 +113,8 @@ impl PatternType for TargetPattern {
 /// specifiers makes sense
 ///
 /// Ex. `//some/package:target[java-group]`
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, derive_more::Display)]
+#[display(fmt = "{}{}", target, providers)]
 pub struct ProvidersPattern {
     pub target: TargetName,
     pub providers: ProvidersName,
@@ -329,8 +330,8 @@ impl<T: PatternType> ParsedPattern<T> {
 impl Display for ParsedPattern<ProvidersPattern> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParsedPattern::Target(package, ProvidersPattern { target, providers }) => {
-                write!(f, "{}:{}{}", package.as_cell_path(), target, providers)
+            ParsedPattern::Target(package, pattern) => {
+                write!(f, "{}:{}", package.as_cell_path(), pattern)
             }
             ParsedPattern::Package(package) => {
                 write!(f, "{}:", package.as_cell_path())
