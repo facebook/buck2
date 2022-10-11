@@ -1,31 +1,14 @@
 # libsqlite3-sys uses a bindgen binding to libsqlite.
-# Because of T54710156 we can't easily import bindgen because of its libclang dependency,
+# We can't easily import bindgen because of its libclang dependency,
 # so in the meantime we need to use pre-generated bindgen files.
 buildscript = []
 [env]
 OUT_DIR = "."
-# For fbcode platforms we use tp2 sqlite
-[platform_fixup.'cfg(target_env = "fbcode")']
-buildscript = []
-extra_deps = ["third-party//sqlite:sqlite"]
-# fbcode platform-specific pregenerated bindgen files
-[platform_fixup.'cfg(target_env = "platform009")']
-buildscript = []
-overlay = "overlay-platform009"
-[platform_fixup.'cfg(target_env = "platform010")']
-buildscript = []
-overlay = "overlay-platform010"
-[platform_fixup.'cfg(target_env = "platform010-aarch64")']
-buildscript = []
-overlay = "overlay-platform010-aarch64"
-[platform_fixup.'cfg(target_env = "platform010-compat")']
-buildscript = []
-overlay = "overlay-platform010-compat"
-# For non-fbcode we use local vendored sqlite with bundled binding
-[platform_fixup.'cfg(all(not(target_env = "fbcode"), not(target_os = "windows")))']
+# We use local vendored sqlite with bundled binding
+[platform_fixup.'cfg(not(target_os = "windows"))']
 extra_mapped_srcs = {"sqlite3/bindgen_bundled_version.rs" = "src/bindgen.rs"}
-[[platform_fixup.'cfg(all(not(target_env = "fbcode"), not(target_os = "windows")))'.buildscript]]
-[platform_fixup.'cfg(all(not(target_env = "fbcode"), not(target_os = "windows")))'.buildscript.cxx_library]
+[[platform_fixup.'cfg(not(target_os = "windows"))'.buildscript]]
+[platform_fixup.'cfg(not(target_os = "windows"))'.buildscript.cxx_library]
 name = "sqlite3"
 srcs = ["sqlite3/*.c"]
 headers = ["sqlite3/*.h"]
@@ -37,7 +20,7 @@ preprocessor_flags = [
 # windows is probably going to pull in Win10 SDK's winsqlite3.dll anyway,
 # so let's just use winsqlite
 # uses the windows-sys crate's cxx_library as a dep, which is a static_lib
-[platform_fixup.'cfg(all(not(target_env = "fbcode"), target_os = "windows"))']
+[platform_fixup.'cfg(target_os = "windows")']
 buildscript = []
 overlay = "overlay-windows"
 extra_deps = ["fbsource//third-party/rust:windows_x86_64_msvc-0.32.0-windows.lib-windows.lib"]
