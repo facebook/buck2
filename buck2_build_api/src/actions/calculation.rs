@@ -449,7 +449,6 @@ mod tests {
     use buck2_core::directory::DirectoryEntry;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
-    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
@@ -585,7 +584,6 @@ mod tests {
             fn get_command_executor(
                 &self,
                 artifact_fs: &ArtifactFs,
-                _project_fs: &ProjectRoot,
                 _config: &CommandExecutorConfig,
             ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
                 Ok(Arc::new(DryRunExecutor::new(

@@ -12,7 +12,6 @@
 use std::sync::Arc;
 
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_core::fs::project::ProjectRoot;
 use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -30,7 +29,6 @@ pub trait HasCommandExecutor {
     fn get_command_executor(
         &self,
         artifact_fs: &ArtifactFs,
-        project_fs: &ProjectRoot,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>>;
 }
@@ -48,7 +46,6 @@ impl HasCommandExecutor for DiceComputations {
     fn get_command_executor(
         &self,
         artifact_fs: &ArtifactFs,
-        project_fs: &ProjectRoot,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let holder = self
@@ -56,9 +53,7 @@ impl HasCommandExecutor for DiceComputations {
             .data
             .get::<HasCommandExecutorHolder>()
             .expect("CommandExecutorDelegate should be set");
-        holder
-            .delegate
-            .get_command_executor(artifact_fs, project_fs, config)
+        holder.delegate.get_command_executor(artifact_fs, config)
     }
 }
 

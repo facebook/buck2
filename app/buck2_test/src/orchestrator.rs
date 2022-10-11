@@ -30,7 +30,6 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_manager::LivelinessManager;
 use buck2_core::category::Category;
@@ -550,11 +549,7 @@ impl BuckTestOrchestrator {
                 .context("Error accessing executor config")?,
         };
 
-        let io_provider = self.dice.global_data().get_io_provider();
-        let project_fs = io_provider.project_root();
-        let executor = self
-            .dice
-            .get_command_executor(fs, project_fs, executor_config)?;
+        let executor = self.dice.get_command_executor(fs, executor_config)?;
         let executor = CommandExecutor::new(executor, fs.clone(), executor_config.path_separator);
         Ok(executor)
     }

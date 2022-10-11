@@ -26,6 +26,7 @@ use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
@@ -479,6 +480,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
             executor_global_knobs,
             self.upload_all_actions,
             self.forkserver,
+            ctx.global_data()
+                .get_io_provider()
+                .project_root()
+                .to_owned(),
         ));
         data.set_blocking_executor(self.blocking_executor);
         data.set_materializer(self.materializer);

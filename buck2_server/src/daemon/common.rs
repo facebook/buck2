@@ -62,6 +62,7 @@ pub struct CommandExecutorFactory {
     pub executor_global_knobs: ExecutorGlobalKnobs,
     pub upload_all_actions: bool,
     pub forkserver: Option<ForkserverClient>,
+    project_root: ProjectRoot,
 }
 
 impl CommandExecutorFactory {
@@ -74,6 +75,7 @@ impl CommandExecutorFactory {
         executor_global_knobs: ExecutorGlobalKnobs,
         upload_all_actions: bool,
         forkserver: Option<ForkserverClient>,
+        project_root: ProjectRoot,
     ) -> Self {
         Self {
             re_connection,
@@ -84,6 +86,7 @@ impl CommandExecutorFactory {
             executor_global_knobs,
             upload_all_actions,
             forkserver,
+            project_root,
         }
     }
 }
@@ -92,7 +95,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
     fn get_command_executor(
         &self,
         artifact_fs: &ArtifactFs,
-        project_fs: &ProjectRoot,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let local_executor_new = |_options| {
@@ -101,7 +103,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.materializer.dupe(),
                 self.blocking_executor.dupe(),
                 self.host_sharing_broker.dupe(),
-                project_fs.root().to_owned(),
+                self.project_root.root().to_owned(),
                 self.forkserver.dupe(),
                 self.executor_global_knobs.dupe(),
             )
@@ -135,7 +137,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
             ReExecutor::new(
                 artifact_fs.clone(),
-                project_fs.clone(),
+                self.project_root.clone(),
                 self.materializer.dupe(),
                 self.re_connection.get_client(),
                 properties,

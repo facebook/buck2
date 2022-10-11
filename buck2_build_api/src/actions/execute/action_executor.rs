@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_manager::NoopLivelinessManager;
 use buck2_events::dispatch::EventDispatcher;
@@ -188,11 +187,8 @@ impl HasActionExecutor for DiceComputations {
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await?;
-        let io_provider = self.global_data().get_io_provider();
-        let project_fs = io_provider.project_root();
 
-        let command_executor =
-            self.get_command_executor(&artifact_fs, project_fs, executor_config)?;
+        let command_executor = self.get_command_executor(&artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
