@@ -436,6 +436,25 @@ struct TargetBuildSpec {
     skippable: bool,
 }
 
+fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> ProvidersToBuild {
+    let mut providers_to_build = ProvidersToBuild::default();
+
+    if build_providers.default_info != BuildProviderAction::Skip as i32 {
+        providers_to_build.default = true;
+        providers_to_build.default_other = true;
+    }
+
+    if build_providers.test_info != BuildProviderAction::Skip as i32 {
+        providers_to_build.tests = true;
+    }
+
+    if build_providers.run_info != BuildProviderAction::Skip as i32 {
+        providers_to_build.run = true;
+    }
+
+    providers_to_build
+}
+
 async fn build_targets_for_spec(
     ctx: &DiceComputations,
     package: Package,
@@ -469,19 +488,7 @@ async fn build_targets_for_spec(
         }
     };
 
-    let mut providers_to_build = ProvidersToBuild::default();
-    if build_providers.default_info != BuildProviderAction::Skip as i32 {
-        providers_to_build.default = true;
-        providers_to_build.default_other = true;
-    }
-
-    if build_providers.test_info != BuildProviderAction::Skip as i32 {
-        providers_to_build.tests = true;
-    }
-
-    if build_providers.run_info != BuildProviderAction::Skip as i32 {
-        providers_to_build.run = true;
-    }
+    let providers_to_build = build_providers_to_providers_to_build(&build_providers);
 
     let mut futs: FuturesUnordered<_> = todo_targets
         .into_iter()
