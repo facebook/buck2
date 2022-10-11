@@ -295,6 +295,8 @@ impl DaemonCommand {
             init_listener(&paths.daemon_dir()?)?
         };
 
+        listener_created();
+
         gazebo::terminate_on_panic();
 
         maybe_schedule_termination()?;
@@ -362,8 +364,6 @@ impl DaemonCommand {
             let daemon_dir = paths.daemon_dir()?;
 
             let listener = listener.into_accept_stream()?;
-
-            listener_created();
 
             let buckd_server = BuckdServer::run(
                 fb,
