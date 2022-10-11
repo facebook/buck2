@@ -36,6 +36,8 @@ use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -132,7 +134,7 @@ async fn build(
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args(
+    let parsed_patterns: Vec<ParsedPattern<ProvidersPattern>> = parse_patterns_from_cli_args(
         &request.target_patterns,
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
@@ -140,7 +142,7 @@ async fn build(
     )?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
-    let resolved_pattern =
+    let resolved_pattern: ResolvedPattern<ProvidersPattern> =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
     let artifact_fs = ctx.get_artifact_fs().await?;
