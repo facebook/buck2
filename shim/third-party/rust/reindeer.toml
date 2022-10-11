@@ -25,6 +25,9 @@ license_patterns = [
   "LICENSE*", "COPYING*", "UNLICENSE*",
 ]
 
+# Path to the Buck cell root (relative to this file)
+buck_cell_root = "../../.."
+
 # Path to buildifier (relative to this file). This is just used clean up the generated
 # BUCK file formatting, but shouldn't be necessary for correctness.
 # buildifier_path = "path/to/buildifier"
