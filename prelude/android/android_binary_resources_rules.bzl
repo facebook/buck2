@@ -372,10 +372,14 @@ def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableI
             android_manifest = ctx.attrs.manifest
     else:
         expect(ctx.attrs.manifest_skeleton != None, "Must declare one of manifest and manifest_skeleton")
+        if type(ctx.attrs.manifest_skeleton) == "dependency":
+            manifest_skeleton = ctx.attrs.manifest_skeleton[DefaultInfo].default_outputs[0]
+        else:
+            manifest_skeleton = ctx.attrs.manifest_skeleton
         android_manifest, _ = generate_android_manifest(
             ctx,
             ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
-            ctx.attrs.manifest_skeleton,
+            manifest_skeleton,
             "dex",  # ROOT_APKMODULE_NAME,
             android_packageable_info.manifests,
             ctx.attrs.manifest_entries.get("placeholders", {}),

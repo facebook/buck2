@@ -104,7 +104,9 @@ extra_attributes = {
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
+        "manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
+        "module_manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
         "_android_installer": attrs.label(
             # FIXME: prelude// should be standalone (not refer to buck//)
             default = "buck//src/com/facebook/buck/installer/android:android_installer",
@@ -124,6 +126,7 @@ extra_attributes = {
         "deps": attrs.list(_transition_dep_wrapper(attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk)), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
+        "manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
