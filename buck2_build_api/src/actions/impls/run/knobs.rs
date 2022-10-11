@@ -10,9 +10,6 @@ pub struct RunActionKnobs {
     /// Hash all commands using the same mechanism as dep files. This allows us to skip
     /// re-executing commands if their inputs and outputs haven't changed.
     pub hash_all_commands: bool,
-
-    /// Valiate matches in the materializer (this is necessary for correctness).
-    pub declare_match_in_depfiles: bool,
 }
 
 pub trait HasRunActionKnobs {

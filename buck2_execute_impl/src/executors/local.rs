@@ -423,9 +423,7 @@ impl LocalExecutor {
             }
         }
 
-        if self.knobs.declare_in_local_executor {
-            self.materializer.declare_existing(to_declare).await?;
-        }
+        self.materializer.declare_existing(to_declare).await?;
 
         Ok(mapped_outputs)
     }

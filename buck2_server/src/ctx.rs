@@ -137,10 +137,6 @@ pub struct BaseServerCommandContext {
     pub file_watcher: Arc<dyn FileWatcher>,
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
-    /// Whether or not dep files should declare and match in the materializer
-    pub declare_match_in_depfiles: bool,
-    /// Whether or not we should have declare calls in the local executor.
-    pub declare_in_local_executor: bool,
     /// Start time to track daemon uptime
     pub daemon_start_time: Instant,
 }
@@ -292,7 +288,6 @@ impl ServerCommandContext {
 
         let mut run_action_knobs = RunActionKnobs {
             hash_all_commands: self.base_context.hash_all_commands,
-            declare_match_in_depfiles: self.base_context.declare_match_in_depfiles,
             ..Default::default()
         };
 
@@ -320,8 +315,6 @@ impl ServerCommandContext {
             .as_ref()
             .map_or(false, |opts| opts.upload_all_actions);
 
-        let declare_in_local_executor = self.base_context.declare_in_local_executor;
-
         DiceCommandDataProvider {
             cell_configs_loader: self.cell_configs_loader.dupe(),
             events: self.events().dupe(),
@@ -335,7 +328,6 @@ impl ServerCommandContext {
             build_signals,
             forkserver,
             upload_all_actions,
-            declare_in_local_executor,
         }
     }
 
@@ -418,7 +410,6 @@ struct DiceCommandDataProvider {
     forkserver: Option<ForkserverClient>,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
-    declare_in_local_executor: bool,
 }
 
 #[async_trait]
@@ -443,9 +434,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .concurrency
             .unwrap_or_else(|| parse_concurrency(config_threads))?;
 
-        let executor_global_knobs = ExecutorGlobalKnobs {
-            declare_in_local_executor: self.declare_in_local_executor,
-        };
+        let executor_global_knobs = ExecutorGlobalKnobs {};
 
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);

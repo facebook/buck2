@@ -307,7 +307,6 @@ impl IncrementalActionExecutable for RunAction {
                             &declared_inputs,
                             &declared_dep_files,
                             ctx,
-                            knobs.declare_match_in_depfiles,
                         )
                         .await?;
 

@@ -248,7 +248,6 @@ pub async fn match_or_clear_dep_file(
     declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
-    declare_match: bool,
 ) -> anyhow::Result<Option<ActionOutputs>> {
     let previous_state = match get_dep_files(key) {
         Some(d) => d.dupe(),
@@ -307,14 +306,11 @@ pub async fn match_or_clear_dep_file(
                     })
                     .collect();
 
-                let is_match = if declare_match {
-                    ctx.materializer()
-                        .declare_match(output_matches)
-                        .await?
-                        .is_match()
-                } else {
-                    true
-                };
+                let is_match = ctx
+                    .materializer()
+                    .declare_match(output_matches)
+                    .await?
+                    .is_match();
 
                 if is_match {
                     tracing::trace!("Dep files are a hit");

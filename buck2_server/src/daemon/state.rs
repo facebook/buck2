@@ -114,12 +114,6 @@ pub struct DaemonStateData {
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
 
-    /// Whether or not dep files should declare and match in the materializer
-    pub declare_match_in_depfiles: bool,
-
-    /// Whether or not we should have declare calls in the local executor.
-    pub declare_in_local_executor: bool,
-
     pub start_time: Instant,
 }
 
@@ -283,16 +277,6 @@ impl DaemonState {
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
 
-        let declare_match_in_depfiles = root_config
-            .parse::<RolloutPercentage>("buck2", "declare_match_in_depfiles")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
-        let declare_in_local_executor = root_config
-            .parse::<RolloutPercentage>("buck2", "declare_in_local_executor")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
         let nested_invocation_config = root_config
             .parse::<NestedInvocation>("buck2", "nested_invocation")?
             .unwrap_or(NestedInvocation::Run);
@@ -320,8 +304,6 @@ impl DaemonState {
             forkserver,
             event_logging_data,
             hash_all_commands,
-            declare_match_in_depfiles,
-            declare_in_local_executor,
             start_time: std::time::Instant::now(),
         }))
     }
@@ -473,14 +455,6 @@ impl DaemonState {
                     .variant_name()
             ),
             format!("hash-all-commands:{}", data.hash_all_commands),
-            format!(
-                "declare-match-in-dep-files:{}",
-                data.declare_match_in_depfiles
-            ),
-            format!(
-                "declare-in-local-executor:{}",
-                data.declare_in_local_executor
-            ),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
@@ -502,8 +476,6 @@ impl DaemonState {
             events: dispatcher,
             forkserver: data.forkserver.dupe(),
             hash_all_commands: data.hash_all_commands,
-            declare_match_in_depfiles: data.declare_match_in_depfiles,
-            declare_in_local_executor: data.declare_in_local_executor,
             _drop_guard: drop_guard,
             daemon_start_time: data.start_time,
         })
