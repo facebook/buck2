@@ -1134,29 +1134,39 @@ impl DeferredMaterializerCommandProcessor {
                 let connection = self.re_client_manager.get_re_connection();
                 let re_client = connection.get_client();
                 event_dispatcher
-                    .span_async(buck2_data::MaterializationStart {}, async {
-                        (
-                            re_client
-                                .materialize_files(files, info.re_use_case)
-                                .await
-                                .map_err(|e| match e.downcast_ref::<REClientError>() {
-                                    Some(e) if e.code == TCode::NOT_FOUND => {
-                                        MaterializeEntryError::NotFound { info: info.dupe() }
-                                    }
-                                    _ => MaterializeEntryError::Error(e.context({
-                                        format!(
-                                            "Error materializing files declared by action: {}",
-                                            info
-                                        )
-                                    })),
-                                }),
-                            buck2_data::MaterializationEnd {
-                                file_count,
-                                total_bytes,
-                                path: path.as_str().to_owned(),
-                            },
-                        )
-                    })
+                    .span_async(
+                        buck2_data::MaterializationStart {
+                            action_digest: info
+                                .action_digest()
+                                .map(|digest| digest.as_digest().to_string()),
+                        },
+                        async {
+                            (
+                                re_client
+                                    .materialize_files(files, info.re_use_case)
+                                    .await
+                                    .map_err(|e| match e.downcast_ref::<REClientError>() {
+                                        Some(e) if e.code == TCode::NOT_FOUND => {
+                                            MaterializeEntryError::NotFound { info: info.dupe() }
+                                        }
+                                        _ => MaterializeEntryError::Error(e.context({
+                                            format!(
+                                                "Error materializing files declared by action: {}",
+                                                info
+                                            )
+                                        })),
+                                    }),
+                                buck2_data::MaterializationEnd {
+                                    file_count,
+                                    total_bytes,
+                                    path: path.as_str().to_owned(),
+                                    action_digest: info
+                                        .action_digest()
+                                        .map(|digest| digest.as_digest().to_string()),
+                                },
+                            )
+                        },
+                    )
                     .await?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {

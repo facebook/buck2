@@ -414,6 +414,13 @@ impl CasDownloadInfo {
             CasDownloadInfoOrigin::Declared => None,
         }
     }
+
+    pub fn action_digest(&self) -> Option<ActionDigest> {
+        match &self.origin {
+            CasDownloadInfoOrigin::Execution { action_digest, .. } => Some(action_digest.dupe()),
+            CasDownloadInfoOrigin::Declared => None,
+        }
+    }
 }
 
 /// Information about a CAS download we might require when an artifact is not materialized.
