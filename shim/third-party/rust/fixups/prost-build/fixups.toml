@@ -1,0 +1,26 @@
+omit_targets = []
+extra_srcs = []
+src_referenced_dirs = []
+rustc_flags = []
+cfgs = []
+features = []
+omit_features = []
+extra_deps = []
+filter_deps = []
+cargo_env = false
+
+[env]
+
+[[buildscript]]
+[buildscript.build]
+
+[[buildscript]]
+unresolved = '''
+Unresolved build script at vendor/prost-build-0.10.4/build.rs. Dependencies:
+    cfg-if-1.0.0
+    cmake-0.1.48
+    which-4.3.0'''
+
+[extra_mapped_srcs]
+
+[platform_fixup]

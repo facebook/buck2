@@ -1,0 +1,24 @@
+omit_targets = []
+extra_srcs = []
+src_referenced_dirs = []
+rustc_flags = []
+cfgs = []
+features = []
+omit_features = []
+extra_deps = []
+filter_deps = []
+cargo_env = false
+
+[env]
+
+[[buildscript]]
+[buildscript.build]
+
+[[buildscript]]
+unresolved = '''
+Unresolved build script at vendor/num-traits-0.2.15/build.rs. Dependencies:
+    autocfg-1.1.0'''
+
+[extra_mapped_srcs]
+
+[platform_fixup]

@@ -1,0 +1,24 @@
+omit_targets = []
+extra_srcs = []
+src_referenced_dirs = []
+rustc_flags = []
+cfgs = []
+features = []
+omit_features = []
+extra_deps = []
+filter_deps = []
+cargo_env = false
+
+[env]
+
+[[buildscript]]
+[buildscript.build]
+
+[[buildscript]]
+unresolved = '''
+Unresolved build script at vendor/terminfo-0.7.3/build.rs. Dependencies:
+    phf_codegen-0.8.0'''
+
+[extra_mapped_srcs]
+
+[platform_fixup]
