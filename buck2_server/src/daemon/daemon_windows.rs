@@ -24,8 +24,10 @@ pub async fn create_listener(
     BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
 )> {
     let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
-    let tcp_listener = tokio::net::TcpListener::bind(addr).await?;
+    let tcp_listener = std::net::TcpListener::bind(addr)?;
+    tcp_listener.set_nonblocking(true)?;
     let local_addr = tcp_listener.local_addr()?;
+    let tcp_listener = tokio::net::TcpListener::from_std(tcp_listener)?;
     let listener = tokio_stream::wrappers::TcpListenerStream::new(tcp_listener);
     let listener = listener.map_ok(TcpOrUnixStream);
     Ok((
