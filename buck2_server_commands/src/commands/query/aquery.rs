@@ -79,13 +79,8 @@ async fn aquery(
     )
     .await?;
 
-    let evaluator = get_aquery_evaluator(
-        &ctx,
-        server_ctx.working_dir(),
-        server_ctx.project_root().clone(),
-        global_target_platform,
-    )
-    .await?;
+    let evaluator =
+        get_aquery_evaluator(&ctx, server_ctx.working_dir(), global_target_platform).await?;
 
     let query_result = evaluator.eval_query(query, query_args).await?;
 

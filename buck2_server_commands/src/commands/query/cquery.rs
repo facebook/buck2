@@ -115,7 +115,6 @@ async fn cquery(
     let evaluator = get_cquery_evaluator(
         &ctx,
         server_ctx.working_dir(),
-        server_ctx.project_root().clone(),
         global_target_platform,
         owner_behavior,
     )

@@ -11,7 +11,6 @@
 use std::sync::Arc;
 
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -53,11 +52,10 @@ impl AqueryEvaluator<'_> {
 pub async fn get_aquery_evaluator<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
-    project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<AqueryEvaluator<'c>> {
     let dice_query_delegate =
-        get_dice_query_delegate(ctx, working_dir, project_root, global_target_platform).await?;
+        get_dice_query_delegate(ctx, working_dir, global_target_platform).await?;
     let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
     let functions = DefaultQueryFunctionsModule::new();
     Ok(AqueryEvaluator {

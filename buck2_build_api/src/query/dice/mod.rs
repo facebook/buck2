@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
@@ -367,7 +368,6 @@ impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
 pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
-    project_root: ProjectRoot,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<DiceQueryDelegate<'c>> {
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -375,6 +375,11 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
     let target_alias_resolver = ctx
         .target_alias_resolver_for_working_dir(working_dir)
         .await?;
+    let project_root = ctx
+        .global_data()
+        .get_io_provider()
+        .project_root()
+        .to_owned();
     DiceQueryDelegate::new(
         ctx,
         working_dir,
