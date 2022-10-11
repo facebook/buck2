@@ -139,7 +139,9 @@ def main(argv: List[str]) -> int:
             assert os.path.exists(line)
             known_objects.append(line)
     elif file_type == ArchiveKind.UNKNOWN:
-        raise AssertionError(f"unknown archive kind: {debug_output}")
+        raise AssertionError(
+            f"unknown archive kind for file {args.archive}: {debug_output}"
+        )
 
     manifest = {
         "debug": debug_output,
