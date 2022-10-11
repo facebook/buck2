@@ -146,7 +146,6 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use gazebo::prelude::Dupe;
-    use indexmap::IndexMap;
     use starlark::collections::SmallMap;
     use starlark_map::smallmap;
 
@@ -207,7 +206,7 @@ mod tests {
                 panic!("not used in test")
             }
 
-            fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+            fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
                 panic!("not used in test")
             }
         }

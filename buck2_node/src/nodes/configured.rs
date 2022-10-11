@@ -7,11 +7,8 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::hash::Hash;
-use std::hash::Hasher;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
@@ -29,6 +26,7 @@ use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
+use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
@@ -138,38 +136,6 @@ impl TargetNodeOrForward {
     }
 }
 
-/// Wrapper for a map, which computes hashes ignoring the iteration order
-/// so the hash is compatible with the equality.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct MapHash<M>(M);
-
-#[allow(clippy::derive_hash_xor_eq)]
-impl<M> Hash for MapHash<M>
-where
-    for<'a> &'a M: IntoIterator,
-    for<'a> <&'a M as IntoIterator>::Item: Hash,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0
-            .into_iter()
-            .map(|e| {
-                let mut s = DefaultHasher::new();
-                e.hash(&mut s);
-                std::num::Wrapping(s.finish())
-            })
-            .sum::<std::num::Wrapping<u64>>()
-            .hash(state)
-    }
-}
-
-impl<M> Deref for MapHash<M> {
-    type Target = M;
-
-    fn deref(&self) -> &M {
-        &self.0
-    }
-}
-
 // TODO(cjhopman): There's a lot of optimization opportunities here.
 //  1. we iterate over and configure the attributes multiple times, that could be improved in a bunch of ways
 //  2. we store the same resolvedconfiguration probably in a bunch of nodes, that could be made smaller or shared
@@ -179,9 +145,7 @@ struct ConfiguredTargetNodeData {
     name: ConfiguredTargetLabel,
     target_node: TargetNodeOrForward,
     resolved_configuration: ResolvedConfiguration,
-    // TODO(nga): switch back to `SmallMap` when we decide where `SmallMap` should live.
-    resolved_transition_configurations:
-        MapHash<IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>>,
+    resolved_transition_configurations: SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     execution_platform_resolution: ExecutionPlatformResolution,
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
@@ -211,7 +175,7 @@ impl ConfiguredTargetNode {
             name.dupe(),
             TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
             ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
-            IndexMap::new(),
+            SmallMap::new(),
             execution_platform_resolution,
             LabelIndexedSet::new(),
             LabelIndexedSet::new(),
@@ -223,7 +187,7 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         target_node: TargetNode,
         resolved_configuration: ResolvedConfiguration,
-        resolved_tr_configurations: IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        resolved_tr_configurations: SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: LabelIndexedSet<ConfiguredTargetNode>,
         exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
@@ -233,7 +197,7 @@ impl ConfiguredTargetNode {
             name,
             target_node: TargetNodeOrForward::TargetNode(target_node),
             resolved_configuration,
-            resolved_transition_configurations: MapHash(resolved_tr_configurations),
+            resolved_transition_configurations: resolved_tr_configurations,
             execution_platform_resolution,
             deps,
             exec_deps,
@@ -278,7 +242,7 @@ impl ConfiguredTargetNode {
             // We have no attributes with selects, so resolved configurations is empty.
             resolved_configuration: ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
             // We have no attributes to transition, so empty map is fine.
-            resolved_transition_configurations: MapHash(IndexMap::new()),
+            resolved_transition_configurations: SmallMap::new(),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
             deps: LabelIndexedSet::from_iter([transitioned_node]),
@@ -493,7 +457,7 @@ impl ConfiguredTargetNode {
                 attr.configure(&AttrConfigurationContextImpl {
                     resolved_cfg: &self.0.resolved_configuration,
                     exec_cfg: &self.0.execution_platform_resolution.cfg(),
-                    resolved_transitions: &self.0.resolved_transition_configurations.0,
+                    resolved_transitions: &self.0.resolved_transition_configurations,
                     platform_cfgs: &self.0.platform_cfgs,
                 })
                 .expect("checked attr configuration in constructor"),
@@ -506,7 +470,7 @@ impl ConfiguredTargetNode {
             v.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,
                 exec_cfg: &self.0.execution_platform_resolution.cfg(),
-                resolved_transitions: &self.0.resolved_transition_configurations.0,
+                resolved_transitions: &self.0.resolved_transition_configurations,
                 platform_cfgs: &self.0.platform_cfgs,
             })
             .expect("checked attr configuration in constructor")

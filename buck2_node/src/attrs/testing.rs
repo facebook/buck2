@@ -6,7 +6,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
-use indexmap::IndexMap;
+use starlark_map::small_map::SmallMap;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 
@@ -32,7 +32,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             panic!("not used in tests")
         }
 
-        fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
             panic!("not used in tests")
         }
     }
