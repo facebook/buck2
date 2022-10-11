@@ -350,18 +350,22 @@ impl CopiedArtifact {
 enum CasDownloadInfoOrigin {
     /// Declared by an action that executed on RE.
     #[display(
-        fmt = "{} retrieved {:.3} seconds ago",
+        fmt = "{} retrieved {:.3} seconds ago with ttl = {:.3} seconds",
         "action_digest",
-        "action_instant.elapsed().as_secs_f64()"
+        "action_instant.elapsed().as_secs_f64()",
+        "ttl.as_secs_f64()"
     )]
     Execution {
         /// Digest of the action that led us to discover this CAS object.
         action_digest: ActionDigest,
 
-        /// When did we learn of the connection between this diges and the download it allows. This
+        /// When did we learn of the connection between this digest and the download it allows. This
         /// typically represents how much time has passed since we executed the action or hit in the
         /// action cache.
         action_instant: Instant,
+
+        /// The TTL we retrieved from RE for this action.
+        ttl: Duration,
     },
 
     /// Simply declared by an action.
@@ -379,11 +383,17 @@ pub struct CasDownloadInfo {
 }
 
 impl CasDownloadInfo {
-    pub fn new_execution(action_digest: ActionDigest, re_use_case: RemoteExecutorUseCase) -> Self {
+    pub fn new_execution(
+        action_digest: ActionDigest,
+        re_use_case: RemoteExecutorUseCase,
+        action_instant: Instant,
+        ttl: Duration,
+    ) -> Self {
         Self {
             origin: CasDownloadInfoOrigin::Execution {
                 action_digest,
-                action_instant: Instant::now(),
+                action_instant,
+                ttl,
             },
             re_use_case,
         }
