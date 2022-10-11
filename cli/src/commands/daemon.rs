@@ -261,7 +261,43 @@ impl DaemonCommand {
         detect_cycles: Option<DetectCycles>,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
-        let (listener, process_info) = init_listener(&paths.daemon_dir()?)?;
+        // NOTE: Do not create any threads before this point.
+        //   Daemonize does not preserve threads.
+
+        let daemon_dir = paths.daemon_dir()?;
+        let pid_path = daemon_dir.buckd_pid()?;
+        let stdout_path = daemon_dir.buckd_stdout()?;
+        let stderr_path = daemon_dir.buckd_stderr()?;
+        // Even if we don't redirect output, we still need to create stdout/stderr files,
+        // because tailer opens them. This is untidy.
+        let stdout = File::create(stdout_path)?;
+        let stderr = File::create(stderr_path)?;
+
+        let (listener, process_info) = if !self.dont_daemonize {
+            // We must create stdout/stderr before creating a listener,
+            // otherwise it is race:
+            // * daemon parent process exits
+            // * client successfully connects to the unix socket
+            // * but stdout/stderr may be not yet created, so tailer fails to open them
+            let (listener, process_info) = init_listener(&paths.daemon_dir()?)?;
+
+            self.daemonize(paths.project_root().root(), &pid_path, stdout, stderr)?;
+
+            (listener, process_info)
+        } else {
+            let mut pid_file = File::create(pid_path)?;
+            write!(pid_file, "{}", std::process::id())?;
+
+            if !self.dont_redirect_output {
+                self.redirect_output(stdout, stderr)?;
+            }
+
+            init_listener(&paths.daemon_dir()?)?
+        };
+
+        gazebo::terminate_on_panic();
+
+        maybe_schedule_termination()?;
 
         // Higher performance for jemalloc, recommended (but may not have any effect on Mac)
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning
@@ -414,9 +450,6 @@ impl DaemonCommand {
     ) -> anyhow::Result<()> {
         let project_root = paths.project_root();
         let daemon_dir = paths.daemon_dir()?;
-        let stdout_path = daemon_dir.buckd_stdout()?;
-        let stderr_path = daemon_dir.buckd_stderr()?;
-        let pid_path = daemon_dir.buckd_pid()?;
 
         if !daemon_dir.path.is_dir() {
             fs_util::create_dir_all(&daemon_dir.path)?;
@@ -427,22 +460,6 @@ impl DaemonCommand {
         //   Or even better, client should set current directory to project root,
         //   and resolve all paths relative to original cwd.
         env::set_current_dir(project_root.root())?;
-
-        let stdout = File::create(stdout_path)?;
-        let stderr = File::create(stderr_path)?;
-
-        if self.dont_daemonize {
-            let mut pid_file = File::create(pid_path)?;
-            write!(pid_file, "{}", std::process::id())?;
-            if !self.dont_redirect_output {
-                self.redirect_output(stdout, stderr)?;
-            }
-        } else {
-            self.daemonize(project_root.root(), &pid_path, stdout, stderr)?;
-        }
-        gazebo::terminate_on_panic();
-
-        maybe_schedule_termination()?;
 
         self.run(init, paths, detect_cycles, listener_created)?;
         Ok(())
