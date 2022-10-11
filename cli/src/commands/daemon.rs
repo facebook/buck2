@@ -261,6 +261,8 @@ impl DaemonCommand {
         detect_cycles: Option<DetectCycles>,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
+        let (listener, process_info) = init_listener(&paths.daemon_dir()?)?;
+
         // Higher performance for jemalloc, recommended (but may not have any effect on Mac)
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning
         memory::enable_background_threads()?;
@@ -322,8 +324,6 @@ impl DaemonCommand {
                 hard_shutdown_sender: hard_shutdown_sender.clone(),
             };
             let daemon_dir = paths.daemon_dir()?;
-
-            let (listener, process_info) = init_listener(&daemon_dir)?;
 
             let listener = listener.into_accept_stream()?;
 
