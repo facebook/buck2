@@ -1191,4 +1191,5 @@ message MaterializationStart {};
 message MaterializationEnd {
   uint64 file_count = 1;
   uint64 total_bytes = 2;
+  string path = 3;
 };

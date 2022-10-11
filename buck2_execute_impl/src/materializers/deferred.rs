@@ -1153,6 +1153,7 @@ impl DeferredMaterializerCommandProcessor {
                             buck2_data::MaterializationEnd {
                                 file_count,
                                 total_bytes,
+                                path: path.as_str().to_owned(),
                             },
                         )
                     })
