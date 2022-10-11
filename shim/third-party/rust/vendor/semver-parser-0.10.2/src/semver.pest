@@ -1,0 +1,18 @@
+range_set  = { SOI ~ space* ~ range ~ (logical_or ~ range)* ~ space* ~ EOI }
+logical_or = { space* ~ "||" ~ space* }
+range      = { hyphen | simple ~ ( ","? ~ space+ ~ simple )* | empty }
+empty      = { "" }
+hyphen     = { partial ~ space+ ~ "-" ~ space+ ~ partial }
+simple     = { primitive | partial | tilde | caret }
+primitive  = { primitive_op ~ space* ~ partial }
+primitive_op = { ("<=" | ">=" | ">" | "<" | "=") }
+partial    = { xr ~ ("." ~ xr ~ ("." ~ xr ~ qualifier?)?)? }
+xr         = { xr_op | nr }
+xr_op      = { "x" | "X" | "*" }
+nr         = { "0" | ('1' .. '9') ~ (('0' .. '9'))* }
+tilde      = { ( "~>" | "~" ) ~ space* ~ partial }
+caret      = { "^" ~ space* ~ partial }
+qualifier  = { (("-" | "+") ~ parts) }
+parts      = { part ~ ("." ~ part)* }
+part       = { nr | ("-" | '0' .. '9' | 'A' .. 'Z' | 'a' .. 'z')+ }
+space      = _{ " " | "\t" }

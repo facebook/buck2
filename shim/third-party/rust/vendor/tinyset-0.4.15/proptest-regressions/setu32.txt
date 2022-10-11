@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 8d795e3913e96cfd56a0e6b20d65b533b4ea2b79dfca9de84de7a54e1a2f61bb # shrinks to slice = [1]
+cc d439c111b2582471b2b0c72c334dd394147deecd5eee395d55853892075cd7ea # shrinks to slice = [1, 3, 4, 2]
+cc 83fb98b48f46847ef2adba53c58f52c1226e748d150e74b2c739480426a08021 # shrinks to slice = [166870689, 1240612514]
+cc 1bb3c20701d42de4953d0bab590072bd1f28bdd5ff1d65f77c3afbd8407730a6 # shrinks to slice = [1, 1, 1, 1, 1, 1, 1]
+cc 751c71da523a7af17fe85b66b7b61a11368a8e14ffbf8e2cd33263dbf915395b # shrinks to slice = [144, 1, 2, 240, 120, 72, 96]
+cc f7323da77740f78a8c3506d60de9a18f1590b5d0c2905fbf67f10a657ca9370d # shrinks to slice = [224, 24, 25, 26, 27, 168, 1]

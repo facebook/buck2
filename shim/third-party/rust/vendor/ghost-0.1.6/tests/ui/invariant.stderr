@@ -1,0 +1,23 @@
+error: lifetime may not live long enough
+ --> tests/ui/invariant.rs:7:5
+  |
+6 | fn require_covariant<'a>(phantom: InvariantPhantom<&'static str>) -> InvariantPhantom<&'a str> {
+  |                      -- lifetime `'a` defined here
+7 |     phantom
+  |     ^^^^^^^ returning this value requires that `'a` must outlive `'static`
+  |
+  = note: requirement occurs because of the type `InvariantPhantom<&str>`, which makes the generic argument `&str` invariant
+  = note: the enum `InvariantPhantom<T>` is invariant over the parameter `T`
+  = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/ui/invariant.rs:11:5
+   |
+10 | fn require_contravariant<'a>(phantom: InvariantPhantom<&'a str>) -> InvariantPhantom<&'static str> {
+   |                          -- lifetime `'a` defined here
+11 |     phantom
+   |     ^^^^^^^ returning this value requires that `'a` must outlive `'static`
+   |
+   = note: requirement occurs because of the type `InvariantPhantom<&str>`, which makes the generic argument `&str` invariant
+   = note: the enum `InvariantPhantom<T>` is invariant over the parameter `T`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

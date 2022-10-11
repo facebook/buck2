@@ -1,0 +1,7 @@
+error: lifetime may not live long enough
+ --> tests/ui/contravariant.rs:7:5
+  |
+6 | fn require_covariant<'a>(phantom: ContravariantPhantom<&'static str>) -> ContravariantPhantom<&'a str> {
+  |                      -- lifetime `'a` defined here
+7 |     phantom
+  |     ^^^^^^^ returning this value requires that `'a` must outlive `'static`

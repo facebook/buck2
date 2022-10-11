@@ -1,0 +1,43 @@
+environment:
+  global:
+    RUST_VERSION: stable
+
+  matrix:
+    # Stable channel
+    - TARGET: x86_64-pc-windows-gnu
+      CHANNEL: stable
+    - TARGET: i686-pc-windows-msvc
+      CHANNEL: stable
+    - TARGET: x86_64-pc-windows-msvc
+      CHANNEL: stable
+    # Beta channel
+    - TARGET: x86_64-pc-windows-msvc
+      CHANNEL: beta
+    # Nightly channel
+    - TARGET: x86_64-pc-windows-msvc
+      CHANNEL: nightly
+
+install:
+  - ps: >-
+      If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
+        $Env:PATH += ';C:\msys64\mingw64\bin'
+      } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
+        $Env:PATH += ';C:\msys64\mingw32\bin'
+      }
+  - curl -sSf -o rustup-init.exe https://win.rustup.rs/
+  - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
+  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustc -Vv
+  - cargo -V
+
+# Build and test
+test_script:
+  - cargo build --features=bin
+  - cargo test
+
+cache:
+  - C:\Users\appveyor\.cargo\registry
+  - target
+
+# disable automatic builds
+build: false

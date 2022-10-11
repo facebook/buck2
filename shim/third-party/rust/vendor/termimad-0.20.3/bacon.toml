@@ -1,0 +1,53 @@
+
+# This is a configuration file for the bacon tool
+# More info at https://github.com/Canop/bacon
+
+default_job = "check-all"
+
+[jobs]
+
+[jobs.check]
+command = ["cargo", "check", "--color", "always"]
+need_stdout = false
+
+[jobs.check-all]
+command = ["cargo", "check", "--all-targets", "--color", "always"]
+need_stdout = false
+watch = ["tests", "benches", "examples"]
+
+[jobs.light]
+command = ["cargo", "check", "--color", "always"]
+need_stdout = false
+
+[jobs.clippy]
+command = [
+	"cargo", "clippy",
+	"--color", "always",
+	"--",
+	"-D", "clippy::missing_const_for_fn",
+	"-A", "clippy::if_same_then_else",
+	"-A", "clippy::collapsible-else-if",
+	"-A", "clippy::collapsible-if",
+	"-A", "clippy::match_like_matches_macro",
+	"-A", "clippy::manual_range_contains",
+]
+need_stdout = false
+
+[jobs.test]
+command = ["cargo", "test", "--color", "always"]
+need_stdout = true
+
+[jobs.exs]
+command = ["cargo", "run", "--example", "simple", "--color", "always"]
+need_stdout = true
+
+[jobs.ex]
+command = ["cargo", "run", "--color", "always", "--example"]
+need_stdout = true
+
+[jobs.doc-open]
+command = ["cargo", "doc", "--open", "--color", "always"]
+on_success = "back"
+
+[keybindings]
+e = "job:ex"

@@ -1,0 +1,15 @@
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> tests/ui/pinned_drop/call-drop-inner.rs:12:9
+   |
+12 |         __drop_inner(__self);
+   |         ^^^^^^^^^^^^ ------ argument of type `Pin<&mut Struct>` unexpected
+   |
+note: function defined here
+  --> tests/ui/pinned_drop/call-drop-inner.rs:11:8
+   |
+11 |     fn drop(mut self: Pin<&mut Self>) {
+   |        ^^^^
+help: remove the extra argument
+   |
+12 |         __drop_inner();
+   |         ~~~~~~~~~~~~~~

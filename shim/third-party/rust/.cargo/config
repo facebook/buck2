@@ -1,0 +1,11 @@
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source."https://github.com/krallin/daemonize"]
+git = "https://github.com/krallin/daemonize"
+rev = "f7be28efa1b4a70e43bb37b5f4ff4d664992edca"
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"

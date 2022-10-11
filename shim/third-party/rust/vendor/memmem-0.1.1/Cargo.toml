@@ -1,0 +1,13 @@
+[package]
+name = "memmem"
+version = "0.1.1"
+authors = ["Joe Neeman <joeneeman@gmail.com>"]
+description = "Substring searching"
+documentation = "http://jneem.github.io/memmem"
+repository = "http://github.com/jneem/memmem"
+readme = "README.md"
+license = "MIT/Apache-2.0"
+
+[dev-dependencies]
+quickcheck = "0.2"
+

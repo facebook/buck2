@@ -1,0 +1,3445 @@
+﻿The Project Gutenberg EBook of Cítanka pro skoly obecné, by 
+Jan Stastný and Jan Lepar and Josef Sokol
+
+This eBook is for the use of anyone anywhere in the United States and
+most other parts of the world at no cost and with almost no restrictions
+whatsoever.  You may copy it, give it away or re-use it under the terms
+of the Project Gutenberg License included with this eBook or online at
+www.gutenberg.org.  If you are not located in the United States, you'll
+have to check the laws of the country where you are located before using
+this ebook.
+
+
+
+Title: Cítanka pro skoly obecné
+       Dil I
+
+Author: Jan Stastný
+        Jan Lepar
+        Josef Sokol
+
+Release Date: June 16, 2019 [EBook #59765]
+
+Language: Czech
+
+Character set encoding: UTF-8
+
+*** START OF THIS PROJECT GUTENBERG EBOOK CÍTANKA PRO SKOLY OBECNÉ ***
+
+
+
+
+Produced by Jana Srna and the Online Distributed
+Proofreading Team at http://www.pgdp.net
+
+
+
+
+
+
+
+
+
+
+                                 Čítanka
+                                   pro
+                              školy obecné.
+
+                          (Vydání =troj=dílné.)
+
+                                =Díl I.=
+
+                   Za pomocí některých jiných složili
+
+                  Jan Šťastný, Jan Lepař a Josef Sokol.
+
+                  (_Nezměněný otisk textu zroku_ 1891.)
+
+                             [Illustration]
+
+                   Vázaná na hřbetě plátnem za 20 kr.
+
+                               =V PRAZE.=
+                     _Cís. král. školní knihosklad._
+                                  1892.
+
+Školní knihy, v c. k. školním knihoskladě vydane, nesmějí se prodávati
+dráže než za cenu na titulním jich listě udanou.
+
+[Illustration:
+
+i u
+
+    i u i u u
+    u i u u i
+
+o
+
+    o o i o u o i
+    u o o i o u
+
+a
+
+    a a i a o a u
+    o a a i a a u
+    á í ú ů ó í á
+    á a í i ú u ó
+]
+
+[Illustration:
+
+e
+
+    e a e o e i e
+    u e a e o e i
+    é á í ú ó ů é
+    á a é e í i ú
+
+y
+
+    y e y a y u y
+    o y e y a y u
+    á ý é ý ú ý é
+    ý y é e á a í
+]
+
+[Illustration: m
+
+    m i m o m e
+    m a m u m y
+
+    mi mi mo mo mi
+    mo mi mo mi mo
+    me me mo me mi
+    me mi me mo me
+
+    ma ma mu mu ma
+    mu ma mu ma mi
+    my my mu ma mo
+    my mu me ma my
+]
+
+[Illustration: m á
+
+    m í m é m ý
+    m é m ů m á
+
+    mi mí ma má mo
+    má ma mý my me
+    mé me mů mu my
+    mí mé mý má mé
+
+    má-ma. má-mo má.
+    má-me má-mu. my.
+    mé. mé-mu. mi-mo.
+    u-mí. my u-mí-me.
+]
+
+[Illustration: l
+
+    l i l a l e
+    l o l u l y
+
+    li li la la li la
+    li la la li la li
+    le le li la le le
+    le li la li la le
+
+    lo lo lu lo lu lo
+    lu le lu lo li lu
+    ly ly lu lo ly lu
+    lu le lo la ly lo
+]
+
+[Illustration: l m
+
+    lí mí lá má lů mů
+    lý lá lé mý má mé
+
+    me-le. me-lu. me-le-me.
+    u-me-lu. u-me-le-me.
+    ma-lé. ma-lá e-mi-la.
+    mi-lý. mi-lá li-li-e.
+
+    lo-my. u lo-mů. lá-me.
+    lá-ma-li a u-lo-mi-li.
+    my-li. má-lo u-my-li.
+    má má-lo ú-lů. mo-li.
+]
+
+[Illustration: v
+
+    v l m
+
+    ve le vi li vo lo vu
+
+    my a vy. vy-vo-lá-vá.
+    ví-me. u-mí-me. ve-lí.
+    mí-vá-me. u-mý-va-li.
+    le-vý. le-vá. vy-lé-vá.
+
+    vi-lé-ma vo-lá e-vu.
+    mi-lo-va-ly. u-vi-ly.
+    vá-le-li. má-me vá-ly.
+    u-le-vi-la. u-lo-vi-li.
+]
+
+[Illustration: s
+
+    s v l m
+
+    se ve so vo si vi su
+
+    so-va. vo-sa. lo-so-si.
+    lo-ví se. sí-la. sá-lá.
+    se-su-lo se. lí-sá se.
+    ma-so se o-so-li-lo.
+
+    ma-lá e-va se-sí-lí.
+    mí-sí-vá. má mí-su.
+    sa-mé vá-ly a mí-sy.
+    o-sé-vá-me u le-sa.
+]
+
+[Illustration: d
+
+    d s v l m
+
+    du su do so de se da
+
+    do-my a sa-dy. do-ly.
+    ve-de-me. do-ve-de-me.
+    ví-dá a do-ví-dá se.
+    u do-mu se-dá-vá-me.
+
+    li-li vo-du do su-du.
+    do vo-dy dá-me so-dy.
+    vo-sa dá se do me-du.
+    li-dé se u-du-si-li.
+]
+
+[Illustration: t
+
+    t d s v
+
+    te de ty dy to do ta
+
+    te-ta ví-ta-la ví-ta.
+    ó ty ví-te! ó vy te-to!
+    má-te u-my-té mí-sy.
+    dá-te-li mi to sí-to?
+
+    te-sá-te. vy-me-te-te.
+    mo-tá-te. ma-te-te se.
+    mo-tý-lo-vé lí-ta-li.
+    ví-tá-me lé-to mi-lé.
+]
+
+[Illustration: k
+
+    k t d s
+
+    ko to ku tu ky ty ka
+
+    o-ko. ko-lo. ko-lí-ky.
+    su-ky. ku-la-té ku-sy.
+    ka-sa. ve-li-ké ví-ko.
+    ko-sa. ko-vy. o-ko-vy.
+
+    ku-le se vy-ku-li-la.
+    ko-sa-mi se-ká-vá-me.
+    da-le-ká lu-ka. do-ly.
+    ka-lí se. le-ká-me se.
+]
+
+[Illustration: b
+
+    b k t d
+
+    bo ko bu ku be ke ba
+
+    bo-by. o-bi-lí. bo-ky.
+    bo-ty. ka-bá-ty. bo-dy.
+    o-ba bo-dy. so-bo-ta.
+    bý-vá-me u ta-bu-le.
+
+    by-li bo-si. o-bu-li se.
+    vo-dy ta-dy u-bu-de.
+    by-lo má-lo o-bi-lí.
+    bí-lí-me o-ba do-my.
+]
+
+[Illustration: n
+
+    n b k t d
+
+    ne be no bo nu bu na
+
+    ví-no. se-no. ma-li-na.
+    vi-nu. vi-ne-me. va-na.
+    no-vi-na. mi-ne. ne-má.
+    no-sí vo-du do va-ny.
+
+    má-me no-vé ná-do-by
+    na ví-no a na vo-du.
+    ne-su no-vi-nu. ko-mu?
+    to-mu i o-no-mu sy-nu.
+]
+
+[Illustration: p
+
+    p b n k
+
+    pe be pi bi po bo pu
+
+    pi-vo. to-pi-vo. po-le.
+    pi-la. pa-ta. lo-pa-ta.
+    by-li-na. lí-pa. pá-sy.
+    pá-vi. pá-no-vé. pů-da.
+
+    sy-pu. te-pu. ko-pa-li.
+    to-pí-me. to-pi-li se.
+    pa-dá. po-le-pí. pá-lí.
+    lu-pe-ny o-pa-da-ly.
+]
+
+[Illustration: z
+
+    z s p b t d
+
+    ze se zu su zi si za
+
+    zi-ma. vo-zy. ze-li-na.
+    vo-zí-me. ne-ka-zí-me.
+    o-zý-vá se. sá-zí-vá.
+    za-me-tá. za-my-ka-li.
+
+    zi-ma tu-ze. ze-be to.
+    u-bo-zí si ne-za-to-pí.
+    ko-za dá se do ze-lí.
+    vo-sa le-ze po ze-mi.
+]
+
+[Illustration: c
+
+    c s z p b v
+
+    ce se ci si co so cu
+
+    do-má-cí a ci-zí ví-no.
+    o-vo-ce. lí-ce. o-pi-ce.
+    co to cu-pá? co to te-pe?
+    ci-bu-li sá-zí-vá-me.
+
+    po-le ne-po-cu-pá-me.
+    vy-ká-ce-li ce-lé le-sy.
+    cí-no-vé ná-do-bí da-la
+    ce-ci-li-e do po-li-ce.
+]
+
+[Illustration: r
+
+    r n c z s
+
+    ru nu ro no re ne ry
+
+    ru-ka. ru-ká-vy. rá-no.
+    rá-na na ru-ce. sí-ra.
+    pá-ra. pé-ro. ro-vi-na.
+    bo-ry. ků-ra. se-ke-ry.
+
+    lo-ví-me ry-by, ra-ky.
+    o-rá-me. vy-rý-vá-me.
+    se-ke-ra-mi se-ká-me.
+    po-ra-zi-li bo-ro-vi-ci.
+]
+
+[Illustration: h
+
+    h k b l
+
+    hy ky hu ku ho ko ha
+
+    no-ha. vá-ha. zá-ho-ny.
+    ro-hy. pa-ro-hy. ho-ra.
+    hu-sa. hu-sá-ci. hu-ba.
+    vo-da. ho-dy. ne-ho-dy.
+
+    vá-hy se ne-hý-ba-ly.
+    du-ha bý-vá na ne-bi.
+    tu-há zi-ma hu-bí-vá,
+    co po-bí-há po le-se.
+]
+
+[Illustration: j
+
+    j h r c z
+
+    ja ha jo ho ju hu je
+
+    ja-ro. há-je. ja-ho-dy.
+    ry-ji. li-je-te. my-ji.
+    vo-já-ci ma-jí bo-je.
+    bo-ju-jí, ne-bo-jí se.
+
+    rá-ny se ho-jí-va-jí.
+    ná-po-je se pí-va-jí.
+    za-jí-ci vy-bí-ha-jí
+    za no-ci do je-te-le.
+]
+
+[Illustration: š
+
+    š j h k r
+
+    še je ši ji šo jo šu
+
+    ko-še. nů-še. šu-pi-na.
+    ho-ši. ša-ty. ko-ši-le.
+    ko-ša-té lí-py, du-by.
+    my-ši bý-va-jí še-dé.
+
+    na-pí-še-me si ú-ko-ly.
+    má-me no-vé se-ši-ty.
+    ša-ty by-ly ši-ro-ké.
+    ze-lí dá-me do ko-šů.
+]
+
+[Illustration: ž
+
+    ž z š s c
+
+    ži zi žo zo žu zu ža
+
+    mu-ži. ži-to po-ža-té.
+    že-na. že-le-zo. no-že.
+    ža-lo-ba. du-té ži-ly.
+    ži-to se su-ší a vá-že.
+
+    žá-ci vá-ží si ú-ko-lů.
+    pí-ší a ne-ma-ží se.
+    co po-ží-rá ží-ža-ly?
+    co la-pá my-ši a žá-by?
+]
+
+[Illustration: č
+
+    č c ž z š s
+
+    če ce či ci čo co ča
+
+    o-či. če-lo. čí-še. ča-sy.
+    ko-čí. ko-čá-ry. rý-če.
+    če-mu u-ci se žá-ci?
+    čí-tá-va-jí a pí-ší.
+
+    vy tady po-čí-tá-te.
+    ry-je-me pů-du rý-či.
+    do ve-če-ra se vy-ča-sí.
+    vo-da te-če a hu-čí-vá.
+]
+
+[Illustration: ř
+
+    ř j ž š č
+
+    re ře ro řo ru řu ry
+
+    ře-pa. řa-da. ko-ře-ny.
+    zá-ře se ší-ří; ho-ří.
+    te-sa-ři te-ší a ře-ží.
+    me-čí-ři ro-bi-li me-če.
+
+    žá-ci ča su ne-ma-ří.
+    na ja-ře se le-dy bo-ří.
+    vo-da ví-ří; va-ří se.
+    ku-ře by-lo o-pa-ře-no.
+]
+
+[Illustration: ch
+
+    h ch k
+
+    hy chy ky dy ty ny ry
+
+    u-cho. su-cho. su-chý.
+    chu-dý. cho-rý. li-chý.
+    ví-chy. jí-cha. chy-ba.
+    so-cha. cha-sa. chů-ze
+
+    chu-do-ba a cho-ro-ba.
+    o-ře-cho-vý. ko-ži-chy.
+    ku-cha-ři. pa-cho-le.
+    cho-cho-ly. cha-lu-pa.
+]
+
+[Illustration:
+
+    ne-mí-ři-li; chy-bi-li.
+    su-cho mo-ří ko-ře-ny.
+    co vy-chá-zí na ne-bi?
+    co chy-tá-va-jí čá-pi?
+    co pí-chá? co či-chá-me?
+
+    ši-li no-vé ko-ži-chy.
+    jí-cha se mí-chá-vá.
+    ko-ši-le se má-chá.
+    pa-cho-le se cho-vá.
+    su-chá rů-že o-pa-dá.
+    ta-bu-le se chý-li-la.
+]
+
+[Illustration: ě e
+
+    be bě ve vě pe pě
+    me mě bě vě pě mě
+
+    bě-da. bě-ží. bě-lá se.
+    vě-ci. vě-ší. vě-ří-me.
+    pě-ší. pě-na. za-pě-li.
+    mě-chy. ze-mě. mě-ři-li.
+
+    o-bě že-ny bě-do-va-ly.
+    so-vě na vě-ži se lí-bí.
+    co to pě-je na lí-pě?
+    sí-mě dá-me do ze-mě.
+]
+
+[Illustration: d ď t ť
+
+    da ďa do ďo du ďu
+    tu ťu ta ťa to ťo
+
+    ďa ďo ďu ťo ťu ťa
+    ďo-be. ďo-ba-jí. ťu-ká.
+    ťu-ká-me. za-ťu-ka-li.
+
+    ha-ďa-ta vy-lé-za-jí.
+    ko-ťa-ta po-bí-ha-jí.
+    ku-ře ďo-be do ze-mě.
+    co ťu-ká ťu-ky, ťu-ky?
+    u-cho by-lo u-ťa-to.
+]
+
+[Illustration: ň
+
+    no ňo nu ňu na ňa
+    ňo ňu ňa ňu ňa ňo
+
+    hu-ňa-tá ko-že-ši-na.
+    ko-ňo-vé a ko-ňá-ci.
+    vo-ňa-vá vo-da by-la
+    ve ba-ňa-té ná-do-bě.
+
+    je mě-ňa-vé po-ča-sí.
+    vy-mě-ňu-ji si pé-ro.
+    lu-ňá-ci a ká-ňa-ta
+    po-ží-ra-jí há-ďa-ta.
+]
+
+[Illustration: de dě te tě
+
+    dě-lo. dě-va se dě-sí.
+    se-dě-li, ne-vě-dě-li.
+    dě-de, co se to tu dě-je?
+    chu-dý ne-má o-dě-vu.
+    dě-lá se do ne-dě-le.
+
+    te-sa-ři te-ší la-tě.
+    tě-ší-me se na te-tu.
+    te-tě se tu lí-bi-lo.
+    pa-cho-le je tě-ka-vé.
+    má-me tě-lo a du-ši.
+]
+
+[Illustration: ne ně
+
+    ko-ně. la-ně. ně-mo-ta.
+    ku-chy-ně. vů-ně. bá-ně.
+    la-ně bě-ží do le-sa.
+    ve va-ně by-la vo-da.
+    po ví-ně by-la vů-ně.
+
+    ne-dě-le je po so-bo-tě.
+    pě-ší bě-ží po pě-ši-ně.
+    dě-va ně-má ře-či ne-má.
+    u-há-ně-li ta-dy ko-ně
+    po da-le-ké ro-vi-ně.
+]
+
+[Illustration: dy di ty ti
+
+    ho-dy. ho-dí. ho-di-ny.
+    chu-dý. chu-dí. chu-di-na.
+    cho-dí. cho-di-li. vo-dí.
+    dí-vá-me se. vi-dí-me.
+    dí-že. dí-lo. ná-řa-dí.
+
+    ti-še se-dě-ti. ti-ší.
+    le-tě-ti. le-tí. u-tí-ká.
+    dí-tě. dě-ti. vi-dě-ti.
+    má-te-li co vě-dě-ti
+    a na pa-mě-ti mí-ti?
+]
+
+[Illustration: ny ni
+
+    ny-ní bu-de u-če-ní,
+    a-le ne za-há-le-ní.
+    jaké je to volání?
+    není tady nikoho.
+
+    činí-li co lenivý?
+    nikoli! říkáváme,
+    že mu dílo nevoní,
+    nebo že ho netěší.
+    komu se nelení,
+    tomu se zelení.
+]
+
+[Illustration: ou
+
+    lou-ka. mou-ka. kou-le.
+    rou-ra. bou-ře. rou-cho.
+    mou-cha. hou-ba. hou-se.
+    sou-se-dé. ou-ro-da.
+
+    je-dou vo-zy po lou-ce,
+    ve-zou no-vou o-ta-vu.
+    sou-se-dé si po-ví-da-li,
+    ja-ká by-la ou-ro-da.
+    pe-ka-ři me-lou mou-ku.
+    pi-lou ře-za-li te-sa-ři.
+]
+
+[Illustration: f
+
+    fe ve fo vo fu vu fa
+
+    fara. u fary. faráři.
+    fůra. na fůře. šafáři.
+    fiala. houfy dětí.
+    co to fičí a fouká?
+
+    sázíme bílé fazole.
+    vezeme fůru obilí.
+    co to bafá u boudy?
+    doufáme, že zase
+    fialy uvidíme.
+]
+
+[Illustration: g
+
+    go ko gu ku gy ky ga
+
+    ságo. guma. galesy.
+    gumiguta. galilea.
+    žáci mívají gumu.
+    gumiguta jedovatá.
+
+    ságo není jedovaté.
+    ságo může se vařiti.
+    gazela je rohatá
+    a podobá se koze.
+    hugo píše a počítá.
+]
+
+
+
+
+_a e i y o u ě_
+
+á é í ý ó ů ú ou
+
+_mₑ l- v- s- š-_
+
+ₑm -l -v -s -š
+
+
+_va-še e-va vo-lá ma-lou vi-lé-mu. o-sé-va-li u le-sa. le-sy šu-mě-ly.
+mí-sí-vá-me. má-me vá-ly a mí-sy._
+
+mě-li as mí-su ov-sa. úl se vy-mý-vá. vy-sou-ší se. le-sy se vy-su-ši-ly.
+se-su-ly se lo-my. so-va lo-ví my-ši. má-me má-lo sí-ly.
+
+_lil. u-lil. vy-lil. va-lil. vo-lal. vy-vo-lal. vil. u-vil. lo-vil. šil.
+u-šil. su-šil. šel. vy-šel. myl. u-myl._
+
+měl. u-měl. mám. u-mím. vím. vám. mí-vám. lom. les. ves. vo-lá vás. u
+vás. váš. mí-váš. u-mý-váš.
+
+
+
+
+dₒ ď- t- ť- b- p-
+
+ₒd -ď -t -ť -b -p
+
+
+_ví-tá-me tě, mi-lé dí-tě! ví-tám vás! te-ší-me se, vi-dí-me-li vás
+ta-dy. tou-to do-bou u vás po-bý-vá-me._
+
+ať tu ti-še se-dí-te a pí-še-te! by-la-li ta vě-tev u-ťa-ta? u-mí-te-li
+od-po-ví-da-ti? by-lo lé-to. bí-lí mo-tý-lo-vé po sa-dě lí-ta-li.
+bu-dou-li o-bě bo-ty do so-bo-ty?
+
+_led. med. sad. sud. do-sud pí-še. suď! po-suď-me to pís-mo! seď!
+po-seď-te si! po-buď-te tu! veď-me se! od-veď to dí-tě do-mů!_
+
+bí-lý šat. vít má loď a síť! lať se lá-me. bob. bos. dub. lep. o-tep.
+sůl. důl. dům. vím. po-vím ti to sám. lo-vím. ba-vím se. pil. la-pil.
+po-la-pil. le-pil. po-pil-te si!
+
+
+
+
+_h- ch- g- k- j- f-_
+
+-h -ch -g -k -j -f
+
+
+_vo-lá-me ho-chy. ho-ši, seď-te! ko-sy se ko-va-jí. lou-ka se se-ká.
+go-li-áš byl vel-ký, da-vid ma-lý. aj, ja-ké to hou-fy! ach, co vi-dím!_
+
+dub mí-vá ku-lo-va-té ga-le-sy. sá-go i sůl dá-vá-me do po-lév-ky. fí-ky
+se jí-da-jí, ja-ho-dy ta-ké. aj, ja-ký to po-vyk! ach, bě-da mi!
+
+_chod-ba. po-chod. vý-chod. choď! choď-me! choď-te! hoď! od-hoď to!
+dej mi ta-ké! dej-te o-běd to-mu-to chu-dé-mu! je to u-bo-hý chu-ďas.
+po-dej-te mi koš! víš-li ja-ký je suk?_
+
+kus so-li. o-kus ká-vy! o-kus-me vo-dy! po-kus-me se o to! ta-bu-le bý-vá
+šik-mo. ko-šík mí-vá ví-ko. ho-šík pí-še ú-kol.
+
+
+
+
+_z- ž- c- č- n- ň- r- ř-_
+
+-z -ž -c -č -n -ň -r -ř
+
+
+_ci-zí mu-ži ho-vo-ří ci-zí ře-čí. vo-já-ci by-li po-ra-ně-ni me-či.
+u-vi-dím tě, až po-je-du od ot-ce. an-na vo-lá an-to-ní-na; on tu ne-ní.
+co se tu dě-je? oč se há-dá-te? ať se již ne-há-dá-te! dě-ti, u-tiš-te
+se!_
+
+koně-li ve běhu kopyty dupotají, čemu se dupoty podobají? dupoty, cupoty
+na zem a půdu tepotu cepů se podobají.
+
+_len. je-len. laň. laň-ka. nůž. nůž-ky. den. je-den. tý-den, den-ník.
+les-ník. chod-ník. ob-chod-ník. pec. pec-ka. ku-pec. ko-pec. se-káč.
+pe-káč._
+
+o-tec. ry-tec. ta-líř. má-líř. za-jíc. vůz. voz-ka. važ! váž-ky. lé-kař.
+pe-kař. te-sař. pí-sař. ko-vář. o-ráč. vi-nař. bed-nář. ho-di-nář.
+u-ze-nář.
+
+
+
+
+_ml vl bl pl dl tl zl sl hl chl kl_
+
+
+_žák se-dí a ml-čí. ko-tě ml-sá. ov-ce má vl-nu. ba-vl-na by-la bí-lá
+a čer-ve-ná. mám pun-čo-chy vl-ně-né a ba-vl-ně-né. vo-da na ryb-ní-ce
+se vl-ní-vá. vl-ci vy-jí. ja-bl-ko se ku-lí. v ou-li bý-vá pl-no me-du.
+na-pl-ní-me va-nu vo-dou. o-tec ve-dl dí-tě. ko-mi-ník vy-me-tl ko-mín._
+
+ne-buď ml-sa-vý a-ni hl-ta-vý! pes tá-hl vo-zík. ne-mo-hl dá-le. hoch mu
+po-mo-hl. po-sel u-se-dl si na láv-ku a od-de-chl si. za-jíc vy-bě-hl si
+do po-le. ká-men pa-dl a bou-chl. za-jíc u-le-kl se a u-te-kl. voz-ka
+ve-zl se-no. had le-zl po ze-mi. pa-cho-lík se ří-zl. rá-na ho bo-lí.
+sl-zy mu te-kou. již u-ml-kl a u-ti-chl.
+
+
+
+
+_mla vla bla pla dla tla kla hla chla zla sla žla šla_
+
+
+_mla-tec mlá-tí. mlá-dež se u-čí. se-dá-me v la-vi-cích. še-di-vé vla-sy
+ne-bý-va-jí na mla-dé hla-vě. blá-tem ne-ra-di cho-dí-me. o-blá-zek je
+ku-lo-va-tý ká-men. plá-tě-ná zá-pla-ta. pla-tí-me pe-ně-zi. so-bo-ta
+bý-vá den vý-pla-ty. pla-né ja-bl-ko je ky-se-lé. za-jíc je pla-chý. had
+se pla-zí._
+
+dlá-tem dla-be-me. dla-ní hla-dí-me. je-hla pa-dla na po-dla-hu. kouř
+tla-čí v o-či. tla-cha-la li-dé ne-mi-lu-jí. dív-ka za-me-tla; po-tom
+se-dla a če-tla. o-bi-lí má kla-sy. ko-vář má kla-di-vo. vo-da te-kla.
+hla-do-vý chla-pec pla-kal. o-chla-di-lo se. ze zla-ta ra-zí se du-ká-ty.
+sla-bý má-lo u-ne-se. po žla-bech te-če vo-da mat-ka šla na po-le.
+
+
+
+
+_vle ble mlu plu dlo slo hli kli zlou slou_
+
+
+_v le-se je mech. vo-sa vle-tě-la do ko-mo-ry. mat-ka ple-te. mě-síc je
+ble-dý. ká-va by-la u-mle-ta. vy-kle-pej o-děv! hle-dí-me si u-če-ní.
+kle-čí-me a mo-dlí-me se. my-sli-vec vy-šel z le-sa. rol-ní-ci ve-zli
+o-bi-lí. co se dě-lá ze hlí-ny? co klí-čem od-my-ká-me? co ply-ne po
+vo-dě? co se dě-lá ve mlý-ně?_
+
+pla-vec plo-ve. v lé-tě bý-vá te-plo. sá-dlo i má-slo od te-pla se
+roz-plý-vá. plu-hem o-rá-me. co se ne-slu-ší, to se ne-mlu-ví. vo-da
+bý-vá hlu-bo-ká. dě-ti v le-se za-blou-di-ly. ne-moc-ným slou-ží-me.
+je-hlou se ši-je. po-le je dlou-hé a ši-ro-ké. ne-po-slou-chá-li dí-tě
+ro-di-čů, bu-de mí-ti zlou od-pla-tu.
+
+
+
+
+_tr dr vr br hr chr kr_
+
+
+_ví-tr fu-čí. tr-ní tr-há o-děv. ko-za tr-ká. me-tr je mí-ra. li-tr je
+ná-do-ba na mě-ře-ní. pe-tr se-dí na ze-le-ném dr-ně; u-tr-hl si rů-ži a
+dr-ží ji. na tr-hu se tr-ží pe-ní-ze. su-ché ko-lo vr-zá. ho-lub vr-ká.
+pes vr-čí. vr-ba bý-vá u po-to-ka. no-ha br-ní-vá. hu-sa má br-ky. br-zy
+bu-de ja-ro. ko-pr vo-ní. ka-pr plu-je ve vo-dě._
+
+hr-né-ček se roz-tlou-kl. ka-me-ní se hr-ne. ve-li-ký ví-tr slu-je
+vi-chr. my-sli-vec má chr-ta. rá-na kr-vá-cí. kr-ka-vec lí-tá. cu-kr
+dá-vá se do ká-vy. zr-ní dr-tí se ve mlý-ně. zr-ca-dlo u-ka-zu-je, ja-ký
+je o-bli-čej. sr-na bě-ží. žen-ci ža-li o-bi-lí sr-pem. pil-né-ho u-če-ní
+ne-mr-zí.
+
+
+
+
+_mra pra bra vra hra chra kra_
+
+
+_mra-zy po-mi-nu-ly. mra-ky ví-dá-me na o-blo-ze. bý-vá za-mra-če-no.
+mra-ve-ne-ček je pra-co-vi-tý. ne-ní chle-ba bez prá-ce. o-brá-tí-me se
+na pra-vo a na le-vo. vra-ta se za-ví-ra-jí. bra-tr se již na-vrá-til;
+teď hra-je na hou-sle. ko-tě je hra-vé. se-no hra-be se hrá-bě-mi.
+chrá-ní-me se je-du._
+
+krá-čí-me po kra-ji le-sa. vrá-na krá-ká. dej že-brá-kům po kra-jí-ci
+chle-ba. krá-va že-re trá-vu. zla-to je dra-hý kov. tr-há-me zra-lé
+o-vo-ce. v lé-tě nás trá-pí-vá hor-ko a ží-zeň. prá-dlo se su-ší.
+ve mlý-ně se prá-ší. o-rel je dra-vý; má sil-né drá-py. ta-bu-le je
+hra-na-tá. za-hra-da bý-vá o-hra-ze-na plo-tem.
+
+
+
+
+_bro pro dro tro hro chro kro_
+
+_bru pru dru tru hru kru_
+
+_bry pry dry drý brou krou_
+
+
+_za do-bro-di-ní po-dě-kuj! o-tec pro-hlí-ží mo-je se-ši-ty, pro-vaz-ník
+dě-lá pro-va-zy. na-dro-bí-me chle-ba do mlé-ka. ji-tro je po
+no-ci. le-ni-vé-mu nou-ze hro-zí. chro-mý u chrá-mu se-dí a pro-sí.
+krá-čí-mé-li, dě-lá-me kro-ky._
+
+sud má o-bru-če. vr-bo-vé pru-ty se o-hý-ba-jí. drů-bež zo-be zr-ní.
+tru-hlá-ři dě-la-jí tru-hly. hru-bý pí-sek ko-pe se u ře-ky. do-brý
+po-má-há rád chu-dé-mu. mech je ky-prý. mou-drý u-mí po-ra-di-ti. vra-bec
+je chy-trý. kru-pař pro-dá-vá krou-py a kru-pi-ci. no-že brou-sí-me na
+bru-se. brou-ci le-zou.
+
+
+
+
+_bři při vři kři dři tři_
+
+_bře pře vře kře dře tře_
+
+
+_bří-za má bí-lou ků-ru. do-bří li-dé ze zlé-ho se ne-ra-du-jí. ko-při-va
+pá-lí. po-dél sil-ni-ce bý-vá pří-kop. za-vři vra-ta! mří-že by-ly
+že-lez-né. za-hří-vá-me se chů-zí. by-la vel-ká vi-chři-ce. čá-ra je
+pří-má ne-bo kři-vá. mou-cha má kří-dla. tři bra-tři. u-tři si ru-ce!
+dří-ví se ře-že pi-lou. dří-ve při-šel do mlý-na, dří-ve se mu se-me-le._
+
+do-bře se tu cho-vej-te! ni-ko-mu ne-pře-ká-žej-te! pří-ze se pře-de. ze
+vře-lé vo-dy se kou-ří. chu-ra-vé dít-ko u-mře-lo. slu-néč-ko hře-je.
+trá-va o-kře-je a za-ze-le-ná se. kře-men je kře-sa-cí ká-men. la-vi-ce
+je dře-vě-ná. ne-ku-puj, če-ho ne-po-tře-bu-ješ.
+
+
+
+
+_vlk brk_
+
+
+_u-mlk-ně-te! mlč, žá-ku, do-kud tě ne-vo-la-jí. po-mlč-me o tom! ne-buď
+mls-ný! mls-ků si ne-ku-puj! vlk u-dá-vil ov-ci. je tu vlh-ko. do vlh-ké
+trá-vy ne-se-dej! sud byl pln vo-dy. na-plň-te káď vo-dou! plž se pla-zí._
+
+drn je ze-le-ný. hu-deb-ní-ci drn-ka-li na hou-sle. do-bře drž pé-ro! trn
+bo-dá. trn-ky by-ly trp-ké. vrch je vy-so-ký. brk je du-tý. hrn-číř dě-lá
+hrn-ce. chrt se že-ne za srn-cem, krt či-li kr-tek ry-je a vy-hr-nu-je
+ze-mi. hu-sa má dlou-hý krk. rol-ník má srp i ko-su. ú-trp-né-mu je
+chu-dé-ho lí-to. mi-lo-srd-ný po-má-há chu-dé-mu. sle-pý že-bře; do-bré
+srd-ce od ně-ho se ne-od-vra-cí. prš-ka za-čí-ná po kap-kách.
+
+
+
+
+_dva dve dvi dvo dvu dvě dvou_
+
+_tv- zv- sv- cv- lv- rv- chv- kv-_
+
+
+_dva ko-ně ví-ce u-ve-zou než je-den. zla-tý pla-tí pět dva-cet-ní-ků.
+tvá ru-ka buď u-my-ta, a tvá-ře tvo-je ta-ké! zvo-ny zvo-ní. přá-te-lé
+se zvou. o-zvi se, vo-la-jí tě! zvy-kám prá-ci. vě-ci svo-je po-řá-dám.
+hle-dím si své-ho u-če-ní. cvi-če-ní dá-vá u-mě-ní. kůň cvá-lá. cvo-ček
+je hře-bí-ček se ši-ro-kou hla-vič-kou._
+
+vůl řve. lvo-vé sil-ně-ji řvou. o-ho-nem švi-ha-jí. co u-chvá-tí, to
+se jim ne-vy-rve. mou-drý sám se ne-chvá-lí ani ne-ha-ní. le-ni-vé-mu
+chví-le dlou-há. vrá-na kvá-ká. zva-dlý kví-tek o-pa-dá. z va-še-ho
+dvo-ra vy-jel vůz; po-je-de k va-še-mu po-li. ke zlé-mu ni-ko-ho
+ne-svá-děj! žva-tla-vý mlu-ví-vá ne-roz-um-ně.
+
+
+
+
+_tma tmy tme tmě tmo tmu tmou_
+
+_dm- zm- sm- hm- chm- km- rm- jm- čm-_
+
+
+_bu-de tma. tmí se. se-tmě-lo se. noc je tma-vá. měch se dme. ví-tr
+fou-ká, vl-ny se dmou. z ma-sa va-ří se po-lév-ka. jez, a-le s mě-rou!
+ne-moc-ný se ne-smě-je; ne-ní mu do smí-chu. na po-smě-váč-ka také
+do-chá-zí._
+
+dře-vo mů-že-me hma-ta-ti. dře-vo je hmo-ta. do pi-va dá-va-jí tro-chu
+chme-le, aby by-lo na-hoř-klé. svě-tlo se kmi-tá. na-tr-hej-te na po-li
+rme-nu! rmou-tí-me se, že pan kmo-tr je ne-mo-cen; má-me zá-rmu-tek.
+jak se jme-nu-ješ? jak se jme-nu-je váš o-tec? u-jmi se to-ho, ko-mu se
+u-bli-žu-je. vo-da v mo-ři je sla-ná a hoř-ká. čme-li dě-la-jí med.
+
+
+
+
+_sna sne sně snu sno sni snou_
+
+_zn- dn- tn- hn- kn- mn- vn-_
+
+
+_u-sne-me; ze sna se pro-bu-dí-me. sno-vé nás dě-sí i tě-ší. při-by-lo
+sně-hu. pí-še-me zno-va. sly-ší-me zně-ní zvo-nů. dno-vé rych-le
+mi-ze-jí. ne-u-tni se! hnu-ly se vo-zy s ná-kla-dem. vy-hni se ko-ním!
+pěk-nou kni-hu rá-di čí-tá-me. vnu-ko-vé dě-dů po-slou-cha-jí._
+
+kme-ny pnou se do vý-še. je zi-ma; mnu si ru-ce. hne-dle jak po-mi-ne
+zi-ma, u-vi-dí-me a po-zná-me sně-žen-ky. ve dne pra-cu-je-me, v no-ci
+od-po-čí-vá-me. sna-ži-vé-ho ne-ní tře-ba ku prá-ci hná-ti. br-zo bu-dou
+žně. za-čne-me ží-ti o-bi-lí. žen-ci žnou o-bi-lí sr-pem. po-ža-té
+o-bi-lí se vá-že ve sno-py. ne-hně-vej se na mne! sná-šej se do-bře se
+svý-mi zná-mý-mi!
+
+
+
+
+_sta sto ste stu stou sti stě_
+
+_ct- kt- rt- vt- pt- št- čt-_
+
+
+_na pa-ho-rek ce-sta vy-stu-pu-je. na vr-šíč-ku sto-jí ko-ste-lí-ček.
+stu-dán-ka má vo-du stu-de-nou. do-bré dí-tě ctí své ro-di-če i ji-né
+sta-ré li-di. po-cti-vý ci-zí-ho jmě-ní se ne-do-tý-ká. kte-rý člo-věk
+sto-jí o jmě-ní ci-zí, při-chá-zí o jmě-ní své a k to-mu je-ště o
+do-bré jmé-no. zu-by a rto-vé zá-vo-ry dvo-je, a-by hlou-pé slo-vo
+ne-u-klou-zlo._
+
+v tu-hé zi-mé bý-vá tlu-stý led. ptá-ků mno-ho kru-tým hy-ne mra-zem.
+vla-što-vi-ce na zi-mu od-léta-jí. na ja-ře do-stá-va-jí by-li-ny šťa-vu.
+ptá-ci se vra-ce-jí. na ce-stu ni-ko-ho se ne-pta-jí. pil-né-ho žá-ka
+čte-ní tě-ší. pil-né-mu se ště-stí do-stá-vá, a-le z le-ni-vo-sti bý-vá
+nou-ze ji-stá.
+
+
+
+
+_kdo kde kdy zde zda zdi zdě_
+
+_rdí vdo bdě jdu jde jdi jdou_
+
+
+_kdo se ptá, do-ptá se. kde tě ne-zvou, tam se ne-hrň! kdy se bu-de zde
+zdí-ti? zda-li již na ja-ře? zdě-ný dům je pev-něj-ší než-li dře-vě-ný.
+v do-mě bý-va-jí chod-by. rů-že se rdi. o-blo-ha se ně-kdy za-rdí-vá.
+kdo zde bdí tak dlou-ho do no-ci? mat-ka pro-bdě-la noc u lůž-ka dít-ka
+ne-moc-né-ho._
+
+kdo hle-dá, na-jde. co kdo na-jde, vrá-ti-ti má to-mu, ko-mu to ná-le-ží.
+kam jde-te? jde-me do chrá-mu pá-ně. já tam ta-ké pů-jdu. kdy při-jde
+o-tec? tou-to ce-stou si za-jde-me, o-nou ce-stou si na-de-jde-me.
+do-jdi mi na po-štu! vy-jdě-me si do po-le! o-de-jdě-te, již je po-zdě.
+ne-jdou-li va-še ho-di-ny po-zdě?
+
+
+
+
+_ska sko sku ske sky skou_
+
+_zk- ck- šk- čk- řk- lk- tk- vk-_
+
+
+_ze ská-ly se lá-me ká-men. sko-ři-cí se ko-ře-ní jí-dla. dej chu-dé-mu
+sky-vu chle-ba! myš pro-klou-zla sku-li-nou. z ka-me-ne sta-ví-me do-my.
+z ko-no-pí se ple-tou pro-va-zy. zkou-ší-me se, u-mí-me-li čí-sti. če-ské
+dí-tě mlu-ví če-sky či-li po če-sku; ně-me-cké dí-tě mlu-ví po ně-me-cku._
+
+ve ško-le se žá-ci u-čí. mra-zy ško-dí-va-jí kvě-tu. z le-ni-vo-sti bý-vá
+ško-da vel-ká. já řku: po-čká-te-li na mne tro-chu? tka-dl-ci tka-jí
+plá-tno. u-bo-hý lká a na-ří-ká; po-tka-lo ho ne-ště-stí. v ko-ste-le se
+mo-dlí-vá-me. v ky-pré ze-mi hoj-ně ro-ste o-bi-lí. v ku-chy-ni se va-ří
+jí-dlo. bu-de zkou-ška.
+
+
+
+
+_jsi vsi vzi rzi chci rci_
+
+_pše mše mže lže vče dce_
+
+
+_kde jsi? jsi-li pak zde či ne-jsi? kde jsou žá-ci? jsou-li při psa-ní
+po-zor-ni? jde-me ze vsi. psi ště-ka-jí. co vám ro-di-če do-vo-lí, to si
+smí-te vzí-ti. že-le-zo bý-vá se-žrá-no ode rzi. o-tec vo-lá dce-ru a
+pra-ví: jdi k mat-ce a rci jí, že tě chci vzí-ti do mě-sta._
+
+ze pše-ni-ce me-le se mou-ka. vše-mu ne-roz-u-míš. o-mše-ný ká-men
+je ze-le-ný. pr-ší-li jen má-lo, pra-ví-me, že mží. roz-my-sli se v
+o-ka-mže-ní! ne-lži ni-kdy! kdo lže, o tom se pra-ví, že i kra-de. co
+by-lo vče-ra, a co bu-de zej-tra? vče-la bzu-čí. zví-řá-tek na ze-mi je
+po-čet ne-sčí-sl-ný. z če-ho se dě-la-jí sto-ly, z če-ho klí-če, z če-ho
+hrn-ce?
+
+
+
+
+_zho zha zhu zhy zhou_
+
+_lh- vh- jh- žh- sch- vch-_
+
+
+_zha-sí-me sví-ci. rá-na se zho-jí. ko-čka zhu-bí mno-ho my-ší. z há-je
+roz-lé-há se hla-hol ptá-ků. za tu-hé zi-my mno-ho ptá-ků zhy-ne.
+kru-po-bi-tí bý-vá zhou-ba po-lím. v o-hni dře-vo sho-ří. řád-ky
+po-čí-tá-me s ho-ra ne-bo z do-la. ne-lhu ni-ko-mu a lhá-ti ni-kdy
+ne-chci. pes má v hu-bě sil-né zu-by._
+
+o-sel no-sí-vá jho a bře-me-no. žha-vý u-hel pá-lí. jsi tak ble-dý, co ti
+schá-zí? v do-mě bý-va-jí scho-dy. ku-dy vchá-zí-me do do-mu? v cha-tr-či
+pře-bý-va-jí li-dé chu-dob-ní. tcho-ři plí-ží se do kur-ní-ků. dít-ky
+ple-tou vě-ne-ček z chu-do-bi-ček. z ry-bi-čky bý-vá ry-ba, z chy-bi-čky
+chy-ba.
+
+
+
+
+_zbu dba žba spa špa čpa_
+
+
+_čme-lá-ci a vče-ly bzu-čí-va-jí. zbu-dí-me se rá-no po spa-ní. žá-ci
+u-čí se čí-sti a psá-ti. spí-li dít-ko, ne-buď ho! ma-lý o-heň ve-li-ký
+dům spá-lí. spo-ko-je-ný pře-stá-vá na má-le. če-leď po-slou-chá
+ho-spo-dá-ře a ho-spo-dy-ně. z ba-vl-ny se ple-tou pun-čo-chy.
+za-zpí-vej-me si! pil-ný pro-spí-vá v u-če-ní. ne-dba-lé-ho a
+ne-způ-sob-né-ho li-dé ne-mi-lu-jí._
+
+z pi-va va-ří-vá se po-lév-ka. v po-to-ce bý-va-jí ra-ci. na ve-čer se
+děl-ní-ci vra-cejí s po-le. po-hád-ky po-slou-chá-me s po-tě-še-ním.
+žbá-ny dě-la-jí se ze hlí-ny ne-bo z cí-nu, žbe-ry jsou ze dře-va.
+hle-dím, a-bych ne-měl ru-kou špi-na-vých. kouř čpí. ci-bu-le je čpa-vá.
+
+
+
+
+_sml zvl spl zhl schl_
+
+_str zdr svr zhr skr_
+
+
+_mls-ný sml-sal sme-ta-nu; a-le byl po-ká-rán. z vl-ny se dě-lá su-kno.
+po-cti-vý, co slí-bí, to i spl-ní. pes zhl-tal, co mu by-lo dá-no.
+ko-řen u-schl. tla-chal sml-čí jen to, co se mu ne-po-ví. da-le-ké ho-ry
+bý-va-jí v ml-ze._
+
+ská-la str-mí do vý-še. tr-pě-li-vý mno-ho str-pí. zdr-ží-me se spa-ní.
+ku-pec str-žil o tr-hu mno-ho pe-něz. z br-ků se dě-la-jí pé-ra.
+shr-ne-me hrá-šek do hr-né-čka. ká-men svr-žen byl s vr-chu do-lů.
+ne-po-zor-ný se mů-že zmr-za-či-ti. zhr-dá ten, kdo my-slí, že nad
+něj ne-ní. při psa-ní ne-seď skr-če-ně! dře-vo ne-ní tak tvr-dé ja-ko
+že-le-zo.
+
+
+
+
+_most vlak krok zvon_
+
+
+_nad vo-dou bý-vá most. list je ze-le-ný. pil-né-mu česť, le-ni-vé-mu
+půst. na rá-ny se dá-vá masť. na my-ši se lé-cí pasť. cí-tí-me ra-dosť i
+ža-losť, bo-lesť i sla-bosť. zla-to má lesk. hra-cho-vý lusk je du-tý.
+pysk je čásť úst. vče-ly dě-la-jí med a vosk._
+
+_vlak je-de. vlas je ten-ký. klas má zr-ni. děl-ník jde na mlat;
+do-sta-ne plat. chléb za-há-ní hlad. slý-chá-me hlas a hluk, pláč a křik._
+
+po-zor na kaž-dý krok. krej-car je o-krou-hlý ja-ko kruh. brok je
+ku-la-tý. krev je čer-ve-ná. má-me zrak, sluch, čich a chuť i hmat. zvon
+zní. chmel dá-vá se do pi-va. čmel je vět-ší než-li vče-la. rmen je
+do-má-cí lék. kmen se pne do vý-še. ká-men bý-vá o-mšen. v zi-mě pa-dá
+sníh.
+
+
+
+
+_sklo skro mzda_
+
+
+_sklo je křeh-ké a prů-hled-né. ze skla se dě-la-jí lá-hve a skle-ni-ce.
+do skle-pa ve-dou scho-dy. kam sklá-dá-me své kni-hy? špí-na je
+o-škli-vá. v kla-se je zr-ní. mat-ka za-mkla po-koj. vl-na dá se
+stla-či-ti. splá-če ně-kdy, kdo se ni-če-mu ne-na-u-čil. le-noch byl
+dů-tkli-vě na-po-me-nut. de-štěm zvla-žu-je se pů-da zem-ská._
+
+mat-ka skro-ji-la chléb a da-la dít-ku skro-je-ček. ve-dlé če-la jsou
+skrá-ně. list má dvě stra-ny. se-stra by-la strá-pe-na, že ne-ní zdrá-va.
+stro-my ro-stou zdlou-ha. z mra-čen li-je se déšť. stmí-vá se. prach se
+zdví-há. zblou-di-li jsme s ce-sty. choď zpří-ma, mluv u-pří-mně! ho-den
+jest děl-ník své mzdy. ne-msti se! msty ve svém srd-ci ne-cho-vej!
+
+
+
+
+_prst trest strom pstruh_
+
+
+_prst je ru-ky čásť. se-vře-ná dlaň je hrsť. za-jíc má je-mnou srsť.
+prsť je ky-prá země v za-hra-dě. smrk má je-hli-čí. ko-nec ži-vo-ta
+ve-zdej-ší-ho je smrť. na lhá-ře trest. plášť je pří-hod-ný do de-ště.
+hlíšť vy-lé-zá po de-šti ze ze-mě. na o-blo-ze ví-dá-me blesk. švest-ky
+zra-jí na pod-zim._
+
+dub je les-ní strom. nad ná-mi v po-ko-ji je strop. vo-ják je o-zbro-jen;
+má zbraň. kdo se bo-jí, cí-tí strach. z krej-ca-rů bý-va-jí zla-té.
+je-střáb lí-tá ve vzdu-chu. ne-moc-ný vzdy-chá; slý-chá-me je-ho
+vzde-chy. stře-da je pro-střed-ní den v tém-dni. hřbet je zad-ní čásť
+tru-pu. pěk-ná ry-ba je pstruh; mi-lu-je zvlášť či-sté hor-ské po-to-ky.
+či-stý vzduch je nej-lep-ší lék.
+
+[Illustration:
+
+    N Noe. Nezamysl.
+    M Milada. Mojmír.
+    V U Vít. Urban.
+    O Otakar. Olga.
+    C Č Ctibor. Čech.
+    Ch Chrudoš. Cherub.
+    G Gabriel. Gustav.
+    E Eva. Eliška.
+    S Samuel. Štěpán.
+    I Izabela. Izidor.
+    J Jaroslav. Jiří.
+    H Havel. Helena.
+    K Kateřina. Karel.
+    P Pavel. Přemysl.
+    R Rudolf. Růžena.
+    Ř Řehoř. Říp.
+    B Božena. Bohuš.
+    T Terezie. Tomáš.
+    F František. Filip.
+    L Lidmila. Libuše.
+    D Daniel. Dobravka.
+    Z Zdeněk. Zdeňka.
+    Ž Žofie. Želina.
+    A Anna. Adolf.
+]
+
+
+
+
+_O C Č Ch S Š P_
+
+
+_Očima vidíme. Okolo vesnice bývají pole. Cín je kov bělavý. Cepem
+se mlátí obilí. Čas jarní jest nám milý. Chléb je pokrm. Chudoba cti
+netratí. Slunce vydává světlo. Soudek plný nezvučí. Šípkový keř je
+trnitý. Šat i stravu měj dle stavu. Po noci nastává den. Po práci je milé
+odpočinutí._
+
+
+
+
+O C Č Ch S Š P
+
+
+Od rodičů máme mnoho dobrého. Co nemilo tobě, nečiň jiným. Čeho nemáš,
+neslibuj. Člověk ku práci stvo-řen jest. Stro-my ro-stou po-malu. Šetři
+svého zdra-ví! Ší-dlo v pytli se neutají. Chyba se má opraviti. Chromý
+kůň daleko neujde. Podlé práce bývá plat.
+
+
+
+
+_Z Ž I J U V K_
+
+
+_Zlato je pěkný žlutý kov. Zahálka je počátek zlého. Žíly jsou duté. Žába
+žije v kalužině. I zvíře cítí bolesť. I moudrý může pochybiti. Jídej
+střídmě, budeš dlouho živ. Jaká práce, takový plat. Ušima slyšíme. Umíme
+čísti. Vlasy jsou na hlavě. Vrána kráká. Klasy hluché nemají zrní. Klíčem
+otvíráme._
+
+
+
+
+Z Ž I J U V K
+
+
+Zvuk se rozléhá. Žito roste na poli. I moucha se brání. Jablko nepadne
+od stromu daleko. Jak ty jsi k jiným, tak i oni budou k tobě. Učte se
+rádi! Vraty vjíždíme do dvora. Za pravdu se nikdy nestyď! Žádná lež není
+bez trestu. Jahoda je dítek lahoda. Učiň rychle, co ti rodiče poroučejí.
+Vánoce jsou svátky radostné. Kámen se kose nepoddá.
+
+
+
+
+_N M H R Ř B T_
+
+
+_Nad námi jest obloha. Nehrej sirkami! Mlatec mlátí obilí. Mléko je
+zdravý nápoj. Hlava je čásť těla. Hlad je nejlepší kuchař. Na bílý chléb
+máslo, na černý hlad. Ryby žijí ve vodě. Řeč zdvo-ři-lá mnoho pro-spí-vá.
+Buk je strom. Brada je pod ústy. Tráva je zelená. Trní bode._
+
+
+
+
+N M H R Ř B T
+
+
+Nech ležeti, co není tvého! Mouka se mele ve mlýně. Hraček do školy
+nenos! Ran-ní ptáče daleko u-skáče. Na palouce roste pěkná tráva. Řádek
+po řádku, a strana je přečtena. Bez učení není umění. Beran má kroucené
+rohy. Tulipán je pestrá květina. Topol je strom vysoký. Týden má sedm
+dní.
+
+
+
+
+_D A L E F G_
+
+
+_Dlaň je hladká. Dům se staví z cihel a z kamene. Ani kuře darmo nehrabe.
+Led je kluz-ký. Laň skáče. Adam a Eva byli naši první rodiče. Fazole se
+sázejí. Antonín pomáhá Filipovi, Emanuel Františkovi. Galesy rostou na
+dubech. Gazela podobá se koze._
+
+
+
+
+D A L E F G
+
+
+Deštěm se zavlažuje půda. Dým nebývá bez ohně. Lži se varuj! Lháře lidé
+nemilují. Eva byla matka Kainova i Abelova. Fiala libě voní. Goliáš byl
+poražen od Davida. Rok má čtvero počasí: jaro, léto, podzim a zimu. Mráz
+škodívá květu. Není růže bez trní. Všecko má svůj čas. Co naseješ, to
+žíti budeš.
+
+
+
+
+Čtení poučné.
+
+Dítko doma a ve škole.
+
+
+1.
+
+Milý Pán Bůh.
+
+    Od milého Pána Boha
+    dobrodiní máme mnohá;
+      kdo se k němu modlívá,
+      posilnění nabývá,
+    aby se mu dobré dílo
+    také dobře podařilo.
+
+       *       *       *       *       *
+
+    Pomoz nám, ó Bože milý,
+    bychom dobře pochopili
+      všecko svoje učení;
+      uděl daru umění!
+    V tom ať prospíváme stále
+    ke Tvé, Pane, cti a chvále!
+
+
+2.
+
+Dobrý počátek.
+
+„Vstávej, Bohumilku!“ volávala ráno milá matička na svého synka.
+„Vstávej, již nastal nový den.“
+
+A Bohumilek nelenil. Vstal rychle.
+
+Sám slušně a řádně se umyl, učesal a oblekl.
+
+Potom poklekl a pomodlil se ku Pánu Bohu, aby jej a dobré jeho rodiče
+zase ochraňoval.
+
+    _Tak učinil dobrý počátek dne._
+
+
+3.
+
+Dobrý pořádek.
+
+Bohumilek věděl, kdy má vyjíti z domu, aby ve škole byl ve pravý čas.
+
+Nikdy se neopozdil.
+
+Než vyšel, vzal vše, čeho k učení potřebí bylo.
+
+Ničeho nezapomněl.
+
+Po cestě nekřičel.
+
+Setkal-li se někdy se žákem Prokopem, šli spolu slušně.
+
+Když ke školní světnici přišli, tiše dvéře otevřeli a pozorně je zase
+zavřeli.
+
+Potom sedli na svá místa.
+
+Tam své školní věci do příhrádky uložili.
+
+    _Byli to pořádní žáci._
+
+       *       *       *       *       *
+
+    _Od Boha učiním počátek,_
+    _a dobrý bude pořádek._
+
+
+4.
+
+Tichý žáček.
+
+Bohuslávek chodil do školy, aby se tam učil. Byl žáčkem. Když do školy
+vstoupil, usedl do lavice. Seděl tam rovně a tiše. Nemluvil ani nahlas
+ani pošeptmo. Jen když se ho otázal pan učitel, vstal a odpověděl. Tu
+mluvil hlasitě. Když domluvil, zase zticha usedl. Cokoli dělal, dělal bez
+hluku. Panu učiteli líbila se jeho tichosť velice. Říkával často žáčkům:
+Buďte všickni tak tiší jako Bohuslávek! Žáčkové poslechli. Při své školní
+práci nikdy nehlučeli. I mimo školu vždy slušně se chovali. Kdo je tak
+vídal, míval z nich radosť.
+
+
+5.
+
+Hodná Bětuška.
+
+Bětuška když přišla ze školy domů, nezapomněla nikdy rodičů svých
+pozdraviti. Také pozdravila jiné lidi, kteří u rodičů jejích právě byli.
+Potom uložila školní věci na místo vykázané. Našla je pokaždé snadno,
+když jich potřebovala.
+
+Nikdy z domu bez dovolení neodběhla.
+
+Ptávala se svých rodičů, chtějí-li práci jakou jí uložiti, nebo má-li jim
+dojíti někam.
+
+Co jí rodiče poručili, vykonala ráda a bez meškání.
+
+Když jí bylo dovoleno, pohrála si chvilku ale slušně a tak, aby ani sobě
+ani jiným neuškodila.
+
+
+6.
+
+Píseň o hodném dítku.
+
+    _Hodné dítko časně vstává,_
+    _lenosti se nepoddává._
+
+    _Řádně myje se a strojí,_
+    _říká modlitbičku svoji._
+
+    _Potom k otci, matce spěje,_
+    _dobrého jim jitra přeje._
+
+    _Slušně je vždy pozdravuje,_
+    _za všecko jim poděkuje._
+
+    _Věci svoje chová čistě,_
+    _každou na pořádném místě._
+
+    _Do školy pokojně kráčí,_
+    _nepostává, nečtveračí._
+
+    _Ve škole se pilně učí,_
+    _ani jednou nezahlučí._
+
+    _Ku posluze hbitě má se,_
+    _poslušno je v každém čase._
+
+
+7.
+
+Milé dítky.
+
+    Milé jak ty kvítky
+    poslušné jsou dítky;
+    něžná jak poupátka
+    malá jsou robátka;
+    dražší nad perličky
+    jsou hodné dětičky.
+
+
+8.
+
+Matčina láska.
+
+    Děťátko ty milé,
+      máš to chvíle blahé,
+    matička když líbá
+      poupátko své drahé.
+
+    Ó, jak starostlivá
+      tebe opatruje,
+    každinký tvůj krůček
+      s láskou ochraňuje!
+
+    A jakou jí činí
+      radosť nad radosti,
+    když jen tebe, dítko,
+      vidí bez žalosti.
+
+
+
+
+O těle a o duši.
+
+
+9.
+
+Tělo moje.
+
+Mám hlavu, trup, paže a nohy.
+
+To vše spolu je tělo moje.
+
+Hlava sama není celé tělo.
+
+Hlava jest jen čásť těla.
+
+Trup, paže a nohy jsou také části těla.
+
+Části těla jmenují se jinak údy.
+
+
+10.
+
+Pozor na tělo!
+
+    _Pozor dám si, by mne tělo_
+    _vlastní vinou nebolelo;_
+    _z nemírnosti, svévolnosti_
+    _mívá dítě žalu dosti._
+
+
+11.
+
+Části hlavy.
+
+Obličej je přední čásť hlavy.
+
+Temeno je horní čásť hlavy.
+
+Týl je zadní čásť hlavy.
+
+Temeno a týl kryty jsou vlasy.
+
+
+12.
+
+Části obličeje.
+
+Čelo není celý obličej.
+
+Jest to jen čásť obličeje.
+
+Jiné části obličeje jsou: dvě skráně, dvě uši, dvě oči, dvě líce, nos,
+ústa, brada.
+
+Části úst jsou: čelisť horní a čelisť dolní, ret horní a dolní, dásně,
+zuby, jazyk, patro.
+
+Části oka jsou: dvě víčka a bulva.
+
+Na víčkách jsou řasy.
+
+Nad očima jest obočí.
+
+       *       *       *       *       *
+
+    _Dvě kukačky vedlé sebe sedí,_
+    _jedna druhé nevidí. — Co je to?_
+
+       *       *       *       *       *
+
+    _Jen jedna řada zubů,_
+    _a přec tuze kousá. — Co je to?_
+
+
+13.
+
+Budu se umývati.
+
+    _Kdo si líce čistě mývá,_
+      _kdo si slušně česá vlásky,_
+    _ve škole rád vídán bývá,_
+      _chvály dochází a lásky._
+
+
+14.
+
+Části paží.
+
+Části paže jsou: rameno, loket a ruka.
+
+Části ruky jsou: dlaň a prsty.
+
+Prsty se jmenují: palec, ukazováček, prostřední prst, mezenec, malíček.
+Na prstech jsou klouby a nehty.
+
+       *       *       *       *       *
+
+    _Kdo štípe bez nehtů?_
+
+
+15.
+
+Ruce moje.
+
+_Zde ruka, zde ruka, pět prstů na ní; ta pravá, ta levá s loktem a dlaní.
+Teď malé ruce ještě si hrají; až budou silnější a k dílu schopnější,
+práce dosť nadělají._
+
+
+16.
+
+Jak se tleská ručkama.
+
+    Pa-ci, pa-ci, pa-ci-čky!
+    dal nám Pán Bůh ru-či-čky,
+      a-by ru-čky dě-la-ly
+      a no-ži-čky bě-ha-ly.
+
+      _Tak si slo-va v sla-bi-čky_
+      _roz-dě-lu-jí dě-ti-čky._
+
+
+17.
+
+Nohy moje.
+
+_Nohy mám a pevně stojím; že bych padl, se nebojím. V chůzi, běhu pozor
+dám, bez potřeby neskákám. Zpříma jako voják chodím, v blátě nikdy se
+nebrodím._
+
+
+18.
+
+Vidím.
+
+Vím, že jest obloha, slunce, měsíc. Vím, že jsou mračna a hvězdy. Vím,
+že jsou na zemi hory a roviny, lesy, louky a pole, města i vesnice. Vím
+to vše proto, že to vidím. Vidím očima. Jsem vidomý. Mám zrak. Jsou také
+někteří lidé, kteří očima nic nevidí. Takoví zraku nemají. Jsou nevidomí
+či slepí.
+
+
+19.
+
+Oči moje.
+
+Mám dvé jasných, bystrých očí; ty se hbitě, kam chci, točí. Vidím domy,
+stromy, pěkné kvítí, i jak slunce na obloze svítí. Milý Bůh dal potřebný
+mi zrak; slepým, ach! je všecko temný mrak.
+
+
+20.
+
+Co očima pozorujeme.
+
+Oči máme, abychom jima pozorovali, co kolem nás jest a co kolem nás se
+děje.
+
+Pozorujeme, které části má školní světnice.
+
+Které věci jsou ve školní světnici?
+
+Které osoby přicházejí do školy?
+
+Co je ve škole před námi? co za námi? co v pravo? co v levo? co nad námi?
+co pod námi?
+
+Co vídáme ve příbytku svých rodičů?
+
+Co vídáme na domácím dvoře? co ve stodole? co ve městě? co ve vesnici? co
+venku v šírém poli?
+
+Rozeznáváme zrakem, že sníh je bílý, tráva zelená, obloha modrá, krev
+červená, sláma žlutá, uhel černý, sklo průhledné, dřevo neprůhledné.
+
+Zrakem poznáváme, že míč je kulatý, válec oblý, krejcar okrouhlý, věž
+vysoká, chaloupka nízká, kůň veliký, myš malá, bidlo dlouhé, tužka
+krátká, silnice široká, stezka úzká, pravítko přímé, srp křivý.
+
+
+21.
+
+Opatrný Petr.
+
+Petr když chodil, díval se pozorně na to, co před ním leží. „Proč to
+činíš?“ ptal se ho Matěj, který s ním chodil.
+
+„To činím proto,“ odpověděl Petr, „abych do ničeho nekopl, abych o nic
+neklopýtl, abych neupadl.“
+
+Že tak Petr vždy činil, byl _opatrný_.
+
+Že byl opatrný, nikdy ani do čela ani do kolena ani do lokte se neudeřil.
+
+
+22.
+
+_Slyším._
+
+Vím, kdy je hluk a kdy ticho.
+
+Vím, kdy zvon zvoní, kdy hudba se rozléhá, kdy kolo vrzá, kdy vůz
+rachotí, kdy voda šplouchá, kdy otec mluví, kdy dítě pláče. Vím to vše,
+proto že slyším. Slyším ušima. Mám sluch. Kdo sluchu nemá, je hluch.
+
+
+23.
+
+Uši moje.
+
+_U hlavy mám uši, těma poslouchati sluší. Slyším-li volati tatínka,
+nebo zavolá-li matinka: „Pojď sem, dítě, pojď sem hbitě,“ ani chvilku
+nelením, bez prodlení běžím k nim. Obadva mě rádi mají, někdy také
+říkávají: „Poslušno vždy buď, mé dítě!“_
+
+
+24.
+
+_Poslouchej!_
+
+Zima byla a sněhu velmi mnoho.
+
+Chlapci pojížděli na saních.
+
+Z komůrky vynesl též Karlík sáňky své a optal se otce: Smím-li, tatínku,
+voziti se na saních?
+
+Nesmíš, odpověděl otec, kašleš.
+
+Na ta slova chlapec odnesl sáňky zase do komůrky a vrátil se do světnice.
+
+Matka přinesla láhvičku, nalila něco šťávy na lžíci, podala Karlovi
+užívati a pravila: To ti lékař posílá; budeš-li toho užívati, kašel tě
+trápiti přestane. Karel okusil léku, ale nechtělo se mu do něho; byl
+hořký. Avšak matka poručila: Karle, pij! Karel se již nezdráhal, nýbrž
+užil léku, a brzo bylo po kašli.
+
+    _Poslušnosť — pěkná cnosť._
+
+
+25.
+
+_Čichám._
+
+Vím, že růže jinak voní než fialka, že víno jinak páchne než pivo, že sýr
+jinak čpí než cibule.
+
+Vím to, neboť čichám. Čichám nosem. Mám čich.
+
+
+26.
+
+Opatrná Verunka.
+
+Verunka jednou na večer byla sama doma. Pojednou ucítila zápach, jako
+když vlněný oděv doutná. Nemeškala, hledala po světnici, kde by se co
+pálilo, avšak ničeho nemohla najíti. Konečně vstoupila do kuchyně. Zde
+na zemi byla hromada prádla ku praní uchystaného, a z toho vystupoval
+dým veliký. Někdo tam zatrousil hořící sirku, od níž i prádlo chytilo.
+Verunka se sice ulekla, avšak rychle se vzpamatovala, běžela a zavolala
+souseda. Sousedovi se podařilo oheň udusiti, prve než plamen vyšlehl.
+Přijíť o chvíli později, a celé stavení bylo by vyhořelo.
+
+    _Opatrnosti nikdy nezbývá._
+
+
+27.
+
+_Okouším._
+
+Vím, že med jinak chutná než ocet, sůl jinak než cukr. Vím to, neboť
+okouším jazykem a patrem. Mám chuť.
+
+
+28.
+
+Chutě k dílu!
+
+    _Bez chuti se Tomášek učíval,_
+    _více chuti na lahůdky míval:_
+      _cukrovinky, smetanku i med,_
+      _to kde našel, slupl, jak by smet._
+
+    _Že byl lenivý a vybíravý,_
+    _pokazil si brzo svoje zdraví,_
+      _často býval churav, neduživ,_
+      _dlouho nežil — jaký pak to div?_
+
+    _Jinak já se k učení chci míti,_
+    _líným, mlsným není dobře býti;_
+      _toho přidržím se pravidla:_
+      _Chutě k dílu — střídmě do jídla._
+
+
+29.
+
+Hmatám, cítím.
+
+Vím, kdy dotýkám se houby a kdy křídy, kdy cihly a kdy skla. Mohu prsty
+po těch věcech hmatati a tím poznávati, jsou-li měkké nebo tvrdé, mokré
+nebo suché, hladké nebo drsné. Mám hmat.
+
+Vím, kdy je teplo a kdy je zima, kdy mám hlad a kdy žízeň, kdy bolesť v
+noze nebo v jiném údě. Čiji to čili cítím to. Mám cit.
+
+
+30.
+
+_Pradlenka._
+
+    _S radostí se dívá každý na Madlenku;_
+    _maličká když byla, prala na panenku._
+      _Nyní drobné věci sama si už pere,_
+      _z matinky své příklad čistoty si bere._
+    _Až pak bude velká, bude dobře vědět,_
+    _kterak v domácnosti má si prádla hledět._
+
+       *       *       *       *       *
+
+    _Kdo pere bez rukou a bez vody?_
+
+
+31.
+
+_Rostu._
+
+Tělo mé bývalo menší a slabší než je teď. Vyrostlo. Roste posud a dlouho
+ještě poroste. Abych žil a rostl, jest mi třeba jísti a píti. Jím chléb,
+maso, ovoce; piji mléko a vodu. Co jím, tím se krmím. To jest jídlo či
+pokrm. Co piji, jest nápoj.
+
+
+32.
+
+Mé srdéčko také cítí.
+
+_Srdéčko mi tluče v tělíčku; to má rádo otce, matičku. Víte-li, odkud
+to srdéčko mám? Dobrý Pán Bůh mi je daroval, abych ze všeho se radoval,
+vůkol co pěkného ve světě znám._
+
+
+33.
+
+Čiň dobře bližnímu!
+
+Vojtěch přišel ze školy domů a dostal od matky svačinu, krajíc pěkného
+bílého chleba. I šel na dvůr; ale sotva že počal jísti, přišel k němu
+chlapec chudobný, a vida ten pěkný chléb, pravil lítostivě: Má sestra
+je mdlá po nemoci, té by chutnal bílý chlebíček; ale my si ho nemůžeme
+koupiti. Vojtěch podíval se na chlapce a zase na chlebíček, i rozlomil
+krajíc ve dví a větší kus dal chlapci řka: Na, dones ten kus sestře a
+řekni, že jí ho přeji ze srdce.
+
+
+34.
+
+Myslím, mluvím, jsem člověk.
+
+Prokop byl jednou v domě, kde teta jeho bydlí. Zná teď dům ten a ví, kde
+stojí. Pamatoval si to.
+
+Mařenka slyšela pohádku, kterou jí babička vypravovala. Umí ji teď také
+vypravovati. Pamatovala si ji.
+
+Toník naučil se říkati otci přání, ale již říkati ho neumí. Nepamatoval
+si ho, zapomněl je.
+
+Kateřina dlouho hledala svou knihu, protože nevěděla, kam ji položila.
+Když si na to vzpomněla, našla ji.
+
+Vojtěch když ze školy šel domů, vzpomínal si na to, co pan učitel
+vypravoval. Říkal si to, aby toho nezapomněl. Ale nemluvil při tom ani
+nahlas ani pošeptmo, nýbrž tak, že toho nikdo neslyšel, že při tom
+ani ústy nehýbal. Myslil si to jen. Co cestou myslil, to matce doma
+vypravoval.
+
+Já také mohu si něco mysliti a, co si myslím, vypravovati. Jsem člověk.
+
+My všickni jsme lidé.
+
+
+35.
+
+_Mluvím._
+
+_Ústa mám a mluviť umím. Čemu ještě nerozumím, po tom rodičů se ptám.
+Myslívám i rozmlouvám. Směji se a někdy zpívám; ráno, večer se modlívám,
+a má duše velebí Pána Boha na nebi._
+
+       *       *       *       *       *
+
+    _Maličký sklípek,_
+    _v něm dvě řady slípek_
+    _a červený kohoutek._
+
+
+36.
+
+Buď upřímný!
+
+Matka seděla s Martínkem ve světnici. Otec přišel právě ze zahrady a
+pravil hlasem přísným: Co jsem spatřil v zahradě! Květinky na jednom
+záhoně jsou pošlapány. Kdo mi pokazil radosť?
+
+Matka se zarmoutila, a Martínek uleklý díval se k zemi. Za chvíli se
+zeptal otec synka: Nevíš-li, kdo ty květiny pošlapal?
+
+Tu vstal Martínek a pravil k otci s očima slzavýma: Ach, tatínku, já jsem
+to udělal; honil jsem se tam se soudruhem a nedal jsem pozor na cestičky.
+
+Rodiče napomenuli chlapce a odpustili mu, protože se upřímně přiznal.
+
+
+37.
+
+_Almužna._
+
+    _Za maličký dárek Karolinka prosí; —_
+    _místo promlsání stařence jej nosí._
+    _Stařenka je chudá, dosť se naplakává;_
+    _nemá, než co se jí almužničkou dává._
+    _Matinka pak praví k dítku slitovnému:_
+    _Hodná jsi, že dáváš ráda chudobnému._
+
+
+38.
+
+_Výstrahy._
+
+Nepozorné, všetečné děti přicházejí často k úrazu; děti nestřídmé a mlsné
+připravují se o zdraví.
+
+Dítky, neběhejte divoce po schodech!
+
+Nenahýbejte se s oken anebo přes roubení u studnic!
+
+Nesedejte za vůz!
+
+Nenabíhejte do cesty, kudy se jezdí!
+
+Nechoďte k neznámým koním!
+
+Nedrážděte psů!
+
+Nezdvihejte příliš těžkých věcí!
+
+Nehrejte zbraní ani sirkami!
+
+Nekoupejte se bez dohlídky, kde byste se mohly utopiti!
+
+Neklouzejte se na tenkém ledě!
+
+Nejezte ovoce nezralého!
+
+Nejezte, čeho neznáte!
+
+Nepijte, když jste uhřáty!
+
+Neléhejte do chládku, jste-li upoceny!
+
+
+39.
+
+_Duše._
+
+Jsme živi. Živé tělo je tak utvořeno, že můžeme dýchati, cítiti, viděti,
+slyšeti a všelijak sebou pohybovati. Ale tělo mrtvé není takové jako
+živé. Mrtvé tělo nedýchá, necítí, nevidí, neslyší ani sebou nepohybuje.
+Čím to jest? V těle živém je něco, čeho v mrtvém není. V těle živém je
+duše. Tělo samo nevidí, ani neslyší, ani necítí. Člověk vidí, slyší, cítí
+jen dotud, pokud má duši v těle. Tělo samo nic neví, o ničem nepřemýšlí,
+nic nechce. Ale duše v těle ví, přemýšlí a, co se jí líbí, to míti neb
+dělati chce. Tělo samo sebou nehýbá. Duše hýbá tělem.
+
+Duše naše nikdy neumře, jest nesmrtelná; tělo jest smrtelné.
+
+Při smrti se duše od těla odděluje.
+
+Duše bez těla jest pouhý duch.
+
+
+
+
+O zvířatech čtvernohých.
+
+
+40.
+
+_Kůň._
+
+Kůň má hlavu, trup s krkem, čtyři nohy a ohon. To vše spolu je tělo
+koňovo.
+
+Vnitř skládá se tělo z masa, z krve, z kostí. Vně je maso kryto koží.
+Kůže porostlá je srstí. V srsti rozeznáváme chlupy.
+
+Z malého hříběete bývá veliký kůň.
+
+Kůň roste.
+
+Aby rostl, jí či žere.
+
+Žere trávu a oves. Pije vodu.
+
+Kůň vidí očima, slyší ušima, čichá nosem, okouší jazykem a cítí po celém
+těle. Nohama dupe, kráčí, běhá, utíká, cválá. Krk ohýbá a kroutí jím.
+Ušima střihá. Ohonem se ohání.
+
+Kůň je živ. Jest živ, ale nemluví. Žádný kůň mluviti se nenaučí.
+
+Kůň je zvíře.
+
+
+41.
+
+Můj koník.
+
+    Já jsem hrdina z Drtína přeudatný:
+    nosívám ručnici, po boku šavlici,
+    střílím a šermuji po světnici.
+
+    Já mám koníčka, holečka dřevěného;
+    však přece hýbá se, skáče a vzpíná se
+    pode mnou hopy, hop! — stane zase.
+
+    Já se rozjedu, zajedu na dvoreček;
+    jezdívám do kroku, hned zase do skoku,
+    kůň je vždy veselý bez obroku.
+
+    Já jsem školáček, vojáček přeudatný —
+    hrdina od kosti, který si s radostí
+    zahraje, zazpívá do sytosti.
+
+
+42.
+
+Malý jezdec.
+
+    _Koníku můj čerstvý, už se jízdy chop:_
+    _poklusáme spolu horem, dolem, hop!_
+
+    _Na cestu se dáme — cesta daleká;_
+    _ale koník rychlý se jí neleká._
+
+    _Proto s chutí dále zhurta do skoku!_
+    _dostaneš pak za to mírku obroku._
+
+
+43.
+
+Zvířata čtvernohá.
+
+Osel, vůl, koza, kočka, pes mají části těla jako kůň. Rostou. Vidí,
+slyší, čichají, okoušejí, cítí, pohybují se. Jsou živi, ale nemluví a
+řeči nerozumějí. Nejsou lidé, jsou zvířata. Že mají čtvero noh, říkáme
+jim zvířata čtvernohá.
+
+
+44.
+
+Jak pes slouží člověku.
+
+    _„Aj, pastýři, mnoho zdraví!“_
+    _„‚Kam jdeš, psíku?‘“ ovčák praví._
+    _„Službu hledám,“ dí mu pes._
+    _„‚Dostaneš jí ještě dnes.‘“_
+      _Bedlivě pes ovce hlídal,_
+      _s hospodářem chleba jídal,_
+      _milerád tím za vděk vzal,_
+      _peněz, šatů nedostal._
+
+    _„Aj, myslivče, mnoho zdraví!“_
+    _„‚Kam jdeš, psíku?‘“ lesník praví._
+    _„Službu hledám,“ dí mu pes._
+    _„‚Dostaneš jí ještě dnes.‘“_
+      _Chytře zajíce pes chytal,_
+      _kde se který lesem kmital,_
+      _za odměnu od pána_
+      _kosť mu byla podána._
+
+    _„Aj, sedláče, mnoho zdraví!“_
+    _„‚Kam jdeš, psíku?‘“ rolník praví._
+    _„Službu hledám,“ dí mu pes._
+    _„‚Dostaneš jí ještě dnes.‘“_
+      _Pečlivě pes domov hlídal,_
+      _a kdy škůdce zlého vídal,_
+      _vždycky silně štěkával,_
+      _za to v boudě léhával._
+
+
+45.
+
+Učený psík.
+
+    _Bystrý Čeněk psíka vycvičiti hleděl,_
+    _aby pěkné kousky provozovat uměl._
+
+    _Psík se učil stále, nic se neunavil,_
+    _jak to Čeněk viděl, sám tu k sobě pravil:_
+
+    _Když tak psík se cvičí s plnou pozorností,_
+    _také já se musím učit s ochotností._
+
+
+46.
+
+Která čtvernohá zvířata ještě známe.
+
+Někde na půdě pod střechou nebo ve tmavé komoře běhávají myši.
+
+Na pole z lesa vybíhají zajíci.
+
+V lese po stromech skáče a leze veverka.
+
+V některém lese bývají také srnci, daňkové, jeleni.
+
+Uvidí-li kočka myš, honí ji, chytá ji.
+
+Na poli za myší honí se lasice.
+
+Zajíce honívá liška i pes.
+
+Veverku stíhá kuna.
+
+Na louce bývá v zemi krtek, v zahradě ježek, u vody rýsek.
+
+To vše jsou zvířata čtvernohá.
+
+
+47.
+
+Hádanky.
+
+    Tázala se hryzka,
+    je-li chňapka doma?
+
+       *       *       *       *       *
+
+    Kdy bývá kůň nejtěžší?
+
+       *       *       *       *       *
+
+    Jak hluboko do lesa běhává zajíc?
+
+
+48.
+
+Myslivec číhá na zajíce.
+
+    _Zajíček běží po silnici,_
+    _Myslivec číhá za pšenicí:_
+      _„Počkej, zajíčku! já ti dám ránu,_
+      _hlavička se ti uhne na stranu.“_
+    _„‚Nebojím se tě, myslivečku,_
+    _uteku já ti do háječku:_
+      _tam se ti schovám,_
+      _střeliť se nedám_
+    _jsem rád živ jako ty, můj holečku!‘“_
+
+
+49.
+
+Kocour a myšky.
+
+    _Toulá se kocourek po dvoře,_
+    _myšky, hle, šukají v komoře;_
+      _běhají, cupají: cupity cup!_
+      _pochoutku hledají na mlsný zub._
+
+    _Nesbírají si jen zbytečků,_
+    _do másla kousají, syrečků;_
+      _do jíchy, koláčů, do jitrnic_
+      _daly se mlsoty jako by nic._
+
+    _Po hodech k tanci se schystaly,_
+    _samy si pískaly, výskaly._
+      _Jaký to divoký shon je a ples!_
+      _Co se to stalo jen s myškami dnes?_
+
+    _Však se vám veselosť vykouří!_
+    _V okně — hu — hlava je kocouří;_
+      _hr! nežli seskočil kocourek sám,_
+      _utekly mlsalky všecky ty tam!_
+
+
+50.
+
+Užitek zvířat čtvernohých.
+
+Některá zvířata člověku slouží nebo jej obveselují.
+
+Koně osedlává jezdec, nebo jej vozka do vozu zapřahá.
+
+Vola zapřahá rolník do pluhu, když chce orati pole.
+
+Pes hlídá dům i stádo, a myslivci pomáhá loviti zvěř.
+
+Kočka lapá myši a potkany.
+
+Mnohá zvířata dávají nám potravu za živa nebo když je zabijeme.
+
+Od krávy máme tučné mléko ku pití, do jídel, na máslo, tvaroh a sýr. Také
+ovce a koza dávají mléko za nápoj a na sýr.
+
+Řezník poráží voly a krávy, aby nám opatřil maso hovězí. Z telat máme
+maso telecí, z vepřů vepřové, z beranů a ovec skopové.
+
+Pro maso střílívá se také zajíc, srnec a jelen. Maso srnčí a jelení
+jmenuje se zvěřina.
+
+Také nám poskytují zvířata mnohých látek na oděv a na obuv.
+
+Kůži z volů, z krav a z telat vydělávají koželuzi. Ovčí kožešinu
+připravují jircháři. Z vlny ovčí dělají soukeníci sukna a jiné vlněné
+tkaniny. Také dobře můžeme užiti kůže koňské, kozí, vepřové, jelení,
+srnčí i zaječí.
+
+
+
+
+_O ptácích._
+
+
+51.
+
+Kohout.
+
+Kohout má hlavu se zobákem, trup s krkem, dvě křídla, dvě nohy, ocas.
+Jinak se skládá tělo jeho z krve, masa, kostí a kůže peřím porostlé.
+
+Kohout také vidí očima a slyší ušima. Cítí-li hlad, zobe zrní, a tak se
+živí a roste. Často kráčí po dvoře z místa na místo a někdy také na plot
+si vylítne. Jest živ, jest zvíře.
+
+Kohout nemá čtvero noh. Není zvíře čtvernohé, ale dvounohé. Kohoutovi
+podobá se slepice.
+
+Znám také holuba, husu, kachnu, krocana, páva, vlaštovku, vrabce.
+
+Tato zvířata mají jako kohout hlavu se zobákem, trup, dvě křídla, dvě
+nohy a ocas; celé tělo jejich jest opeřené.
+
+Jsou to ptáci.
+
+Slepice, husa, kachna, holub a někteří jiní ptáci poskytují nám masa za
+pokrm.
+
+Slepice snáší vejce.
+
+Od husy máme peří do peřin.
+
+
+52.
+
+Kohout co dělá.
+
+_Aj, kohoute, s pravdou ven! Což pak děláš celý den na dvoře, kde
+slepička krákoře?_
+
+_Časně ráno, raníčko, než zasvitne sluníčko, kokrhám, píseň svoji
+zazpívám._
+
+_Slípky vodím k snídaní před stodolu na stlaní. Zobejte! zrnéčka si
+hledejte!_
+
+_Najdu-li kde červíčka, dostane ho slepička, sobě sám, jen co zbývá,
+ponechám._
+
+_Sousedova kohouta zaženu hned do kouta, sotva že na blízku se okáže._
+
+_A když večer nastává, zpěv můj dítky volává: Kykyryky! Jdi, děťátko, jdi
+a spi!_
+
+
+53.
+
+_Slepice._
+
+Když snese slepice vajíčko, dá se do volání a kdáče:
+
+    Kokoko, kokoko kdák:
+    kam mám to vajíčko dát?
+
+Když se jí hospodář nelíbí, říkává mu:
+
+    Tototos, tototos hospodář?
+    tototos, tototos hospodář?
+
+
+54.
+
+_Pasačka._
+
+_Paste se, housata, roste vám travička; roste vám, přiroste, spadne-li
+rosička. Hudě hej, hejhej, hejsa, hej!_
+
+_Do žita, pšenice na škodu nechoďte, housátek maličkých, husy, tam
+nevoďte! Hudě hej, hejhej, hejsa, hej!_
+
+_Neposlechnete-li, pozdvihnu metličku, pošlehám, potrestám mlsavou
+hubičku. Hudě hej, hejhej, hejsa, hej!_
+
+_V louži se nebrouzdej, housátko žluťoučké, umyj se v potoce a budeš
+hezoučké. Hudě hej, hejhej, hejsa, hej!_
+
+_V zimě pochválíme tvoje bílé peří, a ty dáš nám také pečeni k večeři.
+Hudě hej, hejhej, hejsa, hej!_
+
+_Housátka, husičky, děláte štěbety; jen aby nebyly ze štěbet klevety!
+Hudě hej, hejhej, hejsa, hej!_
+
+
+55.
+
+_Holubička._
+
+Sotva bílý den zasvítá, holubice v polích lítá, lítá, nelení tam po
+osení, a již v ranní době hledá pokrm sobě.
+
+A když najde tam zrnéčko, zaplesá její srdéčko. Mine hodina, nezapomíná
+holubice matka na svá holoubátka.
+
+Prázna domů nepřiletí, pokrm nese pro své děti. Děti čekají a zavrkají,
+když se jejich máti nazpět domů vrátí.
+
+Více než ta holubička pečuje o mne matička; práce nešetří, i když jsem
+větší, miluje mě stále; to jí buď ku chvále!
+
+
+56.
+
+Liduška a holubička.
+
+_K Lidušce do pokojíčka přiletěla holubička. Liduška malá se radovala,
+dala jí zobání, zbytky od snídaní, a ji hladila a k ní pravila: Nebojíš
+se mne, holubičko? Holubička zavrkala: Co bych se bála, má holčičko?
+Zlého jsem nic nedělala. Ty tak hodná vyhlížíš; vid, že mi neublížíš?_
+
+
+57.
+
+Které ptáky slýcháme zpívati.
+
+V zahradě, na poli i v lese slýchám zpívati všeliké ptáky. Někteří ptáci
+křičí, ale nezpívají.
+
+Pěkně zpívá skřivan, pěnkava, stehlík, kos, drozd, číž. Nejpěkněji zpívá
+slavík.
+
+Kukačka kuká, vrána kráká, sova houká, křepelka tluče, jako by volala:
+pět peněz! Špaček i slova naučí se vyslovovati.
+
+Velicí ptáci jsou: orel, sup, výr, jestřáb, čáp.
+
+
+58.
+
+_Konipásek._
+
+_Konipásek bojí se, aby v zimě nezmrzl, proto uletuje na podzim do
+teplých krajin. Ale když jaro nastává, vrátí se k nám, posadí se na plot
+a volá sedlákovi do oken:_
+
+    _Živ-lis, sedláče, živ-lis? živ-lis?_
+
+
+59.
+
+Kdo ví, co je to?
+
+    Chodí to v koruně — král není,
+    nosí ostruhy — rytíř není,
+    má šavli — husar není,
+    k ránu budívá — ponocný není.
+
+       *       *       *       *       *
+
+    Bílé to vyhodíš, a když to spadne, je to žluté.
+
+       *       *       *       *       *
+
+    Roztloukla se nám bečička, žádný bednář ji nespraví.
+
+       *       *       *       *       *
+
+    Soudeček bez obrouček, a v něm dvoje víno.
+
+
+60.
+
+Zvířátka také cítí.
+
+Neškoď, chlapče, ptáčkům, veselým zpěváčkům, oni libě zpívají a housenky
+sbírají.
+
+Netrap nikdy zvířátek, nevybírej holátek; cítí bolesť jako ty, nedělej
+jim trampoty!
+
+
+61.
+
+_Vlaštovička._
+
+Vlaštovička z rána budívá dítky, aby časně vstaly a do školy se
+vypravily. Zpívá jim:
+
+    _Vstala, vstala, vstala,_
+    _devět políček oblítala,_
+      _a ty ještě spíš?_
+
+Z jara, když přiletí z daleké pouti své, volává:
+
+    _Na zimu jsem odletěla,_
+      _bylo všeho dost;_
+    _na jaře jsem přiletěla,_
+      _není nikdež nic!_
+
+
+62.
+
+Skřivánek.
+
+    _Skřivánek je malý pták,_
+      _nerad pozahálí,_
+    _s svítáním prozpěvuje,_
+      _Pána Boha chválí._
+
+    _Dělejme my také tak,_
+      _jak dělá ten ptáček,_
+    _a tak bude z každého_
+      _hodný pilný žáček._
+
+
+63.
+
+Člověk a skřivánek.
+
+_Člověk._
+
+    Proč málo, skřivánku, na zemi zpíváš?
+    Pověz, můj milánku, proč vysoko létáš,
+    pod oblaky dlíváš, křídloma třepetáš?
+
+_Skřivánek._
+
+    Dole bydlím a sedám, dole potravy hledám;
+    pod oblaka lítám, Boha tam oslavuji;
+    křídloma třepetám, že jsem zdráv, se raduji.
+
+
+64.
+
+Sup a čáp.
+
+Volá sup: Čápe, hej! něco dej mi na zub! Čáp honem dí po něm: Máš-li
+chuť, tu pobuď; raků, žab si nalap. Dí mu sup: Co do těch, těch si nech!
+Tam holub! Já za ním poletím. — Letěl sup dál a dál, a holub se ho bál.
+Ale aj, byl tu háj. Hajný sám čekal tam. Pif a paf! rány dal, a pes haf!
+Dále sup neletěl, sám holub uletěl.
+
+
+
+
+Ještě o některých zvířatech.
+
+
+65.
+
+Kapr. Ryby.
+
+Kapr má hlavu, trup, žábry, ploutve, ocas. Tělo to je z masa, krve a
+tenkých špičatých kostí; kryto jest šupinami. Kapr vidí, slyší, cítí,
+požívá potravy, roste, mrská sebou a plove — ale jen ve vodě. Jest živ,
+jest zvíře.
+
+Znám také jiná zvířata, která jako kapr žijí jen ve vodě. Taková jsou:
+štika, okoun, mřenka, sumec, ouhoř.
+
+Ta všecka jako kapr mají žábry, ploutve a tělo šupinaté. Jsou to ryby.
+
+       *       *       *       *       *
+
+_Jakých ryb je v rybníce nejvíc?_
+
+
+66.
+
+Kterak žáby na sebe pokřikují.
+
+        Kmotra!
+        Co pak?
+        Pojďme!
+        Kam pak?
+        Vařit!
+        Co pak?
+      Ryby raky, ryby raky.
+    Na to všecky hrčí: Ryby raky, ryby raky, ryby raky!
+    Potom se jedna optá: Dáš nám?
+    Druhá odpoví: Taky taky, taky taky.
+    A zas všecky: Taky taky, taky taky, taky taky.
+
+
+67.
+
+_Hmyz._
+
+V zahradě poletují včely, vosy, sršňové. Na cestě venku viděti bývá
+chrobáka. Na květiny sedávají motýlové. Kolem stromů poletují chrousti.
+
+Všecka tato a jim podobná zvířata jedním slovem jmenují se hmyz.
+
+
+68.
+
+Mravenci a včely.
+
+_Zvířátko pilné, mraveneček, sem a tam nosí svůj raneček. Od ranního šera
+až i do večera stále se pohybuje, vesele vždy pracuje._
+
+_Včelička hledá na lučinách medovou šťávu po květinách; co si v létě
+nasbírá, v zimě střídmě požívá._
+
+
+69.
+
+Moucha a komár.
+
+Lítala moucha světnicí, spatřila s vínem sklenici; trochu se vína napila,
+hned se jí hlava točila.
+
+Sotva to komár uhlídal, moudře sám sobě povídal: „Ve víně já se nesmočím,
+raděj si v světle proskočím.“
+
+Lítal a lítal světnicí, uviděl svíci hořící; svíce jej k sobě vábila a
+hned mu křídla spálila.
+
+
+70.
+
+Kolik živočichů.
+
+_Rád bych věděl a spočítal, kolik jest na zemi zvířátek, kolik pod
+oblohou ptačátek? Ale kdož pak z lidí dobře by mi vypočítal, co mé oko
+sotva vidí, všecky broučky a červíčky, všecky ve vodách rybičky? Lidé
+velcí, učení, v uměních vycvičení, sotva jejich jména znají, jak je
+všecky spočítají? Darmo já se lidí ptám, jediný Bůh ví to sám; on jim
+denně pokrm dává, i mně život zachovává._
+
+
+
+
+_O rostlinách._
+
+
+71.
+
+Jabloň. Stromy.
+
+Jablka se trhají na jabloni. Jabloň bývá v zahradě. Stojí tam stále na
+jednom místě a má v zemi kořen, nad zemí kmen, na kmeni větvě, na větvích
+listy. Nejprve je kmen nízký a tenký, ale každým rokem stane se trochu
+vyšším a silnějším. Vzrůstá. Také větve vzrůstají. Když jabloň vzroste,
+bývá na jaře mezi listím jejím mnoho květu. Květ brzo opadá, a začnou se
+z něho dělati malá jablíčka. I ta znenáhla rostou. Když vyrostou, nesmějí
+se hned trhati, protože jsou ještě velmi kyselá a trpká. Za několik neděl
+zesládnou, uzrají, jsou zralá.
+
+Jako jabloně rostou také hrušně, švestky, třešně, ořechy. Rostou, avšak
+nevidí, neslyší, necítí a z místa, na němž stojí, se nepohybují. Nejsou
+zvířata. Jsou rostliny.
+
+Ze kmene jejich, když se skácí, může se řezati a štípati dřevo. Jsou to
+stromy.
+
+K rostlinám a stromům počítá se také dub, buk, lípa, bříza, jedle, smrk,
+borovice.
+
+Jabloně, hrušně, švestky, třešně, ořechy sázíme v zahradách pro chutné
+ovoce. To jsou stromy ovocné. Ostatní stromy nejvíce v lesích pro dříví
+se sázejí. Proto lesní stromy se jmenují. Lípa má listy široké, jedle
+úzké a špičaté jako jehla. Takovému listí říká se jehličí. Lípa je strom
+listnatý, jedle jehličnatý.
+
+
+72.
+
+_Zeliny._
+
+Na poli rostou brambory, řepa, hrách, čočka. Toho všeho můžeme požívati.
+To vše jest k jídlu. V zahradě rostou k jídlu též okurky, melouny, tykve;
+také tam roste salát hlávkový, kapusta, brukev, zelí, karfiol, řetkev,
+křen, mrkev, celer, petržel, kopr, kmín. To jsou zeliny zahradní čili
+kuchyňské.
+
+
+73.
+
+Kdo tomu rozumí?
+
+    Zelená jsem, tráva nejsem,
+    žlutá jsem, vosk nejsem,
+    tvrdá jsem, kosť nejsem,
+    sladká jsem, med nejsem.
+
+       *       *       *       *       *
+
+    Plná škola dětí, a nemají kudy ven.
+
+       *       *       *       *       *
+
+    Zkroucený, svázaný, přec o svatbě skáče.
+
+       *       *       *       *       *
+
+    Kdo to nevidí, zvedne to; kdo to vidí, nechá toho ležeti.
+
+
+74.
+
+Žito. Obilí.
+
+Rolníci sejí na poli žito (rež). To když vyroste, má v zemi kořen, nad
+zemí stéblo a na horním konci stébla klas se zrním. V zrně je mouka.
+Stéblo a zrní moučné má též ječmen, pšenice, oves, proso. Vše to jest
+obilí.
+
+Na louce jsou mnohé rostliny se stébly, ale bez moučného zrní. Těm říkáme
+tráva.
+
+       *       *       *       *       *
+
+    _Shrbený mužík_
+      _běhá po poli;_
+    _nepřijde domů,_
+      _až je oholí._
+
+       *       *       *       *       *
+
+    _Běžela lvice_
+    _od Kamenice:_
+      _kam pohlédla,_
+      _tráva zbledla._
+
+       *       *       *       *       *
+
+Kdy je nejvíce dírek do nebe?
+
+
+75.
+
+Hřib. Houby.
+
+Hřib roste v lese. Rozeznáváme na něm dvě části, hloubek a klobouk.
+Takových rostlin v lese je mnoho, a všem dohromady říkáme houby. Také
+muchomůrka jest houba. Hřib jest houba jedlá, muchomůrka jest houba
+jedovatá.
+
+
+76.
+
+Co z rostlin se vyrábí.
+
+O stromy lesní pečují lesníci, o rostliny v zahradách zahradníci, o
+rostliny na poli rolníci.
+
+Ze zrní obilného mlynář mele ve mlýně mouku, kroupy, krupici, jáhly.
+
+Z mouky pekaři pekou chléb a housky. Z ječmene sládci dělají slad. Ze
+sladu a chmele vaří se pivo.
+
+Z bramborů dělá se škrob a líh.
+
+Z cukrovky vaří se v továrnách cukr.
+
+Lněné vlákno se spřádá. Z příze tkalci tkají plátno a jiné tkaniny.
+
+Dříví stromů se béře na pálení. Dělají se z něho také klády na stavění
+domův a prkna. Z prken truhláři robí stoly, skříně, židle, lavice a jiný
+nábytek.
+
+
+
+
+_O nerostech._
+
+
+77.
+
+Křemen.
+
+Křemen nalézá se v zemi nebo na zemi. Neroste, necítí, nehýbá se
+samovolně. Není ani zvíře ani rostlina.
+
+Podobně jako křemen nachází se v zemi hlína, písek, sůl, síra, železo,
+měď, olovo, zlato, stříbro. Jsou v zemi, ale nevyrostly. Jsou nerosty.
+
+
+78.
+
+Užitek nerostů.
+
+Ze hlíny dělá hrnčíř hrnce a jiné nádobí do kuchyně.
+
+Cihlář ze hlíny pálí cihly; z cihel zedníci stavějí domy.
+
+Kámen ve skále se láme, aby se ho na stavění užilo. Pískový kámen
+otesávají kameníci.
+
+Z vápence vypalují vápeníci vápno; vápno se hasí a s pískem na maltu mísí.
+
+Soli potřebujeme do pokrmů.
+
+Železo zdělávají kováři, zámečníci, nožíři, kosaři, mečíři, klempíři a
+jiní řemeslníci.
+
+Kováři dělají pluhy, radlice, motyky, sekery, řetězy, hřeby, podkovy,
+ráfy na kola; zámečníci nejvíce zámky, klíče a kování na dvéře a okna;
+nožíři nůžky a nože; kosaři kosy a srpy; mečíři šavle a meče; klempíři
+plechové nádobí, roury a žlaby.
+
+Z mědi a cínu dělají kotláři a cínaři nejvíce nádoby, jako konvice,
+kotly, vany a podobné.
+
+Ze stříbra a zlata razí se peníze. Zlatníci z těchto kovů zhotovují
+prsteny, náušnice, náramky, řetízky a jiné skvosty. Hodináři dělají
+všeliké hodiny. Kapesní hodinky zasazují mnohdy do pouzder zlatých nebo
+stříbrných.
+
+
+
+
+Čas a jeho rozdíly.
+
+
+79.
+
+Den a noc.
+
+Vídáme nad sebou oblohu buď jasnou buď zamračenou.
+
+Na jasné obloze ukazuje se nám někdy slunce, někdy měsíc a hvězdy.
+
+Slunce nevidíme vždy stejně vysoko.
+
+Nejníže jest, když vychází nebo když zapadá.
+
+Když slunce vychází, říkáme, že jest jitro čili ráno; po západu nastává
+večer a noc.
+
+Od rána až do večera slunce svítí čili světlo dává; tu je den — den
+světlý.
+
+V polovici dne či v poledne je slunce nejvýše na obloze.
+
+Noc trvá od večera až do jitra. Počátek noci jmenuje se soumrak, konec
+svítání.
+
+Za dne vše lépe viděti jest nežli v noci, protože slunce jasněji svítí
+než měsíc a hvězdy.
+
+Nesvítí-li v noci ani měsíc ani hvězdy, nastane čirá tma.
+
+    _Metu, metu —_
+    _nevymetu;_
+    _nesu, nesu —_
+    _nevynesu;_
+    _až čas přijde,_
+    _samo vyjde._
+
+
+80.
+
+Matka k dítku ospalému.
+
+      _Děťátko malé,_
+      _jak jsi ospalé!_
+    _Ptáčkové už dávno vstali,_
+    _modlitbičky vyzpívali —_
+      _a ty ještě spíš!_
+
+      _Děťátko malé,_
+      _jak jsi ospalé!_
+    _Já kravičky podojila,_
+    _kašičku ti uvařila —_
+      _a ty ještě spíš!_
+
+
+81.
+
+_Hodiny._
+
+Na stěně v pokoji visely hodiny. Malý Mojmír zadíval se na ně a pozoroval
+kyvadlo, které stále stejně rychle ťukalo: tyk! tak! — tyk! tak! Na
+okrouhlém číselníku byly číslice: jednička, dvojka, trojka a dále až do
+dvanácti. Také tam viděti bylo dvě ručičky, horní a spodní. Obe přímo
+nahoru ukazovaly. V hodinách něco hrklo, a hodiny začaly bíti. Mojmír
+napočítal dvanáct.
+
+Otec přistoupil k Mojmírovi a pravil: Teď je právě poledne. Dívej se
+chvíli na hodiny a uvidíš, že horní ručička bude se hýbati v pravo. Za
+hodinu proběhne jednou kolem a bude ukazovati opět vzhůru na dvanáct.
+Zatím druhá, spodní ručička, pošine se tam, kde je jednička. Hodiny
+odbijí jednu. Než horní ručička podruhé kolem proběhne, pošine se spodní
+ke dvojce. Tu odbijí dvě hodiny. — A jak to půjde dále? — K tomu doložil
+otec: Dvanáct hodin bije buď v poledne nebo v půlnoci, šest hodin z rána
+a na večer. Tolik hodin bije, na kolik spodní ručička ukazuje.
+
+
+82.
+
+Den a rok.
+
+Ke dni počítáme také noc. Proto říkáme, že celý den trvá od jitra do
+jitra, od poledne do poledne, od večera do večera, od půlnoci do půlnoci.
+
+Takový den má dvakrát dvanáct hodin.
+
+Sedmi dnům říkáme týden, a ty se jmenují: neděle, pondělí, úterý, středa,
+čtvrtek, pátek, sobota. Neděle jest den Páně; ostatní dnové jmenují se
+všední a jsou ku práci ustanoveni.
+
+Čtyři neděle a dva nebo tři dni k tomu činí jeden měsíc.
+
+Rok má dvanáct měsíců, a ty se jmenují: leden, únor, březen, duben,
+květen, červen, červenec, srpen, září, říjen, listopad, prosinec.
+
+Také se praví, že má rok čtyři čtvrtletí: jaro, léto, podzim a zimu.
+Každé čtvrtletí má tři měsíce nebo třináct neděl.
+
+       *       *       *       *       *
+
+_Jeden otec má sedm synů, a každý ten syn má jednu tvář bílou a jednu
+černou._
+
+       *       *       *       *       *
+
+    _Stojí, stojí dub,_
+    _a na tom dubě_
+    _dvanáct větví,_
+    _na každé větvi_
+    _po čtyřech hnízdách,_
+    _a v každém hnízdě_
+    _po sedmi vajíčkách._
+
+
+83.
+
+Slunéčko.
+
+    _Hřej, slunéčko, hřej,_
+    _hory, doly krej:_
+    _povyskoč si výše,_
+    _na té naší střeše_
+      _kolo udělej._
+
+
+84.
+
+_Máj._
+
+    _Vítej, vítej, máji!_
+    _my jsme tobě rádi._
+      _Vítej, léto líbezné,_
+      _obilíčko zelené._
+    _Co nám léto přinese,_
+    _zima zas to odnese._
+
+
+85.
+
+Májový déšť.
+
+    _Májový deštíček,_
+    _dej nám ho Pámbíček!_
+    _aby se vydařil_
+    _na poli chlebíček._
+    _Dej nám Pán Bůh deštíčka_
+    _na naše políčka,_
+    _aby se zdařilo_
+    _žito i pšenička._
+
+
+86.
+
+Hra na vojáky.
+
+Tluče bubeníček, tluče na buben, a svolává hochy: Hoši, pojďte ven!
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+Vezměte své tašky a své ručnice; připněte si k boku ostré šavlice!
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+Do řady se stavme, malí vojáci, i budeme někdy statní jonáci! Zahrajem si
+na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo nemeškej!
+
+Tam je břeh u cesty jako pevný hrad, toho dobudeme beze všech útrat.
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+Tam stojí bodláčí: Hej na ně spolu! To my posekáme: Všem hlava dolů!
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+Utíká zajíček, má před námi strach; běžeť ho necháme, schováme si prach.
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+Sedě teď na bobku stříhá ušima; snad se nám vysmívá ta čtveračina!
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+My jej potrestáme, neuteče zdráv; na zajíce střelme: pif! a puf! a paf!
+Zahrajem si na vojáky, máme flinty a bodáky. Hola, hura, hej, nikdo
+nemeškej!
+
+Zahnali jsme svého již nepřítele; vítězi se vraťme domů po dole! Hráli
+jsme si na vojáky, složme flinty a bodáky! až pak bude čas, zahrajem si
+zas!
+
+
+87.
+
+Píseň letní.
+
+    Tráva, tráva, tráva zelená!
+      Usychala travička,
+      spadla na ni rosička;
+    tráva, tráva, tráva zelená!
+
+    Hájek, hájek, hájek dubový!
+      V něm obývá slavíček,
+      umí mnoho písniček;
+    hájek, hájek, hájek dubový!
+
+    Louka, louka, louka za vodou!
+      Kvetou na ní květiny,
+      libovonné byliny;
+    louka, louka, louka za vodou!
+
+    Růže, růže, růže červená!
+      Kdo ji trhá, píchne ho
+      do palečku měkkého;
+    růže, růže, růže červená!
+
+    Lípa, lípa, lípa košatá!
+      Libě voní její květ,
+      z něho včelky berou med;
+    lípa, lípa, lípa košatá!
+
+    Žito, žito, žito se bělá!
+      Nový zraje chlebíček,
+      naklepeme srpeček:
+    žito, žito, žito se bělá!
+
+    Pšenka, pšenka, pšenka dozrává!
+      Až ji všecku požneme,
+      obžinky míť budeme;
+    pšenka, pšenka, pšenka dozrává!
+
+    Léto, léto, léto radostné!
+      Koho těší v poli klas,
+      zvučný vydá zpěvu hlas:
+    Léto, léto, léto radostné!
+
+
+88.
+
+Kdo to uhodne?
+
+    Přišel k nám bílý kůň, zalehl nám celý dvůr.
+
+       *       *       *       *       *
+
+    Kousá, kousá —
+    nemá zubů,
+    lítá, lítá —
+    nemá křídel.
+
+       *       *       *       *       *
+
+    Sletěl ptáček bezperák
+    na náš stromek bezlisták,
+    přišlo na něj bezzubátko,
+    sežralo to bezpeřátko.
+
+       *       *       *       *       *
+
+    Běhá to okolo chalupy,
+    dělá to cupity, cupity.
+
+
+89.
+
+Ptáček v zimě.
+
+Kdo to klepá venku? Hleďme, modrý ptáček! Na našem okénku sedí ubožáček.
+V poli všecko pusto, sněhu padá husto. Nám je dobře ve světnici, ptáček
+mrzne na větvici. Pojď sem, ptáčku, pojď, zpěváčku! ďrobtů dosti máme;
+těch my tobě dáme, a na první jarní den pustíme tě zase ven.
+
+
+90.
+
+_Koledníci._
+
+O vánočních svátcích chodily dvě chudobné dítky po vesnici koledou. Byl
+to malý Matějíček s menší ještě sestřičkou Annou. Tatínek jejich již
+zemřel, a maminka jim nemohla poříditi teplého oděvu. Proto byly jen
+chatrně oblečeny a klepaly se zimou. Přišly také do statku, který náležel
+sedlákovi Zemanovi. Postavily se u dveří a Matějíček zpíval:
+
+    _Já jdu na koledu,_
+      _nesu si pytel;_
+    _kdo mi ho dá plnej,_
+      _bude můj přítel;_
+
+    _dejte aspoň půl,_
+    _bude plnej stůl,_
+    _dejte aspoň čtvrť,_
+    _nežli přijde smrt._
+
+Když Matějíček dozpíval, řekly obě dítky: Pochválen buď Pán Ježíš!
+
+Hospodyně pozvala obě dítky do světnice, aby se ohřály. Dala jim jísti
+teplé polévky, vyhledala jim botky a vlněné punčochy, aby je tak nezáblo;
+k tomu ještě přidala Matějíčkovi kabátek, Anně teplý šátek, oběma pak po
+hodném krajíci bílé vánočky.
+
+„Zaplať Pán Bůh, i zaplať Pán Bůh,“ volaly dítky několikráte po sobě a
+očka se jim zářila radostí.
+
+To když viděla Madlenka, čtyrletá hospodářova dceruška, chtěla ukázati
+dítkám, že již také něco říkati se naučila. I přistoupila k nim, dala
+každému pěkné červené jablíčko a zpívala:
+
+    _Až já budu velká,_
+    _bude ze mne selka:_
+      _přijďte k nám,_
+      _já vám dám_
+    _hodnej ucháč mléka._
+
+
+91.
+
+_O Bohu._
+
+Pán Bůh jest pouhý duch. Viděti ho nemůžeme. Ale vidíme přemnoho těch
+krásných věcí, které učinil na nebi i na zemi. Co lidé udělati nemohou,
+Pán Bůh jediný učiniti může. Nám dává živobytí. Od Pána Boha máme tělo i
+duši. Duši naši učinil rozumnou, aby poznávala, co jest krásné a dobré.
+Také vůli jí udělil, aby ráda konala to, co rozum za dobré uznává.
+
+Bůh ví, co bylo, co jest nyní, co bude. Vidí, co se děje na zemi i na
+nebi. Jemu známo jest, co myslíme, čeho si žádáme, co mluvíme i co konáme.
+
+Dobří lidé líbí se Bohu, zlí se mu protiví.
+
+
+92.
+
+Důvěra v Boha.
+
+    _Kdo v Boha doufá,_
+    _ten sobě nezoufá:_
+    _chudobu i zboží_
+    _přijímá za dar Boží._
+
+
+
+
+    =Vysvětlení hádanek.= Článek =12=. 1. Oči. 2. Pila. — Článek
+    =14=. Křen. — Článek =30=. Slunce když silně pálí. — Článek
+    =35=. Ústa, zuby, jazyk. — Článek =47=. 1. Myš, kočka. 2. Když
+    člověku šlápne na nohu. 3. Jen do prostřed; potom zas běží z
+    lesa. — Článek =59=. 1. Kohout. 2., 3. a 4. Vejce. — Článek
+    =65=. Mokrých. — Článek =73=. 1. Mrkev. 2. Makovice. 3. Věnec.
+    4. Červivé ovoce. — Článek =74=. 1. Srp. 2. Kosa. 3. Po žních
+    jsou dirkovitá strniska. — Článek =79=. Slunečné světlo oknem
+    do světnice na podlahu padající. — Článek =82=. 1. Týden. 2.
+    Rok, měsíc, týden a den. — Článek =88=. 1. Sníh napadlý. 2.
+    Sníh poletující. 3. Sníh a slunce. 4. Dešťové kapky padající s
+    okapu.
+
+
+
+
+Rakouská národní hymna.
+
+
+    1.
+
+    Zachovej nám, Hospodine,
+      Císaře a naši zem!
+    Dej, ať z víry moc Mu plyne,
+      Ať je moudrým vladařem!
+    Hajme vždy koruny Jeho
+      Proti nepřátelům všem:
+    _Osud trůnu Habsburského_
+      _Rakouska jest osudem._
+
+    2.
+
+    Plňme věrně povinnosti,
+      Chraňme právo počestně,
+    A když třeba, s ochotností
+      V boj se dejme statečně!
+    V paměti povděčné mějme
+      Slávu vojska vítěznou;
+    _Jmění, krev i život dejme_
+      _Za Císaře, za vlasť svou!_
+
+    3.
+
+    Čeho nabyl občan pilný,
+      Vojín zbraní zastávej;
+    Uměním i vědou silný
+      Duch se zmáhej, jasně skvěj!
+    Bože! slávy rač popříti,
+      Žehnej vlasti milené:
+    _Slunce Tvé nechť v míru svítí_
+      _Na Rakousko blažené!_
+
+    4.
+
+    Stůjme k sobě každou chvíli:
+      Svornosť jenom moci dá;
+    Spojené kde vládnou síly,
+      Snadno vše se vykoná.
+    Když se ruka k ruce vine,
+      Pak se dílo podaří;
+    _Říš Rakouská nepomine:_
+      _Sláva vlasti, Císaři!_
+
+    5.
+
+    Císaři po boku vládne
+      Rodem, duchem spřízněná,
+    V kráse, kteráž neuvadne,
+      Císařovna vznešená.
+    Bože! račiž rozkvět nový
+      Habsburskému domu dát:
+    _=Františkovi Josefovi,=_
+      _=Alžbětě= rač požehnat!_
+
+
+
+
+
+End of the Project Gutenberg EBook of Cítanka pro skoly obecné, by 
+Jan Stastný and Jan Lepar and Josef Sokol
+
+*** END OF THIS PROJECT GUTENBERG EBOOK CÍTANKA PRO SKOLY OBECNÉ ***
+
+***** This file should be named 59765-0.txt or 59765-0.zip *****
+This and all associated files of various formats will be found in:
+        http://www.gutenberg.org/5/9/7/6/59765/
+
+Produced by Jana Srna and the Online Distributed
+Proofreading Team at http://www.pgdp.net
+
+
+Updated editions will replace the previous one--the old editions will
+be renamed.
+
+Creating the works from print editions not protected by U.S. copyright
+law means that no one owns a United States copyright in these works,
+so the Foundation (and you!) can copy and distribute it in the United
+States without permission and without paying copyright
+royalties. Special rules, set forth in the General Terms of Use part
+of this license, apply to copying and distributing Project
+Gutenberg-tm electronic works to protect the PROJECT GUTENBERG-tm
+concept and trademark. Project Gutenberg is a registered trademark,
+and may not be used if you charge for the eBooks, unless you receive
+specific permission. If you do not charge anything for copies of this
+eBook, complying with the rules is very easy. You may use this eBook
+for nearly any purpose such as creation of derivative works, reports,
+performances and research. They may be modified and printed and given
+away--you may do practically ANYTHING in the United States with eBooks
+not protected by U.S. copyright law. Redistribution is subject to the
+trademark license, especially commercial redistribution.
+
+START: FULL LICENSE
+
+THE FULL PROJECT GUTENBERG LICENSE
+PLEASE READ THIS BEFORE YOU DISTRIBUTE OR USE THIS WORK
+
+To protect the Project Gutenberg-tm mission of promoting the free
+distribution of electronic works, by using or distributing this work
+(or any other work associated in any way with the phrase "Project
+Gutenberg"), you agree to comply with all the terms of the Full
+Project Gutenberg-tm License available with this file or online at
+www.gutenberg.org/license.
+
+Section 1. General Terms of Use and Redistributing Project
+Gutenberg-tm electronic works
+
+1.A. By reading or using any part of this Project Gutenberg-tm
+electronic work, you indicate that you have read, understand, agree to
+and accept all the terms of this license and intellectual property
+(trademark/copyright) agreement. If you do not agree to abide by all
+the terms of this agreement, you must cease using and return or
+destroy all copies of Project Gutenberg-tm electronic works in your
+possession. If you paid a fee for obtaining a copy of or access to a
+Project Gutenberg-tm electronic work and you do not agree to be bound
+by the terms of this agreement, you may obtain a refund from the
+person or entity to whom you paid the fee as set forth in paragraph
+1.E.8.
+
+1.B. "Project Gutenberg" is a registered trademark. It may only be
+used on or associated in any way with an electronic work by people who
+agree to be bound by the terms of this agreement. There are a few
+things that you can do with most Project Gutenberg-tm electronic works
+even without complying with the full terms of this agreement. See
+paragraph 1.C below. There are a lot of things you can do with Project
+Gutenberg-tm electronic works if you follow the terms of this
+agreement and help preserve free future access to Project Gutenberg-tm
+electronic works. See paragraph 1.E below.
+
+1.C. The Project Gutenberg Literary Archive Foundation ("the
+Foundation" or PGLAF), owns a compilation copyright in the collection
+of Project Gutenberg-tm electronic works. Nearly all the individual
+works in the collection are in the public domain in the United
+States. If an individual work is unprotected by copyright law in the
+United States and you are located in the United States, we do not
+claim a right to prevent you from copying, distributing, performing,
+displaying or creating derivative works based on the work as long as
+all references to Project Gutenberg are removed. Of course, we hope
+that you will support the Project Gutenberg-tm mission of promoting
+free access to electronic works by freely sharing Project Gutenberg-tm
+works in compliance with the terms of this agreement for keeping the
+Project Gutenberg-tm name associated with the work. You can easily
+comply with the terms of this agreement by keeping this work in the
+same format with its attached full Project Gutenberg-tm License when
+you share it without charge with others.
+
+1.D. The copyright laws of the place where you are located also govern
+what you can do with this work. Copyright laws in most countries are
+in a constant state of change. If you are outside the United States,
+check the laws of your country in addition to the terms of this
+agreement before downloading, copying, displaying, performing,
+distributing or creating derivative works based on this work or any
+other Project Gutenberg-tm work. The Foundation makes no
+representations concerning the copyright status of any work in any
+country outside the United States.
+
+1.E. Unless you have removed all references to Project Gutenberg:
+
+1.E.1. The following sentence, with active links to, or other
+immediate access to, the full Project Gutenberg-tm License must appear
+prominently whenever any copy of a Project Gutenberg-tm work (any work
+on which the phrase "Project Gutenberg" appears, or with which the
+phrase "Project Gutenberg" is associated) is accessed, displayed,
+performed, viewed, copied or distributed:
+
+  This eBook is for the use of anyone anywhere in the United States and
+  most other parts of the world at no cost and with almost no
+  restrictions whatsoever. You may copy it, give it away or re-use it
+  under the terms of the Project Gutenberg License included with this
+  eBook or online at www.gutenberg.org. If you are not located in the
+  United States, you'll have to check the laws of the country where you
+  are located before using this ebook.
+
+1.E.2. If an individual Project Gutenberg-tm electronic work is
+derived from texts not protected by U.S. copyright law (does not
+contain a notice indicating that it is posted with permission of the
+copyright holder), the work can be copied and distributed to anyone in
+the United States without paying any fees or charges. If you are
+redistributing or providing access to a work with the phrase "Project
+Gutenberg" associated with or appearing on the work, you must comply
+either with the requirements of paragraphs 1.E.1 through 1.E.7 or
+obtain permission for the use of the work and the Project Gutenberg-tm
+trademark as set forth in paragraphs 1.E.8 or 1.E.9.
+
+1.E.3. If an individual Project Gutenberg-tm electronic work is posted
+with the permission of the copyright holder, your use and distribution
+must comply with both paragraphs 1.E.1 through 1.E.7 and any
+additional terms imposed by the copyright holder. Additional terms
+will be linked to the Project Gutenberg-tm License for all works
+posted with the permission of the copyright holder found at the
+beginning of this work.
+
+1.E.4. Do not unlink or detach or remove the full Project Gutenberg-tm
+License terms from this work, or any files containing a part of this
+work or any other work associated with Project Gutenberg-tm.
+
+1.E.5. Do not copy, display, perform, distribute or redistribute this
+electronic work, or any part of this electronic work, without
+prominently displaying the sentence set forth in paragraph 1.E.1 with
+active links or immediate access to the full terms of the Project
+Gutenberg-tm License.
+
+1.E.6. You may convert to and distribute this work in any binary,
+compressed, marked up, nonproprietary or proprietary form, including
+any word processing or hypertext form. However, if you provide access
+to or distribute copies of a Project Gutenberg-tm work in a format
+other than "Plain Vanilla ASCII" or other format used in the official
+version posted on the official Project Gutenberg-tm web site
+(www.gutenberg.org), you must, at no additional cost, fee or expense
+to the user, provide a copy, a means of exporting a copy, or a means
+of obtaining a copy upon request, of the work in its original "Plain
+Vanilla ASCII" or other form. Any alternate format must include the
+full Project Gutenberg-tm License as specified in paragraph 1.E.1.
+
+1.E.7. Do not charge a fee for access to, viewing, displaying,
+performing, copying or distributing any Project Gutenberg-tm works
+unless you comply with paragraph 1.E.8 or 1.E.9.
+
+1.E.8. You may charge a reasonable fee for copies of or providing
+access to or distributing Project Gutenberg-tm electronic works
+provided that
+
+* You pay a royalty fee of 20% of the gross profits you derive from
+  the use of Project Gutenberg-tm works calculated using the method
+  you already use to calculate your applicable taxes. The fee is owed
+  to the owner of the Project Gutenberg-tm trademark, but he has
+  agreed to donate royalties under this paragraph to the Project
+  Gutenberg Literary Archive Foundation. Royalty payments must be paid
+  within 60 days following each date on which you prepare (or are
+  legally required to prepare) your periodic tax returns. Royalty
+  payments should be clearly marked as such and sent to the Project
+  Gutenberg Literary Archive Foundation at the address specified in
+  Section 4, "Information about donations to the Project Gutenberg
+  Literary Archive Foundation."
+
+* You provide a full refund of any money paid by a user who notifies
+  you in writing (or by e-mail) within 30 days of receipt that s/he
+  does not agree to the terms of the full Project Gutenberg-tm
+  License. You must require such a user to return or destroy all
+  copies of the works possessed in a physical medium and discontinue
+  all use of and all access to other copies of Project Gutenberg-tm
+  works.
+
+* You provide, in accordance with paragraph 1.F.3, a full refund of
+  any money paid for a work or a replacement copy, if a defect in the
+  electronic work is discovered and reported to you within 90 days of
+  receipt of the work.
+
+* You comply with all other terms of this agreement for free
+  distribution of Project Gutenberg-tm works.
+
+1.E.9. If you wish to charge a fee or distribute a Project
+Gutenberg-tm electronic work or group of works on different terms than
+are set forth in this agreement, you must obtain permission in writing
+from both the Project Gutenberg Literary Archive Foundation and The
+Project Gutenberg Trademark LLC, the owner of the Project Gutenberg-tm
+trademark. Contact the Foundation as set forth in Section 3 below.
+
+1.F.
+
+1.F.1. Project Gutenberg volunteers and employees expend considerable
+effort to identify, do copyright research on, transcribe and proofread
+works not protected by U.S. copyright law in creating the Project
+Gutenberg-tm collection. Despite these efforts, Project Gutenberg-tm
+electronic works, and the medium on which they may be stored, may
+contain "Defects," such as, but not limited to, incomplete, inaccurate
+or corrupt data, transcription errors, a copyright or other
+intellectual property infringement, a defective or damaged disk or
+other medium, a computer virus, or computer codes that damage or
+cannot be read by your equipment.
+
+1.F.2. LIMITED WARRANTY, DISCLAIMER OF DAMAGES - Except for the "Right
+of Replacement or Refund" described in paragraph 1.F.3, the Project
+Gutenberg Literary Archive Foundation, the owner of the Project
+Gutenberg-tm trademark, and any other party distributing a Project
+Gutenberg-tm electronic work under this agreement, disclaim all
+liability to you for damages, costs and expenses, including legal
+fees. YOU AGREE THAT YOU HAVE NO REMEDIES FOR NEGLIGENCE, STRICT
+LIABILITY, BREACH OF WARRANTY OR BREACH OF CONTRACT EXCEPT THOSE
+PROVIDED IN PARAGRAPH 1.F.3. YOU AGREE THAT THE FOUNDATION, THE
+TRADEMARK OWNER, AND ANY DISTRIBUTOR UNDER THIS AGREEMENT WILL NOT BE
+LIABLE TO YOU FOR ACTUAL, DIRECT, INDIRECT, CONSEQUENTIAL, PUNITIVE OR
+INCIDENTAL DAMAGES EVEN IF YOU GIVE NOTICE OF THE POSSIBILITY OF SUCH
+DAMAGE.
+
+1.F.3. LIMITED RIGHT OF REPLACEMENT OR REFUND - If you discover a
+defect in this electronic work within 90 days of receiving it, you can
+receive a refund of the money (if any) you paid for it by sending a
+written explanation to the person you received the work from. If you
+received the work on a physical medium, you must return the medium
+with your written explanation. The person or entity that provided you
+with the defective work may elect to provide a replacement copy in
+lieu of a refund. If you received the work electronically, the person
+or entity providing it to you may choose to give you a second
+opportunity to receive the work electronically in lieu of a refund. If
+the second copy is also defective, you may demand a refund in writing
+without further opportunities to fix the problem.
+
+1.F.4. Except for the limited right of replacement or refund set forth
+in paragraph 1.F.3, this work is provided to you 'AS-IS', WITH NO
+OTHER WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PURPOSE.
+
+1.F.5. Some states do not allow disclaimers of certain implied
+warranties or the exclusion or limitation of certain types of
+damages. If any disclaimer or limitation set forth in this agreement
+violates the law of the state applicable to this agreement, the
+agreement shall be interpreted to make the maximum disclaimer or
+limitation permitted by the applicable state law. The invalidity or
+unenforceability of any provision of this agreement shall not void the
+remaining provisions.
+
+1.F.6. INDEMNITY - You agree to indemnify and hold the Foundation, the
+trademark owner, any agent or employee of the Foundation, anyone
+providing copies of Project Gutenberg-tm electronic works in
+accordance with this agreement, and any volunteers associated with the
+production, promotion and distribution of Project Gutenberg-tm
+electronic works, harmless from all liability, costs and expenses,
+including legal fees, that arise directly or indirectly from any of
+the following which you do or cause to occur: (a) distribution of this
+or any Project Gutenberg-tm work, (b) alteration, modification, or
+additions or deletions to any Project Gutenberg-tm work, and (c) any
+Defect you cause.
+
+Section 2. Information about the Mission of Project Gutenberg-tm
+
+Project Gutenberg-tm is synonymous with the free distribution of
+electronic works in formats readable by the widest variety of
+computers including obsolete, old, middle-aged and new computers. It
+exists because of the efforts of hundreds of volunteers and donations
+from people in all walks of life.
+
+Volunteers and financial support to provide volunteers with the
+assistance they need are critical to reaching Project Gutenberg-tm's
+goals and ensuring that the Project Gutenberg-tm collection will
+remain freely available for generations to come. In 2001, the Project
+Gutenberg Literary Archive Foundation was created to provide a secure
+and permanent future for Project Gutenberg-tm and future
+generations. To learn more about the Project Gutenberg Literary
+Archive Foundation and how your efforts and donations can help, see
+Sections 3 and 4 and the Foundation information page at
+www.gutenberg.org Section 3. Information about the Project Gutenberg
+Literary Archive Foundation
+
+The Project Gutenberg Literary Archive Foundation is a non profit
+501(c)(3) educational corporation organized under the laws of the
+state of Mississippi and granted tax exempt status by the Internal
+Revenue Service. The Foundation's EIN or federal tax identification
+number is 64-6221541. Contributions to the Project Gutenberg Literary
+Archive Foundation are tax deductible to the full extent permitted by
+U.S. federal laws and your state's laws.
+
+The Foundation's principal office is in Fairbanks, Alaska, with the
+mailing address: PO Box 750175, Fairbanks, AK 99775, but its
+volunteers and employees are scattered throughout numerous
+locations. Its business office is located at 809 North 1500 West, Salt
+Lake City, UT 84116, (801) 596-1887. Email contact links and up to
+date contact information can be found at the Foundation's web site and
+official page at www.gutenberg.org/contact
+
+For additional contact information:
+
+    Dr. Gregory B. Newby
+    Chief Executive and Director
+    gbnewby@pglaf.org
+
+Section 4. Information about Donations to the Project Gutenberg
+Literary Archive Foundation
+
+Project Gutenberg-tm depends upon and cannot survive without wide
+spread public support and donations to carry out its mission of
+increasing the number of public domain and licensed works that can be
+freely distributed in machine readable form accessible by the widest
+array of equipment including outdated equipment. Many small donations
+($1 to $5,000) are particularly important to maintaining tax exempt
+status with the IRS.
+
+The Foundation is committed to complying with the laws regulating
+charities and charitable donations in all 50 states of the United
+States. Compliance requirements are not uniform and it takes a
+considerable effort, much paperwork and many fees to meet and keep up
+with these requirements. We do not solicit donations in locations
+where we have not received written confirmation of compliance. To SEND
+DONATIONS or determine the status of compliance for any particular
+state visit www.gutenberg.org/donate
+
+While we cannot and do not solicit contributions from states where we
+have not met the solicitation requirements, we know of no prohibition
+against accepting unsolicited donations from donors in such states who
+approach us with offers to donate.
+
+International donations are gratefully accepted, but we cannot make
+any statements concerning tax treatment of donations received from
+outside the United States. U.S. laws alone swamp our small staff.
+
+Please check the Project Gutenberg Web pages for current donation
+methods and addresses. Donations are accepted in a number of other
+ways including checks, online payments and credit card donations. To
+donate, please visit: www.gutenberg.org/donate
+
+Section 5. General Information About Project Gutenberg-tm electronic works.
+
+Professor Michael S. Hart was the originator of the Project
+Gutenberg-tm concept of a library of electronic works that could be
+freely shared with anyone. For forty years, he produced and
+distributed Project Gutenberg-tm eBooks with only a loose network of
+volunteer support.
+
+Project Gutenberg-tm eBooks are often created from several printed
+editions, all of which are confirmed as not protected by copyright in
+the U.S. unless a copyright notice is included. Thus, we do not
+necessarily keep eBooks in compliance with any particular paper
+edition.
+
+Most people start at our Web site which has the main PG search
+facility: www.gutenberg.org
+
+This Web site includes information about Project Gutenberg-tm,
+including how to make donations to the Project Gutenberg Literary
+Archive Foundation, how to help produce our new eBooks, and how to
+subscribe to our email newsletter to hear about new eBooks.
+

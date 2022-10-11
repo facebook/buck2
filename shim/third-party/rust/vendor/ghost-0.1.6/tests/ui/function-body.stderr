@@ -1,0 +1,13 @@
+error[E0432]: unresolved import `super::MyPhantom`
+ --> tests/ui/function-body.rs:7:12
+  |
+7 |     struct MyPhantom<T: ?Sized>;
+  |            ^^^^^^^^^ could not find `MyPhantom` in the crate root
+
+error[E0432]: unresolved import `self`
+ --> tests/ui/function-body.rs:6:5
+  |
+6 |     #[phantom]
+  |     ^^^^^^^^^^ could not find `__value_MyPhantom` in the crate root
+  |
+  = note: this error originates in the attribute macro `phantom` (in Nightly builds, run with -Z macro-backtrace for more info)

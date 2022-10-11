@@ -1,0 +1,14 @@
+[package]
+name = "daemonize"
+version = "0.5.0"
+license = "MIT/Apache-2.0"
+authors = ["Fedor Gogolev <knsd@knsd.net>"]
+repository = "https://github.com/knsd/daemonize"
+documentation = "https://docs.rs/daemonize"
+readme = "README.md"
+description = "Library to enable your code run as a daemon process on Unix-like systems."
+keywords = ["daemon", "daemonize", "unix"]
+categories = ["os::unix-apis"]
+
+[dependencies]
+libc = "0.2.98"
