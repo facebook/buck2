@@ -35,7 +35,7 @@ use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerDependencies;
-use buck2_server::daemon::tcp_or_unix_stream::TcpOrUnixStream;
+use buck2_server::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 use buck2_server::docs::docs_command;
 use buck2_server::profile::profile_command;
 use buck2_server_commands::commands::build::build_command;
@@ -53,7 +53,6 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
 use futures::select;
-use futures::stream::BoxStream;
 use futures::FutureExt;
 use futures::StreamExt;
 use starlark::environment::GlobalsBuilder;
@@ -198,15 +197,10 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
 }
 
-pub(crate) async fn init_listener(
+pub(crate) fn init_listener(
     daemon_dir: &DaemonDir,
-) -> anyhow::Result<(
-    BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>,
-    DaemonProcessInfo,
-)> {
+) -> anyhow::Result<(TcpOrUnixListener, DaemonProcessInfo)> {
     let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf())?;
-
-    let listener = listener.into_accept_stream()?;
 
     buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
     let pid = process::id();
@@ -329,7 +323,9 @@ impl DaemonCommand {
             };
             let daemon_dir = paths.daemon_dir()?;
 
-            let (listener, process_info) = init_listener(&daemon_dir).await?;
+            let (listener, process_info) = init_listener(&daemon_dir)?;
+
+            let listener = listener.into_accept_stream()?;
 
             listener_created();
 
