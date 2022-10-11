@@ -38,19 +38,20 @@ pub enum BuildProviderType {
     Test,
 }
 
+#[derive(Clone, Debug)]
+pub struct BuildTargetResult {
+    pub outputs: Vec<SharedResult<ProviderArtifacts>>,
+    pub providers: FrozenProviderCollectionValue,
+    pub run_args: Option<Vec<String>>,
+}
+
 pub async fn build_configured_label(
     ctx: &DiceComputations,
     materialization_context: &MaterializationContext,
     providers_label: &ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     skippable: bool,
-) -> anyhow::Result<
-    Option<(
-        FrozenProviderCollectionValue,
-        Option<Vec<String>>,
-        Vec<SharedResult<ProviderArtifacts>>,
-    )>,
-> {
+) -> anyhow::Result<Option<BuildTargetResult>> {
     let artifact_fs = ctx.get_artifact_fs().await?;
 
     let (providers, outputs, run_args) = {
@@ -146,7 +147,11 @@ pub async fn build_configured_label(
         })
     }))
     .await;
-    Ok(Some((providers, run_args, outputs)))
+    Ok(Some(BuildTargetResult {
+        outputs,
+        providers,
+        run_args,
+    }))
 }
 
 #[derive(Clone)]

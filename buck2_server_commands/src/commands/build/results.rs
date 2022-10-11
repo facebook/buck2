@@ -9,10 +9,9 @@
 
 //! Processing and reporting the the results of the build
 
+use buck2_build_api::build::BuildTargetResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::bxl::types::BxlFunctionLabel;
-
-use crate::commands::build::BuildTargetResult;
 
 pub(crate) enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
@@ -34,6 +33,7 @@ impl BuildResultCollector for Vec<&mut dyn BuildResultCollector> {
 
 pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_common::result::SharedError;
     use buck2_core::configuration::Configuration;
@@ -46,7 +46,6 @@ pub mod result_report {
 
     use crate::commands::build::results::BuildOwner;
     use crate::commands::build::results::BuildResultCollector;
-    use crate::commands::build::BuildTargetResult;
 
     /// Simple container for multiple [`SharedError`]s
     pub(crate) struct SharedErrors {

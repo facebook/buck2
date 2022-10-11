@@ -20,17 +20,16 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildProviderType;
+use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_common::result::SharedResult;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -513,12 +512,6 @@ async fn build_targets_for_spec(
     Ok(results)
 }
 
-pub(crate) struct BuildTargetResult {
-    pub outputs: Vec<SharedResult<ProviderArtifacts>>,
-    pub providers: FrozenProviderCollectionValue,
-    pub run_args: Option<Vec<String>>,
-}
-
 async fn build_target(
     ctx: &DiceComputations,
     spec: TargetBuildSpec,
@@ -538,16 +531,7 @@ async fn build_target(
     )
     .await?;
 
-    Ok(result.map(|(providers, run_args, outputs)| {
-        (
-            providers_label,
-            BuildTargetResult {
-                outputs,
-                providers,
-                run_args,
-            },
-        )
-    }))
+    Ok(result.map(|r| (providers_label, r)))
 }
 
 /// Iterate over the path components between stop_at and path.

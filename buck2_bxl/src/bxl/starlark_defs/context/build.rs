@@ -64,7 +64,7 @@ where
             .0
             .unpack_built()
             .unwrap()
-            .2
+            .outputs
             .iter()
             .flat_map(|built| match built {
                 Ok(built) => itertools::Either::Left(
@@ -113,7 +113,7 @@ where
             .0
             .unpack_built()
             .unwrap()
-            .2
+            .outputs
             .iter()
             .filter_map(|built| match built {
                 Ok(_) => None,

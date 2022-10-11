@@ -7,6 +7,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::materialize_artifact_group;
+use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
@@ -185,8 +186,8 @@ async fn ensure_artifacts(
             let mut futs = vec![];
 
             built.iter().for_each(|res| match res {
-                BxlBuildResult::Built { built, .. } => {
-                    built.iter().for_each(|res| match res {
+                BxlBuildResult::Built(BuildTargetResult { outputs, .. }) => {
+                    outputs.iter().for_each(|res| match res {
                         Ok(artifacts) => {
                             for (artifact, _value) in artifacts.values.iter() {
                                 futs.push(

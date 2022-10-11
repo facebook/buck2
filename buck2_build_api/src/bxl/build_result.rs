@@ -7,38 +7,22 @@
  * of this source tree.
  */
 
-use buck2_common::result::SharedResult;
 use gazebo::variants::UnpackVariants;
 use starlark::values::ProvidesStaticType;
 
-use crate::build::ProviderArtifacts;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::build::BuildTargetResult;
 
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, UnpackVariants)]
 pub enum BxlBuildResult {
     None,
     #[display(fmt = "successful build result")]
-    Built {
-        providers: FrozenProviderCollectionValue,
-        run_args: Option<Vec<String>>,
-        built: Vec<SharedResult<ProviderArtifacts>>,
-    },
+    Built(BuildTargetResult),
 }
 
 impl BxlBuildResult {
-    pub fn new(
-        result: Option<(
-            FrozenProviderCollectionValue,
-            Option<Vec<String>>,
-            Vec<SharedResult<ProviderArtifacts>>,
-        )>,
-    ) -> Self {
+    pub fn new(result: Option<BuildTargetResult>) -> Self {
         match result {
-            Some((providers, run_args, built)) => Self::Built {
-                providers,
-                run_args,
-                built,
-            },
+            Some(result) => Self::Built(result),
             None => Self::None,
         }
     }
