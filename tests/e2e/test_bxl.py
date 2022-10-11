@@ -631,35 +631,7 @@ async def test_resolved_node_attrs(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_fs_exists(buck: Buck) -> None:
-    result = await buck.bxl(
-        "//bxl:fs.bxl:exists_relative_path",
-    )
-
-    assert "True" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl:fs.bxl:not_exists",
-    )
-
-    assert "False" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl:fs.bxl:exists_absolute_path", "--", "--root_path", buck.cwd
-    )
-
-    assert "True" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl:fs.bxl:exists_source_artifact",
-    )
-
-    assert "True" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl:fs.bxl:exists_file_node",
-    )
-
-    assert "True" in result.stdout
+    await buck.bxl("//bxl:fs.bxl:exists", "--", "--root_path", buck.cwd)
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
