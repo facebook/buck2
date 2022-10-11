@@ -8,32 +8,22 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::fs::File;
 use std::future;
-use std::io;
-use std::path;
-use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::build;
-use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
-use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
@@ -42,7 +32,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_events::dispatch::span;
-use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -60,9 +49,7 @@ use dice::DiceTransaction;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
-use indexmap::IndexMap;
 use itertools::Itertools;
-use tracing::info;
 
 use crate::commands::build::results::build_report::BuildReportCollector;
 use crate::commands::build::results::providers::ProvidersPrinter;
@@ -70,8 +57,10 @@ use crate::commands::build::results::result_report::ResultReporter;
 use crate::commands::build::results::result_report::ResultReporterOptions;
 use crate::commands::build::results::BuildOwner;
 use crate::commands::build::results::BuildResultCollector;
+use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 
 mod results;
+mod unhashed_outputs;
 
 pub async fn build_command(
     ctx: Box<dyn ServerCommandContextTrait>,
@@ -276,115 +265,6 @@ async fn build(
     })
 }
 
-fn create_unhashed_outputs(
-    provider_artifacts: Vec<ProviderArtifacts>,
-    artifact_fs: &ArtifactFs,
-    fs: &ProjectRoot,
-) -> anyhow::Result<u64> {
-    let buck_out_root = fs.resolve(artifact_fs.buck_out_path_resolver().root());
-
-    let start = std::time::Instant::now();
-    // The following IndexMap will contain a key of the unhashed/symlink path and values of all the hashed locations that map to the unhashed location.
-    let mut unhashed_to_hashed: IndexMap<AbsPathBuf, HashSet<AbsPathBuf>> = IndexMap::new();
-    for provider_artifact in provider_artifacts {
-        if !matches!(provider_artifact.provider_type, BuildProviderType::Default) {
-            continue;
-        }
-
-        match provider_artifact.values.iter().exactly_one() {
-            Ok((artifact, _)) => match artifact.as_parts().0 {
-                BaseArtifactKind::Build(build) => {
-                    let unhashed_path = artifact_fs.retrieve_unhashed_location(build.get_path());
-                    let path = artifact_fs.resolve(artifact.get_path())?;
-                    let abs_unhashed_path = fs.resolve(&unhashed_path);
-                    let entry = unhashed_to_hashed
-                        .entry(abs_unhashed_path)
-                        .or_insert_with(HashSet::new);
-                    entry.insert(fs.resolve(&path));
-                }
-                _ => {}
-            },
-            Err(_) => {}
-        };
-    }
-    // The IndexMap is used now to determine if and what conflicts exist where multiple hashed artifact locations
-    // all want a symlink to the same unhashed artifact location and deal with them accordingly.
-    let mut num_unhashed_links_made = 0;
-    for (unhashed, hashed_set) in unhashed_to_hashed {
-        if hashed_set.len() == 1 {
-            create_unhashed_link(&unhashed, hashed_set.iter().next().unwrap(), &buck_out_root)?;
-            num_unhashed_links_made += 1;
-        } else {
-            info!(
-                "The following outputs have a conflicting unhashed path at {}: {:?}",
-                unhashed, hashed_set
-            );
-        }
-    }
-    let duration = start.elapsed();
-    info!(
-        "Creating {} output compatibility symlinks in {:3}s",
-        num_unhashed_links_made,
-        duration.as_secs_f64()
-    );
-    Ok(num_unhashed_links_made)
-}
-
-fn create_unhashed_link(
-    unhashed_path: &AbsPathBuf,
-    original_path: &AbsPathBuf,
-    buck_out_root: &AbsPathBuf,
-) -> anyhow::Result<()> {
-    // Remove the final path separator if it exists so that the path looks like a file and not a directory or else symlink() fails.
-    let mut abs_unhashed_path = unhashed_path.to_owned();
-    if let Some(path) = unhashed_path
-        .to_str()
-        .unwrap()
-        .strip_suffix(path::is_separator)
-    {
-        abs_unhashed_path = AbsPathBuf::from(path.to_owned())?;
-    }
-
-    let buck_out_root: &Path = buck_out_root.as_ref();
-
-    // We are going to need to clear the path between buck-out and the symlink we want to create.
-    // To do this, we need to traverse forward out of buck_out_root and towards our symlink, and
-    // delete any files or symlinks we find along the way. As soon as we find one, we can stop.
-
-    if let Some(parent) = abs_unhashed_path.parent() {
-        for prefix in iter_reverse_ancestors(parent, buck_out_root) {
-            let meta = match std::fs::symlink_metadata(prefix) {
-                Ok(meta) => meta,
-                Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
-                Err(e) => {
-                    return Err(anyhow::Error::from(e)
-                        .context(format!("Error accessing `{}`", prefix.display())));
-                }
-            };
-
-            if meta.is_file() || meta.is_symlink() {
-                fs_util::remove_file(prefix)?;
-            }
-        }
-
-        fs_util::create_dir_all(parent)
-            .with_context(|| "while creating unhashed directory for symlink")?;
-    }
-
-    match fs_util::symlink_metadata(&abs_unhashed_path) {
-        Ok(metadata) => {
-            if metadata.is_dir() {
-                fs_util::remove_dir_all(&abs_unhashed_path)?
-            } else {
-                fs_util::remove_file(&abs_unhashed_path)?
-            }
-        }
-        Err(_) => {}
-    }
-    fs_util::symlink(original_path, abs_unhashed_path)?;
-    Ok(())
-}
-
 async fn build_targets(
     ctx: &DiceComputations,
     spec: ResolvedPattern<ProvidersPattern>,
@@ -524,41 +404,4 @@ async fn build_target(
     .await?;
 
     Ok(result.map(|r| (providers_label, r)))
-}
-
-/// Iterate over the path components between stop_at and path.
-fn iter_reverse_ancestors<'a>(path: &'a Path, stop_at: &'_ Path) -> impl Iterator<Item = &'a Path> {
-    let ancestors = path
-        .ancestors()
-        .take_while(|a| *a != stop_at)
-        .collect::<Vec<_>>();
-
-    ancestors.into_iter().rev()
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_iter_reverse_ancestors() {
-        let prefix = if cfg!(windows) { "C:" } else { "" };
-        let root = AbsPathBuf::try_from(format!("{prefix}/repo/buck-out/v2")).unwrap();
-        let path = AbsPathBuf::try_from(format!("{prefix}/repo/buck-out/v2/foo/bar/some")).unwrap();
-
-        let mut iter = iter_reverse_ancestors(&path, &root);
-        assert_eq!(
-            iter.next().unwrap().to_str().unwrap(),
-            &format!("{prefix}/repo/buck-out/v2/foo"),
-        );
-        assert_eq!(
-            iter.next().unwrap().to_str().unwrap(),
-            &format!("{prefix}/repo/buck-out/v2/foo/bar"),
-        );
-        assert_eq!(
-            iter.next().unwrap().to_str().unwrap(),
-            &format!("{prefix}/repo/buck-out/v2/foo/bar/some"),
-        );
-        assert_eq!(iter.next(), None);
-    }
 }
