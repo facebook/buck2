@@ -10,6 +10,7 @@ filter_deps = []
 cargo_env = false
 
 [env]
+OUT_DIR = "."
 
 [[buildscript]]
 [buildscript.build]

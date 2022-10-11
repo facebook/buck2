@@ -2639,6 +2639,9 @@ third_party_rust_library(
     features = ["default",
     "limit_128",
     ],
+    env = {
+        "OUT_DIR": ".",
+    },
 )
 
 third_party_rust_binary(
@@ -2654,6 +2657,9 @@ third_party_rust_binary(
     features = ["default",
     "limit_128",
     ],
+    env = {
+        "OUT_DIR": ".",
+    },
 )
 
 third_party_rust_library(
