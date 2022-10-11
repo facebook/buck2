@@ -33,6 +33,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::ControlEvent;
@@ -46,6 +47,7 @@ use cli_proto::*;
 use dice::cycles::DetectCycles;
 use dice::Dice;
 use futures::channel::mpsc;
+use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream;
 use futures::Future;
@@ -75,6 +77,8 @@ use crate::streaming_request_handler::StreamingRequestHandler;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
+
+static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
 
 pub trait BuckdServerDelegate: Send + Sync {
     fn force_shutdown(&self) -> anyhow::Result<()>;
@@ -206,6 +210,7 @@ pub struct BuckdServer {
     start_instant: Instant,
     daemon_shutdown: Arc<DaemonShutdown>,
     daemon_state: Arc<DaemonState>,
+    command_channel: UnboundedSender<()>,
 
     callbacks: &'static dyn BuckdServerDependencies,
 }
@@ -226,7 +231,8 @@ impl BuckdServer {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
 
-        let (shutdown_channel, mut receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
+        let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
+        let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
         let api_server = Self {
             stop_accepting_requests: AtomicBool::new(false),
@@ -248,14 +254,14 @@ impl BuckdServer {
                     bxl_calculations: callbacks.bxl_calculation(),
                 },
             )?),
+            command_channel,
             callbacks,
         };
 
+        let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver).await?;
         let server = Server::builder()
             .add_service(DaemonApiServer::new(api_server))
-            .serve_with_incoming_shutdown(listener, async move {
-                receiver.next().await;
-            });
+            .serve_with_incoming_shutdown(listener, shutdown);
 
         server.await?;
 
@@ -377,6 +383,9 @@ impl BuckdServer {
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
     {
+        // send signal to register new command time
+        _ = self.command_channel.unbounded_send(());
+
         Ok(self
             .run_streaming_anyhow(req, opts, func)
             .await
@@ -943,6 +952,45 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
         _req: &Req,
     ) -> anyhow::Result<StarlarkProfilerConfiguration> {
         Ok(StarlarkProfilerConfiguration::None)
+    }
+}
+
+async fn server_shutdown_signal(
+    command_receiver: UnboundedReceiver<()>,
+    mut shutdown_receiver: UnboundedReceiver<()>,
+) -> anyhow::Result<impl Future<Output = ()>> {
+    static TESTING_INACTIVITY_TIMEOUT: EnvHelper<bool> =
+        EnvHelper::new("BUCK2_TESTING_INACTIVITY_TIMEOUT");
+
+    let mut duration = DEFAULT_INACTIVITY_TIMEOUT;
+    if *TESTING_INACTIVITY_TIMEOUT.get()?.unwrap_or(&false) {
+        duration = Duration::from_secs(1);
+    }
+
+    Ok(async move {
+        let timeout = inactivity_timeout(command_receiver, duration);
+        let shutdown = shutdown_receiver.next();
+
+        futures::pin_mut!(shutdown);
+        futures::pin_mut!(timeout);
+
+        futures::future::select(timeout, shutdown).await;
+    })
+}
+
+async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
+    // this restarts the timer everytime there is a new command
+    loop {
+        let command = command_receiver.next();
+        let timer = tokio::time::sleep(duration);
+
+        futures::pin_mut!(command);
+        futures::pin_mut!(timer);
+
+        match futures::future::select(command, timer).await {
+            futures::future::Either::Left(_) => continue,
+            futures::future::Either::Right(_) => break,
+        };
     }
 }
 
