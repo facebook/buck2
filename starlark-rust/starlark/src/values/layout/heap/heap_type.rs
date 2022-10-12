@@ -415,6 +415,11 @@ impl FrozenHeap {
     pub fn allocated_summary(&self) -> HeapSummary {
         self.arena.allocated_summary()
     }
+
+    /// Memory allocated in the arena, but not used for allocation of starlark values.
+    pub(crate) fn unused_capacity(&self) -> usize {
+        self.arena.unused_capacity()
+    }
 }
 
 /// Used to `freeze` values by [`Freeze::freeze`](crate::values::Freeze::freeze).

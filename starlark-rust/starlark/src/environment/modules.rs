@@ -405,6 +405,11 @@ impl Module {
         // but can now be dropped
         mem::drop(heap);
 
+        if let Some(stacks) = &rest.0.heap_profile {
+            assert_eq!(stacks.unused_capacity.get(), 0, "sanity check");
+            stacks.unused_capacity.set(freezer.heap.unused_capacity());
+        }
+
         Ok(FrozenModule {
             heap: freezer.into_ref(),
             module: rest,
@@ -538,11 +543,10 @@ x = f(1)
         )
         .unwrap();
         let module = module.freeze().unwrap();
-        let heap_summary = module
-            .aggregated_heap_profile_info()
-            .unwrap()
-            .gen_summary_csv();
+        let profile_info = module.aggregated_heap_profile_info().unwrap();
+        let heap_summary = profile_info.gen_summary_csv();
         // Smoke test.
+        assert!(profile_info.unused_capacity.get() > 0);
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
     }
 }

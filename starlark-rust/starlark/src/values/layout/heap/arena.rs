@@ -413,6 +413,11 @@ impl Arena {
         }
         HeapSummary { summary }
     }
+
+    /// Memory allocated in the arena but not used for allocation in starlark.
+    pub(crate) fn unused_capacity(&self) -> usize {
+        self.drop.chunk_capacity() + self.non_drop.chunk_capacity()
+    }
 }
 
 impl Drop for Arena {

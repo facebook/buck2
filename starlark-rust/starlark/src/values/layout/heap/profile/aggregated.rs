@@ -22,6 +22,8 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::rc::Rc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use either::Either;
@@ -283,6 +285,30 @@ impl<'c> StackFrameWithContext<'c> {
     }
 }
 
+/// `Clone` wrapper.
+#[derive(Default)]
+pub(crate) struct UnusedCapacity(AtomicUsize);
+
+impl Clone for UnusedCapacity {
+    fn clone(&self) -> Self {
+        UnusedCapacity(AtomicUsize::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
+impl UnusedCapacity {
+    pub(crate) fn new(value: usize) -> UnusedCapacity {
+        UnusedCapacity(AtomicUsize::new(value))
+    }
+
+    pub(crate) fn get(&self) -> usize {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn set(&self, value: usize) {
+        self.0.store(value, Ordering::Relaxed);
+    }
+}
+
 /// Aggregated heap profiling data when heap profiling is enabled.
 ///
 /// Can be:
@@ -298,6 +324,8 @@ pub struct AggregateHeapProfileInfo {
     pub(crate) root_id: StringId,
     /// String `""`. It is needed in heap summary output.
     pub(crate) blank_id: StringId,
+    /// Memory allocated in bump, but unused.
+    pub(crate) unused_capacity: UnusedCapacity,
 }
 
 impl Debug for AggregateHeapProfileInfo {
@@ -319,6 +347,7 @@ impl Default for AggregateHeapProfileInfo {
             totals_id,
             root_id,
             blank_id,
+            unused_capacity: UnusedCapacity::default(),
         }
     }
 }
@@ -343,6 +372,7 @@ impl AggregateHeapProfileInfo {
             totals_id,
             root_id,
             blank_id,
+            unused_capacity: UnusedCapacity::default(),
         }
     }
 
@@ -357,10 +387,14 @@ impl AggregateHeapProfileInfo {
     pub fn merge<'a>(
         profiles: impl IntoIterator<Item = &'a AggregateHeapProfileInfo>,
     ) -> AggregateHeapProfileInfo {
+        let profiles: Vec<_> = Vec::from_iter(profiles);
+
         let mut strings = StringIndex::default();
         let totals_id = strings.index(Self::TOTALS_STR);
         let root_id = strings.index(Self::ROOT_STR);
         let blank_id = strings.index(Self::BLANK_STR);
+        let unused_capacity =
+            UnusedCapacity::new(profiles.iter().map(|p| p.unused_capacity.get()).sum());
         let roots = profiles.into_iter().map(|p| p.root());
         let root = StackFrame::merge(roots, &mut strings);
         AggregateHeapProfileInfo {
@@ -369,6 +403,7 @@ impl AggregateHeapProfileInfo {
             totals_id,
             root_id,
             blank_id,
+            unused_capacity,
         }
     }
 
