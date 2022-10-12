@@ -50,11 +50,7 @@ buck2_server_ctx = { path = "../buck2_server_ctx" }
 buck2_test = { path = "../app/buck2_test" }
 cli_proto = { path = "../cli_proto" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-daemonize = { workspace = true }
-
 [target.'cfg(unix)'.dependencies]
-daemonize = { workspace = true }
 jemallocator = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]

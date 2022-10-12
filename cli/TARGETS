@@ -11,13 +11,11 @@ rust_library(
         (
             "linux",
             [
-                "fbsource//third-party/rust:daemonize",
             ],
         ),
         (
             "macos",
             [
-                "fbsource//third-party/rust:daemonize",
             ],
         ),
         (

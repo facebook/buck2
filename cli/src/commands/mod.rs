@@ -8,5 +8,6 @@
  */
 
 pub mod daemon;
+pub(crate) mod daemonize;
 pub mod docs;
 pub mod forkserver;

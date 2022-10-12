@@ -506,7 +506,7 @@ impl DaemonCommand {
     ) -> anyhow::Result<()> {
         // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
         // to something else or just do it ourselves.
-        let daemonize = daemonize::Daemonize::new()
+        let daemonize = crate::commands::daemonize::Daemonize::new()
             .pid_file(pid_path)
             .chown_pid_file(true)
             .working_directory(project_root)
