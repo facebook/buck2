@@ -78,6 +78,7 @@ use crate::values::string::intern::interner::FrozenStringInterner;
 use crate::values::string::StarlarkStr;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
 use crate::values::ComplexValue;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -85,6 +86,8 @@ use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::ValueOf;
 use crate::values::ValueTyped;
 
 #[derive(Copy, Clone, Dupe)]
@@ -392,6 +395,11 @@ impl FrozenHeap {
         }
     }
 
+    /// Allocate a new value on a [`FrozenHeap`].
+    pub fn alloc<T: AllocFrozenValue>(&self, val: T) -> FrozenValue {
+        val.alloc_frozen_value(self)
+    }
+
     /// Number of bytes allocated on this heap, not including any memory
     /// represented by [`extra_memory`](crate::values::StarlarkValue::extra_memory).
     pub fn allocated_bytes(&self) -> usize {
@@ -672,6 +680,22 @@ impl Heap {
         // When specializations are stable, we can have single `alloc_complex` function,
         // which enables or not enables freezing depending on whether `T` implements `Freeze`.
         self.alloc_raw(complex_no_freeze(x))
+    }
+
+    /// Allocate a new value on a [`Heap`].
+    pub fn alloc<'v, T: AllocValue<'v>>(&'v self, x: T) -> Value<'v> {
+        x.alloc_value(self)
+    }
+
+    /// Allocate a value and return [`ValueOf`] of it.
+    pub fn alloc_value_of<'v, T>(&'v self, x: T) -> ValueOf<'v, &'v T>
+    where
+        T: AllocValue<'v>,
+        &'v T: UnpackValue<'v>,
+    {
+        let value = self.alloc(x);
+        ValueOf::unpack_value(value)
+            .expect("just allocate value must be unpackable to the type of value")
     }
 
     pub(crate) unsafe fn visit_arena<'v>(

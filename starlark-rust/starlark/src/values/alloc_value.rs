@@ -21,9 +21,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
-use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueOf;
 
 /// Trait for things that can be created on a [`Heap`] producing a [`Value`].
 ///
@@ -72,30 +70,5 @@ pub trait AllocFrozenValue {
 impl AllocFrozenValue for FrozenValue {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         self
-    }
-}
-
-impl FrozenHeap {
-    /// Allocate a new value on a [`FrozenHeap`].
-    pub fn alloc<T: AllocFrozenValue>(&self, val: T) -> FrozenValue {
-        val.alloc_frozen_value(self)
-    }
-}
-
-impl Heap {
-    /// Allocate a new value on a [`Heap`].
-    pub fn alloc<'v, T: AllocValue<'v>>(&'v self, x: T) -> Value<'v> {
-        x.alloc_value(self)
-    }
-
-    /// Allocate a value and return [`ValueOf`] of it.
-    pub fn alloc_value_of<'v, T>(&'v self, x: T) -> ValueOf<'v, &'v T>
-    where
-        T: AllocValue<'v>,
-        &'v T: UnpackValue<'v>,
-    {
-        let value = self.alloc(x);
-        ValueOf::unpack_value(value)
-            .expect("just allocate value must be unpackable to the type of value")
     }
 }
