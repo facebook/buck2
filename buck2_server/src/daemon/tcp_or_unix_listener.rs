@@ -10,6 +10,7 @@
 //! **std** listener, Unix on Unix and TCP on Windows.
 
 use futures::stream::BoxStream;
+use futures::stream::TryStreamExt;
 
 use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 
@@ -26,26 +27,18 @@ impl TcpOrUnixListener {
         self.0.set_nonblocking(true)?;
 
         #[cfg(unix)]
-        {
-            use futures::future::TryFutureExt;
-
+        let listener = {
             let listener = tokio::net::UnixListener::from_std(self.0)?;
 
-            Ok(Box::pin(async_stream::stream! {
-                loop {
-                    let item = listener.accept().map_ok(|(st, _)| TcpOrUnixStream(st)).await;
-                    yield item;
-                }
-            }))
-        }
+            tokio_stream::wrappers::UnixListenerStream::new(listener)
+        };
         #[cfg(not(unix))]
-        {
-            use futures::stream::TryStreamExt;
-
+        let listener = {
             let listener = tokio::net::TcpListener::from_std(self.0)?;
 
-            let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
-            Ok(Box::pin(listener.map_ok(TcpOrUnixStream)))
-        }
+            tokio_stream::wrappers::TcpListenerStream::new(listener)
+        };
+
+        Ok(Box::pin(listener.map_ok(TcpOrUnixStream)))
     }
 }

@@ -65,7 +65,6 @@ assert_matches = "1.5"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip"] }
 async-condvar-fair = { version = "0.2.2", features = ["parking_lot_0_11"] }
 async-recursion = "1.0"
-async-stream = "0.3.2"
 async-trait = "0.1.24"
 backtrace = "0.3.51"
 base64 = "0.13.0"
