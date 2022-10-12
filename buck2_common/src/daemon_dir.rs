@@ -19,22 +19,22 @@ pub struct DaemonDir {
 
 impl DaemonDir {
     /// Path to `buckd.info` file.
-    pub fn buckd_info(&self) -> anyhow::Result<AbsPathBuf> {
-        Ok(self.path.join(FileName::new("buckd.info")?))
+    pub fn buckd_info(&self) -> AbsPathBuf {
+        self.path.join(FileName::new("buckd.info").unwrap())
     }
 
     /// Path to `buckd.stdout` file.
-    pub fn buckd_stdout(&self) -> anyhow::Result<AbsPathBuf> {
-        Ok(self.path.join(FileName::new("buckd.stdout")?))
+    pub fn buckd_stdout(&self) -> AbsPathBuf {
+        self.path.join(FileName::new("buckd.stdout").unwrap())
     }
 
     /// Path to `buckd.stderr` file.
-    pub fn buckd_stderr(&self) -> anyhow::Result<AbsPathBuf> {
-        Ok(self.path.join(FileName::new("buckd.stderr")?))
+    pub fn buckd_stderr(&self) -> AbsPathBuf {
+        self.path.join(FileName::new("buckd.stderr").unwrap())
     }
 
     /// Path to `buckd.pid` file.
-    pub fn buckd_pid(&self) -> anyhow::Result<AbsPathBuf> {
-        Ok(self.path.join(FileName::new("buckd.pid")?))
+    pub fn buckd_pid(&self) -> AbsPathBuf {
+        self.path.join(FileName::new("buckd.pid").unwrap())
     }
 }

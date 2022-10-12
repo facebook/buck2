@@ -219,13 +219,13 @@ pub(crate) fn write_process_info(
     daemon_dir: &DaemonDir,
     process_info: &DaemonProcessInfo,
 ) -> anyhow::Result<()> {
-    let file = File::create(daemon_dir.buckd_info()?)?;
+    let file = File::create(daemon_dir.buckd_info())?;
     serde_json::to_writer(&file, &process_info)?;
     Ok(())
 }
 
 fn verify_current_daemon(daemon_dir: &DaemonDir) -> anyhow::Result<()> {
-    let file = daemon_dir.buckd_pid()?;
+    let file = daemon_dir.buckd_pid();
     let my_pid = process::id();
 
     let recorded_pid: u32 = fs_util::read_to_string(&file)?.trim().parse()?;
@@ -265,9 +265,9 @@ impl DaemonCommand {
         //   Daemonize does not preserve threads.
 
         let daemon_dir = paths.daemon_dir()?;
-        let pid_path = daemon_dir.buckd_pid()?;
-        let stdout_path = daemon_dir.buckd_stdout()?;
-        let stderr_path = daemon_dir.buckd_stderr()?;
+        let pid_path = daemon_dir.buckd_pid();
+        let stdout_path = daemon_dir.buckd_stdout();
+        let stderr_path = daemon_dir.buckd_stderr();
         // Even if we don't redirect output, we still need to create stdout/stderr files,
         // because tailer opens them. This is untidy.
         let stdout = File::create(stdout_path)?;

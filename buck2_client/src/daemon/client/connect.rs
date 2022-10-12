@@ -387,7 +387,7 @@ impl BuckdConnectOptions {
         &self,
         daemon_dir: &DaemonDir,
     ) -> anyhow::Result<BootstrapBuckdClient> {
-        let location = daemon_dir.buckd_info()?;
+        let location = daemon_dir.buckd_info();
         let file = File::open(&location)
             .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
         let reader = BufReader::new(file);
