@@ -28,7 +28,8 @@ use either::Either;
 use gazebo::dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
-use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
+use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
@@ -270,18 +271,14 @@ impl<'c> StackFrameWithContext<'c> {
     }
 
     /// Write this stack frame's data to a file in flamegraph.pl format.
-    fn write_flame_graph(&self, file: &mut FlameGraphWriter, stack: &'_ mut Vec<&'c str>) {
+    fn write_flame_graph(&self, node: &mut FlameGraphNode) {
         for (k, v) in &self.frame.allocs.summary {
-            file.write(
-                stack.iter().copied().chain(std::iter::once(*k)),
-                v.bytes as u64,
-            );
+            node.child((*k).into()).add(v.bytes as u64);
         }
 
         for (id, frame) in self.callees() {
-            stack.push(id);
-            frame.write_flame_graph(file, stack);
-            stack.pop();
+            let child_node = node.child(id.to_owned().into());
+            frame.write_flame_graph(child_node);
         }
     }
 }
@@ -377,9 +374,9 @@ impl AggregateHeapProfileInfo {
 
     /// Write this out recursively to a file.
     pub fn gen_flame_graph(&self) -> String {
-        let mut writer = FlameGraphWriter::new();
-        self.root().write_flame_graph(&mut writer, &mut vec![]);
-        writer.finish()
+        let mut data = FlameGraphData::default();
+        self.root().write_flame_graph(data.root());
+        data.write()
     }
 
     /// Write per-function summary in CSV format.
