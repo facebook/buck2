@@ -313,6 +313,12 @@ extra_attributes = struct(
     # The 'actual' attribute of configured_alias is a configured_label, which is
     # currently unimplemented. Map it to dep so we can simply forward the providers.
     configured_alias = {
+        # TODO(nga): "actual" attribute exists here only to display it in query,
+        #   actual `actual` attribute used in rule implementation is named `configured_actual`.
+        #   Logically this should be `attrs.configuration_label`, but `configuration_label`
+        #   is currently an alias for `attrs.dep`, which makes non-transitioned dependency
+        #   also a dependency along with transitioned dependency. (See D40255132).
+        "actual": attrs.label(),
         # We use a separate field instead of re-purposing `actual`, as we want
         # to keep output format compatibility with v1.
         "configured_actual": attrs.option(attrs.configured_dep()),
