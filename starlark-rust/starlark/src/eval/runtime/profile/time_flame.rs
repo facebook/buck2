@@ -24,7 +24,8 @@ use gazebo::prelude::*;
 
 use crate as starlark;
 use crate::eval::runtime::profile::data::ProfileData;
-use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
+use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
 use crate::values::layout::pointer::RawPointer;
@@ -120,23 +121,21 @@ impl<'a> Stacks<'a> {
         }
     }
 
-    fn render_with_buffer(&self, writer: &mut FlameGraphWriter, stack: &mut Vec<&'a str>) {
-        stack.push(self.name);
+    fn render_with_buffer(&self, node: &mut FlameGraphNode) {
+        let node = node.child(self.name.to_owned().into());
         let count = self.time.to_duration().as_millis();
         if count > 0 {
-            writer.write(stack.iter().copied(), count as u64);
+            node.add(count as u64);
         }
         for x in self.children.values() {
-            x.render_with_buffer(writer, stack);
+            x.render_with_buffer(node);
         }
-        stack.pop().unwrap();
     }
 
     fn render(&self) -> String {
-        let mut stack = Vec::new();
-        let mut writer = FlameGraphWriter::new();
-        self.render_with_buffer(&mut writer, &mut stack);
-        writer.finish()
+        let mut data = FlameGraphData::default();
+        self.render_with_buffer(data.root());
+        data.write()
     }
 }
 
