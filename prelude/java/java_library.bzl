@@ -504,10 +504,13 @@ def build_java_library(
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
         additional_compiled_srcs: ["artifact", None] = None) -> JavaProviders.type:
-    _check_provided_deps(ctx.attrs.provided_deps, "provided_deps")
-    _check_provided_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
-    _check_exported_deps(ctx.attrs.exported_deps, "exported_deps")
-    _check_exported_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
+    # TODO(T133474237) we shouldn't need this, we should just assert that we're not coming
+    # into this function when _build_only_native_code is True
+    if not getattr(ctx.attrs, "_build_only_native_code", False):
+        _check_provided_deps(ctx.attrs.provided_deps, "provided_deps")
+        _check_provided_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
+        _check_exported_deps(ctx.attrs.exported_deps, "exported_deps")
+        _check_exported_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
 
     deps_query = getattr(ctx.attrs, "deps_query", []) or []
     provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []
