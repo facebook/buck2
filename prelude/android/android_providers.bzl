@@ -70,6 +70,7 @@ AndroidApkUnderTestInfo = provider(
     fields = [
         "java_packaging_deps",  # ["JavaPackagingDep"]
         "keystore",  # "KeystoreInfo"
+        "manifest_entries",  # dict.type
         "prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
         "platforms",  # [str.type]
         "primary_platform",  # str.type

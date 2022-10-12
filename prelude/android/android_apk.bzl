@@ -35,7 +35,15 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
 
     referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps] if ctx.attrs.trim_resource_ids and should_pre_dex else []
-    resources_info = get_android_binary_resources_info(ctx, deps, android_packageable_info, java_packaging_deps, use_proto_format = False, referenced_resources_lists = referenced_resources_lists)
+    resources_info = get_android_binary_resources_info(
+        ctx,
+        deps,
+        android_packageable_info,
+        java_packaging_deps,
+        use_proto_format = False,
+        referenced_resources_lists = referenced_resources_lists,
+        manifest_entries = ctx.attrs.manifest_entries,
+    )
     if resources_info.r_dot_java:
         java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 
@@ -123,6 +131,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         AndroidApkUnderTestInfo(
             java_packaging_deps = java_packaging_deps,
             keystore = keystore,
+            manifest_entries = ctx.attrs.manifest_entries,
             prebuilt_native_library_dirs = native_library_info.apk_under_test_prebuilt_native_library_dirs,
             platforms = deps_by_platform.keys(),
             primary_platform = primary_platform,

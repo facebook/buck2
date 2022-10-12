@@ -16,6 +16,7 @@ def get_android_binary_resources_info(
         java_packaging_deps: ["JavaPackagingDep"],
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"],
+        manifest_entries: dict.type = {},
         resource_infos_to_exclude: [AndroidResourceInfo.type] = []) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [resource_info for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []) if resource_info not in resource_infos_to_exclude]
@@ -25,7 +26,7 @@ def get_android_binary_resources_info(
         android_toolchain,
     )
 
-    android_manifest = _get_manifest(ctx, android_packageable_info)
+    android_manifest = _get_manifest(ctx, android_packageable_info, manifest_entries)
 
     aapt2_link_info = get_aapt2_link(
         ctx,
@@ -359,7 +360,10 @@ def _maybe_package_strings_as_assets(
 
     return string_assets_zip
 
-def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableInfo") -> "artifact":
+def _get_manifest(
+        ctx: "context",
+        android_packageable_info: "AndroidPackageableInfo",
+        manifest_entries: dict.type) -> "artifact":
     robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
     if robolectric_manifest:
         return robolectric_manifest
@@ -382,7 +386,7 @@ def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableI
             manifest_skeleton,
             "dex",  # ROOT_APKMODULE_NAME,
             android_packageable_info.manifests,
-            ctx.attrs.manifest_entries.get("placeholders", {}),
+            manifest_entries.get("placeholders", {}),
         )
 
     return android_manifest

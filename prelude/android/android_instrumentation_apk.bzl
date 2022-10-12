@@ -36,6 +36,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
         java_packaging_deps = java_packaging_deps,
         use_proto_format = False,
         referenced_resources_lists = [],
+        manifest_entries = apk_under_test_info.manifest_entries,
         resource_infos_to_exclude = apk_under_test_info.resource_infos,
     )
     if resources_info.r_dot_java:
