@@ -117,6 +117,7 @@ extra_attributes = {
     },
     "android_build_config": {
         "_android_toolchain": android_toolchain(),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_apk": {
@@ -139,6 +140,7 @@ extra_attributes = {
     "android_library": {
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": java_toolchain_for_android(),
@@ -153,6 +155,7 @@ extra_attributes = {
         # source without deps, we have them present during ABI gen by default.
         "required_for_source_only_abi": attrs.bool(default = True),
         "_android_toolchain": android_toolchain(),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": java_toolchain_for_android(),
@@ -163,7 +166,7 @@ extra_attributes = {
         "project_res": attrs.option(attrs.source(allow_directory = True), default = None),
         "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "_android_toolchain": android_toolchain(),
-        "_build_only_native_code": attrs.bool(default = is_build_only_native_code()),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "apk_genrule": genrule_attributes() | {
         "type": attrs.string(default = "apk"),

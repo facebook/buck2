@@ -59,6 +59,14 @@ def select_prebuilt_jar_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return "fbcode//buck2/platform:prebuilt_jar"
 
+def is_build_only_native_code():
+    return select(
+        {
+            "DEFAULT": False,
+            "fbsource//xplat/buck2/platform/android:build_only_native_code": True,
+        },
+    )
+
 implemented_rules = {
     "jar_genrule": jar_genrule_impl,
     "java_annotation_processor": java_annotation_processor_impl,
@@ -80,8 +88,12 @@ extra_attributes = {
             ],
         ),
     },
+    "java_annotation_processor": {
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+    },
     "java_binary": {
         "meta_inf_directory": attrs.option(attrs.source(allow_directory = True), default = None),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
@@ -93,6 +105,7 @@ extra_attributes = {
     "java_library": {
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": attrs.option(attrs.exec_dep(
             providers = [
@@ -106,6 +119,9 @@ extra_attributes = {
                 JavaToolchainInfo,
             ],
         ),
+    },
+    "java_plugin": {
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "java_test": {
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
@@ -133,6 +149,7 @@ extra_attributes = {
         # often a source of annotations and constants. To ease migration to ABI generation from
         # source without deps, we have them present during ABI gen by default.
         "required_for_source_only_abi": attrs.bool(default = True),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": attrs.option(attrs.exec_dep(
             providers = [
