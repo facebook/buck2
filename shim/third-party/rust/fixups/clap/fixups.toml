@@ -1,0 +1,7 @@
+extra_srcs = ["README.md"]
+omit_features = ["deprecated"]
+
+[platform_fixup.'cfg(all())']
+version = ">= 3.2.17"
+omit_features = ["deprecated"]
+extra_srcs = ["README.md", "examples/demo.md", "examples/demo.rs"]

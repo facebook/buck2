@@ -41,6 +41,7 @@ byteorder = "1.4.3"
 bytes = "1.0"
 chrono = "=0.4.19"  # Avoid a dependency iana-time-zone, which requires a fixup
 clap = { version = "3.1.18", features = ["derive", "env"] }
+clap-4 = { package = "clap", version = "4.0.7", features = ["derive", "env"] }
 convert_case = "0.4.0"
 criterion = { version = "0.3.4", features = ["async", "async_tokio", "html_reports"] }
 crossbeam-channel = "0.5"

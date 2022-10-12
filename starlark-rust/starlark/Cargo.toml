@@ -9,7 +9,7 @@ repository = "https://github.com/facebookexperimental/starlark-rust"
 authors = [
     "Damien Martin-Guillerez <dmarting@google.com>",
     "Stepan Koltsov <stepan.koltsov@gmail.com>",
-    "Facebook"
+    "Facebook",
 ]
 build = "build.rs"
 keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
@@ -41,7 +41,6 @@ gazebo.features = ["str_pattern_extensions"]
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-structopt = "0.3.23"
 walkdir = "2.3"
 serde = { version = "1.0", features = ["derive"] }
 logos = "0.12"
@@ -61,9 +60,10 @@ argfile = "0.1.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
 inventory = "0.1.10"
+clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
 
 [dev-dependencies]
-rand      = { version = "0.8.4", features = ["small_rng"] }
+rand = { version = "0.8.4", features = ["small_rng"] }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

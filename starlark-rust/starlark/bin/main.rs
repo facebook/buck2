@@ -32,6 +32,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use clap::Parser;
 use eval::Context;
 use gazebo::prelude::*;
 use itertools::Either;
@@ -39,8 +40,6 @@ use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
 use starlark::lsp;
 use starlark::read_line::ReadLine;
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
 use walkdir::WalkDir;
 
 use crate::eval::ContextMode;
@@ -50,18 +49,13 @@ mod dap;
 mod eval;
 mod types;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
-    name = "starlark",
-    about = "Evaluate Starlark code",
-    global_settings(&[AppSettings::ColoredHelp]),
-)]
+#[derive(Debug, Parser)]
+#[command(name = "starlark", about = "Evaluate Starlark code")]
 struct Args {
-    #[structopt(
+    #[arg(
         long = "lsp",
         help = "Start an LSP server.",
         conflicts_with_all = &[
-            "interactive",
             "dap",
             "check",
             "json",
@@ -71,12 +65,11 @@ struct Args {
     )]
     lsp: bool,
 
-    #[structopt(
+    #[arg(
         long = "dap",
         help = "Start a DAP server.",
         // Conflicts with all options.
         conflicts_with_all = &[
-            "interactive",
             "lsp",
             "check",
             "json",
@@ -88,40 +81,43 @@ struct Args {
     )]
     dap: bool,
 
-    #[structopt(
+    #[arg(
         long = "check",
         help = "Run checks and lints.",
         conflicts_with_all = &["lsp", "dap"],
     )]
     check: bool,
 
-    #[structopt(
+    #[arg(
         long = "json",
         help = "Show output as JSON lines.",
         conflicts_with_all = &["lsp", "dap"],
     )]
     json: bool,
 
-    #[structopt(
+    #[arg(
         long = "extension",
         help = "File extension when searching directories."
     )]
     extension: Option<String>,
 
-    #[structopt(long = "prelude", help = "Files to load in advance.")]
+    #[arg(long = "prelude", help = "Files to load in advance.", num_args = 1..)]
     prelude: Vec<PathBuf>,
 
-    #[structopt(
+    #[arg(
         long = "expression",
-        short = "e",
-        name = "EXPRESSION",
+        short = 'e',
+        id = "evaluate",
+        value_name = "EXPRESSION",
         help = "Expressions to evaluate.",
         conflicts_with_all = &["lsp", "dap"],
+        num_args = 1..,
     )]
     evaluate: Vec<String>,
 
-    #[structopt(
-        name = "FILE",
+    #[arg(
+        id = "files",
+        value_name = "FILE",
         help = "Files to evaluate.",
         conflicts_with_all = &["lsp", "dap"],
     )]
@@ -217,7 +213,7 @@ fn main() -> anyhow::Result<()> {
     gazebo::terminate_on_panic();
 
     let args = argfile::expand_args(argfile::parse_fromfile, argfile::PREFIX)?;
-    let args: Args = Args::from_iter(args);
+    let args: Args = Args::parse_from(args);
     if args.dap {
         dap::server();
     } else {

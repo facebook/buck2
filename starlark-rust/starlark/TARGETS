@@ -14,12 +14,12 @@ buck_rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:argfile",
+        "fbsource//third-party/rust:clap-4",
         "fbsource//third-party/rust:debugserver-types",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:structopt",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:walkdir",
         ":starlark",
