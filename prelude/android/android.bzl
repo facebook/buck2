@@ -169,6 +169,7 @@ extra_attributes = {
         "type": attrs.string(default = "apk"),
     },
     "gen_aidl": {
+        "import_paths": attrs.list(attrs.arg(), default = []),
         "_android_toolchain": android_toolchain(),
         "_java_toolchain": java_toolchain_for_android(),
     },
