@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::hash_map;
 use std::collections::HashMap;
@@ -36,6 +37,7 @@ use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::string_index::StringId;
 use crate::values::layout::heap::profile::string_index::StringIndex;
@@ -260,7 +262,7 @@ struct StackFrameWithContext<'c> {
 }
 
 impl<'c> StackFrameWithContext<'c> {
-    fn callees(&self) -> impl Iterator<Item = (&'c str, StackFrameWithContext<'c>)> + '_ {
+    fn callees(&self) -> impl Iterator<Item = (&'c ArcStr, StackFrameWithContext<'c>)> + '_ {
         self.frame.callees.iter().map(move |(id, callee)| {
             (
                 self.strings.get(*id),
@@ -279,7 +281,7 @@ impl<'c> StackFrameWithContext<'c> {
         }
 
         for (id, frame) in self.callees() {
-            let child_node = node.child(id.to_owned().into());
+            let child_node = node.child(Cow::Owned((&**id).into()));
             frame.write_flame_graph(child_node);
         }
     }

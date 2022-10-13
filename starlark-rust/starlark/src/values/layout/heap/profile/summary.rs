@@ -100,7 +100,7 @@ impl HeapSummaryByFunction {
         caller: StringId,
         strings: &StringIndex,
     ) -> SmallDuration {
-        let func_str = ArcStr::from(strings.get(func));
+        let func_str = strings.get(func);
         self.info.entry(func_str.dupe()).or_default().time += frame.time_x2;
         self.info.entry(func_str.dupe()).or_default().calls += frame.calls_x2 as usize;
         *self
@@ -121,7 +121,7 @@ impl HeapSummaryByFunction {
         }
 
         let time_rec = frame.time_x2 + self.init_children(frame, func, strings);
-        self.info.entry(func_str).or_default().time_rec += time_rec;
+        self.info.entry(func_str.dupe()).or_default().time_rec += time_rec;
         time_rec
     }
 
@@ -181,7 +181,7 @@ impl HeapSummaryByFunction {
             csv.write_value(info.time_rec / 2);
             csv.write_value(info.calls / 2);
             csv.write_value(info.callers.len());
-            csv.write_value(strings.get(*callers.0));
+            csv.write_value(&**strings.get(*callers.0));
             csv.write_value(callers.1);
             csv.write_value(allocs);
             for c in &columns {

@@ -18,10 +18,12 @@
 use gazebo::dupe::Dupe;
 use starlark_map::small_set::SmallSet;
 
+use crate::values::layout::heap::profile::arc_str::ArcStr;
+
 /// Map strings to integers 0, 1, 2, ...
 #[derive(Default, Clone)]
 pub(crate) struct StringIndex {
-    strings: SmallSet<String>,
+    strings: SmallSet<ArcStr>,
 }
 
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
@@ -36,12 +38,12 @@ impl StringIndex {
             return StringId(index);
         }
 
-        let inserted = self.strings.insert(s.to_owned());
+        let inserted = self.strings.insert(ArcStr::from(s));
         assert!(inserted);
         StringId(self.strings.len() - 1)
     }
 
-    pub(crate) fn get(&self, id: StringId) -> &str {
+    pub(crate) fn get(&self, id: StringId) -> &ArcStr {
         self.strings.get_index(id.0).expect("invalid string id")
     }
 }
