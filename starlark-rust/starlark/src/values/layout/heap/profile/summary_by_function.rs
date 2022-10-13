@@ -58,6 +58,11 @@ impl FuncInfo {
         result.time_rec = result.time;
         result
     }
+
+    /// Total number of allocations made by this function.
+    fn alloc_count(&self) -> usize {
+        self.alloc.values().map(|x| x.count).sum()
+    }
 }
 
 /// We morally have two pieces of information:
@@ -163,7 +168,6 @@ impl HeapSummaryByFunction {
             .chain(columns.iter().map(|c| c.0)),
         );
         for (rowname, info) in info {
-            let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
             let blank = ArcStr::new_static("");
             let callers = info
                 .callers
@@ -183,7 +187,7 @@ impl HeapSummaryByFunction {
             csv.write_value(info.callers.len());
             csv.write_value(callers.0.as_str());
             csv.write_value(callers.1);
-            csv.write_value(allocs);
+            csv.write_value(info.alloc_count());
             for c in &columns {
                 csv.write_value(info.alloc.get(c.0).unwrap_or(&AllocCounts::default()).count);
             }
