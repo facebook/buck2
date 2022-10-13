@@ -250,7 +250,7 @@ fn kill_process(child: &Child) -> anyhow::Result<()> {
             return Ok(());
         }
     };
-    tracing::warn!("Killing process {}", pid);
+    tracing::info!("Killing process {}", pid);
     kill_process_impl(pid)
 }
 
