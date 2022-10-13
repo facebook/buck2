@@ -1,10 +1,5 @@
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//utils:utils.bzl", "expect")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
-
-_AidlSourceInfo = provider(fields = [
-    "srcs",
-])
 
 def gen_aidl_impl(ctx: "context") -> ["provider"]:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -16,17 +11,6 @@ def gen_aidl_impl(ctx: "context") -> ["provider"]:
 
     # We need the `aidl_srcs` files - otherwise the search on the `import_path` won't find anything.
     aidl_cmd.hidden(ctx.attrs.aidl_srcs)
-
-    # Allow gen_aidl rules to depend on other gen_aidl rules, and make the source files from the
-    # deps accessible in this context. This is an alternative to adding dependent files in
-    # aidl_srcs.
-    dep_srcs = []
-    for dep in ctx.attrs.deps:
-        source_info = dep.get(_AidlSourceInfo)
-        expect(source_info != None, "Dependencies of `gen_aidl` rules should also be `gen_aidl` rules")
-        dep_srcs += source_info.srcs
-
-    aidl_cmd.hidden(dep_srcs)
 
     aidl_out = ctx.actions.declare_output("aidl_output")
     aidl_cmd.add("-o", aidl_out.as_output())
@@ -43,7 +27,4 @@ def gen_aidl_impl(ctx: "context") -> ["provider"]:
 
     ctx.actions.run(jar_cmd, category = "aidl_jar")
 
-    return [
-        DefaultInfo(default_outputs = [out]),
-        _AidlSourceInfo(srcs = [ctx.attrs.aidl] + ctx.attrs.aidl_srcs + dep_srcs),
-    ]
+    return [DefaultInfo(default_outputs = [out])]
