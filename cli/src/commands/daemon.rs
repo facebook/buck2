@@ -202,7 +202,7 @@ pub(crate) fn init_listener(
 ) -> anyhow::Result<(TcpOrUnixListener, DaemonProcessInfo)> {
     let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf())?;
 
-    buck2_client::eprintln!("starting daemon on {}", &endpoint)?;
+    buck2_client::eprintln!("Listener created on {}", &endpoint)?;
     let pid = process::id();
     let process_info = DaemonProcessInfo {
         pid: pid as i64,
@@ -283,6 +283,8 @@ impl DaemonCommand {
 
             self.daemonize(paths.project_root().root(), &pid_path, stdout, stderr)?;
 
+            buck2_client::eprintln!("Daemonized.")?;
+
             (listener, process_info)
         } else {
             let mut pid_file = File::create(pid_path)?;
@@ -331,6 +333,8 @@ impl DaemonCommand {
         if let Some(threads) = MAX_BLOCKING_THREADS.get_copied()? {
             builder.max_blocking_threads(threads);
         }
+
+        buck2_client::eprintln!("Starting tokio runtime...")?;
 
         let rt = builder.build().context("Error creating Tokio runtime")?;
 
@@ -390,6 +394,8 @@ impl DaemonCommand {
                         hard_shutdown_sender,
                     )
                 })?;
+
+            buck2_client::eprintln!("Initialization complete, running the server.")?;
 
             // clippy doesn't get along well with the select!
             #[allow(clippy::mut_mut)]
