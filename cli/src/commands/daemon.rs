@@ -203,6 +203,8 @@ pub(crate) fn init_listener(
     let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf())?;
 
     buck2_client::eprintln!("Listener created on {}", &endpoint)?;
+    // TODO(nga): we write incorrect process id here:
+    //   this code is executed before daemonization, so we write parent process id.
     let pid = process::id();
     let process_info = DaemonProcessInfo {
         pid: pid as i64,
