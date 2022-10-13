@@ -305,7 +305,7 @@ enum RunActionError {
     InvalidWeight(i32),
     #[error("`dep_files` values must be artifact tags, got `{}` for key `{}`", .value, .key)]
     InvalidDepFileTag { key: String, value: String },
-    #[error("`dep_files` value with key `{}` has an invalid count of associated oututs. Expected 1, got {}.", .key, .count)]
+    #[error("`dep_files` value with key `{}` has an invalid count of associated outputs. Expected 1, got {}.", .key, .count)]
     InvalidDepFileOutputs { key: String, count: usize },
     #[error("`dep_files` with keys `{}` and {} are using the same tag", .first, .second)]
     ConflictingDepFiles { first: String, second: String },
