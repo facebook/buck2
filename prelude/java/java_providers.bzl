@@ -329,6 +329,17 @@ def get_java_packaging_info(
 
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
+def create_native_providers(actions: "actions", label: "label", packaging_deps: ["dependency"]) -> (SharedLibraryInfo.type, ResourceInfo.type):
+    shared_library_info = merge_shared_libraries(
+        actions,
+        deps = filter(None, [x.get(SharedLibraryInfo) for x in packaging_deps]),
+    )
+    cxx_resource_info = ResourceInfo(resources = gather_resources(
+        label,
+        deps = packaging_deps,
+    ))
+    return shared_library_info, cxx_resource_info
+
 def _create_non_template_providers(
         ctx: "context",
         library_output: [JavaClasspathEntry.type, None],
@@ -349,14 +360,7 @@ def _create_non_template_providers(
         runtime_deps: dependencies that are used for packaging only
     """
     packaging_deps = declared_deps + exported_deps + runtime_deps
-    shared_library_info = merge_shared_libraries(
-        ctx.actions,
-        deps = filter(None, [x.get(SharedLibraryInfo) for x in packaging_deps]),
-    )
-    cxx_resource_info = ResourceInfo(resources = gather_resources(
-        ctx.label,
-        deps = packaging_deps,
-    ))
+    shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
 
     output_for_classpath_macro = library_output.abi if (library_output and library_output.abi.owner != None) else ctx.actions.write("dummy_output_for_classpath_macro.txt", "Unused")
     java_packaging_dep = create_java_packaging_dep(ctx, library_output.full_library if library_output else None, output_for_classpath_macro, needs_desugar, desugar_classpath, is_prebuilt_jar)

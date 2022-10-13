@@ -2,18 +2,28 @@ load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_an
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@prelude//java:java_library.bzl", "build_java_library")
-load("@prelude//java:java_providers.bzl", "to_list")
+load("@prelude//java:java_providers.bzl", "create_native_providers", "to_list")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 
 def android_library_impl(ctx: "context") -> ["provider"]:
+    packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
+    if ctx.attrs._build_only_native_code:
+        shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
+        return [
+            shared_library_info,
+            cxx_resource_info,
+            # Add an unused default output in case this target is used as an attr.source() anywhere.
+            DefaultInfo(default_outputs = [ctx.actions.write("unused.jar", [])]),
+        ]
+
     java_providers = build_android_library(ctx)
 
     return to_list(java_providers) + [
         merge_android_packageable_info(
             ctx.label,
             ctx.actions,
-            ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
+            packaging_deps,
             manifest = ctx.attrs.manifest,
         ),
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
