@@ -321,8 +321,6 @@ pub struct AggregateHeapProfileInfo {
     pub(crate) root: StackFrame,
     /// String `"(root)"`. It is needed in heap summary output.
     pub(crate) root_id: StringId,
-    /// String `""`. It is needed in heap summary output.
-    pub(crate) blank_id: StringId,
     /// Memory allocated in bump, but unused.
     pub(crate) unused_capacity: UnusedCapacity,
 }
@@ -338,12 +336,10 @@ impl Default for AggregateHeapProfileInfo {
     fn default() -> AggregateHeapProfileInfo {
         let mut strings = StringIndex::default();
         let root_id = strings.index(AggregateHeapProfileInfo::ROOT_STR);
-        let blank_id = strings.index(AggregateHeapProfileInfo::BLANK_STR);
         AggregateHeapProfileInfo {
             root: StackFrame::default(),
             strings,
             root_id,
-            blank_id,
             unused_capacity: UnusedCapacity::default(),
         }
     }
@@ -351,7 +347,6 @@ impl Default for AggregateHeapProfileInfo {
 
 impl AggregateHeapProfileInfo {
     const ROOT_STR: &'static str = "(root)";
-    const BLANK_STR: &'static str = "";
 
     pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> AggregateHeapProfileInfo {
         let mut collector = StackCollector::new(retained);
@@ -360,12 +355,10 @@ impl AggregateHeapProfileInfo {
         }
         assert_eq!(1, collector.current.len());
         let root_id = collector.ids.strings.index(Self::ROOT_STR);
-        let blank_id = collector.ids.strings.index(Self::BLANK_STR);
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
             root_id,
-            blank_id,
             unused_capacity: UnusedCapacity::default(),
         }
     }
@@ -385,7 +378,6 @@ impl AggregateHeapProfileInfo {
 
         let mut strings = StringIndex::default();
         let root_id = strings.index(Self::ROOT_STR);
-        let blank_id = strings.index(Self::BLANK_STR);
         let unused_capacity =
             UnusedCapacity::new(profiles.iter().map(|p| p.unused_capacity.get()).sum());
         let roots = profiles.into_iter().map(|p| p.root());
@@ -394,7 +386,6 @@ impl AggregateHeapProfileInfo {
             strings,
             root,
             root_id,
-            blank_id,
             unused_capacity,
         }
     }

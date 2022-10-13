@@ -165,11 +165,12 @@ impl HeapSummaryByFunction {
         );
         for (rowname, info) in info {
             let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
+            let blank = ArcStr::new_static("");
             let callers = info
                 .callers
                 .iter()
                 .max_by_key(|x| x.1)
-                .unwrap_or((&stacks.blank_id, &0));
+                .map_or((&blank, &0), |(k, v)| (strings.get(*k), v));
             assert!(
                 info.calls % 2 == 0,
                 "we enter calls twice, for drop and non_drop"
@@ -181,7 +182,7 @@ impl HeapSummaryByFunction {
             csv.write_value(info.time_rec / 2);
             csv.write_value(info.calls / 2);
             csv.write_value(info.callers.len());
-            csv.write_value(&**strings.get(*callers.0));
+            csv.write_value(callers.0.as_str());
             csv.write_value(callers.1);
             csv.write_value(allocs);
             for c in &columns {
