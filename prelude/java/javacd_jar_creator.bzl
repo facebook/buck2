@@ -468,5 +468,6 @@ def create_jar_artifact_javacd(
         source_only_abi = source_only_abi,
         classpath_abi = classpath_abi,
         required_for_source_only_abi = required_for_source_only_abi,
+        annotation_processor_output = output_paths.annotations,
     )
     return result

@@ -163,6 +163,7 @@ JavaLibraryIntellijInfo = provider(
     fields = [
         # All the artifacts that were used in order to compile this library
         "compiling_classpath",  # ["artifact"]
+        "generated_sources",  # ["artifact"]
     ],
 )
 
@@ -187,6 +188,7 @@ JavaCompileOutputs = record(
     source_abi = ["artifact", None],
     source_only_abi = ["artifact", None],
     classpath_entry = JavaClasspathEntry.type,
+    annotation_processor_output = ["artifact", None],
 )
 
 JavaProviders = record(
@@ -218,7 +220,8 @@ def make_compile_outputs(
         source_abi: ["artifact", None] = None,
         source_only_abi: ["artifact", None] = None,
         classpath_abi: ["artifact", None] = None,
-        required_for_source_only_abi: bool.type = False) -> JavaCompileOutputs.type:
+        required_for_source_only_abi: bool.type = False,
+        annotation_processor_output: ["artifact", None] = None) -> JavaCompileOutputs.type:
     return JavaCompileOutputs(
         full_library = full_library,
         class_abi = class_abi,
@@ -229,6 +232,7 @@ def make_compile_outputs(
             abi = classpath_abi or class_abi or full_library,
             required_for_source_only_abi = required_for_source_only_abi,
         ),
+        annotation_processor_output = annotation_processor_output,
     )
 
 def create_abi(actions: "actions", class_abi_generator: "dependency", library: "artifact") -> "artifact":
@@ -398,7 +402,8 @@ def create_java_library_providers(
         exported_provided_deps: ["dependency"] = [],
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
-        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
+        is_prebuilt_jar: bool.type = False,
+        generated_sources: ["artifact"] = []) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
@@ -423,6 +428,7 @@ def create_java_library_providers(
 
     intellij_info = JavaLibraryIntellijInfo(
         compiling_classpath = compiling_classpath,
+        generated_sources = generated_sources,
     )
 
     return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info, intellij_info)

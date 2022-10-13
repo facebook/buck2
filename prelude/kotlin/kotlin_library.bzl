@@ -304,5 +304,6 @@ def build_kotlin_library(
             bootclasspath_entries = bootclasspath_entries,
             additional_classpath_entries = [kotlinc_classes] + additional_classpath_entries,
             additional_compiled_srcs = kotlinc_classes,
+            generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
         )
         return java_lib

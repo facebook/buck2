@@ -174,7 +174,8 @@ def _append_javac_params(
         extra_arguments: ["string"],
         additional_classpath_entries: ["artifact"],
         bootclasspath_entries: ["artifact"],
-        cmd: "cmd_args"):
+        cmd: "cmd_args",
+        generated_sources_dir: "artifact"):
     javac_args = cmd_args(
         "-encoding",
         "utf-8",
@@ -224,7 +225,6 @@ def _append_javac_params(
         cmd,
     )
 
-    generated_sources_dir = actions.declare_output("{}generated_sources".format(actions_prefix))
     cmd.add("--generated_sources_dir", generated_sources_dir.as_output())
 
     zipped_sources, plain_sources = split_on_archives_and_plain_files(srcs, _JAVA_FILE_EXTENSION)
@@ -427,8 +427,27 @@ def _create_jar_artifact(
         args += ["--additional_compiled_srcs", additional_compiled_srcs]
 
     compile_and_package_cmd = cmd_args(args)
+
+    generated_sources_dir = None
     if not skip_javac:
-        _append_javac_params(actions, actions_prefix, java_toolchain, srcs, remove_classes, ap_params, plugin_params, source_level, target_level, deps, extra_arguments, additional_classpath_entries, bootclasspath_entries, compile_and_package_cmd)
+        generated_sources_dir = actions.declare_output("{}generated_sources".format(actions_prefix))
+        _append_javac_params(
+            actions,
+            actions_prefix,
+            java_toolchain,
+            srcs,
+            remove_classes,
+            ap_params,
+            plugin_params,
+            source_level,
+            target_level,
+            deps,
+            extra_arguments,
+            additional_classpath_entries,
+            bootclasspath_entries,
+            compile_and_package_cmd,
+            generated_sources_dir,
+        )
 
     actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_prefix)
 
@@ -445,6 +464,7 @@ def _create_jar_artifact(
         full_library = jar_out,
         class_abi = abi,
         required_for_source_only_abi = required_for_source_only_abi,
+        annotation_processor_output = generated_sources_dir,
     )
 
 def _check_dep_types(deps: ["dependency"]):
@@ -517,7 +537,8 @@ def build_java_library(
         run_annotation_processors = True,
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
-        additional_compiled_srcs: ["artifact", None] = None) -> JavaProviders.type:
+        additional_compiled_srcs: ["artifact", None] = None,
+        generated_sources: ["artifact"] = []) -> JavaProviders.type:
     # TODO(T133474237) we shouldn't need this, we should just assert that we're not coming
     # into this function when _build_only_native_code is True
     if not getattr(ctx.attrs, "_build_only_native_code", False):
@@ -631,6 +652,7 @@ def build_java_library(
         exported_provided_deps = ctx.attrs.exported_provided_deps,
         runtime_deps = ctx.attrs.runtime_deps,
         needs_desugar = source_level > 7 or target_level > 7,
+        generated_sources = generated_sources + [outputs.annotation_processor_output] if outputs and outputs.annotation_processor_output else [],
     )
 
     default_info = DefaultInfo()
