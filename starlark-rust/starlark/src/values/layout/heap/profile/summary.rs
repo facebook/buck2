@@ -145,7 +145,7 @@ impl HeapSummaryByFunction {
         let mut info = self.info();
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
 
-        let totals_str = ArcStr::from("TOTALS");
+        let totals_str = ArcStr::new_static("TOTALS");
         let info = iter::once((&totals_str, &totals)).chain(info);
 
         let mut csv = CsvWriter::new(
