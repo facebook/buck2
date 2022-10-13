@@ -384,6 +384,9 @@ impl AggregateHeapProfileInfo {
     pub fn gen_flame_graph(&self) -> String {
         let mut data = FlameGraphData::default();
         self.root().write_flame_graph(data.root());
+        data.root()
+            .child(ArcStr::new_static("unused_capacity"))
+            .add(self.unused_capacity.get() as u64);
         data.write()
     }
 
