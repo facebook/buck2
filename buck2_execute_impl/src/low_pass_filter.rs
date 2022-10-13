@@ -12,12 +12,6 @@ pub struct LowPassFilter {
 
     /// This is used to notify waiters when a new permit can be handed out.
     cv: Condvar,
-}
-
-struct LowPassFilterState {
-    /// The total weight that has been requested through `access()`. This may be greater than the
-    /// capacity.
-    accessors: usize,
 
     /// The (configured) limit for allowed concurrent accessors. If this is exceeded, no further
     /// permits will be issued until the accessors count goes back below the capacity. Permits that
@@ -26,21 +20,29 @@ struct LowPassFilterState {
     capacity: usize,
 }
 
+struct LowPassFilterState {
+    /// The total weight that has been requested through `access()`. This may be greater than the
+    /// capacity.
+    accessors: usize,
+}
+
 impl LowPassFilterState {
-    fn can_dispatch_more(&self) -> bool {
-        self.accessors <= self.capacity
+    fn can_dispatch_more(&self, capacity: usize) -> bool {
+        self.accessors <= capacity
     }
 }
 
 impl LowPassFilter {
     pub fn new(capacity: usize) -> Self {
         Self {
-            state: Mutex::new(LowPassFilterState {
-                accessors: 0,
-                capacity,
-            }),
+            state: Mutex::new(LowPassFilterState { accessors: 0 }),
             cv: Condvar::new(),
+            capacity,
         }
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.capacity
     }
 
     /// Request a permit to enter the critical section.
@@ -59,7 +61,7 @@ impl LowPassFilter {
         let go = {
             let mut state = self.state.lock();
             state.accessors += weight;
-            state.can_dispatch_more()
+            state.can_dispatch_more(self.capacity)
         };
 
         // This needs to be created *here* and not at the return point so that if this future gets
@@ -77,7 +79,7 @@ impl LowPassFilter {
         async move {
             let mut state = self.state.lock();
             loop {
-                if state.can_dispatch_more() {
+                if state.can_dispatch_more(self.capacity) {
                     return guard;
                 }
                 state = self.cv.wait(state).await;
@@ -100,7 +102,7 @@ impl Drop for LowPassFilterGuard<'_> {
     fn drop(&mut self) {
         let mut state = self.filter.state.lock();
         state.accessors -= self.weight;
-        if state.can_dispatch_more() {
+        if state.can_dispatch_more(self.filter.capacity) {
             self.filter.cv.notify_one();
         }
     }
