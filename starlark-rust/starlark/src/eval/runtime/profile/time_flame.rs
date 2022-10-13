@@ -24,6 +24,7 @@ use gazebo::prelude::*;
 
 use crate as starlark;
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::small_duration::SmallDuration;
@@ -133,10 +134,10 @@ impl<'a> Stacks<'a> {
         }
     }
 
-    fn render(&self) -> String {
+    fn render(&self) -> FlameGraphData {
         let mut data = FlameGraphData::default();
         self.render_with_buffer(data.root());
-        data.write()
+        data
     }
 }
 
@@ -187,9 +188,9 @@ impl<'v> FlameProfile<'v> {
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
         let names = x.values.map(|x| x.to_repr());
-        ProfileData::new(
-            ProfileMode::TimeFlame,
-            Stacks::new(&names, &x.frames).render(),
-        )
+        ProfileData {
+            profile_mode: ProfileMode::TimeFlame,
+            profile: ProfileDataImpl::TimeFlameProfile(Stacks::new(&names, &x.frames).render()),
+        }
     }
 }

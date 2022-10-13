@@ -23,6 +23,7 @@ use gazebo::prelude::*;
 
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;
+use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::ProfileMode;
 use crate::values::AggregateHeapProfileInfo;
 
@@ -43,6 +44,8 @@ pub(crate) enum ProfileDataImpl {
     Bc(Box<BcProfileData>),
     BcPairs(BcPairsProfileData),
     AggregateHeapProfileInfo(Box<AggregateHeapProfileInfo>),
+    /// Flame graph data is in milliseconds.
+    TimeFlameProfile(FlameGraphData),
     Other(String),
 }
 
@@ -77,6 +80,10 @@ impl ProfileData {
                 ProfileMode::HeapSummaryRetained | ProfileMode::HeapSummaryAllocated,
             ) => Ok(profile.gen_summary_csv()),
             (ProfileDataImpl::AggregateHeapProfileInfo(_), _) => {
+                Err(ProfileDataError::ProfileDataNotConsistent.into())
+            }
+            (ProfileDataImpl::TimeFlameProfile(data), ProfileMode::TimeFlame) => Ok(data.write()),
+            (ProfileDataImpl::TimeFlameProfile(_), _) => {
                 Err(ProfileDataError::ProfileDataNotConsistent.into())
             }
         }
