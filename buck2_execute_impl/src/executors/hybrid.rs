@@ -193,7 +193,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                         // Block local until either conditon is met:
                         // - we only have a few actions (that's low_pass_filter)
                         // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                        let access = self.low_pass_filter.access();
+                        let access = self.low_pass_filter.access(None);
                         let alive = remote_execution_liveliness_manager.while_alive();
                         futures::pin_mut!(access);
                         futures::pin_mut!(alive);
