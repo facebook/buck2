@@ -63,6 +63,7 @@ async def test_profile_analysis_recursive(
         profiler.endswith("-retained")
         or profiler.startswith("bytecode")
         or profiler.endswith("-allocated")
+        or profiler == "time-flame"
     ):
         await command
 

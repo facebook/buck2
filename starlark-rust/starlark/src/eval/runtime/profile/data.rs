@@ -143,6 +143,14 @@ impl ProfileData {
                 let profile = AggregateHeapProfileInfo::merge(profiles);
                 ProfileDataImpl::AggregateHeapProfileInfo(box profile)
             }
+            ProfileMode::TimeFlame => {
+                let profiles = profiles.try_map(|p| match &p.profile {
+                    ProfileDataImpl::TimeFlameProfile(data) => Ok(data),
+                    _ => Err(ProfileDataError::ProfileDataNotConsistent),
+                })?;
+                let profile = FlameGraphData::merge(profiles);
+                ProfileDataImpl::TimeFlameProfile(profile)
+            }
             profile_mode => {
                 return Err(ProfileDataError::MergeNotImplemented(profile_mode.dupe()).into());
             }
@@ -161,6 +169,7 @@ mod tests {
     use crate::eval::runtime::profile::bc::BcPairsProfileData;
     use crate::eval::runtime::profile::bc::BcProfileData;
     use crate::eval::runtime::profile::data::ProfileDataImpl;
+    use crate::eval::runtime::profile::flamegraph::FlameGraphData;
     use crate::eval::ProfileData;
     use crate::eval::ProfileMode;
     use crate::values::AggregateHeapProfileInfo;
@@ -202,5 +211,15 @@ mod tests {
             // Smoke.
             ProfileData::merge([&profile, &profile]).unwrap();
         }
+    }
+
+    #[test]
+    fn merge_time_flame() {
+        let profile = ProfileData {
+            profile_mode: ProfileMode::TimeFlame,
+            profile: ProfileDataImpl::TimeFlameProfile(FlameGraphData::default()),
+        };
+        // Smoke.
+        ProfileData::merge([&profile, &profile]).unwrap();
     }
 }

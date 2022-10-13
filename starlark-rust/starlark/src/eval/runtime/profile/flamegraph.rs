@@ -88,7 +88,6 @@ impl FlameGraphData {
         &mut self.root
     }
 
-    #[allow(dead_code)] // TODO(nga): used in the following diff.
     pub(crate) fn merge<'a>(
         graphs: impl IntoIterator<Item = &'a FlameGraphData>,
     ) -> FlameGraphData {
