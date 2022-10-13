@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::soft_error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -73,8 +75,29 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
     }
 }
 
+fn current_dir() -> anyhow::Result<PathBuf> {
+    #[derive(Debug, thiserror::Error)]
+    enum CurrentDirError {
+        #[error("std::env::current_dir returns non-canonical path: `{0}` -> `{1}`")]
+        NotCanonical(PathBuf, PathBuf),
+    }
+
+    // `current_dir` seems to return canonical path.
+    // Make it soft error before making it hard error.
+    let current_dir = env::current_dir()?;
+    let current_dir_canonical = current_dir.canonicalize()?;
+    if current_dir != current_dir_canonical {
+        soft_error!(
+            "current_dir_not_canon",
+            CurrentDirError::NotCanonical(current_dir.clone(), current_dir_canonical).into()
+        )?;
+    }
+    Ok(current_dir)
+}
+
 /// Finds the cell root and the project root starting at the cwd.
 /// For more details, see `find_roots`.
 pub fn find_current_invocation_roots() -> anyhow::Result<InvocationRoots> {
-    find_invocation_roots(&std::env::current_dir()?)
+    let current_dir = current_dir()?;
+    find_invocation_roots(&current_dir)
 }
