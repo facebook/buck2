@@ -52,6 +52,7 @@ gazebo = { workspace = true }
 fbinit = { workspace = true }
 # @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps" }
 superconsole = { version = "0.1.0", path = "../superconsole" }
+which = "4.2.4"
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_common = { path = "../buck2_common" }

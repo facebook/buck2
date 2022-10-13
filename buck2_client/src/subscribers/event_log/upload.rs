@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::ffi::OsString;
 use std::io;
 use std::io::ErrorKind;
 use std::process::Stdio;
@@ -42,11 +43,6 @@ pub(crate) async fn log_upload(
     }
 
     buck2_core::facebook_only();
-    let manifold_url = match log_upload_url() {
-        None => return Ok(()),
-        Some(x) => x,
-    };
-
     let upload_log_file: Stdio = match std::fs::File::open(&path.path) {
         Ok(f) => f.into(),
         Err(e) => {
@@ -60,38 +56,69 @@ pub(crate) async fn log_upload(
 
     let log_size = std::fs::metadata(&path.path).unwrap().len();
 
-    let cert = find_tls_cert()?;
+    let mut upload = match get_manifold_cli_path() {
+        Some(manifold_path) => {
+            let mut upload = buck2_core::process::async_background_command(manifold_path);
+            let bucket_path = format!("buck2_logs/flat/{}{}", trace_id, path.encoding.extension);
+            tracing::debug!("Uploading event log to {} using manifold cli", bucket_path);
+            upload.args([
+                "--apikey",
+                "buck2_logs-key",
+                "--timeout-ms",
+                "20000",
+                "put",
+                &bucket_path,
+            ]);
+            #[cfg(any(fbcode_build, cargo_internal_build))]
+            {
+                if hostcaps::is_corp() {
+                    upload.arg("-vip");
+                }
+            }
 
-    let url = format!(
-        "{}/v0/write/flat/{}{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",
-        manifold_url, trace_id, path.encoding.extension
-    );
+            upload.stdin(upload_log_file);
+            upload
+        }
+        None => {
+            let manifold_url = match log_upload_url() {
+                None => return Ok(()),
+                Some(x) => x,
+            };
 
-    tracing::debug!(
-        "Uploading event log to `{}` using certificate `{}`, log file size = {}",
-        url,
-        cert.to_string_lossy(),
-        log_size,
-    );
+            let cert = find_tls_cert()?;
+
+            let url = format!(
+                "{}/v0/write/flat/{}{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",
+                manifold_url, trace_id, path.encoding.extension
+            );
+
+            tracing::debug!(
+                "Uploading event log to `{}` using certificate `{}`",
+                url,
+                cert.to_string_lossy(),
+            );
+
+            let mut upload = buck2_core::process::async_background_command("curl");
+            upload.args([
+                "--silent",
+                "--show-error",
+                "--fail",
+                "-X",
+                "PUT",
+                "--data-binary",
+                "@-", // stdin
+                &url,
+                "-E",
+            ]);
+            upload.arg(cert);
+            upload.stdin(upload_log_file);
+            upload
+        }
+    };
 
     // On Sandcastle we'd like to block for the sake of higher reliability uploads at the expense
     // of a bit of delay.
     let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
-
-    let mut upload = buck2_core::process::async_background_command("curl");
-    upload.args([
-        "--silent",
-        "--show-error",
-        "--fail",
-        "-X",
-        "PUT",
-        "--data-binary",
-        "@-", // stdin
-        &url,
-        "-E",
-    ]);
-    upload.arg(cert);
-    upload.stdin(upload_log_file);
 
     if block_on_upload {
         let res = upload
@@ -123,6 +150,20 @@ pub(crate) async fn log_upload(
     }
 
     Ok(())
+}
+
+fn get_manifold_cli_path() -> Option<OsString> {
+    #[cfg(any(fbcode_build, cargo_internal_build))]
+    {
+        match which::which("manifold") {
+            Ok(path) => Some(path.as_os_str().to_owned()),
+            Err(_) => None,
+        }
+    }
+    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    {
+        None
+    }
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
