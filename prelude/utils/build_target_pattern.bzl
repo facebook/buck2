@@ -72,7 +72,12 @@ def label_matches_build_target_pattern(label: ["label", "target_label"], pattern
     elif pattern.kind == _BuildTargetPatternKind("package"):
         return pattern.path == label.package
     elif pattern.kind == _BuildTargetPatternKind("recursive"):
-        if len(label.package) > len(pattern.path):
+        path_pattern_length = len(pattern.path)
+        if path_pattern_length == 0:
+            # This is a recursive pattern of the cell: cell//...
+            return True
+        elif len(label.package) > path_pattern_length:
+            # pattern cell//package/... matches label cell//package/subpackage:target
             return label.package.startswith(pattern.path + _PATH_SYMBOL)
         else:
             return pattern.path == label.package

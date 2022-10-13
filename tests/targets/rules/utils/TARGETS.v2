@@ -95,6 +95,7 @@ test_label_matches_build_target_pattern(
     patterns = {
         "//buck2/tests/targets/rules/utils:": True,
         "//buck2/tests/targets/rules/utils:build_target_pattern_matching": True,
+        "fbcode//...": True,
         "fbcode//buck2/tests/...": True,
         "fbcode//buck2/tests/targets/bad/...": False,
         "fbcode//buck2/tests/targets/rules/utils/...": True,
@@ -102,6 +103,7 @@ test_label_matches_build_target_pattern(
         "fbcode//buck2/tests/targets/rules/utils:build_target_pattern_matching": True,
         "fbcode//buck2/tests/targets/rules/utils:test_build_target_pattern_parsing": False,
         "fbcode//buck2/tests:": False,
+        "fbsource//...": False,
         "fbsource//buck2/tests/targets/rules/utils/...": False,
         "fbsource//buck2/tests/targets/rules/utils:": False,
         "fbsource//buck2/tests/targets/rules/utils:build_target_pattern_matching": False,
