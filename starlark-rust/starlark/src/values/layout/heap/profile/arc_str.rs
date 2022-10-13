@@ -15,11 +15,33 @@
  * limitations under the License.
  */
 
-//! Summary of heap allocations and function times with stacks.
+use std::borrow::Borrow;
+use std::ops::Deref;
+use std::sync::Arc;
 
-pub(crate) mod aggregated;
-pub(crate) mod alloc_counts;
-pub(crate) mod arc_str;
-pub(crate) mod by_type;
-pub(crate) mod string_index;
-mod summary;
+use gazebo::dupe::Dupe;
+
+/// Wrapper for `Arc<str>`.
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, derive_more::Display)]
+#[display(fmt = "{}", _0)]
+pub(crate) struct ArcStr(Arc<str>);
+
+impl Deref for ArcStr {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for ArcStr {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'a> From<&'a str> for ArcStr {
+    fn from(s: &'a str) -> Self {
+        ArcStr(s.into())
+    }
+}

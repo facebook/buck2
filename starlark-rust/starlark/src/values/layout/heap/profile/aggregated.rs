@@ -318,8 +318,6 @@ impl UnusedCapacity {
 pub struct AggregateHeapProfileInfo {
     pub(crate) strings: StringIndex,
     pub(crate) root: StackFrame,
-    /// String `"TOTALS"`. It is needed in heap summary output.
-    pub(crate) totals_id: StringId,
     /// String `"(root)"`. It is needed in heap summary output.
     pub(crate) root_id: StringId,
     /// String `""`. It is needed in heap summary output.
@@ -338,13 +336,11 @@ impl Debug for AggregateHeapProfileInfo {
 impl Default for AggregateHeapProfileInfo {
     fn default() -> AggregateHeapProfileInfo {
         let mut strings = StringIndex::default();
-        let totals_id = strings.index(AggregateHeapProfileInfo::TOTALS_STR);
         let root_id = strings.index(AggregateHeapProfileInfo::ROOT_STR);
         let blank_id = strings.index(AggregateHeapProfileInfo::BLANK_STR);
         AggregateHeapProfileInfo {
             root: StackFrame::default(),
             strings,
-            totals_id,
             root_id,
             blank_id,
             unused_capacity: UnusedCapacity::default(),
@@ -353,7 +349,6 @@ impl Default for AggregateHeapProfileInfo {
 }
 
 impl AggregateHeapProfileInfo {
-    const TOTALS_STR: &'static str = "TOTALS";
     const ROOT_STR: &'static str = "(root)";
     const BLANK_STR: &'static str = "";
 
@@ -363,13 +358,11 @@ impl AggregateHeapProfileInfo {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
-        let totals_id = collector.ids.strings.index(Self::TOTALS_STR);
         let root_id = collector.ids.strings.index(Self::ROOT_STR);
         let blank_id = collector.ids.strings.index(Self::BLANK_STR);
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
-            totals_id,
             root_id,
             blank_id,
             unused_capacity: UnusedCapacity::default(),
@@ -390,7 +383,6 @@ impl AggregateHeapProfileInfo {
         let profiles: Vec<_> = Vec::from_iter(profiles);
 
         let mut strings = StringIndex::default();
-        let totals_id = strings.index(Self::TOTALS_STR);
         let root_id = strings.index(Self::ROOT_STR);
         let blank_id = strings.index(Self::BLANK_STR);
         let unused_capacity =
@@ -400,7 +392,6 @@ impl AggregateHeapProfileInfo {
         AggregateHeapProfileInfo {
             strings,
             root,
-            totals_id,
             root_id,
             blank_id,
             unused_capacity,
@@ -507,7 +498,7 @@ mod tests {
         let summary = HeapSummaryByFunction::init(&merge);
         assert_eq!(1, summary.info().len());
         let (xx_id, xx_info) = summary.info()[0];
-        assert_eq!("xx", merge.strings.get(xx_id));
+        assert_eq!("xx", &**xx_id);
         assert_eq!(3, xx_info.alloc.get("string").unwrap().count);
     }
 }

@@ -21,11 +21,13 @@ use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::gazebo::dupe::Dupe;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::StackFrame;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::heap::profile::string_index::StringId;
-use crate::values::layout::heap::profile::string_index::StringIndexMap;
+use crate::values::layout::heap::profile::string_index::StringIndex;
 
 /// Information relating to a function.
 #[derive(Default, Debug, Clone)]
@@ -65,23 +67,28 @@ impl FuncInfo {
 /// However, we are always updating the top of the call stack,
 /// so pull out top_stack/top_info as a cache.
 pub(crate) struct HeapSummaryByFunction {
-    /// Information about all functions. Map from `StringId`.
-    info: StringIndexMap<FuncInfo>,
+    /// Information about all functions.
+    info: SmallMap<ArcStr, FuncInfo>,
 }
 
 impl HeapSummaryByFunction {
     pub(crate) fn init(stacks: &AggregateHeapProfileInfo) -> HeapSummaryByFunction {
         let mut info = HeapSummaryByFunction {
-            info: StringIndexMap::default(),
+            info: SmallMap::new(),
         };
-        info.init_children(&stacks.root, stacks.root_id);
+        info.init_children(&stacks.root, stacks.root_id, &stacks.strings);
         info
     }
 
-    fn init_children(&mut self, frame: &StackFrame, name: StringId) -> SmallDuration {
+    fn init_children(
+        &mut self,
+        frame: &StackFrame,
+        name: StringId,
+        strings: &StringIndex,
+    ) -> SmallDuration {
         let mut time_rec = SmallDuration::default();
         for (func, child) in &frame.callees {
-            time_rec += self.init_child(*func, child, name);
+            time_rec += self.init_child(*func, child, name, strings);
         }
         time_rec
     }
@@ -91,16 +98,30 @@ impl HeapSummaryByFunction {
         func: StringId,
         frame: &StackFrame,
         caller: StringId,
+        strings: &StringIndex,
     ) -> SmallDuration {
-        self.info.or_insert(func).time += frame.time_x2;
-        self.info.or_insert(func).calls += frame.calls_x2 as usize;
-        *self.info.or_insert(func).callers.entry(caller).or_insert(0) += 1;
+        let func_str = ArcStr::from(strings.get(func));
+        self.info.entry(func_str.dupe()).or_default().time += frame.time_x2;
+        self.info.entry(func_str.dupe()).or_default().calls += frame.calls_x2 as usize;
+        *self
+            .info
+            .entry(func_str.dupe())
+            .or_default()
+            .callers
+            .entry(caller)
+            .or_insert(0) += 1;
         for (t, allocs) in &frame.allocs.summary {
-            *self.info.or_insert(func).alloc.entry(t).or_default() += *allocs;
+            *self
+                .info
+                .entry(func_str.dupe())
+                .or_default()
+                .alloc
+                .entry(t)
+                .or_default() += *allocs;
         }
 
-        let time_rec = frame.time_x2 + self.init_children(frame, func);
-        self.info.or_insert(func).time_rec += time_rec;
+        let time_rec = frame.time_x2 + self.init_children(frame, func, strings);
+        self.info.entry(func_str).or_default().time_rec += time_rec;
         time_rec
     }
 
@@ -108,7 +129,7 @@ impl HeapSummaryByFunction {
         FuncInfo::merge(self.info.values())
     }
 
-    pub(crate) fn info(&self) -> Vec<(StringId, &FuncInfo)> {
+    pub(crate) fn info(&self) -> Vec<(&ArcStr, &FuncInfo)> {
         self.info.iter().collect::<Vec<_>>()
     }
 
@@ -124,7 +145,8 @@ impl HeapSummaryByFunction {
         let mut info = self.info();
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
 
-        let info = iter::once((stacks.totals_id, &totals)).chain(info);
+        let totals_str = ArcStr::from("TOTALS");
+        let info = iter::once((&totals_str, &totals)).chain(info);
 
         let mut csv = CsvWriter::new(
             [
@@ -154,7 +176,7 @@ impl HeapSummaryByFunction {
             );
             // We divide calls and time by two
             // because we could calls twice: for drop and non-drop bumps.
-            csv.write_value(strings.get(rowname));
+            csv.write_value(&**rowname);
             csv.write_value(info.time / 2);
             csv.write_value(info.time_rec / 2);
             csv.write_value(info.calls / 2);
