@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::iter;
-
 use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
@@ -79,12 +77,15 @@ impl FuncInfo {
 pub(crate) struct HeapSummaryByFunction {
     /// Information about all functions.
     info: SmallMap<ArcStr, FuncInfo>,
+    /// Allocated but unused memory.
+    unused_capacity: usize,
 }
 
 impl HeapSummaryByFunction {
     pub(crate) fn init(stacks: &AggregateHeapProfileInfo) -> HeapSummaryByFunction {
         let mut info = HeapSummaryByFunction {
             info: SmallMap::new(),
+            unused_capacity: stacks.unused_capacity.get(),
         };
         info.init_children(&stacks.root, &ArcStr::new_static("(root)"), &stacks.strings);
         info
@@ -154,8 +155,32 @@ impl HeapSummaryByFunction {
         let mut info = self.info();
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
 
+        let unused_capacity = FuncInfo {
+            calls: 0,
+            callers: SmallMap::new(),
+            time: SmallDuration::default(),
+            time_rec: SmallDuration::default(),
+            alloc: SmallMap::new(),
+        };
+
+        enum RowKind {
+            Total,
+            UnusedCapacity,
+            Func,
+        }
+
         let totals_str = ArcStr::new_static("TOTALS");
-        let info = iter::once((&totals_str, &totals)).chain(info);
+        let unused_capacity_str = ArcStr::new_static("UNUSED CAPACITY");
+        let info = [
+            (&totals_str, &totals, RowKind::Total),
+            (
+                &unused_capacity_str,
+                &unused_capacity,
+                RowKind::UnusedCapacity,
+            ),
+        ]
+        .into_iter()
+        .chain(info.into_iter().map(|(k, v)| (k, v, RowKind::Func)));
 
         let mut csv = CsvWriter::new(
             [
@@ -173,7 +198,7 @@ impl HeapSummaryByFunction {
             .copied()
             .chain(columns.iter().map(|c| c.0)),
         );
-        for (rowname, info) in info {
+        for (rowname, info, row_kind) in info {
             let blank = ArcStr::new_static("");
             let callers = info
                 .callers
@@ -193,8 +218,16 @@ impl HeapSummaryByFunction {
             csv.write_value(info.callers.len());
             csv.write_value(callers.0.as_str());
             csv.write_value(callers.1);
-            csv.write_value(info.alloc_count());
-            csv.write_value(info.alloc_bytes());
+            match row_kind {
+                RowKind::UnusedCapacity => {
+                    csv.write_value(1);
+                    csv.write_value(self.unused_capacity);
+                }
+                _ => {
+                    csv.write_value(info.alloc_count());
+                    csv.write_value(info.alloc_bytes());
+                }
+            }
             for c in &columns {
                 csv.write_value(info.alloc.get(c.0).unwrap_or(&AllocCounts::default()).count);
             }
@@ -241,6 +274,11 @@ _ignore = str([1])     # allocate a string in non_drop
         let stacks = AggregateHeapProfileInfo::collect(eval.heap(), None);
 
         let info = HeapSummaryByFunction::init(&stacks);
+
+        // Run the assertions.
+        info.gen_csv();
+
+        assert!(info.unused_capacity > 0);
 
         let total = FuncInfo::merge(info.info.values());
         // from non-drop heap

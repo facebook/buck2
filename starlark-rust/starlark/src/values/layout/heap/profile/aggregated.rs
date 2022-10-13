@@ -348,10 +348,16 @@ impl AggregateHeapProfileInfo {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
+        let unused_capacity = if retained.is_some() {
+            // Filled later.
+            UnusedCapacity::default()
+        } else {
+            UnusedCapacity::new(heap.unused_capacity())
+        };
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
-            unused_capacity: UnusedCapacity::default(),
+            unused_capacity,
         }
     }
 

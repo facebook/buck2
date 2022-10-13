@@ -769,6 +769,11 @@ impl Heap {
             maybe_drop: NoDrop,
         });
     }
+
+    /// Memory allocated in the arena, but not used for allocation of starlark values.
+    pub(crate) fn unused_capacity(&self) -> usize {
+        self.arena.borrow().unused_capacity()
+    }
 }
 
 /// Used to perform garbage collection by [`Trace::trace`](crate::values::Trace::trace).
