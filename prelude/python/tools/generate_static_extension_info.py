@@ -13,11 +13,9 @@ def main(argv):
 
     externs = []
     table = [
-        "struct extension_info _static_extension_info[] = {",
+        "struct _inittab _static_extension_info[] = {",
     ]
     for python_name in args.extension:
-        if python_name == "_static_extension_utils":
-            continue
         # If this is a top level module we do not suffix the PyInit_ symbol
         index = python_name.rfind(".")
         if index > 0:
@@ -34,11 +32,7 @@ def main(argv):
     out_lines = (
         [
             '#include "Python.h"',
-            "typedef PyObject* (*pyinitfunc)();",
-            "struct extension_info {",
-            "  const char *modname;",
-            "  pyinitfunc initfunc;",
-            "};",
+            '#include "import.h"',
         ]
         + externs
         + table
