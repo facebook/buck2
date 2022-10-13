@@ -57,7 +57,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 
 #[derive(Debug, Display, ProvidesStaticType, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
-#[display(fmt = "{:?}", self)]
+#[display(fmt = "configured_target_node(name = {}, ...)", "self.0.name()")]
 #[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
 
