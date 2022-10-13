@@ -63,6 +63,11 @@ impl FuncInfo {
     fn alloc_count(&self) -> usize {
         self.alloc.values().map(|x| x.count).sum()
     }
+
+    /// Total number of bytes allocated by this function.
+    fn alloc_bytes(&self) -> usize {
+        self.alloc.values().map(|x| x.bytes).sum()
+    }
 }
 
 /// We morally have two pieces of information:
@@ -162,6 +167,7 @@ impl HeapSummaryByFunction {
                 "TopCaller",
                 "TopCallerCount",
                 "Allocs",
+                "AllocBytes",
             ]
             .iter()
             .copied()
@@ -188,6 +194,7 @@ impl HeapSummaryByFunction {
             csv.write_value(callers.0.as_str());
             csv.write_value(callers.1);
             csv.write_value(info.alloc_count());
+            csv.write_value(info.alloc_bytes());
             for c in &columns {
                 csv.write_value(info.alloc.get(c.0).unwrap_or(&AllocCounts::default()).count);
             }
