@@ -29,6 +29,11 @@ with zipfile.ZipFile(sys.argv[1], "r") as jar_file:
         if file_name.replace(os.sep, ".").replace(".class", "") in expected_classes:
             found_count = found_count + 1
 
+    if sorted(files) != files:
+        raise Exception(
+            "Files should be in a sorted order, but was: {}".format("\n".join(files))
+        )
+
     if not class_files_found:
         raise Exception(
             "Not found any *.class files inside {}".format(jar_file.filename)
