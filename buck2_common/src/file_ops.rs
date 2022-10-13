@@ -214,7 +214,9 @@ impl FileDigest {
         None
     }
 
-    fn from_file_disk(file: &Path) -> anyhow::Result<Self> {
+    /// Get the digest from disk. You should usually prefer `from_file`
+    /// which also uses faster methods of getting the SHA1 if it can.
+    pub fn from_file_disk(file: &Path) -> anyhow::Result<Self> {
         let mut f = File::open(file)?;
         let mut h = Sha1::new();
         let mut size = 0;
