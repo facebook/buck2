@@ -14,6 +14,9 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
+use buck2_core::pattern::PatternType;
+use buck2_core::pattern::ProvidersPattern;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetName;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
@@ -77,30 +80,52 @@ impl CqueryUniverse {
     ) -> TargetSet<ConfiguredTargetNode> {
         let mut targets = TargetSet::new();
         for (package, spec) in &resolved_pattern.specs {
-            targets.extend(self.get_from_package(package, spec));
+            targets.extend(self.get_from_package(package, spec).map(|(node, ())| node));
         }
         targets
     }
 
-    fn get_from_package<'a>(
+    pub fn get_provider_labels(
+        &self,
+        resolved_pattern: &ResolvedPattern<ProvidersPattern>,
+    ) -> Vec<ConfiguredProvidersLabel> {
+        let mut targets = Vec::new();
+        for (package, spec) in &resolved_pattern.specs {
+            targets.extend(
+                self.get_from_package(package, spec)
+                    .map(|(node, providers)| {
+                        ConfiguredProvidersLabel::new(node.name().dupe(), providers)
+                    }),
+            );
+        }
+        targets
+    }
+
+    fn get_from_package<'a, P: PatternType>(
         &'a self,
         package: &Package,
-        spec: &'a PackageSpec<TargetName>,
-    ) -> impl Iterator<Item = &'a ConfiguredTargetNode> + 'a {
+        spec: &'a PackageSpec<P>,
+    ) -> impl Iterator<Item = (&'a ConfiguredTargetNode, P::ExtraParts)> + 'a {
         self.targets
             .get(package)
             .into_iter()
             .flat_map(move |package_universe| match spec {
-                PackageSpec::Targets(names) => Either::Left(
-                    names
-                        .iter()
-                        .filter_map(|name| package_universe.get(name))
+                PackageSpec::Targets(names) => Either::Left(names.iter().flat_map(|name| {
+                    package_universe
+                        .get(name.target())
+                        .into_iter()
+                        .flat_map(|nodes| {
+                            nodes
+                                .iter()
+                                .map(|node| (&node.0, name.extra_parts().clone()))
+                        })
+                })),
+                PackageSpec::All => Either::Right(
+                    package_universe
+                        .values()
                         .flatten()
-                        .map(|node| &node.0),
+                        .map(|node| (&node.0, P::ExtraParts::default())),
                 ),
-                PackageSpec::All => {
-                    Either::Right(package_universe.values().flatten().map(|node| &node.0))
-                }
             })
     }
 
