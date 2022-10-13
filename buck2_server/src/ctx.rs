@@ -61,6 +61,7 @@ use buck2_execute::re::client::RemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::manager::ReConnectionObserver;
+use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
@@ -439,6 +440,13 @@ impl DiceDataProvider for DiceCommandDataProvider {
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
 
+        // We use the job count for the low pass filter too. The low pass filter prevents sending
+        // RE-eligile tasks to local if their concurrency is higher than our threshold. While it
+        // doesn't *have* to be the same as the concurrency we give the actual executor, it's a
+        // reasonable pick, because if we send more tasks than our concurrency limit allows, we
+        // would expect to start losing out to RE in terms of perf.
+        let low_pass_filter = LowPassFilter::new(concurrency);
+
         let mut data = DiceData::new();
         data.set(self.events.dupe());
 
@@ -463,6 +471,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_command_executor(box CommandExecutorFactory::new(
             self.re_connection,
             host_sharing_broker,
+            low_pass_filter,
             self.materializer.dupe(),
             self.blocking_executor.dupe(),
             self.execution_strategy,

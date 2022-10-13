@@ -17,9 +17,6 @@ use buck2_common::liveliness_manager::CancelledLivelinessGuard;
 use buck2_common::liveliness_manager::LivelinessGuard;
 use buck2_common::liveliness_manager::LivelinessManager;
 use buck2_common::liveliness_manager::LivelinessManagerExt;
-use buck2_common::result::SharedResult;
-use buck2_common::result::ToSharedResultExt;
-use buck2_core::env_helper::EnvHelper;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
@@ -37,25 +34,11 @@ use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
-use once_cell::sync::Lazy;
 use remote_execution as RE;
 
 use crate::executors::local::LocalExecutor;
 use crate::executors::re::ReExecutor;
 use crate::low_pass_filter::LowPassFilter;
-
-// This is still POC-grade, this should be configurable in config.
-static LOW_PASS_FILTER: Lazy<SharedResult<LowPassFilter>> = Lazy::new(|| {
-    static LOW_PASS_FILTER_CONCURRENCY: EnvHelper<usize> =
-        EnvHelper::new("BUCK2_LOW_PASS_FILTER_CONCURRENCY");
-    Ok(LowPassFilter::new(
-        LOW_PASS_FILTER_CONCURRENCY
-            .get()
-            .shared_error()?
-            .copied()
-            .unwrap_or(32),
-    ))
-});
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
 /// executor, unless the CommandExecutionRequest expresses a preference. That will allow them to
@@ -68,6 +51,7 @@ pub struct HybridExecutor {
     pub remote: ReExecutor,
     pub level: HybridExecutionLevel,
     pub executor_preference: ExecutorPreference,
+    pub low_pass_filter: Arc<LowPassFilter>,
 }
 
 impl HybridExecutor {
@@ -102,11 +86,6 @@ impl PreparedCommandExecutor for HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
-        let low_pass_filer_instance = match &*LOW_PASS_FILTER {
-            Ok(i) => i,
-            Err(e) => return manager.error("low_pass_filter".to_owned(), e.dupe().into()),
-        };
-
         // inspect that and construct our own result. Especially in the case of secondary fallback,
         // the current approach effectively loses the data from the primary result (for example, we
         // should have stage events the reflect the full duration not just the fallback part).
@@ -214,7 +193,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                         // Block local until either conditon is met:
                         // - we only have a few actions (that's low_pass_filter)
                         // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                        let access = low_pass_filer_instance.access();
+                        let access = self.low_pass_filter.access();
                         let alive = remote_execution_liveliness_manager.while_alive();
                         futures::pin_mut!(access);
                         futures::pin_mut!(alive);

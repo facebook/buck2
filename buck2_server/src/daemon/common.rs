@@ -32,6 +32,7 @@ use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutionPlatform;
 use buck2_execute_impl::executors::re::ReExecutor;
+use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
@@ -53,9 +54,12 @@ pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
 /// state used by all command executor strategies.
 pub struct CommandExecutorFactory {
     pub re_connection: ReConnectionHandle,
-    // TODO(cjhopman): This should probably be a global limit, otherwise simultaneous commands
-    // may use more resources than intended.
+    // TODO(cjhopman): This should probably be a global limit, otherwise simultaneous commands may
+    // use more resources than intended (this might no longer be accurate since only instances
+    // sharing the same DICE context should be allowed to proceed concurrently, and we only have
+    // one CommandExecutorFactory per DICE context).
     pub host_sharing_broker: Arc<HostSharingBroker>,
+    pub low_pass_filter: Arc<LowPassFilter>,
     pub materializer: Arc<dyn Materializer>,
     pub blocking_executor: Arc<dyn BlockingExecutor>,
     pub strategy: ExecutionStrategy,
@@ -69,6 +73,7 @@ impl CommandExecutorFactory {
     pub fn new(
         re_connection: ReConnectionHandle,
         host_sharing_broker: HostSharingBroker,
+        low_pass_filter: LowPassFilter,
         materializer: Arc<dyn Materializer>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         strategy: ExecutionStrategy,
@@ -80,6 +85,7 @@ impl CommandExecutorFactory {
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
+            low_pass_filter: Arc::new(low_pass_filter),
             materializer,
             blocking_executor,
             strategy,
@@ -167,6 +173,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 remote: remote_executor_new(remote),
                 level: *level,
                 executor_preference: self.strategy.hybrid_preference(),
+                low_pass_filter: self.low_pass_filter.dupe(),
             }),
             config => {
                 return Err(anyhow::anyhow!(
