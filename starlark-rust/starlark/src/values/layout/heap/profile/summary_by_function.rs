@@ -202,8 +202,8 @@ mod tests {
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
-    use crate::values::layout::heap::profile::summary::FuncInfo;
-    use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
+    use crate::values::layout::heap::profile::summary_by_function::FuncInfo;
+    use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
 
     // Test data is collected from both drop and non-drop heaps.
     #[test]

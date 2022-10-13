@@ -22,4 +22,4 @@ pub(crate) mod alloc_counts;
 pub(crate) mod arc_str;
 pub(crate) mod by_type;
 pub(crate) mod string_index;
-mod summary;
+mod summary_by_function;

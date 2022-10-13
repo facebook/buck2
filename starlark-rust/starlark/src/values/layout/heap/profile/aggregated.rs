@@ -40,7 +40,7 @@ use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::string_index::StringId;
 use crate::values::layout::heap::profile::string_index::StringIndex;
-use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
+use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
@@ -404,7 +404,7 @@ mod tests {
     use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
     use crate::values::layout::heap::profile::aggregated::StackFrame;
-    use crate::values::layout::heap::profile::summary::HeapSummaryByFunction;
+    use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
     use crate::values::Freezer;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
