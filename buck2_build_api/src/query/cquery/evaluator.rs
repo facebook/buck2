@@ -48,13 +48,8 @@ impl CqueryEvaluator<'_> {
         eval_query(&self.functions, query, query_args, async move |literals| {
             let (universe, resolved_literals) = match target_universe {
                 None => {
-                    let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
-                        &*self.dice_query_delegate,
-                        &literals,
-                    )
-                    .await;
-                    let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
-                    (universe, resolved_literals)
+                    preresolve_literals_and_build_universe(&self.dice_query_delegate, &literals)
+                        .await?
                 }
                 Some(universe) => {
                     resolve_literals_in_universe(&self.dice_query_delegate, &literals, universe)
@@ -70,6 +65,19 @@ impl CqueryEvaluator<'_> {
         })
         .await
     }
+}
+
+async fn preresolve_literals_and_build_universe(
+    dice_query_delegate: &DiceQueryDelegate<'_>,
+    literals: &[String],
+) -> anyhow::Result<(
+    CqueryUniverse,
+    PreresolvedQueryLiterals<ConfiguredTargetNode>,
+)> {
+    let resolved_literals =
+        PreresolvedQueryLiterals::pre_resolve(dice_query_delegate, literals).await;
+    let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
+    Ok((universe, resolved_literals))
 }
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
