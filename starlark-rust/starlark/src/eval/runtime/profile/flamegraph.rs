@@ -19,12 +19,13 @@
 
 use std::fmt::Write;
 
+use gazebo::dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 
 /// Node in flamegraph tree.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct FlameGraphNode {
     children: SmallMap<ArcStr, FlameGraphNode>,
     value: Option<u64>,
@@ -33,7 +34,7 @@ pub(crate) struct FlameGraphNode {
 /// Profiling data as flame tree.
 ///
 /// Can be written to `flamegraph.pl` format.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct FlameGraphData {
     root: FlameGraphNode,
 }
@@ -58,6 +59,16 @@ impl FlameGraphNode {
         }
     }
 
+    pub(crate) fn merge(&mut self, other: &FlameGraphNode) {
+        if let Some(value) = other.value {
+            self.add(value);
+        }
+
+        for (k, v) in &other.children {
+            self.child(k.dupe()).merge(v);
+        }
+    }
+
     /// Get or create a child node.
     pub(crate) fn child(&mut self, name: ArcStr) -> &mut FlameGraphNode {
         self.children.entry(name).or_default()
@@ -75,6 +86,17 @@ impl FlameGraphData {
 
     pub(crate) fn root(&mut self) -> &mut FlameGraphNode {
         &mut self.root
+    }
+
+    #[allow(dead_code)] // TODO(nga): used in the following diff.
+    pub(crate) fn merge<'a>(
+        graphs: impl IntoIterator<Item = &'a FlameGraphData>,
+    ) -> FlameGraphData {
+        let mut result = FlameGraphData::default();
+        for graph in graphs {
+            result.root.merge(&graph.root);
+        }
+        result
     }
 }
 
@@ -121,5 +143,29 @@ mod tests {
         data.root().child("a".into()).add(30);
         let data = data.write();
         assert_eq!("a 40\na;b 20\n", data);
+    }
+
+    #[test]
+    fn test_merge() {
+        let mut a = FlameGraphData::default();
+        a.root().add(10);
+        a.root().child("a".into()).add(100);
+        a.root().child("b".into()).child("c".into()).add(1000);
+        let mut b = FlameGraphData::default();
+        b.root().add(20);
+        b.root().child("a".into()).add(200);
+
+        let c = FlameGraphData::merge([&a, &b]);
+
+        let mut expected = FlameGraphData::default();
+        expected.root().add(30);
+        expected.root().child("a".into()).add(300);
+        expected
+            .root()
+            .child("b".into())
+            .child("c".into())
+            .add(1000);
+
+        assert_eq!(expected, c);
     }
 }
