@@ -23,6 +23,14 @@ def _select_js_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/js:js"
 
+def _is_build_only_native_code():
+    return select(
+        {
+            "DEFAULT": False,
+            "fbsource//xplat/buck2/platform/android:build_only_native_code": True,
+        },
+    )
+
 implemented_rules = {
     "js_bundle": js_bundle_impl,
     "js_bundle_genrule": js_bundle_genrule_impl,
@@ -57,6 +65,7 @@ extra_attributes = {
         ),
     },
     "js_library": {
+        "_build_only_native_code": attrs.bool(default = _is_build_only_native_code()),
         "_is_release": attrs.bool(
             default = _is_release(),
         ),

@@ -155,6 +155,23 @@ def _build_js_library(
     return output_path
 
 def js_library_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        sub_targets = {}
+        unused_output = ctx.actions.write("unused.js", [])
+
+        for transform_profile in TRANSFORM_PROFILES:
+            sub_targets[transform_profile] = [
+                DefaultInfo(default_outputs = [unused_output]),
+                JsLibraryInfo(
+                    output = unused_output,
+                    transitive_outputs = None,
+                ),
+            ]
+
+        return [
+            DefaultInfo(default_outputs = [], sub_targets = sub_targets),
+        ]
+
     grouped_srcs = _get_grouped_srcs(ctx)
     flavors = get_flavors(ctx)
     sub_targets = {}
