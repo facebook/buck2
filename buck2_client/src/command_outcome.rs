@@ -18,6 +18,7 @@ use crate::exit_result::ExitResult;
 /// Either "successful", in which case `R`, the response type, is available, or "failure",
 /// where a general `CommandError` was returned. Consider this a "failed successfully" indicator.
 /// At the point where this is returned, all event processing / logging should be handled.
+#[derive(Debug)]
 #[must_use]
 pub enum CommandOutcome<R> {
     /// The buckd client successfully returned the expected response.
