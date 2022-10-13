@@ -575,19 +575,11 @@ def cxx_dist_link(
     for artifact in index_link_data:
         link_data = artifact.link_data
         if artifact.data_type == DataType("bitcode"):
-            # TODO(cjhopman): This copy works around a buck bug where we don't
-            # get early cutoff if a non-consumed output of an action dependency
-            # changes.
-            copied_bc_file = ctx.actions.declare_output(link_data.bc_file.short_path + ".copied")
-            copied_plan = ctx.actions.declare_output(link_data.plan.short_path + ".copied")
-            ctx.actions.copy_file(copied_bc_file, link_data.bc_file)
-            ctx.actions.copy_file(copied_plan, link_data.plan)
-
             dynamic_optimize(
                 name = link_data.name,
                 initial_object = link_data.initial_object,
-                bc_file = copied_bc_file,
-                plan = copied_plan,
+                bc_file = link_data.bc_file,
+                plan = link_data.plan,
                 opt_object = link_data.opt_object,
             )
         elif artifact.data_type == DataType("archive"):
