@@ -52,12 +52,7 @@ impl LowPassFilter {
     /// not depending on whether it was polled.
     #[allow(clippy::await_holding_lock)] // wait() actually releases the lock.
     #[allow(clippy::manual_async_fn)] // so you don't need to poll before access() takes effect
-    pub fn access(
-        &self,
-        weight: impl Into<Option<usize>>,
-    ) -> impl Future<Output = LowPassFilterGuard<'_>> {
-        let weight = weight.into().unwrap_or(1);
-
+    pub fn access(&self, weight: usize) -> impl Future<Output = LowPassFilterGuard<'_>> {
         let go = {
             let mut state = self.state.lock();
             state.accessors += weight;
@@ -117,7 +112,7 @@ mod tests {
     #[tokio::test]
     async fn test_access() {
         let filter = LowPassFilter::new(1);
-        filter.access(None).await;
+        filter.access(1).await;
     }
 
     #[tokio::test]
@@ -136,9 +131,9 @@ mod tests {
     #[tokio::test]
     async fn test_access_does_not_require_poll() {
         let filter = LowPassFilter::new(1);
-        let t1 = filter.access(None).await;
+        let t1 = filter.access(1).await;
 
-        let t2 = filter.access(None);
+        let t2 = filter.access(1);
         futures::pin_mut!(t2);
         assert!(futures::poll!(t2.as_mut()).is_pending());
 
@@ -149,15 +144,15 @@ mod tests {
     #[tokio::test]
     async fn test_access_many() {
         let filter = LowPassFilter::new(2);
-        let _t1 = filter.access(None).await;
-        let _t2 = filter.access(None).await;
+        let _t1 = filter.access(1).await;
+        let _t2 = filter.access(1).await;
     }
 
     #[tokio::test]
     async fn test_release() {
         let filter = LowPassFilter::new(1);
-        let t0 = filter.access(None).await;
-        let t1 = filter.access(None);
+        let t0 = filter.access(1).await;
+        let t1 = filter.access(1);
         futures::pin_mut!(t1);
 
         assert!(futures::poll!(t1.as_mut()).is_pending());
@@ -169,12 +164,12 @@ mod tests {
     #[tokio::test]
     async fn test_release_cancel() {
         let filter = LowPassFilter::new(1);
-        let t0 = filter.access(None).await;
+        let t0 = filter.access(1).await;
 
         // NOTE: We don't use pin_mut like above since we want to exercise cancellation here so we
         // need to be able to drop those futures.
-        let mut t1 = filter.access(None).boxed();
-        let mut t2 = filter.access(None).boxed();
+        let mut t1 = filter.access(1).boxed();
+        let mut t2 = filter.access(1).boxed();
 
         // We have 3 accessors, so we block.
         assert!(futures::poll!(t1.as_mut()).is_pending());
