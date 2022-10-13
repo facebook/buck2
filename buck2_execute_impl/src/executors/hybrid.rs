@@ -34,6 +34,8 @@ use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use host_sharing::HostSharingRequirements;
+use host_sharing::WeightClass;
 use remote_execution as RE;
 
 use crate::executors::local::LocalExecutor;
@@ -160,6 +162,12 @@ impl PreparedCommandExecutor for HybridExecutor {
             return jobs.into_primary().await;
         }
 
+        let weight = match command.request.host_sharing_requirements() {
+            HostSharingRequirements::ExclusiveAccess => self.low_pass_filter.capacity(),
+            HostSharingRequirements::OnePerToken(.., WeightClass::Permits(permits)) => *permits,
+            HostSharingRequirements::Shared(WeightClass::Permits(permits)) => *permits,
+        };
+
         let is_retryable_status = move |r: &CommandExecutionResult| {
             match &r.report.status {
                 // This does need be retried since if we get a cancelled claim that would typically
@@ -193,7 +201,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                         // Block local until either conditon is met:
                         // - we only have a few actions (that's low_pass_filter)
                         // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                        let access = self.low_pass_filter.access(None);
+                        let access = self.low_pass_filter.access(weight);
                         let alive = remote_execution_liveliness_manager.while_alive();
                         futures::pin_mut!(access);
                         futures::pin_mut!(alive);
