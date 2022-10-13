@@ -25,6 +25,7 @@ use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_client::version::BuckVersion;
+use buck2_common::connection_endpoint::ConnectionType;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
@@ -199,22 +200,12 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
 
 pub(crate) fn init_listener(
     daemon_dir: &DaemonDir,
-) -> anyhow::Result<(TcpOrUnixListener, DaemonProcessInfo)> {
+) -> anyhow::Result<(TcpOrUnixListener, ConnectionType)> {
     let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf())?;
 
     buck2_client::eprintln!("Listener created on {}", &endpoint)?;
-    // TODO(nga): we write incorrect process id here:
-    //   this code is executed before daemonization, so we write parent process id.
-    let pid = process::id();
-    let process_info = DaemonProcessInfo {
-        pid: pid as i64,
-        endpoint: endpoint.to_string(),
-        version: BuckVersion::get().unique_id().to_owned(),
-    };
 
-    // TODO(cjhopman): We shouldn't write this until the server is ready to accept clients, but tonic doesn't provide those hooks.
-    write_process_info(daemon_dir, &process_info)?;
-    Ok((listener, process_info))
+    Ok((listener, endpoint))
 }
 
 pub(crate) fn write_process_info(
@@ -281,9 +272,20 @@ impl DaemonCommand {
             // * daemon parent process exits
             // * client successfully connects to the unix socket
             // * but stdout/stderr may be not yet created, so tailer fails to open them
-            let (listener, process_info) = init_listener(&paths.daemon_dir()?)?;
+            let (listener, endpoint) = init_listener(&paths.daemon_dir()?)?;
 
             self.daemonize(paths.project_root().root(), &pid_path, stdout, stderr)?;
+
+            let pid = process::id();
+            let process_info = DaemonProcessInfo {
+                pid: pid as i64,
+                endpoint: endpoint.to_string(),
+                version: BuckVersion::get().unique_id().to_owned(),
+            };
+
+            // TODO(nga): this code is executed after server daemonization,
+            //   so client has to retry to read it. Fix it.
+            write_process_info(&daemon_dir, &process_info)?;
 
             buck2_client::eprintln!("Daemonized.")?;
 
@@ -296,7 +298,17 @@ impl DaemonCommand {
                 self.redirect_output(stdout, stderr)?;
             }
 
-            init_listener(&paths.daemon_dir()?)?
+            let (listener, endpoint) = init_listener(&paths.daemon_dir()?)?;
+
+            let process_info = DaemonProcessInfo {
+                pid: process::id() as i64,
+                endpoint: endpoint.to_string(),
+                version: BuckVersion::get().unique_id().to_owned(),
+            };
+
+            write_process_info(&daemon_dir, &process_info)?;
+
+            (listener, process_info)
         };
 
         listener_created();
