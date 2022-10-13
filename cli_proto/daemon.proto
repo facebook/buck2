@@ -233,6 +233,7 @@ message BuildRequest {
 
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
+  repeated string target_universe = 8;
 
   message BuildProviders {
     enum Action {

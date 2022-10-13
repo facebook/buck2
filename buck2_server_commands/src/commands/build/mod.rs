@@ -132,6 +132,10 @@ async fn build(
     let resolved_pattern: ResolvedPattern<ProvidersPattern> =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
+    if !request.target_universe.is_empty() {
+        return Err(anyhow::anyhow!("--target-universe is not implemented yet"));
+    }
+
     let artifact_fs = ctx.get_artifact_fs().await?;
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
     let response_options = request.response_options.clone().unwrap_or_default();

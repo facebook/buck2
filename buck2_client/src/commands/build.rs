@@ -56,6 +56,14 @@ pub struct BuildCommand {
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
     patterns: Vec<String>,
 
+    #[clap(
+        long,
+        use_delimiter = true,
+        help = "Comma separated list of targets at which to root the queryable universe.
+                This is useful since targets can exist in multiple configurations."
+    )]
+    target_universe: Vec<String>,
+
     #[clap(long = "providers", help = "Print the providers of each target")]
     print_providers: bool,
 
@@ -244,6 +252,7 @@ impl StreamingCommand for BuildCommand {
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
+                    target_universe: self.target_universe,
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
             )

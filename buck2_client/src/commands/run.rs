@@ -111,6 +111,7 @@ impl StreamingCommand for RunCommand {
                     response_options: None,
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: Materializations::Materialize as i32,
+                    target_universe: Vec::new(),
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
             )
