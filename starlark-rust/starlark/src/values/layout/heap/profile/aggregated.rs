@@ -319,8 +319,6 @@ impl UnusedCapacity {
 pub struct AggregateHeapProfileInfo {
     pub(crate) strings: StringIndex,
     pub(crate) root: StackFrame,
-    /// String `"(root)"`. It is needed in heap summary output.
-    pub(crate) root_id: StringId,
     /// Memory allocated in bump, but unused.
     pub(crate) unused_capacity: UnusedCapacity,
 }
@@ -334,31 +332,25 @@ impl Debug for AggregateHeapProfileInfo {
 
 impl Default for AggregateHeapProfileInfo {
     fn default() -> AggregateHeapProfileInfo {
-        let mut strings = StringIndex::default();
-        let root_id = strings.index(AggregateHeapProfileInfo::ROOT_STR);
+        let strings = StringIndex::default();
         AggregateHeapProfileInfo {
             root: StackFrame::default(),
             strings,
-            root_id,
             unused_capacity: UnusedCapacity::default(),
         }
     }
 }
 
 impl AggregateHeapProfileInfo {
-    const ROOT_STR: &'static str = "(root)";
-
     pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> AggregateHeapProfileInfo {
         let mut collector = StackCollector::new(retained);
         unsafe {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
-        let root_id = collector.ids.strings.index(Self::ROOT_STR);
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
-            root_id,
             unused_capacity: UnusedCapacity::default(),
         }
     }
@@ -377,7 +369,6 @@ impl AggregateHeapProfileInfo {
         let profiles: Vec<_> = Vec::from_iter(profiles);
 
         let mut strings = StringIndex::default();
-        let root_id = strings.index(Self::ROOT_STR);
         let unused_capacity =
             UnusedCapacity::new(profiles.iter().map(|p| p.unused_capacity.get()).sum());
         let roots = profiles.into_iter().map(|p| p.root());
@@ -385,7 +376,6 @@ impl AggregateHeapProfileInfo {
         AggregateHeapProfileInfo {
             strings,
             root,
-            root_id,
             unused_capacity,
         }
     }
@@ -399,7 +389,7 @@ impl AggregateHeapProfileInfo {
 
     /// Write per-function summary in CSV format.
     pub fn gen_summary_csv(&self) -> String {
-        HeapSummaryByFunction::init(self).gen_csv(self)
+        HeapSummaryByFunction::init(self).gen_csv()
     }
 }
 

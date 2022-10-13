@@ -35,7 +35,7 @@ pub(crate) struct FuncInfo {
     /// Number of times this function was called
     pub calls: usize,
     /// Who called this function (and how many times each)
-    pub callers: SmallMap<StringId, usize>,
+    pub callers: SmallMap<ArcStr, usize>,
     /// Time spent directly in this function
     pub time: SmallDuration,
     /// Time spent directly in this function and recursive functions.
@@ -76,19 +76,19 @@ impl HeapSummaryByFunction {
         let mut info = HeapSummaryByFunction {
             info: SmallMap::new(),
         };
-        info.init_children(&stacks.root, stacks.root_id, &stacks.strings);
+        info.init_children(&stacks.root, &ArcStr::new_static("(root)"), &stacks.strings);
         info
     }
 
     fn init_children(
         &mut self,
         frame: &StackFrame,
-        name: StringId,
+        name: &ArcStr,
         strings: &StringIndex,
     ) -> SmallDuration {
         let mut time_rec = SmallDuration::default();
         for (func, child) in &frame.callees {
-            time_rec += self.init_child(*func, child, name, strings);
+            time_rec += self.init_child(*func, child, name.dupe(), strings);
         }
         time_rec
     }
@@ -97,7 +97,7 @@ impl HeapSummaryByFunction {
         &mut self,
         func: StringId,
         frame: &StackFrame,
-        caller: StringId,
+        caller: ArcStr,
         strings: &StringIndex,
     ) -> SmallDuration {
         let func_str = strings.get(func);
@@ -120,7 +120,7 @@ impl HeapSummaryByFunction {
                 .or_default() += *allocs;
         }
 
-        let time_rec = frame.time_x2 + self.init_children(frame, func, strings);
+        let time_rec = frame.time_x2 + self.init_children(frame, func_str, strings);
         self.info.entry(func_str.dupe()).or_default().time_rec += time_rec;
         time_rec
     }
@@ -133,10 +133,9 @@ impl HeapSummaryByFunction {
         self.info.iter().collect::<Vec<_>>()
     }
 
-    pub(crate) fn gen_csv(&self, stacks: &AggregateHeapProfileInfo) -> String {
+    pub(crate) fn gen_csv(&self) -> String {
         // Add a totals column
         let totals = self.totals();
-        let strings = &stacks.strings;
         let mut columns: Vec<(&'static str, AllocCounts)> =
             totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
 
@@ -170,7 +169,7 @@ impl HeapSummaryByFunction {
                 .callers
                 .iter()
                 .max_by_key(|x| x.1)
-                .map_or((&blank, &0), |(k, v)| (strings.get(*k), v));
+                .unwrap_or((&blank, &0));
             assert!(
                 info.calls % 2 == 0,
                 "we enter calls twice, for drop and non_drop"
