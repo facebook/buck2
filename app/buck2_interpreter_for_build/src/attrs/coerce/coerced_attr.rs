@@ -72,7 +72,7 @@ impl CoercedAttrExr for CoercedAttr {
             match *selector {
                 SelectorGen::Inner(v) => {
                     if let Some(dict) = Dict::from_value(v) {
-                        let mut items = SmallMap::new();
+                        let mut items = SmallMap::with_capacity(dict.len());
                         let mut default = None;
                         for (k, v) in dict.iter() {
                             let k = k.unpack_str().ok_or_else(|| {
