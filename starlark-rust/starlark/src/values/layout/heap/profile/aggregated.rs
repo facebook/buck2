@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::hash_map;
 use std::collections::HashMap;
@@ -281,7 +280,7 @@ impl<'c> StackFrameWithContext<'c> {
         }
 
         for (id, frame) in self.callees() {
-            let child_node = node.child(Cow::Owned((&**id).into()));
+            let child_node = node.child(id.dupe());
             frame.write_flame_graph(child_node);
         }
     }

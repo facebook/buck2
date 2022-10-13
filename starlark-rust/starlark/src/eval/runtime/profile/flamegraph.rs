@@ -17,15 +17,16 @@
 
 //! Utility to write files in formats understood by `flamegraph.pl`.
 
-use std::borrow::Cow;
 use std::fmt::Write;
 
 use starlark_map::small_map::SmallMap;
 
+use crate::values::layout::heap::profile::arc_str::ArcStr;
+
 /// Node in flamegraph tree.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct FlameGraphNode {
-    children: SmallMap<Cow<'static, str>, FlameGraphNode>,
+    children: SmallMap<ArcStr, FlameGraphNode>,
     value: Option<u64>,
 }
 
@@ -58,7 +59,7 @@ impl FlameGraphNode {
     }
 
     /// Get or create a child node.
-    pub(crate) fn child(&mut self, name: Cow<'static, str>) -> &mut FlameGraphNode {
+    pub(crate) fn child(&mut self, name: ArcStr) -> &mut FlameGraphNode {
         self.children.entry(name).or_default()
     }
 }

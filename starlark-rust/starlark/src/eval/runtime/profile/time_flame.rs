@@ -28,6 +28,7 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -122,7 +123,7 @@ impl<'a> Stacks<'a> {
     }
 
     fn render_with_buffer(&self, node: &mut FlameGraphNode) {
-        let node = node.child(self.name.to_owned().into());
+        let node = node.child(ArcStr::from(self.name));
         let count = self.time.to_duration().as_millis();
         if count > 0 {
             node.add(count as u64);
