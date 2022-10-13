@@ -28,6 +28,9 @@ use cli_proto::UnstableDiceDumpRequest;
 use futures::stream::FuturesOrdered;
 use futures::TryStreamExt;
 use thiserror::Error;
+use tokio::io::AsyncBufRead;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::BufReader;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
@@ -77,7 +80,7 @@ impl StreamingCommand for RageCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let log_dir = ctx.paths()?.log_dir();
         let logs_summary = get_local_logs(&log_dir)?
@@ -95,7 +98,12 @@ impl StreamingCommand for RageCommand {
             crate::eprintln!("No recent buck invocation to report")?;
             return ExitResult::failure();
         }
-        let chosen_log = user_prompt_select_log(&logs_summary).await?;
+
+        let chosen_log = {
+            let mut stdin = BufReader::new(ctx.stdin());
+            user_prompt_select_log(&mut stdin, &logs_summary).await?
+        };
+
         let old_trace_id = &chosen_log.trace_id;
         let new_trace_id = TraceId::new();
 
@@ -264,9 +272,10 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
     Ok(())
 }
 
-async fn user_prompt_select_log(
-    logs_summary: &[EventLogSummary],
-) -> anyhow::Result<&EventLogSummary> {
+async fn user_prompt_select_log<'a>(
+    stdin: impl AsyncBufRead + Unpin,
+    logs_summary: &'a [EventLogSummary],
+) -> anyhow::Result<&'a EventLogSummary> {
     crate::eprintln!("Which buck invocation would you like to report?\n")?;
     for (index, log_summary) in logs_summary.iter().enumerate() {
         print_log_summary(index, log_summary)?;
@@ -276,7 +285,7 @@ async fn user_prompt_select_log(
         "Invocation: (type a number between 0 and {}) ",
         logs_summary.len() - 1
     );
-    let selection = get_user_selection(&prompt, |i| i < logs_summary.len()).await?;
+    let selection = get_user_selection(stdin, &prompt, |i| i < logs_summary.len()).await?;
 
     let chosen_log = logs_summary.get(selection).expect("Selection out of range");
 
@@ -286,22 +295,19 @@ async fn user_prompt_select_log(
     Ok(chosen_log)
 }
 
-async fn get_user_selection<P>(prompt: &str, predicate: P) -> anyhow::Result<usize>
+async fn get_user_selection<P>(
+    mut stdin: impl AsyncBufRead + Unpin,
+    prompt: &str,
+    predicate: P,
+) -> anyhow::Result<usize>
 where
     P: Fn(usize) -> bool,
 {
     crate::eprint!("{}", prompt)?;
-    // For interactive uses, it is recommended to spawn a thread dedicated to user input and
-    // use blocking IO directly in that thread, instead of using tokio::io::Stdin directly
-    // https://docs.rs/tokio/latest/tokio/io/struct.Stdin.html
-    let input = tokio::task::spawn_blocking(|| {
-        let mut input = String::new();
-        match std::io::stdin().read_line(&mut input) {
-            Ok(bytes_read) if bytes_read > 0 => Ok(input),
-            _ => return Err(anyhow::anyhow!("Fail to get a valid selection")),
-        }
-    })
-    .await??;
+
+    let mut input = String::new();
+    stdin.read_line(&mut input).await?;
+
     match input.trim().parse() {
         Ok(selection) if predicate(selection) => Ok(selection),
         _ => return Err(anyhow::anyhow!("Fail to get a valid selection")),

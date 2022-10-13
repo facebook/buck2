@@ -175,3 +175,13 @@ buck2_e2e_test(
     name = "test_whatup",
     srcs = ["test_whatup.py"],
 )
+
+buck2_e2e_test(
+    name = "test_rage",
+    srcs = ["test_rage.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
