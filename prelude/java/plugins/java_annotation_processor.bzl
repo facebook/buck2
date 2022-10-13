@@ -113,6 +113,9 @@ def _get_processor_type(processor_class: str.type) -> JavaProcessorsType.type:
     return JavaProcessorsType("java_annotation_processor")
 
 def java_annotation_processor_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        return [DefaultInfo()]
+
     return [
         JavaProcessorsInfo(
             deps = derive_transitive_deps(ctx, ctx.attrs.deps),

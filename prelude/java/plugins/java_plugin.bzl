@@ -37,6 +37,9 @@ def create_plugin_params(ctx: "context", plugins: ["dependency"]) -> [PluginPara
     )
 
 def java_plugin_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        return [DefaultInfo()]
+
     return [
         JavaProcessorsInfo(
             deps = derive_transitive_deps(ctx, ctx.attrs.deps),

@@ -9,6 +9,7 @@ load(
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
+    "create_native_providers",
     "derive_compiling_deps",
     "to_list",
 )
@@ -224,6 +225,19 @@ def _get_kotlinc_compatible_target(target: str.type) -> str.type:
     return "1.6" if target == "6" else "1.8" if target == "8" else target
 
 def kotlin_library_impl(ctx: "context") -> ["provider"]:
+    packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
+    if ctx.attrs._build_only_native_code:
+        shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
+        return [
+            shared_library_info,
+            cxx_resource_info,
+            # Add an unused default output in case this target is used an an attr.source() anywhere.
+            DefaultInfo(default_outputs = [ctx.actions.write("unused.jar", [])]),
+            TemplatePlaceholderInfo(keyed_variables = {
+                "classpath": "unused_but_needed_for_analysis",
+            }),
+        ]
+
     java_providers = build_kotlin_library(ctx)
     return to_list(java_providers) + [
         # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.

@@ -7,6 +7,7 @@ load(
     "JavaProviders",
     "create_abi",
     "create_java_library_providers",
+    "create_native_providers",
     "derive_compiling_deps",
     "make_compile_outputs",
     "to_list",
@@ -479,6 +480,19 @@ def java_library_impl(ctx: "context") -> ["provider"]:
     Returns:
         list of created providers
     """
+    packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
+    if ctx.attrs._build_only_native_code:
+        shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
+        return [
+            shared_library_info,
+            cxx_resource_info,
+            # Add an unused default output in case this target is used an an attr.source() anywhere.
+            DefaultInfo(default_outputs = [ctx.actions.write("unused.jar", [])]),
+            TemplatePlaceholderInfo(keyed_variables = {
+                "classpath": "unused_but_needed_for_analysis",
+            }),
+        ]
+
     if not _skip_java_library_dep_checks(ctx):
         _check_dep_types(ctx.attrs.deps)
         _check_dep_types(ctx.attrs.provided_deps)

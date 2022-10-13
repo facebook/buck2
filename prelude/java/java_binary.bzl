@@ -118,6 +118,12 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         list of created providers (DefaultInfo and RunInfo)
     """
 
+    if ctx.attrs._build_only_native_code:
+        return [
+            DefaultInfo(default_outputs = [ctx.actions.write("unused.jar", [])]),
+            RunInfo(),
+        ]
+
     packaging_info = get_java_packaging_info(ctx, ctx.attrs.deps, None)
 
     first_order_deps = derive_compiling_deps(ctx.actions, None, ctx.attrs.deps)
