@@ -8,6 +8,8 @@
  */
 
 use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -140,7 +142,7 @@ impl TargetNodeOrForward {
 //  1. we iterate over and configure the attributes multiple times, that could be improved in a bunch of ways
 //  2. we store the same resolvedconfiguration probably in a bunch of nodes, that could be made smaller or shared
 //  3. deps could probably be approximated a diff against the targetnode's deps
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash)]
 struct ConfiguredTargetNodeData {
     name: ConfiguredTargetLabel,
     target_node: TargetNodeOrForward,
@@ -153,6 +155,14 @@ struct ConfiguredTargetNodeData {
     deps: LabelIndexedSet<ConfiguredTargetNode>,
     exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
     platform_cfgs: BTreeMap<TargetLabel, Configuration>,
+}
+
+impl Debug for ConfiguredTargetNodeData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConfiguredTargetNodeData")
+            .field("name", &self.name)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The ConfiguredAttr and other derived information about it.
