@@ -54,3 +54,23 @@ pub fn create_listener(daemon_dir: PathBuf) -> anyhow::Result<(ConnectionType, T
         listener,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+    use buck2_common::connection_endpoint::ConnectionType;
+
+    use crate::daemon::daemon_utils::create_listener;
+
+    #[test]
+    fn test_create_listener() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut dir = temp_dir.path().to_path_buf();
+        // Make path long enough to exceed the limit of Unix domain socket path.
+        while dir.as_os_str().len() < 300 {
+            dir.push("xxxxx");
+        }
+        let (connection_type, _listener) = create_listener(dir).unwrap();
+        assert_matches!(connection_type, ConnectionType::Uds { .. });
+    }
+}
