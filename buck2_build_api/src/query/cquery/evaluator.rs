@@ -80,6 +80,17 @@ async fn preresolve_literals_and_build_universe(
     Ok((universe, resolved_literals))
 }
 
+pub async fn universe_from_literals(
+    dice_query_delegate: &DiceQueryDelegate<'_>,
+    literals: &[String],
+) -> anyhow::Result<CqueryUniverse> {
+    Ok(
+        preresolve_literals_and_build_universe(dice_query_delegate, literals)
+            .await?
+            .0,
+    )
+}
+
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
 pub async fn get_cquery_evaluator<'a, 'c: 'a>(

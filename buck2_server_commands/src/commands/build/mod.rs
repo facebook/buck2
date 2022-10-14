@@ -20,6 +20,9 @@ use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::query::cquery::evaluator::universe_from_literals;
+use buck2_build_api::query::cquery::universe::CqueryUniverse;
+use buck2_build_api::query::dice::get_dice_query_delegate;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -98,6 +101,13 @@ impl ServerCommandTemplate for BuildServerCommand {
     }
 }
 
+enum TargetResolutionConfig {
+    /// Resolve using target platform.
+    Default(Option<TargetLabel>),
+    /// Resolve in the universe.
+    Universe(CqueryUniverse),
+}
+
 async fn build(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     ctx: DiceTransaction,
@@ -132,9 +142,14 @@ async fn build(
     let resolved_pattern: ResolvedPattern<ProvidersPattern> =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-    if !request.target_universe.is_empty() {
-        return Err(anyhow::anyhow!("--target-universe is not implemented yet"));
-    }
+    let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
+        TargetResolutionConfig::Default(global_target_platform)
+    } else {
+        let query_delegate = get_dice_query_delegate(&ctx, cwd, global_target_platform).await?;
+        TargetResolutionConfig::Universe(
+            universe_from_literals(&query_delegate, &request.target_universe).await?,
+        )
+    };
 
     let artifact_fs = ctx.get_artifact_fs().await?;
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
@@ -202,7 +217,7 @@ async fn build(
     for (k, v) in build_targets(
         &ctx,
         resolved_pattern,
-        global_target_platform,
+        target_resolution_config,
         build_providers,
         &materialization_context,
     )
@@ -270,6 +285,69 @@ async fn build(
 }
 
 async fn build_targets(
+    ctx: &DiceComputations,
+    spec: ResolvedPattern<ProvidersPattern>,
+    target_resolution_config: TargetResolutionConfig,
+    build_providers: Arc<BuildProviders>,
+    materialization_context: &MaterializationContext,
+) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
+    match target_resolution_config {
+        TargetResolutionConfig::Default(global_target_platform) => {
+            build_targets_with_global_target_platform(
+                ctx,
+                spec,
+                global_target_platform,
+                build_providers,
+                materialization_context,
+            )
+            .await
+        }
+        TargetResolutionConfig::Universe(universe) => {
+            build_targets_in_universe(
+                ctx,
+                spec,
+                universe,
+                build_providers,
+                materialization_context,
+            )
+            .await
+        }
+    }
+}
+
+async fn build_targets_in_universe(
+    ctx: &DiceComputations,
+    spec: ResolvedPattern<ProvidersPattern>,
+    universe: CqueryUniverse,
+    build_providers: Arc<BuildProviders>,
+    materialization_context: &MaterializationContext,
+) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
+    let providers_to_build = build_providers_to_providers_to_build(&build_providers);
+    let provider_labels = universe.get_provider_labels(&spec);
+    let futs: FuturesUnordered<_> = provider_labels
+        .into_iter()
+        .map(|p| {
+            let materialization_context = materialization_context.dupe();
+            let providers_to_build = providers_to_build.clone();
+            ctx.temporary_spawn(|ctx| async move {
+                let option = build::build_configured_label(
+                    &ctx,
+                    &materialization_context,
+                    &p,
+                    &providers_to_build,
+                    false,
+                )
+                .await?;
+                Ok(option.map(|r| (p, r)))
+            })
+        })
+        .collect();
+    futs.try_filter_map(|o| future::ready(Ok(o)))
+        .try_collect()
+        .await
+}
+
+async fn build_targets_with_global_target_platform(
     ctx: &DiceComputations,
     spec: ResolvedPattern<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
