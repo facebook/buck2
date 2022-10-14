@@ -1,0 +1,13 @@
+prelude = native
+
+prelude.prebuilt_cxx_library(
+    name = "lib",
+    shared_lib = "libfoo.so",
+    soname = "libfoo.so.1",
+)
+
+prelude.genrule(
+    name = "check",
+    cmd = "test `basename $(location :lib[soname-lib])` == libfoo.so.1 > $OUT",
+    out = "out.txt",
+)

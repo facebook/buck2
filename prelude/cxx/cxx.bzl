@@ -347,6 +347,14 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     if not ctx.attrs.provided:
                         solibs[soname] = shared_lib
 
+                    # Provide a sub-target that always provides the shared lib
+                    # using the soname.
+                    if soname and shared_lib.output.basename != soname:
+                        soname_lib = ctx.actions.copy_file(soname, shared_lib.output)
+                    else:
+                        soname_lib = shared_lib.output
+                    sub_targets["soname-lib"] = [DefaultInfo(default_outputs = [soname_lib])]
+
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = outs
         libraries[link_style] = LinkInfos(
