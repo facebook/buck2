@@ -20,6 +20,7 @@ use replay::ReplayCommand;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::client_ctx::ProcessContext;
+use crate::commands::debug::daemon_dir::DaemonDirCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
@@ -30,6 +31,7 @@ use crate::replayer::Replayer;
 mod allocator_stats;
 mod chrome_trace;
 mod crash;
+mod daemon_dir;
 mod dice_dump;
 mod flush_dep_files;
 mod heap_dump;
@@ -71,6 +73,8 @@ pub enum DebugCommand {
     /// Shows the path to the most recent event log
     #[clap(alias = "lastlog")]
     LastLog(LastLogCommand),
+    /// Prints buck2 daemon directory (`~/.buckd/xxx`).
+    DaemonDir(DaemonDirCommand),
 }
 
 /// `cli::exec` function.
@@ -102,6 +106,7 @@ impl DebugCommand {
             DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx),
             DebugCommand::LastLog(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Materialize(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
