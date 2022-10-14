@@ -149,10 +149,17 @@ def create_compile_cmds(
     if len(srcs_with_flags) == 0 and len(impl_params.additional.srcs) == 0:
         all_headers = flatten([x.headers for x in own_preprocessors])
         if len(all_headers) == 0:
-            return CxxCompileCommandOutputForCompDb(
-                source_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
-                comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
-            )
+            all_raw_headers = flatten([x.raw_headers for x in own_preprocessors])
+            if len(all_raw_headers) != 0:
+                header_only = True
+                for header in all_raw_headers:
+                    if header.extension in [".h", ".hpp"]:
+                        srcs_with_flags.append(CxxSrcWithFlags(file = header))
+            else:
+                return CxxCompileCommandOutputForCompDb(
+                    source_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
+                    comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
+                )
         else:
             header_only = True
             for header in all_headers:
