@@ -59,8 +59,13 @@ pub(crate) async fn log_upload(
     let mut upload = match get_manifold_cli_path() {
         Some(manifold_path) => {
             let mut upload = buck2_core::process::async_background_command(manifold_path);
+            #[cfg(any(fbcode_build, cargo_internal_build))]
+            {
+                if hostcaps::is_corp() {
+                    upload.arg("-vip");
+                }
+            }
             let bucket_path = format!("buck2_logs/flat/{}{}", trace_id, path.encoding.extension);
-            tracing::debug!("Uploading event log to {} using manifold cli", bucket_path);
             upload.args([
                 "--apikey",
                 "buck2_logs-key",
@@ -69,14 +74,13 @@ pub(crate) async fn log_upload(
                 "put",
                 &bucket_path,
             ]);
-            #[cfg(any(fbcode_build, cargo_internal_build))]
-            {
-                if hostcaps::is_corp() {
-                    upload.arg("-vip");
-                }
-            }
 
             upload.stdin(upload_log_file);
+            tracing::debug!(
+                "Uploading event log to {} using manifold cli with command {:?}",
+                bucket_path,
+                upload
+            );
             upload
         }
         None => {
