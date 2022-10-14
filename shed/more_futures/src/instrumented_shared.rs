@@ -38,11 +38,10 @@ where
     F::Output: Clone,
 {
     pub fn new(fut: F) -> SharedEventsFuture<F> {
-        let dispatcher = get_dispatcher().unwrap();
         SharedEventsFuture {
             inner: fut.shared(),
             span: None,
-            owner_trace_id: dispatcher.trace_id().dupe(),
+            owner_trace_id: get_dispatcher().trace_id().dupe(),
         }
     }
 
@@ -77,7 +76,7 @@ where
 
         // Have not yet sent span start
         if this.span.is_none() {
-            let dispatcher = get_dispatcher().unwrap();
+            let dispatcher = get_dispatcher();
             // Polling this future in the context of another dispatcher
             if *this.owner_trace_id != *dispatcher.trace_id() {
                 // Send start event

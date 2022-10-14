@@ -526,7 +526,7 @@ impl Materializer for DeferredMaterializer {
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<BoxStream<'static, Result<(), MaterializationError>>> {
-        let event_dispatcher = get_dispatcher().unwrap();
+        let event_dispatcher = get_dispatcher();
 
         // TODO: display [materializing] in superconsole
         let (sender, recv) = oneshot::channel();

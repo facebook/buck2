@@ -310,16 +310,16 @@ where
     EVENTS.scope(dispatcher, fut)
 }
 
-pub fn get_dispatcher() -> Option<EventDispatcher> {
+pub fn get_dispatcher() -> EventDispatcher {
     match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
-        Ok(dispatcher) => Some(dispatcher),
+        Ok(dispatcher) => dispatcher,
         Err(_) => {
             if let Ok("1") = std::env::var("ENFORCE_DISPATCHER_SET").as_deref() {
-                None // panic on unwrap
+                panic!("dispatcher is not set")
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
                 // let _ignored = soft_error!(anyhow::anyhow!("Task local event dispatcher not set."));
-                Some(EventDispatcher::null())
+                EventDispatcher::null()
             }
         }
     }
@@ -337,20 +337,17 @@ where
     End: Into<span_end_event::Data>,
     F: FnOnce() -> (R, End),
 {
-    let events = get_dispatcher().unwrap();
-    events.span(start, func)
+    get_dispatcher().span(start, func)
 }
 
 /// Emits an InstantEvent annotated with the current trace ID
 pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
-    let events = get_dispatcher().unwrap();
-    events.instant_event(data)
+    get_dispatcher().instant_event(data)
 }
 
 // Logs mercurial data
 pub async fn instant_hg() {
-    let events = get_dispatcher().unwrap();
-    events.instant_hg().await
+    get_dispatcher().instant_hg().await
 }
 
 /// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is
@@ -364,8 +361,7 @@ where
     End: Into<span_end_event::Data>,
     Fut: Future<Output = (R, End)>,
 {
-    let events = get_dispatcher().unwrap();
-    events.span_async(start, fut).await
+    get_dispatcher().span_async(start, fut).await
 }
 
 pub fn info(msg: &str, filepath: &str, lineno: u32, col: u32) {
@@ -591,7 +587,7 @@ mod tests {
         ) {
             async fn yield_and_check(trace_id: &TraceId, err: &mut bool) {
                 tokio::task::yield_now().await;
-                *err |= get_dispatcher().unwrap().trace_id != *trace_id;
+                *err |= get_dispatcher().trace_id != *trace_id;
             }
 
             // 2*2 for Start and End events, for 2 spans
