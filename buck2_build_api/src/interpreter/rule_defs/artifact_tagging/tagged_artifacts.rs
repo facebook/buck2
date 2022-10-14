@@ -36,11 +36,24 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 pub struct TaggedArtifactsGen<V> {
     inner: V,
     tag: ArtifactTag,
+    inputs_only: bool,
 }
 
 impl<'v> TaggedArtifacts<'v> {
     pub fn new(inner: Value<'v>, tag: ArtifactTag) -> Self {
-        Self { inner, tag }
+        Self {
+            inner,
+            tag,
+            inputs_only: false,
+        }
+    }
+
+    pub fn inputs_only(inner: Value<'v>, tag: ArtifactTag) -> Self {
+        Self {
+            inner,
+            tag,
+            inputs_only: true,
+        }
     }
 }
 
@@ -65,6 +78,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
         let mut visitor = TaggedArtifactsVisitor {
             inner: visitor,
             tag: &self.tag,
+            inputs_only: self.inputs_only,
         };
 
         self.inner
@@ -95,6 +109,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
 struct TaggedArtifactsVisitor<'a, 'b> {
     inner: &'b mut dyn CommandLineArtifactVisitor,
     tag: &'a ArtifactTag,
+    inputs_only: bool,
 }
 
 impl<'a, 'b> CommandLineArtifactVisitor for TaggedArtifactsVisitor<'a, 'b> {
@@ -106,6 +121,11 @@ impl<'a, 'b> CommandLineArtifactVisitor for TaggedArtifactsVisitor<'a, 'b> {
 
     /// Same as above, no nesting here.
     fn visit_output(&mut self, artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {
-        self.inner.visit_output(artifact, Some(self.tag))
+        let tag = if self.inputs_only {
+            None
+        } else {
+            Some(self.tag)
+        };
+        self.inner.visit_output(artifact, tag)
     }
 }

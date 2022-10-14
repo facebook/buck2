@@ -105,6 +105,17 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
 
         Ok(heap.alloc(TaggedArtifacts::new(inner, this.dupe())))
     }
+
+    fn tag_inputs<'v>(
+        this: &ArtifactTag,
+        inner: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        // Check that the inner is actually a command line.
+        let _inner = inner.as_command_line_err()?;
+
+        Ok(heap.alloc(TaggedArtifacts::inputs_only(inner, this.dupe())))
+    }
 }
 
 #[cfg(test)]
