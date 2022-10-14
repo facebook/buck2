@@ -92,7 +92,6 @@ pub enum Outcome<T> {
 pub struct Daemonize<T> {
     directory: PathBuf,
     pid_file: Option<PathBuf>,
-    root: Option<PathBuf>,
     privileged_action: Box<dyn FnOnce() -> T>,
     stdin: Stdio,
     stdout: Stdio,
@@ -104,7 +103,6 @@ impl<T> fmt::Debug for Daemonize<T> {
         fmt.debug_struct("Daemonize")
             .field("directory", &self.directory)
             .field("pid_file", &self.pid_file)
-            .field("root", &self.root)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
             .field("stderr", &self.stderr)
@@ -124,7 +122,6 @@ impl Daemonize<()> {
             directory: Path::new("/").to_owned(),
             pid_file: None,
             privileged_action: box || (),
-            root: None,
             stdin: Stdio::devnull(),
             stdout: Stdio::devnull(),
             stderr: Stdio::devnull(),
@@ -208,10 +205,6 @@ impl<T> Daemonize<T> {
             }
 
             let privileged_action_result = (self.privileged_action)();
-
-            if let Some(root) = self.root {
-                change_root(root)?;
-            }
 
             if let Some(pid_file_fd) = pid_file_fd {
                 write_pid_file(pid_file_fd)?;
@@ -309,12 +302,6 @@ unsafe fn set_cloexec_pid_file(fd: libc::c_int) -> Result<(), ErrorKind> {
     } else {
         check_err(libc::ioctl(fd, libc::FIOCLEX), ErrorKind::SetPidfileFlags)?;
     }
-    Ok(())
-}
-
-unsafe fn change_root(path: PathBuf) -> Result<(), ErrorKind> {
-    let path_c = pathbuf_into_cstring(path)?;
-    check_err(libc::chroot(path_c.as_ptr()), ErrorKind::Chroot)?;
     Ok(())
 }
 
