@@ -162,7 +162,6 @@ pub enum Outcome<T> {
 pub struct Daemonize<T> {
     directory: PathBuf,
     pid_file: Option<PathBuf>,
-    chown_pid_file: bool,
     user: Option<User>,
     group: Option<Group>,
     umask: Mask,
@@ -178,7 +177,6 @@ impl<T> fmt::Debug for Daemonize<T> {
         fmt.debug_struct("Daemonize")
             .field("directory", &self.directory)
             .field("pid_file", &self.pid_file)
-            .field("chown_pid_file", &self.chown_pid_file)
             .field("user", &self.user)
             .field("group", &self.group)
             .field("umask", &self.umask)
@@ -201,7 +199,6 @@ impl Daemonize<()> {
         Daemonize {
             directory: Path::new("/").to_owned(),
             pid_file: None,
-            chown_pid_file: false,
             user: None,
             group: None,
             umask: 0o027.into(),
@@ -218,12 +215,6 @@ impl<T> Daemonize<T> {
     /// Create pid-file at `path`, lock it exclusive and write daemon pid.
     pub fn pid_file<F: AsRef<Path>>(mut self, path: F) -> Self {
         self.pid_file = Some(path.as_ref().to_owned());
-        self
-    }
-
-    /// If `chown` is true, daemonize will change the pid-file ownership, if user or group are provided
-    pub fn chown_pid_file(mut self, chown: bool) -> Self {
-        self.chown_pid_file = chown;
         self
     }
 
@@ -298,19 +289,17 @@ impl<T> Daemonize<T> {
             let uid = self.user.map(|user| get_user(user)).transpose()?;
             let gid = self.group.map(|group| get_group(group)).transpose()?;
 
-            if self.chown_pid_file {
-                let args: Option<(PathBuf, libc::uid_t, libc::gid_t)> =
-                    match (self.pid_file, uid, gid) {
-                        (Some(pid), Some(uid), Some(gid)) => Some((pid, uid, gid)),
-                        (Some(pid), None, Some(gid)) => Some((pid, libc::uid_t::MAX - 1, gid)),
-                        (Some(pid), Some(uid), None) => Some((pid, uid, libc::gid_t::MAX - 1)),
-                        // Or pid file is not provided, or both user and group
-                        _ => None,
-                    };
+            let args: Option<(PathBuf, libc::uid_t, libc::gid_t)> = match (self.pid_file, uid, gid)
+            {
+                (Some(pid), Some(uid), Some(gid)) => Some((pid, uid, gid)),
+                (Some(pid), None, Some(gid)) => Some((pid, libc::uid_t::MAX - 1, gid)),
+                (Some(pid), Some(uid), None) => Some((pid, uid, libc::gid_t::MAX - 1)),
+                // Or pid file is not provided, or both user and group
+                _ => None,
+            };
 
-                if let Some((pid, uid, gid)) = args {
-                    chown_pid_file(pid, uid, gid)?;
-                }
+            if let Some((pid, uid, gid)) = args {
+                chown_pid_file(pid, uid, gid)?;
             }
 
             if let Some(pid_file_fd) = pid_file_fd {

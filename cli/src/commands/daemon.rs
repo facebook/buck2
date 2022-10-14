@@ -528,7 +528,6 @@ impl DaemonCommand {
         // to something else or just do it ourselves.
         let daemonize = crate::commands::daemonize::Daemonize::new()
             .pid_file(pid_path)
-            .chown_pid_file(true)
             .working_directory(project_root)
             // This umask corresponds to a default of `rwxr-xr-x` (which is the default on Linux).
             // We should probably just leave this alone, but the Daemonize crate doesn't let us do
