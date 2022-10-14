@@ -200,8 +200,8 @@ def _python_library_macro_stub(
         versioned_resources = None,
         **kwargs):
     __rules__["python_library"](
-        srcs = _concat(srcs, _versioned_param_to_select(versioned_srcs, default = None)),
-        resources = _concat(resources, _versioned_param_to_select(versioned_resources, default = None)),
+        srcs = _concat(srcs, _versioned_param_to_select(versioned_srcs, default = {})),
+        resources = _concat(resources, _versioned_param_to_select(versioned_resources, default = {})),
         **kwargs
     )
 
