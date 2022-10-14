@@ -33,7 +33,8 @@ def create_jar_artifact_javacd(
         extra_arguments: ["string"],
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
-        bootclasspath_entries: ["artifact"]) -> "JavaCompileOutputs":
+        bootclasspath_entries: ["artifact"],
+        is_building_android_binary: bool.type) -> "JavaCompileOutputs":
     if javac_tool != None:
         # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
@@ -428,38 +429,44 @@ def create_jar_artifact_javacd(
         return merged_jar
 
     final_jar = prepare_final_jar()
-    class_abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, final_jar)
 
+    class_abi = None
     source_abi = None
     source_only_abi = None
-
-    classpath_abi = class_abi
+    classpath_abi = None
 
     # If we are merging additional compiled_srcs, we can't produce source/source-only abis. Otherwise we
     # always generation the source/source-only abis and setup the classpath entry to use the appropriate
     # abi. This allows us to build/inspect/debug source/source-only abi for rules that don't have it enabled.
     if not additional_compiled_srcs:
-        source_abi_prefix = "{}source_abi_".format(actions_prefix)
-        source_abi_target_type = TargetType("source_abi")
-        source_abi_qualified_name = get_qualified_name(source_abi_target_type)
-        source_abi_output_paths = define_output_paths(source_abi_prefix)
-        source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
-        define_javacd_action(source_abi_prefix, source_abi_command, source_abi_qualified_name, source_abi_output_paths, path_to_class_hashes = None)
+        if abi_generation_mode == AbiGenerationMode("source") or not is_building_android_binary:
+            source_abi_prefix = "{}source_abi_".format(actions_prefix)
+            source_abi_target_type = TargetType("source_abi")
+            source_abi_qualified_name = get_qualified_name(source_abi_target_type)
+            source_abi_output_paths = define_output_paths(source_abi_prefix)
+            source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
+            define_javacd_action(source_abi_prefix, source_abi_command, source_abi_qualified_name, source_abi_output_paths, path_to_class_hashes = None)
+            source_abi = source_abi_output_paths.jar
 
-        source_only_abi_prefix = "{}source_only_abi_".format(actions_prefix)
-        source_only_abi_target_type = TargetType("source_only_abi")
-        source_only_abi_qualified_name = get_qualified_name(source_only_abi_target_type)
-        source_only_abi_output_paths = define_output_paths(source_only_abi_prefix)
-        source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
-        define_javacd_action(source_only_abi_prefix, source_only_abi_command, source_only_abi_qualified_name, source_only_abi_output_paths, path_to_class_hashes = None)
+            if abi_generation_mode == AbiGenerationMode("source"):
+                classpath_abi = source_abi
 
-        source_abi = source_abi_output_paths.jar
-        source_only_abi = source_only_abi_output_paths.jar
+        if abi_generation_mode == AbiGenerationMode("source_only") or not is_building_android_binary:
+            source_only_abi_prefix = "{}source_only_abi_".format(actions_prefix)
+            source_only_abi_target_type = TargetType("source_only_abi")
+            source_only_abi_qualified_name = get_qualified_name(source_only_abi_target_type)
+            source_only_abi_output_paths = define_output_paths(source_only_abi_prefix)
+            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
+            define_javacd_action(source_only_abi_prefix, source_only_abi_command, source_only_abi_qualified_name, source_only_abi_output_paths, path_to_class_hashes = None)
+            source_only_abi = source_only_abi_output_paths.jar
 
-        if abi_generation_mode == AbiGenerationMode("source"):
-            classpath_abi = source_abi
-        elif abi_generation_mode == AbiGenerationMode("source_only"):
-            classpath_abi = source_only_abi
+            if abi_generation_mode == AbiGenerationMode("source_only"):
+                classpath_abi = source_only_abi
+
+    if classpath_abi == None or not is_building_android_binary:
+        class_abi = create_abi(actions, java_toolchain.class_abi_generator, final_jar)
+        if classpath_abi == None:
+            classpath_abi = class_abi
 
     result = make_compile_outputs(
         full_library = final_jar,

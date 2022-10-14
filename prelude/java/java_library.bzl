@@ -344,6 +344,8 @@ def compile_to_jar(
     if not target_level:
         target_level = _to_java_version(java_toolchain.target_level)
 
+    is_building_android_binary = ctx.attrs._is_building_android_binary
+
     return _jar_creator(javac_tool, java_toolchain)(
         ctx.actions,
         actions_prefix,
@@ -368,6 +370,7 @@ def compile_to_jar(
         additional_classpath_entries,
         additional_compiled_srcs,
         bootclasspath_entries,
+        is_building_android_binary,
     )
 
 def _create_jar_artifact(
@@ -393,7 +396,8 @@ def _create_jar_artifact(
         extra_arguments: ["string"],
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
-        bootclasspath_entries: ["artifact"]) -> "JavaCompileOutputs":
+        bootclasspath_entries: ["artifact"],
+        _is_building_android_binary: bool.type) -> "JavaCompileOutputs":
     """
     Creates jar artifact.
 

@@ -113,11 +113,13 @@ extra_attributes = {
         ),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
+        "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_build_config": {
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_apk": {
@@ -131,6 +133,7 @@ extra_attributes = {
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
+        "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_test": {
