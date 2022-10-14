@@ -12,9 +12,6 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
@@ -26,6 +23,7 @@ use buck2_server_ctx::pattern::PatternParser;
 use cli_proto::ClientContext;
 use indent_write::io::IndentWriter;
 
+use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -35,13 +33,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditExecutionPlatformResolutionCommand {
     #[clap(flatten)]
-    pub config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: AuditCommandCommonOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
@@ -135,15 +127,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         .await
     }
 
-    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
-    }
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+    fn common_opts(&self) -> &AuditCommandCommonOptions {
+        &self.common_opts
     }
 }

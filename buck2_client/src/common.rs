@@ -89,7 +89,7 @@ pub enum HostPlatformOverride {
 }
 
 /// Defines options related to commands that involves a streaming daemon command.
-#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct CommonDaemonCommandOptions {
     /// Write events to this log file
     #[clap(value_name = "PATH", long = EVENT_LOG)]
@@ -115,7 +115,7 @@ impl CommonDaemonCommandOptions {
 }
 
 /// Defines options for config and configuration related things. Any command that involves the build graph should include these options.
-#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct CommonBuildConfigurationOptions {
     #[clap(
         value_name = "SECTION.OPTION=VALUE",

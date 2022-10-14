@@ -64,6 +64,18 @@ pub enum AuditCommand {
     DepFiles(AuditDepFilesCommand),
 }
 
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+pub struct AuditCommandCommonOptions {
+    #[clap(flatten)]
+    config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    console_opts: CommonConsoleOptions,
+
+    #[clap(flatten)]
+    event_log_opts: CommonDaemonCommandOptions,
+}
+
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to
 /// add them without the boilerplate necessary for normal commands. The main difference
 /// is that there is not a custom endpoint added in the daemon for each subcommand, instead
@@ -80,11 +92,7 @@ pub trait AuditSubcommand: Send + Sync + 'static {
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
 
-    fn config_opts(&self) -> &CommonBuildConfigurationOptions;
-
-    fn console_opts(&self) -> &CommonConsoleOptions;
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
+    fn common_opts(&self) -> &AuditCommandCommonOptions;
 }
 
 impl AuditCommand {
@@ -127,7 +135,7 @@ impl StreamingCommand for AuditCommand {
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
-        let config_opts = self.as_subcommand().config_opts();
+        let config_opts = &self.as_subcommand().common_opts().config_opts;
 
         let submatches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -150,14 +158,14 @@ impl StreamingCommand for AuditCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        self.as_subcommand().console_opts()
+        &self.as_subcommand().common_opts().console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        self.as_subcommand().event_log_opts()
+        &self.as_subcommand().common_opts().event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        self.as_subcommand().config_opts()
+        &self.as_subcommand().common_opts().config_opts
     }
 }

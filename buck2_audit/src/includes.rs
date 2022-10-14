@@ -11,9 +11,6 @@ use std::io::Write;
 use std::path::Path;
 
 use async_trait::async_trait;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -53,6 +50,7 @@ use serde::Serialize;
 use serde::Serializer;
 use thiserror::Error;
 
+use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, Error)]
@@ -70,13 +68,7 @@ enum AuditIncludesError {
 )]
 pub struct AuditIncludesCommand {
     #[clap(flatten)]
-    pub config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: AuditCommandCommonOptions,
 
     /// Print json representation of outputs
     #[clap(long)]
@@ -323,15 +315,7 @@ impl AuditSubcommand for AuditIncludesCommand {
             .await
     }
 
-    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
-    }
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+    fn common_opts(&self) -> &AuditCommandCommonOptions {
+        &self.common_opts
     }
 }

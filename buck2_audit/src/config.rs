@@ -12,9 +12,6 @@ use std::io::Write;
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
@@ -26,6 +23,7 @@ use cli_proto::ClientContext;
 use gazebo::prelude::*;
 use serde_json::json;
 
+use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(
@@ -85,13 +83,7 @@ impl FromStr for ValueStyle {
 #[clap(name = "audit-config", about = "buck audit config")]
 pub struct AuditConfigCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: AuditCommandCommonOptions,
 
     #[clap(long = "cell")]
     cell: Option<String>,
@@ -297,15 +289,7 @@ impl AuditSubcommand for AuditConfigCommand {
             .await
     }
 
-    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
-    }
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+    fn common_opts(&self) -> &AuditCommandCommonOptions {
+        &self.common_opts
     }
 }

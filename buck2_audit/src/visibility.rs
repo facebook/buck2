@@ -10,9 +10,6 @@
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
@@ -31,6 +28,7 @@ use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 
+use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(thiserror::Error, Debug)]
@@ -48,13 +46,7 @@ enum VisibilityCommandError {
 )]
 pub struct AuditVisibilityCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: AuditCommandCommonOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Target pattern(s) to analyze.")]
     patterns: Vec<String>,
@@ -169,15 +161,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
             .await
     }
 
-    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
-    }
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+    fn common_opts(&self) -> &AuditCommandCommonOptions {
+        &self.common_opts
     }
 }

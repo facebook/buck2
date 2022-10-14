@@ -13,14 +13,13 @@ mod module;
 mod package_deps;
 
 use async_trait::async_trait;
-use buck2_client::common::CommonBuildConfigurationOptions;
-use buck2_client::common::CommonConsoleOptions;
-use buck2_client::common::CommonDaemonCommandOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
+use once_cell::sync::Lazy;
 
 use crate::starlark::module::StarlarkModuleCommand;
 use crate::starlark::package_deps::StarlarkPackageDepsCommand;
+use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
@@ -43,15 +42,9 @@ impl AuditSubcommand for StarlarkCommand {
         }
     }
 
-    fn config_opts(&self) -> &CommonBuildConfigurationOptions {
-        CommonBuildConfigurationOptions::default_ref()
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        CommonConsoleOptions::default_ref()
-    }
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        CommonDaemonCommandOptions::default_ref()
+    fn common_opts(&self) -> &AuditCommandCommonOptions {
+        static DEFAULT: Lazy<AuditCommandCommonOptions> =
+            Lazy::new(AuditCommandCommonOptions::default);
+        &DEFAULT
     }
 }
