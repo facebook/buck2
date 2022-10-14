@@ -10,12 +10,10 @@
 use async_trait::async_trait;
 use cli_proto::FlushDepFilesRequest;
 
-use crate::client_ctx::ClientCommandContext;
 use crate::commands::streaming::StreamingCommand;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
-use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
 
@@ -26,11 +24,8 @@ pub struct FlushDepFilesCommand {}
 impl StreamingCommand for FlushDepFilesCommand {
     const COMMAND_NAME: &'static str = "FlushDepFiles";
 
-    async fn server_connect_options<'a, 'b>(
-        &self,
-        _ctx: &'b ClientCommandContext,
-    ) -> anyhow::Result<BuckdConnectOptions> {
-        Ok(BuckdConnectOptions::existing_only())
+    fn existing_only() -> bool {
+        true
     }
 
     async fn exec_impl(

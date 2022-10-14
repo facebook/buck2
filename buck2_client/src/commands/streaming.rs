@@ -88,16 +88,10 @@ pub trait StreamingCommand: Sized + Send + Sync {
         ctx: ClientCommandContext,
     ) -> ExitResult;
 
-    /// Provide a list of all options to connect to the server.
-    /// By default, just checks to make sure the server is started.
-    async fn server_connect_options<'a, 'b>(
-        &self,
-        ctx: &'b ClientCommandContext,
-    ) -> anyhow::Result<BuckdConnectOptions> {
-        Ok(BuckdConnectOptions {
-            subscribers: default_subscribers(self, ctx)?,
-            ..Default::default()
-        })
+    /// Should we only connect to existing servers (`true`), or spawn a new server if required (`false`).
+    /// Defaults to `false`.
+    fn existing_only() -> bool {
+        false
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions;
@@ -127,7 +121,10 @@ impl<T: StreamingCommand> BuckSubcommand for T {
     fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         ctx.with_runtime(async move |mut ctx| {
             let work = async {
-                let mut connect_options = self.server_connect_options(&ctx).await?;
+                let mut connect_options = BuckdConnectOptions {
+                    existing_only: T::existing_only(),
+                    subscribers: default_subscribers(&self, &ctx)?,
+                };
 
                 let buckd = match (ctx.replayer.take(), ctx.start_in_process_daemon.take()) {
                     (Some(replayer), _) => {

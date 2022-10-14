@@ -15,7 +15,6 @@ use crate::commands::streaming::StreamingCommand;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
-use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
 
@@ -32,11 +31,8 @@ pub struct AllocatorStatsCommand {
 impl StreamingCommand for AllocatorStatsCommand {
     const COMMAND_NAME: &'static str = "allocator_stats";
 
-    async fn server_connect_options<'a, 'b>(
-        &self,
-        _ctx: &'b ClientCommandContext,
-    ) -> anyhow::Result<BuckdConnectOptions> {
-        Ok(BuckdConnectOptions::existing_only())
+    fn existing_only() -> bool {
+        true
     }
 
     async fn exec_impl(
