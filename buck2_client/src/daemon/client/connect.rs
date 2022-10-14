@@ -246,20 +246,11 @@ pub struct BuckdConnectOptions {
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
 }
 
-impl Default for BuckdConnectOptions {
-    fn default() -> Self {
-        Self {
-            existing_only: Default::default(),
-            subscribers: vec![box StdoutStderrForwarder],
-        }
-    }
-}
-
 impl BuckdConnectOptions {
-    pub fn existing_only() -> Self {
+    pub fn existing_only_no_console() -> Self {
         Self {
             existing_only: true,
-            ..Default::default()
+            subscribers: vec![box StdoutStderrForwarder],
         }
     }
 

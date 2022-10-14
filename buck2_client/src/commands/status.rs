@@ -38,7 +38,7 @@ impl StatusCommand {
     pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
-                .connect_buckd(BuckdConnectOptions::existing_only())
+                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
                 .await
             {
                 Err(_) => {

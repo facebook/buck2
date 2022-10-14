@@ -71,7 +71,7 @@ impl CleanCommand {
             .await
             .with_context(|| "when locking buckd lifecycle.lock")?;
             if let Ok(mut buckd) = ctx
-                .connect_buckd(BuckdConnectOptions::existing_only())
+                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
                 .await
             {
                 buckd
