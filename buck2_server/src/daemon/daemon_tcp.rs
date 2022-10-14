@@ -7,14 +7,16 @@
  * of this source tree.
  */
 
-use std::net::SocketAddr;
+#[cfg(any(windows, test))]
+fn create_listener_impl() -> anyhow::Result<(
+    buck2_common::connection_endpoint::ConnectionType,
+    std::net::TcpListener,
+)> {
+    use std::net::SocketAddr;
 
-use buck2_common::client_utils::SOCKET_ADDR;
-use buck2_common::connection_endpoint::ConnectionType;
+    use buck2_common::client_utils::SOCKET_ADDR;
+    use buck2_common::connection_endpoint::ConnectionType;
 
-use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
-
-pub(crate) fn create_listener() -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
     let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
     let tcp_listener = std::net::TcpListener::bind(addr)?;
     tcp_listener.set_nonblocking(true)?;
@@ -23,6 +25,31 @@ pub(crate) fn create_listener() -> anyhow::Result<(ConnectionType, TcpOrUnixList
         ConnectionType::Tcp {
             port: local_addr.port(),
         },
-        TcpOrUnixListener(tcp_listener),
+        tcp_listener,
     ))
+}
+
+#[cfg(windows)]
+pub(crate) fn create_listener() -> anyhow::Result<(
+    buck2_common::connection_endpoint::ConnectionType,
+    crate::daemon::tcp_or_unix_listener::TcpOrUnixListener,
+)> {
+    use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
+
+    let (connection_type, tcp_listener) = create_listener_impl()?;
+    Ok((connection_type, TcpOrUnixListener(tcp_listener)))
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+    use buck2_common::connection_endpoint::ConnectionType;
+
+    use crate::daemon::daemon_tcp::create_listener_impl;
+
+    #[test]
+    fn test_create_listener() {
+        let (connection_type, _tcp_listener) = create_listener_impl().unwrap();
+        assert_matches!(connection_type, ConnectionType::Tcp { .. });
+    }
 }
