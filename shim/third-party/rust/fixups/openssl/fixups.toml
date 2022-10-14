@@ -3,53 +3,17 @@
 
 buildscript = []
 
-[platform_fixup.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"), target_env = "fbcode"))']
+[platform_fixup.'cfg(all(target_os = "linux", target_arch = "x86_64"))']
 buildscript = []
 extra_deps = [
-  #"third-party//openssl:ssl",
+  "buck//third-party/cxx/vendor/openssl-linux:openssl",
+  "buck//third-party/cxx/vendor/openssl-linux:ssl",
+  "buck//third-party/cxx/vendor/openssl-linux:crypto",
 ]
 
-# These would normally be computed by the buildscript, but hard-code for now
-# See vendor/openssl-sys/build/main.rs for details
-[platform_fixup.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch= "aarch64"), all(target_env = "fbcode", any(target_env = "platform009", target_env = "platform010", target_env = "platform010-aarch64", target_env = "platform010-compat"))))']
+[platform_fixup.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))']
 buildscript = []
-cfgs = [
-    # This seems to be the most important setting
-    "ossl101",
-    "ossl102",
-    "ossl102f",
-    "ossl102h",
-    "ossl110",
-    "ossl110f",
-    "ossl110g",
-    "ossl111",
-    "ossl111b",
-    "ossl111c",
-
-    # Intersection of expando.c and tp2/openssl/1.1.1/src/rules.py
-    "osslconf=\"OPENSSL_NO_BUF_FREELISTS\"",
-    "osslconf=\"OPENSSL_NO_COMP\"",
-    "osslconf=\"OPENSSL_NO_EC\"",
-    "osslconf=\"OPENSSL_NO_EC2M\"",
-    "osslconf=\"OPENSSL_NO_ENGINE\"",
-    "osslconf=\"OPENSSL_NO_KRB5\"",
-    # "osslconf=\"OPENSSL_NO_NEXTPROTONEG\"",
-    # "osslconf=\"OPENSSL_NO_PSK\"",
-    # "osslconf=\"OPENSSL_NO_RFC3779\"",
-    "osslconf=\"OPENSSL_NO_SHA\"",
-    "osslconf=\"OPENSSL_NO_SM3\"",
-    # "osslconf=\"OPENSSL_NO_SRP\"",
-    "osslconf=\"OPENSSL_NO_SSL3_METHOD\"",
-    # "osslconf=\"OPENSSL_NO_STDIO\"",
-    "osslconf=\"OPENSSL_NO_TLSEXT\"",
-]
-
-[platform_fixup.'cfg(all(any(target_os = "windows", target_os = "linux", target_os = "macos"), not(target_env = "fbcode")))']
-buildscript = []
-extra_deps = [
-  #"third-party//openssl:ssl",
-  #"third-party//openssl:crypto",
-]
+extra_deps = []
 cfgs = [
       # This seems to be the most important setting
     "ossl101",
