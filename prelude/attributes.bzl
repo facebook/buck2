@@ -1,4 +1,4 @@
-# @generated SignedSource<<57647f7f34c4066d9aa2bcdc69c59123>>
+# @generated SignedSource<<6166e7a236fe4c1499d0a020eaa6b01e>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -2857,6 +2857,7 @@ attributes = {
         "can_toolchain_emit_obj_c_header_textually": attrs.bool(),
         "contacts": attrs.list(attrs.string(), default = []),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+        "explicit_modules_uses_gmodules": attrs.bool(),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "platform_path": attrs.source(),
