@@ -17,7 +17,7 @@ use tokio::time::Instant;
 use tonic::transport::Channel;
 use tonic::transport::Endpoint;
 
-use crate::connection_endpoint::ConnectionType;
+use crate::buckd_connection::ConnectionType;
 
 pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";

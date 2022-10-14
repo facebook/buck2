@@ -9,7 +9,7 @@
 
 use std::path::PathBuf;
 
-use buck2_common::connection_endpoint::ConnectionType;
+use buck2_common::buckd_connection::ConnectionType;
 
 use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 

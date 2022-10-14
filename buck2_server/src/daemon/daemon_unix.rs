@@ -10,8 +10,8 @@
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 
+use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::client_utils::UDS_DAEMON_FILENAME;
-use buck2_common::connection_endpoint::ConnectionType;
 use buck2_common::home_buck_tmp::home_buck_tmp_dir;
 use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
@@ -60,7 +60,7 @@ pub(crate) fn create_listener(
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use buck2_common::connection_endpoint::ConnectionType;
+    use buck2_common::buckd_connection::ConnectionType;
 
     use crate::daemon::daemon_unix::create_listener;
 

@@ -24,7 +24,7 @@ use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_client::version::BuckVersion;
-use buck2_common::connection_endpoint::ConnectionType;
+use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;

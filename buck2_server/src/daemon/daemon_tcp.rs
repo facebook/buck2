@@ -9,13 +9,13 @@
 
 #[cfg(any(windows, test))]
 fn create_listener_impl() -> anyhow::Result<(
-    buck2_common::connection_endpoint::ConnectionType,
+    buck2_common::buckd_connection::ConnectionType,
     std::net::TcpListener,
 )> {
     use std::net::SocketAddr;
 
+    use buck2_common::buckd_connection::ConnectionType;
     use buck2_common::client_utils::SOCKET_ADDR;
-    use buck2_common::connection_endpoint::ConnectionType;
 
     let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
     let tcp_listener = std::net::TcpListener::bind(addr)?;
@@ -31,7 +31,7 @@ fn create_listener_impl() -> anyhow::Result<(
 
 #[cfg(windows)]
 pub(crate) fn create_listener() -> anyhow::Result<(
-    buck2_common::connection_endpoint::ConnectionType,
+    buck2_common::buckd_connection::ConnectionType,
     crate::daemon::tcp_or_unix_listener::TcpOrUnixListener,
 )> {
     use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
@@ -43,7 +43,7 @@ pub(crate) fn create_listener() -> anyhow::Result<(
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use buck2_common::connection_endpoint::ConnectionType;
+    use buck2_common::buckd_connection::ConnectionType;
 
     use crate::daemon::daemon_tcp::create_listener_impl;
 

@@ -26,8 +26,8 @@
 #[macro_use]
 extern crate maplit;
 
+pub mod buckd_connection;
 pub mod client_utils;
-pub mod connection_endpoint;
 pub mod convert;
 pub mod daemon_dir;
 pub mod dice;

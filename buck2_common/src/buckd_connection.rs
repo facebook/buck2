@@ -57,7 +57,7 @@ impl ConnectionType {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::connection_endpoint::ConnectionType;
+    use crate::buckd_connection::ConnectionType;
 
     #[test]
     fn test_fmt_parse() {
