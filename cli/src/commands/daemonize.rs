@@ -19,7 +19,6 @@ use std::fmt;
 use std::fs::File;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::io::AsRawFd;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 
@@ -126,12 +125,6 @@ impl Daemonize<()> {
 }
 
 impl<T> Daemonize<T> {
-    /// Create pid-file at `path`, lock it exclusive and write daemon pid.
-    pub fn pid_file<F: AsRef<Path>>(mut self, path: F) -> Self {
-        self.pid_file = Some(path.as_ref().to_owned());
-        self
-    }
-
     /// Configuration for the child process's standard output stream.
     pub fn stdout<S: Into<Stdio>>(mut self, stdio: S) -> Self {
         self.stdout = stdio.into();

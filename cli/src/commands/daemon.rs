@@ -30,7 +30,6 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::AbsPath;
 use buck2_server::daemon::daemon_utils::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -273,7 +272,9 @@ impl DaemonCommand {
             // * but stdout/stderr may be not yet created, so tailer fails to open them
             let (listener, endpoint) = init_listener(&paths.daemon_dir()?)?;
 
-            self.daemonize(&pid_path, stdout, stderr)?;
+            self.daemonize(stdout, stderr)?;
+
+            fs_util::write(&pid_path, format!("{}", process::id()))?;
 
             let pid = process::id();
             let process_info = DaemonProcessInfo {
@@ -515,11 +516,10 @@ impl DaemonCommand {
     }
 
     #[cfg(unix)]
-    fn daemonize(&self, pid_path: &AbsPath, stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn daemonize(&self, stdout: File, stderr: File) -> anyhow::Result<()> {
         // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
         // to something else or just do it ourselves.
         let daemonize = crate::commands::daemonize::Daemonize::new()
-            .pid_file(pid_path)
             .stdout(stdout)
             .stderr(stderr);
         daemonize.start()?;
@@ -528,7 +528,7 @@ impl DaemonCommand {
 
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
-    fn daemonize(&self, _pid_path: &AbsPath, _stdout: File, _stderr: File) -> anyhow::Result<()> {
+    fn daemonize(&self, _stdout: File, _stderr: File) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("Cannot daemonize on Windows"))
     }
 }
