@@ -26,62 +26,6 @@ use std::process::exit;
 
 use gazebo::dupe::Dupe;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-enum UserImpl {
-    Name(String),
-    Id(libc::uid_t),
-}
-
-/// Expects system user id or name. If name is provided it will be resolved to id later.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct User {
-    inner: UserImpl,
-}
-
-impl From<&str> for User {
-    fn from(t: &str) -> User {
-        User {
-            inner: UserImpl::Name(t.to_owned()),
-        }
-    }
-}
-
-impl From<u32> for User {
-    fn from(t: u32) -> User {
-        User {
-            inner: UserImpl::Id(t as libc::uid_t),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-enum GroupImpl {
-    Name(String),
-    Id(libc::gid_t),
-}
-
-/// Expects system group id or name. If name is provided it will be resolved to id later.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct Group {
-    inner: GroupImpl,
-}
-
-impl From<&str> for Group {
-    fn from(t: &str) -> Group {
-        Group {
-            inner: GroupImpl::Name(t.to_owned()),
-        }
-    }
-}
-
-impl From<u32> for Group {
-    fn from(t: u32) -> Group {
-        Group {
-            inner: GroupImpl::Id(t as libc::gid_t),
-        }
-    }
-}
-
 #[derive(Debug)]
 enum StdioImpl {
     Devnull,
@@ -148,8 +92,6 @@ pub enum Outcome<T> {
 pub struct Daemonize<T> {
     directory: PathBuf,
     pid_file: Option<PathBuf>,
-    user: Option<User>,
-    group: Option<Group>,
     root: Option<PathBuf>,
     privileged_action: Box<dyn FnOnce() -> T>,
     stdin: Stdio,
@@ -162,8 +104,6 @@ impl<T> fmt::Debug for Daemonize<T> {
         fmt.debug_struct("Daemonize")
             .field("directory", &self.directory)
             .field("pid_file", &self.pid_file)
-            .field("user", &self.user)
-            .field("group", &self.group)
             .field("root", &self.root)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
@@ -183,8 +123,6 @@ impl Daemonize<()> {
         Daemonize {
             directory: Path::new("/").to_owned(),
             pid_file: None,
-            user: None,
-            group: None,
             privileged_action: box || (),
             root: None,
             stdin: Stdio::devnull(),
@@ -265,22 +203,6 @@ impl<T> Daemonize<T> {
 
             redirect_standard_streams(self.stdin, self.stdout, self.stderr)?;
 
-            let uid = self.user.map(|user| get_user(user)).transpose()?;
-            let gid = self.group.map(|group| get_group(group)).transpose()?;
-
-            let args: Option<(PathBuf, libc::uid_t, libc::gid_t)> = match (self.pid_file, uid, gid)
-            {
-                (Some(pid), Some(uid), Some(gid)) => Some((pid, uid, gid)),
-                (Some(pid), None, Some(gid)) => Some((pid, libc::uid_t::MAX - 1, gid)),
-                (Some(pid), Some(uid), None) => Some((pid, uid, libc::gid_t::MAX - 1)),
-                // Or pid file is not provided, or both user and group
-                _ => None,
-            };
-
-            if let Some((pid, uid, gid)) = args {
-                chown_pid_file(pid, uid, gid)?;
-            }
-
             if let Some(pid_file_fd) = pid_file_fd {
                 set_cloexec_pid_file(pid_file_fd)?;
             }
@@ -289,14 +211,6 @@ impl<T> Daemonize<T> {
 
             if let Some(root) = self.root {
                 change_root(root)?;
-            }
-
-            if let Some(gid) = gid {
-                set_group(gid)?;
-            }
-
-            if let Some(uid) = uid {
-                set_user(uid)?;
             }
 
             if let Some(pid_file_fd) = pid_file_fd {
@@ -350,42 +264,6 @@ unsafe fn redirect_standard_streams(
     Ok(())
 }
 
-unsafe fn get_group(group: Group) -> Result<libc::gid_t, ErrorKind> {
-    match group.inner {
-        GroupImpl::Id(id) => Ok(id),
-        GroupImpl::Name(name) => {
-            let s = CString::new(name).map_err(|_| ErrorKind::GroupContainsNul)?;
-            match get_gid_by_name(&s) {
-                Some(id) => get_group(id.into()),
-                None => Err(ErrorKind::GroupNotFound),
-            }
-        }
-    }
-}
-
-unsafe fn set_group(group: libc::gid_t) -> Result<(), ErrorKind> {
-    check_err(libc::setgid(group), ErrorKind::SetGroup)?;
-    Ok(())
-}
-
-unsafe fn get_user(user: User) -> Result<libc::uid_t, ErrorKind> {
-    match user.inner {
-        UserImpl::Id(id) => Ok(id),
-        UserImpl::Name(name) => {
-            let s = CString::new(name).map_err(|_| ErrorKind::UserContainsNul)?;
-            match get_uid_by_name(&s) {
-                Some(id) => get_user(id.into()),
-                None => Err(ErrorKind::UserNotFound),
-            }
-        }
-    }
-}
-
-unsafe fn set_user(user: libc::uid_t) -> Result<(), ErrorKind> {
-    check_err(libc::setuid(user), ErrorKind::SetUser)?;
-    Ok(())
-}
-
 unsafe fn create_pid_file(path: PathBuf) -> Result<libc::c_int, ErrorKind> {
     let path_c = pathbuf_into_cstring(path)?;
 
@@ -399,19 +277,6 @@ unsafe fn create_pid_file(path: PathBuf) -> Result<libc::c_int, ErrorKind> {
         ErrorKind::LockPidfile,
     )?;
     Ok(fd)
-}
-
-unsafe fn chown_pid_file(
-    path: PathBuf,
-    uid: libc::uid_t,
-    gid: libc::gid_t,
-) -> Result<(), ErrorKind> {
-    let path_c = pathbuf_into_cstring(path)?;
-    check_err(
-        libc::chown(path_c.as_ptr(), uid, gid),
-        ErrorKind::ChownPidfile,
-    )?;
-    Ok(())
 }
 
 unsafe fn write_pid_file(fd: libc::c_int) -> Result<(), ErrorKind> {
@@ -451,26 +316,6 @@ unsafe fn change_root(path: PathBuf) -> Result<(), ErrorKind> {
     let path_c = pathbuf_into_cstring(path)?;
     check_err(libc::chroot(path_c.as_ptr()), ErrorKind::Chroot)?;
     Ok(())
-}
-
-unsafe fn get_gid_by_name(name: &CString) -> Option<libc::gid_t> {
-    let ptr = libc::getgrnam(name.as_ptr() as *const libc::c_char);
-    if ptr.is_null() {
-        None
-    } else {
-        let s = &*ptr;
-        Some(s.gr_gid)
-    }
-}
-
-unsafe fn get_uid_by_name(name: &CString) -> Option<libc::uid_t> {
-    let ptr = libc::getpwnam(name.as_ptr() as *const libc::c_char);
-    if ptr.is_null() {
-        None
-    } else {
-        let s = &*ptr;
-        Some(s.pw_uid)
-    }
 }
 
 fn pathbuf_into_cstring(path: PathBuf) -> Result<CString, ErrorKind> {
