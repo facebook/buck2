@@ -21,7 +21,7 @@ def arg_parse():
     parser.add_argument("--output")
     parser.add_argument("--package-name")
     parser.add_argument("--version")
-    parser.add_argument("--feature", action="append")
+    parser.add_argument("--feature", action="append", default=[])
     parser.add_argument("--cfg", action="append")
     parser.add_argument("--env", action="append", type=key_value_arg)
     parser.add_argument("--target")

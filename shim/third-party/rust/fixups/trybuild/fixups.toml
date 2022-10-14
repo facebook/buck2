@@ -1,0 +1,6 @@
+[env]
+OUT_DIR = "."
+
+[[buildscript]]
+[buildscript.gen_srcs]
+files = ["target"]

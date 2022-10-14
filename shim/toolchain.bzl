@@ -77,6 +77,12 @@ def _cxx_toolchain(ctx):
                 compiler_flags = [],
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
+            as_compiler_info = CCompilerInfo(
+                compiler = RunInfo(args = ["clang"]),
+                preprocessor_flags = [],
+                compiler_flags = [],
+                compiler_type = "clang",  # one of CxxToolProviderType
+            ),
             header_mode = HeaderMode("symlink_tree_only"),
         ),
         CxxPlatformInfo(name = "x86_64"),
