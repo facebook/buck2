@@ -274,7 +274,7 @@ impl DaemonCommand {
             // * but stdout/stderr may be not yet created, so tailer fails to open them
             let (listener, endpoint) = init_listener(&paths.daemon_dir()?)?;
 
-            self.daemonize(paths.project_root().root(), &pid_path, stdout, stderr)?;
+            self.daemonize(&pid_path, stdout, stderr)?;
 
             let pid = process::id();
             let process_info = DaemonProcessInfo {
@@ -517,18 +517,11 @@ impl DaemonCommand {
     }
 
     #[cfg(unix)]
-    fn daemonize(
-        &self,
-        project_root: &AbsPath,
-        pid_path: &AbsPath,
-        stdout: File,
-        stderr: File,
-    ) -> anyhow::Result<()> {
+    fn daemonize(&self, pid_path: &AbsPath, stdout: File, stderr: File) -> anyhow::Result<()> {
         // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
         // to something else or just do it ourselves.
         let daemonize = crate::commands::daemonize::Daemonize::new()
             .pid_file(pid_path)
-            .working_directory(project_root)
             .stdout(stdout)
             .stderr(stderr);
         daemonize.start()?;
@@ -537,13 +530,7 @@ impl DaemonCommand {
 
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
-    fn daemonize(
-        &self,
-        _project_root: &AbsPath,
-        _pid_path: &AbsPath,
-        _stdout: File,
-        _stderr: File,
-    ) -> anyhow::Result<()> {
+    fn daemonize(&self, _pid_path: &AbsPath, _stdout: File, _stderr: File) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("Cannot daemonize on Windows"))
     }
 }

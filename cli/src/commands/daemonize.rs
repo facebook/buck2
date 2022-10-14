@@ -14,7 +14,6 @@
 
 #![cfg(unix)]
 
-use std::env::set_current_dir;
 use std::ffi::CString;
 use std::fmt;
 use std::fs::File;
@@ -90,7 +89,6 @@ pub enum Outcome<T> {
 ///   * execute any provided action just before dropping privileges.
 ///
 pub struct Daemonize<T> {
-    directory: PathBuf,
     pid_file: Option<PathBuf>,
     privileged_action: Box<dyn FnOnce() -> T>,
     stdin: Stdio,
@@ -101,7 +99,6 @@ pub struct Daemonize<T> {
 impl<T> fmt::Debug for Daemonize<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Daemonize")
-            .field("directory", &self.directory)
             .field("pid_file", &self.pid_file)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
@@ -119,7 +116,6 @@ impl Default for Daemonize<()> {
 impl Daemonize<()> {
     pub fn new() -> Self {
         Daemonize {
-            directory: Path::new("/").to_owned(),
             pid_file: None,
             privileged_action: box || (),
             stdin: Stdio::devnull(),
@@ -133,12 +129,6 @@ impl<T> Daemonize<T> {
     /// Create pid-file at `path`, lock it exclusive and write daemon pid.
     pub fn pid_file<F: AsRef<Path>>(mut self, path: F) -> Self {
         self.pid_file = Some(path.as_ref().to_owned());
-        self
-    }
-
-    /// Change working directory to `path` or `/` by default.
-    pub fn working_directory<F: AsRef<Path>>(mut self, path: F) -> Self {
-        self.directory = path.as_ref().to_owned();
         self
     }
 
@@ -182,7 +172,6 @@ impl<T> Daemonize<T> {
 
     fn execute_child(self) -> Result<T, ErrorKind> {
         unsafe {
-            set_current_dir(&self.directory).map_err(|_| ErrorKind::ChangeDirectory(errno()))?;
             set_sid()?;
 
             // This umask corresponds to a default of `rwxr-xr-x` (which is the default on Linux).
