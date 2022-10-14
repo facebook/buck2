@@ -20,3 +20,14 @@ prelude.python_bootstrap_binary(
         ":lib",
     ],
 )
+
+prelude.python_bootstrap_binary(
+    name = "hello_with_args",
+    main = "hello_with_args.py",
+)
+
+prelude.genrule(
+    name = "use_hello_with_args",
+    out = "out",
+    cmd = "$(exe :hello_with_args) foo bar > $OUT",
+)

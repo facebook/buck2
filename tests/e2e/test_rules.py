@@ -716,6 +716,16 @@ async def test_python_bootstrap(buck: Buck) -> None:
     await buck.run(
         "//buck2/tests/targets/rules/python_bootstrap:hello_imported", get_mode()
     )
+    with_args_target = (
+        "//buck2/tests/targets/rules/python_bootstrap:use_hello_with_args"
+    )
+    result = await buck.build(with_args_target, get_mode())
+    assert (
+        Path(result.get_build_report().output_for_target(with_args_target))
+        .read_text()
+        .strip()
+        == "Received 2 args"
+    )
 
 
 @buck_test(inplace=True)
