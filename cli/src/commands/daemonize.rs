@@ -29,12 +29,12 @@ enum StdioImpl {
 
 /// Describes what to do with a standard I/O stream for a child process.
 #[derive(Debug)]
-pub struct Stdio {
+pub(crate) struct Stdio {
     inner: StdioImpl,
 }
 
 impl Stdio {
-    pub fn devnull() -> Self {
+    pub(crate) fn devnull() -> Self {
         Self {
             inner: StdioImpl::Devnull,
         }
@@ -52,19 +52,19 @@ impl From<File> for Stdio {
 /// Parent process execution outcome.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
-pub struct Parent {}
+struct Parent {}
 
 /// Chiled process execution outcome.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
-pub struct Child<T> {
-    pub privileged_action_result: T,
+struct Child<T> {
+    privileged_action_result: T,
 }
 
 /// Daemonization process outcome. Can be matched to check is it a parent process or a child
 /// process.
 #[derive(Debug)]
-pub enum Outcome<T> {
+enum Outcome<T> {
     Parent(anyhow::Result<Parent>),
     Child(anyhow::Result<Child<T>>),
 }
@@ -84,7 +84,7 @@ pub enum Outcome<T> {
 ///   * change the pid-file ownership to provided user (and/or) group;
 ///   * execute any provided action just before dropping privileges.
 ///
-pub struct Daemonize<T> {
+pub(crate) struct Daemonize<T> {
     privileged_action: Box<dyn FnOnce() -> T>,
     stdin: Stdio,
     stdout: Stdio,
@@ -108,7 +108,7 @@ impl Default for Daemonize<()> {
 }
 
 impl Daemonize<()> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Daemonize {
             privileged_action: box || (),
             stdin: Stdio::devnull(),
@@ -120,19 +120,19 @@ impl Daemonize<()> {
 
 impl<T> Daemonize<T> {
     /// Configuration for the child process's standard output stream.
-    pub fn stdout<S: Into<Stdio>>(mut self, stdio: S) -> Self {
+    pub(crate) fn stdout<S: Into<Stdio>>(mut self, stdio: S) -> Self {
         self.stdout = stdio.into();
         self
     }
 
     /// Configuration for the child process's standard error stream.
-    pub fn stderr<S: Into<Stdio>>(mut self, stdio: S) -> Self {
+    pub(crate) fn stderr<S: Into<Stdio>>(mut self, stdio: S) -> Self {
         self.stderr = stdio.into();
         self
     }
     /// Start daemonization process, terminate parent after first fork, returns privileged action
     /// result to the child.
-    pub fn start(self) -> anyhow::Result<T> {
+    pub(crate) fn start(self) -> anyhow::Result<T> {
         match self.execute() {
             Outcome::Parent(Ok(_)) => exit(0),
             Outcome::Parent(Err(err)) => Err(err),
@@ -142,7 +142,7 @@ impl<T> Daemonize<T> {
     }
 
     /// Execute daemonization process, don't terminate parent after first fork.
-    pub fn execute(self) -> Outcome<T> {
+    fn execute(self) -> Outcome<T> {
         unsafe {
             match perform_fork() {
                 Ok(Some(_first_child_pid)) => Outcome::Parent(Ok(Parent {})),
@@ -214,17 +214,17 @@ unsafe fn redirect_standard_streams(
     Ok(())
 }
 
-pub type Errno = libc::c_int;
+type Errno = libc::c_int;
 
 /// This error type for `Daemonize` `start` method.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Dupe)]
-pub struct Error {
+struct Error {
     kind: ErrorKind,
 }
 
 /// This error type for `Daemonize` `start` method.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Dupe)]
-pub enum ErrorKind {
+enum ErrorKind {
     Fork(Errno),
     DetachSession(Errno),
     GroupNotFound,
@@ -333,7 +333,7 @@ impl From<ErrorKind> for Error {
     }
 }
 
-pub trait Num {
+trait Num {
     fn is_err(&self) -> bool;
 }
 
@@ -367,7 +367,7 @@ impl Num for isize {
     }
 }
 
-pub fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> anyhow::Result<N> {
+fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> anyhow::Result<N> {
     if ret.is_err() {
         Err(f(errno()).into())
     } else {
@@ -375,7 +375,7 @@ pub fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> anyhow:
     }
 }
 
-pub fn errno() -> Errno {
+fn errno() -> Errno {
     std::io::Error::last_os_error()
         .raw_os_error()
         .expect("errno")
