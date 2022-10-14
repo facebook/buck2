@@ -24,6 +24,14 @@ def _is_running_on_windows() -> bool:
     return sys.platform == "win32"
 
 
+def get_mode() -> str:
+    if sys.platform == "darwin":
+        return "@//mode/mac"
+    elif sys.platform == "win32":
+        return "@//mode/win"
+    return "@//mode/dev"
+
+
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=True, skip_if_windows=True)
 async def test_genrule(buck: Buck) -> None:
@@ -704,8 +712,10 @@ async def test_config_setting(buck: Buck) -> None:
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=True, skip_if_windows=True)
 async def test_python_bootstrap(buck: Buck) -> None:
-    await buck.run("//buck2/tests/targets/rules/python_bootstrap:hello")
-    await buck.run("//buck2/tests/targets/rules/python_bootstrap:hello_imported")
+    await buck.run("//buck2/tests/targets/rules/python_bootstrap:hello", get_mode())
+    await buck.run(
+        "//buck2/tests/targets/rules/python_bootstrap:hello_imported", get_mode()
+    )
 
 
 @buck_test(inplace=True)
