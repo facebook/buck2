@@ -2,12 +2,13 @@ AppleToolchainInfo = provider(fields = [
     "actool",  # "RunInfo"
     "ibtool",  # "RunInfo"
     "dsymutil",  # "RunInfo"
-    "dwarfdump",  # "[RunInfo, None]"
+    "dwarfdump",  # ["RunInfo", None]
     "lipo",  # "RunInfo"
     "cxx_platform_info",  # "CxxPlatformInfo"
     "cxx_toolchain_info",  # "CxxToolchainInfo"
     "codesign",  # "RunInfo"
     "codesign_allocate",  # "RunInfo"
+    "codesign_identities_command",  # ["RunInfo", None]
     "compile_resources_locally",  # bool.type
     "libtool",  # "RunInfo"
     "momc",  # "RunInfo"

@@ -121,6 +121,7 @@ extra_attributes = {
         "actool": attrs.dep(providers = [RunInfo]),
         "codesign": attrs.dep(providers = [RunInfo]),
         "codesign_allocate": attrs.dep(providers = [RunInfo]),
+        "codesign_identities_command": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         # Controls invocations of `ibtool`, `actool` and `momc`
         "compile_resources_locally": attrs.bool(default = False),
         "dsymutil": attrs.dep(providers = [RunInfo]),
