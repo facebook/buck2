@@ -27,3 +27,8 @@ buck2_e2e_test(
     srcs = ["test_build_serial.py"],
     tags = ["serialize_test_cases"],
 )
+
+buck2_e2e_test(
+    name = "test_build_universe",
+    srcs = ["test_build_universe.py"],
+)

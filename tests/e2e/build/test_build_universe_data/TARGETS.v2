@@ -1,0 +1,36 @@
+prelude = native
+
+buck_genrule(
+    name = "test",
+    out = "test.txt",
+    cmd = select({
+        ":cat": "echo cat> $OUT",
+        "DEFAULT": "echo default> $OUT",
+    }),
+    cmd_exe = select({
+        ":cat": "echo cat> %OUT%",
+        "DEFAULT": "echo default> %OUT%",
+    }),
+)
+
+prelude.configured_alias(
+    name = "universe",
+    actual = ":test",
+    platform = ":p",
+)
+
+prelude.constraint_setting(
+    name = "animal",
+)
+
+prelude.constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
+
+prelude.platform(
+    name = "p",
+    constraint_values = [
+        ":cat",
+    ],
+)
