@@ -15,7 +15,6 @@ mod package_deps;
 use async_trait::async_trait;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use cli_proto::ClientContext;
-use once_cell::sync::Lazy;
 
 use crate::starlark::module::StarlarkModuleCommand;
 use crate::starlark::package_deps::StarlarkPackageDepsCommand;
@@ -43,8 +42,9 @@ impl AuditSubcommand for StarlarkCommand {
     }
 
     fn common_opts(&self) -> &AuditCommandCommonOptions {
-        static DEFAULT: Lazy<AuditCommandCommonOptions> =
-            Lazy::new(AuditCommandCommonOptions::default);
-        &DEFAULT
+        match self {
+            StarlarkCommand::Module(cmd) => &cmd.common_opts,
+            StarlarkCommand::PackageDeps(cmd) => &cmd.common_opts,
+        }
     }
 }

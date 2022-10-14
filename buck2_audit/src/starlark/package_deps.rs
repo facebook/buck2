@@ -25,6 +25,8 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use cli_proto::ClientContext;
 
+use crate::AuditCommandCommonOptions;
+
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "module",
@@ -33,6 +35,9 @@ use cli_proto::ClientContext;
 pub struct StarlarkPackageDepsCommand {
     #[clap(name = "PACKAGE", help = "Package")]
     package: String,
+
+    #[clap(flatten)]
+    pub(crate) common_opts: AuditCommandCommonOptions,
 }
 
 impl StarlarkPackageDepsCommand {
