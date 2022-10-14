@@ -82,20 +82,6 @@ impl From<u32> for Group {
     }
 }
 
-/// File mode creation mask.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Dupe)]
-pub struct Mask {
-    inner: libc::mode_t,
-}
-
-impl From<u32> for Mask {
-    fn from(inner: u32) -> Mask {
-        Mask {
-            inner: inner as libc::mode_t,
-        }
-    }
-}
-
 #[derive(Debug)]
 enum StdioImpl {
     Devnull,
@@ -164,7 +150,6 @@ pub struct Daemonize<T> {
     pid_file: Option<PathBuf>,
     user: Option<User>,
     group: Option<Group>,
-    umask: Mask,
     root: Option<PathBuf>,
     privileged_action: Box<dyn FnOnce() -> T>,
     stdin: Stdio,
@@ -179,7 +164,6 @@ impl<T> fmt::Debug for Daemonize<T> {
             .field("pid_file", &self.pid_file)
             .field("user", &self.user)
             .field("group", &self.group)
-            .field("umask", &self.umask)
             .field("root", &self.root)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
@@ -201,7 +185,6 @@ impl Daemonize<()> {
             pid_file: None,
             user: None,
             group: None,
-            umask: 0o027.into(),
             privileged_action: box || (),
             root: None,
             stdin: Stdio::devnull(),
@@ -221,12 +204,6 @@ impl<T> Daemonize<T> {
     /// Change working directory to `path` or `/` by default.
     pub fn working_directory<F: AsRef<Path>>(mut self, path: F) -> Self {
         self.directory = path.as_ref().to_owned();
-        self
-    }
-
-    /// Change umask to `mask` or `0o027` by default.
-    pub fn umask<M: Into<Mask>>(mut self, mask: M) -> Self {
-        self.umask = mask.into();
         self
     }
 
@@ -272,7 +249,9 @@ impl<T> Daemonize<T> {
         unsafe {
             set_current_dir(&self.directory).map_err(|_| ErrorKind::ChangeDirectory(errno()))?;
             set_sid()?;
-            libc::umask(self.umask.inner);
+
+            // This umask corresponds to a default of `rwxr-xr-x` (which is the default on Linux).
+            libc::umask(0o022);
 
             if perform_fork()?.is_some() {
                 exit(0)
