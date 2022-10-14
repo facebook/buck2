@@ -67,10 +67,10 @@ pub struct Child<T> {
 
 /// Daemonization process outcome. Can be matched to check is it a parent process or a child
 /// process.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum Outcome<T> {
-    Parent(Result<Parent, Error>),
-    Child(Result<Child<T>, Error>),
+    Parent(anyhow::Result<Parent>),
+    Child(anyhow::Result<Child<T>>),
 }
 
 /// Daemonization options.
@@ -145,7 +145,7 @@ impl<T> Daemonize<T> {
     }
     /// Start daemonization process, terminate parent after first fork, returns privileged action
     /// result to the child.
-    pub fn start(self) -> Result<T, Error> {
+    pub fn start(self) -> anyhow::Result<T> {
         match self.execute() {
             Outcome::Parent(Ok(_)) => exit(0),
             Outcome::Parent(Err(err)) => Err(err),
@@ -159,18 +159,18 @@ impl<T> Daemonize<T> {
         unsafe {
             match perform_fork() {
                 Ok(Some(_first_child_pid)) => Outcome::Parent(Ok(Parent {})),
-                Err(err) => Outcome::Parent(Err(err.into())),
+                Err(err) => Outcome::Parent(Err(err)),
                 Ok(None) => match self.execute_child() {
                     Ok(privileged_action_result) => Outcome::Child(Ok(Child {
                         privileged_action_result,
                     })),
-                    Err(err) => Outcome::Child(Err(err.into())),
+                    Err(err) => Outcome::Child(Err(err)),
                 },
             }
         }
     }
 
-    fn execute_child(self) -> Result<T, ErrorKind> {
+    fn execute_child(self) -> anyhow::Result<T> {
         unsafe {
             set_sid()?;
 
@@ -204,12 +204,12 @@ impl<T> Daemonize<T> {
     }
 }
 
-unsafe fn perform_fork() -> Result<Option<libc::pid_t>, ErrorKind> {
+unsafe fn perform_fork() -> anyhow::Result<Option<libc::pid_t>> {
     let pid = check_err(libc::fork(), ErrorKind::Fork)?;
     if pid == 0 { Ok(None) } else { Ok(Some(pid)) }
 }
 
-unsafe fn set_sid() -> Result<(), ErrorKind> {
+unsafe fn set_sid() -> anyhow::Result<()> {
     check_err(libc::setsid(), ErrorKind::DetachSession)?;
     Ok(())
 }
@@ -218,23 +218,18 @@ unsafe fn redirect_standard_streams(
     stdin: Stdio,
     stdout: Stdio,
     stderr: Stdio,
-) -> Result<(), ErrorKind> {
+) -> anyhow::Result<()> {
     let devnull_fd = check_err(
         libc::open(b"/dev/null\0" as *const [u8; 10] as _, libc::O_RDWR),
         ErrorKind::OpenDevnull,
     )?;
 
-    let process_stdio = |fd, stdio: Stdio| {
-        match stdio.inner {
-            StdioImpl::Devnull => {
-                check_err(libc::dup2(devnull_fd, fd), ErrorKind::RedirectStreams)?;
-            }
-            StdioImpl::RedirectToFile(file) => {
-                let raw_fd = file.as_raw_fd();
-                check_err(libc::dup2(raw_fd, fd), ErrorKind::RedirectStreams)?;
-            }
-        };
-        Ok(())
+    let process_stdio = |fd, stdio: Stdio| match stdio.inner {
+        StdioImpl::Devnull => check_err(libc::dup2(devnull_fd, fd), ErrorKind::RedirectStreams),
+        StdioImpl::RedirectToFile(file) => {
+            let raw_fd = file.as_raw_fd();
+            check_err(libc::dup2(raw_fd, fd), ErrorKind::RedirectStreams)
+        }
     };
 
     process_stdio(libc::STDIN_FILENO, stdin)?;
@@ -246,7 +241,7 @@ unsafe fn redirect_standard_streams(
     Ok(())
 }
 
-unsafe fn create_pid_file(path: PathBuf) -> Result<libc::c_int, ErrorKind> {
+unsafe fn create_pid_file(path: PathBuf) -> anyhow::Result<libc::c_int> {
     let path_c = pathbuf_into_cstring(path)?;
 
     let fd = check_err(
@@ -261,7 +256,7 @@ unsafe fn create_pid_file(path: PathBuf) -> Result<libc::c_int, ErrorKind> {
     Ok(fd)
 }
 
-unsafe fn write_pid_file(fd: libc::c_int) -> Result<(), ErrorKind> {
+unsafe fn write_pid_file(fd: libc::c_int) -> anyhow::Result<()> {
     let pid = libc::getpid();
     let pid_buf = format!("{}", pid).into_bytes();
     let pid_length = pid_buf.len();
@@ -274,13 +269,13 @@ unsafe fn write_pid_file(fd: libc::c_int) -> Result<(), ErrorKind> {
     )?;
 
     if written < pid_length as isize {
-        return Err(ErrorKind::WritePidUnspecifiedError);
+        return Err(ErrorKind::WritePidUnspecifiedError.into());
     }
 
     Ok(())
 }
 
-unsafe fn set_cloexec_pid_file(fd: libc::c_int) -> Result<(), ErrorKind> {
+unsafe fn set_cloexec_pid_file(fd: libc::c_int) -> anyhow::Result<()> {
     if cfg!(not(target_os = "redox")) {
         let flags = check_err(libc::fcntl(fd, libc::F_GETFD), ErrorKind::GetPidfileFlags)?;
 
@@ -451,9 +446,9 @@ impl Num for isize {
     }
 }
 
-pub fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> Result<N, ErrorKind> {
+pub fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> anyhow::Result<N> {
     if ret.is_err() {
-        Err(f(errno()))
+        Err(f(errno()).into())
     } else {
         Ok(ret)
     }
