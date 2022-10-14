@@ -49,24 +49,12 @@ impl From<File> for Stdio {
     }
 }
 
-/// Parent process execution outcome.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[non_exhaustive]
-struct Parent {}
-
-/// Chiled process execution outcome.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[non_exhaustive]
-struct Child<T> {
-    privileged_action_result: T,
-}
-
 /// Daemonization process outcome. Can be matched to check is it a parent process or a child
 /// process.
 #[derive(Debug)]
-enum Outcome<T> {
-    Parent(anyhow::Result<Parent>),
-    Child(anyhow::Result<Child<T>>),
+enum Outcome {
+    Parent(anyhow::Result<()>),
+    Child(anyhow::Result<()>),
 }
 
 /// Daemonization options.
@@ -84,14 +72,13 @@ enum Outcome<T> {
 ///   * change the pid-file ownership to provided user (and/or) group;
 ///   * execute any provided action just before dropping privileges.
 ///
-pub(crate) struct Daemonize<T> {
-    privileged_action: Box<dyn FnOnce() -> T>,
+pub(crate) struct Daemonize {
     stdin: Stdio,
     stdout: Stdio,
     stderr: Stdio,
 }
 
-impl<T> fmt::Debug for Daemonize<T> {
+impl fmt::Debug for Daemonize {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Daemonize")
             .field("stdin", &self.stdin)
@@ -101,16 +88,15 @@ impl<T> fmt::Debug for Daemonize<T> {
     }
 }
 
-impl Default for Daemonize<()> {
+impl Default for Daemonize {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Daemonize<()> {
+impl Daemonize {
     pub(crate) fn new() -> Self {
         Daemonize {
-            privileged_action: box || (),
             stdin: Stdio::devnull(),
             stdout: Stdio::devnull(),
             stderr: Stdio::devnull(),
@@ -118,7 +104,7 @@ impl Daemonize<()> {
     }
 }
 
-impl<T> Daemonize<T> {
+impl Daemonize {
     /// Configuration for the child process's standard output stream.
     pub(crate) fn stdout<S: Into<Stdio>>(mut self, stdio: S) -> Self {
         self.stdout = stdio.into();
@@ -132,32 +118,30 @@ impl<T> Daemonize<T> {
     }
     /// Start daemonization process, terminate parent after first fork, returns privileged action
     /// result to the child.
-    pub(crate) fn start(self) -> anyhow::Result<T> {
+    pub(crate) fn start(self) -> anyhow::Result<()> {
         match self.execute() {
             Outcome::Parent(Ok(_)) => exit(0),
             Outcome::Parent(Err(err)) => Err(err),
-            Outcome::Child(Ok(child)) => Ok(child.privileged_action_result),
+            Outcome::Child(Ok(())) => Ok(()),
             Outcome::Child(Err(err)) => Err(err),
         }
     }
 
     /// Execute daemonization process, don't terminate parent after first fork.
-    fn execute(self) -> Outcome<T> {
+    fn execute(self) -> Outcome {
         unsafe {
             match perform_fork() {
-                Ok(Some(_first_child_pid)) => Outcome::Parent(Ok(Parent {})),
+                Ok(Some(_first_child_pid)) => Outcome::Parent(Ok(())),
                 Err(err) => Outcome::Parent(Err(err)),
                 Ok(None) => match self.execute_child() {
-                    Ok(privileged_action_result) => Outcome::Child(Ok(Child {
-                        privileged_action_result,
-                    })),
+                    Ok(()) => Outcome::Child(Ok(())),
                     Err(err) => Outcome::Child(Err(err)),
                 },
             }
         }
     }
 
-    fn execute_child(self) -> anyhow::Result<T> {
+    fn execute_child(self) -> anyhow::Result<()> {
         unsafe {
             set_sid()?;
 
@@ -170,9 +154,7 @@ impl<T> Daemonize<T> {
 
             redirect_standard_streams(self.stdin, self.stdout, self.stderr)?;
 
-            let privileged_action_result = (self.privileged_action)();
-
-            Ok(privileged_action_result)
+            Ok(())
         }
     }
 }
