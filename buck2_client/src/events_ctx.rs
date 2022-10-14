@@ -291,7 +291,7 @@ impl EventsCtx {
     }
 }
 
-/// Convert a CommandResult into a CommandOutcome after the CommandResult has been printed elsewhere.
+/// Convert a CommandResult into a CommandOutcome after the CommandResult has been printed by `handle_command_result`.
 fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Result>>(
     value: CommandResult,
 ) -> anyhow::Result<CommandOutcome<R>> {
