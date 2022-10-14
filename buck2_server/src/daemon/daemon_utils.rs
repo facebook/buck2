@@ -21,6 +21,6 @@ pub fn create_listener(daemon_dir: PathBuf) -> anyhow::Result<(ConnectionType, T
     #[cfg(windows)]
     {
         drop(daemon_dir);
-        crate::daemon::daemon_windows::create_listener()
+        crate::daemon::daemon_tcp::create_listener()
     }
 }

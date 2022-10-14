@@ -15,11 +15,11 @@ pub mod forkserver;
 pub mod panic;
 pub mod state;
 
+#[cfg(windows)]
+mod daemon_tcp;
 #[cfg(unix)]
 mod daemon_unix;
 pub mod daemon_utils;
-#[cfg(windows)]
-mod daemon_windows;
 
 pub mod server;
 
