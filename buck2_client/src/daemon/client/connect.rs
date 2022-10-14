@@ -14,8 +14,10 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::buckd_connection::ConnectionType;
-use buck2_common::client_utils::get_channel;
+use buck2_common::client_utils::get_channel_tcp;
+use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
+use buck2_common::client_utils::SOCKET_ADDR;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
@@ -40,6 +42,18 @@ use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
+
+async fn get_channel(
+    endpoint: ConnectionType,
+    change_to_parent_dir: bool,
+) -> anyhow::Result<Channel> {
+    match endpoint {
+        ConnectionType::Uds { unix_socket } => {
+            get_channel_uds(&unix_socket, change_to_parent_dir).await
+        }
+        ConnectionType::Tcp { port } => get_channel_tcp(SOCKET_ADDR, port).await,
+    }
+}
 
 fn buckd_startup_timeout() -> anyhow::Result<Duration> {
     Ok(Duration::from_secs(

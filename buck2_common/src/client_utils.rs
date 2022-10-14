@@ -17,24 +17,8 @@ use tokio::time::Instant;
 use tonic::transport::Channel;
 use tonic::transport::Endpoint;
 
-use crate::buckd_connection::ConnectionType;
-
 pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";
-
-// This function could potentialy change the working directory briefly and should not be run
-// while other threads are running, as directory is a global variable
-pub async fn get_channel(
-    endpoint: ConnectionType,
-    change_to_parent_dir: bool,
-) -> anyhow::Result<Channel> {
-    match endpoint {
-        ConnectionType::Uds { unix_socket } => {
-            get_channel_uds(&unix_socket, change_to_parent_dir).await
-        }
-        ConnectionType::Tcp { port } => get_channel_tcp(SOCKET_ADDR, port).await,
-    }
-}
 
 #[cfg(unix)]
 pub async fn get_channel_uds(
