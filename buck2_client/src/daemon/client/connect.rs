@@ -43,7 +43,7 @@ use crate::subscribers::subscriber::EventSubscriber;
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
 
-async fn get_channel(
+pub async fn get_channel(
     endpoint: ConnectionType,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {

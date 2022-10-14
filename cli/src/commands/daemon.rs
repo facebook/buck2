@@ -532,3 +532,84 @@ impl DaemonCommand {
         Err(anyhow::anyhow!("Cannot daemonize on Windows"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::process;
+    use std::time::Duration;
+
+    use buck2_client::daemon::client::connect::get_channel;
+    use buck2_common::invocation_paths::InvocationPaths;
+    use buck2_common::invocation_roots::InvocationRoots;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::fs::project::ProjectRoot;
+    use buck2_server::daemon::daemon_utils::create_listener;
+    use buck2_server::daemon::server::BuckdServer;
+    use buck2_server::daemon::server::BuckdServerDelegate;
+    use cli_proto::daemon_api_client::DaemonApiClient;
+    use cli_proto::DaemonProcessInfo;
+    use cli_proto::KillRequest;
+    use cli_proto::PingRequest;
+
+    use crate::commands::daemon::BuckdServerDependenciesImpl;
+
+    // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
+    #[tokio::test]
+    async fn test_daemon_smoke() {
+        // SAFETY: this call is probably not very safe,
+        //   because `init` is supposed to be performed before any other code.
+        let fbinit = unsafe { fbinit::perform_init() };
+
+        let tempdir = tempfile::tempdir().unwrap();
+
+        let (endpoint, listener) = create_listener(tempdir.path().to_path_buf()).unwrap();
+
+        let invocation_paths = InvocationPaths {
+            roots: InvocationRoots {
+                cell_root: AbsPathBuf::new(tempdir.path().to_path_buf()).unwrap(),
+                project_root: ProjectRoot::new(
+                    AbsPathBuf::new(tempdir.path().to_path_buf()).unwrap(),
+                ),
+            },
+            isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
+        };
+
+        struct Delegate;
+
+        impl BuckdServerDelegate for Delegate {
+            fn force_shutdown(&self) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn force_shutdown_with_timeout(&self, _timeout: Duration) {}
+        }
+
+        let process_info = DaemonProcessInfo {
+            endpoint: endpoint.to_string(),
+            pid: process::id() as i64,
+            version: "13.17.19".to_owned(),
+        };
+
+        let handle = tokio::spawn(BuckdServer::run(
+            fbinit,
+            invocation_paths,
+            box Delegate,
+            None,
+            process_info,
+            listener.into_accept_stream().unwrap(),
+            &BuckdServerDependenciesImpl,
+        ));
+
+        let mut client = DaemonApiClient::new(get_channel(endpoint, true).await.unwrap());
+
+        client.ping(PingRequest::default()).await.unwrap();
+
+        client.kill(KillRequest::default()).await.unwrap();
+
+        handle
+            .await
+            .expect("handle join failed")
+            .expect("daemon returned error");
+    }
+}
