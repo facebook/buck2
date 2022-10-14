@@ -610,7 +610,12 @@ def build_java_library(
         )
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
-    if common_compile_kwargs and srcs and not java_toolchain.is_bootstrap_toolchain:
+    if (
+        common_compile_kwargs and
+        srcs and
+        not java_toolchain.is_bootstrap_toolchain and
+        not ctx.attrs._is_building_android_binary
+    ):
         ast_dumper = java_toolchain.ast_dumper
 
         # Replace whatever compiler plugins are present with the AST dumper instead
