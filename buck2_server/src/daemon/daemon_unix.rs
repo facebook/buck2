@@ -21,7 +21,9 @@ use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
-pub fn create_listener(daemon_dir: PathBuf) -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
+pub(crate) fn create_listener(
+    daemon_dir: PathBuf,
+) -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
     let uds_path = daemon_dir.join(UDS_DAEMON_FILENAME);
 
     fs_util::create_dir_all(&uds_path.parent().unwrap())?;
@@ -60,7 +62,7 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_common::connection_endpoint::ConnectionType;
 
-    use crate::daemon::daemon_utils::create_listener;
+    use crate::daemon::daemon_unix::create_listener;
 
     #[test]
     fn test_create_listener() {

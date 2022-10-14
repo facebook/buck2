@@ -8,16 +8,13 @@
  */
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
 
 use buck2_common::client_utils::SOCKET_ADDR;
 use buck2_common::connection_endpoint::ConnectionType;
 
 use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 
-pub fn create_listener(
-    _daemon_dir: PathBuf,
-) -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
+pub(crate) fn create_listener() -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
     let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
     let tcp_listener = std::net::TcpListener::bind(addr)?;
     tcp_listener.set_nonblocking(true)?;

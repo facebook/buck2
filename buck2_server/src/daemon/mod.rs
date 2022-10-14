@@ -15,9 +15,12 @@ pub mod forkserver;
 pub mod panic;
 pub mod state;
 
-#[cfg_attr(unix, path = "daemon_unix.rs")]
-#[cfg_attr(windows, path = "daemon_windows.rs")]
+#[cfg(unix)]
+mod daemon_unix;
 pub mod daemon_utils;
+#[cfg(windows)]
+mod daemon_windows;
+
 pub mod server;
 
 pub mod tcp_or_unix_listener;
