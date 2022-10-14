@@ -6,9 +6,11 @@ _REFS = {
     "arm64": "ovr_config//cpu/constraints:arm64",
     "armv7": "ovr_config//cpu/constraints:arm32",
     "build_only_native_code": "fbsource//xplat/buck2/platform/android:build_only_native_code",
+    "building_android_binary": "fbsource//xplat/buck2/platform/android:building_android_binary",
     "cpu": "ovr_config//cpu/constraints:cpu",
     "do_not_build_only_native_code": "fbsource//xplat/buck2/platform/android:do_not_build_only_native_code",
     "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
+    "maybe_building_android_binary": "fbsource//xplat/buck2/platform/android:maybe_building_android_binary",
     "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
     "x86": "ovr_config//cpu/constraints:x86_32",
     "x86_64": "ovr_config//cpu/constraints:x86_64",
@@ -64,6 +66,8 @@ def _cpu_split_transition(
         for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()
         if constraint_setting_label != cpu[ConstraintSettingInfo].label and constraint_setting_label != refs.maybe_build_only_native_code[ConstraintSettingInfo].label
     }
+
+    base_constraints[refs.maybe_building_android_binary[ConstraintSettingInfo].label] = refs.building_android_binary[ConstraintValueInfo]
 
     if min_sdk_version:
         base_constraints[refs.min_sdk_version[ConstraintSettingInfo].label] = _get_min_sdk_constraint_value(min_sdk_version, refs)
@@ -166,3 +170,14 @@ def _get_min_sdk_constraint_value(min_sdk_version: int.type, refs: struct.type) 
         fail("Unsupported min_sdk_version {}, please report!".format(min_sdk_version))
 
     return constraint[ConstraintValueInfo]
+
+def _is_building_android_binary() -> "selector":
+    return select(
+        {
+            "DEFAULT": False,
+            "fbsource//xplat/buck2/platform/android:building_android_binary": True,
+        },
+    )
+
+def is_building_android_binary_attr() -> "attribute":
+    return attrs.default_only(attrs.bool(default = _is_building_android_binary()))

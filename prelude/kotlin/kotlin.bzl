@@ -1,3 +1,4 @@
+load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java.bzl", "dex_min_sdk_version", "is_build_only_native_code", "select_dex_toolchain", "select_junit_toolchain")
 load(
@@ -37,6 +38,7 @@ extra_attributes = {
                 DexToolchainInfo,
             ],
         ), default = select_dex_toolchain()),
+        "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
@@ -54,6 +56,7 @@ extra_attributes = {
     "kotlin_test": {
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
+        "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
