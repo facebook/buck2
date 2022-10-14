@@ -82,15 +82,18 @@ fn current_dir() -> anyhow::Result<PathBuf> {
         NotCanonical(PathBuf, PathBuf),
     }
 
-    // `current_dir` seems to return canonical path.
-    // Make it soft error before making it hard error.
+    // Skip the check on Windows as `current_dir` does not return the canonicalized path prefixed with \\?\
     let current_dir = env::current_dir()?;
-    let current_dir_canonical = current_dir.canonicalize()?;
-    if current_dir != current_dir_canonical {
-        soft_error!(
-            "current_dir_not_canon",
-            CurrentDirError::NotCanonical(current_dir.clone(), current_dir_canonical).into()
-        )?;
+    if !cfg!(windows) {
+        // `current_dir` seems to return canonical path.
+        // Make it soft error before making it hard error.
+        let current_dir_canonical = current_dir.canonicalize()?;
+        if current_dir != current_dir_canonical {
+            soft_error!(
+                "current_dir_not_canon",
+                CurrentDirError::NotCanonical(current_dir.clone(), current_dir_canonical).into()
+            )?;
+        }
     }
     Ok(current_dir)
 }
