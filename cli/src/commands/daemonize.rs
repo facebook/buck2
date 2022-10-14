@@ -14,12 +14,9 @@
 
 #![cfg(unix)]
 
-use std::ffi::CString;
 use std::fmt;
 use std::fs::File;
-use std::os::unix::ffi::OsStringExt;
 use std::os::unix::io::AsRawFd;
-use std::path::PathBuf;
 use std::process::exit;
 
 use gazebo::dupe::Dupe;
@@ -88,7 +85,6 @@ pub enum Outcome<T> {
 ///   * execute any provided action just before dropping privileges.
 ///
 pub struct Daemonize<T> {
-    pid_file: Option<PathBuf>,
     privileged_action: Box<dyn FnOnce() -> T>,
     stdin: Stdio,
     stdout: Stdio,
@@ -98,7 +94,6 @@ pub struct Daemonize<T> {
 impl<T> fmt::Debug for Daemonize<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Daemonize")
-            .field("pid_file", &self.pid_file)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
             .field("stderr", &self.stderr)
@@ -115,7 +110,6 @@ impl Default for Daemonize<()> {
 impl Daemonize<()> {
     pub fn new() -> Self {
         Daemonize {
-            pid_file: None,
             privileged_action: box || (),
             stdin: Stdio::devnull(),
             stdout: Stdio::devnull(),
@@ -174,23 +168,9 @@ impl<T> Daemonize<T> {
                 exit(0)
             };
 
-            let pid_file_fd = self
-                .pid_file
-                .clone()
-                .map(|pid_file| create_pid_file(pid_file))
-                .transpose()?;
-
             redirect_standard_streams(self.stdin, self.stdout, self.stderr)?;
 
-            if let Some(pid_file_fd) = pid_file_fd {
-                set_cloexec_pid_file(pid_file_fd)?;
-            }
-
             let privileged_action_result = (self.privileged_action)();
-
-            if let Some(pid_file_fd) = pid_file_fd {
-                write_pid_file(pid_file_fd)?;
-            }
 
             Ok(privileged_action_result)
         }
@@ -232,58 +212,6 @@ unsafe fn redirect_standard_streams(
     check_err(libc::close(devnull_fd), ErrorKind::CloseDevnull)?;
 
     Ok(())
-}
-
-unsafe fn create_pid_file(path: PathBuf) -> anyhow::Result<libc::c_int> {
-    let path_c = pathbuf_into_cstring(path)?;
-
-    let fd = check_err(
-        libc::open(path_c.as_ptr(), libc::O_WRONLY | libc::O_CREAT, 0o666),
-        ErrorKind::OpenPidfile,
-    )?;
-
-    check_err(
-        libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB),
-        ErrorKind::LockPidfile,
-    )?;
-    Ok(fd)
-}
-
-unsafe fn write_pid_file(fd: libc::c_int) -> anyhow::Result<()> {
-    let pid = libc::getpid();
-    let pid_buf = format!("{}", pid).into_bytes();
-    let pid_length = pid_buf.len();
-    let pid_c = CString::new(pid_buf).unwrap();
-    check_err(libc::ftruncate(fd, 0), ErrorKind::TruncatePidfile)?;
-
-    let written = check_err(
-        libc::write(fd, pid_c.as_ptr() as *const libc::c_void, pid_length),
-        ErrorKind::WritePid,
-    )?;
-
-    if written < pid_length as isize {
-        return Err(ErrorKind::WritePidUnspecifiedError.into());
-    }
-
-    Ok(())
-}
-
-unsafe fn set_cloexec_pid_file(fd: libc::c_int) -> anyhow::Result<()> {
-    if cfg!(not(target_os = "redox")) {
-        let flags = check_err(libc::fcntl(fd, libc::F_GETFD), ErrorKind::GetPidfileFlags)?;
-
-        check_err(
-            libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC),
-            ErrorKind::SetPidfileFlags,
-        )?;
-    } else {
-        check_err(libc::ioctl(fd, libc::FIOCLEX), ErrorKind::SetPidfileFlags)?;
-    }
-    Ok(())
-}
-
-fn pathbuf_into_cstring(path: PathBuf) -> Result<CString, ErrorKind> {
-    CString::new(path.into_os_string().into_vec()).map_err(|_| ErrorKind::PathContainsNul)
 }
 
 pub type Errno = libc::c_int;
