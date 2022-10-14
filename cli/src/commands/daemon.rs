@@ -11,7 +11,6 @@
 
 use std::env;
 use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 use std::thread;
@@ -291,8 +290,7 @@ impl DaemonCommand {
 
             (listener, process_info)
         } else {
-            let mut pid_file = File::create(pid_path)?;
-            write!(pid_file, "{}", std::process::id())?;
+            fs_util::write(&pid_path, format!("{}", process::id()))?;
 
             if !self.dont_redirect_output {
                 self.redirect_output(stdout, stderr)?;
