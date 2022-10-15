@@ -369,7 +369,6 @@
 #![feature(ptr_metadata)]
 #![feature(thread_local)]
 #![feature(try_blocks)]
-#![feature(iter_intersperse)]
 #![feature(array_from_fn)]
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
