@@ -56,7 +56,7 @@ which = "4.2.4"
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_common = { path = "../buck2_common" }
-buck2_core = { path = "../buck2_core" }
+buck2_core = { path = "../app/buck2_core" }
 buck2_data = { path = "../buck2_data" }
 buck2_execute = { path = "../buck2_execute"}
 buck2_events = { path = "../buck2_events" }

@@ -25,7 +25,7 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 starlark_map = { workspace = true }
 
-buck2_core = { path = "../buck2_core" }
+buck2_core = { path = "../app/buck2_core" }
 buck2_query_parser = { path = "../app/buck2_query_parser" }
 buck2_query_derive = { path = "../app/buck2_query_derive" }
 

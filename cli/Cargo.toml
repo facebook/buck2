@@ -37,7 +37,7 @@ starlark = { workspace = true }
 buck2_audit = { path = "../buck2_audit" }
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
-buck2_core = { path = "../buck2_core" }
+buck2_core = { path = "../app/buck2_core" }
 buck2_query = { path = "../buck2_query" }
 buck2_client = { path = "../buck2_client" }
 buck2_common = { path = "../buck2_common" }

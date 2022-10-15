@@ -27,7 +27,7 @@ buck2_build_api = { path = "../buck2_build_api" }
 # so this dependency does not increase critical path length.
 buck2_client = { path = "../buck2_client" }
 buck2_common = { path = "../buck2_common" }
-buck2_core = { path = "../buck2_core" }
+buck2_core = { path = "../app/buck2_core" }
 buck2_data = { path = "../buck2_data" }
 buck2_events = { path = "../buck2_events" }
 buck2_execute = { path = "../buck2_execute" }

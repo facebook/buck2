@@ -10,7 +10,7 @@ prost = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true }
 tonic = { workspace = true }
-buck2_core = { path = "../buck2_core" }
+buck2_core = { path = "../app/buck2_core" }
 
 gazebo = { workspace = true }
 

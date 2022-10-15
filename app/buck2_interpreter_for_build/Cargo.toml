@@ -24,7 +24,7 @@ starlark = { workspace = true }
 starlark_map = { workspace = true }
 
 buck2_common = { path = "../../buck2_common" }
-buck2_core = { path = "../../buck2_core" }
+buck2_core = { path = "../buck2_core" }
 buck2_node = { path = "../../buck2_node" }
 buck2_interpreter = { path = "../../buck2_interpreter" }
 buck2_query = { path = "../../buck2_query" }

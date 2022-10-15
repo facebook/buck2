@@ -38,7 +38,7 @@ watchman_client.version = "0.8.0"
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }
-buck2_core = { path = "../buck2_core" }
+buck2_core = { path = "../app/buck2_core" }
 buck2_data = { path = "../buck2_data" }
 buck2_execute = { path = "../buck2_execute" }
 buck2_execute_impl = { path = "../buck2_execute_impl" }
