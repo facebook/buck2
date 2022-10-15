@@ -164,6 +164,8 @@ JavaLibraryIntellijInfo = provider(
         # All the artifacts that were used in order to compile this library
         "compiling_classpath",  # ["artifact"]
         "generated_sources",  # ["artifact"]
+        # Directory containing external annotation jars
+        "annotation_jars_dir",  # ["artifact", None]
     ],
 )
 
@@ -403,7 +405,8 @@ def create_java_library_providers(
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
         is_prebuilt_jar: bool.type = False,
-        generated_sources: ["artifact"] = []) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
+        generated_sources: ["artifact"] = [],
+        annotation_jars_dir: ["artifact", None] = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
@@ -429,6 +432,7 @@ def create_java_library_providers(
     intellij_info = JavaLibraryIntellijInfo(
         compiling_classpath = compiling_classpath,
         generated_sources = generated_sources,
+        annotation_jars_dir = annotation_jars_dir,
     )
 
     return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info, intellij_info)

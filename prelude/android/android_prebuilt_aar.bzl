@@ -17,6 +17,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     res = ctx.actions.declare_output("unpack_dir/res")
     assets = ctx.actions.declare_output("unpack_dir/assets")
     jni = ctx.actions.declare_output("unpack_dir/jni")
+    annotation_jars_dir = ctx.actions.declare_output("annotation_jars")
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
@@ -41,6 +42,8 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         assets.as_output(),
         "--jni-path",
         jni.as_output(),
+        "--annotation-jars-dir",
+        annotation_jars_dir.as_output(),
         "--jar-tool",
         jar_tool,
     ]
@@ -65,12 +68,13 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
     )
 
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, _ = create_java_library_providers(
+    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, java_library_intellij_info = create_java_library_providers(
         ctx = ctx,
         library_output = library_output_classpath_entry,
         exported_deps = ctx.attrs.deps,
         needs_desugar = True,
         is_prebuilt_jar = True,
+        annotation_jars_dir = annotation_jars_dir,
     )
 
     native_library = PrebuiltNativeLibraryDir(
@@ -86,6 +90,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         shared_library_info,
         cxx_resource_info,
         template_placeholder_info,
+        java_library_intellij_info,
         merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = manifest, prebuilt_native_library_dir = native_library, resource_info = resource_info),
         resource_info,
         DefaultInfo(default_outputs = [all_classes_jar]),
