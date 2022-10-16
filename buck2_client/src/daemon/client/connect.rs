@@ -294,6 +294,7 @@ impl BuckdConnectOptions {
             pid: 0,
             endpoint: "".to_owned(),
             version: "".to_owned(),
+            auth_token: "".to_owned(),
         };
         let events_ctx = EventsCtx::new(paths.daemon_dir()?, self.subscribers);
         let client = BuckdClient {

@@ -54,6 +54,7 @@ use futures::pin_mut;
 use futures::select;
 use futures::FutureExt;
 use futures::StreamExt;
+use rand::Rng;
 use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
@@ -244,6 +245,12 @@ fn maybe_schedule_termination() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn gen_auth_token() -> String {
+    (0..20)
+        .map(|_| rand::thread_rng().gen_range('a'..='z'))
+        .collect()
+}
+
 impl DaemonCommand {
     fn run(
         &self,
@@ -264,6 +271,8 @@ impl DaemonCommand {
         let stdout = File::create(stdout_path)?;
         let stderr = File::create(stderr_path)?;
 
+        let auth_token = gen_auth_token();
+
         let (listener, process_info) = if !self.dont_daemonize {
             // We must create stdout/stderr before creating a listener,
             // otherwise it is race:
@@ -281,6 +290,7 @@ impl DaemonCommand {
                 pid: pid as i64,
                 endpoint: endpoint.to_string(),
                 version: BuckVersion::get().unique_id().to_owned(),
+                auth_token,
             };
 
             // TODO(nga): this code is executed after server daemonization,
@@ -303,6 +313,7 @@ impl DaemonCommand {
                 pid: process::id() as i64,
                 endpoint: endpoint.to_string(),
                 version: BuckVersion::get().unique_id().to_owned(),
+                auth_token,
             };
 
             write_process_info(&daemon_dir, &process_info)?;
@@ -589,6 +600,7 @@ mod tests {
             endpoint: endpoint.to_string(),
             pid: process::id() as i64,
             version: "13.17.19".to_owned(),
+            auth_token: "abc".to_owned(),
         };
 
         let handle = tokio::spawn(BuckdServer::run(

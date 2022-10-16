@@ -19,6 +19,7 @@ message DaemonProcessInfo {
   int64 pid = 1;
   string endpoint = 2;
   string version = 3;
+  string auth_token = 4;
 }
 
 message KillRequest {
