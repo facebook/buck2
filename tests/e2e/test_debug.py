@@ -112,3 +112,10 @@ async def test_debug_crash(buck: Buck) -> None:
     await buck.build()
     result = await buck.debug("crash")
     assert "explicitly requested panic" in result.stderr
+
+
+@buck_test(inplace=True)
+async def test_debug_exe(buck: Buck) -> None:
+    result = await buck.debug("exe")
+    path = result.stdout.strip()
+    assert os.path.exists(path)

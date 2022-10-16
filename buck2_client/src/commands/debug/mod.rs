@@ -21,6 +21,7 @@ use replay::ReplayCommand;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_ctx::ProcessContext;
 use crate::commands::debug::daemon_dir::DaemonDirCommand;
+use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
@@ -33,6 +34,7 @@ mod chrome_trace;
 mod crash;
 mod daemon_dir;
 mod dice_dump;
+mod exe;
 mod flush_dep_files;
 mod heap_dump;
 mod internal_version;
@@ -75,6 +77,8 @@ pub enum DebugCommand {
     LastLog(LastLogCommand),
     /// Prints buck2 daemon directory (`~/.buckd/xxx`).
     DaemonDir(DaemonDirCommand),
+    /// Prints buck2 executable (this executable) path.
+    Exe(ExeCommand),
 }
 
 /// `cli::exec` function.
@@ -107,6 +111,7 @@ impl DebugCommand {
             DebugCommand::LastLog(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Materialize(cmd) => cmd.exec(matches, ctx),
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
