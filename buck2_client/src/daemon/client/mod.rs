@@ -16,6 +16,8 @@ use std::time::Instant;
 use anyhow::Context;
 use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::AbsPathBuf;
 use cli_proto::daemon_api_client::*;
 use cli_proto::*;
 use fs2::FileExt;
@@ -75,6 +77,12 @@ impl ClientKind {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum LifecycleError {
+    #[error("Missing `{}` file in `{}` directory", BuckdLifecycleLock::BUCKD_LIFECYCLE, _0.display())]
+    MissingLifecycle(AbsPathBuf),
+}
+
 /// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
 /// The connector wraps all buckd calls with flushing.
 pub struct BuckdClientConnector {
@@ -90,16 +98,19 @@ impl BuckdClientConnector {
 }
 
 pub struct BuckdLifecycleLock {
+    daemon_dir: DaemonDir,
     lock_file: File,
 }
 
 impl BuckdLifecycleLock {
+    const BUCKD_LIFECYCLE: &'static str = "buckd.lifecycle";
+
     pub async fn lock_with_timeout(
         daemon_dir: DaemonDir,
         timeout: Duration,
     ) -> anyhow::Result<BuckdLifecycleLock> {
         create_dir_all(&daemon_dir.path)?;
-        let lifecycle_path = daemon_dir.path.as_path().join("buckd.lifecycle");
+        let lifecycle_path = daemon_dir.path.as_path().join(Self::BUCKD_LIFECYCLE);
         let file = File::create(lifecycle_path)?;
         retrying(
             Duration::from_millis(5),
@@ -109,7 +120,28 @@ impl BuckdLifecycleLock {
         )
         .await?;
 
-        Ok(BuckdLifecycleLock { lock_file: file })
+        Ok(BuckdLifecycleLock {
+            lock_file: file,
+            daemon_dir,
+        })
+    }
+
+    /// Remove everything except `buckd.lifecycle` file which is the lock file.
+    fn clean_daemon_dir(&self) -> anyhow::Result<()> {
+        let mut seen_lifecycle = false;
+        for p in fs_util::read_dir(&self.daemon_dir.path)? {
+            let p = p?;
+            if p.file_name() == Self::BUCKD_LIFECYCLE {
+                seen_lifecycle = true;
+                continue;
+            }
+            fs_util::remove_all(p.path())?;
+        }
+        if !seen_lifecycle {
+            // Self-check.
+            return Err(LifecycleError::MissingLifecycle(self.daemon_dir.path.clone()).into());
+        }
+        Ok(())
     }
 }
 

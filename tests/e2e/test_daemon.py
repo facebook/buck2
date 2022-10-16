@@ -1,4 +1,7 @@
+import json
 import time
+
+import pytest
 
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
@@ -27,3 +30,22 @@ async def test_inactivity_timeout(buck: Buck) -> None:
             return
 
     raise AssertionError("Server did not die in 20 seconds")
+
+
+@buck_test(inplace=True)
+@pytest.mark.parametrize(
+    "corrupt",
+    ["not-json", '{"valid-json", "but-not-valid-data"}'],
+)
+async def test_corrupted_buckd_info(buck: Buck, corrupt: str) -> None:
+    await buck.targets("fbcode//buck2/tests/targets/daemon:rule")
+
+    daemon_dir_result = await buck.debug("daemon-dir")
+    daemon_dir = daemon_dir_result.stdout.strip()
+    with open(f"{daemon_dir}/buckd.info") as f:
+        # Check file exists and valid.
+        json.load(f)
+    with open(f"{daemon_dir}/buckd.info", "w") as f:
+        f.write(corrupt)
+
+    await buck.targets("fbcode//buck2/tests/targets/daemon:rule")

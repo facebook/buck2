@@ -65,7 +65,7 @@ fn buckd_startup_timeout() -> anyhow::Result<Duration> {
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {
     paths: &'a InvocationPaths,
-    _lock: BuckdLifecycleLock,
+    lock: BuckdLifecycleLock,
 }
 
 impl<'a> BuckdLifecycle<'a> {
@@ -75,8 +75,12 @@ impl<'a> BuckdLifecycle<'a> {
     ) -> anyhow::Result<BuckdLifecycle<'a>> {
         Ok(BuckdLifecycle::<'a> {
             paths,
-            _lock: BuckdLifecycleLock::lock_with_timeout(paths.daemon_dir()?, timeout).await?,
+            lock: BuckdLifecycleLock::lock_with_timeout(paths.daemon_dir()?, timeout).await?,
         })
+    }
+
+    fn clean_daemon_dir(&self) -> anyhow::Result<()> {
+        self.lock.clean_daemon_dir()
     }
 
     async fn start_server(&self) -> anyhow::Result<()> {
@@ -358,6 +362,12 @@ impl BuckdConnectOptions {
                 .kill("client expected different buck version")
                 .await?;
         }
+
+        // Daemon dir may be corrupted. Safer to delete it.
+        lifecycle_lock
+            .clean_daemon_dir()
+            .context("Cleaning daemon dir")?;
+
         // Now there's definitely no server that can be connected to
         // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
         lifecycle_lock.start_server().await?;
