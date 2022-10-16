@@ -43,7 +43,7 @@ use crate::subscribers::subscriber::EventSubscriber;
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
 
-pub async fn get_channel(
+async fn get_channel(
     endpoint: ConnectionType,
     change_to_parent_dir: bool,
 ) -> anyhow::Result<Channel> {
@@ -53,6 +53,13 @@ pub async fn get_channel(
         }
         ConnectionType::Tcp { port } => get_channel_tcp(SOCKET_ADDR, port).await,
     }
+}
+
+pub async fn new_daemon_api_client(
+    endpoint: ConnectionType,
+) -> anyhow::Result<DaemonApiClient<Channel>> {
+    let channel = get_channel(endpoint, true).await?;
+    Ok(DaemonApiClient::new(channel))
 }
 
 fn buckd_startup_timeout() -> anyhow::Result<Duration> {
@@ -416,7 +423,7 @@ impl BuckdConnectOptions {
 
         let connection_type = ConnectionType::parse(&info.endpoint)?;
 
-        let client = DaemonApiClient::new(get_channel(connection_type, true).await?);
+        let client = new_daemon_api_client(connection_type).await?;
 
         Ok(BootstrapBuckdClient::new(client, info, daemon_dir.clone()))
     }

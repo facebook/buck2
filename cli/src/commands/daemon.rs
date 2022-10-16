@@ -549,7 +549,7 @@ mod tests {
     use std::process;
     use std::time::Duration;
 
-    use buck2_client::daemon::client::connect::get_channel;
+    use buck2_client::daemon::client::connect::new_daemon_api_client;
     use buck2_common::invocation_paths::InvocationPaths;
     use buck2_common::invocation_roots::InvocationRoots;
     use buck2_core::fs::paths::AbsPathBuf;
@@ -558,7 +558,6 @@ mod tests {
     use buck2_server::daemon::daemon_utils::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
-    use cli_proto::daemon_api_client::DaemonApiClient;
     use cli_proto::DaemonProcessInfo;
     use cli_proto::KillRequest;
     use cli_proto::PingRequest;
@@ -613,7 +612,7 @@ mod tests {
             &BuckdServerDependenciesImpl,
         ));
 
-        let mut client = DaemonApiClient::new(get_channel(endpoint, true).await.unwrap());
+        let mut client = new_daemon_api_client(endpoint).await.unwrap();
 
         client.ping(PingRequest::default()).await.unwrap();
 
