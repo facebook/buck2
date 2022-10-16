@@ -31,3 +31,19 @@ pub fn jemalloc_stats(response: &mut StatusResponse) {
 
 #[cfg(not(all(unix, not(fbcode_build))))]
 pub fn jemalloc_stats(_response: &mut StatusResponse) {}
+
+#[cfg(test)]
+mod tests {
+    use crate::jemalloc_stats::jemalloc_stats;
+
+    #[test]
+    fn test_jemalloc_stats() {
+        if cfg!(unix) && !cfg!(fbcode_build) {
+            let mut response = cli_proto::StatusResponse::default();
+            jemalloc_stats(&mut response);
+            assert!(response.bytes_allocated.is_some());
+            assert!(response.bytes_resident.is_some());
+            assert!(response.bytes_retained.is_some());
+        }
+    }
+}
