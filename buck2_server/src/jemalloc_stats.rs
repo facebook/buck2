@@ -14,9 +14,9 @@ pub fn jemalloc_stats(response: &mut StatusResponse) {
     use jemalloc_ctl::epoch;
     use jemalloc_ctl::stats;
 
-    fn set<T>(to: &mut u64, from: Result<usize, T>) {
+    fn set<T>(to: &mut Option<u64>, from: Result<usize, T>) {
         if let Ok(from) = from {
-            *to = from as u64;
+            *to = Some(from as u64);
         }
     }
 
