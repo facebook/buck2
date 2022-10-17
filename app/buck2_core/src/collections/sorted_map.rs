@@ -6,27 +6,27 @@ use starlark_map::Equivalent;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone)]
-pub struct SortedHashMap<K, V>
+pub struct SortedMap<K, V>
 where
     K: Ord + Hash,
 {
     map: SmallMap<K, V>,
 }
 
-impl<K: Ord + Hash, V> Default for SortedHashMap<K, V> {
+impl<K: Ord + Hash, V> Default for SortedMap<K, V> {
     fn default() -> Self {
-        SortedHashMap {
+        SortedMap {
             map: SmallMap::default(),
         }
     }
 }
 
-impl<K, V> SortedHashMap<K, V>
+impl<K, V> SortedMap<K, V>
 where
     K: Ord + Hash,
 {
-    pub fn new() -> SortedHashMap<K, V> {
-        SortedHashMap {
+    pub fn new() -> SortedMap<K, V> {
+        SortedMap {
             map: SmallMap::new(),
         }
     }
@@ -55,23 +55,23 @@ where
     }
 }
 
-impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedHashMap<K, V> {
+impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
         let mut map = SmallMap::from_iter(iter);
         map.sort_keys();
-        SortedHashMap { map }
+        SortedMap { map }
     }
 }
 
-impl<K: Ord + Hash, V: Eq> PartialEq for SortedHashMap<K, V> {
+impl<K: Ord + Hash, V: Eq> PartialEq for SortedMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
         self.map.eq_ordered(&other.map)
     }
 }
 
-impl<K: Ord + Hash, V: Eq> Eq for SortedHashMap<K, V> {}
+impl<K: Ord + Hash, V: Eq> Eq for SortedMap<K, V> {}
 
-impl<K: Ord + Hash, V: Hash> Hash for SortedHashMap<K, V> {
+impl<K: Ord + Hash, V: Hash> Hash for SortedMap<K, V> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.map.hash_ordered(state)
     }
@@ -79,11 +79,11 @@ impl<K: Ord + Hash, V: Hash> Hash for SortedHashMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::collections::sorted_hash_map::SortedHashMap;
+    use crate::collections::sorted_map::SortedMap;
 
     #[test]
     fn test_from_iter() {
-        let map = SortedHashMap::from_iter([(1, 2), (5, 6), (3, 4)]);
+        let map = SortedMap::from_iter([(1, 2), (5, 6), (3, 4)]);
         assert_eq!(
             vec![(&1, &2), (&3, &4), (&5, &6)],
             map.iter().collect::<Vec<_>>()

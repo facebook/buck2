@@ -26,7 +26,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
-use buck2_core::collections::sorted_hash_map::SortedHashMap;
+use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;
 use gazebo::eq_chain;
@@ -73,12 +73,12 @@ pub(crate) enum ConfigError {
 /// A collection of configs, keyed by cell.
 #[derive(Clone, Dupe, Debug)]
 pub struct LegacyBuckConfigs {
-    data: Arc<SortedHashMap<CellName, LegacyBuckConfig>>,
+    data: Arc<SortedMap<CellName, LegacyBuckConfig>>,
 }
 
 impl LegacyBuckConfigs {
     pub fn new(data: HashMap<CellName, LegacyBuckConfig>) -> Self {
-        let data = SortedHashMap::from_iter(data);
+        let data = SortedMap::from_iter(data);
         Self {
             data: Arc::new(data),
         }
@@ -188,14 +188,14 @@ struct SectionBuilder {
 impl SectionBuilder {
     fn finish(self) -> LegacyBuckConfigSection {
         LegacyBuckConfigSection {
-            values: SortedHashMap::from_iter(self.values),
+            values: SortedMap::from_iter(self.values),
         }
     }
 }
 
 #[derive(Debug)]
 struct ConfigData {
-    values: SortedHashMap<String, LegacyBuckConfigSection>,
+    values: SortedMap<String, LegacyBuckConfigSection>,
 }
 
 #[derive(Clone, Debug)]
@@ -346,7 +346,7 @@ struct ConfigValue {
 
 #[derive(Debug, Default)]
 pub struct LegacyBuckConfigSection {
-    values: SortedHashMap<String, ConfigValue>,
+    values: SortedMap<String, ConfigValue>,
 }
 
 impl LegacyBuckConfigSection {
@@ -812,10 +812,10 @@ impl ConfigResolver {
     #[allow(clippy::from_iter_instead_of_collect)]
     fn resolve(
         values: BTreeMap<String, SectionBuilder>,
-    ) -> anyhow::Result<SortedHashMap<String, LegacyBuckConfigSection>> {
+    ) -> anyhow::Result<SortedMap<String, LegacyBuckConfigSection>> {
         let mut resolver = Self { values };
         resolver.resolve_all()?;
-        Ok(SortedHashMap::from_iter(
+        Ok(SortedMap::from_iter(
             resolver.values.into_iter().map(|(k, v)| (k, v.finish())),
         ))
     }
@@ -962,7 +962,7 @@ impl<'a> LegacyBuckConfigValue<'a> {
 impl LegacyBuckConfig {
     pub fn empty() -> Self {
         Self(Arc::new(ConfigData {
-            values: SortedHashMap::new(),
+            values: SortedMap::new(),
         }))
     }
 

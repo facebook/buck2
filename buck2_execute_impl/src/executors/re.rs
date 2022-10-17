@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_core::collections::sorted_hash_map::SortedHashMap;
+use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -60,19 +60,16 @@ pub enum RemoteExecutorError {
 }
 
 impl ReExecutionPlatform {
-    pub fn intrinsic_properties(&self) -> SortedHashMap<String, String> {
+    pub fn intrinsic_properties(&self) -> SortedMap<String, String> {
         match self {
-            Self::Linux => SortedHashMap::from_iter([(
-                "platform".to_owned(),
-                "linux-remote-execution".to_owned(),
-            )]),
-            Self::MacOS { xcode_version } => SortedHashMap::from_iter([
+            Self::Linux => {
+                SortedMap::from_iter([("platform".to_owned(), "linux-remote-execution".to_owned())])
+            }
+            Self::MacOS { xcode_version } => SortedMap::from_iter([
                 ("platform".to_owned(), "mac".to_owned()),
                 ("subplatform".to_owned(), format!("xcode-{}", xcode_version)),
             ]),
-            Self::Windows => {
-                SortedHashMap::from_iter([("platform".to_owned(), "windows".to_owned())])
-            }
+            Self::Windows => SortedMap::from_iter([("platform".to_owned(), "windows".to_owned())]),
         }
     }
 }

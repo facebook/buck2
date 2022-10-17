@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::cells::CellName;
-use buck2_core::collections::sorted_hash_map::SortedHashMap;
+use buck2_core::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -57,7 +57,7 @@ impl<'a> LegacyBuckConfigOnDice<'a> {
 
 #[derive(Debug)]
 pub struct LegacyBuckConfigsOnDice<'a> {
-    configs: SortedHashMap<CellName, LegacyBuckConfigOnDice<'a>>,
+    configs: SortedMap<CellName, LegacyBuckConfigOnDice<'a>>,
 }
 
 impl<'a> LegacyBuckConfigsOnDice<'a> {
@@ -289,7 +289,7 @@ impl HasLegacyConfigs for DiceComputations {
             ));
         }
         Ok(LegacyBuckConfigsOnDice {
-            configs: SortedHashMap::from_iter(configs_on_dice),
+            configs: SortedMap::from_iter(configs_on_dice),
         })
     }
 

@@ -10,7 +10,7 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use buck2_core::collections::sorted_hash_map::SortedHashMap;
+use buck2_core::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use gazebo::prelude::Dupe;
 use internment_tweaks::Intern;
@@ -52,7 +52,7 @@ impl Hash for RemoteExecutorUseCase {
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct RemoteExecutorOptions {
-    pub re_properties: SortedHashMap<String, String>,
+    pub re_properties: SortedMap<String, String>,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
     pub re_use_case: RemoteExecutorUseCase,
