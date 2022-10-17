@@ -306,6 +306,9 @@ impl LoadResolver for InterpreterLoadResolver {
         path: &str,
         location: Option<&FileSpan>,
     ) -> anyhow::Result<OwnedStarlarkModulePath> {
+        // This is to be removed when we finish migration to Buck2.
+        let path = path.trim_end_match("?v2_only");
+
         let path = parse_import(&self.config.cell_names, &self.loader_path, path)?;
 
         // check for bxl files first before checking for prelude.
