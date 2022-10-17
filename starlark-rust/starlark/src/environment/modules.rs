@@ -384,6 +384,8 @@ impl Module {
         let freezer = Freezer::new(frozen_heap);
         let slots = slots.freeze(&freezer)?;
         let stacks = if heap_profile_on_freeze.get() {
+            // TODO(nga): retained heap profile does not store information about data
+            //   allocated in frozen heap before freeze starts.
             Some(AggregateHeapProfileInfo::collect(
                 &heap,
                 Some(HeapKind::Frozen),
