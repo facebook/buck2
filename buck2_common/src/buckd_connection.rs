@@ -22,7 +22,7 @@ enum ConnectionTypeError {
     ParseError(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConnectionType {
     Uds { unix_socket: PathBuf },
     Tcp { port: u16 },

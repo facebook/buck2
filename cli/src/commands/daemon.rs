@@ -612,9 +612,24 @@ mod tests {
             &BuckdServerDependenciesImpl,
         ));
 
-        let mut client = new_daemon_api_client(endpoint, process_info.auth_token)
+        let mut client = new_daemon_api_client(endpoint.clone(), process_info.auth_token)
             .await
             .unwrap();
+
+        client.ping(PingRequest::default()).await.unwrap();
+
+        let mut client_with_wrong_token = new_daemon_api_client(endpoint, "wrong_token".to_owned())
+            .await
+            .unwrap();
+
+        let err = format!(
+            "{:#}",
+            client_with_wrong_token
+                .ping(PingRequest::default())
+                .await
+                .unwrap_err()
+        );
+        assert!(err.contains("invalid auth token"), "Error is: {}", err);
 
         client.ping(PingRequest::default()).await.unwrap();
 
