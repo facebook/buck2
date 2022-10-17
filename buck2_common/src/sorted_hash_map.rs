@@ -10,7 +10,7 @@ pub struct SortedHashMap<K, V>
 where
     K: Ord + Hash,
 {
-    pub(crate) map: SmallMap<K, V>,
+    map: SmallMap<K, V>,
 }
 
 impl<K: Ord + Hash, V> Default for SortedHashMap<K, V> {
