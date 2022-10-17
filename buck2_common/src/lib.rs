@@ -45,6 +45,7 @@ pub mod io;
 pub mod legacy_configs;
 pub mod liveliness_manager;
 pub mod memory;
+pub mod ordered_map;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
