@@ -200,7 +200,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_hashed<Q>(&self, key: Hashed<&Q>) -> Option<&V>
     where
         Q: Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_index_of_hashed(key)
             .map(|index| unsafe { &self.entries.get_unchecked(index).value })
@@ -211,7 +210,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get<Q>(&self, key: &Q) -> Option<&V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_hashed(Hashed::new(key))
     }
@@ -246,7 +244,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_index_of_hashed<Q>(&self, key: Hashed<&Q>) -> Option<usize>
     where
         Q: Equivalent<K> + ?Sized,
-        K: Eq,
     {
         match &self.index {
             None => self.entries.get_index_of_hashed(key),
