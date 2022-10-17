@@ -943,8 +943,7 @@ async def test_re_uploads(buck: Buck) -> None:
     _assert_upload_attempted(res.stderr)
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 async def test_re_uploads_dir(buck: Buck) -> None:
     args = ["-c", f"write.text={random_string()}"]
@@ -952,8 +951,7 @@ async def test_re_uploads_dir(buck: Buck) -> None:
     _assert_upload_attempted(res.stderr)
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, data_dir="execution_platforms", skip_if_windows=True)
+@buck_test(inplace=False, data_dir="execution_platforms")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 async def test_re_uploads_limit(buck: Buck) -> None:
     args = ["-c", f"write.text={random_string()}"]
