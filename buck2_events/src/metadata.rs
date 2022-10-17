@@ -31,10 +31,11 @@ pub fn collect() -> HashMap<String, String> {
 
     #[cfg(any(fbcode_build, cargo_internal_build))]
     {
-        map.insert(
-            "hostname".to_owned(),
-            hostname::get_hostname().unwrap_or_else(|_| "".to_owned()),
-        );
+        let hostname = match hostname::get() {
+            Ok(name) => name.to_string_lossy().into_owned(),
+            Err(_e) => "".to_owned(),
+        };
+        map.insert("hostname".to_owned(), hostname);
         map.insert(
             "username".to_owned(),
             user::current_username().unwrap_or_else(|_| "".to_owned()),
