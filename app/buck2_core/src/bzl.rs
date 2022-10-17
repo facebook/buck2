@@ -43,6 +43,12 @@ impl ModuleID {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum ImportPathError {
+    #[error("Invalid import path `{0}`")]
+    Invalid(CellPath),
+}
+
 /// Path of a `.bzl` file.
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ImportPath {
@@ -58,6 +64,10 @@ pub struct ImportPath {
 
 impl ImportPath {
     pub fn new(path: CellPath, build_file_cell: BuildFileCell) -> anyhow::Result<Self> {
+        if path.path().as_str().contains('?') {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
         let id = ModuleID(if build_file_cell.name() == path.cell() {
             format!("{}", path)
         } else {
