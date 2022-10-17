@@ -56,6 +56,14 @@ where
     }
 }
 
+impl<K: Ord + Hash, V: Eq> PartialEq for SortedHashMap<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.map.eq_ordered(&other.map)
+    }
+}
+
+impl<K: Ord + Hash, V: Eq> Eq for SortedHashMap<K, V> {}
+
 #[cfg(test)]
 mod tests {
     use crate::sorted_hash_map::SortedHashMap;
