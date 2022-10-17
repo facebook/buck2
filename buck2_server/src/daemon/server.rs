@@ -29,6 +29,7 @@ use buck2_build_api::actions::build_listener;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -57,6 +58,8 @@ use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::environment::GlobalsBuilder;
+use tonic::service::interceptor;
+use tonic::service::Interceptor;
 use tonic::transport::Server;
 use tonic::Code;
 use tonic::Request;
@@ -198,6 +201,24 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder);
 }
 
+#[derive(Clone)]
+struct BuckCheckAuthTokenInterceptor {
+    auth_token: String,
+}
+
+impl Interceptor for BuckCheckAuthTokenInterceptor {
+    fn call(&mut self, request: Request<()>) -> Result<Request<()>, Status> {
+        let token = match request.metadata().get(BUCK_AUTH_TOKEN_HEADER) {
+            Some(token) => token,
+            None => return Err(Status::unauthenticated("missing auth token")),
+        };
+        if token != self.auth_token.as_str() {
+            return Err(Status::unauthenticated("invalid auth token"));
+        }
+        Ok(request)
+    }
+}
+
 /// The BuckdServer implements the DaemonApi.
 ///
 /// Simple endpoints are implemented here and complex things will be implemented in a sibling
@@ -234,6 +255,7 @@ impl BuckdServer {
         let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
+        let auth_token = process_info.auth_token.clone();
         let api_server = Self {
             stop_accepting_requests: AtomicBool::new(false),
             process_info,
@@ -260,6 +282,7 @@ impl BuckdServer {
 
         let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver).await?;
         let server = Server::builder()
+            .layer(interceptor(BuckCheckAuthTokenInterceptor { auth_token }))
             .add_service(DaemonApiServer::new(api_server))
             .serve_with_incoming_shutdown(listener, shutdown);
 
