@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
-use indexmap::Equivalent;
-use indexmap::IndexMap;
+use starlark_map::small_map::SmallMap;
+use starlark_map::Equivalent;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone)]
@@ -9,13 +9,13 @@ pub(crate) struct SortedHashMap<K, V>
 where
     K: Ord + Hash,
 {
-    pub(crate) map: IndexMap<K, V>,
+    pub(crate) map: SmallMap<K, V>,
 }
 
 impl<K: Ord + Hash, V> Default for SortedHashMap<K, V> {
     fn default() -> Self {
         SortedHashMap {
-            map: IndexMap::default(),
+            map: SmallMap::default(),
         }
     }
 }
@@ -26,12 +26,12 @@ where
 {
     pub(crate) fn new() -> SortedHashMap<K, V> {
         SortedHashMap {
-            map: IndexMap::new(),
+            map: SmallMap::new(),
         }
     }
 
     pub(crate) fn from_iter(items: impl IntoIterator<Item = (K, V)>) -> SortedHashMap<K, V> {
-        let mut map = IndexMap::from_iter(items);
+        let mut map = SmallMap::from_iter(items);
         map.sort_keys();
         SortedHashMap { map }
     }
