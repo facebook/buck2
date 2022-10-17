@@ -58,20 +58,16 @@ pub struct ImportPath {
 
 impl ImportPath {
     pub fn new(path: CellPath, build_file_cell: BuildFileCell) -> anyhow::Result<Self> {
-        Ok(Self::unverified_new(path, build_file_cell))
-    }
-
-    pub fn unverified_new(path: CellPath, build_file_cell: BuildFileCell) -> Self {
         let id = ModuleID(if build_file_cell.name() == path.cell() {
             format!("{}", path)
         } else {
             format!("{}@{}", path, build_file_cell.name())
         });
-        Self {
+        Ok(Self {
             path,
             build_file_cell,
             id,
-        }
+        })
     }
 
     pub fn unchecked_new(cell: &str, cell_relative_path: &str, filename: &str) -> Self {
@@ -90,10 +86,11 @@ impl ImportPath {
             CellRelativePath::unchecked_new(cell_relative_path)
                 .join(FileName::unchecked_new(filename)),
         );
-        Self::unverified_new(
+        Self::new(
             cell_path,
             BuildFileCell::new(CellName::unchecked_new(build_file_cell.to_owned())),
         )
+        .unwrap()
     }
 
     pub fn cell(&self) -> &CellName {
