@@ -256,8 +256,8 @@ impl<K, V> VecMap<K, V> {
     /// Equal if entries are equal in the iterator order.
     pub(crate) fn eq_ordered(&self, other: &Self) -> bool
     where
-        K: Eq,
-        V: Eq,
+        K: PartialEq,
+        V: PartialEq,
     {
         self.buckets.eq(&other.buckets)
     }

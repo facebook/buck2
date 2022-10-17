@@ -602,8 +602,8 @@ impl<K, V> SmallMap<K, V> {
     /// Equal if the keys and values are equal in the iteration order.
     pub fn eq_ordered(&self, other: &Self) -> bool
     where
-        K: Eq,
-        V: Eq,
+        K: PartialEq,
+        V: PartialEq,
     {
         self.entries.eq_ordered(&other.entries)
     }
