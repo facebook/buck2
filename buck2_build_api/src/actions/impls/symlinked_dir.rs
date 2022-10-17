@@ -6,8 +6,8 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
+
 use std::borrow::Cow;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -105,7 +105,7 @@ impl UnregisteredSymlinkedDirAction {
                         ArtifactGroup::Artifact(artifact),
                         PathBuf::from(k.unpack_str()?),
                     ),
-                    associates.deref().deref(),
+                    associates,
                 ))
             })
             .fold_options(

@@ -9,6 +9,7 @@
 
 use std::hash::Hash;
 
+use indexmap::Equivalent;
 use indexmap::IndexSet;
 
 /// An immutable IndexSet with values guaranteed to be sorted.
@@ -29,6 +30,33 @@ where
 
     pub fn new_unchecked(inner: IndexSet<T>) -> Self {
         Self { inner }
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &T> {
+        self.inner.iter()
+    }
+
+    pub fn get<Q: ?Sized>(&self, value: &Q) -> Option<&T>
+    where
+        Q: Hash + Equivalent<T>,
+    {
+        self.inner.get(value)
+    }
+
+    pub fn get_index(&self, index: usize) -> Option<&T> {
+        self.inner.get_index(index)
+    }
+
+    pub fn union<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a T> {
+        self.inner.union(&other.inner)
     }
 }
 
@@ -59,16 +87,5 @@ where
 {
     fn default() -> Self {
         SortedIndexSet::new()
-    }
-}
-
-impl<T> std::ops::Deref for SortedIndexSet<T>
-where
-    T: Eq + Hash,
-{
-    type Target = IndexSet<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
     }
 }
