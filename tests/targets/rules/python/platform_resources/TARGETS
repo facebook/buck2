@@ -1,0 +1,37 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+oncall("buck2")
+
+buck_genrule(
+    name = "check",
+    out = "out.txt",
+    cmd = "$(exe :bin) | grep HELLO > $OUT",
+)
+
+python_binary(
+    name = "bin",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    main_module = "bin",
+    deps = [
+        "//libfb/py:parutil",
+    ],
+)
+
+fb_native.python_library(
+    name = "lib",
+    base_module = "",
+    platform_resources = [
+        (
+            ".*",
+            ["foo.txt"],
+        ),
+    ],
+    deps = [
+        "//libfb/py:parutil",
+    ],
+)

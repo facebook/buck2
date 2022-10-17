@@ -184,6 +184,15 @@ def _attr_srcs(ctx: "context") -> {str.type: "artifact"}:
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
+def _attr_resources(ctx: "context") -> {str.type: ["dependency", "artifact"]}:
+    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    all_resources = {}
+    all_resources.update(from_named_set(ctx.attrs.resources))
+    for resources in get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_resources):
+        all_resources.update(from_named_set(resources))
+    return all_resources
+
 def py_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
     """
     Return the resources provided by this rule, as a map of resource name to
@@ -192,7 +201,7 @@ def py_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
 
     resources = {}
 
-    for name, resource in from_named_set(ctx.attrs.resources).items():
+    for name, resource in _attr_resources(ctx).items():
         if type(resource) == "artifact":
             # If this is a artifact, there are no "other" artifacts.
             other = []
