@@ -37,7 +37,8 @@ pub struct FileTailer {
 
 impl Drop for FileTailer {
     fn drop(&mut self) {
-        self.end_signaller.take().unwrap().send(()).unwrap();
+        // If the thread has exited then don't error here.
+        let _ignored = self.end_signaller.take().unwrap().send(());
         self.thread.take().unwrap().join().unwrap();
     }
 }
