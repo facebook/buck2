@@ -27,6 +27,7 @@ use starlark::values::dict::Dict;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -92,7 +93,7 @@ impl UnregisteredSymlinkedDirAction {
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args(
         srcs: Value,
-    ) -> Option<(Vec<(ArtifactGroup, PathBuf)>, IndexSet<ArtifactGroup>)> {
+    ) -> Option<(Vec<(ArtifactGroup, PathBuf)>, SmallSet<ArtifactGroup>)> {
         Dict::from_value(srcs)?
             .iter()
             .map(|(k, v)| {
@@ -109,7 +110,7 @@ impl UnregisteredSymlinkedDirAction {
                 ))
             })
             .fold_options(
-                (Vec::new(), IndexSet::new()),
+                (Vec::new(), SmallSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
                     assoc.iter().for_each(|a| {

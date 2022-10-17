@@ -22,7 +22,6 @@ use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
@@ -130,21 +129,21 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         }
     }
 
+    #[allow(clippy::from_iter_instead_of_collect)]
     fn allocate_artifact_with_extended_associated_artifacts<'v>(
         &self,
         heap: &'v Heap,
         associated_artifacts: &SortedSet<ArtifactGroup>,
     ) -> Value<'v> {
-        let merged: IndexSet<ArtifactGroup> = self
+        let merged = self
             .associated_artifacts
             .union(associated_artifacts)
-            .map(|a| a.dupe())
-            .collect();
+            .map(|a| a.dupe());
 
         heap.alloc(StarlarkDeclaredArtifact {
             artifact: self.artifact.dupe(),
             declaration_location: self.declaration_location.dupe(),
-            associated_artifacts: Arc::new(SortedSet::from(merged)),
+            associated_artifacts: Arc::new(SortedSet::from_iter(merged)),
         })
     }
 }

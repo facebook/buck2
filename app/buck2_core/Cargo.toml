@@ -11,7 +11,6 @@ derive_more = { workspace = true }
 derivative = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 memchr = { workspace = true }

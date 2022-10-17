@@ -81,18 +81,17 @@ impl PackageFileListing {
 pub mod testing {
     use buck2_core::collections::sorted_set::SortedSet;
     use buck2_core::package::package_relative_path::PackageRelativePath;
-    use indexmap::IndexSet;
 
     use crate::package_listing::file_listing::PackageFileListing;
 
+    #[allow(clippy::from_iter_instead_of_collect)]
     impl PackageFileListing {
         pub fn testing_new(files: &[&str]) -> PackageFileListing {
-            let files: IndexSet<_> = files
+            let files = files
                 .iter()
-                .map(|f| PackageRelativePath::new(*f).unwrap().to_owned())
-                .collect();
+                .map(|f| PackageRelativePath::new(*f).unwrap().to_owned());
             PackageFileListing {
-                files: SortedSet::from(files),
+                files: SortedSet::from_iter(files),
             }
         }
     }

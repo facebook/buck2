@@ -53,6 +53,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
+use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 use crate::actions::artifact::OutputArtifact;
@@ -470,14 +471,14 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> anyhow::Result<IndexSet<ArtifactGroup>> {
+        ) -> anyhow::Result<SmallSet<ArtifactGroup>> {
             if !with_inputs {
                 return Ok(Default::default());
             }
 
             #[derive(Default)]
             struct CommandLineInputVisitor {
-                inputs: IndexSet<ArtifactGroup>,
+                inputs: SmallSet<ArtifactGroup>,
             }
             impl CommandLineArtifactVisitor for CommandLineInputVisitor {
                 fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {

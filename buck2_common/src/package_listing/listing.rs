@@ -114,13 +114,13 @@ pub mod testing {
             Self::testing_new(files, "BUCK")
         }
 
+        #[allow(clippy::from_iter_instead_of_collect)]
         fn testing_new(files: &[&str], buildfile: &str) -> Self {
-            let files: IndexSet<_> = files
+            let files = files
                 .iter()
-                .map(|f| PackageRelativePathBuf::unchecked_new((*f).to_owned()))
-                .collect();
+                .map(|f| PackageRelativePathBuf::unchecked_new((*f).to_owned()));
             PackageListing::new(
-                SortedSet::from(files),
+                SortedSet::from_iter(files),
                 IndexSet::new(),
                 Vec::new(),
                 FileNameBuf::unchecked_new(buildfile),

@@ -9,13 +9,13 @@
 
 use std::hash::Hash;
 
-use indexmap::Equivalent;
-use indexmap::IndexSet;
+use starlark_map::small_set::SmallSet;
+use starlark_map::Equivalent;
 
 /// An immutable IndexSet with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SortedSet<T: Eq + Hash> {
-    inner: IndexSet<T>,
+    inner: SmallSet<T>,
 }
 
 impl<T> SortedSet<T>
@@ -24,11 +24,11 @@ where
 {
     pub fn new() -> SortedSet<T> {
         SortedSet {
-            inner: IndexSet::new(),
+            inner: SmallSet::new(),
         }
     }
 
-    pub fn new_unchecked(inner: IndexSet<T>) -> Self {
+    pub fn new_unchecked(inner: SmallSet<T>) -> Self {
         Self { inner }
     }
 
@@ -60,11 +60,11 @@ where
     }
 }
 
-impl<T> From<IndexSet<T>> for SortedSet<T>
+impl<T> From<SmallSet<T>> for SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
-    fn from(mut inner: IndexSet<T>) -> SortedSet<T> {
+    fn from(mut inner: SmallSet<T>) -> SortedSet<T> {
         inner.sort();
         SortedSet { inner }
     }
@@ -75,7 +75,7 @@ where
     T: Eq + Ord + Hash,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut inner = IndexSet::from_iter(iter);
+        let mut inner = SmallSet::from_iter(iter);
         inner.sort();
         SortedSet { inner }
     }
