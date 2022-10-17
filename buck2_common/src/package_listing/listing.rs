@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -34,7 +34,7 @@ struct PackageListingData {
 
 impl PackageListing {
     pub(crate) fn new(
-        files: SortedIndexSet<PackageRelativePathBuf>,
+        files: SortedSet<PackageRelativePathBuf>,
         directories: IndexSet<PackageRelativePathBuf>,
         subpackages: Vec<PackageRelativePathBuf>,
         buildfile: FileNameBuf,
@@ -50,12 +50,7 @@ impl PackageListing {
     }
 
     pub fn empty(buildfile: FileNameBuf) -> Self {
-        Self::new(
-            SortedIndexSet::new(),
-            IndexSet::new(),
-            Vec::new(),
-            buildfile,
-        )
+        Self::new(SortedSet::new(), IndexSet::new(), Vec::new(), buildfile)
     }
 
     pub fn files(&self) -> &PackageFileListing {
@@ -97,7 +92,7 @@ impl PackageListing {
 }
 
 pub mod testing {
-    use buck2_core::collections::sorted_index_set::SortedIndexSet;
+    use buck2_core::collections::sorted_set::SortedSet;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use indexmap::IndexSet;
@@ -125,7 +120,7 @@ pub mod testing {
                 .map(|f| PackageRelativePathBuf::unchecked_new((*f).to_owned()))
                 .collect();
             PackageListing::new(
-                SortedIndexSet::from(files),
+                SortedSet::from(files),
                 IndexSet::new(),
                 Vec::new(),
                 FileNameBuf::unchecked_new(buildfile),

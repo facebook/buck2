@@ -16,7 +16,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_execute::materialize::http::Checksum;
@@ -565,8 +565,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let value = declaration
-            .into_declared_artifact(Arc::new(SortedIndexSet::from(associated_artifacts)));
+        let value =
+            declaration.into_declared_artifact(Arc::new(SortedSet::from(associated_artifacts)));
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()

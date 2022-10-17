@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 
@@ -16,7 +16,7 @@ use crate::package_listing::binary_search::binary_search_by;
 #[derive(Eq, PartialEq, Debug)]
 pub struct PackageFileListing {
     /// This is kept sorted for efficient prefix matching.
-    pub(crate) files: SortedIndexSet<PackageRelativePathBuf>,
+    pub(crate) files: SortedSet<PackageRelativePathBuf>,
 }
 
 impl PackageFileListing {
@@ -79,7 +79,7 @@ impl PackageFileListing {
 }
 
 pub mod testing {
-    use buck2_core::collections::sorted_index_set::SortedIndexSet;
+    use buck2_core::collections::sorted_set::SortedSet;
     use buck2_core::package::package_relative_path::PackageRelativePath;
     use indexmap::IndexSet;
 
@@ -92,7 +92,7 @@ pub mod testing {
                 .map(|f| PackageRelativePath::new(*f).unwrap().to_owned())
                 .collect();
             PackageFileListing {
-                files: SortedIndexSet::from(files),
+                files: SortedSet::from(files),
             }
         }
     }

@@ -52,7 +52,7 @@ pub mod testing {
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
-    use buck2_core::collections::sorted_index_set::SortedIndexSet;
+    use buck2_core::collections::sorted_set::SortedSet;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
@@ -243,7 +243,7 @@ pub mod testing {
                 target_label.dupe(),
             )));
 
-            let associated_artifacts = Arc::new(SortedIndexSet::from_iter(
+            let associated_artifacts = Arc::new(SortedSet::from_iter(
                 associated_artifacts
                     .iter()
                     .map(|a| ArtifactGroup::Artifact(a.artifact())),

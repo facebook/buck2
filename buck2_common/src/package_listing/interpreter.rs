@@ -13,7 +13,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -178,7 +178,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         }
 
         Ok(PackageListing::new(
-            SortedIndexSet::new_unchecked(strip_prefixes(root, &files)?),
+            SortedSet::new_unchecked(strip_prefixes(root, &files)?),
             strip_prefixes(root, &dirs)?,
             strip_prefixes(root, &subpackages)?,
             buildfile.to_owned(),

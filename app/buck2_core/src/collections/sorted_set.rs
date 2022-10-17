@@ -14,16 +14,16 @@ use indexmap::IndexSet;
 
 /// An immutable IndexSet with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SortedIndexSet<T: Eq + Hash> {
+pub struct SortedSet<T: Eq + Hash> {
     inner: IndexSet<T>,
 }
 
-impl<T> SortedIndexSet<T>
+impl<T> SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
-    pub fn new() -> SortedIndexSet<T> {
-        SortedIndexSet {
+    pub fn new() -> SortedSet<T> {
+        SortedSet {
             inner: IndexSet::new(),
         }
     }
@@ -60,32 +60,32 @@ where
     }
 }
 
-impl<T> From<IndexSet<T>> for SortedIndexSet<T>
+impl<T> From<IndexSet<T>> for SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
-    fn from(mut inner: IndexSet<T>) -> SortedIndexSet<T> {
+    fn from(mut inner: IndexSet<T>) -> SortedSet<T> {
         inner.sort();
-        SortedIndexSet { inner }
+        SortedSet { inner }
     }
 }
 
-impl<T> FromIterator<T> for SortedIndexSet<T>
+impl<T> FromIterator<T> for SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut inner = IndexSet::from_iter(iter);
         inner.sort();
-        SortedIndexSet { inner }
+        SortedSet { inner }
     }
 }
 
-impl<T> Default for SortedIndexSet<T>
+impl<T> Default for SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
     fn default() -> Self {
-        SortedIndexSet::new()
+        SortedSet::new()
     }
 }

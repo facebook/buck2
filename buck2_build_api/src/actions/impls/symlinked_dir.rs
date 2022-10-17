@@ -14,7 +14,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::category::Category;
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -55,7 +55,7 @@ pub(crate) struct UnregisteredSymlinkedDirAction {
     copy: bool,
     args: Vec<(ArtifactGroup, PathBuf)>,
     // All associated artifacts of inputs unioned together
-    unioned_associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
+    unioned_associated_artifacts: Arc<SortedSet<ArtifactGroup>>,
 }
 
 impl UnregisteredSymlinkedDirAction {
@@ -133,9 +133,7 @@ impl UnregisteredSymlinkedDirAction {
         Ok(Self {
             copy,
             args,
-            unioned_associated_artifacts: Arc::new(SortedIndexSet::from(
-                unioned_associated_artifacts,
-            )),
+            unioned_associated_artifacts: Arc::new(SortedSet::from(unioned_associated_artifacts)),
         })
     }
 
@@ -143,7 +141,7 @@ impl UnregisteredSymlinkedDirAction {
         self.args.iter().map(|x| x.0.dupe()).collect()
     }
 
-    pub fn unioned_associated_artifacts(&self) -> Arc<SortedIndexSet<ArtifactGroup>> {
+    pub fn unioned_associated_artifacts(&self) -> Arc<SortedSet<ArtifactGroup>> {
         self.unioned_associated_artifacts.dupe()
     }
 }

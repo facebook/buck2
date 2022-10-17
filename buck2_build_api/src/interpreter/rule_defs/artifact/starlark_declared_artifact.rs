@@ -13,7 +13,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -70,7 +70,7 @@ pub struct StarlarkDeclaredArtifact {
     pub(super) artifact: artifact::DeclaredArtifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
     #[trace(unsafe_ignore)]
-    pub(super) associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
+    pub(super) associated_artifacts: Arc<SortedSet<ArtifactGroup>>,
 }
 
 impl Display for StarlarkDeclaredArtifact {
@@ -90,7 +90,7 @@ impl StarlarkDeclaredArtifact {
     pub fn new(
         declaration_location: Option<FileSpan>,
         artifact: artifact::DeclaredArtifact,
-        associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
+        associated_artifacts: Arc<SortedSet<ArtifactGroup>>,
     ) -> Self {
         StarlarkDeclaredArtifact {
             declaration_location,
@@ -111,7 +111,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
 
     fn get_bound_artifact_and_associated_artifacts(
         &self,
-    ) -> anyhow::Result<(Artifact, &Arc<SortedIndexSet<ArtifactGroup>>)> {
+    ) -> anyhow::Result<(Artifact, &Arc<SortedSet<ArtifactGroup>>)> {
         Ok((self.get_bound_artifact()?, &self.associated_artifacts))
     }
 
@@ -133,7 +133,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn allocate_artifact_with_extended_associated_artifacts<'v>(
         &self,
         heap: &'v Heap,
-        associated_artifacts: &SortedIndexSet<ArtifactGroup>,
+        associated_artifacts: &SortedSet<ArtifactGroup>,
     ) -> Value<'v> {
         let merged: IndexSet<ArtifactGroup> = self
             .associated_artifacts
@@ -144,7 +144,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         heap.alloc(StarlarkDeclaredArtifact {
             artifact: self.artifact.dupe(),
             declaration_location: self.declaration_location.dupe(),
-            associated_artifacts: Arc::new(SortedIndexSet::from(merged)),
+            associated_artifacts: Arc::new(SortedSet::from(merged)),
         })
     }
 }

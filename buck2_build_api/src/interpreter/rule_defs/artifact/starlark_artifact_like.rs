@@ -12,7 +12,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Heap;
@@ -52,7 +52,7 @@ pub trait StarlarkArtifactLike: Display {
     /// Gets the main artifact and any other additional entities that should be materialized along with it
     fn get_bound_artifact_and_associated_artifacts(
         &self,
-    ) -> anyhow::Result<(Artifact, &Arc<SortedIndexSet<ArtifactGroup>>)>;
+    ) -> anyhow::Result<(Artifact, &Arc<SortedSet<ArtifactGroup>>)>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {
@@ -86,7 +86,7 @@ pub trait StarlarkArtifactLike: Display {
     fn allocate_artifact_with_extended_associated_artifacts<'v>(
         &self,
         heap: &'v Heap,
-        associated_artifacts: &SortedIndexSet<ArtifactGroup>,
+        associated_artifacts: &SortedSet<ArtifactGroup>,
     ) -> Value<'v>;
 }
 
@@ -108,7 +108,7 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactLike<'v> for V {
 #[derive(PartialEq)]
 pub struct ArtifactFingerprint<'a> {
     pub(crate) path: ArtifactPath<'a>,
-    pub(crate) associated_artifacts: &'a SortedIndexSet<ArtifactGroup>,
+    pub(crate) associated_artifacts: &'a SortedSet<ArtifactGroup>,
 }
 
 impl Hash for ArtifactFingerprint<'_> {

@@ -10,7 +10,7 @@
 use std::fmt::Display;
 use std::sync::Arc;
 
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
@@ -54,7 +54,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 pub struct StarlarkArtifact {
     pub(crate) artifact: Artifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
-    pub(crate) associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
+    pub(crate) associated_artifacts: Arc<SortedSet<ArtifactGroup>>,
 }
 
 starlark_simple_value!(StarlarkArtifact);
@@ -153,7 +153,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 
     fn get_bound_artifact_and_associated_artifacts(
         &self,
-    ) -> anyhow::Result<(Artifact, &Arc<SortedIndexSet<ArtifactGroup>>)> {
+    ) -> anyhow::Result<(Artifact, &Arc<SortedSet<ArtifactGroup>>)> {
         Ok((self.get_bound_artifact()?, &self.associated_artifacts))
     }
 
@@ -175,7 +175,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
     fn allocate_artifact_with_extended_associated_artifacts<'v>(
         &self,
         heap: &'v Heap,
-        associated_artifacts: &SortedIndexSet<ArtifactGroup>,
+        associated_artifacts: &SortedSet<ArtifactGroup>,
     ) -> Value<'v> {
         let merged: IndexSet<ArtifactGroup> = self
             .associated_artifacts
@@ -184,7 +184,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
             .collect();
         heap.alloc(StarlarkArtifact {
             artifact: self.artifact.dupe(),
-            associated_artifacts: Arc::new(SortedIndexSet::from(merged)),
+            associated_artifacts: Arc::new(SortedSet::from(merged)),
         })
     }
 }

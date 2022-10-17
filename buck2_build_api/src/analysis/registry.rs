@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use buck2_core::collections::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -282,7 +282,7 @@ pub struct ArtifactDeclaration<'v> {
 impl<'v> ArtifactDeclaration<'v> {
     pub fn into_declared_artifact(
         self,
-        associated_artifacts: Arc<SortedIndexSet<ArtifactGroup>>,
+        associated_artifacts: Arc<SortedSet<ArtifactGroup>>,
     ) -> Value<'v> {
         match self.artifact {
             ArtifactDeclarationKind::Artifact(v, a) => {
