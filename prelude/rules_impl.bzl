@@ -1,5 +1,6 @@
 # Android
 load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
+load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 
 # Apple
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
@@ -364,6 +365,7 @@ extra_attributes = struct(
         "use_link_groups": attrs.bool(default = False),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
+        "_is_building_android_binary": is_building_android_binary_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
     },
     cxx_binary = _cxx_binary_and_test_attrs(),
