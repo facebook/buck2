@@ -135,7 +135,7 @@ where
     }
 
     /// Dirties the value at K
-    #[instrument(level = "info", skip(self, force_dirty), fields(k = %k, version = %version))]
+    #[instrument(level = "info", skip(self), fields(k = %k, version = %version))]
     pub(crate) fn dirty(&self, k: K::Key, version: VersionNumber, force_dirty: bool) {
         // It is crucial that we dirty first before updating the rdeps.
         // This is related to the race condition where we invalidate while nodes are being inserted
@@ -339,6 +339,7 @@ where
                             }
                         }
                         VersionedGraphResult::Dirty | VersionedGraphResult::None => {
+                            debug!("dirtied. recomputing...");
                             self.compute(k, eval_ctx, extra).await
                         }
                     },
