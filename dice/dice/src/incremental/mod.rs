@@ -41,7 +41,6 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use more_futures::spawn::spawn_task;
 use tracing::Span;
 
@@ -285,6 +284,11 @@ where
         }
     }
 
+    #[instrument(
+        level = "debug",
+        skip(self, transaction_ctx, extra),
+        fields(k = %k),
+    )]
     fn new_dice_task(
         self: Arc<IncrementalEngine<K>>,
         k: K::Key,
@@ -760,7 +764,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
     #[instrument(
         level = "debug",
         skip(transaction_ctx, extra, deps),
-        fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions, deps = %deps.iter().join(",")),
+        fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
         transaction_ctx: &Arc<TransactionCtx>,
