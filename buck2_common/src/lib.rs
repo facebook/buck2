@@ -49,7 +49,7 @@ pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
 pub mod result;
-mod sorted_hash_map;
+pub mod sorted_hash_map;
 pub mod sorted_index_set;
 pub mod sqlite;
 pub mod target_aliases;

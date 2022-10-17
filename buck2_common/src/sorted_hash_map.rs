@@ -6,7 +6,7 @@ use starlark_map::Equivalent;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone)]
-pub(crate) struct SortedHashMap<K, V>
+pub struct SortedHashMap<K, V>
 where
     K: Ord + Hash,
 {
@@ -25,28 +25,33 @@ impl<K, V> SortedHashMap<K, V>
 where
     K: Ord + Hash,
 {
-    pub(crate) fn new() -> SortedHashMap<K, V> {
+    pub fn new() -> SortedHashMap<K, V> {
         SortedHashMap {
             map: SmallMap::new(),
         }
     }
 
-    pub(crate) fn from_iter(items: impl IntoIterator<Item = (K, V)>) -> SortedHashMap<K, V> {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_iter(items: impl IntoIterator<Item = (K, V)>) -> SortedHashMap<K, V> {
         let mut map = SmallMap::from_iter(items);
         map.sort_keys();
         SortedHashMap { map }
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.map.iter()
     }
 
-    pub(crate) fn keys(&self) -> impl Iterator<Item = &K> {
+    pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.map.keys()
     }
 
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
     }
 
     pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
