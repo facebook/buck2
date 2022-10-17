@@ -9,8 +9,8 @@
 
 use std::collections::HashSet;
 
+use buck2_common::ordered_map::OrderedMap;
 use starlark_map::small_map;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -29,7 +29,7 @@ use crate::attrs::values::AttrValues;
 pub struct AttributeSpec {
     // TODO(nga): either "map" or "ordered" is redundant here:
     //   `AttributeId` in `indices` is always equal to the index of the entry in ordered map.
-    pub indices: SmallMap<String, AttributeId>,
+    pub indices: OrderedMap<String, AttributeId>,
     pub attributes: Vec<Attribute>,
 }
 
@@ -47,7 +47,7 @@ impl AttributeSpec {
     pub fn from(attributes: Vec<(String, Attribute)>) -> anyhow::Result<Self> {
         let internal_attrs = internal_attrs();
 
-        let mut indices = SmallMap::with_capacity(attributes.len() + internal_attrs.len());
+        let mut indices = OrderedMap::with_capacity(attributes.len() + internal_attrs.len());
         let mut instances = Vec::with_capacity(attributes.len());
         let mut internal_attr_names = HashSet::new();
         for (name, instance) in internal_attrs {
@@ -190,15 +190,16 @@ impl AttributeSpec {
 }
 
 pub(crate) mod testing {
-    use starlark_map::small_map::SmallMap;
+
+    use buck2_common::ordered_map::OrderedMap;
 
     use crate::attrs::attr::Attribute;
     use crate::attrs::id::AttributeId;
     use crate::attrs::spec::AttributeSpec;
 
     impl AttributeSpec {
-        pub fn testing_new(
-            indices: SmallMap<String, AttributeId>,
+        pub(crate) fn testing_new(
+            indices: OrderedMap<String, AttributeId>,
             attributes: Vec<Attribute>,
         ) -> AttributeSpec {
             AttributeSpec {

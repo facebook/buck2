@@ -413,13 +413,13 @@ impl TargetNode {
 pub mod testing {
     use std::sync::Arc;
 
+    use buck2_common::ordered_map::OrderedMap;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
     use gazebo::dupe::Dupe;
     use serde_json::map::Map;
     use serde_json::value::Value;
-    use starlark_map::small_map::SmallMap;
 
     use super::*;
     use crate::attrs::attr::Attribute;
@@ -447,7 +447,7 @@ pub mod testing {
             rule_type: RuleType,
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
         ) -> TargetNode {
-            let mut indices = SmallMap::with_capacity(attrs.len());
+            let mut indices = OrderedMap::with_capacity(attrs.len());
             let mut instances = Vec::with_capacity(attrs.len());
             let mut attributes = AttrValues::with_capacity(attrs.len());
 
