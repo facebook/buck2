@@ -74,6 +74,7 @@ byteorder = "1.4.3"
 bytes = "1.0"
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive", "env"] }
+constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.4", features = ["async", "async_tokio", "html_reports"] }
 crossbeam-channel = "0.5"

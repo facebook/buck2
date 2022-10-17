@@ -212,7 +212,10 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
             Some(token) => token,
             None => return Err(Status::unauthenticated("missing auth token")),
         };
-        if token != self.auth_token.as_str() {
+        if !constant_time_eq::constant_time_eq(
+            token.as_bytes(),
+            self.auth_token.as_str().as_bytes(),
+        ) {
             return Err(Status::unauthenticated("invalid auth token"));
         }
         Ok(request)
