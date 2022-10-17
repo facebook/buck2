@@ -107,10 +107,10 @@ extra_attributes = {
         "manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "module_manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
-        "_android_installer": attrs.label(
+        "_android_installer": attrs.default_only(attrs.label(
             # FIXME: prelude// should be standalone (not refer to buck//)
             default = "buck//src/com/facebook/buck/installer/android:android_installer",
-        ),
+        )),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
@@ -144,7 +144,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
-        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
+        "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": java_toolchain_for_android(),
@@ -160,7 +160,7 @@ extra_attributes = {
         "required_for_source_only_abi": attrs.bool(default = True),
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
-        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
+        "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": java_toolchain_for_android(),
     },
@@ -189,12 +189,12 @@ extra_attributes = {
         "_android_toolchain": android_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_toolchain": java_toolchain_for_android(),
-        "_junit_toolchain": attrs.exec_dep(
+        "_junit_toolchain": attrs.default_only(attrs.exec_dep(
             default = select_junit_toolchain(),
             providers = [
                 JUnitToolchainInfo,
             ],
-        ),
+        )),
         "_kotlin_toolchain": _kotlin_toolchain(),
     },
 }

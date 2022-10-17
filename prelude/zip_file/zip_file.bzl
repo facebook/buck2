@@ -65,11 +65,11 @@ implemented_rules = {
 
 extra_attributes = {
     "zip_file": {
-        "_zip_file_toolchain": attrs.exec_dep(
+        "_zip_file_toolchain": attrs.default_only(attrs.exec_dep(
             default = _select_zip_file_toolchain(),
             providers = [
                 ZipFileToolchainInfo,
             ],
-        ),
+        )),
     },
 }

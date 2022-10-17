@@ -48,7 +48,7 @@ omnibus_environment = rule(impl = _omnibus_environment_impl, attrs = {
     "prefer_stripped_native_objects": attrs.bool(),
     "roots": attrs.list(attrs.label(), default = []),
     "shared_root_ld_flags": attrs.list(attrs.arg(), default = []),
-    "_cxx_toolchain": attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo, CxxPlatformInfo]),
+    "_cxx_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo, CxxPlatformInfo])),
 })
 
 def _cxx_hacks_impl(_ctx):

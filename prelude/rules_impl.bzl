@@ -193,7 +193,7 @@ def _cxx_python_extension_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
         "use_link_groups": attrs.bool(default = False),
-        "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
+        "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
         # Copied from python_library.
@@ -209,7 +209,7 @@ def _python_test_attrs():
         "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
+        "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_python_toolchain": _python_toolchain(),
@@ -257,7 +257,7 @@ def _python_binary_attrs():
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
+        "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
@@ -267,7 +267,7 @@ def _python_binary_attrs():
     return updated_attrs
 
 def _toolchain(lang: str.type, providers: [""]) -> "attribute":
-    return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
+    return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
 
 def _cxx_toolchain():
     return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
@@ -343,7 +343,7 @@ extra_attributes = struct(
         # overridden to handle buck1's use of @Value.Default
         "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = []),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_worker_tool_runner": attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner"),
+        "_worker_tool_runner": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner")),
     },
 
     #c++
@@ -362,7 +362,7 @@ extra_attributes = struct(
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "use_link_groups": attrs.bool(default = False),
-        "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
+        "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
     },
@@ -393,10 +393,10 @@ extra_attributes = struct(
         "strip": attrs.dep(providers = [RunInfo]),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),
-        "_dist_lto_tools": attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools"),
-        "_mk_comp_db": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db"),
+        "_dist_lto_tools": attrs.default_only(attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
+        "_mk_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_mk_hmap": attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
+        "_mk_hmap": attrs.default_only(attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),
     },
     cxx_python_extension = _cxx_python_extension_attrs(),
     prebuilt_cxx_library = {
@@ -431,7 +431,7 @@ extra_attributes = struct(
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
-        "_testmaingen": attrs.exec_dep(default = "prelude//go/tools:testmaingen"),
+        "_testmaingen": attrs.default_only(attrs.exec_dep(default = "prelude//go/tools:testmaingen")),
     },
 
     #ocaml
@@ -481,7 +481,7 @@ extra_attributes = struct(
     #python
     prebuilt_python_library = {
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        "_extract": attrs.exec_dep(default = "prelude//python/tools:extract"),
+        "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
         "_python_toolchain": _python_toolchain(),
     },
     python_library = {
@@ -579,7 +579,7 @@ extra_attributes = struct(
     http_archive = {
         "sha1": attrs.option(attrs.string()),
         "sha256": attrs.option(attrs.string()),
-        "_create_exclusion_list": attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list"),
+        "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
     },
     http_file = {
         "sha1": attrs.option(attrs.string()),
@@ -588,7 +588,7 @@ extra_attributes = struct(
     remote_file = {
         "sha1": attrs.option(attrs.string()),
         "sha256": attrs.option(attrs.string()),
-        "_unzip_tool": attrs.exec_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip"),
+        "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip")),
     },
     sh_binary = {
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
