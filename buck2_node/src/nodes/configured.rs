@@ -243,7 +243,6 @@ impl ConfiguredTargetNode {
 
         let configured_providers_label =
             providers_label.configure(transitioned_node.name().cfg().dupe());
-        let platform_cfgs = transitioned_node.0.platform_cfgs.clone();
         Self(Arc::new(ConfiguredTargetNodeData {
             name: name.dupe(),
             target_node: TargetNodeOrForward::Forward(
@@ -261,7 +260,7 @@ impl ConfiguredTargetNode {
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
             deps: LabelIndexedSet::from_iter([transitioned_node]),
             exec_deps: LabelIndexedSet::new(),
-            platform_cfgs,
+            platform_cfgs: BTreeMap::new(),
         }))
     }
 
