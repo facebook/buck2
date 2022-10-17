@@ -13,3 +13,5 @@ If the issue is not transient, then the root cause is likely compatibility with 
 If you still don't have an answer to your question, post in the [Buck2 Users group][buck2_users]. Make sure to include the source control revision you're building from, the command you're running, and the error you are seeing.
 
 We also appreciate it if you can tell us what work this is blocking you from completing so that we can prioritize accordingly.
+
+  [buck2_users]: https://fb.workplace.com/groups/buck2users
