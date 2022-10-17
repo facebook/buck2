@@ -313,6 +313,14 @@ impl<T> SmallSet<T> {
             iter: self.iter().chain(other.difference(self)),
         }
     }
+
+    /// Sort entries.
+    pub fn sort(&mut self)
+    where
+        T: Ord,
+    {
+        self.0.sort_keys();
+    }
 }
 
 impl<'a, T> IntoIterator for &'a SmallSet<T> {
@@ -570,5 +578,12 @@ mod tests {
         let b = SmallSet::from_iter([2, 4, 1]);
         let d = Vec::from_iter(a.union(&b).copied());
         assert_eq!(vec![1, 2, 3, 4], d);
+    }
+
+    #[test]
+    fn test_sort() {
+        let mut a = SmallSet::from_iter([1, 3, 2]);
+        a.sort();
+        assert_eq!(vec![1, 2, 3], Vec::from_iter(a));
     }
 }
