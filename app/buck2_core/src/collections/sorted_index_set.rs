@@ -53,15 +53,6 @@ where
     }
 }
 
-impl<T> AsRef<IndexSet<T>> for SortedIndexSet<T>
-where
-    T: Eq + Hash,
-{
-    fn as_ref(&self) -> &IndexSet<T> {
-        &self.inner
-    }
-}
-
 impl<T> Default for SortedIndexSet<T>
 where
     T: Eq + Ord + Hash,

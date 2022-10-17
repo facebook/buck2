@@ -21,10 +21,7 @@ pub struct PackageFileListing {
 
 impl PackageFileListing {
     pub fn files(&self) -> impl ExactSizeIterator<Item = &PackageRelativePath> {
-        self.files
-            .as_ref()
-            .iter()
-            .map(PackageRelativePathBuf::as_ref)
+        self.files.iter().map(PackageRelativePathBuf::as_ref)
     }
 
     pub(crate) fn files_within(
@@ -41,7 +38,7 @@ impl PackageFileListing {
 
     pub fn files_with_prefix(&self, prefix: &str) -> impl Iterator<Item = &PackageRelativePath> {
         use std::cmp::Ordering;
-        let files = self.files.as_ref();
+        let files = &self.files;
         let len = files.len();
         let lower = binary_search_by(len, |idx: usize| -> Ordering {
             let x = files.get_index(idx).unwrap().as_str();
@@ -64,7 +61,7 @@ impl PackageFileListing {
     }
 
     pub fn contains_file(&self, mut file: &PackageRelativePath) -> bool {
-        if self.files.as_ref().get(file).is_some() {
+        if self.files.get(file).is_some() {
             return true;
         }
         // We don't have the file directly, but we might have a symlink file that covers this file
@@ -73,7 +70,7 @@ impl PackageFileListing {
         // The config `project.read_only_paths` is the allow-list of where such symlinks can exist in v1.
         while let Some(x) = file.parent() {
             file = x;
-            if self.files.as_ref().get(file).is_some() {
+            if self.files.get(file).is_some() {
                 return true;
             }
         }
