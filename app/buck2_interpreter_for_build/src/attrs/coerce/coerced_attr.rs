@@ -134,6 +134,7 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
+    use buck2_common::ordered_map::OrderedMap;
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
     use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -206,7 +207,9 @@ mod tests {
                 panic!("not used in test")
             }
 
-            fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+            fn resolved_transitions(
+                &self,
+            ) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
                 panic!("not used in test")
             }
         }

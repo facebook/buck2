@@ -19,7 +19,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use gazebo::dupe::Dupe;
-use starlark_map::small_map::SmallMap;
 
 use crate::configuration::resolved::ConfigurationSettingKeyRef;
 use crate::configuration::resolved::ResolvedConfiguration;
@@ -44,7 +43,7 @@ pub trait AttrConfigurationContext {
 
     /// Map of transition ids resolved to configurations
     /// using current node configuration as input.
-    fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>;
+    fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         label.configure(self.cfg().dupe())
@@ -94,7 +93,7 @@ pub trait AttrConfigurationContext {
 pub struct AttrConfigurationContextImpl<'b> {
     pub resolved_cfg: &'b ResolvedConfiguration,
     pub exec_cfg: &'b Configuration,
-    pub resolved_transitions: &'b SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    pub resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     pub platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
 }
 
@@ -121,7 +120,7 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         }
     }
 
-    fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+    fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
         self.resolved_transitions
     }
 }

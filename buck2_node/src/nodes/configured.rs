@@ -28,7 +28,6 @@ use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
@@ -147,7 +146,7 @@ struct ConfiguredTargetNodeData {
     name: ConfiguredTargetLabel,
     target_node: TargetNodeOrForward,
     resolved_configuration: ResolvedConfiguration,
-    resolved_transition_configurations: SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     execution_platform_resolution: ExecutionPlatformResolution,
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
@@ -189,7 +188,7 @@ impl ConfiguredTargetNode {
             name.dupe(),
             TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
             ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
-            SmallMap::new(),
+            OrderedMap::new(),
             execution_platform_resolution,
             LabelIndexedSet::new(),
             LabelIndexedSet::new(),
@@ -201,7 +200,7 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         target_node: TargetNode,
         resolved_configuration: ResolvedConfiguration,
-        resolved_tr_configurations: SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        resolved_tr_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: LabelIndexedSet<ConfiguredTargetNode>,
         exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
@@ -255,7 +254,7 @@ impl ConfiguredTargetNode {
             // We have no attributes with selects, so resolved configurations is empty.
             resolved_configuration: ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
             // We have no attributes to transition, so empty map is fine.
-            resolved_transition_configurations: SmallMap::new(),
+            resolved_transition_configurations: OrderedMap::new(),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
             deps: LabelIndexedSet::from_iter([transitioned_node]),

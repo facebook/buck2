@@ -55,7 +55,6 @@ use indexmap::IndexSet;
 use itertools::Either;
 use itertools::Itertools;
 use starlark::collections::SmallSet;
-use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::calculation::BuildErrors;
@@ -177,7 +176,7 @@ impl ExecutionPlatformConstraints {
         ctx: &DiceComputations,
         node: &TargetNode,
         resolved_configuration: &ResolvedConfiguration,
-        resolved_transitions: &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        resolved_transitions: &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     ) -> SharedResult<Self> {
         let mut me = Self::default();
 
@@ -283,7 +282,7 @@ async fn execution_platforms_for_toolchain(
                 ctx,
                 &node,
                 resolved_configuration,
-                &SmallMap::new(),
+                &OrderedMap::new(),
             )
             .await?;
             constraints.many(ctx, &self.0).await
@@ -321,8 +320,13 @@ pub async fn get_execution_platform_toolchain_dep(
             target_label.unconfigured().dupe(),
         )))
     } else {
-        resolve_execution_platform(ctx, target_node, &resolved_configuration, &SmallMap::new())
-            .await
+        resolve_execution_platform(
+            ctx,
+            target_node,
+            &resolved_configuration,
+            &OrderedMap::new(),
+        )
+        .await
     }
 }
 
@@ -330,7 +334,7 @@ async fn resolve_execution_platform(
     ctx: &DiceComputations,
     node: &TargetNode,
     resolved_configuration: &ResolvedConfiguration,
-    resolved_transitions: &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    resolved_transitions: &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
 ) -> SharedResult<ExecutionPlatformResolution> {
     // If no execution platforms are configured, we fall back to the legacy execution
     // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
@@ -392,7 +396,7 @@ fn unpack_target_compatible_with_attr(
             )
         }
 
-        fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
             unreachable!(
                 "resolved_transitions() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -534,7 +538,7 @@ async fn compute_configured_target_node_no_transition(
         }
     }
 
-    let mut resolved_transitions = SmallMap::new();
+    let mut resolved_transitions = OrderedMap::new();
     for (_dep, tr) in target_node.transition_deps() {
         let resolved_cfg = ctx.apply_transition(&target_node, target_cfg, tr).await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
