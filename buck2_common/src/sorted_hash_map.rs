@@ -31,13 +31,6 @@ where
         }
     }
 
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_iter(items: impl IntoIterator<Item = (K, V)>) -> SortedHashMap<K, V> {
-        let mut map = SmallMap::from_iter(items);
-        map.sort_keys();
-        SortedHashMap { map }
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.map.iter()
     }
@@ -59,6 +52,14 @@ where
         Q: Hash + Equivalent<K>,
     {
         self.map.get(key)
+    }
+}
+
+impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedHashMap<K, V> {
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        let mut map = SmallMap::from_iter(iter);
+        map.sort_keys();
+        SortedHashMap { map }
     }
 }
 

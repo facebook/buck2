@@ -809,6 +809,7 @@ struct ConfigResolver {
 }
 
 impl ConfigResolver {
+    #[allow(clippy::from_iter_instead_of_collect)]
     fn resolve(
         values: BTreeMap<String, SectionBuilder>,
     ) -> anyhow::Result<SortedHashMap<String, LegacyBuckConfigSection>> {
