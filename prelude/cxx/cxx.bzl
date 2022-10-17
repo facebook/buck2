@@ -53,8 +53,6 @@ load(
 load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",
-    "CxxRuleProviderParams",
-    "CxxRuleSubTargetParams",
 )
 load(
     ":headers.bzl",
@@ -135,12 +133,6 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
         fail("Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule")
 
-    if ctx.attrs._is_building_android_binary:
-        sub_target_params, provider_params = _get_params_for_android_binary_cxx_library()
-    else:
-        sub_target_params = CxxRuleSubTargetParams()
-        provider_params = CxxRuleProviderParams()
-
     params = CxxRuleConstructorParams(
         rule_type = "cxx_library",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
@@ -148,8 +140,6 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         is_omnibus_root = is_known_omnibus_root(ctx),
         force_emit_omnibus_shared_root = ctx.attrs.force_emit_omnibus_shared_root,
-        generate_sub_targets = sub_target_params,
-        generate_providers = provider_params,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -514,23 +504,3 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         comp_db_info,
         xcode_data_info,
     ]
-
-def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams.type, CxxRuleProviderParams.type):
-    sub_target_params = CxxRuleSubTargetParams(
-        argsfiles = False,
-        compilation_database = False,
-        headers = False,
-        link_group_map = False,
-        xcode_data = False,
-    )
-    provider_params = CxxRuleProviderParams(
-        compilation_database = False,
-        linkable_graph = False,
-        link_style_outputs = False,
-        merged_native_link_info = False,
-        omnibus_root = False,
-        preprocessor_for_tests = False,
-        template_placeholders = False,
-    )
-
-    return sub_target_params, provider_params
