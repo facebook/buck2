@@ -24,6 +24,7 @@ enum ConnectionTypeError {
 
 #[derive(Debug, Clone)]
 pub enum ConnectionType {
+    // TODO: remove Unix support a week after D40394826 lands.
     Uds { unix_socket: PathBuf },
     Tcp { port: u16 },
 }
