@@ -80,4 +80,8 @@ def assert_all_paths_exist(paths: Iterable):
 
 def assert_all_paths_do_not_exist(paths: Iterable):
     for path in paths:
-        assert os.path.exists(path) is False
+        if os.path.exists(f"{path}/buckd.lifecycle"):
+            # Clean keeps lifecycle file in daemon dir.
+            assert ["buckd.lifecycle"] == os.listdir(path)
+        else:
+            assert os.path.exists(path) is False

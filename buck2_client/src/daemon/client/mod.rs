@@ -131,7 +131,7 @@ impl BuckdLifecycleLock {
     }
 
     /// Remove everything except `buckd.lifecycle` file which is the lock file.
-    fn clean_daemon_dir(&self) -> anyhow::Result<()> {
+    pub(crate) fn clean_daemon_dir(&self) -> anyhow::Result<()> {
         let mut seen_lifecycle = false;
         for p in fs_util::read_dir(&self.daemon_dir.path)? {
             let p = p?;
