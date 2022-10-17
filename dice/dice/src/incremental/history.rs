@@ -263,19 +263,30 @@ impl CellHistory {
             .max()
             .copied()
         {
-            if let Some((_, is_force)) = self
+            let mut is_dirty = false;
+            let mut is_force_dirty = false;
+
+            // We need to look for force-dirtied versions across all dirtied versions, since we
+            // guarantee that when force-dirty is called where will be a recomputation.
+            for (_version, force_dirty) in self
                 .dirtied
                 .range((Bound::Included(last_verified), Bound::Included(*v)))
-                .next()
             {
-                if *is_force {
-                    HistoryState::Dirty
-                } else {
-                    HistoryState::Unknown(self.get_verified_ranges())
+                is_dirty = true;
+                if *force_dirty {
+                    is_force_dirty = true;
                 }
-            } else {
-                HistoryState::Verified
             }
+
+            if is_force_dirty {
+                return HistoryState::Dirty;
+            }
+
+            if is_dirty {
+                return HistoryState::Unknown(self.get_verified_ranges());
+            }
+
+            HistoryState::Verified
         } else {
             HistoryState::Unknown(self.get_verified_ranges())
         }
@@ -829,5 +840,18 @@ mod tests {
                 VersionRange::begins_with(VersionNumber::new(7))
             ]
         );
+    }
+
+    #[test]
+    fn test_force_dirty_has_precedence() {
+        let mut h1 = CellHistory::verified(VersionNumber::new(0));
+        assert!(h1.mark_invalidated(VersionNumber::new(1)));
+        assert!(h1.force_dirty(VersionNumber::new(2)));
+        h1.get_history(&VersionNumber::new(2)).assert_dirty();
+
+        let mut h2 = CellHistory::verified(VersionNumber::new(0));
+        assert!(h2.force_dirty(VersionNumber::new(1)));
+        assert!(h2.mark_invalidated(VersionNumber::new(2)));
+        h2.get_history(&VersionNumber::new(2)).assert_dirty();
     }
 }
