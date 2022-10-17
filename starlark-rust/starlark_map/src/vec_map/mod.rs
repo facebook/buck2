@@ -243,4 +243,11 @@ impl<K, V> VecMap<K, V> {
             })?,
         })
     }
+
+    pub(crate) fn sort_keys(&mut self)
+    where
+        K: Ord,
+    {
+        self.buckets.sort_by(|a, b| a.key.cmp(&b.key));
+    }
 }

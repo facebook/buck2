@@ -585,6 +585,22 @@ impl<K, V> SmallMap<K, V> {
             assert!(self.entries.len() <= NO_INDEX_THRESHOLD);
         }
     }
+
+    /// Sort entries by key.
+    pub fn sort_keys(&mut self)
+    where
+        K: Ord,
+    {
+        // TODO(nga): make it panic safe.
+        self.entries.sort_keys();
+        if let Some(index) = &mut self.index {
+            index.clear();
+            for (i, b) in self.entries.buckets.iter().enumerate() {
+                // SAFETY: capacity >= self.entries.len()
+                unsafe { index.insert_no_grow(b.hash.promote(), i) };
+            }
+        }
+    }
 }
 
 /// Reference to the actual entry in the map.
@@ -1055,5 +1071,37 @@ mod tests {
         assert_eq!(map.last(), Some((&2, &20)));
         map.insert(1, 100);
         assert_eq!(map.last(), Some((&2, &20)));
+    }
+
+    #[test]
+    fn test_sort_keys_no_index() {
+        let mut map = SmallMap::new();
+        map.insert(2, 20);
+        map.insert(1, 10);
+        map.insert(3, 30);
+        map.sort_keys();
+        assert_eq!(
+            vec![(&1, &10), (&2, &20), (&3, &30)],
+            map.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(&10, map.get(&1).unwrap());
+        assert_eq!(&20, map.get(&2).unwrap());
+        assert_eq!(&30, map.get(&3).unwrap());
+    }
+
+    #[test]
+    fn test_sort_keys_with_index() {
+        let mut map = SmallMap::new();
+        for i in 1..=100 {
+            map.insert(i, i * 10);
+        }
+        map.sort_keys();
+        assert_eq!(
+            (1..=100).map(|i| (i, i * 10)).collect::<Vec<_>>(),
+            map.iter().map(|(k, v)| (*k, *v)).collect::<Vec<_>>()
+        );
+        for i in 1..=100 {
+            assert_eq!(i * 10, *map.get(&i).unwrap());
+        }
     }
 }
