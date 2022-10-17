@@ -374,7 +374,8 @@ impl CachingExecutor {
 
         #[cfg(fbcode_build)]
         {
-            worker = hostname::get_hostname()?;
+            let hostname = hostname::get()?;
+            worker = hostname.to_string_lossy().into_owned();
         }
 
         #[cfg(not(fbcode_build))]

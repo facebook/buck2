@@ -23,10 +23,9 @@ tokio = { workspace = true }
 tokio-rusqlite = { workspace = true }
 tracing = { workspace = true }
 zstd = { workspace = true }
-
+hostname = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
-# @oss-disable: hostname = { path = "../../common/rust/shed/hostname", optional = true }
 more_futures = { workspace = true }
 remote_execution = { workspace = true }
 starlark_map = { workspace = true }

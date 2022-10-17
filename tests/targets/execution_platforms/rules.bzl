@@ -156,10 +156,9 @@ def _write_impl(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
-            "sh",
+            "python3",
             "-c",
-            'mkdir -p $(dirname "$2") && cp "$1" "$2"',
-            "--",
+            "import sys, os, shutil; dirname= os.path.dirname(sys.argv[2]);\nif not os.path.exists(dirname): os.makedirs(dirname);\nshutil.copyfile(sys.argv[1],sys.argv[2]);",
             tmp,
             cmd_args(out.as_output(), format = ctx.attrs.format),
         ],
