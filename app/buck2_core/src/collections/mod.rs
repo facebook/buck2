@@ -8,5 +8,6 @@
  */
 
 pub mod ordered_map;
+pub mod ordered_set;
 pub mod sorted_map;
 pub mod sorted_set;
