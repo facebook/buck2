@@ -108,6 +108,9 @@ pub struct CommandExecutionRequest {
     local_environment_inheritance: Option<EnvironmentInheritance>,
     /// Whether this command should be uploaded to cache when successful.
     allow_cache_upload: bool,
+    /// Whether this command should override the fallback-only behavior on an hybrid executor and
+    /// thus always run as if the executor was full-hybrid, assuming it is capable.
+    force_full_hybrid_if_capable: bool,
 }
 
 impl CommandExecutionRequest {
@@ -132,6 +135,7 @@ impl CommandExecutionRequest {
             outputs_cleanup: true,
             local_environment_inheritance: None,
             allow_cache_upload: false,
+            force_full_hybrid_if_capable: false,
         }
     }
 
@@ -254,6 +258,15 @@ impl CommandExecutionRequest {
 
     pub fn allow_cache_upload(&self) -> bool {
         self.allow_cache_upload
+    }
+
+    pub fn with_force_full_hybrid_if_capable(mut self, force_full_hybrid_if_capable: bool) -> Self {
+        self.force_full_hybrid_if_capable = force_full_hybrid_if_capable;
+        self
+    }
+
+    pub fn force_full_hybrid_if_capable(&self) -> bool {
+        self.force_full_hybrid_if_capable
     }
 }
 

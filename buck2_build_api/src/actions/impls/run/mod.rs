@@ -119,6 +119,7 @@ pub(crate) struct UnregisteredRunAction {
     pub metadata_param: Option<MetadataParameter>,
     pub no_outputs_cleanup: bool,
     pub allow_cache_upload: bool,
+    pub force_full_hybrid_if_capable: bool,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -387,7 +388,8 @@ impl IncrementalActionExecutable for RunAction {
         .with_host_sharing_requirements(host_sharing_requirements)
         .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
         .with_allow_cache_upload(self.inner.allow_cache_upload)
-        .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions());
+        .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
+        .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable);
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 

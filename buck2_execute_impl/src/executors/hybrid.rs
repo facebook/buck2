@@ -186,6 +186,8 @@ impl PreparedCommandExecutor for HybridExecutor {
             }
         };
 
+        let fallback_only = fallback_only && !command.request.force_full_hybrid_if_capable();
+
         let (mut first_res, second) = if fallback_only {
             // In the fallback-only case, the primary always "wins" the race, since we don't start
             // the secondary.

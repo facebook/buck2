@@ -631,6 +631,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] allow_cache_upload: bool,
+        #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -761,6 +762,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             metadata_param,
             no_outputs_cleanup,
             allow_cache_upload,
+            force_full_hybrid_if_capable,
         };
         this.state().register_action(
             artifacts.inputs,

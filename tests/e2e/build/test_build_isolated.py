@@ -822,9 +822,16 @@ async def test_hybrid_executor_fallbacks(buck: Buck, low_pass_filter: str) -> No
 
 
 @buck_test(inplace=False, data_dir="execution_platforms")
-async def test_hybrid_executor_cancels_local_execution(buck: Buck) -> None:
+@pytest.mark.parametrize(
+    "target",
+    [
+        "slower_locally",
+        "slower_locally_force_full_hybrid",
+    ],
+)
+async def test_hybrid_executor_cancels_local_execution(buck: Buck, target: str) -> None:
     await buck.build(
-        "root//executor_race_tests:slower_locally",
+        f"root//executor_race_tests:{target}",
         "-c",
         f"test.cache_buster={random_string()}",
     )

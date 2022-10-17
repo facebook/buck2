@@ -136,6 +136,7 @@ def _command_impl(ctx):
         category = "command",
         env = {"cache_buster": ctx.attrs.cache_buster},
         prefer_local = ctx.attrs.prefer_local,
+        force_full_hybrid_if_capable = ctx.attrs.force_full_hybrid_if_capable,
     )
     return [DefaultInfo(default_outputs = [out])]
 
@@ -145,6 +146,7 @@ command = rule(
         # @lint-ignore BUCKRESTRICTEDSYNTAX
         "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
         "command": attrs.source(),
+        "force_full_hybrid_if_capable": attrs.bool(default = False),
         "prefer_local": attrs.bool(default = False),
     },
 )

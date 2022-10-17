@@ -6,3 +6,11 @@ command(
     default_target_platform="//platforms:target",
     exec_compatible_with=["//platforms:full_hybrid"],
 )
+
+command(
+    name="slower_locally_force_full_hybrid",
+    command="slower_locally.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:default"],
+    force_full_hybrid_if_capable=True,
+)
