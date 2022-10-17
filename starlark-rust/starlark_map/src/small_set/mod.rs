@@ -321,6 +321,22 @@ impl<T> SmallSet<T> {
     {
         self.0.sort_keys();
     }
+
+    /// Equal if entries are equal in iteration order.
+    pub fn eq_ordered(&self, other: &Self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.0.eq_ordered(&other.0)
+    }
+
+    /// Hash entries in iteration order.
+    pub fn hash_ordered<H: Hasher>(&self, state: &mut H)
+    where
+        T: Hash,
+    {
+        self.0.hash_ordered(state)
+    }
 }
 
 impl<'a, T> IntoIterator for &'a SmallSet<T> {
