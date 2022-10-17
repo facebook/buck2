@@ -289,6 +289,30 @@ impl<T> SmallSet<T> {
     pub fn last(&self) -> Option<&T> {
         self.0.last().map(|(k, ())| k)
     }
+
+    /// Iterator over elements of this set which are not in the other set.
+    pub fn difference<'a>(&'a self, other: &'a Self) -> Difference<'a, T>
+    where
+        T: Eq + Hash,
+    {
+        Difference {
+            iter: self.iter(),
+            other,
+        }
+    }
+
+    /// Iterator over union of two sets.
+    ///
+    /// Iteration order is: elements of this set followed by elements in the other set
+    /// not present in this set.
+    pub fn union<'a>(&'a self, other: &'a Self) -> Union<'a, T>
+    where
+        T: Eq + Hash,
+    {
+        Union {
+            iter: self.iter().chain(other.difference(self)),
+        }
+    }
 }
 
 impl<'a, T> IntoIterator for &'a SmallSet<T> {
@@ -312,6 +336,54 @@ impl<T> IntoIterator for SmallSet<T> {
         IntoIter {
             iter: self.0.into_iter(),
         }
+    }
+}
+
+/// Iterator over the difference of two sets.
+pub struct Difference<'a, T: 'a> {
+    iter: Iter<'a, T>,
+    other: &'a SmallSet<T>,
+}
+
+impl<'a, T: 'a> Iterator for Difference<'a, T>
+where
+    T: Hash + Eq,
+{
+    type Item = &'a T;
+
+    #[allow(clippy::while_let_on_iterator)]
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(item) = self.iter.next() {
+            if !self.other.contains(item) {
+                return Some(item);
+            }
+        }
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // TODO(nga): better lower estimation.
+        (0, self.iter.size_hint().1)
+    }
+}
+
+/// Iterator over a union of two sets.
+pub struct Union<'a, T: 'a> {
+    iter: std::iter::Chain<Iter<'a, T>, Difference<'a, T>>,
+}
+
+impl<'a, T: 'a> Iterator for Union<'a, T>
+where
+    T: Hash + Eq,
+{
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
     }
 }
 
@@ -345,6 +417,7 @@ macro_rules! smallset {
     };
 }
 
+#[allow(clippy::from_iter_instead_of_collect)]
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -481,5 +554,21 @@ mod tests {
         assert!(s.remove(&17));
         assert!(!h.remove(&17));
         assert!(!s.remove(&17));
+    }
+
+    #[test]
+    fn test_difference() {
+        let a = SmallSet::from_iter([1, 2, 3]);
+        let b = SmallSet::from_iter([2, 4, 1]);
+        let d = Vec::from_iter(a.difference(&b).copied());
+        assert_eq!(vec![3], d);
+    }
+
+    #[test]
+    fn test_union() {
+        let a = SmallSet::from_iter([1, 2, 3]);
+        let b = SmallSet::from_iter([2, 4, 1]);
+        let d = Vec::from_iter(a.union(&b).copied());
+        assert_eq!(vec![1, 2, 3, 4], d);
     }
 }
