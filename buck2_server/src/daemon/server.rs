@@ -70,7 +70,6 @@ use tracing::debug_span;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
-use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 use crate::jemalloc_stats::jemalloc_stats;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
@@ -250,7 +249,7 @@ impl BuckdServer {
         callbacks: &'static dyn BuckdServerDependencies,
     ) -> anyhow::Result<()>
     where
-        I: Stream<Item = Result<TcpOrUnixStream, io::Error>>,
+        I: Stream<Item = Result<tokio::net::TcpStream, io::Error>>,
     {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;

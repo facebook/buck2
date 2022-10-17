@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-fn create_listener_impl() -> anyhow::Result<(
+pub fn create_listener() -> anyhow::Result<(
     buck2_common::buckd_connection::ConnectionType,
     std::net::TcpListener,
 )> {
@@ -28,26 +28,16 @@ fn create_listener_impl() -> anyhow::Result<(
     ))
 }
 
-pub(crate) fn create_listener() -> anyhow::Result<(
-    buck2_common::buckd_connection::ConnectionType,
-    crate::daemon::tcp_or_unix_listener::TcpOrUnixListener,
-)> {
-    use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
-
-    let (connection_type, tcp_listener) = create_listener_impl()?;
-    Ok((connection_type, TcpOrUnixListener(tcp_listener)))
-}
-
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
     use buck2_common::buckd_connection::ConnectionType;
 
-    use crate::daemon::daemon_tcp::create_listener_impl;
+    use crate::daemon::daemon_tcp::create_listener;
 
     #[test]
     fn test_create_listener() {
-        let (connection_type, _tcp_listener) = create_listener_impl().unwrap();
+        let (connection_type, _tcp_listener) = create_listener().unwrap();
         assert_matches!(connection_type, ConnectionType::Tcp { .. });
     }
 }

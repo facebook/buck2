@@ -30,11 +30,10 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
-use buck2_server::daemon::daemon_utils::create_listener;
+use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerDependencies;
-use buck2_server::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 use buck2_server::docs::docs_command;
 use buck2_server::profile::profile_command;
 use buck2_server_commands::commands::build::build_command;
@@ -197,10 +196,8 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
 }
 
-pub(crate) fn init_listener(
-    daemon_dir: &DaemonDir,
-) -> anyhow::Result<(TcpOrUnixListener, ConnectionType)> {
-    let (endpoint, listener) = create_listener(daemon_dir.path.to_path_buf())?;
+pub(crate) fn init_listener() -> anyhow::Result<(std::net::TcpListener, ConnectionType)> {
+    let (endpoint, listener) = create_listener()?;
 
     buck2_client::eprintln!("Listener created on {}", &endpoint)?;
 
@@ -279,7 +276,7 @@ impl DaemonCommand {
             // * daemon parent process exits
             // * client successfully connects to the unix socket
             // * but stdout/stderr may be not yet created, so tailer fails to open them
-            let (listener, endpoint) = init_listener(&paths.daemon_dir()?)?;
+            let (listener, endpoint) = init_listener()?;
 
             self.daemonize(stdout, stderr)?;
 
@@ -307,7 +304,7 @@ impl DaemonCommand {
                 self.redirect_output(stdout, stderr)?;
             }
 
-            let (listener, endpoint) = init_listener(&paths.daemon_dir()?)?;
+            let (listener, endpoint) = init_listener()?;
 
             let process_info = DaemonProcessInfo {
                 pid: process::id() as i64,
@@ -391,7 +388,9 @@ impl DaemonCommand {
             };
             let daemon_dir = paths.daemon_dir()?;
 
-            let listener = listener.into_accept_stream()?;
+            listener.set_nonblocking(true)?;
+            let listener = tokio::net::TcpListener::from_std(listener)?;
+            let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
             let buckd_server = BuckdServer::run(
                 fb,
@@ -555,7 +554,7 @@ mod tests {
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_server::daemon::daemon_utils::create_listener;
+    use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
     use cli_proto::DaemonProcessInfo;
@@ -573,7 +572,10 @@ mod tests {
 
         let tempdir = tempfile::tempdir().unwrap();
 
-        let (endpoint, listener) = create_listener(tempdir.path().to_path_buf()).unwrap();
+        let (endpoint, listener) = create_listener().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let listener = tokio::net::TcpListener::from_std(listener).unwrap();
+        let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
         let invocation_paths = InvocationPaths {
             roots: InvocationRoots {
@@ -608,7 +610,7 @@ mod tests {
             box Delegate,
             None,
             process_info.clone(),
-            listener.into_accept_stream().unwrap(),
+            listener,
             &BuckdServerDependenciesImpl,
         ));
 

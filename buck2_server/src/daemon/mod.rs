@@ -15,10 +15,6 @@ pub mod forkserver;
 pub mod panic;
 pub mod state;
 
-mod daemon_tcp;
-pub mod daemon_utils;
+pub mod daemon_tcp;
 
 pub mod server;
-
-pub mod tcp_or_unix_listener;
-pub mod tcp_or_unix_stream;

@@ -22,6 +22,7 @@ sync_wrapper = { workspace = true }
 termimad = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 dice = { path = "../dice/dice" }

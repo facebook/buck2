@@ -45,6 +45,7 @@ rust_library(
         "fbsource//third-party/rust:termimad",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-stream",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_forkserver:buck2_forkserver",
         "//buck2/app/buck2_test:buck2_test",
