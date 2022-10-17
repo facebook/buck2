@@ -10,13 +10,12 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use buck2_core::collections::sorted_hash_map::SortedHashMap;
 use derive_more::Display;
 use gazebo::prelude::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
-
-use crate::sorted_hash_map::SortedHashMap;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}

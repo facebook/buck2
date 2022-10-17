@@ -79,7 +79,7 @@ impl<K: Ord + Hash, V: Hash> Hash for SortedHashMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::sorted_hash_map::SortedHashMap;
+    use crate::collections::sorted_hash_map::SortedHashMap;
 
     #[test]
     fn test_from_iter() {

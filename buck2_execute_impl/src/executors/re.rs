@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_common::sorted_hash_map::SortedHashMap;
+use buck2_core::collections::sorted_hash_map::SortedHashMap;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;

@@ -9,7 +9,7 @@
 
 use std::collections::HashSet;
 
-use buck2_common::ordered_map::OrderedMap;
+use buck2_core::collections::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
 use crate::attrs::attr::Attribute;
@@ -191,7 +191,7 @@ impl AttributeSpec {
 
 pub(crate) mod testing {
 
-    use buck2_common::ordered_map::OrderedMap;
+    use buck2_core::collections::ordered_map::OrderedMap;
 
     use crate::attrs::attr::Attribute;
     use crate::attrs::id::AttributeId;

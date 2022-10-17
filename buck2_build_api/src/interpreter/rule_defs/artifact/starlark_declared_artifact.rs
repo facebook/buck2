@@ -13,7 +13,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_common::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;

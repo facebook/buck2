@@ -413,8 +413,8 @@ impl TargetNode {
 pub mod testing {
     use std::sync::Arc;
 
-    use buck2_common::ordered_map::OrderedMap;
     use buck2_core::build_file_path::BuildFilePath;
+    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
     use gazebo::dupe::Dupe;

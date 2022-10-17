@@ -13,6 +13,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -27,7 +28,6 @@ use crate::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 use crate::result::SharedResult;
-use crate::sorted_index_set::SortedIndexSet;
 
 #[derive(Debug, Error)]
 enum PackageListingError {

@@ -12,7 +12,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-use buck2_common::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Heap;

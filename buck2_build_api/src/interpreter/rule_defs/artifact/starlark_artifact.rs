@@ -10,7 +10,7 @@
 use std::fmt::Display;
 use std::sync::Arc;
 
-use buck2_common::sorted_index_set::SortedIndexSet;
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::base_deferred_key::BaseDeferredKey;

@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::cells::CellName;
+use buck2_core::collections::sorted_hash_map::SortedHashMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -30,7 +31,6 @@ use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
 use crate::result::SharedResult;
 use crate::result::ToSharedResultExt;
-use crate::sorted_hash_map::SortedHashMap;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe, Debug)]

@@ -26,6 +26,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::collections::sorted_hash_map::SortedHashMap;
 use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;
 use gazebo::eq_chain;
@@ -39,7 +40,6 @@ use thiserror::Error;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::view::LegacyBuckConfigsView;
-use crate::sorted_hash_map::SortedHashMap;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 
 #[derive(Error, Debug)]

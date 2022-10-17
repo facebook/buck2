@@ -15,8 +15,8 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::category::Category;
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_execute::materialize::http::Checksum;

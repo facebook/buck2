@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -17,7 +18,6 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexSet;
 
 use crate::package_listing::file_listing::PackageFileListing;
-use crate::sorted_index_set::SortedIndexSet;
 
 #[derive(Clone, Dupe, Eq, PartialEq, Debug)]
 pub struct PackageListing {
@@ -97,12 +97,12 @@ impl PackageListing {
 }
 
 pub mod testing {
+    use buck2_core::collections::sorted_index_set::SortedIndexSet;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use indexmap::IndexSet;
 
     use crate::package_listing::listing::PackageListing;
-    use crate::sorted_index_set::SortedIndexSet;
 
     pub trait PackageListingExt {
         fn testing_empty() -> Self;

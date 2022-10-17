@@ -43,7 +43,6 @@ gazebo_lint.optional = true
 internment_tweaks = { path = "../shed/internment_tweaks" }
 more_futures = { workspace = true }
 sorted_vector_map = { workspace = true }
-starlark_map = { workspace = true }
 
 buck2_core = { path = "../app/buck2_core" }
 

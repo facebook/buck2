@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::sorted_index_set::SortedIndexSet;
 use buck2_core::category::Category;
+use buck2_core::collections::sorted_index_set::SortedIndexSet;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
