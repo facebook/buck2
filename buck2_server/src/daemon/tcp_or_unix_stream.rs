@@ -17,15 +17,9 @@ use tonic::transport::server::Connected;
 
 /// `UnixStream` on Unix and `TcpStream` on Windows.
 #[derive(Debug)]
-pub struct TcpOrUnixStream(
-    #[cfg(unix)] pub(crate) tokio::net::UnixStream,
-    #[cfg(not(unix))] pub(crate) tokio::net::TcpStream,
-);
+pub struct TcpOrUnixStream(pub(crate) tokio::net::TcpStream);
 
 impl Connected for TcpOrUnixStream {
-    #[cfg(unix)]
-    type ConnectInfo = <tokio::net::UnixStream as Connected>::ConnectInfo;
-    #[cfg(not(unix))]
     type ConnectInfo = <tokio::net::TcpStream as Connected>::ConnectInfo;
 
     fn connect_info(&self) -> Self::ConnectInfo {

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#[cfg(any(windows, test))]
 fn create_listener_impl() -> anyhow::Result<(
     buck2_common::buckd_connection::ConnectionType,
     std::net::TcpListener,
@@ -29,7 +28,6 @@ fn create_listener_impl() -> anyhow::Result<(
     ))
 }
 
-#[cfg(windows)]
 pub(crate) fn create_listener() -> anyhow::Result<(
     buck2_common::buckd_connection::ConnectionType,
     crate::daemon::tcp_or_unix_listener::TcpOrUnixListener,

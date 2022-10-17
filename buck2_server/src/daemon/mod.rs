@@ -16,8 +16,6 @@ pub mod panic;
 pub mod state;
 
 mod daemon_tcp;
-#[cfg(unix)]
-mod daemon_unix;
 pub mod daemon_utils;
 
 pub mod server;

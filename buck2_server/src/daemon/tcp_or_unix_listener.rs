@@ -14,10 +14,7 @@ use futures::stream::TryStreamExt;
 
 use crate::daemon::tcp_or_unix_stream::TcpOrUnixStream;
 
-pub struct TcpOrUnixListener(
-    #[cfg(unix)] pub(crate) std::os::unix::net::UnixListener,
-    #[cfg(not(unix))] pub(crate) std::net::TcpListener,
-);
+pub struct TcpOrUnixListener(pub(crate) std::net::TcpListener);
 
 impl TcpOrUnixListener {
     /// This function can only be called from tokio context.
@@ -26,13 +23,6 @@ impl TcpOrUnixListener {
     ) -> anyhow::Result<BoxStream<'static, Result<TcpOrUnixStream, std::io::Error>>> {
         self.0.set_nonblocking(true)?;
 
-        #[cfg(unix)]
-        let listener = {
-            let listener = tokio::net::UnixListener::from_std(self.0)?;
-
-            tokio_stream::wrappers::UnixListenerStream::new(listener)
-        };
-        #[cfg(not(unix))]
         let listener = {
             let listener = tokio::net::TcpListener::from_std(self.0)?;
 

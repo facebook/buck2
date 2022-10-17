@@ -13,14 +13,8 @@ use buck2_common::buckd_connection::ConnectionType;
 
 use crate::daemon::tcp_or_unix_listener::TcpOrUnixListener;
 
-pub fn create_listener(daemon_dir: PathBuf) -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
-    #[cfg(unix)]
-    {
-        crate::daemon::daemon_unix::create_listener(daemon_dir)
-    }
-    #[cfg(windows)]
-    {
-        drop(daemon_dir);
-        crate::daemon::daemon_tcp::create_listener()
-    }
+pub fn create_listener(
+    _daemon_dir: PathBuf,
+) -> anyhow::Result<(ConnectionType, TcpOrUnixListener)> {
+    crate::daemon::daemon_tcp::create_listener()
 }
