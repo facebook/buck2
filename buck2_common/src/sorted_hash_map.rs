@@ -1,4 +1,5 @@
 use std::hash::Hash;
+use std::hash::Hasher;
 
 use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
@@ -63,6 +64,12 @@ impl<K: Ord + Hash, V: Eq> PartialEq for SortedHashMap<K, V> {
 }
 
 impl<K: Ord + Hash, V: Eq> Eq for SortedHashMap<K, V> {}
+
+impl<K: Ord + Hash, V: Hash> Hash for SortedHashMap<K, V> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.map.hash_ordered(state)
+    }
+}
 
 #[cfg(test)]
 mod tests {
