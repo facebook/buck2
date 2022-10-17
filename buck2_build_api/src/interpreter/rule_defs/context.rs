@@ -565,8 +565,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let value =
-            declaration.into_declared_artifact(Arc::new(SortedIndexSet::new(associated_artifacts)));
+        let value = declaration
+            .into_declared_artifact(Arc::new(SortedIndexSet::from(associated_artifacts)));
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()

@@ -95,7 +95,7 @@ pub mod testing {
                 .map(|f| PackageRelativePath::new(*f).unwrap().to_owned())
                 .collect();
             PackageFileListing {
-                files: SortedIndexSet::new(files),
+                files: SortedIndexSet::from(files),
             }
         }
     }

@@ -144,7 +144,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         heap.alloc(StarlarkDeclaredArtifact {
             artifact: self.artifact.dupe(),
             declaration_location: self.declaration_location.dupe(),
-            associated_artifacts: Arc::new(SortedIndexSet::new(merged)),
+            associated_artifacts: Arc::new(SortedIndexSet::from(merged)),
         })
     }
 }

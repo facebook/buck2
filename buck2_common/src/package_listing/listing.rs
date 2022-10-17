@@ -51,7 +51,7 @@ impl PackageListing {
 
     pub fn empty(buildfile: FileNameBuf) -> Self {
         Self::new(
-            SortedIndexSet::empty(),
+            SortedIndexSet::new(),
             IndexSet::new(),
             Vec::new(),
             buildfile,
@@ -125,7 +125,7 @@ pub mod testing {
                 .map(|f| PackageRelativePathBuf::unchecked_new((*f).to_owned()))
                 .collect();
             PackageListing::new(
-                SortedIndexSet::new(files),
+                SortedIndexSet::from(files),
                 IndexSet::new(),
                 Vec::new(),
                 FileNameBuf::unchecked_new(buildfile),

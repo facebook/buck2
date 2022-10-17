@@ -21,17 +21,35 @@ impl<T> SortedIndexSet<T>
 where
     T: Eq + Ord + Hash,
 {
-    pub fn new(mut inner: IndexSet<T>) -> Self {
-        inner.sort();
-        Self { inner }
+    pub fn new() -> SortedIndexSet<T> {
+        SortedIndexSet {
+            inner: IndexSet::new(),
+        }
     }
 
     pub fn new_unchecked(inner: IndexSet<T>) -> Self {
         Self { inner }
     }
+}
 
-    pub fn empty() -> Self {
-        Self::new_unchecked(IndexSet::new())
+impl<T> From<IndexSet<T>> for SortedIndexSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    fn from(mut inner: IndexSet<T>) -> SortedIndexSet<T> {
+        inner.sort();
+        SortedIndexSet { inner }
+    }
+}
+
+impl<T> FromIterator<T> for SortedIndexSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut inner = IndexSet::from_iter(iter);
+        inner.sort();
+        SortedIndexSet { inner }
     }
 }
 
@@ -49,7 +67,7 @@ where
     T: Eq + Ord + Hash,
 {
     fn default() -> Self {
-        SortedIndexSet::empty()
+        SortedIndexSet::new()
     }
 }
 

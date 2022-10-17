@@ -133,7 +133,7 @@ impl UnregisteredSymlinkedDirAction {
         Ok(Self {
             copy,
             args,
-            unioned_associated_artifacts: Arc::new(SortedIndexSet::new(
+            unioned_associated_artifacts: Arc::new(SortedIndexSet::from(
                 unioned_associated_artifacts,
             )),
         })

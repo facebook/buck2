@@ -224,6 +224,7 @@ pub mod testing {
 
         // Mainly tests get_or_declare_output function that can transfer associated artifacts
         // artifact parameter can be either string or artifact
+        #[allow(clippy::from_iter_instead_of_collect)]
         fn declared_bound_artifact_with_associated_artifacts<'v>(
             artifact: Value<'v>,
             associated_artifacts: Vec<StarlarkArtifact>,
@@ -242,11 +243,10 @@ pub mod testing {
                 target_label.dupe(),
             )));
 
-            let associated_artifacts = Arc::new(SortedIndexSet::new(
+            let associated_artifacts = Arc::new(SortedIndexSet::from_iter(
                 associated_artifacts
                     .iter()
-                    .map(|a| ArtifactGroup::Artifact(a.artifact()))
-                    .collect(),
+                    .map(|a| ArtifactGroup::Artifact(a.artifact())),
             ));
             let (declaration, output_artifact) =
                 analysis_registry.get_or_declare_output(eval, artifact, "param_name")?;
