@@ -9,12 +9,12 @@
 
 //! Calculations relating to 'TargetNode's that runs on Dice
 
-use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::ordered_map::OrderedMap;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -96,8 +96,8 @@ enum CompatibilityConstraints {
 async fn compute_platform_cfgs(
     ctx: &DiceComputations,
     node: &TargetNode,
-) -> anyhow::Result<BTreeMap<TargetLabel, Configuration>> {
-    let mut platform_map = BTreeMap::new();
+) -> anyhow::Result<OrderedMap<TargetLabel, Configuration>> {
+    let mut platform_map = OrderedMap::new();
     for platform_target in node.platform_deps() {
         let config = ctx.get_platform_configuration(platform_target).await?;
         platform_map.insert(platform_target.dupe(), config);

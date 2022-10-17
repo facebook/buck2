@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::sync::Arc;
 
+use buck2_common::ordered_map::OrderedMap;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -158,7 +158,7 @@ struct ConfiguredTargetNodeData {
     //   (for example, in deps query output, which is observable by user).
     deps: LabelIndexedSet<ConfiguredTargetNode>,
     exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
-    platform_cfgs: BTreeMap<TargetLabel, Configuration>,
+    platform_cfgs: OrderedMap<TargetLabel, Configuration>,
 }
 
 impl Debug for ConfiguredTargetNodeData {
@@ -193,7 +193,7 @@ impl ConfiguredTargetNode {
             execution_platform_resolution,
             LabelIndexedSet::new(),
             LabelIndexedSet::new(),
-            BTreeMap::new(),
+            OrderedMap::new(),
         )
     }
 
@@ -205,7 +205,7 @@ impl ConfiguredTargetNode {
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: LabelIndexedSet<ConfiguredTargetNode>,
         exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
-        platform_cfgs: BTreeMap<TargetLabel, Configuration>,
+        platform_cfgs: OrderedMap<TargetLabel, Configuration>,
     ) -> Self {
         Self(Arc::new(ConfiguredTargetNodeData {
             name,
@@ -260,7 +260,7 @@ impl ConfiguredTargetNode {
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
             deps: LabelIndexedSet::from_iter([transitioned_node]),
             exec_deps: LabelIndexedSet::new(),
-            platform_cfgs: BTreeMap::new(),
+            platform_cfgs: OrderedMap::new(),
         }))
     }
 

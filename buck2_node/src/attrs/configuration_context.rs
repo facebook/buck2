@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use buck2_common::ordered_map::OrderedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -94,7 +95,7 @@ pub struct AttrConfigurationContextImpl<'b> {
     pub resolved_cfg: &'b ResolvedConfiguration,
     pub exec_cfg: &'b Configuration,
     pub resolved_transitions: &'b SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-    pub platform_cfgs: &'b BTreeMap<TargetLabel, Configuration>,
+    pub platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
