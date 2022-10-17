@@ -17,6 +17,8 @@
 
 mod iter;
 
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::mem;
 
 use gazebo::prelude::*;
@@ -34,7 +36,7 @@ use crate::vec_map::iter::VMValues;
 use crate::vec_map::iter::VMValuesMut;
 
 /// Bucket in [`VecMap`].
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct Bucket<K, V> {
     pub(crate) hash: StarlarkHashValue,
     pub(crate) key: K,
@@ -249,5 +251,23 @@ impl<K, V> VecMap<K, V> {
         K: Ord,
     {
         self.buckets.sort_by(|a, b| a.key.cmp(&b.key));
+    }
+
+    /// Equal if entries are equal in the iterator order.
+    pub(crate) fn eq_ordered(&self, other: &Self) -> bool
+    where
+        K: Eq,
+        V: Eq,
+    {
+        self.buckets.eq(&other.buckets)
+    }
+
+    /// Hash values in the iterator order.
+    pub(crate) fn hash_ordered<H: Hasher>(&self, state: &mut H)
+    where
+        K: Hash,
+        V: Hash,
+    {
+        self.buckets.hash(state);
     }
 }

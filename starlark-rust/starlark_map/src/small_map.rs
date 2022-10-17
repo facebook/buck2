@@ -598,6 +598,24 @@ impl<K, V> SmallMap<K, V> {
             }
         }
     }
+
+    /// Equal if the keys and values are equal in the iteration order.
+    pub fn eq_ordered(&self, other: &Self) -> bool
+    where
+        K: Eq,
+        V: Eq,
+    {
+        self.entries.eq_ordered(&other.entries)
+    }
+
+    /// Hash entries in the iteration order.
+    pub fn hash_ordered<H: Hasher>(&self, state: &mut H)
+    where
+        K: Hash,
+        V: Hash,
+    {
+        self.entries.hash_ordered(state)
+    }
 }
 
 /// Reference to the actual entry in the map.
