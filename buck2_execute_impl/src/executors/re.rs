@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_common::sorted_hash_map::SortedHashMap;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -38,7 +39,6 @@ use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
-use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
@@ -60,23 +60,20 @@ pub enum RemoteExecutorError {
 }
 
 impl ReExecutionPlatform {
-    pub fn intrinsic_properties(&self) -> SmallMap<String, String> {
-        let mut map = SmallMap::new();
-
+    pub fn intrinsic_properties(&self) -> SortedHashMap<String, String> {
         match self {
-            Self::Linux => {
-                map.insert("platform".to_owned(), "linux-remote-execution".to_owned());
-            }
-            Self::MacOS { xcode_version } => {
-                map.insert("platform".to_owned(), "mac".to_owned());
-                map.insert("subplatform".to_owned(), format!("xcode-{}", xcode_version));
-            }
+            Self::Linux => SortedHashMap::from_iter([(
+                "platform".to_owned(),
+                "linux-remote-execution".to_owned(),
+            )]),
+            Self::MacOS { xcode_version } => SortedHashMap::from_iter([
+                ("platform".to_owned(), "mac".to_owned()),
+                ("subplatform".to_owned(), format!("xcode-{}", xcode_version)),
+            ]),
             Self::Windows => {
-                map.insert("platform".to_owned(), "windows".to_owned());
+                SortedHashMap::from_iter([("platform".to_owned(), "windows".to_owned())])
             }
-        };
-
-        map
+        }
     }
 }
 

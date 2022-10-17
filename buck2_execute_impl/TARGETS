@@ -44,6 +44,5 @@ rust_library(
         # @oss-disable: "//buck2/remote_execution/internal:remote_execution", 
         "//buck2/remote_execution/stub:remote_execution", # @oss-enable
         "//buck2/shed/more_futures:more_futures",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

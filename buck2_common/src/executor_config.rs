@@ -15,7 +15,8 @@ use gazebo::prelude::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
-use starlark_map::small_map::SmallMap;
+
+use crate::sorted_hash_map::SortedHashMap;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}
@@ -52,7 +53,7 @@ impl Hash for RemoteExecutorUseCase {
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct RemoteExecutorOptions {
-    pub re_properties: SmallMap<String, String>,
+    pub re_properties: SortedHashMap<String, String>,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
     pub re_use_case: RemoteExecutorUseCase,
