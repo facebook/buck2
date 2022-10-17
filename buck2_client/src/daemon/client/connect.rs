@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::buckd_connection::ConnectionType;
+use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
@@ -28,7 +29,12 @@ use futures::future::try_join3;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
+use tonic::codegen::InterceptedService;
+use tonic::metadata::AsciiMetadataValue;
+use tonic::service::Interceptor;
 use tonic::transport::Channel;
+use tonic::Request;
+use tonic::Status;
 
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
@@ -55,11 +61,30 @@ async fn get_channel(
     }
 }
 
+pub struct BuckAddAuthTokenInterceptor {
+    auth_token: AsciiMetadataValue,
+}
+
+impl Interceptor for BuckAddAuthTokenInterceptor {
+    fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
+        request
+            .metadata_mut()
+            .append(BUCK_AUTH_TOKEN_HEADER, self.auth_token.clone());
+        Ok(request)
+    }
+}
+
 pub async fn new_daemon_api_client(
     endpoint: ConnectionType,
-) -> anyhow::Result<DaemonApiClient<Channel>> {
+    auth_token: String,
+) -> anyhow::Result<DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>> {
     let channel = get_channel(endpoint, true).await?;
-    Ok(DaemonApiClient::new(channel))
+    Ok(DaemonApiClient::with_interceptor(
+        channel,
+        BuckAddAuthTokenInterceptor {
+            auth_token: AsciiMetadataValue::try_from(auth_token)?,
+        },
+    ))
 }
 
 fn buckd_startup_timeout() -> anyhow::Result<Duration> {
@@ -230,7 +255,7 @@ struct BootstrapBuckdClient(BuckdClientConnector);
 
 impl BootstrapBuckdClient {
     pub fn new(
-        client: DaemonApiClient<Channel>,
+        client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
         info: DaemonProcessInfo,
         daemon_dir: DaemonDir,
     ) -> Self {
@@ -423,7 +448,7 @@ impl BuckdConnectOptions {
 
         let connection_type = ConnectionType::parse(&info.endpoint)?;
 
-        let client = new_daemon_api_client(connection_type).await?;
+        let client = new_daemon_api_client(connection_type, info.auth_token.clone()).await?;
 
         Ok(BootstrapBuckdClient::new(client, info, daemon_dir.clone()))
     }

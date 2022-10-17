@@ -26,12 +26,14 @@ use futures::pin_mut;
 use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
+use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
 use tonic::Request;
 use tonic::Status;
 
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;
+use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
 use crate::stream_value::StreamValue;
@@ -64,12 +66,14 @@ impl VersionCheckResult {
 }
 
 enum ClientKind {
-    Daemon(DaemonApiClient<Channel>),
+    Daemon(DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>),
     Replayer(Pin<Box<Replayer>>),
 }
 
 impl ClientKind {
-    fn daemon_only_mut(&mut self) -> &mut DaemonApiClient<Channel> {
+    fn daemon_only_mut(
+        &mut self,
+    ) -> &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>> {
         match self {
             ClientKind::Daemon(daemon) => daemon,
             ClientKind::Replayer(_) => panic!("Daemon only command called in replay mode!"),
@@ -220,7 +224,7 @@ impl BuckdClient {
     async fn stream<'i, T, R: TryFrom<command_result::Result, Error = command_result::Result>>(
         &mut self,
         command: impl for<'a> FnOnce(
-            &'a mut DaemonApiClient<Channel>,
+            &'a mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
             Request<T>,
         ) -> BoxFuture<
             'a,

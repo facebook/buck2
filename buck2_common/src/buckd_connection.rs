@@ -14,6 +14,8 @@ use std::path::PathBuf;
 use anyhow::Context;
 use gazebo::prelude::StrExt;
 
+pub const BUCK_AUTH_TOKEN_HEADER: &str = "x-buck-auth-token";
+
 #[derive(Debug, thiserror::Error)]
 enum ConnectionTypeError {
     #[error("Failed to parse correct endpoint information {0}")]

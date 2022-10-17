@@ -607,12 +607,14 @@ mod tests {
             invocation_paths,
             box Delegate,
             None,
-            process_info,
+            process_info.clone(),
             listener.into_accept_stream().unwrap(),
             &BuckdServerDependenciesImpl,
         ));
 
-        let mut client = new_daemon_api_client(endpoint).await.unwrap();
+        let mut client = new_daemon_api_client(endpoint, process_info.auth_token)
+            .await
+            .unwrap();
 
         client.ping(PingRequest::default()).await.unwrap();
 
