@@ -736,9 +736,9 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_core::cells::CellName;
+    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectRoot;
-    use indexmap::map::IndexMap;
     use indoc::indoc;
     use serde_json::json;
 
@@ -938,7 +938,7 @@ mod tests {
             ),
             LoadedModules::default(),
         )?;
-        let loaded_modules = IndexMap::from_iter([(import_path.id().to_owned(), import_result)]);
+        let loaded_modules = OrderedMap::from_iter([(import_path.id().to_owned(), import_result)]);
         let loaded_modules = LoadedModules {
             map: loaded_modules,
         };
@@ -983,7 +983,7 @@ mod tests {
             LoadedModules::default(),
         )?;
         let build_path = build("root", "some/package", "BUILD");
-        let loaded_modules = IndexMap::from_iter([(import_path.id().to_owned(), import_result)]);
+        let loaded_modules = OrderedMap::from_iter([(import_path.id().to_owned(), import_result)]);
         let loaded_modules = LoadedModules {
             map: loaded_modules,
         };
@@ -1092,7 +1092,7 @@ mod tests {
             ),
             LoadedModules::default(),
         )?;
-        let mut loaded_modules = IndexMap::new();
+        let mut loaded_modules = OrderedMap::new();
         loaded_modules.insert(import_path.id().to_owned(), import_result);
         let loaded_modules = LoadedModules {
             map: loaded_modules,

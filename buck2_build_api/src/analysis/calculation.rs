@@ -429,6 +429,7 @@ mod tests {
     use buck2_core::cells::CellAliasResolver;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellsAggregator;
+    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -451,7 +452,6 @@ mod tests {
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
-    use indexmap::IndexMap;
     use indoc::indoc;
     use itertools::Itertools;
     use maplit::hashmap;
@@ -538,7 +538,7 @@ mod tests {
                 "#
             ),
             LoadedModules {
-                map: IndexMap::from_iter([(bzlfile.id().clone(), module.dupe())]),
+                map: OrderedMap::from_iter([(bzlfile.id().clone(), module.dupe())]),
             },
             PackageListing::testing_new(&[], "BUCK"),
         )?;

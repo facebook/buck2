@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
+use buck2_core::collections::ordered_map::OrderedMap;
 use gazebo::prelude::*;
-use indexmap::map::IndexMap;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
@@ -22,7 +22,7 @@ use crate::common::StarlarkModulePath;
 
 #[derive(Default, Clone)]
 pub struct LoadedModules {
-    pub map: IndexMap<ModuleID, LoadedModule>,
+    pub map: OrderedMap<ModuleID, LoadedModule>,
 }
 
 impl LoadedModules {
@@ -48,7 +48,7 @@ pub struct ModuleDeps(pub Vec<LoadedModule>);
 
 impl ModuleDeps {
     pub fn get_loaded_modules(&self) -> LoadedModules {
-        let mut map = IndexMap::with_capacity(self.0.len());
+        let mut map = OrderedMap::with_capacity(self.0.len());
         for dep in &*self.0 {
             map.insert(dep.path().id().to_owned(), dep.dupe());
         }
