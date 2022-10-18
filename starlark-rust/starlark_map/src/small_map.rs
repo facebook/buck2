@@ -218,7 +218,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_full<Q>(&self, key: &Q) -> Option<(usize, &K, &V)>
     where
         Q: Hash + Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_full_hashed(Hashed::new(key))
     }
@@ -229,7 +228,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_full_hashed<Q>(&self, key: Hashed<&Q>) -> Option<(usize, &K, &V)>
     where
         Q: Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_index_of_hashed(key).map(|index| {
             let Bucket { key, value, .. } = unsafe { self.entries.get_unchecked(index) };
@@ -264,7 +262,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_index_of<Q>(&self, key: &Q) -> Option<usize>
     where
         Q: Hash + Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_index_of_hashed(Hashed::new(key))
     }
@@ -274,7 +271,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_mut_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<&mut V>
     where
         Q: Equivalent<K> + ?Sized,
-        K: Eq,
     {
         let i = self.get_index_of_hashed(key)?;
         debug_assert!(i < self.entries.buckets.len());
@@ -286,7 +282,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_mut_hashed(Hashed::new(key))
     }
@@ -296,7 +291,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn contains_key_hashed<Q>(&self, key: Hashed<&Q>) -> bool
     where
         Q: Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.get_index_of_hashed(key).is_some()
     }
@@ -306,7 +300,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
         Q: Hash + Equivalent<K> + ?Sized,
-        K: Eq,
     {
         self.contains_key_hashed(Hashed::new(key))
     }
@@ -436,7 +429,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
     where
         Q: ?Sized + Equivalent<K>,
-        K: Eq,
     {
         self.remove_hashed_entry(key).map(|(_k, v)| v)
     }
@@ -447,7 +439,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
     where
         Q: ?Sized + Equivalent<K>,
-        K: Eq,
     {
         let hash = key.hash();
         if let Some(index) = &mut self.index {
@@ -478,7 +469,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         Q: ?Sized + Hash + Equivalent<K>,
-        K: Eq,
     {
         self.remove_hashed(Hashed::new(key))
     }
@@ -487,7 +477,6 @@ impl<K, V> SmallMap<K, V> {
     pub fn remove_entry<Q>(&mut self, key: &Q) -> Option<(K, V)>
     where
         Q: ?Sized + Hash + Equivalent<K>,
-        K: Eq,
     {
         self.remove_hashed_entry(Hashed::new(key))
     }
@@ -511,10 +500,7 @@ impl<K, V> SmallMap<K, V> {
     }
 
     /// Remove the last element.
-    pub fn pop(&mut self) -> Option<(K, V)>
-    where
-        K: Eq,
-    {
+    pub fn pop(&mut self) -> Option<(K, V)> {
         match self.entries.buckets.pop() {
             None => None,
             Some(Bucket { key, value, hash }) => {
