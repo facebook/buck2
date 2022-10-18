@@ -361,8 +361,10 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO(nga): better lower estimation.
-        (0, self.iter.size_hint().1)
+        (
+            self.iter.len().saturating_sub(self.other.len()),
+            Some(self.iter.len()),
+        )
     }
 }
 
@@ -576,5 +578,18 @@ mod tests {
         let mut a = SmallSet::from_iter([1, 3, 2]);
         a.sort();
         assert_eq!(vec![1, 2, 3], Vec::from_iter(a));
+    }
+
+    #[test]
+    fn test_difference_size_hint() {
+        let a = SmallSet::from_iter([1, 2, 3]);
+        let b = SmallSet::from_iter([2]);
+        let mut iter = a.difference(&b);
+        assert_eq!((2, Some(3)), iter.size_hint());
+        assert_eq!(Some(&1), iter.next());
+        assert_eq!((1, Some(2)), iter.size_hint());
+        assert_eq!(Some(&3), iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+        assert_eq!(None, iter.next());
     }
 }
