@@ -67,5 +67,6 @@ rust_library(
         "//buck2/shed/more_futures:more_futures",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
+        # @oss-disable: "//common/rust/build_info:build_info", 
     ],
 )

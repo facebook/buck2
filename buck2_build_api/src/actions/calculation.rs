@@ -141,6 +141,7 @@ async fn build_action_no_redirect(
         let mut requires_local = None;
         let mut allows_cache_upload = None;
         let mut did_cache_upload = None;
+        let mut buck2_revision = None;
 
         match execute_result {
             Ok((outputs, meta)) => {
@@ -183,6 +184,12 @@ async fn build_action_no_redirect(
                 wall_time = None;
                 error = Some(error_to_proto(&e));
                 output_size = 0;
+                // We define buck2_revision only in the instance of an action error
+                // so as to reduce Scribe traffic and log it in buck2_action_errors
+                #[cfg(any(fbcode_build, cargo_internal_build))]
+                {
+                    buck2_revision = Some(build_info::BuildInfo::get_revision().to_owned());
+                }
             }
         };
 
@@ -222,6 +229,7 @@ async fn build_action_no_redirect(
                 requires_local: requires_local.unwrap_or_default(),
                 allows_cache_upload: allows_cache_upload.unwrap_or_default(),
                 did_cache_upload: did_cache_upload.unwrap_or_default(),
+                buck2_revision,
             },
         )
     })

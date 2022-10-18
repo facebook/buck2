@@ -813,6 +813,9 @@ message ActionExecutionEnd {
   bool requires_local = 28;
   bool allows_cache_upload = 29;
   bool did_cache_upload = 30;
+
+  // Revision hash (version) for this action
+  optional string buck2_revision = 31;
 }
 
 // The beginning of materialization for the output of a target requested,

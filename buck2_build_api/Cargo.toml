@@ -48,6 +48,7 @@ crossbeam-epoch = { workspace = true }
 http = { workspace = true }
 parking_lot = { workspace = true }
 
+# @oss-disable: build_info = { path = "../../common/rust/build_info" }
 dice = { path = "../dice/dice" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
