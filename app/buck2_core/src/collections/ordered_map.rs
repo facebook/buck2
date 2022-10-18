@@ -112,3 +112,12 @@ where
         OrderedMap(SmallMap::from_iter(iter))
     }
 }
+
+impl<K, V> IntoIterator for OrderedMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = small_map::IntoIter<K, V>;
+
+    fn into_iter(self) -> small_map::IntoIter<K, V> {
+        self.0.into_iter()
+    }
+}

@@ -1,5 +1,6 @@
 use std::hash::Hash;
 
+use starlark_map::small_map;
 use starlark_map::Equivalent;
 
 use crate::collections::ordered_map::OrderedMap;
@@ -57,6 +58,15 @@ impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
         let mut map = OrderedMap::from_iter(iter);
         map.sort_keys();
         SortedMap { map }
+    }
+}
+
+impl<K: Ord + Hash, V> IntoIterator for SortedMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = small_map::IntoIter<K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.into_iter()
     }
 }
 

@@ -10,11 +10,12 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
-use indexmap::IndexMap;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::small_map;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
@@ -102,7 +103,7 @@ impl ConfiguredAttr {
                 Ok(Self(AttrLiteral::List(res.into_boxed_slice(), ty)))
             }
             AttrLiteral::Dict(left) => {
-                let mut res = IndexMap::new();
+                let mut res = OrderedMap::new();
                 for (k, v) in left {
                     res.insert(k, v);
                 }
@@ -111,10 +112,10 @@ impl ConfiguredAttr {
                         AttrLiteral::Dict(right) => {
                             for (k, v) in right {
                                 match res.entry(k) {
-                                    indexmap::map::Entry::Vacant(e) => {
+                                    small_map::Entry::Vacant(e) => {
                                         e.insert(v);
                                     }
-                                    indexmap::map::Entry::Occupied(e) => {
+                                    small_map::Entry::Occupied(e) => {
                                         return Err(ConfiguredAttrError::DictConcatDuplicateKeys(
                                             e.key().to_string(),
                                         )
