@@ -10,10 +10,10 @@
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
 use gazebo::dupe::Dupe;
-use starlark_map::small_set::SmallSet;
 
 use crate::attrs::traversal::CoercedAttrTraversal;
 
@@ -21,34 +21,34 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 pub struct CoercedDepsCollector {
     /// Contains the deps derived from the attributes.
     /// Does not include the transition, exec or configuration deps.
-    pub deps: SmallSet<TargetLabel>,
+    pub deps: OrderedSet<TargetLabel>,
 
     /// Contains the deps which are transitioned to other configuration
     /// (including split transitions).
-    pub transition_deps: SmallSet<(TargetLabel, Arc<TransitionId>)>,
+    pub transition_deps: OrderedSet<(TargetLabel, Arc<TransitionId>)>,
 
     /// Contains the execution deps derived from the attributes.
-    pub exec_deps: SmallSet<TargetLabel>,
+    pub exec_deps: OrderedSet<TargetLabel>,
 
     /// Contains the toolchain deps derived from the attributes.
-    pub toolchain_deps: SmallSet<TargetLabel>,
+    pub toolchain_deps: OrderedSet<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: SmallSet<TargetLabel>,
+    pub configuration_deps: OrderedSet<TargetLabel>,
 
     /// Contains platform targets of configured_alias()
-    pub platform_deps: SmallSet<TargetLabel>,
+    pub platform_deps: OrderedSet<TargetLabel>,
 }
 
 impl CoercedDepsCollector {
     pub fn new() -> Self {
         Self {
-            deps: SmallSet::new(),
-            exec_deps: SmallSet::new(),
-            toolchain_deps: SmallSet::new(),
-            transition_deps: SmallSet::new(),
-            configuration_deps: SmallSet::new(),
-            platform_deps: SmallSet::new(),
+            deps: OrderedSet::new(),
+            exec_deps: OrderedSet::new(),
+            toolchain_deps: OrderedSet::new(),
+            transition_deps: OrderedSet::new(),
+            configuration_deps: OrderedSet::new(),
+            platform_deps: OrderedSet::new(),
         }
     }
 }
