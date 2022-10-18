@@ -16,7 +16,7 @@ path = "top/main.rs"
 # and all options Cargo supports.
 [dependencies]
 
-gazebo = {version = "0.8.0", features = ["str_pattern_extensions"]}
+gazebo = {version = "0.8.1", features = ["str_pattern_extensions"]}
 fbinit = "0.1"
 sorted_vector_map = "0.1"
 watchman_client = "0.8.0"

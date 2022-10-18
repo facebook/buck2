@@ -194,7 +194,7 @@ fbinit.version = "0.1"
 sorted_vector_map.version = "0.1"
 # @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
 
-gazebo.version = "0.8.0"
+gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"
 host_sharing = { path = "host_sharing" }

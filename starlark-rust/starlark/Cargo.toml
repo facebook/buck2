@@ -35,7 +35,7 @@ memoffset = "0.6.4"
 thiserror = "1.0.36"
 starlark_derive = { version = "0.9.0-pre", path = "../starlark_derive" }
 starlark_map = { version = "0.9.0-pre", path = "../starlark_map" }
-gazebo.version = "0.8.0"
+gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../../gazebo/gazebo"
 gazebo_lint.version = "0.1"

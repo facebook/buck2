@@ -10,7 +10,7 @@ parking_lot = "0.11.2"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo.version = "0.8.0"
+gazebo.version = "0.8.1"
 # @oss-disable: gazebo.path = "../../gazebo/gazebo"
 
 [features]
