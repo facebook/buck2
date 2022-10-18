@@ -566,9 +566,8 @@ mod tests {
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
     #[tokio::test]
     async fn test_daemon_smoke() {
-        // SAFETY: this call is probably not very safe,
-        //   because `init` is supposed to be performed before any other code.
-        let fbinit = unsafe { fbinit::perform_init() };
+        // TODO(nga): this should be `fbinit::perform_init`, but it is not on crates yet.
+        let fbinit = unsafe { fbinit::assume_init() };
 
         let tempdir = tempfile::tempdir().unwrap();
 
