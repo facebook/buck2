@@ -34,7 +34,7 @@ buck2_interpreter_for_build = { path = "../buck2_interpreter_for_build" }
 buck2_node = { path = "../../buck2_node" }
 buck2_server_ctx = { path = "../../buck2_server_ctx" }
 cli_proto = { path = "../../cli_proto" }
-downward_api = { path = "../../downward_api" }
+downward_api = { path = "../downward_api" }
 buck2_events = { path = "../../buck2_events" }
 buck2_execute = { path = "../../buck2_execute" }
 buck2_test_api = { path = "../buck2_test_api" }

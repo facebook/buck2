@@ -16,6 +16,8 @@ members = [
     "app/buck2_protoc_dev",
     "app/buck2_query_parser",
     "app/buck2_query_derive",
+    "app/downward_api",
+    "app/downward_api_proto",
     "buck2_audit",
     "buck2_bxl",
     "buck2_data",
@@ -40,8 +42,6 @@ members = [
     "dice/dice_examples",
     # @oss-disable: "dice/fuzzy_dice",
     # @oss-disable: "dice_replay",
-    "downward_api",
-    "downward_api_proto",
     # @oss-disable: "host_sharing",
     # @oss-disable: "gazebo_lint/gazebo_lint",
     # Uncomment to manually test linter_test
