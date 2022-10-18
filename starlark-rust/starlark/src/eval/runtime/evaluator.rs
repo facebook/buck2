@@ -48,6 +48,7 @@ use crate::eval::runtime::profile::bc::BcProfile;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::heap::HeapProfile;
 use crate::eval::runtime::profile::heap::HeapProfileFormat;
+use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::runtime::profile::or_instrumentation::ProfileOrInstrumentationMode;
 use crate::eval::runtime::profile::stmt::StmtProfile;
 use crate::eval::runtime::profile::time_flame::FlameProfile;
@@ -235,12 +236,16 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             | ProfileMode::HeapFlameRetained => {
                 self.heap_profile.enable();
                 self.heap_or_flame_profile = true;
-                if matches!(
-                    mode,
-                    ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
-                ) {
-                    self.module_env.enable_heap_profile();
+                match mode {
+                    ProfileMode::HeapFlameRetained => self
+                        .module_env
+                        .enable_heap_profile(RetainedHeapProfileMode::Flame),
+                    ProfileMode::HeapSummaryRetained => self
+                        .module_env
+                        .enable_heap_profile(RetainedHeapProfileMode::Summary),
+                    _ => {}
                 }
+
                 // Disable GC because otherwise why lose the profile records, as we use the heap
                 // to store a complete list of what happened in linear order.
                 self.disable_gc = true;

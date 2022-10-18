@@ -30,9 +30,12 @@ use either::Either;
 use gazebo::dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
+use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::eval::ProfileData;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
@@ -399,6 +402,21 @@ impl AggregateHeapProfileInfo {
     /// Write per-function summary in CSV format.
     pub fn gen_summary_csv(&self) -> String {
         HeapSummaryByFunction::init(self).gen_csv()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RetainedHeapProfile {
+    pub(crate) info: AggregateHeapProfileInfo,
+    pub(crate) mode: RetainedHeapProfileMode,
+}
+
+impl RetainedHeapProfile {
+    pub(crate) fn to_profile(&self) -> ProfileData {
+        ProfileData {
+            profile: ProfileDataImpl::AggregateHeapProfileInfo(box self.info.clone()),
+            profile_mode: self.mode.to_profile_mode(),
+        }
     }
 }
 

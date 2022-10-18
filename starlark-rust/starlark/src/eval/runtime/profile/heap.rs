@@ -26,6 +26,21 @@ use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
 
+#[derive(Copy, Clone, Dupe, Debug)]
+pub(crate) enum RetainedHeapProfileMode {
+    Flame,
+    Summary,
+}
+
+impl RetainedHeapProfileMode {
+    pub(crate) fn to_profile_mode(self) -> ProfileMode {
+        match self {
+            RetainedHeapProfileMode::Flame => ProfileMode::HeapFlameRetained,
+            RetainedHeapProfileMode::Summary => ProfileMode::HeapSummaryRetained,
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 enum HeapProfileError {
     #[error("heap profile not enabled")]

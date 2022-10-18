@@ -41,6 +41,8 @@ use crate::environment::slots::ModuleSlotId;
 use crate::environment::slots::MutableSlots;
 use crate::environment::EnvironmentError;
 use crate::errors::did_you_mean::did_you_mean;
+use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
+use crate::eval::ProfileData;
 use crate::syntax::ast::Visibility;
 use crate::values::docs;
 use crate::values::docs::DocItem;
@@ -48,6 +50,7 @@ use crate::values::docs::DocString;
 use crate::values::docs::DocStringKind;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -110,7 +113,7 @@ pub(crate) struct FrozenModuleData {
     pub(crate) slots: FrozenSlots,
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
-    heap_profile: Option<AggregateHeapProfileInfo>,
+    heap_profile: Option<RetainedHeapProfile>,
 }
 
 /// Container for the documentation for a module
@@ -147,8 +150,8 @@ pub struct Module {
     eval_duration: Cell<Duration>,
     /// Field that can be used for any purpose you want.
     extra_value: Cell<Option<Value<'static>>>,
-    /// When true, heap profile is collected on freeze.
-    heap_profile_on_freeze: Cell<bool>,
+    /// When `Some`, heap profile is collected on freeze.
+    heap_profile_on_freeze: Cell<Option<RetainedHeapProfileMode>>,
 }
 
 impl FrozenModule {
@@ -252,11 +255,18 @@ impl FrozenModule {
 
     /// Retained memory info, or error if not enabled.
     pub fn aggregated_heap_profile_info(&self) -> anyhow::Result<&AggregateHeapProfileInfo> {
-        self.module
-            .0
-            .heap_profile
-            .as_ref()
-            .ok_or_else(|| ModuleError::RetainedMemoryProfileNotEnabled.into())
+        match &self.module.0.heap_profile {
+            None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
+            Some(p) => Ok(&p.info),
+        }
+    }
+
+    /// Retained memory info, or error if not enabled.
+    pub fn heap_profile(&self) -> anyhow::Result<ProfileData> {
+        match &self.module.0.heap_profile {
+            None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
+            Some(p) => Ok(p.to_profile()),
+        }
     }
 }
 
@@ -316,12 +326,12 @@ impl Module {
             docstring: RefCell::new(None),
             eval_duration: Cell::new(Duration::ZERO),
             extra_value: Cell::new(None),
-            heap_profile_on_freeze: Cell::new(false),
+            heap_profile_on_freeze: Cell::new(None),
         }
     }
 
-    pub(crate) fn enable_heap_profile(&self) {
-        self.heap_profile_on_freeze.set(true);
+    pub(crate) fn enable_heap_profile(&self, mode: RetainedHeapProfileMode) {
+        self.heap_profile_on_freeze.set(Some(mode));
     }
 
     /// Get the heap on which values are allocated by this module.
@@ -383,13 +393,14 @@ impl Module {
         // they are used.
         let freezer = Freezer::new(frozen_heap);
         let slots = slots.freeze(&freezer)?;
-        let stacks = if heap_profile_on_freeze.get() {
+        let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
             // TODO(nga): retained heap profile does not store information about data
             //   allocated in frozen heap before freeze starts.
-            Some(AggregateHeapProfileInfo::collect(
-                &heap,
-                Some(HeapKind::Frozen),
-            ))
+            let heap_profile = AggregateHeapProfileInfo::collect(&heap, Some(HeapKind::Frozen));
+            Some(RetainedHeapProfile {
+                info: heap_profile,
+                mode,
+            })
         } else {
             None
         };
@@ -408,8 +419,11 @@ impl Module {
         mem::drop(heap);
 
         if let Some(stacks) = &rest.0.heap_profile {
-            assert_eq!(stacks.unused_capacity.get(), 0, "sanity check");
-            stacks.unused_capacity.set(freezer.heap.unused_capacity());
+            assert_eq!(stacks.info.unused_capacity.get(), 0, "sanity check");
+            stacks
+                .info
+                .unused_capacity
+                .set(freezer.heap.unused_capacity());
         }
 
         Ok(FrozenModule {
