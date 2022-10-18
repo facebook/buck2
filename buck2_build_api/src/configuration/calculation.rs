@@ -17,6 +17,7 @@ use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::CellName;
+use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::pattern::ParsedPattern;
@@ -34,7 +35,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use gazebo::prelude::*;
-use indexmap::IndexMap;
 use indexmap::IndexSet;
 use starlark::collections::SmallMap;
 use thiserror::Error;
@@ -367,7 +367,7 @@ impl ConfigurationCalculation for DiceComputations {
                 });
                 let config_nodes = futures::future::join_all(config_futures).await;
 
-                let mut resolved_settings = IndexMap::new();
+                let mut resolved_settings = UnorderedMap::new();
                 for node in config_nodes {
                     let node = node?;
                     resolved_settings.insert(ConfigurationSettingKey(node.label().dupe()), node);

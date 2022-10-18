@@ -16,6 +16,7 @@ use buck2_core::buck_path::BuckPath;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -27,7 +28,6 @@ use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
-use indexmap::IndexMap;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
@@ -183,7 +183,7 @@ impl ConfiguredTargetNode {
         Self::new(
             name.dupe(),
             TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
-            ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
+            ResolvedConfiguration::new(name.cfg().dupe(), UnorderedMap::new()),
             OrderedMap::new(),
             execution_platform_resolution,
             LabelIndexedSet::new(),
@@ -248,7 +248,10 @@ impl ConfiguredTargetNode {
                 transitioned_node.dupe(),
             ),
             // We have no attributes with selects, so resolved configurations is empty.
-            resolved_configuration: ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
+            resolved_configuration: ResolvedConfiguration::new(
+                name.cfg().dupe(),
+                UnorderedMap::new(),
+            ),
             // We have no attributes to transition, so empty map is fine.
             resolved_transition_configurations: OrderedMap::new(),
             // Nothing to execute for a forward node.

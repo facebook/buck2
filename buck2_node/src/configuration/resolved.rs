@@ -11,12 +11,12 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
-use indexmap::Equivalent;
-use indexmap::IndexMap;
+use starlark_map::Equivalent;
 
 #[derive(Debug, Eq)]
 pub struct ConfigurationSettingKey(pub TargetLabel);
@@ -54,30 +54,19 @@ impl Hash for ConfigurationSettingKey {
 ///
 /// The ResolvedConfiguration represents the full configuration state that is available to
 /// a target for analysis.
-#[derive(Clone, Dupe, Debug, Eq, PartialEq)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
 pub struct ResolvedConfiguration(Arc<ResolvedConfigurationData>);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 struct ResolvedConfigurationData {
     cfg: Configuration,
-    settings: IndexMap<ConfigurationSettingKey, ConfigurationNode>,
-}
-
-#[allow(clippy::derive_hash_xor_eq)] // IndexMap doesn't implement Hash
-impl Hash for ResolvedConfiguration {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.cfg.hash(state);
-        for (k, v) in &self.0.settings {
-            k.hash(state);
-            v.hash(state);
-        }
-    }
+    settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
 }
 
 impl ResolvedConfiguration {
     pub fn new(
         cfg: Configuration,
-        settings: IndexMap<ConfigurationSettingKey, ConfigurationNode>,
+        settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
     ) -> Self {
         Self(Arc::new(ResolvedConfigurationData { cfg, settings }))
     }
