@@ -35,12 +35,17 @@ use crate::values::StarlarkValue;
 pub struct StarlarkRegex(pub Regex);
 
 impl StarlarkValue<'_> for StarlarkRegex {
-    starlark_type!("regex");
+    starlark_type!(StarlarkRegex::TYPE);
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(regex_type_methods)
     }
+}
+
+impl StarlarkRegex {
+    /// The result of calling `type()` on regex.
+    pub const TYPE: &'static str = "regex";
 }
 
 impl Display for StarlarkRegex {
