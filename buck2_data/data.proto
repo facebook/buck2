@@ -1198,4 +1198,10 @@ message MaterializationEnd {
 
   // The digest of the action being materialized.
   optional string action_digest = 4;
+
+  // Whether the materialization was actually completed. This may be false if it
+  // wasn't in RE, or if an error occurred.
+  bool success = 5;
+  // An error, if any occurred.
+  optional string error = 6;
 };

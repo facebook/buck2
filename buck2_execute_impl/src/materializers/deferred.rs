@@ -1141,7 +1141,7 @@ impl DeferredMaterializerCommandProcessor {
                                 .map(|digest| digest.as_digest().to_string()),
                         },
                         async {
-                            (
+                            let res = async {
                                 re_client
                                     .materialize_files(files, info.re_use_case)
                                     .await
@@ -1155,7 +1155,14 @@ impl DeferredMaterializerCommandProcessor {
                                                 info
                                             )
                                         })),
-                                    }),
+                                    })
+                            }
+                            .await;
+
+                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
+
+                            (
+                                res,
                                 buck2_data::MaterializationEnd {
                                     file_count,
                                     total_bytes,
@@ -1163,6 +1170,8 @@ impl DeferredMaterializerCommandProcessor {
                                     action_digest: info
                                         .action_digest()
                                         .map(|digest| digest.as_digest().to_string()),
+                                    success: error.is_none(),
+                                    error,
                                 },
                             )
                         },
