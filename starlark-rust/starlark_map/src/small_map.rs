@@ -34,7 +34,6 @@ use hashbrown::raw::RawTable;
 
 use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
-use crate::hasher::StarlarkHasher;
 use crate::vec_map;
 use crate::vec_map::Bucket;
 use crate::vec_map::VecMap;
@@ -806,23 +805,6 @@ impl<K: Eq, V: PartialEq> PartialEq for SmallMap<K, V> {
 }
 
 impl<K: Eq, V: Eq> Eq for SmallMap<K, V> {}
-
-impl<K: Hash, V: Hash> Hash for SmallMap<K, V> {
-    /// The hash of a map is the sum of hashes of all its elements, so that we guarantee equal hash
-    /// means equals
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // we could use 'iter_hashed' here, but then we'd be hashing hashes of keys instead of the
-        // keys itself, which is a little less correct and flexible.
-        self.iter()
-            .map(|e| {
-                let mut s = StarlarkHasher::new();
-                e.hash(&mut s);
-                std::num::Wrapping(s.finish())
-            })
-            .sum::<std::num::Wrapping<u64>>()
-            .hash(state)
-    }
-}
 
 impl<K: PartialOrd + Eq, V: PartialOrd> PartialOrd for SmallMap<K, V> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
