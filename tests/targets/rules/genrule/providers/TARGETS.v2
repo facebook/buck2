@@ -10,7 +10,7 @@ buck_genrule(
         ],
         "single": ["single.txt"],
     },
-    bash = "echo 1 > $OUT/single.txt && echo 2 > $OUT/multi0.txt && echo 3 > $OUT/multi1.txt",
+    cmd = "echo 1> $OUT/single.txt && echo 2> $OUT/multi0.txt && echo 3> $OUT/multi1.txt",
 )
 
 # Assert directly that the providers take the format we expect

@@ -10,7 +10,7 @@ prelude.genrule(
         ],
         "single": ["single.txt"],
     },
-    bash = "echo 1 > $OUT/single.txt && echo 2 > $OUT/multi0.txt && echo 3 > $OUT/multi1.txt",
+    cmd = "echo 1 > $OUT/single.txt && echo 2 > $OUT/multi0.txt && echo 3 > $OUT/multi1.txt",
 )
 
 # Consumes named outputs
@@ -18,6 +18,7 @@ prelude.genrule(
     name = "multiple_outputs_consumer",
     out = "out.txt",
     bash = "cat $(location :multiple_outputs_producer[single]) && echo --- && cat $(location :multiple_outputs_producer[multiple]) > $OUT",
+    cmd_exe = "type $(location :multiple_outputs_producer[single]) && echo --- && type $(location :multiple_outputs_producer[multiple]) > $OUT",
 )
 
 prelude.export_file(
@@ -42,13 +43,13 @@ prelude.genrule(
             ".",
         ],
     },
-    bash = "echo 1 > $OUT/1.txt && echo 2 > $OUT/2.txt",
+    cmd = "echo 1 > $OUT/1.txt && echo 2 > $OUT/2.txt",
 )
 
 prelude.genrule(
     name = "whole_dir_output",
     out = "file_tree.txt",
-    bash = "python3 $(location :file_tree_printer) $(location :whole_dir) > $OUT",
+    cmd = "python3 $(location :file_tree_printer) $(location :whole_dir) > $OUT",
 )
 
 prelude.export_file(
@@ -59,11 +60,11 @@ prelude.export_file(
 prelude.genrule(
     name = "whole_dir_checker",
     out = "dummy.txt",
-    bash = "python3 $(location :equality_checker) $(location :whole_dir_output) $(location :expected_whole_dir_output) > $OUT",
+    cmd = "python3 $(location :equality_checker) $(location :whole_dir_output) $(location :expected_whole_dir_output) > $OUT",
 )
 
 prelude.genrule(
-    name = "various_outs_with_whole_dir_as_default_output",
+    name = "multiple_outs_with_dir_out",
     default_outs = [
         ".",
     ],
@@ -75,30 +76,30 @@ prelude.genrule(
             "2.txt",
         ],
     },
-    bash = "echo 1 > $OUT/1.txt && echo 2 > $OUT/2.txt",
+    cmd = "echo 1 > $OUT/1.txt && echo 2 > $OUT/2.txt",
 )
 
 prelude.genrule(
-    name = "various_outs_with_whole_dir_as_default_output_output",
+    name = "multiple_outs_with_dir_out_printed",
     out = "file_tree.txt",
-    bash = "python3 $(location :file_tree_printer) $(location :various_outs_with_whole_dir_as_default_output) > $OUT",
+    cmd = "python3 $(location :file_tree_printer) $(location :multiple_outs_with_dir_out) > $OUT",
 )
 
 prelude.export_file(
-    name = "expected_various_outs_with_whole_dir_as_default_output_output",
+    name = "expected_multiple_outs_with_dir_out_printed",
     src = "expected_various_outs_with_whole_dir_as_default.txt",
 )
 
 prelude.genrule(
-    name = "various_outs_with_whole_dir_as_default_output_checker",
+    name = "multiple_outs_with_dir_out_checker",
     out = "dummy.txt",
-    bash = "python3 $(location :equality_checker) $(location :various_outs_with_whole_dir_as_default_output_output) $(location :expected_various_outs_with_whole_dir_as_default_output_output) > $OUT",
+    cmd = "python3 $(location :equality_checker) $(location :multiple_outs_with_dir_out_printed) $(location :expected_multiple_outs_with_dir_out_printed) > $OUT",
 )
 
 prelude.genrule(
     name = "specified_named_out_output",
     out = "file_tree.txt",
-    bash = "python3 $(location :file_tree_printer) $(location :various_outs_with_whole_dir_as_default_output[one]) > $OUT",
+    cmd = "python3 $(location :file_tree_printer) $(location :multiple_outs_with_dir_out[one]) > $OUT",
 )
 
 prelude.export_file(
@@ -109,26 +110,27 @@ prelude.export_file(
 prelude.genrule(
     name = "specified_named_out_output_checker",
     out = "dummy.txt",
-    bash = "python3 $(location :equality_checker) $(location :specified_named_out_output) $(location :expected_specified_named_out_output) > $OUT",
+    cmd = "python3 $(location :equality_checker) $(location :specified_named_out_output) $(location :expected_specified_named_out_output) > $OUT",
 )
 
 # Produces multiple outputs and is executable
 prelude.genrule(
     name = "multiple_outputs_executable",
     outs = {
-        "cmd": ["cmd.sh"],
+        "cmd": select({"DEFAULT": ["cmd.sh"], "ovr_config//os:windows": ["cmd.bat"]}),
         "multiple": [
             "multi0.txt",
             "multi1.txt",
         ],
     },
-    srcs = ["multiple_outputs_cmd.sh"],
+    srcs = select({"DEFAULT": ["multiple_outputs_cmd.sh"], "ovr_config//os:windows": ["multiple_outputs_cmd.bat"]}),
     bash = "echo 0 > $OUT/multi0.txt && echo 1 > $OUT/multi1.txt && cp $SRCS $OUT/cmd.sh",
-    default_outs = ["cmd.sh"],
+    cmd_exe = "echo 0 > $OUT/multi0.txt && echo 1 > $OUT/multi1.txt && cp $SRCS $OUT/cmd.bat",
+    default_outs = select({"DEFAULT": ["cmd.sh"], "ovr_config//os:windows": ["cmd.bat"]}),
     executable = True,
 )
 prelude.genrule(
     name = "multiple_outputs_executable_out",
     out = "someout.txt",
-    bash = "$(exe :multiple_outputs_executable) > $OUT",
+    cmd = "$(exe :multiple_outputs_executable) > $OUT",
 )

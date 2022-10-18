@@ -32,28 +32,36 @@ def get_mode() -> str:
     return "@//mode/dev"
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_if_windows=True)
+@buck_test(inplace=True)
 async def test_genrule(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
+    mode = get_mode()
+    await buck.build("fbcode//buck2/tests/targets/rules/genrule:", mode)
     await buck.build(
-        "fbcode//buck2/tests/targets/rules/genrule/write_to_file_query_macros:"
+        "fbcode//buck2/tests/targets/rules/genrule/write_to_file_query_macros:", mode
     )
-    await buck.build("fbcode//buck2/tests/targets/rules/genrule/named_outputs:")
+    await buck.build("fbcode//buck2/tests/targets/rules/genrule/named_outputs:", mode)
     await expect_failure(
-        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad"),
+        buck.build(
+            "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad", mode
+        ),
         stderr_regex="Action failed to produce output",
     )
     await expect_failure(
-        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),
+        buck.build(
+            "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2", mode
+        ),
         stderr_regex="(failed with exit code 1|returned non-zero exit code 1)",
     )
     await expect_failure(
-        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),
+        buck.build(
+            "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2", mode
+        ),
         stderr_regex="frecli cas download-action",
     )
     await expect_failure(
-        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_4"),
+        buck.build(
+            "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_4", mode
+        ),
         stderr_regex="script_that_doesnt_exist",
     )
 
