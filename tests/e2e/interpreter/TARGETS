@@ -1,0 +1,8 @@
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("buck2")
+
+buck2_e2e_test(
+    name = "test_v2_only",
+    srcs = ["test_v2_only.py"],
+)

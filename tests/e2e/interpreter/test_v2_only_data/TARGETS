@@ -1,0 +1,6 @@
+load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
+load(":defs.bzl?v2_only", "my_rule")
+
+# No-op in Buck1.
+# @lint-ignore BUILDIFIERLINT
+my_rule(name = "my") if is_buck2() else None
