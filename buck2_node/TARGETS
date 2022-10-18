@@ -13,7 +13,6 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
-        "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:ref-cast",

@@ -9,23 +9,12 @@
 
 use std::fmt;
 use std::hash::Hash;
-use std::hash::Hasher;
 
-use indexmap::IndexSet;
+use buck2_core::collections::ordered_set::OrderedSet;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct EnumAttrType {
-    pub variants: IndexSet<String>,
-}
-
-#[allow(clippy::derive_hash_xor_eq)]
-impl Hash for EnumAttrType {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.variants.len().hash(state);
-        for x in self.variants.iter() {
-            x.hash(state);
-        }
-    }
+    pub variants: OrderedSet<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -38,7 +27,7 @@ enum EnumAttrError {
 
 impl EnumAttrType {
     pub fn new(variants: Vec<String>) -> anyhow::Result<Self> {
-        let mut result = IndexSet::with_capacity(variants.len());
+        let mut result = OrderedSet::with_capacity(variants.len());
         for x in variants {
             if x != x.to_lowercase() {
                 return Err(EnumAttrError::NotLowercase(x).into());

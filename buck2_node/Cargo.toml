@@ -9,7 +9,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 ref-cast = { workspace = true }
