@@ -183,6 +183,13 @@ ExopackageInfo = record(
     resources_info = [ExopackageResourcesInfo.type, None],
 )
 
+AndroidLibraryIntellijInfo = provider(
+    "Information about android library that is required for Intellij project generation",
+    fields = [
+        "dummy_r_dot_java",  # ["artifact", None]
+    ],
+)
+
 def merge_android_packageable_info(
         label: "label",
         actions: "actions",

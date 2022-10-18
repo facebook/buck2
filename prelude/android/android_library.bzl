@@ -1,4 +1,10 @@
-load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info", "merge_exported_android_resource_info")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidLibraryIntellijInfo",
+    "AndroidResourceInfo",
+    "merge_android_packageable_info",
+    "merge_exported_android_resource_info",
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@prelude//java:java_library.bzl", "build_java_library")
@@ -17,7 +23,8 @@ def android_library_impl(ctx: "context") -> ["provider"]:
             DefaultInfo(default_outputs = [ctx.actions.write("unused.jar", [])]),
         ]
 
-    java_providers = build_android_library(ctx)
+    java_providers, android_library_intellij_info = build_android_library(ctx)
+    android_providers = [android_library_intellij_info] if android_library_intellij_info else []
 
     return to_list(java_providers) + [
         merge_android_packageable_info(
@@ -27,14 +34,15 @@ def android_library_impl(ctx: "context") -> ["provider"]:
             manifest = ctx.attrs.manifest,
         ),
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
-    ]
+    ] + android_providers
 
 def build_android_library(
         ctx: "context",
-        r_dot_java: ["artifact", None] = None) -> "JavaProviders":
+        r_dot_java: ["artifact", None] = None) -> ("JavaProviders", [AndroidLibraryIntellijInfo.type, None]):
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
+    android_library_intellij_info = None
 
     # If we were given an R.java to compile against, use that. Otherwise, just create a "dummy" R.java.
     if r_dot_java:
@@ -43,20 +51,23 @@ def build_android_library(
         dummy_r_dot_java = _get_dummy_r_dot_java(ctx, java_toolchain)
         if dummy_r_dot_java:
             additional_classpath_entries.append(dummy_r_dot_java)
+            android_library_intellij_info = AndroidLibraryIntellijInfo(
+                dummy_r_dot_java = dummy_r_dot_java,
+            )
 
     if ctx.attrs.language != None and ctx.attrs.language.lower() == "kotlin":
         return build_kotlin_library(
             ctx,
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
-        )
+        ), android_library_intellij_info
     else:
         return build_java_library(
             ctx,
             ctx.attrs.srcs,
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
-        )
+        ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(
         ctx: "context",
