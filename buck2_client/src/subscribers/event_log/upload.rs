@@ -36,11 +36,6 @@ pub(crate) async fn log_upload(
     path: &EventLogPathBuf,
     trace_id: &TraceId,
 ) -> Result<(), LogUploadError> {
-    if cfg!(windows) {
-        // We do not have `curl` and certificates on Windows.
-        return Ok(());
-    }
-
     buck2_core::facebook_only();
     let upload_log_file: Stdio = match std::fs::File::open(&path.path) {
         Ok(f) => f.into(),
@@ -54,8 +49,14 @@ pub(crate) async fn log_upload(
     };
 
     let log_size = std::fs::metadata(&path.path).unwrap().len();
+    let manifold_cli_path = get_manifold_cli_path();
 
-    let mut upload = match get_manifold_cli_path() {
+    if cfg!(windows) && manifold_cli_path.is_none() {
+        // We do not have `curl` on Windows.
+        return Ok(());
+    }
+
+    let mut upload = match manifold_cli_path {
         Some(manifold_path) => {
             let mut upload = buck2_core::process::async_background_command(manifold_path);
             #[cfg(any(fbcode_build, cargo_internal_build))]
