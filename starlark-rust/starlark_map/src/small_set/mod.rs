@@ -61,12 +61,6 @@ where
     }
 }
 
-impl<T: Hash> Hash for SmallSet<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
-
 impl<T> Ord for SmallSet<T>
 where
     T: Ord,
