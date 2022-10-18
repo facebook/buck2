@@ -29,12 +29,16 @@ where
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
         self.map.iter()
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &K> {
+    pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> {
         self.map.keys()
+    }
+
+    pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
+        self.map.values()
     }
 
     pub fn len(&self) -> usize {
@@ -50,6 +54,13 @@ where
         Q: Hash + Equivalent<K>,
     {
         self.map.get(key)
+    }
+
+    pub fn contains_key<Q>(&self, k: &Q) -> bool
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.map.contains_key(k)
     }
 }
 

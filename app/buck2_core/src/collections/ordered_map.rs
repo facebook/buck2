@@ -43,11 +43,22 @@ impl<K, V> OrderedMap<K, V> {
         self.0.keys()
     }
 
+    pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
+        self.0.values()
+    }
+
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
         self.0.get(k)
+    }
+
+    pub fn contains_key<Q>(&self, k: &Q) -> bool
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.0.contains_key(k)
     }
 
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
