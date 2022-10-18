@@ -57,6 +57,7 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
     # For python tests only
     native.export_file(
         name = spec,
+        visibility = ["PUBLIC"],
     )
 
 def _fix_dep(x):
