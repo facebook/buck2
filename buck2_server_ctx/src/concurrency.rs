@@ -124,6 +124,8 @@ struct ConcurrencyHandlerData {
     // trace twice if we support user supplied `TraceId` and have nested invocations, so we keep
     // a map of number of occurrences.
     active_traces: SmallMap<TraceId, usize>,
+    // The current active trace that is executing.
+    active_trace: Option<TraceId>,
 }
 
 #[async_trait]
@@ -149,6 +151,7 @@ impl ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 active_dice: None,
                 active_traces: SmallMap::<TraceId, usize>::new(),
+                active_trace: None,
             })),
             cond: Default::default(),
             dice,
@@ -224,9 +227,10 @@ impl ConcurrencyHandler {
                         break;
                     }
                     BypassSemaphore::Block => {
-                        tracing::info!(
-                            "Running parallel invocation with different states with blocking. Currently active trace IDs: {}",
-                            format_traces(&data.active_traces, trace.dupe()),
+                        tracing::warn!(
+                            "Running parallel invocation with different states with blocking. Waiting trace ID: {}. Executing trace ID: {}.",
+                            &trace,
+                            data.active_trace.as_ref().unwrap().to_string(),
                         );
 
                         (data, baton) = self.cond.wait_baton(data).await;
@@ -238,6 +242,8 @@ impl ConcurrencyHandler {
                 break;
             }
         }
+
+        data.active_trace = Some(trace.dupe());
 
         // create the on exit drop handler, which will take care of notifying tasks.
         // this lets us dispose of the `Baton`, which is no longer necessary for
