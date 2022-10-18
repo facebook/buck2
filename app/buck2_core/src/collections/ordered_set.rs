@@ -88,6 +88,20 @@ impl<T> OrderedSet<T> {
     {
         self.0.insert(value)
     }
+
+    pub fn sort(&mut self)
+    where
+        T: Ord,
+    {
+        self.0.sort()
+    }
+
+    pub fn union<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a T>
+    where
+        T: Eq + Hash,
+    {
+        self.0.union(&other.0)
+    }
 }
 
 impl<T> Default for OrderedSet<T> {
@@ -116,5 +130,20 @@ impl<T> IntoIterator for OrderedSet<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<T> From<SmallSet<T>> for OrderedSet<T> {
+    fn from(set: SmallSet<T>) -> OrderedSet<T> {
+        OrderedSet(set)
+    }
+}
+
+impl<T> FromIterator<T> for OrderedSet<T>
+where
+    T: Eq + Hash,
+{
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        OrderedSet(SmallSet::from_iter(iter))
     }
 }

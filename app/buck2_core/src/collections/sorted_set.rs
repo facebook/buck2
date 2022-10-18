@@ -12,10 +12,12 @@ use std::hash::Hash;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
 
+use crate::collections::ordered_set::OrderedSet;
+
 /// An immutable IndexSet with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SortedSet<T: Eq + Hash> {
-    inner: SmallSet<T>,
+    inner: OrderedSet<T>,
 }
 
 impl<T> SortedSet<T>
@@ -24,11 +26,11 @@ where
 {
     pub fn new() -> SortedSet<T> {
         SortedSet {
-            inner: SmallSet::new(),
+            inner: OrderedSet::new(),
         }
     }
 
-    pub fn new_unchecked(inner: SmallSet<T>) -> Self {
+    pub fn new_unchecked(inner: OrderedSet<T>) -> Self {
         Self { inner }
     }
 
@@ -56,7 +58,18 @@ where
     }
 
     pub fn union<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a T> {
+        // TODO(nga): return sorted.
         self.inner.union(&other.inner)
+    }
+}
+
+impl<T> From<OrderedSet<T>> for SortedSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    fn from(mut inner: OrderedSet<T>) -> SortedSet<T> {
+        inner.sort();
+        SortedSet { inner }
     }
 }
 
@@ -64,9 +77,8 @@ impl<T> From<SmallSet<T>> for SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
-    fn from(mut inner: SmallSet<T>) -> SortedSet<T> {
-        inner.sort();
-        SortedSet { inner }
+    fn from(inner: SmallSet<T>) -> SortedSet<T> {
+        SortedSet::from(OrderedSet::from(inner))
     }
 }
 
@@ -75,7 +87,7 @@ where
     T: Eq + Ord + Hash,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut inner = SmallSet::from_iter(iter);
+        let mut inner = OrderedSet::from_iter(iter);
         inner.sort();
         SortedSet { inner }
     }
