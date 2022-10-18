@@ -51,7 +51,8 @@ impl StreamingCommand for LspCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let client_context = ctx.client_context(&self.config_opts, matches)?;
+        let client_context =
+            ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
 
         let stream = FramedRead::new(ctx.stdin(), LspMessageDecoder).filter_map(|m| {
             let m = m.and_then(|m| {

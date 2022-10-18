@@ -67,6 +67,7 @@ pub struct ClientCommandContext {
     /// and ready to accept connections.
     pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
     pub command_name: String,
+    pub sanitized_argv: Vec<String>,
 }
 
 impl ClientCommandContext {
@@ -110,6 +111,7 @@ impl ClientCommandContext {
         &self,
         config_opts: &CommonBuildConfigurationOptions,
         arg_matches: &clap::ArgMatches,
+        sanitized_argv: Vec<String>,
     ) -> anyhow::Result<ClientContext> {
         let config_overrides = config_opts.config_overrides(arg_matches)?;
         if !config_overrides.is_empty() && config_opts.reuse_current_config {
@@ -133,6 +135,7 @@ impl ClientCommandContext {
             oncall: config_opts.oncall.as_ref().cloned().unwrap_or_default(),
             disable_starlark_types: config_opts.disable_starlark_types,
             reuse_current_config: config_opts.reuse_current_config,
+            sanitized_argv,
             ..self.empty_client_context()?
         })
     }
@@ -169,6 +172,7 @@ impl ClientCommandContext {
             trace_id: format!("{}", trace_id),
             reuse_current_config: false,
             daemon_uuid,
+            sanitized_argv: Vec::new(),
         })
     }
 

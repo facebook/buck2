@@ -188,8 +188,11 @@ pub struct ServerCommandContext {
 
     configure_bxl_file_globals: fn(&mut GlobalsBuilder),
 
-    /// Daemon uuid passed in from the client side to detect nested invocation
+    /// Daemon uuid passed in from the client side to detect nested invocation.
     pub(crate) daemon_uuid_from_client: Option<String>,
+
+    /// Sanitized argument vector from the CLI from the client side.
+    pub(crate) sanitized_argv: Vec<String>,
 }
 
 impl ServerCommandContext {
@@ -275,6 +278,7 @@ impl ServerCommandContext {
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             configure_bxl_file_globals,
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
+            sanitized_argv: client_context.sanitized_argv.clone(),
         })
     }
 
@@ -573,6 +577,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
             data: box self.dice_data_constructor().await,
             setup: box self.dice_updater().await?,
             is_nested_invocation,
+            sanitized_argv: self.sanitized_argv.clone(),
         })
     }
 

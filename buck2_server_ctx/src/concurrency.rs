@@ -15,6 +15,7 @@ use async_condvar_fair::BatonExt;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_core::soft_error;
+use buck2_core::truncate::truncate_container;
 use buck2_events::trace::TraceId;
 use dice::Dice;
 use dice::DiceComputations;
@@ -126,6 +127,8 @@ struct ConcurrencyHandlerData {
     active_traces: SmallMap<TraceId, usize>,
     // The current active trace that is executing.
     active_trace: Option<TraceId>,
+    // The current active trace's argv.
+    active_trace_argv: Option<Vec<String>>,
 }
 
 #[async_trait]
@@ -152,6 +155,7 @@ impl ConcurrencyHandler {
                 active_dice: None,
                 active_traces: SmallMap::<TraceId, usize>::new(),
                 active_trace: None,
+                active_trace_argv: None,
             })),
             cond: Default::default(),
             dice,
@@ -169,13 +173,14 @@ impl ConcurrencyHandler {
         updates: &dyn DiceUpdater,
         exec: F,
         is_nested_invocation: bool,
+        sanitized_argv: Vec<String>,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send,
     {
         let (_guard, transaction) = self
-            .wait_for_others(data, updates, trace, is_nested_invocation)
+            .wait_for_others(data, updates, trace, is_nested_invocation, sanitized_argv)
             .await?;
 
         Ok(exec(transaction).await)
@@ -192,6 +197,7 @@ impl ConcurrencyHandler {
         updates: &dyn DiceUpdater,
         trace: TraceId,
         is_nested_invocation: bool,
+        sanitized_argv: Vec<String>,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let mut data = self.data.lock();
         let mut baton = None;
@@ -228,9 +234,14 @@ impl ConcurrencyHandler {
                     }
                     BypassSemaphore::Block => {
                         tracing::warn!(
-                            "Running parallel invocation with different states with blocking. Waiting trace ID: {}. Executing trace ID: {}.",
+                            "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCli args: [{:?}] \nExecuting trace ID: {} \nCLI args: [{:?}]",
                             &trace,
-                            data.active_trace.as_ref().unwrap().to_string(),
+                            truncate_container(sanitized_argv.map(|e| &**e), 500),
+                            &data.active_trace.as_ref().unwrap().to_string(),
+                            truncate_container(
+                                data.active_trace_argv.as_ref().unwrap().map(|e| &**e),
+                                500
+                            ),
                         );
 
                         (data, baton) = self.cond.wait_baton(data).await;
@@ -244,6 +255,7 @@ impl ConcurrencyHandler {
         }
 
         data.active_trace = Some(trace.dupe());
+        data.active_trace_argv = Some(sanitized_argv);
 
         // create the on exit drop handler, which will take care of notifying tasks.
         // this lets us dispose of the `Baton`, which is no longer necessary for
@@ -471,6 +483,7 @@ mod tests {
                 }
             },
             true,
+            Vec::new(),
         );
         let fut2 = concurrency.enter(
             traces2,
@@ -483,6 +496,7 @@ mod tests {
                 }
             },
             true,
+            Vec::new(),
         );
         let fut3 = concurrency.enter(
             traces3,
@@ -495,6 +509,7 @@ mod tests {
                 }
             },
             true,
+            Vec::new(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -531,6 +546,7 @@ mod tests {
                 }
             },
             true,
+            Vec::new(),
         );
 
         let fut2 = concurrency.enter(
@@ -544,6 +560,7 @@ mod tests {
                 }
             },
             true,
+            Vec::new(),
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -578,6 +595,7 @@ mod tests {
                 }
             },
             false,
+            Vec::new(),
         );
         let fut2 = concurrency.enter(
             traces2,
@@ -590,6 +608,7 @@ mod tests {
                 }
             },
             false,
+            Vec::new(),
         );
         let fut3 = concurrency.enter(
             traces3,
@@ -602,6 +621,7 @@ mod tests {
                 }
             },
             false,
+            Vec::new(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -656,6 +676,7 @@ mod tests {
                             let _g = b.read().await;
                         },
                         false,
+                        Vec::new(),
                     )
                     .await
             }
@@ -677,6 +698,7 @@ mod tests {
                             let _g = b.read().await;
                         },
                         false,
+                        Vec::new(),
                     )
                     .await
             }
@@ -700,6 +722,7 @@ mod tests {
                             arrived.store(true, Ordering::Relaxed);
                         },
                         false,
+                        Vec::new(),
                     )
                     .await
             }
@@ -756,6 +779,7 @@ mod tests {
                             barrier.wait().await;
                         },
                         false,
+                        Vec::new(),
                     )
                     .await
             }
@@ -775,6 +799,7 @@ mod tests {
                             barrier.wait().await;
                         },
                         false,
+                        Vec::new(),
                     )
                     .await
             }
@@ -794,6 +819,7 @@ mod tests {
                             barrier.wait().await;
                         },
                         false,
+                        Vec::new(),
                     )
                     .await
             }

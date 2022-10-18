@@ -138,7 +138,7 @@ impl StreamingCommand for TestCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let context = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
         let response = buckd
             .with_flushing()
             .test(

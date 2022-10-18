@@ -66,6 +66,7 @@ message ClientContext {
   string trace_id = 9;
   bool reuse_current_config = 10;
   optional string daemon_uuid = 11;
+  repeated string sanitized_argv = 12;
 }
 
 message TargetsRequest {

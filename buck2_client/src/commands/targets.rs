@@ -186,7 +186,7 @@ impl StreamingCommand for TargetsCommand {
             };
 
         let target_request = TargetsRequest {
-            context: Some(ctx.client_context(&self.config_opts, matches)?),
+            context: Some(ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?),
             target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                 value: pat.to_owned(),
             }),

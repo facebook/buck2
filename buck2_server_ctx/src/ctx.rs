@@ -58,6 +58,7 @@ pub struct DiceAccessor {
     pub data: Box<dyn DiceDataProvider>,
     pub setup: Box<dyn DiceUpdater>,
     pub is_nested_invocation: bool,
+    pub sanitized_argv: Vec<String>,
 }
 
 #[async_trait]
@@ -100,6 +101,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                         .await
                 },
                 dice_accessor.is_nested_invocation,
+                dice_accessor.sanitized_argv,
             )
             .await?
     }

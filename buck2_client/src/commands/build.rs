@@ -227,7 +227,8 @@ impl StreamingCommand for BuildCommand {
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let show_default_other_outputs = false;
-        let context = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+
         let result = buckd
             .with_flushing()
             .build(

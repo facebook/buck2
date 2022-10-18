@@ -135,7 +135,7 @@ impl StreamingCommand for ProfileSubcommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let context = ctx.client_context(&self.opts.config_opts, matches)?;
+        let context = ctx.client_context(&self.opts.config_opts, matches, self.sanitized_argv())?;
 
         let mut destination_path = PathBuf::from(&context.working_dir);
         destination_path.push(&self.opts.output);

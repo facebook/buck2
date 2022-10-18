@@ -142,7 +142,7 @@ impl StreamingCommand for AuditCommand {
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        let context = ctx.client_context(config_opts, submatches)?;
+        let context = ctx.client_context(config_opts, submatches, self.sanitized_argv())?;
 
         buckd
             .with_flushing()

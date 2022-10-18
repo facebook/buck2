@@ -61,7 +61,7 @@ impl StreamingCommand for BxlCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let context = ctx.client_context(&self.config_opts, matches)?;
+        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
         let result = buckd
             .with_flushing()
             .bxl(

@@ -299,6 +299,7 @@ impl CommandKind {
             start_in_process_daemon,
             command_name: self.command_name(),
             working_dir,
+            sanitized_argv: Vec::new(),
         };
 
         match self {
