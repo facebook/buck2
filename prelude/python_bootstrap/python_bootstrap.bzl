@@ -1,6 +1,6 @@
 PythonBootstrapSources = provider(fields = ["srcs"])
 
-PythonBootstrapToolchainInfo = provider(fields = ["interpreter"])
+PythonBootstrapToolchainInfo = provider(fields = ["interpreter", "windows_interpreter"])
 
 def python_bootstrap_library_impl(ctx: "context") -> ["provider"]:
     src_dir = ctx.actions.declare_output("__%s__", ctx.attrs.name)
@@ -34,11 +34,20 @@ def python_bootstrap_binary_impl(ctx: "context") -> ["provider"]:
 
     run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
     output = ctx.actions.copy_file(ctx.attrs.main.short_path, ctx.attrs.main)
-    interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
-    run_args = cmd_args([
-        "/usr/bin/env",
-    ])
-    run_args.add(cmd_args(run_tree, format = "PYTHONPATH={}"))
-    run_args.add(interpreter)
-    run_args.add(output)
+
+    is_windows = ctx.attrs._target_os_type == "windows"
+
+    run_args = cmd_args()
+    if is_windows:
+        windows_interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].windows_interpreter
+        run_args.add(ctx.attrs._win_python_wrapper[RunInfo])
+        run_args.add(run_tree)
+        run_args.add(windows_interpreter)
+        run_args.add(output)
+    else:
+        interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
+        run_args.add("/usr/bin/env")
+        run_args.add(cmd_args(run_tree, format = "PYTHONPATH={}"))
+        run_args.add(interpreter)
+        run_args.add(output)
     return [DefaultInfo(default_outputs = [output]), RunInfo(args = run_args)]

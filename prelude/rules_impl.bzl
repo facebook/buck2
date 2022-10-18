@@ -507,6 +507,8 @@ extra_attributes = struct(
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attrs.source(),
         "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
+        "_target_os_type": _target_os_type(),
+        "_win_python_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//python_bootstrap/tools:win_python_wrapper"),
     },
     python_bootstrap_library = {
         "srcs": attrs.list(attrs.source()),
