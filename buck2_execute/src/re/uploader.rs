@@ -239,8 +239,9 @@ impl Uploader {
                                 soft_error!(
                                     "cas_missing",
                                     anyhow::anyhow!(
-                                        "{} is missing in the CAS but expected to exist as per: {:#}",
-                                        digest,
+                                        "{} (expires = {}) is missing in the CAS but expected to exist as per: {:#}",
+                                        file.digest,
+                                        file.digest.expires(),
                                         err
                                     )
                                 )?;
