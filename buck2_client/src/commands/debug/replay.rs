@@ -6,9 +6,10 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
+use std::ffi::OsString;
 use std::path::PathBuf;
 
+use buck2_core::fs::paths::AbsPathBuf;
 use tokio::runtime::Runtime;
 
 use crate::client_ctx::ClientCommandContext;
@@ -72,7 +73,10 @@ impl ReplayCommand {
         let (replayer, invocation) = runtime.block_on(Replayer::new(log_path, speed))?;
 
         let (mut args, working_dir) = if override_args.is_empty() {
-            (invocation.command_line_args, invocation.working_dir)
+            (
+                invocation.command_line_args,
+                AbsPathBuf::new(PathBuf::from(OsString::from(invocation.working_dir)))?,
+            )
         } else {
             override_args.insert(0, "buck2".to_owned());
             (override_args, ctx.working_dir.clone())

@@ -12,7 +12,6 @@
 pub(crate) mod file_names;
 pub(crate) mod upload;
 
-use std::ffi::OsString;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -218,7 +217,7 @@ impl EventLogPathBuf {
         let invocation = match stream.try_next().await?.context("No invocation found")? {
             Frame::Invocation(inv) => Invocation {
                 command_line_args: inv.command_line_args,
-                working_dir: AbsPathBuf::new(PathBuf::from(OsString::from(inv.working_dir)))?,
+                working_dir: inv.working_dir,
             },
             Frame::Value(_) => {
                 return Err(anyhow::anyhow!("Expected Invocation, found StreamValue"));
@@ -337,7 +336,7 @@ pub(crate) struct EventLog {
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct Invocation {
     pub(crate) command_line_args: Vec<String>,
-    pub(crate) working_dir: AbsPathBuf,
+    pub(crate) working_dir: String,
 }
 
 impl EventLog {
@@ -363,7 +362,7 @@ impl EventLog {
         let command_line_args = self.sanitized_argv.clone();
         let invocation = Invocation {
             command_line_args,
-            working_dir: self.working_dir.clone(),
+            working_dir: self.working_dir.display().to_string(),
         };
         self.write_ln(&invocation).await
     }
@@ -611,7 +610,7 @@ impl SerializeForLog for Invocation {
     fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>> {
         let invocation = buck2_data::Invocation {
             command_line_args: self.command_line_args.clone(),
-            working_dir: self.working_dir.display().to_string(),
+            working_dir: self.working_dir.clone(),
         };
         let mut res = Vec::new();
         invocation
