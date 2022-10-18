@@ -204,7 +204,7 @@ def process_genrule(
         "OUT": cmd_args(srcs_artifact, format = path_sep.join([".", "{}", "..", "out", out_env])),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,
-    }
+    } | {k: cmd_args(v) for k, v in getattr(ctx.attrs, "env", {}).items()}
 
     # RE will cache successful actions that don't produce the desired outptuts,
     # so if that happens and _then_ we add a local-only label, we'll get a

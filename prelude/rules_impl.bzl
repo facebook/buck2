@@ -307,6 +307,7 @@ extra_attributes = struct(
     },
     genrule = genrule_attributes() | {
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
+        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "_target_os_type": _target_os_type(),
     },
     # The 'actual' attribute of configured_alias is a configured_label, which is
