@@ -20,7 +20,6 @@
 //! * no index is created for small maps
 //! * short hashes are stored next to keys
 
-use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -805,18 +804,6 @@ impl<K: Eq, V: PartialEq> PartialEq for SmallMap<K, V> {
 }
 
 impl<K: Eq, V: Eq> Eq for SmallMap<K, V> {}
-
-impl<K: PartialOrd + Eq, V: PartialOrd> PartialOrd for SmallMap<K, V> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.iter().partial_cmp(other.iter())
-    }
-}
-
-impl<K: Ord, V: Ord> Ord for SmallMap<K, V> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.iter().cmp(other.iter())
-    }
-}
 
 /// Create a [`SmallMap`](SmallMap) from a list of key-value pairs.
 ///
