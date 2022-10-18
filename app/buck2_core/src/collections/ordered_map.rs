@@ -77,7 +77,7 @@ impl<K, V> Default for OrderedMap<K, V> {
     }
 }
 
-impl<K: Eq, V: Eq> PartialEq for OrderedMap<K, V> {
+impl<K: PartialEq, V: PartialEq> PartialEq for OrderedMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq_ordered(&other.0)
     }

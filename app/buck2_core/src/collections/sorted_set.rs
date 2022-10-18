@@ -15,7 +15,7 @@ use starlark_map::Equivalent;
 use crate::collections::ordered_set::OrderedSet;
 
 /// An immutable IndexSet with values guaranteed to be sorted.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SortedSet<T: Eq + Hash> {
     inner: OrderedSet<T>,
 }

@@ -1,12 +1,11 @@
 use std::hash::Hash;
-use std::hash::Hasher;
 
 use starlark_map::Equivalent;
 
 use crate::collections::ordered_map::OrderedMap;
 
 /// `IndexMap` but with keys sorted.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SortedMap<K, V>
 where
     K: Ord + Hash,
@@ -61,20 +60,6 @@ impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
         let mut map = OrderedMap::from_iter(iter);
         map.sort_keys();
         SortedMap { map }
-    }
-}
-
-impl<K: Ord + Hash, V: Eq> PartialEq for SortedMap<K, V> {
-    fn eq(&self, other: &Self) -> bool {
-        self.map == other.map
-    }
-}
-
-impl<K: Ord + Hash, V: Eq> Eq for SortedMap<K, V> {}
-
-impl<K: Ord + Hash, V: Hash> Hash for SortedMap<K, V> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.map.hash(state)
     }
 }
 
