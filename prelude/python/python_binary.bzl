@@ -22,6 +22,8 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
+    "LinkInfo",
+    "LinkInfos",
     "LinkInfosTSet",
     "LinkStyle",
     "Linkage",
@@ -268,7 +270,15 @@ def convert_python_library_to_executable(
         extension_info = merge_cxx_extension_info(ctx.actions, deps + executable_deps)
         inherited_link_info = cxx_inherited_link_info(ctx, executable_deps)
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
-        link_info = ctx.actions.tset(LinkInfosTSet, children = [extension_info.link_infos, inherited_link_info._infos[LinkStyle("static")]])
+        link_info = ctx.actions.tset(
+            LinkInfosTSet,
+            value = LinkInfos(
+                default = LinkInfo(
+                    pre_flags = ctx.attrs.linker_flags,
+                ),
+            ),
+            children = [extension_info.link_infos, inherited_link_info._infos[LinkStyle("static")]],
+        )
 
         # Generate an additional C file as input
         static_extension_info_out = ctx.actions.declare_output("static_extension_info.c")
