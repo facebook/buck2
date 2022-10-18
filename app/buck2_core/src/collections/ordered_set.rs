@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cmp::Ordering;
 use std::hash::Hash;
 
 use starlark_map::small_set;
@@ -117,6 +118,18 @@ impl<T: Eq> PartialEq for OrderedSet<T> {
 }
 
 impl<T: Eq> Eq for OrderedSet<T> {}
+
+impl<T: Eq + PartialOrd> PartialOrd for OrderedSet<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.iter().partial_cmp(other.0.iter())
+    }
+}
+
+impl<T: Eq + Ord> Ord for OrderedSet<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.iter().cmp(other.0.iter())
+    }
+}
 
 impl<T: Hash> Hash for OrderedSet<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

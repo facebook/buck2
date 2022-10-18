@@ -5,11 +5,8 @@ use starlark_map::Equivalent;
 use crate::collections::ordered_map::OrderedMap;
 
 /// `IndexMap` but with keys sorted.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct SortedMap<K, V>
-where
-    K: Ord + Hash,
-{
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct SortedMap<K, V> {
     map: OrderedMap<K, V>,
 }
 

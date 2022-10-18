@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cmp::Ordering;
 use std::hash::Hash;
 
 use starlark_map::small_map;
@@ -88,6 +89,18 @@ impl<K: Eq, V: Eq> Eq for OrderedMap<K, V> {}
 impl<K: Hash, V: Hash> Hash for OrderedMap<K, V> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash_ordered(state)
+    }
+}
+
+impl<K: PartialOrd, V: PartialOrd> PartialOrd for OrderedMap<K, V> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.iter().partial_cmp(other.iter())
+    }
+}
+
+impl<K: Eq + Ord, V: Eq + Ord> Ord for OrderedMap<K, V> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.iter().cmp(other.iter())
     }
 }
 
