@@ -37,7 +37,6 @@ gazebo = { workspace = true }
 host_sharing = { workspace = true }
 more_futures = { workspace = true }
 remote_execution = { workspace = true }
-starlark_map = { workspace = true }
 
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../app/buck2_core" }

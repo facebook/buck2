@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_data::ToProtoMessage;
@@ -18,7 +19,6 @@ use gazebo::dupe::Dupe;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::small_map::SmallMap;
 
 #[derive(Debug, Display, PartialEq, Eq, Clone, Hash, Ord, PartialOrd)]
 pub enum CliArgValue {
@@ -44,7 +44,7 @@ pub enum CliArgValue {
 pub struct BxlKey(Arc<BxlKeyData>);
 
 impl BxlKey {
-    pub fn new(spec: BxlFunctionLabel, bxl_args: Arc<SmallMap<String, CliArgValue>>) -> Self {
+    pub fn new(spec: BxlFunctionLabel, bxl_args: Arc<OrderedMap<String, CliArgValue>>) -> Self {
         Self(Arc::new(BxlKeyData { spec, bxl_args }))
     }
 
@@ -52,7 +52,7 @@ impl BxlKey {
         &self.0.spec
     }
 
-    pub fn cli_args(&self) -> &Arc<SmallMap<String, CliArgValue>> {
+    pub fn cli_args(&self) -> &Arc<OrderedMap<String, CliArgValue>> {
         &self.0.bxl_args
     }
 }
@@ -61,10 +61,10 @@ impl BxlKey {
 #[display(fmt = "{} ({})", "spec", "print_like_args(bxl_args)")]
 struct BxlKeyData {
     spec: BxlFunctionLabel,
-    bxl_args: Arc<SmallMap<String, CliArgValue>>,
+    bxl_args: Arc<OrderedMap<String, CliArgValue>>,
 }
 
-fn print_like_args(args: &Arc<SmallMap<String, CliArgValue>>) -> String {
+fn print_like_args(args: &Arc<OrderedMap<String, CliArgValue>>) -> String {
     args.iter()
         .map(|(arg, argv)| format!("--{}={}", arg, argv))
         .join(" ")

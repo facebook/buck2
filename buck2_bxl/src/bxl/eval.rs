@@ -10,6 +10,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_events::dispatch::with_dispatcher;
@@ -25,7 +26,6 @@ use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculatio
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::Struct;
@@ -184,7 +184,7 @@ pub async fn resolve_cli_args<'a>(
     cli_ctx: &CliResolutionCtx<'a>,
     bxl_args: Vec<String>,
     frozen_callable: &'a FrozenBxlFunction,
-) -> anyhow::Result<SmallMap<String, CliArgValue>> {
+) -> anyhow::Result<OrderedMap<String, CliArgValue>> {
     frozen_callable
         .parse_clap(
             frozen_callable

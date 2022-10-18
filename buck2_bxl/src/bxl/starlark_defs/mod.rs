@@ -17,6 +17,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::cmd_args::register_args_function;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::CliArgValue;
 use buck2_interpreter::build_defs::register_natives;
@@ -226,8 +227,8 @@ impl FrozenBxlFunction {
         &self,
         clap: clap::ArgMatches,
         ctx: &CliResolutionCtx<'a>,
-    ) -> anyhow::Result<SmallMap<String, CliArgValue>> {
-        let mut res = SmallMap::with_capacity(self.cli_args.len());
+    ) -> anyhow::Result<OrderedMap<String, CliArgValue>> {
+        let mut res = OrderedMap::with_capacity(self.cli_args.len());
 
         for (arg, cli) in self.cli_args.iter() {
             res.insert(

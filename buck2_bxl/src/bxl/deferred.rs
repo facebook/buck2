@@ -26,6 +26,7 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
+    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
@@ -38,7 +39,6 @@ mod tests {
     use dice::UserComputationData;
     use gazebo::dupe::Dupe;
     use indexmap::IndexSet;
-    use starlark::collections::SmallMap;
 
     use crate::bxl::calculation::testing::BxlComputeKey;
     use crate::bxl::calculation::BxlCalculationImpl;
@@ -68,7 +68,7 @@ mod tests {
                 bxl_path: BxlFilePath::unchecked_new("cell", "dir"),
                 name: "foo".to_owned(),
             },
-            Arc::new(SmallMap::new()),
+            Arc::new(OrderedMap::new()),
         );
 
         let mut deferred =
