@@ -19,9 +19,9 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetsMap;
 use gazebo::prelude::*;
-use indexmap::map::Entry;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
+use starlark_map::small_map;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 
@@ -170,11 +170,11 @@ impl TargetsRecorder {
     fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
         let mut rules = self.targets.borrow_mut();
         match rules.entry(target_node.label().name().dupe()) {
-            Entry::Vacant(o) => {
+            small_map::Entry::Vacant(o) => {
                 o.insert(target_node);
                 Ok(())
             }
-            Entry::Occupied(_) => {
+            small_map::Entry::Occupied(_) => {
                 Err(TargetsError::RegisteredTargetTwice(target_node.label().dupe()).into())
             }
         }

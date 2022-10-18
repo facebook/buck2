@@ -13,12 +13,12 @@ use anyhow::Context;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use gazebo::dupe::Dupe;
-use indexmap::IndexMap;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
@@ -40,7 +40,7 @@ use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
 
 /// Map of target -> details of those targets within a build file.
-pub type TargetsMap = IndexMap<TargetName, TargetNode>;
+pub type TargetsMap = OrderedMap<TargetName, TargetNode>;
 
 /// Describes a target including its name, type, and the values that the user provided.
 /// Some information (e.g. deps) is extracted eagerly, most is in the attrs map and needs to be

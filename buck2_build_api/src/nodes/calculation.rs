@@ -856,12 +856,12 @@ mod tests {
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
     use buck2_node::nodes::unconfigured::TargetNode;
+    use buck2_node::nodes::unconfigured::TargetsMap;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
-    use indexmap::indexmap;
     use starlark::collections::SmallMap;
     use starlark_map::smallmap;
 
@@ -938,7 +938,7 @@ mod tests {
                 FileNameBuf::unchecked_new("BUCK"),
             )),
             Vec::new(),
-            indexmap![name1 => node1.dupe(), name2 => node2.dupe()],
+            TargetsMap::from_iter([(name1, node1.dupe()), (name2, node2.dupe())]),
         );
 
         let mut data = UserComputationData::new();
