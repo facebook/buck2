@@ -256,7 +256,7 @@ def _get_shared_flags(
         cmd.add(["-swift-version", ctx.attrs.swift_version])
 
     if ctx.attrs.enable_cxx_interop:
-        cmd.add(["-Xfrontend", "-enable-cxx-interop"])
+        cmd.add(["-enable-experimental-cxx-interop"])
 
     if ctx.attrs.serialize_debugging_options:
         if objc_headers:
