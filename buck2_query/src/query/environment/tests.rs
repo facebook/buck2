@@ -218,11 +218,11 @@ async fn test_one_path() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("1,2,3")?;
+    let expected = env.set("3,2,1")?;
     assert_eq!(path, expected);
 
     let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("1,2,3")?;
+    let expected = env.set("3,2,1")?;
     assert_eq!(path, expected);
 
     Ok(())
@@ -242,12 +242,12 @@ async fn test_many_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("1,2,3,10,11")?;
+    let expected = env.set("3,11,10,2,1")?;
     assert_eq!(path, expected);
 
     // We iterate with a stack so this is why we find this path
     let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("1,10,11,3")?;
+    let expected = env.set("3,11,10,1")?;
     assert_eq!(path, expected);
 
     Ok(())
@@ -263,12 +263,12 @@ async fn test_distinct_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1,2")?, &env.set("100,200")?).await?;
-    let expected = env.set("1,10,100,2,20,200")?;
+    let expected = env.set("200,20,2,100,10,1")?;
     assert_eq!(path, expected);
 
     // Same as above
     let path = env.somepath(&env.set("1,2")?, &env.set("100,200")?).await?;
-    let expected = env.set("2,20,200")?;
+    let expected = env.set("200,20,2")?;
     assert_eq!(path, expected);
 
     Ok(())
@@ -301,10 +301,10 @@ async fn test_nested_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("2,4")?).await?;
-    assert_eq!(path, env.set("1,2,3,4")?);
+    assert_eq!(path, env.set("4,3,2,1")?);
 
     let path = env.somepath(&env.set("1")?, &env.set("2,4")?).await?;
-    assert_eq!(path, env.set("1,2")?);
+    assert_eq!(path, env.set("2,1")?);
 
     Ok(())
 }

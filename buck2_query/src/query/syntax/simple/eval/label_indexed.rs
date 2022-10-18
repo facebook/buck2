@@ -9,9 +9,9 @@
 
 use std::hash::Hash;
 
+use buck2_core::collections::ordered_set::OrderedSet;
 use gazebo::prelude::*;
 use starlark_map::small_set;
-use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
 
 use crate::query::environment::LabeledNode;
@@ -66,19 +66,19 @@ impl<'a, T: LabeledNode> Hash for LabelIndexer<'a, T> {
 /// operate only on the `NodeRef` of the `LabeledNode`.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LabelIndexedSet<T: LabeledNode> {
-    nodes: SmallSet<LabelIndexed<T>>,
+    nodes: OrderedSet<LabelIndexed<T>>,
 }
 
 impl<T: LabeledNode> LabelIndexedSet<T> {
     pub fn new() -> Self {
         Self {
-            nodes: SmallSet::new(),
+            nodes: OrderedSet::new(),
         }
     }
 
     pub fn with_capacity(n: usize) -> Self {
         Self {
-            nodes: SmallSet::with_capacity(n),
+            nodes: OrderedSet::with_capacity(n),
         }
     }
 

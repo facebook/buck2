@@ -151,10 +151,6 @@ struct ConfiguredTargetNodeData {
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
     // TODO(cjhopman): Should this be a diff against the node's deps?
-    // TODO(nga): this hashes incorrectly: if order of dependencies change,
-    //   hash remains unchanged, but it should be different because
-    //   there are places where we rely on iteration order
-    //   (for example, in deps query output, which is observable by user).
     deps: LabelIndexedSet<ConfiguredTargetNode>,
     exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
     platform_cfgs: OrderedMap<TargetLabel, Configuration>,
