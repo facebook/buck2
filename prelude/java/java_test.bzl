@@ -1,5 +1,5 @@
 load("@prelude//java:java_library.bzl", "build_java_library")
-load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_from_packaging_infos")
+load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
@@ -33,11 +33,14 @@ def build_junit_test(
         cmd.extend(junit_toolchain.java_custom_class_loader_vm_args)
         classpath.append(junit_toolchain.java_custom_class_loader_library_jar)
 
-    classpath.extend([junit_toolchain.junit_test_runner_library_jar] + [
-        packaging_dep.jar
-        for packaging_dep in get_all_java_packaging_deps_from_packaging_infos(ctx, [tests_java_packaging_info])
-        if packaging_dep.jar
-    ] + extra_classpath_entries)
+    classpath.extend(
+        [junit_toolchain.junit_test_runner_library_jar] +
+        [
+            get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info])
+                .project_as_args("full_jar_args"),
+        ] +
+        extra_classpath_entries,
+    )
 
     labels = ctx.attrs.labels or []
     run_from_cell_root = "buck2_run_from_cell_root" in labels

@@ -316,13 +316,10 @@ def get_all_java_packaging_deps_from_packaging_infos(ctx: "context", infos: ["Ja
 
     return list(tset.traverse())
 
-# Accumulate deps necessary for packaging, which consist of all transitive java deps (except provided ones)
-def get_java_packaging_info(
+def get_all_java_packaging_deps_tset(
         ctx: "context",
-        raw_deps: ["dependency"],
-        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> JavaPackagingInfo.type:
-    java_packaging_infos = filter(None, [x.get(JavaPackagingInfo) for x in raw_deps])
-
+        java_packaging_infos: ["JavaPackagingInfo"],
+        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> [JavaPackagingDepTSet.type, None]:
     packaging_deps_kwargs = {}
     if java_packaging_dep:
         packaging_deps_kwargs["value"] = java_packaging_dep
@@ -331,8 +328,15 @@ def get_java_packaging_info(
     if packaging_deps_children:
         packaging_deps_kwargs["children"] = packaging_deps_children
 
-    packaging_deps = ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs) if packaging_deps_kwargs else None
+    return ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs) if packaging_deps_kwargs else None
 
+# Accumulate deps necessary for packaging, which consist of all transitive java deps (except provided ones)
+def get_java_packaging_info(
+        ctx: "context",
+        raw_deps: ["dependency"],
+        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> JavaPackagingInfo.type:
+    java_packaging_infos = filter(None, [x.get(JavaPackagingInfo) for x in raw_deps])
+    packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
 def create_native_providers(actions: "actions", label: "label", packaging_deps: ["dependency"]) -> (SharedLibraryInfo.type, ResourceInfo.type):
