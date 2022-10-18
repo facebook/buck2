@@ -1,5 +1,5 @@
 [package]
-name = "downward_api_proto"
+name = "buck2_downward_api_proto"
 
 edition = "2021"
 version = "0.1.0"

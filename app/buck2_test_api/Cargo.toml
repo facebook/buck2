@@ -25,8 +25,8 @@ buck2_core = { path = "../buck2_core" }
 buck2_events = { path = "../../buck2_events" }
 buck2_grpc = { path = "../buck2_grpc" }
 buck2_test_proto = { path = "../buck2_test_proto" }
-downward_api = { path = "../downward_api" }
-downward_api_proto = { path = "../downward_api_proto" }
+buck2_downward_api = { path = "../buck2_downward_api" }
+buck2_downward_api_proto = { path = "../buck2_downward_api_proto" }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

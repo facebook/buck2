@@ -1,14 +1,15 @@
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("buck2")
 
-rust_library(
-    name = "downward_api",
+rust_protobuf_library(
+    name = "buck2_downward_api_proto",
     srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    spec = "downward_api.proto",
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:tracing",
     ],
 )

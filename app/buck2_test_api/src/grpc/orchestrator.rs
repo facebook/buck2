@@ -4,6 +4,12 @@ use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_downward_api::DownwardApi;
+use buck2_downward_api_proto::downward_api_client;
+use buck2_downward_api_proto::downward_api_server;
+use buck2_downward_api_proto::ConsoleRequest;
+use buck2_downward_api_proto::ExternalEventRequest;
+use buck2_downward_api_proto::LogRequest;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::make_channel;
@@ -20,12 +26,6 @@ use buck2_test_proto::ReportTestResultRequest;
 use buck2_test_proto::ReportTestSessionRequest;
 use buck2_test_proto::ReportTestsDiscoveredRequest;
 use buck2_test_proto::Testing;
-use downward_api::DownwardApi;
-use downward_api_proto::downward_api_client;
-use downward_api_proto::downward_api_server;
-use downward_api_proto::ConsoleRequest;
-use downward_api_proto::ExternalEventRequest;
-use downward_api_proto::LogRequest;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use gazebo::prelude::*;
@@ -429,7 +429,7 @@ where
     async fn console(
         &self,
         request: tonic::Request<ConsoleRequest>,
-    ) -> Result<tonic::Response<downward_api_proto::Empty>, tonic::Status> {
+    ) -> Result<tonic::Response<buck2_downward_api_proto::Empty>, tonic::Status> {
         to_tonic(async move {
             let ConsoleRequest { level, message } = request.into_inner();
 
@@ -443,7 +443,7 @@ where
                 .await
                 .context("Failed to console")?;
 
-            Ok(downward_api_proto::Empty {})
+            Ok(buck2_downward_api_proto::Empty {})
         })
         .await
     }
@@ -451,7 +451,7 @@ where
     async fn log(
         &self,
         request: tonic::Request<LogRequest>,
-    ) -> Result<tonic::Response<downward_api_proto::Empty>, tonic::Status> {
+    ) -> Result<tonic::Response<buck2_downward_api_proto::Empty>, tonic::Status> {
         to_tonic(async move {
             let LogRequest { level, message } = request.into_inner();
 
@@ -465,7 +465,7 @@ where
                 .await
                 .context("Failed to log")?;
 
-            Ok(downward_api_proto::Empty {})
+            Ok(buck2_downward_api_proto::Empty {})
         })
         .await
     }
@@ -473,7 +473,7 @@ where
     async fn external_event(
         &self,
         request: tonic::Request<ExternalEventRequest>,
-    ) -> Result<tonic::Response<downward_api_proto::Empty>, tonic::Status> {
+    ) -> Result<tonic::Response<buck2_downward_api_proto::Empty>, tonic::Status> {
         to_tonic(async move {
             let ExternalEventRequest { event } = request.into_inner();
 
@@ -487,7 +487,7 @@ where
                 .await
                 .context("Failed to deliver event")?;
 
-            Ok(downward_api_proto::Empty {})
+            Ok(buck2_downward_api_proto::Empty {})
         })
         .await
     }
