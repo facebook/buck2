@@ -52,6 +52,13 @@ impl<K, V> UnorderedMap<K, V> {
     {
         self.0.insert(k, v)
     }
+
+    pub fn remove<Q>(&mut self, k: &Q) -> Option<V>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.0.remove(k)
+    }
 }
 
 impl<K: Eq, V: Eq> PartialEq for UnorderedMap<K, V> {

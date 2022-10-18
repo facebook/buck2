@@ -68,6 +68,13 @@ impl<K, V> OrderedMap<K, V> {
         self.0.insert(k, v)
     }
 
+    pub fn remove<Q>(&mut self, k: &Q) -> Option<V>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.0.remove(k)
+    }
+
     pub fn entry(&mut self, k: K) -> small_map::Entry<'_, K, V>
     where
         K: Hash + Eq,
