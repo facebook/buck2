@@ -1,8 +1,9 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
+
+use crate::collections::ordered_map::OrderedMap;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone)]
@@ -10,13 +11,13 @@ pub struct SortedMap<K, V>
 where
     K: Ord + Hash,
 {
-    map: SmallMap<K, V>,
+    map: OrderedMap<K, V>,
 }
 
 impl<K: Ord + Hash, V> Default for SortedMap<K, V> {
     fn default() -> Self {
         SortedMap {
-            map: SmallMap::default(),
+            map: OrderedMap::default(),
         }
     }
 }
@@ -27,7 +28,7 @@ where
 {
     pub fn new() -> SortedMap<K, V> {
         SortedMap {
-            map: SmallMap::new(),
+            map: OrderedMap::new(),
         }
     }
 
@@ -57,7 +58,7 @@ where
 
 impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        let mut map = SmallMap::from_iter(iter);
+        let mut map = OrderedMap::from_iter(iter);
         map.sort_keys();
         SortedMap { map }
     }
@@ -65,7 +66,7 @@ impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
 
 impl<K: Ord + Hash, V: Eq> PartialEq for SortedMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
-        self.map.eq_ordered(&other.map)
+        self.map == other.map
     }
 }
 
@@ -73,7 +74,7 @@ impl<K: Ord + Hash, V: Eq> Eq for SortedMap<K, V> {}
 
 impl<K: Ord + Hash, V: Hash> Hash for SortedMap<K, V> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.map.hash_ordered(state)
+        self.map.hash(state)
     }
 }
 

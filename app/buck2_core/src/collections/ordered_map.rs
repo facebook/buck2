@@ -14,7 +14,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
 
 /// Wrapper for `SmallMap` which consideres map equal if iteration order is equal.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct OrderedMap<K, V>(SmallMap<K, V>);
 
 impl<K, V> OrderedMap<K, V> {
@@ -38,6 +38,10 @@ impl<K, V> OrderedMap<K, V> {
         self.0.iter()
     }
 
+    pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> {
+        self.0.keys()
+    }
+
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -58,6 +62,19 @@ impl<K, V> OrderedMap<K, V> {
     {
         self.0.entry(k)
     }
+
+    pub fn sort_keys(&mut self)
+    where
+        K: Ord,
+    {
+        self.0.sort_keys()
+    }
+}
+
+impl<K, V> Default for OrderedMap<K, V> {
+    fn default() -> OrderedMap<K, V> {
+        OrderedMap(SmallMap::default())
+    }
 }
 
 impl<K: Eq, V: Eq> PartialEq for OrderedMap<K, V> {
@@ -71,5 +88,14 @@ impl<K: Eq, V: Eq> Eq for OrderedMap<K, V> {}
 impl<K: Hash, V: Hash> Hash for OrderedMap<K, V> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash_ordered(state)
+    }
+}
+
+impl<K, V> FromIterator<(K, V)> for OrderedMap<K, V>
+where
+    K: Hash + Eq,
+{
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> OrderedMap<K, V> {
+        OrderedMap(SmallMap::from_iter(iter))
     }
 }
