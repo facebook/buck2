@@ -51,3 +51,8 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
             "fbsource//third-party/rust:tonic",
         ] + (deps or []),
     )
+
+    # For python tests only
+    native.export_file(
+        name = spec,
+    )
