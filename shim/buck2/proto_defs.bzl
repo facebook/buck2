@@ -2,6 +2,8 @@ load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
 def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps = None):
+    deps = map(_fix_dep, deps) if deps else None
+
     build_name = name + "-build"
     proto_name = name + "-proto"
 
@@ -56,3 +58,19 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
     native.export_file(
         name = spec,
     )
+
+def _fix_dep(x):
+    if x == "//buck2/gazebo/gazebo:gazebo":
+        return "fbsource//third-party/rust:gazebo"
+    elif x == "//common/rust/folly/logging:logging":
+        return None
+    elif x == "//watchman/rust/watchman_client:watchman_client":
+        return "fbsource//third-party/rust:watchman_client"
+    elif x.startswith("//common/rust/shed/"):
+        return "fbsource//third-party/rust:" + x.removeprefix("//common/rust/shed/").split(":")[0]
+    elif x.startswith("//common/rust/") or x.startswith("//buck2/facebook/") or x.startswith("//eden/") or x.startswith("//remote_execution/"):
+        return None
+    elif x.startswith("//buck2/"):
+        return "root//" + x.removeprefix("//buck2/")
+    else:
+        return x
