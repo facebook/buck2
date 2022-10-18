@@ -19,7 +19,6 @@ use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
-use starlark::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
 enum StarlarkProfilerError {
@@ -65,22 +64,14 @@ enum StarlarkProfileData {
     /// Collected from `Evaluator`.
     Evaluator(ProfileData),
     /// Collected from `FrozenModule`.
-    Frozen(AggregateHeapProfileInfo),
+    Frozen(ProfileData),
 }
 
 impl StarlarkProfileData {
     fn gen(&self, profile_mode: &ProfileMode) -> anyhow::Result<String> {
         match (self, profile_mode) {
             (StarlarkProfileData::Evaluator(data), _) => data.gen(),
-            (StarlarkProfileData::Frozen(data), ProfileMode::HeapSummaryRetained) => {
-                Ok(data.gen_summary_csv())
-            }
-            (StarlarkProfileData::Frozen(data), ProfileMode::HeapFlameRetained) => {
-                Ok(data.gen_flame_graph())
-            }
-            (StarlarkProfileData::Frozen(_), _) => {
-                Err(StarlarkProfilerError::InconsistentProfileModeAndProfileData.into())
-            }
+            (StarlarkProfileData::Frozen(data), _) => data.gen(),
         }
     }
 
@@ -144,8 +135,7 @@ impl StarlarkProfileDataAndStats {
                     })
                     .collect::<anyhow::Result<Vec<_>>>()?;
 
-                let profile_data =
-                    AggregateHeapProfileInfo::merge(aggregated_profile_info.iter().copied());
+                let profile_data = ProfileData::merge(aggregated_profile_info.iter().copied())?;
                 StarlarkProfileData::Frozen(profile_data)
             }
             _ => {
@@ -251,7 +241,7 @@ impl StarlarkProfiler {
         match self.profile_mode {
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
                 let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
-                let profile = module.aggregated_heap_profile_info()?.clone();
+                let profile = module.heap_profile()?;
                 self.profile_data = Some(StarlarkProfileData::Frozen(profile));
             }
             _ => {}
@@ -376,33 +366,5 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         } else {
             Ok(())
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::Instant;
-
-    use starlark::eval::ProfileMode;
-    use starlark::values::AggregateHeapProfileInfo;
-
-    use crate::starlark_profiler::StarlarkProfileData;
-    use crate::starlark_profiler::StarlarkProfileDataAndStats;
-
-    #[test]
-    fn test_merge() {
-        fn mk() -> StarlarkProfileDataAndStats {
-            let now = Instant::now();
-            StarlarkProfileDataAndStats {
-                profile_mode: ProfileMode::HeapSummaryRetained,
-                profile_data: StarlarkProfileData::Frozen(AggregateHeapProfileInfo::default()),
-                initialized_at: now,
-                finalized_at: now,
-                total_retained_bytes: 0,
-            }
-        }
-
-        // Smoke test: just check it doesn't fail.
-        StarlarkProfileDataAndStats::merge([&mk(), &mk(), &mk()]).unwrap();
     }
 }
