@@ -55,7 +55,7 @@ def _download_protoc_distribution_impl(ctx: "context") -> ["provider"]:
         .hidden([archive, protoc.as_output(), google_protobuf.as_output()]), category = "http_archive")
     return [DefaultInfo(
         sub_targets = {
-            "protoc": [DefaultInfo(default_outputs = [protoc])],
+            "protoc": [DefaultInfo(default_outputs = [protoc]), RunInfo(args = cmd_args([protoc]))],
             "google_protobuf": [DefaultInfo(default_outputs = [google_protobuf])],
         },
     )]
