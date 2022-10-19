@@ -692,6 +692,15 @@ impl Heap {
         x.alloc_value(self)
     }
 
+    /// Allocate a value and return [`ValueTyped`] of it.
+    /// Can fail if the [`AllocValue`] trait generates a different type on the heap.
+    pub fn alloc_typed<'v, T: AllocValue<'v> + StarlarkValue<'v>>(
+        &'v self,
+        x: T,
+    ) -> ValueTyped<'v, T> {
+        ValueTyped::new(self.alloc(x)).expect("just allocated value must have the right type")
+    }
+
     /// Allocate a value and return [`ValueOf`] of it.
     pub fn alloc_value_of<'v, T>(&'v self, x: T) -> ValueOf<'v, &'v T>
     where
