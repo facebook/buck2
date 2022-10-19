@@ -171,8 +171,21 @@ impl<Kind> CasDigest<Kind> {
     }
 }
 
+pub trait TrackedCasDigestKind: Sized + 'static {
+    /// This needs to be a concrete implementation since we share the empty instance in a static
+    /// but we can't have static generics.
+    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>>;
+}
+
 pub struct FileDigestKind {
     _private: (),
+}
+
+impl TrackedCasDigestKind for FileDigestKind {
+    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>> {
+        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
+        &EMPTY_DIGEST
+    }
 }
 
 pub type FileDigest = CasDigest<FileDigestKind>;
@@ -305,56 +318,64 @@ impl<Kind> FromStr for CasDigest<Kind> {
 /// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
-struct TrackedFileDigestInner {
-    data: FileDigest,
+struct TrackedCasDigestInner<Kind> {
+    data: CasDigest<Kind>,
     expires: AtomicI64,
 }
 
-#[derive(Display, Clone, Dupe)]
+#[derive(Display, Dupe_)]
 #[display(fmt = "{}", "self.data()")]
-pub struct TrackedFileDigest {
-    inner: Arc<TrackedFileDigestInner>,
+pub struct TrackedCasDigest<Kind> {
+    inner: Arc<TrackedCasDigestInner<Kind>>,
 }
 
-impl Borrow<FileDigest> for TrackedFileDigest {
-    fn borrow(&self) -> &FileDigest {
+impl<Kind> Clone for TrackedCasDigest<Kind> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.dupe(),
+        }
+    }
+}
+
+impl<Kind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
+    fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }
 }
 
-impl<'a> Borrow<FileDigest> for &'a TrackedFileDigest {
-    fn borrow(&self) -> &FileDigest {
+impl<'a, Kind> Borrow<CasDigest<Kind>> for &'a TrackedCasDigest<Kind> {
+    fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }
 }
 
-impl PartialOrd for TrackedFileDigest {
+impl<Kind> PartialOrd for TrackedCasDigest<Kind> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.data().partial_cmp(other.data())
     }
 }
 
-impl Ord for TrackedFileDigest {
+impl<Kind> Ord for TrackedCasDigest<Kind> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.data().cmp(other.data())
     }
 }
 
-impl PartialEq for TrackedFileDigest {
+impl<Kind> PartialEq for TrackedCasDigest<Kind> {
     fn eq(&self, other: &Self) -> bool {
         self.data().eq(other.data())
     }
 }
 
-impl Eq for TrackedFileDigest {}
+impl<Kind> Eq for TrackedCasDigest<Kind> {}
 
-impl Hash for TrackedFileDigest {
+impl<Kind> Hash for TrackedCasDigest<Kind> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data().hash(state)
     }
 }
 
-impl fmt::Debug for TrackedFileDigest {
+impl<Kind> fmt::Debug for TrackedCasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -365,40 +386,47 @@ impl fmt::Debug for TrackedFileDigest {
     }
 }
 
-impl TrackedFileDigest {
-    pub fn new(data: FileDigest) -> Self {
+impl<Kind> TrackedCasDigest<Kind> {
+    pub fn new(data: CasDigest<Kind>) -> Self
+    where
+        Kind: TrackedCasDigestKind,
+    {
         if data.size == 0 {
             return Self::empty();
         }
 
         Self {
-            inner: Arc::new(TrackedFileDigestInner {
+            inner: Arc::new(TrackedCasDigestInner {
                 data,
                 expires: AtomicI64::new(0),
             }),
         }
     }
 
-    pub fn new_expires(data: FileDigest, expiry: DateTime<Utc>) -> Self {
+    pub fn new_expires(data: CasDigest<Kind>, expiry: DateTime<Utc>) -> Self
+    where
+        Kind: TrackedCasDigestKind,
+    {
         let res = Self::new(data);
         res.update_expires(expiry);
         res
     }
 
-    pub fn empty() -> Self {
-        static EMPTY_DIGEST: OnceCell<TrackedFileDigest> = OnceCell::new();
-
-        return EMPTY_DIGEST
+    pub fn empty() -> Self
+    where
+        Kind: TrackedCasDigestKind,
+    {
+        Kind::cell_for_empty_digest()
             .get_or_init(|| Self {
-                inner: Arc::new(TrackedFileDigestInner {
-                    data: FileDigest::empty(),
+                inner: Arc::new(TrackedCasDigestInner {
+                    data: CasDigest::empty(),
                     expires: AtomicI64::new(0),
                 }),
             })
-            .dupe();
+            .dupe()
     }
 
-    pub fn data(&self) -> &FileDigest {
+    pub fn data(&self) -> &CasDigest<Kind> {
         &self.inner.data
     }
 
@@ -420,6 +448,8 @@ impl TrackedFileDigest {
             .store(time.timestamp(), Ordering::Relaxed)
     }
 }
+
+pub type TrackedFileDigest = TrackedCasDigest<FileDigestKind>;
 
 /// Stores the relevant metadata for a file.
 // New fields should be added as needed, and unused fields removed.
