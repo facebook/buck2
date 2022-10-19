@@ -12,7 +12,7 @@ load(
     "LinkStyle",  #@unused Used as a type
     "get_link_args",
 )
-load("@prelude//utils:set.bzl", "set")
+load("@prelude//utils:set_record.bzl", "set")
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
@@ -572,13 +572,12 @@ def _crate_root(
     for src in srcs:
         filename = src.split("/")[-1]
         if filename in default_roots or filename == crate_with_suffix:
-            candidates.insert(src)
+            candidates.add(src)
 
-    candidates = candidates.list()
-    if len(candidates) == 1:
-        return candidates[0]
+    if candidates.size() == 1:
+        return candidates.list()[0]
 
-    fail("Could not infer crate_root. candidates=%s\nAdd 'crate_root = \"src/example.rs\"' to your attributes to disambiguate." % candidates)
+    fail("Could not infer crate_root. candidates=%s\nAdd 'crate_root = \"src/example.rs\"' to your attributes to disambiguate." % candidates.list())
 
 # Take a desired output and work out how to convince rustc to generate it
 def _rustc_emits(
