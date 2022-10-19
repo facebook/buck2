@@ -593,6 +593,8 @@ impl<K, V> SmallMap<K, V> {
     }
 
     /// Hash entries in the iteration order.
+    ///
+    /// Note, keys are not hashed, but previously computed hashes are hashed instead.
     pub fn hash_ordered<H: Hasher>(&self, state: &mut H)
     where
         K: Hash,

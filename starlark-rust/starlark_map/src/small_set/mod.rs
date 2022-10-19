@@ -306,6 +306,8 @@ impl<T> SmallSet<T> {
     }
 
     /// Hash entries in iteration order.
+    ///
+    /// Note, entries are not hashed, but previously computed hashes are hashed instead.
     pub fn hash_ordered<H: Hasher>(&self, state: &mut H)
     where
         T: Hash,

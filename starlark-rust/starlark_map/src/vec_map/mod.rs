@@ -36,11 +36,21 @@ use crate::vec_map::iter::VMValues;
 use crate::vec_map::iter::VMValuesMut;
 
 /// Bucket in [`VecMap`].
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct Bucket<K, V> {
     pub(crate) hash: StarlarkHashValue,
     pub(crate) key: K,
     pub(crate) value: V,
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl<K: Hash, V: Hash> Hash for Bucket<K, V> {
+    fn hash<S: Hasher>(&self, state: &mut S) {
+        self.hash.hash(state);
+        // Ignore the key, because `hash` is already the hash of the key,
+        // although maybe not as good hash as what is requested.
+        self.value.hash(state);
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default_)]
@@ -262,7 +272,9 @@ impl<K, V> VecMap<K, V> {
         self.buckets.eq(&other.buckets)
     }
 
-    /// Hash values in the iterator order.
+    /// Hash entries in the iterator order.
+    ///
+    /// Note, keys are not hashed, but previously computed hashes are hashed instead.
     pub(crate) fn hash_ordered<H: Hasher>(&self, state: &mut H)
     where
         K: Hash,
