@@ -13,6 +13,7 @@ use std::fs::File;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::atomic::AtomicI64;
@@ -33,6 +34,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
+use derivative::Derivative;
 use derive_more::Display;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
@@ -111,24 +113,37 @@ pub struct ReadDirOutput {
 const SHA1_SIZE: usize = 20;
 
 /// The bytes that make up a file digest.
-#[derive(Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Display, Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
-pub struct FileDigest {
+pub struct CasDigest<Kind> {
     size: u64,
     sha1: [u8; SHA1_SIZE],
+    #[derivative(Hash = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
+    kind: PhantomData<Kind>,
 }
 
-impl fmt::Debug for FileDigest {
+impl<Kind> Clone for CasDigest<Kind> {
+    fn clone(&self) -> Self {
+        Self::new(self.sha1, self.size)
+    }
+}
+
+impl<Kind> Dupe for CasDigest<Kind> {}
+
+impl<Kind> fmt::Debug for CasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Dupe for FileDigest {}
-
-impl FileDigest {
+impl<Kind> CasDigest<Kind> {
     pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
-        Self { size, sha1 }
+        Self {
+            size,
+            sha1,
+            kind: PhantomData,
+        }
     }
 
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
@@ -145,6 +160,24 @@ impl FileDigest {
         Some(sha1)
     }
 
+    /// Return the digest of an empty string
+    pub fn empty() -> Self {
+        Self::from_bytes(&[])
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let sha1 = Sha1::digest(bytes).into();
+        Self::new(sha1, bytes.len() as u64)
+    }
+}
+
+pub struct FileDigestKind {
+    _private: (),
+}
+
+pub type FileDigest = CasDigest<FileDigestKind>;
+
+impl FileDigest {
     /// Obtain the digest of the file if you can.
     pub fn from_file<P>(file: P) -> anyhow::Result<Self>
     where
@@ -206,7 +239,7 @@ impl FileDigest {
             Ok(Some(v)) => {
                 let sha1 = Self::parse_digest(&v)?;
                 let size = meta.len();
-                Some(Self { size, sha1 })
+                Some(Self::new(sha1, size))
             }
             _ => None,
         }
@@ -236,20 +269,7 @@ impl FileDigest {
             h.update(&buffer[..count]);
         }
         let sha1 = h.finalize().into();
-        Ok(Self { size, sha1 })
-    }
-
-    /// Return the digest of an empty string
-    pub fn empty() -> Self {
-        Self::from_bytes(&[])
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        let sha1 = Sha1::digest(bytes).into();
-        Self {
-            sha1,
-            size: bytes.len() as u64,
-        }
+        Ok(Self::new(sha1, size))
     }
 }
 
@@ -277,7 +297,7 @@ impl FromStr for FileDigest {
             FileDigest::parse_digest(sha1.as_bytes()).ok_or(FileDigestFromStrError::InvalidSha1)?;
         let size = size.parse().map_err(FileDigestFromStrError::InvalidSize)?;
 
-        Ok(FileDigest { size, sha1 })
+        Ok(FileDigest::new(sha1, size))
     }
 }
 
