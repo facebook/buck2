@@ -22,6 +22,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use derivative::Derivative;
 use derive_more::Display;
+use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
 use sha1::Digest;
@@ -31,20 +32,29 @@ use thiserror::Error;
 // The number of bytes required by a SHA0 hash
 pub const SHA1_SIZE: usize = 20;
 
-/// The bytes that make up a file digest.
-#[derive(Display, Derivative)]
-#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
+/// layout.
+#[derive(Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
-pub struct CasDigest<Kind> {
+struct CasDigestData {
     size: u64,
     sha1: [u8; SHA1_SIZE],
+}
+
+/// The bytes that make up a file digest.
+#[derive(Display, Derivative, Coerce)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(fmt = "{}", data)]
+#[repr(transparent)]
+pub struct CasDigest<Kind> {
+    data: CasDigestData,
     #[derivative(Hash = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
     kind: PhantomData<Kind>,
 }
 
 impl<Kind> Clone for CasDigest<Kind> {
     fn clone(&self) -> Self {
-        Self::new(self.sha1, self.size)
+        Self::new(*self.sha1(), self.size())
     }
 }
 
@@ -59,18 +69,17 @@ impl<Kind> fmt::Debug for CasDigest<Kind> {
 impl<Kind> CasDigest<Kind> {
     pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
         Self {
-            size,
-            sha1,
+            data: CasDigestData { size, sha1 },
             kind: PhantomData,
         }
     }
 
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        &self.sha1
+        &self.data.sha1
     }
 
     pub fn size(&self) -> u64 {
-        self.size
+        self.data.size
     }
 
     /// A tiny representation of this digest, useful for logging when the full sha1 presentation is
@@ -103,7 +112,7 @@ pub trait TrackedCasDigestKind: Sized + 'static {
 }
 
 #[derive(Display)]
-#[display(fmt = "{}", "hex::encode(&of.sha1[0..4])")]
+#[display(fmt = "{}", "hex::encode(&of.sha1()[0..4])")]
 pub struct TinyDigest<'a, Kind> {
     of: &'a CasDigest<Kind>,
 }
@@ -213,7 +222,7 @@ impl<Kind> TrackedCasDigest<Kind> {
     where
         Kind: TrackedCasDigestKind,
     {
-        if data.size == 0 {
+        if data.size() == 0 {
             return Self::empty();
         }
 
@@ -253,11 +262,11 @@ impl<Kind> TrackedCasDigest<Kind> {
     }
 
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        &self.inner.data.sha1
+        self.inner.data.sha1()
     }
 
     pub fn size(&self) -> u64 {
-        self.inner.data.size
+        self.inner.data.size()
     }
 
     pub fn expires(&self) -> DateTime<Utc> {
