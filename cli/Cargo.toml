@@ -10,6 +10,7 @@ async-trait = { workspace = true }
 backtrace = { workspace = true }
 blake3 = { workspace = true }
 clap = { workspace = true }
+dirs = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }

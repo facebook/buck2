@@ -34,6 +34,7 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:backtrace",
         "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:dirs",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",

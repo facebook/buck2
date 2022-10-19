@@ -65,12 +65,14 @@ use clap::Parser;
 use dice::cycles::DetectCycles;
 use gazebo::variants::VariantName;
 
+use crate::check_user_allowed::check_user_allowed;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
 
 #[macro_use]
 pub mod panic;
+mod check_user_allowed;
 
 pub mod commands;
 
@@ -168,6 +170,14 @@ pub fn exec(
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
+
+    match &opt.cmd {
+        CommandKind::Clean(..) => {}
+        _ => {
+            check_user_allowed()?;
+        }
+    }
+
     opt.exec(working_dir, &matches, init, replay)
 }
 
