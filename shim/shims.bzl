@@ -36,7 +36,6 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
     build_env = build_env or {}
     build_env.update(
         {
-            "OUT_DIR": "$OUT",
             "PROTOC": "$(exe buck//third-party/proto:protoc)",
             "PROTOC_INCLUDE": "$(location buck//third-party/proto:google_protobuf)",
         },
@@ -49,7 +48,8 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
             "buck//third-party/proto:google_protobuf",
         ],
         env = build_env,
-        cmd = "$(exe :" + build_name + ")",
+        # OUT_DIR is read by tonic-build and depends on the value of $OUT.
+        cmd = "export OUT_DIR=$OUT; $(exe :" + build_name + ")",
         out = ".",
     )
 
