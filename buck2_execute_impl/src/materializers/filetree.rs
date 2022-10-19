@@ -32,23 +32,6 @@ pub type FileTree<V> = DataTree<FileNameBuf, V>;
 /// Tree that stores data in the leaves. Think of the key as the path to the
 /// leaf containing the value. The data/value is of type `V`, and each edge
 /// is of type `K` (making the key to a value a sequence of `K`).
-///
-/// # Example
-/// ```
-/// use buck2_core::fs::paths::{FileNameBuf, ForwardRelativePathBuf};
-/// use buck2_execute_impl::materializers::filetree::DataTree;
-///
-/// let path = ForwardRelativePathBuf::unchecked_new("foo/bar".to_owned());
-/// let contents = "contents_of_foobar".to_owned();
-///
-/// let mut file_path_to_contents: DataTree<FileNameBuf, String> = DataTree::new();
-/// file_path_to_contents.insert(
-///     path.iter().map(|f| f.to_owned()),
-///     contents.clone(),
-/// );
-///
-/// assert_eq!(file_path_to_contents.prefix_get_mut(&mut path.iter()).as_deref(), Some(&contents));
-/// ```
 /// TODO(scottcao): This trie is not implemented properly. It should be merged into the directory trie
 /// we have at buck2_core/src/directory.
 #[derive(Debug)]
@@ -251,6 +234,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use assert_matches::assert_matches;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
 
     use super::*;
 
@@ -301,6 +285,22 @@ mod tests {
             .collect::<BTreeMap<_, _>>();
 
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_get() {
+        let path = ForwardRelativePathBuf::unchecked_new("foo/bar".to_owned());
+        let contents = "contents_of_foobar".to_owned();
+
+        let mut file_path_to_contents: DataTree<FileNameBuf, String> = DataTree::new();
+        file_path_to_contents.insert(path.iter().map(|f| f.to_owned()), contents.clone());
+
+        assert_eq!(
+            file_path_to_contents
+                .prefix_get_mut(&mut path.iter())
+                .as_deref(),
+            Some(&contents)
+        );
     }
 
     #[test]
