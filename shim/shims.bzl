@@ -14,6 +14,11 @@ def rust_binary(unittests = None, deps = [], **kwargs):
 
 def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps = None):
     deps = _fix_deps(deps) if deps else None
+    if build_env:
+        build_env = {
+            k: _fix_dep_in_string(v)
+            for k, v in build_env.items()
+        }
 
     build_name = name + "-build"
     proto_name = name + "-proto"
@@ -103,3 +108,8 @@ def _fix_dep(x: "string") -> [None, "string"]:
         return "root//" + x.removeprefix("//buck2/")
     else:
         return x
+
+def _fix_dep_in_string(x: "string") -> "string":
+    """Replace internal labels in string values such as env-vars."""
+    return (x
+        .replace("//buck2/", "root//"))
