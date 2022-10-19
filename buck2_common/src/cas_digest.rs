@@ -108,7 +108,7 @@ impl<Kind> CasDigest<Kind> {
 pub trait TrackedCasDigestKind: Sized + 'static {
     /// This needs to be a concrete implementation since we share the empty instance in a static
     /// but we can't have static generics.
-    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>>;
+    fn cell_for_empty_digest() -> Option<&'static OnceCell<TrackedCasDigest<Self>>>;
 }
 
 #[derive(Display)]
@@ -247,14 +247,18 @@ impl<Kind> TrackedCasDigest<Kind> {
     where
         Kind: TrackedCasDigestKind,
     {
-        Kind::cell_for_empty_digest()
-            .get_or_init(|| Self {
-                inner: Arc::new(TrackedCasDigestInner {
-                    data: CasDigest::empty(),
-                    expires: AtomicI64::new(0),
-                }),
-            })
-            .dupe()
+        let make = || Self {
+            inner: Arc::new(TrackedCasDigestInner {
+                data: CasDigest::empty(),
+                expires: AtomicI64::new(0),
+            }),
+        };
+
+        if let Some(cell) = Kind::cell_for_empty_digest() {
+            return cell.get_or_init(make).dupe();
+        }
+
+        make()
     }
 
     pub fn data(&self) -> &CasDigest<Kind> {

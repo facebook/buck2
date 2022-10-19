@@ -17,9 +17,9 @@ pub struct ActionDigestKind {
 }
 
 impl TrackedCasDigestKind for ActionDigestKind {
-    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>> {
-        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<ActionDigestKind>> = OnceCell::new();
-        &EMPTY_DIGEST
+    fn cell_for_empty_digest() -> Option<&'static OnceCell<TrackedCasDigest<Self>>> {
+        // No reason to optimize "empty" actions.
+        None
     }
 }
 

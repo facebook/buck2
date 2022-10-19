@@ -106,9 +106,9 @@ pub struct FileDigestKind {
 }
 
 impl TrackedCasDigestKind for FileDigestKind {
-    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>> {
+    fn cell_for_empty_digest() -> Option<&'static OnceCell<TrackedCasDigest<Self>>> {
         static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
-        &EMPTY_DIGEST
+        Some(&EMPTY_DIGEST)
     }
 }
 
