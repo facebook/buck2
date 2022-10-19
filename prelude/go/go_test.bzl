@@ -24,7 +24,7 @@ def _gen_test_main(
     if coverage_vars:
         pkg_vars = cmd_args(delimiter = ",")
         for var_name, src in coverage_vars.items():
-            pkg_vars.add(cmd_args(var_name, src, delimiter = "="))
+            pkg_vars.add(cmd_args(var_name, src.short_path, delimiter = "="))
         cmd.add("--cover-pkgs", cmd_args(pkg_vars, format = pkg_name + ":{}"))
     cmd.add(srcs)
     ctx.actions.run(cmd, category = "go_test_main_gen")
