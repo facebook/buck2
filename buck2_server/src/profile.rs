@@ -199,7 +199,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
         )
         .await?;
 
-        let profile = profile_data.profile_data.profile.gen()?;
+        let profile = profile_data.profile_data.gen()?;
         fs_util::write(&output, profile).context("Failed to write profile")?;
 
         Ok(cli_proto::ProfileResponse {

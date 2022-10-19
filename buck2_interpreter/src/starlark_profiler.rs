@@ -54,16 +54,10 @@ impl StarlarkProfilerInstrumentation {
     }
 }
 
-/// Collected profile data.
-#[derive(Debug)]
-pub struct StarlarkProfileData {
-    pub profile: ProfileData,
-}
-
 #[derive(Debug)]
 pub struct StarlarkProfileDataAndStats {
     profile_mode: ProfileMode,
-    pub profile_data: StarlarkProfileData,
+    pub profile_data: ProfileData,
     initialized_at: Instant,
     finalized_at: Instant,
     total_retained_bytes: usize,
@@ -97,9 +91,7 @@ impl StarlarkProfileDataAndStats {
             total_retained_bytes += data.total_retained_bytes;
         }
 
-        let profile_data = StarlarkProfileData {
-            profile: ProfileData::merge(datas.into_iter().map(|data| &data.profile_data.profile))?,
-        };
+        let profile_data = ProfileData::merge(datas.into_iter().map(|data| &data.profile_data))?;
 
         Ok(StarlarkProfileDataAndStats {
             profile_mode,
@@ -119,7 +111,7 @@ pub struct StarlarkProfiler {
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
-    profile_data: Option<StarlarkProfileData>,
+    profile_data: Option<ProfileData>,
     total_retained_bytes: Option<usize>,
 }
 
@@ -175,9 +167,7 @@ impl StarlarkProfiler {
             self.profile_mode,
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
         ) {
-            self.profile_data = Some(StarlarkProfileData {
-                profile: eval.gen_profile()?,
-            });
+            self.profile_data = Some(eval.gen_profile()?);
         }
         Ok(())
     }
@@ -191,7 +181,7 @@ impl StarlarkProfiler {
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
                 let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
                 let profile = module.heap_profile()?;
-                self.profile_data = Some(StarlarkProfileData { profile });
+                self.profile_data = Some(profile);
             }
             _ => {}
         }
