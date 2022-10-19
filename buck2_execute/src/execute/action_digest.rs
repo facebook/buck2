@@ -7,15 +7,10 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::TrackedFileDigest;
-use derive_more::Display;
-use gazebo::dupe::Dupe;
+use buck2_common::cas_digest::CasDigest;
 
-#[derive(Display, Debug, Clone, Dupe)]
-pub struct ActionDigest(pub TrackedFileDigest);
-
-impl ActionDigest {
-    pub fn as_digest(&self) -> &TrackedFileDigest {
-        &self.0
-    }
+pub struct ActionDigestKind {
+    _private: (),
 }
+
+pub type ActionDigest = CasDigest<ActionDigestKind>;

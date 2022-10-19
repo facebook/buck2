@@ -21,6 +21,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::ForwardRelativePath;
+use gazebo::coerce::coerce;
 use gazebo::prelude::*;
 use remote_execution as RE;
 
@@ -29,7 +30,6 @@ use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
-use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
@@ -250,9 +250,9 @@ fn re_create_action(
         do_not_cache,
     };
 
-    let action = ActionDigest(prepared_blobs.add_protobuf_message(&action));
+    let action = prepared_blobs.add_protobuf_message(&action);
     PreparedAction {
-        action,
+        action: coerce(action.data().dupe()),
         blobs: prepared_blobs,
     }
 }

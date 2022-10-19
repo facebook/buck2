@@ -206,7 +206,7 @@ impl CachingExecutor {
             buck2_data::CacheUploadStart {
                 key: Some(target.action_key.as_proto()),
                 name: Some(name.clone()),
-                action_digest: digest.as_digest().to_string(),
+                action_digest: digest.to_string(),
             },
             async move {
                 let mut file_digests = Vec::new();
@@ -242,7 +242,7 @@ impl CachingExecutor {
                     buck2_data::CacheUploadEnd {
                         key: Some(target.action_key.as_proto()),
                         name: Some(name),
-                        action_digest: digest.as_digest().to_string(),
+                        action_digest: digest.to_string(),
                         success,
                         error,
                         file_digests,
@@ -408,7 +408,7 @@ impl CachingExecutor {
         };
 
         self.re_client
-            .write_action_result(digest.as_digest().to_re(), result, self.re_use_case())
+            .write_action_result(digest.to_re(), result, self.re_use_case())
             .await?;
 
         Ok(CacheUploadOutcome::Success)

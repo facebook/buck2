@@ -1149,9 +1149,7 @@ impl DeferredMaterializerCommandProcessor {
                 event_dispatcher
                     .span_async(
                         buck2_data::MaterializationStart {
-                            action_digest: info
-                                .action_digest()
-                                .map(|digest| digest.as_digest().to_string()),
+                            action_digest: info.action_digest().map(|digest| digest.to_string()),
                         },
                         async {
                             let res = async {
@@ -1182,7 +1180,7 @@ impl DeferredMaterializerCommandProcessor {
                                     path: path.as_str().to_owned(),
                                     action_digest: info
                                         .action_digest()
-                                        .map(|digest| digest.as_digest().to_string()),
+                                        .map(|digest| digest.to_string()),
                                     success: error.is_none(),
                                     error,
                                 },

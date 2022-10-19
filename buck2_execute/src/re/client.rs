@@ -667,7 +667,7 @@ impl RemoteExecutionClientImpl {
             .get_action_result(
                 use_case.metadata(),
                 ActionResultRequest {
-                    digest: action_digest.0.to_re(),
+                    digest: action_digest.to_re(),
                     ..Default::default()
                 },
             )
@@ -867,7 +867,7 @@ impl RemoteExecutionClientImpl {
                 priority: if self.skip_remote_cache { 0 } else { i32::MAX },
                 ..Default::default()
             }),
-            action_digest: action_digest.0.to_re(),
+            action_digest: action_digest.to_re(),
             ..Default::default()
         };
         self.execute_action_with_retry(metadata, request, &action_digest, manager)

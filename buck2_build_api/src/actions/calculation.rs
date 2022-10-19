@@ -886,7 +886,7 @@ mod tests {
             claim: None,
             status: CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::Local {
-                    digest: ActionDigest(TrackedFileDigest::empty()),
+                    digest: ActionDigest::empty(),
                     command: vec![],
                     env: hashmap![],
                 },
@@ -911,7 +911,7 @@ mod tests {
 
         report.status = CommandExecutionStatus::Failure {
             execution_kind: CommandExecutionKind::Local {
-                digest: ActionDigest(TrackedFileDigest::empty()),
+                digest: ActionDigest::empty(),
                 command: vec![],
                 env: hashmap![],
             },
