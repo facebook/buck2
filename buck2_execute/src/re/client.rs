@@ -63,7 +63,7 @@ use remote_execution::WriteActionResultRequest;
 use tokio::sync::Semaphore;
 use tracing::warn;
 
-use crate::digest::FileDigestToReExt;
+use crate::digest::CasDigestToReExt;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;

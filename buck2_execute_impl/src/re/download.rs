@@ -20,7 +20,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest::FileDigestFromReExt;
+use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;

@@ -18,7 +18,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest::FileDigestToReExt;
+use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use chrono::DateTime;

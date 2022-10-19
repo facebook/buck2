@@ -26,7 +26,7 @@ use remote_execution as RE;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact::fs::ExecutorFs;
-use crate::digest::FileDigestToReExt;
+use crate::digest::CasDigestToReExt;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
 use crate::execute::action_digest::ActionDigest;

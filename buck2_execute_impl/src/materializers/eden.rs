@@ -21,7 +21,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest::FileDigestToReExt;
+use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;

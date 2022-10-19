@@ -47,9 +47,9 @@ use remote_execution as RE;
 use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
+use crate::digest::CasDigestFromReExt;
+use crate::digest::CasDigestToReExt;
 use crate::digest::FileDigestFromProtoExt;
-use crate::digest::FileDigestFromReExt;
-use crate::digest::FileDigestToReExt;
 
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
     Lazy::new(DashMapDirectoryInterner::new);

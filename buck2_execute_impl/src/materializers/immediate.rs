@@ -19,7 +19,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest::FileDigestToReExt;
+use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;

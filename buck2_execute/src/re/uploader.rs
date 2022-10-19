@@ -33,8 +33,8 @@ use remote_execution::TCode;
 use remote_execution::TDigest;
 use remote_execution::UploadRequest;
 
-use crate::digest::FileDigestFromReExt;
-use crate::digest::FileDigestToReExt;
+use crate::digest::CasDigestFromReExt;
+use crate::digest::CasDigestToReExt;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionFingerprintedDirectory;
 use crate::directory::ActionImmutableDirectory;

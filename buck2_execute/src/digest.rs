@@ -7,24 +7,24 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::cas_digest::CasDigest;
+use buck2_common::cas_digest::TrackedCasDigest;
 
 pub type ReDigest = remote_execution::TDigest;
 
 pub type GrpcDigest = remote_execution::Digest;
 
-pub trait FileDigestFromReExt {
+pub trait CasDigestFromReExt {
     fn from_re(x: &ReDigest) -> Self;
     fn from_grpc(x: &GrpcDigest) -> Self;
 }
 
-pub trait FileDigestToReExt {
+pub trait CasDigestToReExt {
     fn to_re(&self) -> ReDigest;
     fn to_grpc(&self) -> GrpcDigest;
 }
 
-impl FileDigestFromReExt for FileDigest {
+impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
     fn from_re(x: &ReDigest) -> Self {
         Self::new(
             Self::parse_digest(x.hash.as_bytes())
@@ -42,7 +42,7 @@ impl FileDigestFromReExt for FileDigest {
     }
 }
 
-impl FileDigestToReExt for TrackedFileDigest {
+impl<Kind> CasDigestToReExt for TrackedCasDigest<Kind> {
     fn to_re(&self) -> ReDigest {
         ReDigest {
             hash: hex::encode(self.sha1()),
@@ -59,7 +59,7 @@ impl FileDigestToReExt for TrackedFileDigest {
     }
 }
 
-impl FileDigestToReExt for FileDigest {
+impl<Kind> CasDigestToReExt for CasDigest<Kind> {
     fn to_re(&self) -> ReDigest {
         ReDigest {
             hash: hex::encode(self.sha1()),
@@ -80,7 +80,7 @@ pub trait FileDigestFromProtoExt {
     fn from_proto_message<M: prost::Message>(m: &M) -> Self;
 }
 
-impl FileDigestFromProtoExt for FileDigest {
+impl<Kind> FileDigestFromProtoExt for CasDigest<Kind> {
     fn from_proto_message<M: prost::Message>(m: &M) -> Self {
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)

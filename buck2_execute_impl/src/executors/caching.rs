@@ -20,7 +20,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_execute::digest::FileDigestToReExt;
+use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
