@@ -1,4 +1,4 @@
-load(":defs.bzl", "test_expect", "test_label_matches_build_target_pattern", "test_parse_build_target_pattern")
+load(":defs.bzl", "test_expect", "test_label_matches_build_target_pattern", "test_parse_build_target_pattern", "test_set")
 
 test_parse_build_target_pattern(
     name = "test_build_target_pattern_parsing",
@@ -113,4 +113,8 @@ test_label_matches_build_target_pattern(
 test_expect(
     name = "test_expect_pass",
     fail = False,
+)
+
+test_set(
+    name = "test_set",
 )

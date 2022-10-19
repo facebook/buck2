@@ -3,6 +3,7 @@ load(
     "label_matches_build_target_pattern",
     "parse_build_target_pattern",
 )
+load("@prelude//utils:set_record.bzl", "set", "set_type")
 load("@prelude//utils:utils.bzl", "expect")
 
 def _test_parse_build_target_pattern_impl(ctx):
@@ -67,4 +68,42 @@ test_expect = rule(
         "fail": attrs.bool(),
         "message": attrs.option(attrs.string(), default = None),
     },
+)
+
+# Note, the type() will always return "record", but the typing system maps "set_type" to "set_record.type"
+# and errors if a different type is used.
+def _set_type_helper(test_set: set_type) -> None:
+    expect(type(test_set) == "record", "Expected the type for the set to be record, got {} instead.", type(test_set))
+
+def _test_set(_ctx):
+    # @lint-ignore BUCKRESTRICTEDSYNTAX
+    test_set = set()
+
+    test_set.add(1)
+
+    expect(test_set.size() == 1, "Wrong size for set, got {} when expecting 1", test_set.size())
+
+    expect(test_set.add(1) == True, "Expected return value of True for add")
+
+    expect(test_set.contains(2) == False, "Expected return value of False for contains")
+
+    expect(test_set.remove(3) == False, "Expected return value of False for remove")
+
+    test_set.add(4)
+    expect(test_set.remove(4) == True, "Expected return value of True for remove")
+
+    expect(test_set.list() == [1], "Expected set list to be [1], got {}", test_set.list())
+
+    added_values = test_set.update([1, 5, 6])
+    expect(added_values == [5, 6], "Expected update to return [5, 6], but got {}", added_values)
+    expect(test_set.size() == 3, "Wrong size for set, got {} when expecting 3", test_set.size())
+    expect(test_set.list() == [1, 5, 6], "Expected set list to be [1, 5 , 6], got {}", test_set.list())
+
+    _set_type_helper(test_set)
+
+    return [DefaultInfo()]
+
+test_set = rule(
+    impl = _test_set,
+    attrs = {},
 )
