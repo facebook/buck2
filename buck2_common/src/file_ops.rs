@@ -139,18 +139,10 @@ impl FileDigest {
         self.size
     }
 
-    // Precondition: Must be exactly SHA1_SIZE bytes or will panic
-    fn mk_sha1(data: &[u8]) -> [u8; SHA1_SIZE] {
-        let mut sha1 = [0; SHA1_SIZE];
-        sha1.copy_from_slice(data);
-        sha1
-    }
-
     pub fn parse_digest(data: &[u8]) -> Option<[u8; SHA1_SIZE]> {
-        if data.len() != SHA1_SIZE * 2 {
-            return None;
-        }
-        Some(Self::mk_sha1(&hex::decode(data).ok()?))
+        let mut sha1 = [0; SHA1_SIZE];
+        hex::decode_to_slice(data, &mut sha1).ok()?;
+        Some(sha1)
     }
 
     /// Obtain the digest of the file if you can.
