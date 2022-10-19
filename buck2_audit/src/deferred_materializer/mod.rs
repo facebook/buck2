@@ -27,6 +27,7 @@ pub struct DeferredMaterializerCommand {
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 enum DeferredMaterializerSubcommand {
     List,
+    Refresh,
 }
 
 #[async_trait]
@@ -36,16 +37,16 @@ impl AuditSubcommand for DeferredMaterializerCommand {
         server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
-        match self.subcommand {
-            DeferredMaterializerSubcommand::List => {
-                server_ctx
-                    .with_dice_ctx(move |mut server_ctx, dice| async move {
-                        let materializer = dice.per_transaction_data().get_materializer();
+        server_ctx
+            .with_dice_ctx(move |mut server_ctx, dice| async move {
+                let materializer = dice.per_transaction_data().get_materializer();
 
-                        let deferred_materializer = materializer
-                            .as_deferred_materializer_extension()
-                            .context("Deferred materializer is not in use")?;
+                let deferred_materializer = materializer
+                    .as_deferred_materializer_extension()
+                    .context("Deferred materializer is not in use")?;
 
+                match self.subcommand {
+                    DeferredMaterializerSubcommand::List => {
                         let mut stream = deferred_materializer
                             .iterate()
                             .context("Failed to start iterating")?;
@@ -55,12 +56,17 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                         while let Some((path, entry)) = stream.next().await {
                             writeln!(stdout, "{}\t{}\n", path, entry)?;
                         }
+                    }
+                    DeferredMaterializerSubcommand::Refresh => {
+                        deferred_materializer
+                            .refresh_ttls()
+                            .context("Failed to refresh")?;
+                    }
+                }
 
-                        anyhow::Ok(())
-                    })
-                    .await
-            }
-        }
+                anyhow::Ok(())
+            })
+            .await
     }
 
     fn common_opts(&self) -> &AuditCommandCommonOptions {

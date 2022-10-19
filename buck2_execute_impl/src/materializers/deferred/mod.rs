@@ -734,7 +734,7 @@ impl DeferredMaterializerCommandProcessor {
                     );
                     next_version += 1;
                 }
-                MaterializerCommand::Extension(ext) => ext.execute(&tree),
+                MaterializerCommand::Extension(ext) => ext.execute(&tree, &self.re_client_manager),
             }
         }
     }

@@ -30,7 +30,6 @@ use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
-use crate::execute::action_digest::ActionDigest;
 use crate::execute::action_digest::TrackedActionDigest;
 #[cfg(any(fbcode_build, cargo_internal_build))]
 use crate::materialize::eden_api::EdenBuckOut;
@@ -420,11 +419,9 @@ impl CasDownloadInfo {
         }
     }
 
-    pub fn action_digest(&self) -> Option<ActionDigest> {
+    pub fn action_digest(&self) -> Option<&TrackedActionDigest> {
         match &self.origin {
-            CasDownloadInfoOrigin::Execution { action_digest, .. } => {
-                Some(action_digest.data().dupe())
-            }
+            CasDownloadInfoOrigin::Execution { action_digest, .. } => Some(action_digest),
             CasDownloadInfoOrigin::Declared => None,
         }
     }
@@ -557,4 +554,6 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
     ) -> anyhow::Result<
         BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
     >;
+
+    fn refresh_ttls(&self) -> anyhow::Result<()>;
 }
