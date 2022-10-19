@@ -203,18 +203,6 @@ async fn check_execution_platform(
     Ok(Ok(()))
 }
 
-async fn get_execution_platforms_non_empty(
-    ctx: &DiceComputations,
-) -> anyhow::Result<Arc<Vec<ExecutionPlatform>>> {
-    match ctx.get_execution_platforms().await? {
-        // The caller should've verified that some execution platforms are configured.
-        None => unreachable!(
-            "execution platform resolution should only be invoked when execution platforms are configured"
-        ),
-        Some(v) => Ok(v),
-    }
-}
-
 async fn resolve_toolchain_constraints_from_constraints(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
@@ -223,7 +211,12 @@ async fn resolve_toolchain_constraints_from_constraints(
     toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ToolchainConstraints> {
     let mut incompatible = SmallMap::new();
-    for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
+    for exec_platform in ctx
+        .get_execution_platforms()
+        .await?
+        .context("Execution platforms are not enabled")?
+        .iter()
+    {
         if let Err(e) = check_execution_platform(
             ctx,
             target.pkg().cell_name(),
@@ -251,7 +244,12 @@ async fn resolve_execution_platform_from_constraints(
     toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
-    for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
+    for exec_platform in ctx
+        .get_execution_platforms()
+        .await?
+        .context("Execution platforms are not enabled")?
+        .iter()
+    {
         match check_execution_platform(
             ctx,
             target_node_cell,
