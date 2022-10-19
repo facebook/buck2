@@ -1,4 +1,6 @@
-load("//build_defs:rust_binary.bzl", "rust_binary")
+load(
+    "//:shims.bzl",
+    _rust_binary = "rust_binary",
+)
 
-def buck_rust_binary(**kwargs):
-    rust_binary(**kwargs)
+buck_rust_binary = _rust_binary
