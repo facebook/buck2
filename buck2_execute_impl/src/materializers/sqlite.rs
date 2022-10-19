@@ -164,16 +164,16 @@ impl TryFrom<ArtifactMetadataSqliteEntry> for ArtifactMetadata {
                 })
             })?;
 
-            let file_digest = FileDigest {
-                size,
+            let file_digest = FileDigest::new(
                 // Converts Vec<u8> to [u8; SHA1_LENGTH]
-                sha1: sha1.try_into().map_err(|v: Vec<u8>| {
+                sha1.try_into().map_err(|v: Vec<u8>| {
                     anyhow::anyhow!(
                         "Internal error: cannot vec of bytes of len {} to a sha1",
                         v.len()
                     )
                 })?,
-            };
+                size,
+            );
             Ok(TrackedFileDigest::new(file_digest))
         }
 

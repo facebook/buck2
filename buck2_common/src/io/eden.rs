@@ -218,19 +218,17 @@ impl IoProvider for EdenIoProvider {
         {
             Ok(data) => {
                 tracing::debug!("getAttributesFromFiles({}): ok", path,);
-                let digest = FileDigest {
-                    sha1: data
-                        .sha1
+                let digest = FileDigest::new(
+                    data.sha1
                         .context("Eden did not return a sha1")?
                         .try_into()
                         .ok()
                         .context("Eden returned an invalid sha1")?,
-                    size: data
-                        .fileSize
+                    data.fileSize
                         .context("Eden did not return a fileSize")?
                         .try_into()
                         .context("Eden returned an invalid fileSize")?,
-                };
+                );
 
                 let digest = TrackedFileDigest::new(digest);
 

@@ -26,19 +26,19 @@ pub trait FileDigestToReExt {
 
 impl FileDigestFromReExt for FileDigest {
     fn from_re(x: &ReDigest) -> Self {
-        Self {
-            sha1: Self::parse_digest(x.hash.as_bytes())
+        Self::new(
+            Self::parse_digest(x.hash.as_bytes())
                 .unwrap_or_else(|| panic!("Invalid ReDigest {}:{}", x.hash, x.size_in_bytes)),
-            size: x.size_in_bytes as u64,
-        }
+            x.size_in_bytes as u64,
+        )
     }
 
     fn from_grpc(x: &GrpcDigest) -> Self {
-        Self {
-            sha1: Self::parse_digest(x.hash.as_bytes())
+        Self::new(
+            Self::parse_digest(x.hash.as_bytes())
                 .unwrap_or_else(|| panic!("Invalid GrpcDigest {}:{}", x.hash, x.size_bytes)),
-            size: x.size_bytes as u64,
-        }
+            x.size_bytes as u64,
+        )
     }
 }
 
@@ -62,16 +62,16 @@ impl FileDigestToReExt for TrackedFileDigest {
 impl FileDigestToReExt for FileDigest {
     fn to_re(&self) -> ReDigest {
         ReDigest {
-            hash: hex::encode(self.sha1),
-            size_in_bytes: self.size as i64,
+            hash: hex::encode(self.sha1()),
+            size_in_bytes: self.size() as i64,
             ..Default::default()
         }
     }
 
     fn to_grpc(&self) -> GrpcDigest {
         GrpcDigest {
-            hash: hex::encode(self.sha1),
-            size_bytes: self.size as i64,
+            hash: hex::encode(self.sha1()),
+            size_bytes: self.size() as i64,
         }
     }
 }

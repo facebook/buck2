@@ -114,8 +114,8 @@ const SHA1_SIZE: usize = 20;
 #[derive(Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
 pub struct FileDigest {
-    pub size: u64,
-    pub sha1: [u8; SHA1_SIZE],
+    size: u64,
+    sha1: [u8; SHA1_SIZE],
 }
 
 impl fmt::Debug for FileDigest {
@@ -127,6 +127,18 @@ impl fmt::Debug for FileDigest {
 impl Dupe for FileDigest {}
 
 impl FileDigest {
+    pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
+        Self { size, sha1 }
+    }
+
+    pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
+        &self.sha1
+    }
+
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+
     // Precondition: Must be exactly SHA1_SIZE bytes or will panic
     fn mk_sha1(data: &[u8]) -> [u8; SHA1_SIZE] {
         let mut sha1 = [0; SHA1_SIZE];

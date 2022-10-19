@@ -1527,10 +1527,7 @@ impl<V: 'static> WithPathsIterator<FileNameBuf, V> for FileTreeIntoIterator<V> {
 fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
     // This has to be of size 1 since size 0 will result in the RE client just producing an empty
     // instead of a not-found error.
-    static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest {
-        sha1: [0; 20],
-        size: 1,
-    });
+    static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest::new([0; 20], 1));
 
     fn convert_digests(val: &str) -> anyhow::Result<HashSet<FileDigest>> {
         val.split(' ')

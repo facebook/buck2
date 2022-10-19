@@ -171,7 +171,7 @@ impl DownloadFileAction {
 
         match content_length {
             Some(length) => {
-                let digest = TrackedFileDigest::new(FileDigest { sha1, size: length });
+                let digest = TrackedFileDigest::new(FileDigest::new(sha1, length));
                 Ok(Some(FileMetadata {
                     digest,
                     is_executable: self.inner.is_executable,

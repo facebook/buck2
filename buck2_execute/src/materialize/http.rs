@@ -295,10 +295,10 @@ pub async fn http_download(
                 .map_err(HttpDownloadError::IoError)?;
         }
 
-        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(FileDigest {
-            sha1: FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
-            size: file_len,
-        }))
+        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(FileDigest::new(
+            FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
+            file_len,
+        )))
     })
     .await?)
 }
