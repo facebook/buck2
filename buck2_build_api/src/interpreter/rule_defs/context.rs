@@ -113,10 +113,10 @@ enum CasArtifactError {
 #[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "<ctx.actions>")]
 pub struct AnalysisActions<'v> {
-    // Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
-    // we can take the internal state without having to clone it.
+    /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
+    /// we can take the internal state without having to clone it.
     pub state: RefCell<Option<AnalysisRegistry<'v>>>,
-    // Copies from the ctx, so we can capture them for `dynamic`.
+    /// Copies from the ctx, so we can capture them for `dynamic`.
     pub attributes: Value<'v>,
 }
 
