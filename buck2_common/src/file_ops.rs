@@ -274,7 +274,7 @@ impl FileDigest {
 }
 
 #[derive(Error, Debug)]
-pub enum FileDigestFromStrError {
+pub enum CasDigestFromStrError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
     MissingSizeSeparator,
 
@@ -285,19 +285,19 @@ pub enum FileDigestFromStrError {
     InvalidSize(#[source] std::num::ParseIntError),
 }
 
-impl FromStr for FileDigest {
-    type Err = FileDigestFromStrError;
+impl<Kind> FromStr for CasDigest<Kind> {
+    type Err = CasDigestFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (sha1, size) = s
             .split_once(':')
-            .ok_or(FileDigestFromStrError::MissingSizeSeparator)?;
+            .ok_or(CasDigestFromStrError::MissingSizeSeparator)?;
 
-        let sha1 =
-            FileDigest::parse_digest(sha1.as_bytes()).ok_or(FileDigestFromStrError::InvalidSha1)?;
-        let size = size.parse().map_err(FileDigestFromStrError::InvalidSize)?;
+        let sha1 = CasDigest::<Kind>::parse_digest(sha1.as_bytes())
+            .ok_or(CasDigestFromStrError::InvalidSha1)?;
+        let size = size.parse().map_err(CasDigestFromStrError::InvalidSize)?;
 
-        Ok(FileDigest::new(sha1, size))
+        Ok(CasDigest::new(sha1, size))
     }
 }
 
