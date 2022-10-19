@@ -717,8 +717,7 @@ async def test_config_setting(buck: Buck) -> None:
     )
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_if_windows=True)
+@buck_test(inplace=True)
 async def test_python_bootstrap(buck: Buck) -> None:
     await buck.run("//buck2/tests/targets/rules/python_bootstrap:hello", get_mode())
     await buck.run(
