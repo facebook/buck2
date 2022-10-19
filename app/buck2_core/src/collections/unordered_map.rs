@@ -73,7 +73,9 @@ impl<K: Hash, V: Hash> Hash for UnorderedMap<K, V> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.len().hash(state);
         let mut sum: u64 = 0;
-        for e in self.0.iter() {
+        // Note, we use `iter_hashed` not iter,
+        // so we reuse hashes of keys and skip hashing them again.
+        for e in self.0.iter_hashed() {
             let mut hasher = StarlarkHasher::new();
             e.hash(&mut hasher);
             sum = sum.wrapping_add(hasher.finish());
