@@ -50,6 +50,7 @@ use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
+use starlark::values::structs::Struct;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -134,7 +135,7 @@ impl<'v> BxlContext<'v> {
             async_ctx,
             state: ValueTyped::new(heap.alloc(AnalysisActions {
                 state: RefCell::new(None),
-                attributes: Value::new_none(),
+                attributes: heap.alloc(Struct::default()),
             }))
             .unwrap(),
             output_stream: ValueTyped::new(heap.alloc(OutputStream::new(
