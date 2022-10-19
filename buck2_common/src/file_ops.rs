@@ -1179,8 +1179,8 @@ mod tests {
             let d5 = FileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
                 .context("recurse_recurse_link")?;
 
-            assert_eq!(d1.sha1, [0; SHA1_SIZE]);
-            assert_eq!(d1.size, 3);
+            assert_eq!(d1.sha1(), &[0; SHA1_SIZE]);
+            assert_eq!(d1.size(), 3);
             assert_eq!(d1, d2);
             assert_eq!(d1, d3);
             assert_eq!(d1, d4);
