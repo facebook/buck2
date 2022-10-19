@@ -13,7 +13,7 @@ def rust_binary(unittests = None, deps = [], **kwargs):
     native.rust_binary(deps = filter(None, map(_fix_dep, deps)), **kwargs)
 
 def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps = None):
-    deps = map(_fix_dep, deps) if deps else None
+    deps = _fix_deps(deps) if deps else None
 
     build_name = name + "-build"
     proto_name = name + "-proto"
