@@ -175,7 +175,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
 #[display(fmt = "<ctx>")]
 pub struct AnalysisContext<'v> {
     attributes: Value<'v>, // A struct
-    actions: Value<'v>,    // AnalysisActions
+    actions: ValueTyped<'v, AnalysisActions<'v>>,
     label: Option<ValueTyped<'v, Label<'v>>>,
 }
 
@@ -209,7 +209,7 @@ impl<'v> AnalysisContext<'v> {
 
         Self {
             attributes,
-            actions: heap.alloc(AnalysisActions {
+            actions: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(Some(registry)),
                 attributes,
             }),
@@ -223,8 +223,6 @@ impl<'v> AnalysisContext<'v> {
             .downcast_ref::<AnalysisContext>()
             .expect("ctx was an AnalysisContext")
             .actions
-            .downcast_ref::<AnalysisActions>()
-            .expect("ctx.actions to be AnalysisActions")
             .state
             .borrow_mut()
             .take()
@@ -288,7 +286,9 @@ fn register_context(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn actions<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
+    fn actions<'v>(
+        this: RefAnalysisContext,
+    ) -> anyhow::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.0.actions)
     }
 
