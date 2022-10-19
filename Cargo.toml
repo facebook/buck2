@@ -108,6 +108,7 @@ hostname = "^0.3"
 indent_write = "2.2.0"
 indexmap = { version = "1.9.1", features = ["serde-1"] }
 indoc = "1.0.3"
+inferno = "0.11.11"
 internment = "0.4.0"
 inventory = "0.1.10"
 itertools = "0.10.3"

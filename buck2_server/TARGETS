@@ -18,6 +18,7 @@ rust_library(
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:flate2",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:inferno",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:lsp-server",

@@ -118,11 +118,15 @@ pub(crate) fn starlark_profiler_configuration_from_request(
         cli_proto::profile_request::Profiler::from_i32(req.profiler).context("Invalid profiler")?;
 
     let profile_mode = match profiler_proto {
-        Profiler::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
-        Profiler::HeapFlameRetained => ProfileMode::HeapFlameRetained,
+        Profiler::HeapFlameAllocated | Profiler::HeapFlameAllocatedSvg => {
+            ProfileMode::HeapFlameAllocated
+        }
+        Profiler::HeapFlameRetained | Profiler::HeapFlameRetainedSvg => {
+            ProfileMode::HeapFlameRetained
+        }
         Profiler::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
         Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
-        Profiler::TimeFlame => ProfileMode::TimeFlame,
+        Profiler::TimeFlame | Profiler::TimeFlameSvg => ProfileMode::TimeFlame,
         Profiler::Statement => ProfileMode::Statement,
         Profiler::Bytecode => ProfileMode::Bytecode,
         Profiler::BytecodePairs => ProfileMode::BytecodePairs,
@@ -199,7 +203,30 @@ impl ServerCommandTemplate for ProfileServerCommand {
         )
         .await?;
 
-        let profile = profile_data.profile_data.gen()?;
+        let command_profile_mode =
+            cli_proto::profile_request::Profiler::from_i32(self.req.profiler)
+                .context("Invalid profiler")?;
+
+        let profile = match command_profile_mode {
+            Profiler::HeapFlameAllocatedSvg
+            | Profiler::HeapFlameRetainedSvg
+            | Profiler::TimeFlameSvg => {
+                let mut profile = profile_data.profile_data.gen()?;
+                if profile.is_empty() {
+                    // inferno does not like empty flamegraphs.
+                    profile = "empty 1\n".to_owned();
+                }
+                let mut svg = Vec::new();
+                inferno::flamegraph::from_reader(
+                    &mut inferno::flamegraph::Options::default(),
+                    profile.as_bytes(),
+                    &mut svg,
+                )
+                .context("writing SVG from profile data")?;
+                String::from_utf8(svg).context("inferno produced not UTF-8")?
+            }
+            _ => profile_data.profile_data.gen()?,
+        };
         fs_util::write(&output, profile).context("Failed to write profile")?;
 
         Ok(cli_proto::ProfileResponse {
