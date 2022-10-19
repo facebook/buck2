@@ -28,6 +28,14 @@ def process_info_plist(ctx: "context", override_input: ["artifact", None]) -> Ap
     )
     return AppleBundlePart(source = output, destination = AppleBundleDestination("metadata"))
 
+def _get_plist_run_options() -> {str.type: bool.type}:
+    return {
+        # Output is deterministic, so can be cached
+        "allow_cache_upload": True,
+        # plist generation is cheap and fast, RE network overhead not worth it
+        "prefer_local": True,
+    }
+
 def _preprocess_info_plist(ctx: "context") -> "artifact":
     input = ctx.attrs.info_plist
     output = ctx.actions.declare_output("PreprocessedInfo.plist")
@@ -46,7 +54,7 @@ def _preprocess_info_plist(ctx: "context") -> "artifact":
     ])
     if substitutions_json != None:
         command.add(["--substitutions-json", substitutions_json])
-    ctx.actions.run(command, category = "apple_preprocess_info_plist")
+    ctx.actions.run(command, category = "apple_preprocess_info_plist", **_get_plist_run_options())
     return output
 
 def _plist_substitutions_as_json_file(ctx: "context") -> ["artifact", None]:
@@ -71,7 +79,7 @@ def process_plist(ctx: "context", input: "artifact", output: "output_artifact", 
         "--output",
         output,
     ] + override_input_arguments + additional_keys_arguments + override_keys_arguments)
-    ctx.actions.run(command, category = "apple_process_info_plist", identifier = action_id or input.basename)
+    ctx.actions.run(command, category = "apple_process_info_plist", identifier = action_id or input.basename, **_get_plist_run_options())
 
 def _additional_keys_as_json_file(ctx: "context") -> "artifact":
     additional_keys = _info_plist_additional_keys(ctx)
