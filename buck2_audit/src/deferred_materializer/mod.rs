@@ -27,7 +27,11 @@ pub struct DeferredMaterializerCommand {
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 enum DeferredMaterializerSubcommand {
     List,
-    Refresh,
+    Refresh {
+        /// Minimum TTL to require for actions.
+        #[clap()]
+        min_ttl: i64,
+    },
 }
 
 #[async_trait]
@@ -57,9 +61,10 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                             writeln!(stdout, "{}\t{}\n", path, entry)?;
                         }
                     }
-                    DeferredMaterializerSubcommand::Refresh => {
+                    DeferredMaterializerSubcommand::Refresh { min_ttl } => {
                         deferred_materializer
-                            .refresh_ttls()
+                            .refresh_ttls(min_ttl)
+                            .await
                             .context("Failed to refresh")?;
                     }
                 }

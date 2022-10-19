@@ -548,6 +548,7 @@ impl MaterializationMethod {
 pub trait DeferredMaterializerEntry: Send + Sync + std::fmt::Display {}
 
 /// Extensions to the Materializer trait that are only available in the Deferred materializer.
+#[async_trait]
 pub trait DeferredMaterializerExtensions: Send + Sync {
     fn iterate(
         &self,
@@ -555,5 +556,5 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
     >;
 
-    fn refresh_ttls(&self) -> anyhow::Result<()>;
+    async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()>;
 }

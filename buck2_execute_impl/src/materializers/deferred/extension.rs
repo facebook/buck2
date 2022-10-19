@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use anyhow::Context as _;
+use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
@@ -14,6 +16,9 @@ use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
+use tokio::sync::oneshot::Sender;
+use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::ArtifactMaterializationMethod;
@@ -67,13 +72,16 @@ impl ExtensionCommand for Iterate {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-struct RefreshTtls;
+struct RefreshTtls {
+    sender: Sender<Option<JoinHandle<anyhow::Result<()>>>>,
+    min_ttl: i64,
+}
 
 impl ExtensionCommand for RefreshTtls {
     fn execute(self: Box<Self>, tree: &ArtifactTree, re_manager: &Arc<ReConnectionManager>) {
         let mut digests_to_refresh = vec![];
 
-        let ttl_deadline = Utc::now() + Duration::seconds(3600);
+        let ttl_deadline = Utc::now() + Duration::seconds(self.min_ttl);
 
         for (_, data) in tree.iter() {
             match &data.stage {
@@ -91,47 +99,60 @@ impl ExtensionCommand for RefreshTtls {
             }
         }
 
-        if digests_to_refresh.is_empty() {
-            return;
-        }
+        let task = if digests_to_refresh.is_empty() {
+            None
+        } else {
+            let re_manager = re_manager.dupe();
 
-        let re_manager = re_manager.dupe();
+            Some(tokio::task::spawn(async move {
+                let re_connection = re_manager.get_re_connection();
+                let re_client = re_connection.get_client();
+                let re_client = &re_client;
 
-        tokio::task::spawn(async move {
-            let re_connection = re_manager.get_re_connection();
-            let re_client = re_connection.get_client();
-            let re_client = &re_client;
+                futures::future::join_all(digests_to_refresh.iter().map(
+                    |(digest, use_case)| async move {
+                        // A side effect of action cache queries is to refresh the underlying outputs.
+                        match re_client
+                            .action_cache(digest.data().dupe(), *use_case)
+                            .await
+                        {
+                            Ok(Some(res)) => {
+                                let expires = Utc::now() + Duration::seconds(res.ttl);
+                                digest.update_expires(expires);
+                                tracing::debug!(
+                                    "Updated expiry for action `{}`: {}",
+                                    digest,
+                                    expires
+                                )
+                            }
+                            Ok(None) => {
+                                tracing::info!(
+                                    "Action `{}` is referenced by materializer, but expired",
+                                    digest
+                                );
+                            }
+                            Err(e) => {
+                                tracing::info!(
+                                    "Failed to query action cache for action `{}`: {:#}",
+                                    digest,
+                                    e
+                                );
+                            }
+                        }
+                    },
+                ))
+                .await;
 
-            futures::future::join_all(digests_to_refresh.iter().map(
-                |(digest, use_case)| async move {
-                    match re_client
-                        .action_cache(digest.data().dupe(), *use_case)
-                        .await
-                    {
-                        Ok(Some(res)) => {
-                            digest.update_expires(Utc::now() + Duration::seconds(res.ttl));
-                        }
-                        Ok(None) => {
-                            tracing::info!(
-                                "Action `{}` is referenced by materializer, but expired",
-                                digest
-                            );
-                        }
-                        Err(e) => {
-                            tracing::info!(
-                                "Failed to query action cache for action `{}`: {:#}",
-                                digest,
-                                e
-                            );
-                        }
-                    }
-                },
-            ))
-            .await;
-        });
+                // Currently we don't propagate errors back here.
+                Ok(())
+            }))
+        };
+
+        let _ignored = self.sender.send(task);
     }
 }
 
+#[async_trait]
 impl DeferredMaterializerExtensions for DeferredMaterializer {
     fn iterate(
         &self,
@@ -144,9 +165,18 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 
-    fn refresh_ttls(&self) -> anyhow::Result<()> {
-        self.command_sender
-            .send(MaterializerCommand::Extension(box RefreshTtls as _))?;
+    async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender.send(MaterializerCommand::Extension(
+            box RefreshTtls { sender, min_ttl } as _,
+        ))?;
+        match receiver.await.context("No response from materializer")? {
+            Some(task) => task
+                .await
+                .context("Refresh task aborted")?
+                .context("Refresh failed")?,
+            None => {}
+        };
         Ok(())
     }
 }
