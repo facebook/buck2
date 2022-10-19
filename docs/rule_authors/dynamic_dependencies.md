@@ -1,8 +1,8 @@
 # Dynamic dependencies
 
-Dynamic dependencies allow a rule to use information that was not available when the rule was first run at analysis time. Dynamic dependencies in Buck2 are implemented using `dynamic_outputs`, and restricted in their power compared to fully generic dynamic dependencies.
+Dynamic dependencies allow a rule to use information that was not available when the rule was first run at analysis time. Dynamic dependencies in Buck2 are implemented using `dynamic_output`, and restricted in their power compared to fully generic dynamic dependencies.
 
-A rule for a target is run with the attributes of the target, plus the providers of its attribute dependencies, which contain artifacts. Those values (but not the artifact contents) are all available directly and immediately when running the rule. The rule generates providers containing artifacts.  Using `dynamic_outputs`, a rule can read the contents of an artifact to produce new artifacts and bind existing artifacts which were already returned in providers.
+A rule for a target is run with the attributes of the target, plus the providers of its attribute dependencies, which contain artifacts. Those values (but not the artifact contents) are all available directly and immediately when running the rule. The rule generates providers containing artifacts.  Using `dynamic_output`, a rule can read the contents of an artifact to produce new artifacts and bind existing artifacts which were already returned in providers.
 
 Examples of rules requiring dynamic dependencies include:
 

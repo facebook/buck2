@@ -14,7 +14,7 @@ use crate::actions::key::ActionKey;
 pub struct BuildArtifact {
     pub(super) path: BuckOutPath,
     // If two BuildArtifact's have the same path then they are basically the same,
-    // even if the ActionKey differs due to things like dynamic_outputs.
+    // even if the ActionKey differs due to things like `dynamic_output`.
     // TODO(ndmitchell): Clean this up by making it more explicit in ActionKey.
     #[derivative(
         PartialEq = "ignore",
