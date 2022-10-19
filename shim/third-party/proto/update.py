@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """Query recent Github release artifacts for protobuf.
+
+Use this script to update the releases.bzl file that containts metadata about
+protoc releases.
+
+This script is not executed during the regular Buck2 build.
 """
 
 import aiohttp
