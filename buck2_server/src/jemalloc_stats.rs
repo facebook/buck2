@@ -9,7 +9,7 @@
 
 use cli_proto::StatusResponse;
 
-#[cfg(all(unix, not(fbcode_build)))]
+#[cfg(all(unix, not(fbcode_build), not(buck_oss_build)))]
 pub fn jemalloc_stats(response: &mut StatusResponse) {
     use jemalloc_ctl::epoch;
     use jemalloc_ctl::stats;
@@ -29,7 +29,7 @@ pub fn jemalloc_stats(response: &mut StatusResponse) {
     set(&mut response.bytes_retained, stats::retained::read());
 }
 
-#[cfg(not(all(unix, not(fbcode_build))))]
+#[cfg(not(all(unix, not(fbcode_build), not(buck_oss_build))))]
 pub fn jemalloc_stats(_response: &mut StatusResponse) {}
 
 #[cfg(test)]

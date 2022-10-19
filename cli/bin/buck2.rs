@@ -26,8 +26,8 @@ use tracing_subscriber::EnvFilter;
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
 // Making jemalloc the default only when we do a cargo build.
-#[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
-#[cfg(all(unix, not(fbcode_build)))]
+#[cfg_attr(all(unix, not(fbcode_build), not(buck_oss_build)), global_allocator)]
+#[cfg(all(unix, not(fbcode_build), not(buck_oss_build)))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
