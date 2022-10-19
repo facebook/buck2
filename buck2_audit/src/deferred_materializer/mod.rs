@@ -52,8 +52,8 @@ impl AuditSubcommand for DeferredMaterializerCommand {
 
                         let mut stdout = server_ctx.stdout()?;
 
-                        while let Some(path) = stream.next().await {
-                            writeln!(stdout, "{}", path)?;
+                        while let Some((path, entry)) = stream.next().await {
+                            writeln!(stdout, "{}\t{}\n", path, entry)?;
                         }
 
                         anyhow::Ok(())

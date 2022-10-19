@@ -543,7 +543,15 @@ impl MaterializationMethod {
     }
 }
 
+/// This trait provides a level of indirection since the concrete implementation of
+/// `DeferredMaterializerEntry` lives in a crate that depends on this one.
+pub trait DeferredMaterializerEntry: Send + Sync + std::fmt::Display {}
+
 /// Extensions to the Materializer trait that are only available in the Deferred materializer.
 pub trait DeferredMaterializerExtensions: Send + Sync {
-    fn iterate(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>>;
+    fn iterate(
+        &self,
+    ) -> anyhow::Result<
+        BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
+    >;
 }
