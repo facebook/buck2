@@ -10,13 +10,13 @@
 //! Contains the internal support within the attribute framework for `select()`.
 
 use anyhow::Context;
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_interpreter::selector::Selector;
 use buck2_interpreter::selector::SelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;
 use starlark::values::Value;
 use thiserror::Error;
@@ -72,7 +72,7 @@ impl CoercedAttrExr for CoercedAttr {
             match *selector {
                 SelectorGen::Inner(v) => {
                     if let Some(dict) = Dict::from_value(v) {
-                        let mut items = SmallMap::with_capacity(dict.len());
+                        let mut items = OrderedMap::with_capacity(dict.len());
                         let mut default = None;
                         for (k, v) in dict.iter() {
                             let k = k.unpack_str().ok_or_else(|| {
@@ -147,37 +147,49 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use gazebo::prelude::Dupe;
-    use starlark::collections::SmallMap;
-    use starlark_map::smallmap;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {
         let s1 = CoercedAttr::Selector(box (
-            smallmap![
-                TargetLabel::testing_parse("cell1//pkg1:target1") => CoercedAttr::Literal(AttrLiteral::Bool(true)),
-                TargetLabel::testing_parse("cell2//pkg2:target2") => CoercedAttr::Literal(AttrLiteral::Bool(false))
-            ],
+            OrderedMap::from_iter([
+                (
+                    TargetLabel::testing_parse("cell1//pkg1:target1"),
+                    CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                ),
+                (
+                    TargetLabel::testing_parse("cell2//pkg2:target2"),
+                    CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                ),
+            ]),
             None,
         ));
         let s2 = CoercedAttr::Selector(box (
-            smallmap![
-                TargetLabel::testing_parse(
-                    "cell1//pkg1:target1"
-                ) => CoercedAttr::Literal(AttrLiteral::Bool(true)),
-                TargetLabel::testing_parse(
-                    "cell2//pkg2:target2"
-                ) => CoercedAttr::Literal(AttrLiteral::Bool(false))
-            ],
+            OrderedMap::from_iter([
+                (
+                    TargetLabel::testing_parse("cell1//pkg1:target1"),
+                    CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                ),
+                (
+                    TargetLabel::testing_parse("cell2//pkg2:target2"),
+                    CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                ),
+            ]),
             None,
         ));
 
         assert_eq!(s1 == s2, true);
 
         let s2 = CoercedAttr::Selector(box (
-            smallmap![
-                TargetLabel::testing_parse("cell2//pkg2:target2") => CoercedAttr::Literal(AttrLiteral::Bool(false)),
-                TargetLabel::testing_parse("cell1//pkg1:target1") => CoercedAttr::Literal(AttrLiteral::Bool(true))
-            ],
+            OrderedMap::from_iter([
+                (
+                    TargetLabel::testing_parse("cell2//pkg2:target2"),
+                    CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                ),
+                (
+                    TargetLabel::testing_parse("cell1//pkg1:target1"),
+                    CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                ),
+            ]),
             None,
         ));
 
@@ -272,7 +284,7 @@ mod tests {
         }
 
         // Test more specific is selected even if it is not first.
-        let select_entries = SmallMap::from_iter([
+        let select_entries = OrderedMap::from_iter([
             (linux.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
         ]);
@@ -282,7 +294,7 @@ mod tests {
         );
 
         // Test more specific is selected even if it is first.
-        let select_entries = SmallMap::from_iter([
+        let select_entries = OrderedMap::from_iter([
             (linux_x86_64.dupe(), literal_str()),
             (linux.dupe(), literal_true()),
         ]);
@@ -292,7 +304,7 @@ mod tests {
         );
 
         // Conflicting keys.
-        let select_entries = SmallMap::from_iter([
+        let select_entries = OrderedMap::from_iter([
             (linux_arm64.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
         ]);
@@ -326,7 +338,7 @@ mod tests {
         assert_eq!(
             r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
             CoercedAttr::Selector(box (
-                SmallMap::from_iter([
+                OrderedMap::from_iter([
                     (
                         TargetLabel::testing_parse("//:a"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true))

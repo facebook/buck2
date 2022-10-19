@@ -9,8 +9,8 @@
 
 use std::fmt::Display;
 use std::hash::Hash;
-use std::hash::Hasher;
 
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
@@ -20,7 +20,6 @@ use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -54,10 +53,10 @@ enum SelectError {
 /// CoercedData::Concat supports a representation for when a selectable is added
 /// to something. Not all types support this case and those will return an error
 /// during coercion and not ever use the ::Concat case.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CoercedAttr {
     Literal(AttrLiteral<Self>),
-    Selector(Box<(SmallMap<TargetLabel, Self>, Option<Self>)>),
+    Selector(Box<(OrderedMap<TargetLabel, Self>, Option<Self>)>),
     Concat(Vec<Self>),
 }
 
@@ -90,45 +89,6 @@ impl Display for CoercedAttr {
                 Ok(())
             }
             CoercedAttr::Concat(items) => write!(f, "{}", items.iter().format("+")),
-        }
-    }
-}
-
-impl PartialEq for CoercedAttr {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (CoercedAttr::Concat(this), CoercedAttr::Concat(other)) => this == other,
-            (CoercedAttr::Literal(this), CoercedAttr::Literal(other)) => this == other,
-            (
-                CoercedAttr::Selector(box (this_values, this_default)),
-                CoercedAttr::Selector(box (other_values, other_default)),
-            ) => {
-                // ordering of selects matter, so we compare the iters
-                this_default == other_default && this_values.iter().eq(other_values.iter())
-            }
-            _ => false,
-        }
-    }
-}
-
-impl Eq for CoercedAttr {}
-
-impl Hash for CoercedAttr {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            CoercedAttr::Concat(attr) => {
-                state.write_u8(0);
-                attr.hash(state);
-            }
-            CoercedAttr::Literal(lit) => {
-                state.write_u8(1);
-                lit.hash(state);
-            }
-            CoercedAttr::Selector(box (values, defaults)) => {
-                state.write_u8(2);
-                defaults.hash(state);
-                values.iter().for_each(|v| v.hash(state))
-            }
         }
     }
 }
@@ -233,7 +193,7 @@ impl CoercedAttr {
     /// If more than one select key matches, select the most specific.
     pub fn select_the_most_specific<'a>(
         ctx: &dyn AttrConfigurationContext,
-        select_entries: &'a SmallMap<TargetLabel, CoercedAttr>,
+        select_entries: &'a OrderedMap<TargetLabel, CoercedAttr>,
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
         let mut matching: Option<(&TargetLabel, &ConfigurationData, &CoercedAttr)> = None;
         for (k, v) in select_entries {
