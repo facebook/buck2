@@ -90,5 +90,7 @@ buck_filegroup(
         "upload_all_actions/**/.*",
         "analysis_query_invalidation/**",
         "analysis_query_invalidation/**/.*",
+        "deferred_materializer/**",
+        "deferred_materializer/**/.*",
     ]),
 )

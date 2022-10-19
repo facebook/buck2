@@ -376,3 +376,14 @@ async def test_pass_common_opts_func(buck: Buck, cmd: str) -> None:
 )
 async def test_pass_common_opts(buck: Buck, cmd: str) -> None:
     await buck.audit(cmd, "--config", "client.id=placeholder_id")
+
+
+@buck_test(inplace=False, data_dir="deferred_materializer")
+async def test_audit_deferred_materializer_list(buck: Buck) -> None:
+    res = await buck.audit("deferred-materializer", "list")
+    assert res.stdout.strip() == ""
+
+    await buck.build("//:simple")
+
+    res = await buck.audit("deferred-materializer", "list")
+    assert "__simple__" in res.stdout.strip()

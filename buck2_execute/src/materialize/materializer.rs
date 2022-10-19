@@ -544,6 +544,6 @@ impl MaterializationMethod {
 }
 
 /// Extensions to the Materializer trait that are only available in the Deferred materializer.
-pub trait DeferredMaterializerExtensions {
+pub trait DeferredMaterializerExtensions: Send + Sync {
     fn iterate(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>>;
 }

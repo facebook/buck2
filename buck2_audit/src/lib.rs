@@ -26,6 +26,7 @@ use crate::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::cell::AuditCellCommand;
 use crate::config::AuditConfigCommand;
 use crate::configurations::AuditConfigurationsCommand;
+use crate::deferred_materializer::DeferredMaterializerCommand;
 use crate::dep_files::AuditDepFilesCommand;
 use crate::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
 use crate::includes::AuditIncludesCommand;
@@ -38,6 +39,7 @@ pub mod analysis_queries;
 pub mod cell;
 pub mod config;
 pub mod configurations;
+pub mod deferred_materializer;
 pub mod dep_files;
 pub mod execution_platform_resolution;
 pub mod includes;
@@ -62,6 +64,7 @@ pub enum AuditCommand {
     #[clap(subcommand)]
     Starlark(StarlarkCommand),
     DepFiles(AuditDepFilesCommand),
+    DeferredMaterializer(DeferredMaterializerCommand),
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
@@ -117,6 +120,7 @@ impl AuditCommand {
             AuditCommand::ExecutionPlatformResolution(cmd) => cmd,
             AuditCommand::Starlark(cmd) => cmd,
             AuditCommand::DepFiles(cmd) => cmd,
+            AuditCommand::DeferredMaterializer(cmd) => cmd,
             AuditCommand::Visibility(cmd) => cmd,
         }
     }
