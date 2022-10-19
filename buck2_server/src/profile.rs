@@ -20,6 +20,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::fs::fs_util;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::TargetPattern;
@@ -198,7 +199,8 @@ impl ServerCommandTemplate for ProfileServerCommand {
         )
         .await?;
 
-        profile_data.write(&output)?;
+        let profile = profile_data.profile_data.profile.gen()?;
+        fs_util::write(&output, profile).context("Failed to write profile")?;
 
         Ok(cli_proto::ProfileResponse {
             elapsed: Some(profile_data.elapsed().into()),

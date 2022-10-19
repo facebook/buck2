@@ -8,12 +8,10 @@
  */
 
 use std::cmp;
-use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
-use buck2_core::fs::fs_util;
 use gazebo::dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
@@ -58,26 +56,14 @@ impl StarlarkProfilerInstrumentation {
 
 /// Collected profile data.
 #[derive(Debug)]
-struct StarlarkProfileData {
-    profile: ProfileData,
-}
-
-impl StarlarkProfileData {
-    fn gen(&self) -> anyhow::Result<String> {
-        self.profile.gen()
-    }
-
-    fn write(&self, path: &Path) -> anyhow::Result<()> {
-        let data = self.gen()?;
-        fs_util::write(path, data)
-            .with_context(|| format!("write profile data to `{}`", path.display()))
-    }
+pub struct StarlarkProfileData {
+    pub profile: ProfileData,
 }
 
 #[derive(Debug)]
 pub struct StarlarkProfileDataAndStats {
     profile_mode: ProfileMode,
-    profile_data: StarlarkProfileData,
+    pub profile_data: StarlarkProfileData,
     initialized_at: Instant,
     finalized_at: Instant,
     total_retained_bytes: usize,
@@ -90,10 +76,6 @@ impl StarlarkProfileDataAndStats {
 
     pub fn total_retained_bytes(&self) -> usize {
         self.total_retained_bytes
-    }
-
-    pub fn write(&self, path: &Path) -> anyhow::Result<()> {
-        self.profile_data.write(path)
     }
 
     pub fn merge<'a>(
