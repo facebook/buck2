@@ -154,6 +154,12 @@ impl<Kind> CasDigest<Kind> {
         self.size
     }
 
+    /// A tiny representation of this digest, useful for logging when the full sha1 presentation is
+    /// too expensive.
+    pub fn tiny_digest(&self) -> TinyDigest<'_, Kind> {
+        TinyDigest { of: self }
+    }
+
     pub fn parse_digest(data: &[u8]) -> Option<[u8; SHA1_SIZE]> {
         let mut sha1 = [0; SHA1_SIZE];
         hex::decode_to_slice(data, &mut sha1).ok()?;
@@ -175,6 +181,12 @@ pub trait TrackedCasDigestKind: Sized + 'static {
     /// This needs to be a concrete implementation since we share the empty instance in a static
     /// but we can't have static generics.
     fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>>;
+}
+
+#[derive(Display)]
+#[display(fmt = "{}", "hex::encode(&of.sha1[0..4])")]
+pub struct TinyDigest<'a, Kind> {
+    of: &'a CasDigest<Kind>,
 }
 
 #[derive(Error, Debug)]
@@ -366,12 +378,6 @@ impl FileDigest {
             Some(x) => Ok(x),
             None => Self::from_file_disk(file),
         }
-    }
-
-    /// A tiny representation of this digest, useful for logging when the full sha1 presentation is
-    /// too expensive.
-    pub fn tiny_digest(&self) -> TinyDigest<'_> {
-        TinyDigest { of: self }
     }
 
     /// Read the file from the xattr, or skip if it's not available.
@@ -1056,12 +1062,6 @@ pub mod testing {
             PartialEqAny::always_false()
         }
     }
-}
-
-#[derive(Display)]
-#[display(fmt = "{}", "hex::encode(&of.sha1[0..4])")]
-pub struct TinyDigest<'a> {
-    of: &'a FileDigest,
 }
 
 #[cfg(test)]
