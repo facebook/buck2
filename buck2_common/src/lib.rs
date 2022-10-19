@@ -27,6 +27,7 @@
 extern crate maplit;
 
 pub mod buckd_connection;
+pub mod cas_digest;
 pub mod client_utils;
 pub mod convert;
 pub mod daemon_dir;
