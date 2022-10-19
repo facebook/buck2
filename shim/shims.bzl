@@ -1,6 +1,12 @@
 def rust_library(os_deps = None, test_deps = None, test_env = None, named_deps = None, deps = [], visibility = ["PUBLIC"], **kwargs):
-    _unused = (os_deps, test_deps, test_env, named_deps)  # @unused
-    native.rust_library(deps = _fix_deps(deps), visibility = visibility, **kwargs)
+    _unused = (test_deps, test_env, named_deps)  # @unused
+    deps = _fix_deps(deps)
+    if os_deps:
+        deps += _select_os_deps(_fix_dict_deps(os_deps))
+    native.rust_library(
+        deps = deps,
+        visibility = visibility,
+        **kwargs)
 
 def rust_binary(unittests = None, deps = [], **kwargs):
     _unused = unittests  # @unused
@@ -64,6 +70,20 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
         name = spec,
         visibility = ["PUBLIC"],
     )
+
+def _select_os_deps(xss: [("string", ["string"])]) -> "selector":
+    d = {
+        "prelude//os:" + os: xs
+        for os, xs in xss
+    }
+    d["DEFAULT"] = []
+    return select(d)
+
+def _fix_dict_deps(xss: [("string", ["string"])]) -> [("string", ["string"])]:
+    return [
+        (k, _fix_deps(xs))
+        for k, xs in xss
+    ]
 
 def _fix_deps(xs: ["string"]) -> ["string"]:
     return filter(None, map(_fix_dep, xs))
