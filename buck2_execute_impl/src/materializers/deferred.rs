@@ -595,7 +595,7 @@ impl DeferredMaterializer {
         if let Some(sqlite_state) = sqlite_state {
             for (path, metadata) in sqlite_state.into_iter() {
                 tree.insert(
-                    path.iter().map(|f| f.to_owned()), // TODO(scottcao): Add an into_iter?
+                    path.iter().map(|f| f.to_owned()),
                     box ArtifactMaterializationData {
                         deps: None,
                         stage: ArtifactMaterializationStage::Materialized { metadata },
