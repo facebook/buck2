@@ -1,5 +1,5 @@
-# Update with
-#   ./update.py
+# @generated
+# Update with ./update.py > releases.bzl
 releases = {
     "21.4": {
         "protoc-21.4-win32.zip": {
