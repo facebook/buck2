@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+mod file_tree;
+
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::str::FromStr;
@@ -74,9 +76,9 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
-use crate::materializers::filetree::DataTreeIntoIterator;
-use crate::materializers::filetree::DataTreeIterator;
-use crate::materializers::filetree::FileTree;
+use crate::materializers::deferred::file_tree::DataTreeIntoIterator;
+use crate::materializers::deferred::file_tree::DataTreeIterator;
+use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::immediate;
 use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
