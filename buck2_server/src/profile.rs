@@ -118,15 +118,15 @@ pub(crate) fn starlark_profiler_configuration_from_request(
         cli_proto::profile_request::Profiler::from_i32(req.profiler).context("Invalid profiler")?;
 
     let profile_mode = match profiler_proto {
-        Profiler::HeapFlameAllocated | Profiler::HeapFlameAllocatedSvg => {
+        Profiler::HeapFlameAllocatedSrc | Profiler::HeapFlameAllocatedSvg => {
             ProfileMode::HeapFlameAllocated
         }
-        Profiler::HeapFlameRetained | Profiler::HeapFlameRetainedSvg => {
+        Profiler::HeapFlameRetainedSrc | Profiler::HeapFlameRetainedSvg => {
             ProfileMode::HeapFlameRetained
         }
         Profiler::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
         Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
-        Profiler::TimeFlame | Profiler::TimeFlameSvg => ProfileMode::TimeFlame,
+        Profiler::TimeFlameSrc | Profiler::TimeFlameSvg => ProfileMode::TimeFlame,
         Profiler::Statement => ProfileMode::Statement,
         Profiler::Bytecode => ProfileMode::Bytecode,
         Profiler::BytecodePairs => ProfileMode::BytecodePairs,

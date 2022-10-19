@@ -116,10 +116,10 @@ pub struct ProfileSubcommand {
 
 fn profile_mode_to_profile(mode: &BuckProfileMode) -> Profiler {
     match mode {
-        BuckProfileMode::TimeFlame => Profiler::TimeFlame,
+        BuckProfileMode::TimeFlame => Profiler::TimeFlameSrc,
         BuckProfileMode::TimeFlameSvg => Profiler::TimeFlameSvg,
-        BuckProfileMode::HeapFlameAllocated => Profiler::HeapFlameAllocated,
-        BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetained,
+        BuckProfileMode::HeapFlameAllocated => Profiler::HeapFlameAllocatedSrc,
+        BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetainedSrc,
         BuckProfileMode::HeapFlameAllocatedSvg => Profiler::HeapFlameAllocatedSvg,
         BuckProfileMode::HeapFlameRetainedSvg => Profiler::HeapFlameRetainedSvg,
         BuckProfileMode::HeapSummaryAllocated => Profiler::HeapSummaryAllocated,
