@@ -921,7 +921,6 @@ mod tests {
     use starlark::syntax::Dialect;
     use starlark::values::structs::Struct;
     use starlark::values::Value;
-    use starlark::values::ValueTyped;
 
     use crate::analysis::registry::AnalysisRegistry;
     use crate::interpreter::rule_defs::context::AnalysisContext;
@@ -973,13 +972,10 @@ mod tests {
         let ctx = eval.heap().alloc(AnalysisContext::new(
             eval.heap(),
             attributes,
-            Some(
-                ValueTyped::new(eval.heap().alloc(LabelGen::new(
-                    env.heap(),
-                    ConfiguredProvidersLabel::new(label, ProvidersName::Default),
-                )))
-                .unwrap(),
-            ),
+            Some(eval.heap().alloc_typed(LabelGen::new(
+                env.heap(),
+                ConfiguredProvidersLabel::new(label, ProvidersName::Default),
+            ))),
             registry,
         ));
 

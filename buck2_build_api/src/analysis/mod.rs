@@ -53,7 +53,6 @@ use buck2_interpreter::types::label::LabelGen;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
-use starlark::values::ValueTyped;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -262,13 +261,10 @@ fn run_analysis_with_env(
     let ctx = env.heap().alloc(AnalysisContext::new(
         eval.heap(),
         attributes,
-        Some(
-            ValueTyped::new(eval.heap().alloc(LabelGen::new(
-                env.heap(),
-                ConfiguredProvidersLabel::new(analysis_env.label, ProvidersName::Default),
-            )))
-            .unwrap(),
-        ),
+        Some(eval.heap().alloc_typed(LabelGen::new(
+            env.heap(),
+            ConfiguredProvidersLabel::new(analysis_env.label, ProvidersName::Default),
+        ))),
         registry,
     ));
 

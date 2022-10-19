@@ -23,7 +23,6 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::Tuple;
 use starlark::values::OwnedFrozenValue;
-use starlark::values::ValueTyped;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::Artifact;
@@ -232,13 +231,10 @@ impl Deferred for DynamicLambda {
             heap,
             attributes,
             match &self.owner {
-                BaseDeferredKey::TargetLabel(target) => Some(
-                    ValueTyped::new(heap.alloc(LabelGen::new(
-                        heap,
-                        ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-                    )))
-                    .unwrap(),
-                ),
+                BaseDeferredKey::TargetLabel(target) => Some(heap.alloc_typed(LabelGen::new(
+                    heap,
+                    ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+                ))),
                 BaseDeferredKey::BxlLabel(_) => None,
             },
             registry,

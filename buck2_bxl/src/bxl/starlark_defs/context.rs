@@ -133,17 +133,15 @@ impl<'v> BxlContext<'v> {
             cell,
             cli_args,
             async_ctx,
-            state: ValueTyped::new(heap.alloc(AnalysisActions {
+            state: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(None),
                 attributes: heap.alloc(Struct::default()),
-            }))
-            .unwrap(),
-            output_stream: ValueTyped::new(heap.alloc(OutputStream::new(
+            }),
+            output_stream: heap.alloc_typed(OutputStream::new(
                 project_fs,
                 artifact_fs,
                 output_sink,
-            )))
-            .unwrap(),
+            )),
         }
     }
 
