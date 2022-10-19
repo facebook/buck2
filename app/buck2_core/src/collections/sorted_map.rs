@@ -81,6 +81,15 @@ impl<K: Ord + Hash, V> IntoIterator for SortedMap<K, V> {
     }
 }
 
+impl<'a, K: Ord + Hash, V> IntoIterator for &'a SortedMap<K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = small_map::Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::collections::sorted_map::SortedMap;

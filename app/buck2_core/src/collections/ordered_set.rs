@@ -146,6 +146,15 @@ impl<T> IntoIterator for OrderedSet<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a OrderedSet<T> {
+    type Item = &'a T;
+    type IntoIter = small_set::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl<T> From<SmallSet<T>> for OrderedSet<T> {
     fn from(set: SmallSet<T>) -> OrderedSet<T> {
         OrderedSet(set)

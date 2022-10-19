@@ -9,6 +9,7 @@
 
 use std::hash::Hash;
 
+use starlark_map::small_set;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
 
@@ -90,6 +91,30 @@ where
         let mut inner = OrderedSet::from_iter(iter);
         inner.sort();
         SortedSet { inner }
+    }
+}
+
+impl<T> IntoIterator for SortedSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    type Item = T;
+    type IntoIter = small_set::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a SortedSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    type Item = &'a T;
+    type IntoIter = small_set::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.iter()
     }
 }
 

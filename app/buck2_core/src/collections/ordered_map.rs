@@ -35,7 +35,7 @@ impl<K, V> OrderedMap<K, V> {
         self.0.is_empty()
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
+    pub fn iter(&self) -> small_map::Iter<K, V> {
         self.0.iter()
     }
 
@@ -137,5 +137,14 @@ impl<K, V> IntoIterator for OrderedMap<K, V> {
 
     fn into_iter(self) -> small_map::IntoIter<K, V> {
         self.0.into_iter()
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a OrderedMap<K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = small_map::Iter<'a, K, V>;
+
+    fn into_iter(self) -> small_map::Iter<'a, K, V> {
+        self.0.iter()
     }
 }
