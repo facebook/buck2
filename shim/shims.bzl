@@ -41,34 +41,35 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
             "PROTOC_INCLUDE": "$(location buck//third-party/proto:google_protobuf)",
         },
     )
-    set_env = "\n".join(['export {}="{}"'.format(k, v) for k, v in build_env.items()])
 
-    native.genrule(
-        name = proto_name,
-        srcs = [
-            spec,
-            "buck//third-party/proto:google_protobuf",
-        ],
-        cmd = "\n".join([
-            set_env,
-            "$(exe :" + build_name + ")",
-        ]),
-        out = ".",
-    )
+    # Replace and enable once custom_rule is available open source
+    #set_env = "\n".join(['export {}="{}"'.format(k, v) for k, v in build_env.items()])
+    #native.genrule(
+    #    name = proto_name,
+    #    srcs = [
+    #        spec,
+    #        "buck//third-party/proto:google_protobuf",
+    #    ],
+    #    cmd = "\n".join([
+    #        set_env,
+    #        "$(exe :" + build_name + ")",
+    #    ]),
+    #    out = ".",
+    #)
 
-    rust_library(
-        name = name,
-        srcs = srcs,
-        env = {
-            # This is where tonic looks for generated .rs files
-            "OUT_DIR": "$(location :{})".format(proto_name),
-        },
-        deps = [
-            "fbsource//third-party/rust:prost",
-            "fbsource//third-party/rust:prost-types",
-            "fbsource//third-party/rust:tonic",
-        ] + (deps or []),
-    )
+    #rust_library(
+    #    name = name,
+    #    srcs = srcs,
+    #    env = {
+    #        # This is where tonic looks for generated .rs files
+    #        "OUT_DIR": "$(location :{})".format(proto_name),
+    #    },
+    #    deps = [
+    #        "fbsource//third-party/rust:prost",
+    #        "fbsource//third-party/rust:prost-types",
+    #        "fbsource//third-party/rust:tonic",
+    #    ] + (deps or []),
+    #)
 
     # For python tests only
     native.export_file(
