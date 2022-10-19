@@ -29,8 +29,6 @@ enum StarlarkProfilerError {
         (which freezes the module)"
     )]
     RetainedMemoryNotFrozen,
-    #[error("profile mode and profile data are inconsistent (internal error)")]
-    InconsistentProfileModeAndProfileData,
     #[error("profile mode are inconsistent (internal error)")]
     InconsistentProfileMode,
 }
@@ -60,23 +58,17 @@ impl StarlarkProfilerInstrumentation {
 
 /// Collected profile data.
 #[derive(Debug)]
-enum StarlarkProfileData {
-    /// Collected from `Evaluator`.
-    Evaluator(ProfileData),
-    /// Collected from `FrozenModule`.
-    Frozen(ProfileData),
+struct StarlarkProfileData {
+    profile: ProfileData,
 }
 
 impl StarlarkProfileData {
-    fn gen(&self, profile_mode: &ProfileMode) -> anyhow::Result<String> {
-        match (self, profile_mode) {
-            (StarlarkProfileData::Evaluator(data), _) => data.gen(),
-            (StarlarkProfileData::Frozen(data), _) => data.gen(),
-        }
+    fn gen(&self) -> anyhow::Result<String> {
+        self.profile.gen()
     }
 
-    fn write(&self, path: &Path, profile_mode: &ProfileMode) -> anyhow::Result<()> {
-        let data = self.gen(profile_mode)?;
+    fn write(&self, path: &Path) -> anyhow::Result<()> {
+        let data = self.gen()?;
         fs_util::write(path, data)
             .with_context(|| format!("write profile data to `{}`", path.display()))
     }
@@ -101,7 +93,7 @@ impl StarlarkProfileDataAndStats {
     }
 
     pub fn write(&self, path: &Path) -> anyhow::Result<()> {
-        self.profile_data.write(path, &self.profile_mode)
+        self.profile_data.write(path)
     }
 
     pub fn merge<'a>(
@@ -123,35 +115,8 @@ impl StarlarkProfileDataAndStats {
             total_retained_bytes += data.total_retained_bytes;
         }
 
-        let profile_data = match profile_mode {
-            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
-                let aggregated_profile_info = datas
-                    .into_iter()
-                    .map(|data| match &data.profile_data {
-                        StarlarkProfileData::Evaluator(_) => {
-                            Err(StarlarkProfilerError::InconsistentProfileModeAndProfileData.into())
-                        }
-                        StarlarkProfileData::Frozen(data) => Ok(data),
-                    })
-                    .collect::<anyhow::Result<Vec<_>>>()?;
-
-                let profile_data = ProfileData::merge(aggregated_profile_info.iter().copied())?;
-                StarlarkProfileData::Frozen(profile_data)
-            }
-            _ => {
-                let profile_datas = datas
-                    .into_iter()
-                    .map(|data| match &data.profile_data {
-                        StarlarkProfileData::Frozen(_) => {
-                            Err(StarlarkProfilerError::InconsistentProfileModeAndProfileData.into())
-                        }
-                        StarlarkProfileData::Evaluator(data) => Ok(data),
-                    })
-                    .collect::<anyhow::Result<Vec<_>>>()?;
-
-                let profile_data = ProfileData::merge(profile_datas.iter().copied())?;
-                StarlarkProfileData::Evaluator(profile_data)
-            }
+        let profile_data = StarlarkProfileData {
+            profile: ProfileData::merge(datas.into_iter().map(|data| &data.profile_data.profile))?,
         };
 
         Ok(StarlarkProfileDataAndStats {
@@ -228,7 +193,9 @@ impl StarlarkProfiler {
             self.profile_mode,
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
         ) {
-            self.profile_data = Some(StarlarkProfileData::Evaluator(eval.gen_profile()?));
+            self.profile_data = Some(StarlarkProfileData {
+                profile: eval.gen_profile()?,
+            });
         }
         Ok(())
     }
@@ -242,7 +209,7 @@ impl StarlarkProfiler {
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
                 let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
                 let profile = module.heap_profile()?;
-                self.profile_data = Some(StarlarkProfileData::Frozen(profile));
+                self.profile_data = Some(StarlarkProfileData { profile });
             }
             _ => {}
         }
