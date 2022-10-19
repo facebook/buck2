@@ -119,11 +119,9 @@ pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
 
 /// Errors around rule declaration, instantiation, validation, etc
 #[derive(Debug, Error)]
-pub enum BxlError {
+enum BxlError {
     #[error("Bxl defined in `{0}` must be assigned to a variable, e.g. `my_bxl = bxl(...)`")]
     BxlNotAssigned(String),
-    #[error("`{0}` can't be frozen because we don't freeze BXL contexts")]
-    NoFreeze(&'static str),
 }
 
 /// The callable created by `bxl()`
