@@ -11,7 +11,6 @@ use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use async_condvar_fair::BatonExt;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_core::soft_error;
@@ -200,7 +199,6 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let mut data = self.data.lock();
-        let mut baton = None;
 
         let mut transaction = self
             .dice
@@ -244,7 +242,7 @@ impl ConcurrencyHandler {
                             ),
                         );
 
-                        (data, baton) = self.cond.wait_baton(data).await;
+                        data = self.cond.wait(data).await;
                     }
                 }
             } else {
@@ -258,11 +256,7 @@ impl ConcurrencyHandler {
         data.active_trace_argv = Some(sanitized_argv);
 
         // create the on exit drop handler, which will take care of notifying tasks.
-        // this lets us dispose of the `Baton`, which is no longer necessary for
-        // ensuring that on exit/cancellation, the `notify` is passed onto another
-        // thread. (the drop of `OnExit` will take care of it).
         let drop_guard = OnExecExit::new(self.dupe(), trace.dupe(), data);
-        baton.dispose();
 
         Ok((drop_guard, transaction))
     }
