@@ -30,6 +30,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-rusqlite",
+        "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:zstd",
         "//buck2/app/buck2_forkserver:buck2_forkserver",

@@ -241,6 +241,10 @@ pub trait Materializer: Send + Sync + 'static {
     fn eden_buck_out(&self) -> Option<&EdenBuckOut> {
         None
     }
+
+    fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
+        None
+    }
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -537,4 +541,9 @@ impl MaterializationMethod {
             Some(v) => Err(MaterializationMethodError::InvalidValueForConfig(v.to_owned()).into()),
         }
     }
+}
+
+/// Extensions to the Materializer trait that are only available in the Deferred materializer.
+pub trait DeferredMaterializerExtensions {
+    fn iterate(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>>;
 }

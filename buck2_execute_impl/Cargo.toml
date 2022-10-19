@@ -21,6 +21,7 @@ rusqlite = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-rusqlite = { workspace = true }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
 zstd = { workspace = true }
 hostname = { workspace = true }

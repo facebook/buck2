@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+mod extension;
 mod file_tree;
 
 use std::collections::HashSet;
@@ -50,6 +51,7 @@ use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
@@ -76,6 +78,7 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
+use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::DataTreeIntoIterator;
 use crate::materializers::deferred::file_tree::DataTreeIterator;
 use crate::materializers::deferred::file_tree::FileTree;
@@ -236,6 +239,8 @@ enum MaterializerCommand {
         version: u64,
         result: Result<(), SharedMaterializingError>,
     },
+
+    Extension(Box<dyn ExtensionCommand>),
 }
 
 impl std::fmt::Debug for MaterializerCommand {
@@ -267,6 +272,7 @@ impl std::fmt::Debug for MaterializerCommand {
                 .field("version", version)
                 .field("result", result)
                 .finish(),
+            MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
         }
     }
 }
@@ -569,6 +575,10 @@ impl Materializer for DeferredMaterializer {
             .send(MaterializerCommand::GetMaterializedFilePaths(paths, sender))?;
         Ok(recv.await?)
     }
+
+    fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
+        Some(self as _)
+    }
 }
 
 impl DeferredMaterializer {
@@ -724,6 +734,7 @@ impl DeferredMaterializerCommandProcessor {
                     );
                     next_version += 1;
                 }
+                MaterializerCommand::Extension(ext) => ext.execute(&tree),
             }
         }
     }
