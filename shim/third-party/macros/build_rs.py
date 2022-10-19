@@ -45,6 +45,8 @@ def mk_env(args, parent):
     env["CARGO_CFG_TARGET_OS"] = "linux"
     env["CARGO_CFG_TARGET_POINTER_WIDTH"] = "64"
     env["CARGO_CFG_TARGET_ENDIAN"] = "little"
+    for k, v in args.env or []:
+        env[k] = v
     return env
 
 def run_args(args):

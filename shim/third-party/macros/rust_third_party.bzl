@@ -50,6 +50,9 @@ def _make_cmd(mode, buildscript, package_name, version, features, cfgs, env, tar
         elif type(value) == type([]):
             for x in value:
                 cmd += " --" + flag + "=" + x
+        elif type(value) == type({}):
+            for k, v in value.items():
+                cmd += " --" + flag + "=" + k + "=" + v
         else:
             cmd += " --" + flag + "=" + value
     return cmd
