@@ -177,115 +177,6 @@ pub trait TrackedCasDigestKind: Sized + 'static {
     fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>>;
 }
 
-pub struct FileDigestKind {
-    _private: (),
-}
-
-impl TrackedCasDigestKind for FileDigestKind {
-    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>> {
-        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
-        &EMPTY_DIGEST
-    }
-}
-
-pub type FileDigest = CasDigest<FileDigestKind>;
-
-impl FileDigest {
-    /// Obtain the digest of the file if you can.
-    pub fn from_file<P>(file: P) -> anyhow::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let file = file.as_ref();
-        match Self::from_file_attr(file) {
-            Some(x) => Ok(x),
-            None => Self::from_file_disk(file),
-        }
-    }
-
-    /// A tiny representation of this digest, useful for logging when the full sha1 presentation is
-    /// too expensive.
-    pub fn tiny_digest(&self) -> TinyDigest<'_> {
-        TinyDigest { of: self }
-    }
-
-    /// Read the file from the xattr, or skip if it's not available.
-    #[cfg(unix)]
-    fn from_file_attr(file: &Path) -> Option<Self> {
-        use std::borrow::Cow;
-        use std::collections::HashSet;
-
-        use buck2_core::fs::fs_util;
-
-        let mut file = Cow::Borrowed(file);
-        let mut meta;
-        let mut visited = HashSet::new();
-
-        // NOTE: We have to look through symlinks first because `xattr::get` doesn't (at least not
-        // on MacOS, it seems), and instead we end up with the hash of the symlink destination as a
-        // string.
-        loop {
-            meta = fs_util::symlink_metadata(&file).ok()?;
-            if !meta.is_symlink() {
-                break;
-            }
-
-            let dest = fs_util::read_link(&file).ok()?;
-            let dest = if dest.is_absolute() {
-                dest
-            } else {
-                match file.parent() {
-                    Some(parent) => parent.join(dest),
-                    None => dest,
-                }
-            };
-
-            let prev = std::mem::replace(&mut file, Cow::Owned(dest));
-
-            if !visited.insert(prev.into_owned()) {
-                // We hit a loop.
-                return None;
-            }
-        }
-
-        match xattr::get(&file, "user.sha1") {
-            Ok(Some(v)) => {
-                let sha1 = Self::parse_digest(&v)?;
-                let size = meta.len();
-                Some(Self::new(sha1, size))
-            }
-            _ => None,
-        }
-    }
-
-    /// Windows doesn't support extended file attributes.
-    #[cfg(windows)]
-    fn from_file_attr(_file: &Path) -> Option<Self> {
-        None
-    }
-
-    /// Get the digest from disk. You should usually prefer `from_file`
-    /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &Path) -> anyhow::Result<Self> {
-        let mut f = File::open(file)?;
-        let mut h = Sha1::new();
-        let mut size = 0;
-
-        // Buffer size chosen based on benchmarks at D26176645
-        let mut buffer = [0; 16 * 1024];
-        loop {
-            let count = f.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-            size += count as u64;
-            h.update(&buffer[..count]);
-        }
-        let sha1 = h.finalize().into();
-        Ok(Self::new(sha1, size))
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum CasDigestFromStrError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
@@ -449,7 +340,116 @@ impl<Kind> TrackedCasDigest<Kind> {
     }
 }
 
+pub struct FileDigestKind {
+    _private: (),
+}
+
+impl TrackedCasDigestKind for FileDigestKind {
+    fn cell_for_empty_digest() -> &'static OnceCell<TrackedCasDigest<Self>> {
+        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
+        &EMPTY_DIGEST
+    }
+}
+
+pub type FileDigest = CasDigest<FileDigestKind>;
+
 pub type TrackedFileDigest = TrackedCasDigest<FileDigestKind>;
+
+impl FileDigest {
+    /// Obtain the digest of the file if you can.
+    pub fn from_file<P>(file: P) -> anyhow::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let file = file.as_ref();
+        match Self::from_file_attr(file) {
+            Some(x) => Ok(x),
+            None => Self::from_file_disk(file),
+        }
+    }
+
+    /// A tiny representation of this digest, useful for logging when the full sha1 presentation is
+    /// too expensive.
+    pub fn tiny_digest(&self) -> TinyDigest<'_> {
+        TinyDigest { of: self }
+    }
+
+    /// Read the file from the xattr, or skip if it's not available.
+    #[cfg(unix)]
+    fn from_file_attr(file: &Path) -> Option<Self> {
+        use std::borrow::Cow;
+        use std::collections::HashSet;
+
+        use buck2_core::fs::fs_util;
+
+        let mut file = Cow::Borrowed(file);
+        let mut meta;
+        let mut visited = HashSet::new();
+
+        // NOTE: We have to look through symlinks first because `xattr::get` doesn't (at least not
+        // on MacOS, it seems), and instead we end up with the hash of the symlink destination as a
+        // string.
+        loop {
+            meta = fs_util::symlink_metadata(&file).ok()?;
+            if !meta.is_symlink() {
+                break;
+            }
+
+            let dest = fs_util::read_link(&file).ok()?;
+            let dest = if dest.is_absolute() {
+                dest
+            } else {
+                match file.parent() {
+                    Some(parent) => parent.join(dest),
+                    None => dest,
+                }
+            };
+
+            let prev = std::mem::replace(&mut file, Cow::Owned(dest));
+
+            if !visited.insert(prev.into_owned()) {
+                // We hit a loop.
+                return None;
+            }
+        }
+
+        match xattr::get(&file, "user.sha1") {
+            Ok(Some(v)) => {
+                let sha1 = Self::parse_digest(&v)?;
+                let size = meta.len();
+                Some(Self::new(sha1, size))
+            }
+            _ => None,
+        }
+    }
+
+    /// Windows doesn't support extended file attributes.
+    #[cfg(windows)]
+    fn from_file_attr(_file: &Path) -> Option<Self> {
+        None
+    }
+
+    /// Get the digest from disk. You should usually prefer `from_file`
+    /// which also uses faster methods of getting the SHA1 if it can.
+    pub fn from_file_disk(file: &Path) -> anyhow::Result<Self> {
+        let mut f = File::open(file)?;
+        let mut h = Sha1::new();
+        let mut size = 0;
+
+        // Buffer size chosen based on benchmarks at D26176645
+        let mut buffer = [0; 16 * 1024];
+        loop {
+            let count = f.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            size += count as u64;
+            h.update(&buffer[..count]);
+        }
+        let sha1 = h.finalize().into();
+        Ok(Self::new(sha1, size))
+    }
+}
 
 /// Stores the relevant metadata for a file.
 // New fields should be added as needed, and unused fields removed.
