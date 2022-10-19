@@ -12,7 +12,7 @@ load(
     "LinkStyle",  #@unused Used as a type
     "get_link_args",
 )
-load("@prelude//utils:set_record.bzl", "set")
+load("@prelude//utils:set.bzl", "set")
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type

@@ -3,7 +3,7 @@ load(
     "label_matches_build_target_pattern",
     "parse_build_target_pattern",
 )
-load("@prelude//utils:set_record.bzl", "set", "set_type")
+load("@prelude//utils:set.bzl", "set", "set_type")
 load("@prelude//utils:utils.bzl", "expect")
 
 def _test_parse_build_target_pattern_impl(ctx):
