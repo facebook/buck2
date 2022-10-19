@@ -25,6 +25,7 @@ use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::action_digest::TrackedActionDigest;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -212,7 +213,7 @@ impl CasDownloader<'_> {
         self.materializer
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_execution(
-                    action_digest.dupe(),
+                    TrackedActionDigest::new_expires(action_digest.dupe(), expires),
                     self.re_use_case,
                     retrieved_instant,
                     std::time::Duration::from_secs(ttl.try_into().unwrap_or(0)),

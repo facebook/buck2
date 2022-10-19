@@ -31,6 +31,7 @@ use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::ActionDigest;
+use crate::execute::action_digest::TrackedActionDigest;
 #[cfg(any(fbcode_build, cargo_internal_build))]
 use crate::materialize::eden_api::EdenBuckOut;
 use crate::materialize::http::Checksum;
@@ -361,7 +362,7 @@ enum CasDownloadInfoOrigin {
     )]
     Execution {
         /// Digest of the action that led us to discover this CAS object.
-        action_digest: ActionDigest,
+        action_digest: TrackedActionDigest,
 
         /// When did we learn of the connection between this digest and the download it allows. This
         /// typically represents how much time has passed since we executed the action or hit in the
@@ -388,7 +389,7 @@ pub struct CasDownloadInfo {
 
 impl CasDownloadInfo {
     pub fn new_execution(
-        action_digest: ActionDigest,
+        action_digest: TrackedActionDigest,
         re_use_case: RemoteExecutorUseCase,
         action_instant: Instant,
         ttl: Duration,
@@ -421,7 +422,9 @@ impl CasDownloadInfo {
 
     pub fn action_digest(&self) -> Option<ActionDigest> {
         match &self.origin {
-            CasDownloadInfoOrigin::Execution { action_digest, .. } => Some(action_digest.dupe()),
+            CasDownloadInfoOrigin::Execution { action_digest, .. } => {
+                Some(action_digest.data().dupe())
+            }
             CasDownloadInfoOrigin::Declared => None,
         }
     }
