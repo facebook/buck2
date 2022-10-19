@@ -1,6 +1,6 @@
 def rust_library(os_deps = None, test_deps = None, test_env = None, named_deps = None, deps = [], visibility = ["PUBLIC"], **kwargs):
     _unused = (os_deps, test_deps, test_env, named_deps)  # @unused
-    native.rust_library(deps = filter(None, map(_fix_dep, deps)), visibility = visibility, **kwargs)
+    native.rust_library(deps = _fix_deps(deps), visibility = visibility, **kwargs)
 
 def rust_binary(unittests = None, deps = [], **kwargs):
     _unused = unittests  # @unused
@@ -65,7 +65,10 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
         visibility = ["PUBLIC"],
     )
 
-def _fix_dep(x):
+def _fix_deps(xs: ["string"]) -> ["string"]:
+    return filter(None, map(_fix_dep, xs))
+
+def _fix_dep(x: "string") -> [None, "string"]:
     if x == "//buck2/gazebo/gazebo:gazebo":
         return "fbsource//third-party/rust:gazebo"
     elif x == "//common/rust/folly/logging:logging":
