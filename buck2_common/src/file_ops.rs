@@ -305,7 +305,7 @@ impl FromStr for FileDigest {
 /// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
-struct FileDigestInner {
+struct TrackedFileDigestInner {
     data: FileDigest,
     expires: AtomicI64,
 }
@@ -313,7 +313,7 @@ struct FileDigestInner {
 #[derive(Display, Clone, Dupe)]
 #[display(fmt = "{}", "self.data()")]
 pub struct TrackedFileDigest {
-    inner: Arc<FileDigestInner>,
+    inner: Arc<TrackedFileDigestInner>,
 }
 
 impl Borrow<FileDigest> for TrackedFileDigest {
@@ -372,7 +372,7 @@ impl TrackedFileDigest {
         }
 
         Self {
-            inner: Arc::new(FileDigestInner {
+            inner: Arc::new(TrackedFileDigestInner {
                 data,
                 expires: AtomicI64::new(0),
             }),
@@ -390,7 +390,7 @@ impl TrackedFileDigest {
 
         return EMPTY_DIGEST
             .get_or_init(|| Self {
-                inner: Arc::new(FileDigestInner {
+                inner: Arc::new(TrackedFileDigestInner {
                     data: FileDigest::empty(),
                     expires: AtomicI64::new(0),
                 }),
