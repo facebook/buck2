@@ -1488,9 +1488,9 @@ trait WithPathsIterator<K, V>: Iterator<Item = (VecDeque<K>, V)>
 where
     K: AsRef<FileName>,
 {
-    fn with_paths(self) -> Box<dyn Iterator<Item = (ProjectRelativePathBuf, V)>>
+    fn with_paths<'a>(self) -> Box<dyn Iterator<Item = (ProjectRelativePathBuf, V)> + 'a>
     where
-        Self: 'static + Sized,
+        Self: Sized + 'a,
     {
         box self
             .into_iter()
