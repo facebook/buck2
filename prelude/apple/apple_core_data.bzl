@@ -45,7 +45,7 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
     )
     combined_command = cmd_args(["/bin/sh", wrapper_script]).hidden(momc_commands + [output.as_output()])
     processing_options = get_bundle_resource_processing_options(ctx)
-    ctx.actions.run(combined_command, prefer_local = processing_options.prefer_local, category = "apple_core_data")
+    ctx.actions.run(combined_command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_core_data")
     return output
 
 def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, product_name: str.type, output_directory: "cmd_args") -> "cmd_args":

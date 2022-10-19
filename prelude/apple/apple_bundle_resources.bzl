@@ -228,7 +228,7 @@ def _run_ibtool(
         command = ibtool_command
 
     processing_options = get_bundle_resource_processing_options(ctx)
-    ctx.actions.run(command, prefer_local = processing_options.prefer_local, category = "apple_ibtool", identifier = action_identifier)
+    ctx.actions.run(command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_ibtool", identifier = action_identifier)
 
 def _compile_ui_resource(
         ctx: "context",

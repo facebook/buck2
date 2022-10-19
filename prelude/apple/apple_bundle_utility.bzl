@@ -51,4 +51,4 @@ def get_bundle_min_target_version(ctx: "context") -> str.type:
 
 def get_bundle_resource_processing_options(ctx: "context") -> AppleResourceProcessingOptions.type:
     compile_resources_locally = ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally
-    return AppleResourceProcessingOptions(prefer_local = compile_resources_locally)
+    return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)

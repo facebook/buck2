@@ -31,7 +31,7 @@ def compile_apple_asset_catalog(ctx: "context", specs: [AppleAssetCatalogSpec.ty
     processing_options = get_bundle_resource_processing_options(ctx)
     compilation_options = get_apple_asset_catalogs_compilation_options(ctx)
     command = _get_actool_command(ctx, single_spec, catalog.as_output(), plist.as_output(), compilation_options)
-    ctx.actions.run(command, prefer_local = processing_options.prefer_local, category = "apple_asset_catalog")
+    ctx.actions.run(command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_asset_catalog")
     return AppleAssetCatalogResult(compiled_catalog = catalog, catalog_plist = plist)
 
 def _merge_asset_catalog_specs(ctx: "context", xs: [AppleAssetCatalogSpec.type]) -> AppleAssetCatalogSpec.type:
