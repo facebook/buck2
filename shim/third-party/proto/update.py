@@ -91,7 +91,7 @@ async def main():
     releases = await query_releases()
     formatted = format_releases(releases)
     with_sha256 = await hash_releases(formatted)
-    print("# @generated")
+    print("# @" + "generated")
     print("# Update with ./update.py > releases.bzl")
     print("releases = ", json.dumps(with_sha256, indent=4))
 
