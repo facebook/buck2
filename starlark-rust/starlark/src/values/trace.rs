@@ -239,3 +239,15 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for Arc<Mutex<T>> {
         self.lock().unwrap().trace(tracer);
     }
 }
+
+unsafe impl<'v, A, R> Trace<'v> for fn(A) -> R {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v, A, B, R> Trace<'v> for fn(A, B) -> R {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v, A, B, C, R> Trace<'v> for fn(A, B, C) -> R {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
