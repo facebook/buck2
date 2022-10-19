@@ -88,5 +88,7 @@ buck_filegroup(
         "symlinks/**/.*",
         "upload_all_actions/**",
         "upload_all_actions/**/.*",
+        "analysis_query_invalidation/**",
+        "analysis_query_invalidation/**/.*",
     ]),
 )

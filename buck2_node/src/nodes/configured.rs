@@ -10,12 +10,14 @@
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -25,7 +27,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
 
@@ -151,8 +152,8 @@ struct ConfiguredTargetNodeData {
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
     // TODO(cjhopman): Should this be a diff against the node's deps?
-    deps: LabelIndexedSet<ConfiguredTargetNode>,
-    exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
+    deps: ConfiguredTargetNodeDeps,
+    exec_deps: ConfiguredTargetNodeDeps,
     platform_cfgs: OrderedMap<TargetLabel, Configuration>,
 }
 
@@ -186,8 +187,8 @@ impl ConfiguredTargetNode {
             ResolvedConfiguration::new(name.cfg().dupe(), UnorderedMap::new()),
             OrderedMap::new(),
             execution_platform_resolution,
-            LabelIndexedSet::new(),
-            LabelIndexedSet::new(),
+            OrderedSet::new(),
+            OrderedSet::new(),
             OrderedMap::new(),
         )
     }
@@ -198,8 +199,8 @@ impl ConfiguredTargetNode {
         resolved_configuration: ResolvedConfiguration,
         resolved_tr_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
-        deps: LabelIndexedSet<ConfiguredTargetNode>,
-        exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
+        deps: OrderedSet<ConfiguredTargetNode>,
+        exec_deps: OrderedSet<ConfiguredTargetNode>,
         platform_cfgs: OrderedMap<TargetLabel, Configuration>,
     ) -> Self {
         Self(Arc::new(ConfiguredTargetNodeData {
@@ -208,8 +209,8 @@ impl ConfiguredTargetNode {
             resolved_configuration,
             resolved_transition_configurations: resolved_tr_configurations,
             execution_platform_resolution,
-            deps,
-            exec_deps,
+            deps: ConfiguredTargetNodeDeps(deps),
+            exec_deps: ConfiguredTargetNodeDeps(exec_deps),
             platform_cfgs,
         }))
     }
@@ -256,8 +257,8 @@ impl ConfiguredTargetNode {
             resolved_transition_configurations: OrderedMap::new(),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
-            deps: LabelIndexedSet::from_iter([transitioned_node]),
-            exec_deps: LabelIndexedSet::new(),
+            deps: ConfiguredTargetNodeDeps(OrderedSet::from_iter([transitioned_node])),
+            exec_deps: ConfiguredTargetNodeDeps(OrderedSet::new()),
             platform_cfgs: OrderedMap::new(),
         }))
     }
@@ -492,6 +493,42 @@ impl ConfiguredTargetNode {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(n) => n.call_stack(),
             TargetNodeOrForward::Forward(_, n) => n.call_stack(),
+        }
+    }
+}
+
+/// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require
+/// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
+struct ConfiguredTargetNodeDeps(OrderedSet<ConfiguredTargetNode>);
+
+impl ConfiguredTargetNodeDeps {
+    fn iter(&self) -> impl ExactSizeIterator<Item = &ConfiguredTargetNode> {
+        self.0.iter()
+    }
+}
+
+/// We only do Arc comparisons here. The rationale is that each ConfiguredTargetNode should only
+/// ever exist in one instance in the graph, so if the ptr eq doesn't match, then we don't do a
+/// deep comparison.
+impl PartialEq for ConfiguredTargetNodeDeps {
+    fn eq(&self, other: &Self) -> bool {
+        let it1 = self.iter();
+        let it2 = other.iter();
+        it1.len() == it2.len() && it1.zip(it2).all(|(x, y)| Arc::ptr_eq(&x.0, &y.0))
+    }
+}
+
+impl Eq for ConfiguredTargetNodeDeps {}
+
+/// This has historically only hashed the labels. This may or may not be right, because it means
+/// two nodes that reference different instances of a given dependency will hash equal, even if
+/// the dependency has definitely changed (e.g. because its own deps changed).
+impl Hash for ConfiguredTargetNodeDeps {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let it = self.0.iter();
+        state.write_usize(it.len());
+        for node in it {
+            node.name().hash(state);
         }
     }
 }

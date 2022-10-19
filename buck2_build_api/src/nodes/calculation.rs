@@ -18,6 +18,7 @@ use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -46,7 +47,6 @@ use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
-use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -639,7 +639,7 @@ async fn compute_configured_target_node_no_transition(
         }
     };
 
-    let mut deps = LabelIndexedSet::new();
+    let mut deps = OrderedSet::new();
     for dep in dep_results {
         match unpack_dep(dep) {
             ControlFlow::Continue(dep) => deps.insert(dep),
@@ -647,7 +647,7 @@ async fn compute_configured_target_node_no_transition(
         };
     }
 
-    let mut exec_deps = LabelIndexedSet::new();
+    let mut exec_deps = OrderedSet::new();
     for dep in exec_dep_results {
         match unpack_dep(dep) {
             ControlFlow::Continue(dep) => exec_deps.insert(dep),

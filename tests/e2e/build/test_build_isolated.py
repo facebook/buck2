@@ -1496,6 +1496,21 @@ async def test_symlinks_external(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
+@buck_test(inplace=False, data_dir="analysis_query_invalidation")
+async def test_analysis_query_invalidation(buck: Buck) -> None:
+    """
+    This is a regression test for T133069783.
+    """
+
+    linux = await buck.build(":root", "-c", "test.configuration=linux", "--out=-")
+    macos = await buck.build(":root", "-c", "test.configuration=macos", "--out=-")
+
+    # Mostly here to really be safe but in practice this fails with an
+    # incompatible target earlier if we have a bug.
+    assert "linux-select-dep" in linux.stdout
+    assert "macos-select-dep" in macos.stdout
+
+
 async def expect_exec_count(buck: Buck, n: int) -> None:
     out = await read_what_ran(buck)
     assert len(out) == n, "unexpected actions: %s" % (out,)
