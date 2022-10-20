@@ -169,3 +169,50 @@ where
         OrderedSet(SmallSet::from_iter(iter))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hash;
+
+    use crate::collections::ordered_set::OrderedSet;
+
+    #[test]
+    fn test_keys_are_not_hashed_when_map_is_hashed() {
+        struct Tester {
+            /// Number of times `hash` was called.
+            hash_count: Cell<u32>,
+        }
+
+        impl PartialEq for Tester {
+            fn eq(&self, _other: &Self) -> bool {
+                true
+            }
+        }
+
+        impl Eq for Tester {}
+
+        impl Hash for Tester {
+            fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+                self.hash_count.set(self.hash_count.get() + 1);
+            }
+        }
+
+        let set = OrderedSet::from_iter([Tester {
+            hash_count: Cell::new(0),
+        }]);
+        assert_eq!(1, set.iter().next().unwrap().hash_count.get());
+
+        let mut hasher = DefaultHasher::new();
+
+        set.hash(&mut hasher);
+        assert_eq!(1, set.iter().next().unwrap().hash_count.get());
+
+        set.hash(&mut hasher);
+        assert_eq!(1, set.iter().next().unwrap().hash_count.get());
+
+        set.hash(&mut hasher);
+        assert_eq!(1, set.iter().next().unwrap().hash_count.get());
+    }
+}

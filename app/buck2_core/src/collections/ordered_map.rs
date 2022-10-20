@@ -148,3 +148,59 @@ impl<'a, K, V> IntoIterator for &'a OrderedMap<K, V> {
         self.0.iter()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hash;
+
+    use crate::collections::ordered_map::OrderedMap;
+
+    #[test]
+    fn test_keys_are_not_hashed_when_map_is_hashed() {
+        struct Tester {
+            /// Number of times `hash` was called.
+            hash_count: Cell<u32>,
+        }
+
+        impl PartialEq for Tester {
+            fn eq(&self, _other: &Self) -> bool {
+                true
+            }
+        }
+
+        impl Eq for Tester {}
+
+        impl Hash for Tester {
+            fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+                self.hash_count.set(self.hash_count.get() + 1);
+            }
+        }
+
+        let map = OrderedMap::from_iter([(
+            Tester {
+                hash_count: Cell::new(0),
+            },
+            Tester {
+                hash_count: Cell::new(0),
+            },
+        )]);
+        assert_eq!(1, map.keys().next().unwrap().hash_count.get());
+        assert_eq!(0, map.values().next().unwrap().hash_count.get());
+
+        let mut hasher = DefaultHasher::new();
+
+        map.hash(&mut hasher);
+        assert_eq!(1, map.keys().next().unwrap().hash_count.get());
+        assert_eq!(1, map.values().next().unwrap().hash_count.get());
+
+        map.hash(&mut hasher);
+        assert_eq!(1, map.keys().next().unwrap().hash_count.get());
+        assert_eq!(2, map.values().next().unwrap().hash_count.get());
+
+        map.hash(&mut hasher);
+        assert_eq!(1, map.keys().next().unwrap().hash_count.get());
+        assert_eq!(3, map.values().next().unwrap().hash_count.get());
+    }
+}
