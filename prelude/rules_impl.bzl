@@ -205,6 +205,7 @@ def _python_test_attrs():
     return {
         "allow_huge_dwp": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
+        "enable_distributed_thinlto": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
@@ -251,6 +252,7 @@ def _python_binary_attrs():
         "allow_huge_dwp": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
         "cxx_main": attrs.option(attrs.source(), default = None),
+        "enable_distributed_thinlto": attrs.bool(default = False),
         "executable_deps": attrs.list(attrs.dep(), default = []),
         "executable_name": attrs.option(attrs.string(), default = None),
         "link_style": attrs.enum(LinkableDepType, default = "static"),

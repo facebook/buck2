@@ -779,6 +779,7 @@ def _create_omnibus(
         # just use it for omnibus.
         prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
+        enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         identifier = soname,
     )
 

@@ -177,6 +177,7 @@ def cxx_link_shared_library(
         prefer_local: [bool.type, None] = None,
         local_only: [bool.type, None] = None,
         link_weight: int.type = 1,
+        enable_distributed_thinlto: bool.type = False,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str.type, None] = None,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
@@ -206,6 +207,7 @@ def cxx_link_shared_library(
         prefer_local = _link_libraries_locally(ctx, prefer_local_value),
         local_only = value_or(local_only, False),
         link_weight = link_weight,
+        enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
         identifier = identifier,
         is_shared = True,
@@ -223,6 +225,7 @@ def cxx_link_into_shared_library(
         prefer_local: [bool.type, None] = None,
         local_only: [bool.type, None] = None,
         link_weight: int.type = 1,
+        enable_distributed_thinlto: bool.type = False,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str.type, None] = None,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
@@ -242,6 +245,7 @@ def cxx_link_into_shared_library(
         prefer_local = prefer_local,
         local_only = local_only,
         link_weight = link_weight,
+        enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
         identifier = identifier,
         shared_library_flags = shared_library_flags,
