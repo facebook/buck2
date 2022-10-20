@@ -1,6 +1,13 @@
 # @lint-ignore FBCODEBZLADDLOADS
 
-def rust_library(os_deps = None, test_deps = None, test_env = None, named_deps = None, deps = [], visibility = ["PUBLIC"], **kwargs):
+def rust_library(
+        deps = [],
+        named_deps = None,
+        os_deps = None,
+        test_deps = None,
+        test_env = None,
+        visibility = ["PUBLIC"],
+        **kwargs):
     _unused = (test_deps, test_env, named_deps)  # @unused
     deps = _fix_deps(deps)
     if os_deps:
@@ -11,11 +18,23 @@ def rust_library(os_deps = None, test_deps = None, test_env = None, named_deps =
         **kwargs
     )
 
-def rust_binary(unittests = None, deps = [], **kwargs):
+def rust_binary(
+        deps = [],
+        unittests = None,
+        **kwargs):
     _unused = unittests  # @unused
-    native.rust_binary(deps = filter(None, map(_fix_dep, deps)), **kwargs)
+    deps = _fix_deps(deps)
+    native.rust_binary(
+        deps = deps,
+        **kwargs)
 
-def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps = None):
+def rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        spec,
+        build_env = None,
+        deps = None):
     deps = _fix_deps(deps) if deps else None
     if build_env:
         build_env = {
