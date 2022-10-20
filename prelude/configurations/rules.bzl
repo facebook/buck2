@@ -50,6 +50,12 @@ def platform_impl(ctx):
         DefaultInfo(),
         PlatformInfo(
             label = str(ctx.label.raw_target()),
+            # TODO(nga): current behavior is the last constraint value for constraint setting wins.
+            #   This allows overriding constraint values from dependencies, and moreover,
+            #   it allows overriding constraint values from constraint values listed
+            #   in the same `constraint_values` attribute earlier.
+            #   If this is intentional, state it explicitly.
+            #   Otherwise, fix it.
             configuration = util.configuration_info_union(subinfos),
         ),
     ]
