@@ -1,6 +1,7 @@
 # @lint-ignore FBCODEBZLADDLOADS
 
 def rust_library(
+        rustc_flags = [],
         deps = [],
         named_deps = None,
         os_deps = None,
@@ -13,18 +14,21 @@ def rust_library(
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
     native.rust_library(
+        rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
         visibility = visibility,
         **kwargs
     )
 
 def rust_binary(
+        rustc_flags = [],
         deps = [],
         unittests = None,
         **kwargs):
     _unused = unittests  # @unused
     deps = _fix_deps(deps)
     native.rust_binary(
+        rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
         **kwargs)
 
@@ -94,6 +98,8 @@ def rust_protobuf_library(
         name = spec,
         visibility = ["PUBLIC"],
     )
+
+_CFG_BUCK_OSS_BUILD = "--cfg=buck_oss_build"
 
 def _select_os_deps(xss: [(
     "string",
