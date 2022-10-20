@@ -240,7 +240,7 @@ impl FrozenHeap {
         self.refs.borrow_mut().get_or_insert_owned(heap);
     }
 
-    fn alloc_raw(&self, x: impl AValue<'static, ExtraElem = ()>) -> FrozenValue {
+    fn alloc_raw(&self, x: impl AValue<'static, ExtraElem = ()> + Send + Sync) -> FrozenValue {
         let v: &AValueRepr<_> = self.arena.alloc(x);
         unsafe { FrozenValue::new_repr(cast::ptr_lifetime(v)) }
     }
@@ -325,7 +325,7 @@ impl FrozenHeap {
         self.alloc_raw(float_avalue(f))
     }
 
-    pub(crate) fn alloc_simple_typed<T: StarlarkValue<'static>>(
+    pub(crate) fn alloc_simple_typed<T: StarlarkValue<'static> + Send + Sync>(
         &self,
         val: T,
     ) -> FrozenValueTyped<'static, T> {
@@ -338,12 +338,12 @@ impl FrozenHeap {
     /// Simple value is any starlark value which:
     /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
     /// * is not special builtin (e.g. `None`)
-    pub fn alloc_simple<T: StarlarkValue<'static>>(&self, val: T) -> FrozenValue {
+    pub fn alloc_simple<T: StarlarkValue<'static> + Send + Sync>(&self, val: T) -> FrozenValue {
         self.alloc_simple_typed(val).to_frozen_value()
     }
 
     /// Allocate a simple [`StarlarkValue`] and return `FrozenRef` to it.
-    pub(crate) fn alloc_simple_frozen_ref<T: StarlarkValue<'static>>(
+    pub(crate) fn alloc_simple_frozen_ref<T: StarlarkValue<'static> + Send + Sync>(
         &self,
         value: T,
     ) -> FrozenRef<'static, T> {

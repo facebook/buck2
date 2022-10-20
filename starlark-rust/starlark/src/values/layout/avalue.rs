@@ -230,7 +230,9 @@ pub(crate) fn basic_ref<T: StarlarkValueBasic<'static>>(x: &'static T) -> AValue
     }
 }
 
-pub(crate) fn simple<T: StarlarkValue<'static>>(x: T) -> impl AValue<'static, ExtraElem = ()> {
+pub(crate) fn simple<T: StarlarkValue<'static> + Send + Sync>(
+    x: T,
+) -> impl AValue<'static, ExtraElem = ()> + Send + Sync {
     assert!(!T::is_special(Private));
     AValueImpl(Simple, x)
 }
