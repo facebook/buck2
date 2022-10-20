@@ -22,6 +22,7 @@ load(
     "MergedLinkInfo",
     "SharedLibLinkable",
     "create_merged_link_info",
+    "get_actual_link_style",
     "merge_link_infos",
 )
 load(
@@ -466,7 +467,10 @@ def _native_providers(
     # Add the shared library to the list of shared libs.
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
     shlib_name = get_default_shared_library_name(linker_type, ctx.label)
-    solibs[shlib_name] = LinkedObject(output = libraries[LinkStyle("shared")])
+
+    # Only add a shared library if we generated one.
+    if get_actual_link_style(LinkStyle("shared"), preferred_linkage) == LinkStyle("shared"):
+        solibs[shlib_name] = LinkedObject(output = libraries[LinkStyle("shared")])
 
     # Native shared library provider.
     providers.append(merge_shared_libraries(

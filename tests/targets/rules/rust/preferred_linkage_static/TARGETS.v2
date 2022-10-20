@@ -1,0 +1,32 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.genrule(
+    name = "check",
+    out = "out.txt",
+    # Verify that we don't see a shared lib for the preferred_static Rust dep.
+    cmd = "[[ ! -e $(location :bin[rpath-tree])/libbuck2_tests_targets_rules_rust_preferred_linkage_static_lib.so ]] && touch $OUT",
+)
+
+bzl_native.cxx_binary(
+    name = "bin",
+    link_style = "shared",
+    deps = [
+        ":cxx_lib",
+        ":lib",
+    ],
+)
+
+bzl_native.cxx_library(
+    name = "cxx_lib",
+    srcs = [
+        "lib.c",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "lib",
+    preferred_linkage = "static",
+    srcs = [
+        "lib.rs",
+    ],
+)
