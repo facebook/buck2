@@ -664,7 +664,9 @@ impl Heap {
     /// Simple value is any starlark value which:
     /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
     /// * is not special builtin (e.g. `None`)
-    pub fn alloc_simple<'v, T: StarlarkValue<'static>>(&'v self, x: T) -> Value<'v> {
+    ///
+    /// Must be [`Send`] and [`Sync`] because it will be reused in frozen values.
+    pub fn alloc_simple<'v, T: StarlarkValue<'static> + Send + Sync>(&'v self, x: T) -> Value<'v> {
         self.alloc_raw(simple(x))
     }
 
