@@ -336,3 +336,20 @@ async def test_rbuildfiles(buck: Buck) -> None:
     )
 
     assert out2.stdout == "fbcode/" + target_file + "\n"
+
+
+# DICE currently may re-evaluate dead nodes ignoring errors, but it cannot ignore panics.
+# The disabling of execution platforms through a buckconfig ended up causing a panic
+# that was the root cause of non-deterministic buck2 failures on 10% of fbcode TD in S303188.
+#
+# TODO(scottcao): Disabling execution platforms is a hack that we need to get rid of
+# because it's not how buck2 should be used. Get rid of this test case once fbcode TD
+# stops disabling execution platforms
+@buck_test(inplace=False, data_dir="toolchain_deps")
+async def test_disabling_of_execution_platforms(buck: Buck) -> None:
+    # Run these commands 10x such that a stress run of 10 on continuous CI would run these commands 100x.
+    # If there is a regression then the stress run would for sure detect it.
+    for _ in range(10):
+        query = "deps(set(tests/...))"
+        await buck.cquery(query)
+        await buck.cquery(query, "-c", "build.execution_platforms=")
