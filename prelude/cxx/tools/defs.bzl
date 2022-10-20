@@ -30,6 +30,8 @@ def _omnibus_environment_impl(ctx: "context"):
 
     dynamic_exclusions = all_deps(omnibus_graph.nodes, omnibus_graph.excluded.keys())
 
+    force_hybrid_links = (sha256(ctx.attrs.sandcastle_alias) < "2") if ctx.attrs.sandcastle_alias else False
+
     return [DefaultInfo(), OmnibusEnvironment(
         dummy_omnibus = omnibus,
         exclusions = {e.raw_target(): None for e in ctx.attrs.exclusions + dynamic_exclusions},
@@ -37,6 +39,7 @@ def _omnibus_environment_impl(ctx: "context"):
         enable_explicit_roots = ctx.attrs.enable_explicit_roots,
         prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
         shared_root_ld_flags = ctx.attrs.shared_root_ld_flags,
+        force_hybrid_links = force_hybrid_links,
     )]
 
 omnibus_environment = rule(impl = _omnibus_environment_impl, attrs = {
@@ -47,6 +50,7 @@ omnibus_environment = rule(impl = _omnibus_environment_impl, attrs = {
     # Same name as the Python attr
     "prefer_stripped_native_objects": attrs.bool(),
     "roots": attrs.list(attrs.label(), default = []),
+    "sandcastle_alias": attrs.option(attrs.string()),
     "shared_root_ld_flags": attrs.list(attrs.arg(), default = []),
     "_cxx_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo, CxxPlatformInfo])),
 })

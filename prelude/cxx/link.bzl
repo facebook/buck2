@@ -56,7 +56,8 @@ def cxx_link(
         strip_args_factory = None,
         generate_dwp: bool.type = True,
         executable_link = False,
-        link_postprocessor: ["cmd_args", None] = None) -> LinkedObject.type:
+        link_postprocessor: ["cmd_args", None] = None,
+        force_full_hybrid_if_capable: bool.type = False) -> LinkedObject.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -122,7 +123,15 @@ def cxx_link(
         cmd.add('""').add(command)
         cmd.hidden(command)
         command = cmd
-    ctx.actions.run(command, prefer_local = prefer_local, local_only = local_only, weight = link_weight, category = category, identifier = identifier)
+    ctx.actions.run(
+        command,
+        prefer_local = prefer_local,
+        local_only = local_only,
+        weight = link_weight,
+        category = category,
+        identifier = identifier,
+        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
+    )
     if strip:
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
@@ -187,7 +196,8 @@ def cxx_link_shared_library(
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
         strip_args_factory = None,
-        link_postprocessor: ["cmd_args", None] = None) -> LinkedObject.type:
+        link_postprocessor: ["cmd_args", None] = None,
+        force_full_hybrid_if_capable: [bool.type, None] = None) -> LinkedObject.type:
     """
     Link a shared library into the supplied output.
     """
@@ -200,6 +210,7 @@ def cxx_link_shared_library(
         extra_args.extend(get_shared_library_name_linker_flags(linker_type, name, shared_library_flags))
 
     prefer_local_value = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False))
+    force_full_hybrid_if_capable = value_or(force_full_hybrid_if_capable, False)
     return cxx_link(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
@@ -214,6 +225,7 @@ def cxx_link_shared_library(
         strip = strip,
         strip_args_factory = strip_args_factory,
         link_postprocessor = link_postprocessor,
+        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
     )
 
 def cxx_link_into_shared_library(
@@ -235,7 +247,8 @@ def cxx_link_into_shared_library(
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
         strip_args_factory = None,
-        link_postprocessor: ["cmd_args", None] = None) -> LinkedObject.type:
+        link_postprocessor: ["cmd_args", None] = None,
+        force_full_hybrid_if_capable: [bool.type, None] = None) -> LinkedObject.type:
     output = ctx.actions.declare_output(name)
     return cxx_link_shared_library(
         ctx,
@@ -252,4 +265,5 @@ def cxx_link_into_shared_library(
         strip = strip,
         strip_args_factory = strip_args_factory,
         link_postprocessor = link_postprocessor,
+        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
     )

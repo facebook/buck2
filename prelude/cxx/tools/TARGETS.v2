@@ -549,6 +549,7 @@ omnibus_environment(
         "fbcode//common/memory:jemalloc",
         "fbcode//folly/experimental/exception_tracer:exception_tracer_callbacks",
     ] if enable_explicit_roots else [],
+    sandcastle_alias = native.read_config("user", "sandcastle_alias"),
 )
 
 native.constraint_setting(

@@ -52,6 +52,7 @@ OmnibusEnvironment = provider(fields = [
     "enable_explicit_roots",
     "prefer_stripped_objects",
     "shared_root_ld_flags",
+    "force_hybrid_links",
 ])
 
 Disposition = enum("root", "excluded", "body")
@@ -781,6 +782,7 @@ def _create_omnibus(
         link_weight = linker_info.link_weight,
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         identifier = soname,
+        force_full_hybrid_if_capable = use_hybrid_links_for_libomnibus(ctx),
     )
 
 def _build_omnibus_spec(
@@ -983,6 +985,12 @@ def explicit_roots_enabled(ctx: "context") -> bool.type:
     if not env:
         return False
     return env[OmnibusEnvironment].enable_explicit_roots
+
+def use_hybrid_links_for_libomnibus(ctx: "context") -> bool.type:
+    env = ctx.attrs._omnibus_environment
+    if not env:
+        return False
+    return env[OmnibusEnvironment].force_hybrid_links
 
 def _do_not_inject_omnibus_environment_transition(
         platform: PlatformInfo.type,
