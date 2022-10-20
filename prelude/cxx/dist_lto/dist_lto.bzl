@@ -418,6 +418,7 @@ def cxx_dist_link(
         OPT_PHASE_DEFAULT_OPTIMIZATION_LEVEL = "-O2"
 
         # Conservatively, we only translate llvms flags in our known list
+        KNOWN_LLVM_SHARED_LIBRARY_FLAGS = ["-shared"]
         KNOWN_LLVM_FLAGS = ["-generate-type-units"]
         KNOWN_LLVM_FLAG_PREFIXS = ["-enable-lto-ir-verification=", "-profile-guided-section-prefix="]
 
@@ -454,6 +455,9 @@ def cxx_dist_link(
                     elif is_mllvm_flags(f):
                         # for flags need adding -mllvm prefix
                         opt_args.add(OPT_PHASE_LLVM_PREFIX, f)
+                elif flag_str in KNOWN_LLVM_SHARED_LIBRARY_FLAGS:
+                    # the target is a shared library, `-fPIC` is needed in opt phase to correctly generate PIC ELF.
+                    opt_args.add("-fPIC")
                 elif flag_str.startswith(LINKER_MLLVM_PREFIX):
                     # translate args like "-Wl,-mllvm,-profile-summary-cutoff-hot=999990"
                     # to "-mllvm -profile-summary-cutoff-hot=999990"
