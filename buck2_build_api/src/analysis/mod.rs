@@ -30,6 +30,7 @@ use starlark::values::structs::Struct;
 use starlark::values::FrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::analysis::registry::AnalysisRegistry;
@@ -168,8 +169,11 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
 }
 
 pub trait RuleImplFunction {
-    fn invoke<'v>(&self, eval: &mut Evaluator<'v, '_>, ctx: Value<'v>)
-    -> anyhow::Result<Value<'v>>;
+    fn invoke<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+        ctx: ValueTyped<'v, AnalysisContext<'v>>,
+    ) -> anyhow::Result<Value<'v>>;
 }
 
 /// Container for the environment that analysis implementation functions should run in
@@ -258,7 +262,7 @@ fn run_analysis_with_env(
         analysis_env.execution_platform.dupe(),
     );
     let attributes = env.heap().alloc(Struct::new(resolved_attrs));
-    let ctx = env.heap().alloc(AnalysisContext::new(
+    let ctx = env.heap().alloc_typed(AnalysisContext::new(
         eval.heap(),
         attributes,
         Some(eval.heap().alloc_typed(LabelGen::new(
@@ -328,7 +332,7 @@ pub fn get_user_defined_rule_impl(
         fn invoke<'v>(
             &self,
             eval: &mut Evaluator<'v, '_>,
-            ctx: Value<'v>,
+            ctx: ValueTyped<'v, AnalysisContext<'v>>,
         ) -> anyhow::Result<Value<'v>> {
             let rule_callable = self
                 .module
@@ -349,7 +353,7 @@ pub fn get_user_defined_rule_impl(
                     });
                 frozen_callable.get_impl()
             };
-            eval.eval_function(rule_impl.to_value(), &[ctx], &[])
+            eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
         }
     }
 

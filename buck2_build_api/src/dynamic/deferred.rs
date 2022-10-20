@@ -227,7 +227,7 @@ impl Deferred for DynamicLambda {
         let artifacts = Dict::new(artifacts);
         let outputs = Dict::new(outputs);
 
-        let ctx = heap.alloc(AnalysisContext::new_dynamic(
+        let ctx = heap.alloc_typed(AnalysisContext::new_dynamic(
             heap,
             attributes,
             match &self.owner {
@@ -242,7 +242,7 @@ impl Deferred for DynamicLambda {
 
         eval.eval_function(
             lambda,
-            &[ctx, heap.alloc(artifacts), heap.alloc(outputs)],
+            &[ctx.to_value(), heap.alloc(artifacts), heap.alloc(outputs)],
             &[],
         )?;
 
