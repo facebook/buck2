@@ -22,24 +22,24 @@
 
 # Name the record `set_record` to enable users to use `set` to intialize a set.
 set_record = record(
-    _entries = field({"": None}, {}),
-    list = field("function", lambda _: None),
+    _entries = field(dict.type),
+    list = field("function"),
     # Adds the value to the set, returning whether the value existed in the set
-    add = field("function", lambda _value: bool.type),
+    add = field("function"),
     # Removes the value if the value is in the set, returning whether the value existed in the set
-    remove = field("function", lambda _value: bool.type),
+    remove = field("function"),
     # Adds the values to the set, returning the values that were added
-    update = field("function", lambda _values: [""]),
+    update = field("function"),
     # Returns whether the value is in the set
-    contains = field("function", lambda _value: bool.type),
-    size = field("function", lambda _ = None: int.type),
+    contains = field("function"),
+    size = field("function"),
 )
 
 # For typing a set, you may use `set_type` or `set_record.type`, the former is
 # encouraged to avoid leaking the underlying implementation.
 set_type = set_record.type
 
-def set():
+def set() -> set_type:
     self = None
 
     def set_list():
