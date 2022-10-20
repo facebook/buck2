@@ -29,6 +29,7 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use either::Either;
 use gazebo::dupe::Dupe;
+use starlark_map::Hashed;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
@@ -63,7 +64,7 @@ use crate::rule_type::RuleType;
 /// resolving the attributes. This saves memory, but users should try avoid repeatedly
 /// requesting the same information.
 #[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash)]
-pub struct ConfiguredTargetNode(Arc<ConfiguredTargetNodeData>);
+pub struct ConfiguredTargetNode(Arc<Hashed<ConfiguredTargetNodeData>>);
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 enum TargetNodeOrForward {
@@ -203,7 +204,7 @@ impl ConfiguredTargetNode {
         exec_deps: OrderedSet<ConfiguredTargetNode>,
         platform_cfgs: OrderedMap<TargetLabel, Configuration>,
     ) -> Self {
-        Self(Arc::new(ConfiguredTargetNodeData {
+        Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
             name,
             target_node: TargetNodeOrForward::TargetNode(target_node),
             resolved_configuration,
@@ -212,7 +213,7 @@ impl ConfiguredTargetNode {
             deps: ConfiguredTargetNodeDeps(deps),
             exec_deps: ConfiguredTargetNodeDeps(exec_deps),
             platform_cfgs,
-        }))
+        })))
     }
 
     /// New `ConfiguredTargetNode` for a forward node for transitioned target.
@@ -239,7 +240,7 @@ impl ConfiguredTargetNode {
 
         let configured_providers_label =
             providers_label.configure(transitioned_node.name().cfg().dupe());
-        Self(Arc::new(ConfiguredTargetNodeData {
+        Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
             name: name.dupe(),
             target_node: TargetNodeOrForward::Forward(
                 CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr::new(
@@ -260,7 +261,7 @@ impl ConfiguredTargetNode {
             deps: ConfiguredTargetNodeDeps(OrderedSet::from_iter([transitioned_node])),
             exec_deps: ConfiguredTargetNodeDeps(OrderedSet::new()),
             platform_cfgs: OrderedMap::new(),
-        }))
+        })))
     }
 
     pub fn target_compatible_with(&self) -> impl Iterator<Item = TargetLabel> {
