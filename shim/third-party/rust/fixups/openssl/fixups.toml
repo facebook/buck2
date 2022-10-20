@@ -7,8 +7,6 @@ buildscript = []
 buildscript = []
 extra_deps = [
   "buck//third-party/cxx/vendor/openssl-linux:openssl",
-  "buck//third-party/cxx/vendor/openssl-linux:ssl",
-  "buck//third-party/cxx/vendor/openssl-linux:crypto",
 ]
 
 [platform_fixup.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))']

@@ -2,17 +2,17 @@ prebuilt_cxx_library(
     name = "openssl",
     exported_headers = glob(["include/**/*.h"]),
     header_dirs = ["include"],
+    deps = [":ssl"],
     visibility = ["PUBLIC"],
 )
 
 prebuilt_cxx_library(
     name = "ssl",
     static_lib = "lib/x86_64-linux-gnu/libssl.a",
-    visibility = ["PUBLIC"],
+    deps = [":crypto"],
 )
 
 prebuilt_cxx_library(
     name = "crypto",
     static_lib = "lib/x86_64-linux-gnu/libcrypto.a",
-    visibility = ["PUBLIC"],
 )
