@@ -238,6 +238,7 @@ impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
 
 /// Like [`ValueOf`](crate::values::ValueOf), but only validates value types; does not construct
 /// or store a map.
+#[derive(Debug)]
 pub struct StructOf<'v, V: UnpackValue<'v>> {
     value: ValueOf<'v, &'v Struct<'v>>,
     _marker: PhantomData<V>,

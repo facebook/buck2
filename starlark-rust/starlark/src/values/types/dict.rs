@@ -588,6 +588,7 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for
 
 /// Like [`ValueOf`](crate::values::ValueOf), but only validates key and value types; does not construct
 /// or store a map. Use `to_dict` to get at the map.
+#[derive(Debug, Trace)]
 pub struct DictOf<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> {
     value: Value<'v>,
     phantom: PhantomData<(K, V)>,

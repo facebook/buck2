@@ -617,6 +617,7 @@ impl<'v, T: ListLike<'v>> Serialize for ListGen<T> {
 
 /// Like `ValueOf`, but only validates item types; does not construct or store a
 /// vec. Use `to_vec` to get a Vec.
+#[derive(Debug, Trace)]
 pub struct ListOf<'v, V: UnpackValue<'v>> {
     value: Value<'v>,
     phantom: PhantomData<V>,
