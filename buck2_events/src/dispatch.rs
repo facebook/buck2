@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
 //! Mechanism for dispatching events. Where the rubber meets the road, for producers of events.
 //!
 //! The [`EventDispatcher`] is a type-erased, dupe-able container for a [`crate::EventSink`]. It is intended to be

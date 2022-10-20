@@ -9,6 +9,8 @@
  * of this source tree.
  */
 
+// @lint-ignore-every LICENSELINT
+
 //! This is a fork of [daemonize crate](https://github.com/knsd/daemonize/)
 //! from revision f7be28efa1b4a70e43bb37b5f4ff4d664992edca.
 
