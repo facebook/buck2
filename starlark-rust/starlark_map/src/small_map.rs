@@ -575,6 +575,7 @@ impl<K, V> SmallMap<K, V> {
         // TODO(nga): make it panic safe.
         self.entries.sort_keys();
         if let Some(index) = &mut self.index {
+            // TODO(nga): no need to rebuild the index if the map was already sorted.
             index.clear();
             for (i, b) in self.entries.buckets.iter().enumerate() {
                 // SAFETY: capacity >= self.entries.len()
