@@ -297,7 +297,7 @@ fn run_analysis_with_env(
     env.set("", res);
 
     // Pull the ctx object back out, and steal ctx.action's state back
-    let analysis_registry = AnalysisContext::take_state(ctx);
+    let analysis_registry = ctx.take_state();
     let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
 
     profiler

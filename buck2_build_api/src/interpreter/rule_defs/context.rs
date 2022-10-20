@@ -218,9 +218,8 @@ impl<'v> AnalysisContext<'v> {
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
-    pub(crate) fn take_state(value: ValueTyped<'v, AnalysisContext<'v>>) -> AnalysisRegistry<'v> {
-        value
-            .actions
+    pub(crate) fn take_state(&self) -> AnalysisRegistry<'v> {
+        self.actions
             .state
             .borrow_mut()
             .take()

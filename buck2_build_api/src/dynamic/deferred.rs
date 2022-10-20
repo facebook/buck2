@@ -246,7 +246,7 @@ impl Deferred for DynamicLambda {
             &[],
         )?;
 
-        let analysis_registry = AnalysisContext::take_state(ctx);
+        let analysis_registry = ctx.take_state();
 
         let (_frozen_env, deferred) = analysis_registry.finalize(&env)(env)?;
         let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
