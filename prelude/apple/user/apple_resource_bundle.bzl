@@ -40,5 +40,6 @@ registration_spec = RuleRegistrationSpec(
         # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
         # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
         "_bundle_target_name": attrs.string(),
+        "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
     },
 )

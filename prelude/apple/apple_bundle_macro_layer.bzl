@@ -30,6 +30,7 @@ def apple_bundle_macro_impl(apple_bundle_rule = None, apple_resource_bundle_rule
         resource_bundle_name = kwargs["name"] + "__ResourceBundle_Private"
         resource_bundle_kwargs = {
             "_bundle_target_name": kwargs["name"],
+            "_compile_resources_locally_override": kwargs["_compile_resources_locally_override"],
         }
         for field_name in _RESOURCE_BUNDLE_FIELDS:
             resource_bundle_kwargs[field_name] = kwargs.get(field_name)
