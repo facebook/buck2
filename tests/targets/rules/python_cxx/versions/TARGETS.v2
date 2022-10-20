@@ -3,10 +3,10 @@ load(":defs.bzl", "check_platform")
 prelude = native
 
 check_platform(
-    name = "py3.8-platform009",
+    name = "py3.8-platform010",
     # Verify the Python versions used for extensions built with this target
     # platform.
-    target_platform = "ovr_config//platform/linux:x86_64-fbcode-platform009-clang",
+    target_platform = "ovr_config//platform/linux:x86_64-fbcode-platform010-clang",
     version = "3.8.6",
 )
 
