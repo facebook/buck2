@@ -83,7 +83,13 @@ where
 
 impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        let mut map = OrderedMap::from_iter(iter);
+        let map = OrderedMap::from_iter(iter);
+        SortedMap::from(map)
+    }
+}
+
+impl<K: Ord + Hash, V> From<OrderedMap<K, V>> for SortedMap<K, V> {
+    fn from(mut map: OrderedMap<K, V>) -> SortedMap<K, V> {
         map.sort_keys();
         SortedMap { map }
     }
