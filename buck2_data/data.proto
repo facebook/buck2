@@ -816,6 +816,10 @@ message ActionExecutionEnd {
 
   // Revision hash (version) for this action
   optional string buck2_revision = 31;
+
+  // Was this command eligible for full hybrid execution (i.e. no exclusions
+  // from the command, hybrid is turned on).
+  optional bool eligible_for_full_hybrid = 32;
 }
 
 // The beginning of materialization for the output of a target requested,

@@ -463,6 +463,7 @@ impl BuckTestOrchestrator {
                 },
             rejected_execution: _,
             did_cache_upload: _,
+            eligible_for_full_hybrid: _,
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
                 let start = TestDiscoveryStart {

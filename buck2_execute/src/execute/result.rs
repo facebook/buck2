@@ -117,6 +117,8 @@ pub struct CommandExecutionResult {
     pub rejected_execution: Option<CommandExecutionReport>,
     /// Whether this was uploaded to cache, by Buck2.
     pub did_cache_upload: bool,
+    /// Whether this command was eligible for hybrid execution.
+    pub eligible_for_full_hybrid: bool,
 }
 
 /// Describes how a command executed.

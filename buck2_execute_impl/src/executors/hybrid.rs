@@ -220,7 +220,7 @@ impl PreparedCommandExecutor for HybridExecutor {
             Either::factor_first(futures::future::select(primary, secondary).await)
         };
 
-        if is_retryable_status(&first_res) {
+        let mut res = if is_retryable_status(&first_res) {
             // If the first result had made a claim, then cancel it now to let the other result
             // proceed.
             if let Some(claim) = first_res.report.claim.take() {
@@ -252,7 +252,10 @@ impl PreparedCommandExecutor for HybridExecutor {
         } else {
             // Everyone is happy, we got our result.
             first_res
-        }
+        };
+
+        res.eligible_for_full_hybrid = !fallback_only;
+        res
     }
 
     fn re_platform(&self) -> Option<&RE::Platform> {

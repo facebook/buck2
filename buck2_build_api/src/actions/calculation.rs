@@ -141,6 +141,7 @@ async fn build_action_no_redirect(
         let mut requires_local = None;
         let mut allows_cache_upload = None;
         let mut did_cache_upload = None;
+        let mut eligible_for_full_hybrid = None;
         let mut buck2_revision = None;
 
         match execute_result {
@@ -163,6 +164,7 @@ async fn build_action_no_redirect(
                     requires_local = Some(command.requires_local);
                     allows_cache_upload = Some(command.allows_cache_upload);
                     did_cache_upload = Some(command.did_cache_upload);
+                    eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
                 }
             }
             Err(e) => {
@@ -229,6 +231,7 @@ async fn build_action_no_redirect(
                 requires_local: requires_local.unwrap_or_default(),
                 allows_cache_upload: allows_cache_upload.unwrap_or_default(),
                 did_cache_upload: did_cache_upload.unwrap_or_default(),
+                eligible_for_full_hybrid,
                 buck2_revision,
             },
         )

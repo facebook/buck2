@@ -87,6 +87,7 @@ pub enum ActionExecutionKind {
         requires_local: bool,
         allows_cache_upload: bool,
         did_cache_upload: bool,
+        eligible_for_full_hybrid: bool,
     },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display(fmt = "simple")]
@@ -105,6 +106,7 @@ pub struct CommandExecutionRef<'a> {
     pub requires_local: bool,
     pub allows_cache_upload: bool,
     pub did_cache_upload: bool,
+    pub eligible_for_full_hybrid: bool,
 }
 
 impl ActionExecutionKind {
@@ -125,12 +127,14 @@ impl ActionExecutionKind {
                 requires_local,
                 allows_cache_upload,
                 did_cache_upload,
+                eligible_for_full_hybrid,
             } => Some(CommandExecutionRef {
                 kind,
                 prefers_local: *prefers_local,
                 requires_local: *requires_local,
                 allows_cache_upload: *allows_cache_upload,
                 did_cache_upload: *did_cache_upload,
+                eligible_for_full_hybrid: *eligible_for_full_hybrid,
             }),
             Self::Simple | Self::Skipped | Self::Deferred => None,
         }
@@ -308,6 +312,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             report,
             rejected_execution,
             did_cache_upload,
+            eligible_for_full_hybrid,
         } = self
             .executor
             .command_executor
@@ -325,6 +330,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                         requires_local: request.executor_preference().requires_local(),
                         allows_cache_upload: request.allow_cache_upload(),
                         did_cache_upload,
+                        eligible_for_full_hybrid,
                     },
                     timing: report.timing.into(),
                 },
