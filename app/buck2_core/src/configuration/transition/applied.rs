@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
-
+use crate::collections::sorted_map::SortedMap;
 use crate::configuration::Configuration;
 
 #[derive(thiserror::Error, Debug)]
@@ -29,7 +28,7 @@ pub enum TransitionApplied {
     /// Transition to single configuration.
     Single(Configuration),
     /// Split transition.
-    Split(BTreeMap<String, Configuration>),
+    Split(SortedMap<String, Configuration>),
 }
 
 impl TransitionApplied {
@@ -40,7 +39,7 @@ impl TransitionApplied {
         }
     }
 
-    pub fn split(&self) -> anyhow::Result<&BTreeMap<String, Configuration>> {
+    pub fn split(&self) -> anyhow::Result<&SortedMap<String, Configuration>> {
         match self {
             TransitionApplied::Split(configurations) => Ok(configurations),
             _ => Err(TransitionAppliedError::SingleWhereSplitExpected.into()),

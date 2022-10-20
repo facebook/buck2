@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
 
+use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -64,7 +64,7 @@ pub trait SplitTransitionDepMaybeConfigured {
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
 pub struct ConfiguredSplitTransitionDep {
-    pub deps: BTreeMap<String, ConfiguredProvidersLabel>,
+    pub deps: SortedMap<String, ConfiguredProvidersLabel>,
     pub required_providers: Option<Arc<ProviderIdSet>>,
 }
 

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -15,6 +14,8 @@ use async_trait::async_trait;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -87,12 +88,12 @@ fn call_transition_function<'v>(
     if transition.split {
         match DictOf::<&str, &PlatformInfo>::unpack_value(new_platforms) {
             Some(dict) => {
-                let mut split = BTreeMap::new();
+                let mut split = OrderedMap::new();
                 for (k, v) in dict.to_dict() {
                     let prev = split.insert(k.to_owned(), v.to_configuration()?);
                     assert!(prev.is_none());
                 }
-                Ok(TransitionApplied::Split(split))
+                Ok(TransitionApplied::Split(SortedMap::from(split)))
             }
             None => Err(ApplyTransitionError::SplitTransitionMustReturnDict.into()),
         }

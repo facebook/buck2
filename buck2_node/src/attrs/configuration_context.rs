@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -78,7 +78,7 @@ pub trait AttrConfigurationContext {
         &self,
         label: &ProvidersLabel,
         tr: &TransitionId,
-    ) -> anyhow::Result<BTreeMap<String, ConfiguredProvidersLabel>> {
+    ) -> anyhow::Result<SortedMap<String, ConfiguredProvidersLabel>> {
         let cfg = self
             .resolved_transitions()
             .get(tr)
