@@ -1146,6 +1146,8 @@ message InvocationRecord {
   string filesystem = 30;
   // Test session
   optional string test_info = 31;
+  // Whether there were any full-hybrid-eligible actions.
+  optional bool eligible_for_full_hybrid = 32;
 }
 
 message CacheUploadStart {

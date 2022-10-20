@@ -74,6 +74,7 @@ mod imp {
         invocation_root_path: AbsPathBuf,
         filesystem: Option<String>,
         test_info: Option<String>,
+        eligible_for_full_hybrid: bool,
     }
 
     impl InvocationRecorder {
@@ -114,6 +115,7 @@ mod imp {
                 invocation_root_path,
                 filesystem: None,
                 test_info: None,
+                eligible_for_full_hybrid: false,
             }
         }
 
@@ -165,6 +167,7 @@ mod imp {
                     resolved_target_patterns: self.resolved_target_patterns.take(),
                     filesystem: self.filesystem.take().unwrap_or_default(),
                     test_info: self.test_info.take(),
+                    eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
                 };
                 let event = BuckEvent {
                     timestamp: SystemTime::now(),
@@ -293,6 +296,11 @@ mod imp {
                     }
                 }
             }
+
+            if action.eligible_for_full_hybrid.unwrap_or_default() {
+                self.eligible_for_full_hybrid = true;
+            }
+
             Ok(())
         }
 
