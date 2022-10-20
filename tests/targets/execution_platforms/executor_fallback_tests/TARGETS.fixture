@@ -28,3 +28,18 @@ command(
     default_target_platform="//platforms:target",
     exec_compatible_with=["//platforms:full_hybrid_will_failure_fallbacks"],
 )
+
+command(
+    name="fails_both",
+    command="fails_both.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:default"],
+)
+
+command(
+    name="fails_both_prefer_local",
+    command="fails_both.py",
+    default_target_platform="//platforms:target",
+    exec_compatible_with=["//platforms:default"],
+    prefer_local = True
+)

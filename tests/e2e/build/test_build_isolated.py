@@ -822,6 +822,30 @@ async def test_hybrid_executor_fallbacks(buck: Buck, low_pass_filter: str) -> No
 
 
 @buck_test(inplace=False, data_dir="execution_platforms")
+async def test_hybrid_executor_fallback_preferred_error(buck: Buck) -> None:
+    opts = [
+        "-c",
+        f"test.cache_buster={random_string()}",
+    ]
+
+    await expect_failure(
+        buck.build(
+            "root//executor_fallback_tests:fails_both",
+            *opts,
+        ),
+        stderr_regex="Failed on local",
+    )
+
+    await expect_failure(
+        buck.build(
+            "root//executor_fallback_tests:fails_both_prefer_local",
+            *opts,
+        ),
+        stderr_regex="Failed on local",
+    )
+
+
+@buck_test(inplace=False, data_dir="execution_platforms")
 @pytest.mark.parametrize(
     "target",
     [

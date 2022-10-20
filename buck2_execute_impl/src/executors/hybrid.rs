@@ -142,8 +142,8 @@ impl PreparedCommandExecutor for HybridExecutor {
         };
 
         let jobs = HybridExecutorJobs {
-            local: local_result,
-            remote: remote_result,
+            local: local_result.map(|r| (r, JobPriority(1))),
+            remote: remote_result.map(|r| (r, JobPriority(0))),
             executor_preference,
         };
 
@@ -159,7 +159,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         };
 
         if is_limited {
-            return jobs.into_primary().await;
+            return jobs.into_primary().await.0;
         }
 
         let weight = match command.request.host_sharing_requirements() {
@@ -188,7 +188,7 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let fallback_only = fallback_only && !command.request.force_full_hybrid_if_capable();
 
-        let (mut first_res, second) = if fallback_only {
+        let ((mut first_res, first_priority), second) = if fallback_only {
             // In the fallback-only case, the primary always "wins" the race, since we don't start
             // the secondary.
             let (primary, secondary) = jobs.into_boxfutures();
@@ -231,9 +231,24 @@ impl PreparedCommandExecutor for HybridExecutor {
                     );
                 }
             }
-            let mut second_res = second.await;
-            second_res.rejected_execution = Some(first_res.report);
-            second_res
+
+            let (second_res, second_priority) = second.await;
+
+            // For the purposes of giving users a good UX, if both things failed, give them the
+            // local executor's error, which is likely to not have failed because of e.g.
+            // sandboxing.
+            let (mut primary_res, secondary_res) = if is_retryable_status(&second_res) {
+                if first_priority > second_priority {
+                    (first_res, second_res)
+                } else {
+                    (second_res, first_res)
+                }
+            } else {
+                (second_res, first_res)
+            };
+
+            primary_res.rejected_execution = Some(secondary_res.report);
+            primary_res
         } else {
             // Everyone is happy, we got our result.
             first_res
@@ -355,10 +370,10 @@ struct HybridExecutorJobs<L, R> {
     executor_preference: ExecutorPreference,
 }
 
-impl<L, R> HybridExecutorJobs<L, R>
+impl<L, R, O> HybridExecutorJobs<L, R>
 where
-    L: Future<Output = CommandExecutionResult>,
-    R: Future<Output = CommandExecutionResult>,
+    L: Future<Output = O>,
+    R: Future<Output = O>,
 {
     /// Modify the local side future.
     fn map_local<L2>(self, f: impl FnOnce(L) -> L2) -> HybridExecutorJobs<L2, R> {
@@ -375,12 +390,7 @@ where
     }
 
     /// Return both futures, but box them, which makes them Upin and also erases their type.
-    fn into_boxfutures<'a>(
-        self,
-    ) -> (
-        BoxFuture<'a, CommandExecutionResult>,
-        BoxFuture<'a, CommandExecutionResult>,
-    )
+    fn into_boxfutures<'a>(self) -> (BoxFuture<'a, O>, BoxFuture<'a, O>)
     where
         L: Send + 'a,
         R: Send + 'a,
@@ -401,3 +411,6 @@ where
         }
     }
 }
+
+#[derive(PartialOrd, Ord, PartialEq, Eq)]
+struct JobPriority(u8);
