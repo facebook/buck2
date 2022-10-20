@@ -172,7 +172,7 @@ pub fn exec(
     let opt: Opt = Opt::from_clap(&matches);
 
     match &opt.cmd {
-        CommandKind::Clean(..) => {}
+        CommandKind::Clean(..) | CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
         _ => {
             check_user_allowed()?;
         }
