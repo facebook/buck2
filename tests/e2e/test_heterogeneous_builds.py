@@ -21,6 +21,12 @@ def _apple_build_command_args(use_macos_toolchain: bool) -> List[str]:
         toolchain_mode_file,
     ]
 
+    # SC machines don't have watchOS SDK installed which breaks local resources compilation
+    args += [
+        "-c",
+        "apple.compile_resources_locally_override=false",
+    ]
+
     if running_on_linux():
         args += [
             "-c",

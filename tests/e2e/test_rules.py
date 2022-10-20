@@ -160,6 +160,9 @@ async def test_apple(buck: Buck) -> None:
         "xplat.available_platforms=APPLE,CXX",
         "-c",
         "apple.codesign_type_override=skip",
+        # SC machines don't have watchOS SDK installed which breaks local resources compilation
+        "-c",
+        "apple.compile_resources_locally_override=false",
     )
 
 
