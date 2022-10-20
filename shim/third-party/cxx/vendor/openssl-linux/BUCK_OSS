@@ -14,5 +14,6 @@ prebuilt_cxx_library(
 
 prebuilt_cxx_library(
     name = "crypto",
+    exported_post_linker_flags = ["-lc"],
     static_lib = "lib/x86_64-linux-gnu/libcrypto.a",
 )
