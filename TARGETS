@@ -5,3 +5,7 @@ oncall("buck2")
 export_file(
     name = ".buck2-tpx",
 )
+
+export_file(
+    name = ".buck2",
+)
