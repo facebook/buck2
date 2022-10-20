@@ -152,8 +152,8 @@ struct ConfiguredTargetNodeData {
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
     // TODO(cjhopman): Should this be a diff against the node's deps?
-    deps: ConfiguredTargetNodeDeps,
-    exec_deps: ConfiguredTargetNodeDeps,
+    deps: OrderedSet<ConfiguredTargetNode>,
+    exec_deps: OrderedSet<ConfiguredTargetNode>,
     platform_cfgs: OrderedMap<TargetLabel, Configuration>,
 }
 
@@ -209,8 +209,8 @@ impl ConfiguredTargetNode {
             resolved_configuration,
             resolved_transition_configurations: resolved_tr_configurations,
             execution_platform_resolution,
-            deps: ConfiguredTargetNodeDeps(deps),
-            exec_deps: ConfiguredTargetNodeDeps(exec_deps),
+            deps,
+            exec_deps,
             platform_cfgs,
         })))
     }
@@ -257,8 +257,8 @@ impl ConfiguredTargetNode {
             resolved_transition_configurations: OrderedMap::new(),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
-            deps: ConfiguredTargetNodeDeps(OrderedSet::from_iter([transitioned_node])),
-            exec_deps: ConfiguredTargetNodeDeps(OrderedSet::new()),
+            deps: OrderedSet::from_iter([transitioned_node]),
+            exec_deps: OrderedSet::new(),
             platform_cfgs: OrderedMap::new(),
         })))
     }
@@ -494,16 +494,5 @@ impl ConfiguredTargetNode {
             TargetNodeOrForward::TargetNode(n) => n.call_stack(),
             TargetNodeOrForward::Forward(_, n) => n.call_stack(),
         }
-    }
-}
-
-/// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require
-/// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
-#[derive(PartialEq, Eq, Hash)]
-struct ConfiguredTargetNodeDeps(OrderedSet<ConfiguredTargetNode>);
-
-impl ConfiguredTargetNodeDeps {
-    fn iter(&self) -> impl ExactSizeIterator<Item = &ConfiguredTargetNode> {
-        self.0.iter()
     }
 }
