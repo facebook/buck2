@@ -16,11 +16,12 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.8"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.9"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
     need_full_cdb = ctx.cli_args.need_full_cdb
+    resolve_symlinks = ctx.cli_args.resolve_symlinks
     owner = findOwningTarget(ctx, filename)
     if owner != None:
         buckRoot = ctx.root()
@@ -64,6 +65,8 @@ def _impl(ctx):
         cmd.add("--filename")
         cmd.add(filename)
         cmd.add("--use-dotslash")
+        if resolve_symlinks:
+            cmd.add("--resolve-symlinks")
 
         # TODO: do we need these as well?
         # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
@@ -131,5 +134,6 @@ cpp_gen_cdb = bxl(
         "filename": cli_args.string(),
         "need_full_cdb": cli_args.bool(),
         "os": cli_args.string(),
+        "resolve_symlinks": cli_args.bool(),
     },
 )
