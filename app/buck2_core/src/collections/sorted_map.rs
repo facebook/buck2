@@ -33,12 +33,20 @@ where
         self.map.iter()
     }
 
+    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (&K, &mut V)> {
+        self.map.iter_mut()
+    }
+
     pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> {
         self.map.keys()
     }
 
     pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
         self.map.values()
+    }
+
+    pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
+        self.map.values_mut()
     }
 
     pub fn len(&self) -> usize {
@@ -87,6 +95,15 @@ impl<'a, K: Ord + Hash, V> IntoIterator for &'a SortedMap<K, V> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.map.iter()
+    }
+}
+
+impl<'a, K: Ord + Hash, V> IntoIterator for &'a mut SortedMap<K, V> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = small_map::IterMut<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.iter_mut()
     }
 }
 

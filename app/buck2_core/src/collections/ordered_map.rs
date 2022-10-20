@@ -39,12 +39,20 @@ impl<K, V> OrderedMap<K, V> {
         self.0.iter()
     }
 
+    pub fn iter_mut(&mut self) -> small_map::IterMut<K, V> {
+        self.0.iter_mut()
+    }
+
     pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> {
         self.0.keys()
     }
 
     pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
         self.0.values()
+    }
+
+    pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
+        self.0.values_mut()
     }
 
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
@@ -146,6 +154,15 @@ impl<'a, K, V> IntoIterator for &'a OrderedMap<K, V> {
 
     fn into_iter(self) -> small_map::Iter<'a, K, V> {
         self.0.iter()
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a mut OrderedMap<K, V> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = small_map::IterMut<'a, K, V>;
+
+    fn into_iter(self) -> small_map::IterMut<'a, K, V> {
+        self.0.iter_mut()
     }
 }
 
