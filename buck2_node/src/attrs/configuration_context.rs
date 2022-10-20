@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use anyhow::Context;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -69,7 +70,7 @@ pub trait AttrConfigurationContext {
         let cfg = self
             .resolved_transitions()
             .get(tr)
-            .expect("internal error: no resolved transition");
+            .context("internal error: no resolved transition")?;
         Ok(label.configure(cfg.single()?.dupe()))
     }
 
@@ -81,7 +82,7 @@ pub trait AttrConfigurationContext {
         let cfg = self
             .resolved_transitions()
             .get(tr)
-            .expect("internal error: no resolved transition");
+            .context("internal error: no resolved transition")?;
         let split = cfg.split()?;
         Ok(split
             .iter()
