@@ -56,12 +56,15 @@ impl ProfileCommand {
 
 #[derive(clap::ValueEnum, Dupe, Clone, Debug)]
 enum BuckProfileMode {
+    TimeFlameSrc,
+    /// SVG.
     TimeFlame,
-    TimeFlameSvg,
+    HeapFlameAllocatedSrc,
+    HeapFlameRetainedSrc,
+    /// SVG.
     HeapFlameAllocated,
+    /// SVG.
     HeapFlameRetained,
-    HeapFlameAllocatedSvg,
-    HeapFlameRetainedSvg,
     HeapSummaryAllocated,
     HeapSummaryRetained,
     Statement,
@@ -116,12 +119,12 @@ pub struct ProfileSubcommand {
 
 fn profile_mode_to_profile(mode: &BuckProfileMode) -> Profiler {
     match mode {
-        BuckProfileMode::TimeFlame => Profiler::TimeFlameSrc,
-        BuckProfileMode::TimeFlameSvg => Profiler::TimeFlameSvg,
-        BuckProfileMode::HeapFlameAllocated => Profiler::HeapFlameAllocatedSrc,
-        BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetainedSrc,
-        BuckProfileMode::HeapFlameAllocatedSvg => Profiler::HeapFlameAllocatedSvg,
-        BuckProfileMode::HeapFlameRetainedSvg => Profiler::HeapFlameRetainedSvg,
+        BuckProfileMode::TimeFlameSrc => Profiler::TimeFlameSrc,
+        BuckProfileMode::TimeFlame => Profiler::TimeFlameSvg,
+        BuckProfileMode::HeapFlameAllocatedSrc => Profiler::HeapFlameAllocatedSrc,
+        BuckProfileMode::HeapFlameRetainedSrc => Profiler::HeapFlameRetainedSrc,
+        BuckProfileMode::HeapFlameAllocated => Profiler::HeapFlameAllocatedSvg,
+        BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetainedSvg,
         BuckProfileMode::HeapSummaryAllocated => Profiler::HeapSummaryAllocated,
         BuckProfileMode::HeapSummaryRetained => Profiler::HeapSummaryRetained,
         BuckProfileMode::Statement => Profiler::Statement,

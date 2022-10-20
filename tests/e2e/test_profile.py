@@ -7,14 +7,14 @@ from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 PROFILERS = [
+    "heap-flame-allocated-src",
+    "heap-flame-retained-src",
     "heap-flame-allocated",
     "heap-flame-retained",
-    "heap-flame-allocated-svg",
-    "heap-flame-retained-svg",
     "heap-summary-allocated",
     "heap-summary-retained",
+    "time-flame-src",
     "time-flame",
-    "time-flame-svg",
     "statement",
     "bytecode",
     "bytecode-pairs",
@@ -64,12 +64,12 @@ async def test_profile_analysis_recursive(
     )
     if (
         profiler.endswith("-retained")
-        or profiler.endswith("-retained-svg")
+        or profiler.endswith("-retained-src")
         or profiler.startswith("bytecode")
         or profiler.endswith("-allocated")
-        or profiler.endswith("-allocated-svg")
+        or profiler.endswith("-allocated-src")
         or profiler == "time-flame"
-        or profiler == "time-flame-svg"
+        or profiler == "time-flame-src"
     ):
         await command
 
@@ -100,7 +100,7 @@ async def test_profile_loading_last(
         file_path,
     )
 
-    if profiler.endswith("-retained") or profiler.endswith("-retained-svg"):
+    if profiler.endswith("-retained") or profiler.endswith("-retained-src"):
         await expect_failure(
             command,
             stderr_regex="Retained memory profiling is available only for analysis profile",
