@@ -16,6 +16,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::re::manager::ReConnectionManager;
+use chrono::Duration;
 use derivative::Derivative;
 use derive_more::Display;
 use futures::stream::BoxStream;
@@ -28,7 +29,7 @@ use tokio::sync::oneshot::Sender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::materializers::deferred::spawn_ttl_refresh_task;
+use crate::materializers::deferred::create_ttl_refresh;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
@@ -87,7 +88,8 @@ struct RefreshTtls {
 
 impl ExtensionCommand for RefreshTtls {
     fn execute(self: Box<Self>, tree: &ArtifactTree, re_manager: &Arc<ReConnectionManager>) {
-        let task = spawn_ttl_refresh_task(tree, re_manager, self.min_ttl);
+        let task = create_ttl_refresh(tree, re_manager, Duration::seconds(self.min_ttl))
+            .map(tokio::task::spawn);
         let _ignored = self.sender.send(task);
     }
 }

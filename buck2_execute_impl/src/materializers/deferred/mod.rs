@@ -61,6 +61,7 @@ use chrono::Duration;
 use chrono::Utc;
 use derive_more::Display;
 use futures::future::BoxFuture;
+use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::future::TryFutureExt;
@@ -78,6 +79,8 @@ use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
+use tokio_stream::wrappers::IntervalStream;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::instrument;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
@@ -151,6 +154,9 @@ struct DeferredMaterializerCommandProcessor {
     /// Used to emit MaterializationFinished to the command thread
     command_sender: mpsc::UnboundedSender<MaterializerCommand>,
     sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
+    ttl_refresh_frequency: Duration,
+    ttl_refresh_min_ttl: Duration,
+    ttl_refresh_enabled: bool,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -606,6 +612,9 @@ impl DeferredMaterializer {
             io_executor: io_executor.dupe(),
             command_sender: command_sender.clone(),
             sqlite_db: sqlite_db.map(Arc::new),
+            ttl_refresh_frequency: configs.ttl_refresh_frequency,
+            ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
+            ttl_refresh_enabled: configs.ttl_refresh_enabled,
         });
 
         let mut tree = ArtifactTree::new();
@@ -643,103 +652,164 @@ impl DeferredMaterializerCommandProcessor {
     /// It takes commands via the `Materializer` trait methods.
     async fn run(
         self: Arc<Self>,
-        mut command_recv: mpsc::UnboundedReceiver<MaterializerCommand>,
+        commands: mpsc::UnboundedReceiver<MaterializerCommand>,
         mut tree: ArtifactTree,
     ) {
+        enum Op {
+            Command(MaterializerCommand),
+            RefreshTtls,
+        }
+
         // Each Declare bumps the version, so that if an artifact is declared
         // a second time mid materialization of its previous version, we don't
         // incorrectly assume we materialized the latest version. We start with
         // 1 with because any disk state restored will start with version 0.
         let mut next_version = 1u64;
 
-        while let Some(command) = command_recv.recv().await {
-            match command {
-                // Entry point for `get_materialized_file_paths` calls
-                MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
-                    let result = paths.into_map(|p| tree.file_contents_path(p));
-                    result_sender.send(result).ok();
-                }
-                MaterializerCommand::DeclareExisting(artifacts) => {
-                    for (path, artifact) in artifacts {
-                        self.declare_existing(&mut tree, path, artifact, next_version);
+        let refresh_stream = if self.ttl_refresh_enabled {
+            IntervalStream::new(tokio::time::interval(
+                self.ttl_refresh_frequency.to_std().unwrap_or_default(),
+            ))
+            .left_stream()
+        } else {
+            futures::stream::empty().right_stream()
+        };
+
+        let mut stream = futures::stream::select(
+            UnboundedReceiverStream::new(commands).map(Op::Command),
+            refresh_stream.map(|_instant| Op::RefreshTtls),
+        );
+
+        let mut current_ttl_refresh: Option<JoinHandle<()>> = None;
+
+        while let Some(op) = stream.next().await {
+            match op {
+                Op::Command(command) => match command {
+                    // Entry point for `get_materialized_file_paths` calls
+                    MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
+                        let result = paths.into_map(|p| tree.file_contents_path(p));
+                        result_sender.send(result).ok();
+                    }
+                    MaterializerCommand::DeclareExisting(artifacts) => {
+                        for (path, artifact) in artifacts {
+                            self.declare_existing(&mut tree, path, artifact, next_version);
+                            next_version += 1;
+                        }
+                    }
+                    // Entry point for `declare_{copy|cas}` calls
+                    MaterializerCommand::Declare(path, value, method) => {
+                        self.declare(&mut tree, path, value, method, next_version);
                         next_version += 1;
                     }
-                }
-                // Entry point for `declare_{copy|cas}` calls
-                MaterializerCommand::Declare(path, value, method) => {
-                    self.declare(&mut tree, path, value, method, next_version);
-                    next_version += 1;
-                }
-                MaterializerCommand::MatchArtifacts(paths, sender) => {
-                    let all_matches = paths
-                        .into_iter()
-                        .all(|(path, value)| self.match_artifact(&mut tree, path, value));
-                    sender.send(all_matches).ok();
-                }
-                MaterializerCommand::InvalidateFilePaths(paths, sender) => {
-                    tracing::trace!(
-                        paths = ?paths,
-                        "invalidate paths",
-                    );
-                    let (invalidated_paths, existing_futs) =
-                        tree.invalidate_paths_and_collect_futures(paths);
-                    let sqlite_db = self.sqlite_db.dupe();
-                    let invalidation_fut = tokio::task::spawn(async move {
-                        join_all_existing_futs(existing_futs).await?;
+                    MaterializerCommand::MatchArtifacts(paths, sender) => {
+                        let all_matches = paths
+                            .into_iter()
+                            .all(|(path, value)| self.match_artifact(&mut tree, path, value));
+                        sender.send(all_matches).ok();
+                    }
+                    MaterializerCommand::InvalidateFilePaths(paths, sender) => {
+                        tracing::trace!(
+                            paths = ?paths,
+                            "invalidate paths",
+                        );
+                        let (invalidated_paths, existing_futs) =
+                            tree.invalidate_paths_and_collect_futures(paths);
+                        let sqlite_db = self.sqlite_db.dupe();
+                        let invalidation_fut = tokio::task::spawn(async move {
+                            join_all_existing_futs(existing_futs).await?;
 
-                        // The existing futures can be in-flight materializations for
-                        // the paths we are about to invalidate. The last thing those
-                        // futures will do is insert into the SQLite DB, so we need to
-                        // wait until they finish before we delete said rows.
-                        // TODO(scottcao): add a unit test to test this behavior
-                        if let Some(sqlite_db) = sqlite_db {
-                            sqlite_db
-                                .materializer_state_table()
-                                .delete(invalidated_paths)
-                                .await?;
-                        }
+                            // The existing futures can be in-flight materializations for
+                            // the paths we are about to invalidate. The last thing those
+                            // futures will do is insert into the SQLite DB, so we need to
+                            // wait until they finish before we delete said rows.
+                            // TODO(scottcao): add a unit test to test this behavior
+                            if let Some(sqlite_db) = sqlite_db {
+                                sqlite_db
+                                    .materializer_state_table()
+                                    .delete(invalidated_paths)
+                                    .await?;
+                            }
 
-                        Ok(())
-                    })
-                    .map(|r| match r {
-                        Ok(r) => r,
-                        Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
-                    })
-                    .boxed()
-                    .shared();
-                    sender.send(invalidation_fut).ok();
-                }
-                // Entry point for `ensure_materialized` calls
-                MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
-                    fut_sender
-                        .send(self.dupe().materialize_many_artifacts(
-                            &mut tree,
-                            paths,
-                            event_dispatcher,
-                        ))
-                        .ok();
-                }
-                // Materialization of artifact succeeded
-                MaterializerCommand::MaterializationFinished {
-                    path,
-                    version,
-                    result,
-                } => {
-                    tree.materialization_finished(
+                            Ok(())
+                        })
+                        .map(|r| match r {
+                            Ok(r) => r,
+                            Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
+                        })
+                        .boxed()
+                        .shared();
+                        sender.send(invalidation_fut).ok();
+                    }
+                    // Entry point for `ensure_materialized` calls
+                    MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
+                        fut_sender
+                            .send(self.dupe().materialize_many_artifacts(
+                                &mut tree,
+                                paths,
+                                event_dispatcher,
+                            ))
+                            .ok();
+                    }
+                    // Materialization of artifact succeeded
+                    MaterializerCommand::MaterializationFinished {
                         path,
                         version,
                         result,
-                        self.io_executor.dupe(),
-                        // materialization_finished transitions the entry to Declared stage on errors,
-                        // in which case the version of the newly declared artifact should be bumped.
-                        // Let materialization_finished always consume a version in case the entry
-                        // gets redeclared.
-                        next_version,
-                        self.sqlite_db.dupe(),
-                    );
-                    next_version += 1;
+                    } => {
+                        tree.materialization_finished(
+                            path,
+                            version,
+                            result,
+                            self.io_executor.dupe(),
+                            // materialization_finished transitions the entry to Declared stage on errors,
+                            // in which case the version of the newly declared artifact should be bumped.
+                            // Let materialization_finished always consume a version in case the entry
+                            // gets redeclared.
+                            next_version,
+                            self.sqlite_db.dupe(),
+                        );
+                        next_version += 1;
+                    }
+                    MaterializerCommand::Extension(ext) => {
+                        ext.execute(&tree, &self.re_client_manager)
+                    }
+                },
+                Op::RefreshTtls => {
+                    // It'd be neat to just implement this in the refresh_stream itself and simply
+                    // have this loop implicitly drive it, but we can't do that as the stream's
+                    // and_then callback would have to capture `&tree`. So, instead, we store the
+                    // JoinHandle and just avoid scheduling more than one, though this means we'll
+                    // just miss ticks if we do take longer than a tick to run.
+
+                    let curr = match current_ttl_refresh.take() {
+                        Some(mut curr) => match futures::poll!(&mut curr) {
+                            std::task::Poll::Ready(..) => None,
+                            std::task::Poll::Pending => Some(curr),
+                        },
+                        None => None,
+                    };
+
+                    current_ttl_refresh = match curr {
+                        Some(task) => Some(task),
+                        None => create_ttl_refresh(
+                            &tree,
+                            &self.re_client_manager,
+                            self.ttl_refresh_min_ttl,
+                        )
+                        .map(|fut| {
+                            tokio::task::spawn(async move {
+                                match fut.await {
+                                    Ok(()) => {
+                                        tracing::info!("Scheduled TTL refresh succeeded");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("Scheduled TTL refresh failed: {:#}", e);
+                                    }
+                                }
+                            })
+                        }),
+                    };
                 }
-                MaterializerCommand::Extension(ext) => ext.execute(&tree, &self.re_client_manager),
             }
         }
     }
@@ -1623,14 +1693,14 @@ fn clean_output_paths(
 }
 
 /// Spawn a task to refresh TTLs.
-fn spawn_ttl_refresh_task(
+fn create_ttl_refresh(
     tree: &ArtifactTree,
     re_manager: &Arc<ReConnectionManager>,
-    min_ttl: i64,
-) -> Option<JoinHandle<anyhow::Result<()>>> {
+    min_ttl: Duration,
+) -> Option<impl Future<Output = anyhow::Result<()>>> {
     let mut digests_to_refresh = vec![];
 
-    let ttl_deadline = Utc::now() + Duration::seconds(min_ttl);
+    let ttl_deadline = Utc::now() + min_ttl;
 
     for (_, data) in tree.iter() {
         match &data.stage {
@@ -1653,7 +1723,7 @@ fn spawn_ttl_refresh_task(
     } else {
         let re_manager = re_manager.dupe();
 
-        Some(tokio::task::spawn(async move {
+        Some(async move {
             let re_connection = re_manager.get_re_connection();
             let re_client = re_connection.get_client();
             let re_client = &re_client;
@@ -1690,7 +1760,7 @@ fn spawn_ttl_refresh_task(
 
             // Currently we don't propagate errors back here.
             Ok(())
-        }))
+        })
     }
 }
 
