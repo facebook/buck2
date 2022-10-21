@@ -67,6 +67,8 @@ def _impl(ctx):
         cmd.add("--use-dotslash")
         if resolve_symlinks:
             cmd.add("--resolve-symlinks")
+        if need_full_cdb:
+            cmd.add("--need-full-cdb")
 
         # TODO: do we need these as well?
         # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
