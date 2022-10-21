@@ -492,7 +492,7 @@ async def test_no_no_print_details(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=True, data_dir="..")
+@buck_test(inplace=True, data_dir="..", skip_if_windows=True)
 async def test_no_print_details(buck: Buck) -> None:
     # With --no-print-details the stack trace is not displayed.
     tests = await expect_failure(
