@@ -57,6 +57,8 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use chrono::Duration;
+use chrono::Utc;
 use derive_more::Display;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -1615,6 +1617,78 @@ fn clean_output_paths(
     })
     .boxed()
     .shared()
+}
+
+/// Spawn a task to refresh TTLs.
+fn spawn_ttl_refresh_task(
+    tree: &ArtifactTree,
+    re_manager: &Arc<ReConnectionManager>,
+    min_ttl: i64,
+) -> Option<JoinHandle<anyhow::Result<()>>> {
+    let mut digests_to_refresh = vec![];
+
+    let ttl_deadline = Utc::now() + Duration::seconds(min_ttl);
+
+    for (_, data) in tree.iter() {
+        match &data.stage {
+            ArtifactMaterializationStage::Declared { method, .. } => match method.as_ref() {
+                ArtifactMaterializationMethod::CasDownload { info } => {
+                    if let Some(action_digest) = info.action_digest() {
+                        if action_digest.expires() <= ttl_deadline {
+                            digests_to_refresh.push((action_digest.dupe(), info.re_use_case));
+                        }
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    if digests_to_refresh.is_empty() {
+        None
+    } else {
+        let re_manager = re_manager.dupe();
+
+        Some(tokio::task::spawn(async move {
+            let re_connection = re_manager.get_re_connection();
+            let re_client = re_connection.get_client();
+            let re_client = &re_client;
+
+            futures::future::join_all(digests_to_refresh.iter().map(
+                |(digest, use_case)| async move {
+                    // A side effect of action cache queries is to refresh the underlying outputs.
+                    match re_client
+                        .action_cache(digest.data().dupe(), *use_case)
+                        .await
+                    {
+                        Ok(Some(res)) => {
+                            let expires = Utc::now() + Duration::seconds(res.ttl);
+                            digest.update_expires(expires);
+                            tracing::debug!("Updated expiry for action `{}`: {}", digest, expires)
+                        }
+                        Ok(None) => {
+                            tracing::info!(
+                                "Action `{}` is referenced by materializer, but expired",
+                                digest
+                            );
+                        }
+                        Err(e) => {
+                            tracing::info!(
+                                "Failed to query action cache for action `{}`: {:#}",
+                                digest,
+                                e
+                            );
+                        }
+                    }
+                },
+            ))
+            .await;
+
+            // Currently we don't propagate errors back here.
+            Ok(())
+        }))
+    }
 }
 
 #[cfg(test)]
