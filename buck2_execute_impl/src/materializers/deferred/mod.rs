@@ -667,7 +667,11 @@ impl DeferredMaterializerCommandProcessor {
         let mut next_version = 1u64;
 
         let refresh_stream = if self.ttl_refresh_enabled {
-            IntervalStream::new(tokio::time::interval(self.ttl_refresh_frequency)).left_stream()
+            IntervalStream::new(tokio::time::interval_at(
+                tokio::time::Instant::now() + self.ttl_refresh_frequency,
+                self.ttl_refresh_frequency,
+            ))
+            .left_stream()
         } else {
             futures::stream::empty().right_stream()
         };
