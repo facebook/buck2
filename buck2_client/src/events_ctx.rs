@@ -73,6 +73,25 @@ pub struct FileStreams {
     stderr: UnboundedReceiver<String>,
 }
 
+pub(crate) enum FileTailerEvent {
+    Stdout(String),
+    Stderr(String),
+}
+
+impl FileStreams {
+    pub(crate) async fn next(&mut self) -> Option<FileTailerEvent> {
+        tokio::select! {
+            Some(stdout) = self.stdout.recv() => {
+                Some(FileTailerEvent::Stdout(stdout))
+            }
+            Some(stderr) = self.stderr.recv() => {
+                Some(FileTailerEvent::Stderr(stderr))
+            }
+            else => None,
+        }
+    }
+}
+
 pub struct FileTailers {
     _stdout_tailer: FileTailer,
     _stderr_tailer: FileTailer,
@@ -110,6 +129,13 @@ impl EventsCtx {
         }
     }
 
+    async fn dispatch_tailer_event(&mut self, event: FileTailerEvent) -> anyhow::Result<()> {
+        match event {
+            FileTailerEvent::Stdout(stdout) => self.handle_output(&stdout).await,
+            FileTailerEvent::Stderr(line) => self.handle_stderr(line.trim_end()).await,
+        }
+    }
+
     async fn unpack_stream_inner<S: Stream<Item = anyhow::Result<StreamValue>> + Unpin>(
         &mut self,
         stream: S,
@@ -141,11 +167,8 @@ impl EventsCtx {
                                 ControlFlow::Break(res) => break res,
                             }
                         }
-                        Some(stdout) = tailers.streams.stdout.recv() => {
-                            self.handle_output(&stdout).await?;
-                        }
-                        Some(stderr) = tailers.streams.stderr.recv() => {
-                            self.handle_stderr(stderr.trim_end()).await?;
+                        Some(event) = tailers.streams.next() => {
+                            self.dispatch_tailer_event(event).await?;
                         }
                         c = console_interaction.char() => {
                             self.handle_console_interaction(c?).await?;
