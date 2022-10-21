@@ -82,14 +82,13 @@ def compile_swift(
     shared_flags = _get_shared_flags(
         ctx,
         module_name,
-        srcs,
         exported_headers,
         objc_modulemap_pp_info,
         extra_search_paths_flags,
     )
 
-    _compile_swiftmodule(ctx, toolchain, shared_flags, output_swiftmodule, unprocessed_header)
-    swift_argsfile = _compile_object(ctx, toolchain, shared_flags, output_object)
+    _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header)
+    swift_argsfile = _compile_object(ctx, toolchain, shared_flags, srcs, output_object)
 
     _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
@@ -159,6 +158,7 @@ def _compile_swiftmodule(
         ctx: "context",
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
+        srcs: [CxxSrcWithFlags.type],
         output_swiftmodule: "artifact",
         output_header: "artifact") -> "CxxAdditionalArgsfileParams":
     argfile_cmd = cmd_args(shared_flags)
@@ -174,24 +174,26 @@ def _compile_swiftmodule(
         "-emit-objc-header-path",
         output_header.as_output(),
     ])
-    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, cmd, toolchain)
+    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, srcs, cmd, toolchain)
 
 def _compile_object(
         ctx: "context",
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
+        srcs: [CxxSrcWithFlags.type],
         output_object: "artifact") -> "CxxAdditionalArgsfileParams":
     cmd = cmd_args([
         "-emit-object",
         "-o",
         output_object.as_output(),
     ])
-    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, cmd, toolchain)
+    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, srcs, cmd, toolchain)
 
 def _compile_with_argsfile(
         ctx: "context",
         name: str.type,
         shared_flags: "cmd_args",
+        srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
         toolchain: "SwiftToolchainInfo") -> "CxxAdditionalArgsfileParams":
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
@@ -201,12 +203,13 @@ def _compile_with_argsfile(
     cmd.add(additional_flags)
     cmd.add(cmd_args(["@", argfile], delimiter = ""))
 
+    cmd.add([s.file for s in srcs])
+
     # Swift compilation on RE without explicit modules is impractically expensive
     # because there's no shared module cache across different libraries.
     prefer_local = not ctx.attrs.uses_explicit_modules
 
-    # Argsfile should also depend on all artifacts in it,
-    # otherwise they won't be materialised.
+    # Argsfile should also depend on all artifacts in it, otherwise they won't be materialised.
     cmd.hidden([shell_quoted_args])
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
@@ -219,7 +222,6 @@ def _compile_with_argsfile(
 def _get_shared_flags(
         ctx: "context",
         module_name: str.type,
-        srcs: [CxxSrcWithFlags.type],
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None],
         extra_search_paths_flags: ["_arglike"] = []) -> "cmd_args":
@@ -281,9 +283,6 @@ def _get_shared_flags(
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(cmd, objc_headers, objc_modulemap_pp_info)
-
-    # We can't have per source flags for Swift
-    cmd.add([s.file for s in srcs])
 
     # Add toolchain and target flags last to allow for overriding defaults
     cmd.add(toolchain.compiler_flags)
