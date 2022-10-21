@@ -16,71 +16,75 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.9"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.10"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
     need_full_cdb = ctx.cli_args.need_full_cdb
     resolve_symlinks = ctx.cli_args.resolve_symlinks
     owner = findOwningTarget(ctx, filename)
-    if owner != None:
-        buckRoot = ctx.root()
-        providers = ctx.analysis(owner).providers()
-        platform = providers[CxxCompilationDbInfo].platform.name
-        toolchain = parseToolChain(platform, str(providers[CxxCompilationDbInfo].toolchain.linker_info.archiver.args))
 
-        compileCommands = []
-        for cxx_compile_info in providers[CxxCompilationDbInfo].info.values():
-            arguments = cmd_args()
-            arguments.add(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
+    if owner == None:
+        if genRuleTargetExist(ctx, filename):
+            ctx.output.print_json({"errorMessage": "This file belongs to a genrule or export_file target and is not supported right now", "version": CPP_GEN_CDB_SCRIPT_VERSION})
+            return
+        else:
+            ctx.output.print_json({"errorMessage": "Cannot find build target for this file", "version": CPP_GEN_CDB_SCRIPT_VERSION})
+            return
 
-            # `_CxxCompileArgsfile.argfile_args` are shell quoted
-            # use `args` for original values to store in compile_commands.json
-            # see: https://fburl.com/code/5x7td4h1
-            arguments.add(cxx_compile_info.cxx_compile_cmd.argsfile.args)
-            arguments.add(cxx_compile_info.args)
+    buckRoot = ctx.root()
+    providers = ctx.analysis(owner).providers()
+    platform = providers[CxxCompilationDbInfo].platform.name
+    toolchain = parseToolChain(platform, str(providers[CxxCompilationDbInfo].toolchain.linker_info.archiver.args))
 
-            # @unsorted-dict-items
-            compileCommands.append({"file": cxx_compile_info.src, "directory": buckRoot, "arguments": arguments})
+    compileCommands = []
+    for cxx_compile_info in providers[CxxCompilationDbInfo].info.values():
+        arguments = cmd_args()
+        arguments.add(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
 
-            if not need_full_cdb:
-                break
-        actionFactory = ctx.bxl_actions.action_factory()
-        compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
+        # `_CxxCompileArgsfile.argfile_args` are shell quoted
+        # use `args` for original values to store in compile_commands.json
+        # see: https://fburl.com/code/5x7td4h1
+        arguments.add(cxx_compile_info.cxx_compile_cmd.argsfile.args)
+        arguments.add(cxx_compile_info.args)
 
-        sourceLabel = owner.get_source(filename, ctx)
-        if sourceLabel in providers[CxxCompilationDbInfo].info:
-            cxx_compile_info = providers[CxxCompilationDbInfo].info[sourceLabel]
+        # @unsorted-dict-items
+        compileCommands.append({"file": cxx_compile_info.src, "directory": buckRoot, "arguments": arguments})
 
-        # HMAP CONVERTER
-        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:hmapconverter").providers()[RunInfo]
-        outputDir = actionFactory.declare_output("merged_cdb")
-        cmd = cmd_args(hmapConverter)
-        cmd.add("--input-file")
-        cmd.add(compdbArtifact)
-        cmd.add("--working-dir")
-        cmd.add(buckRoot)
-        cmd.add("--output-dir")
-        cmd.add(outputDir.as_output())
-        cmd.add("--filename")
-        cmd.add(filename)
-        cmd.add("--use-dotslash")
-        if resolve_symlinks:
-            cmd.add("--resolve-symlinks")
-        if need_full_cdb:
-            cmd.add("--need-full-cdb")
+        if not need_full_cdb:
+            break
+    actionFactory = ctx.bxl_actions.action_factory()
+    compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
 
-        # TODO: do we need these as well?
-        # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
-        # cmd.hidden(arguments.add(cxx_compile_info.args[:-1]))
-        cmd.hidden(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
-        actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
-        ensured = ctx.output.ensure(outputDir)
-        ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain, "version": CPP_GEN_CDB_SCRIPT_VERSION})
-    elif genRuleTargetExist(ctx, filename):
-        ctx.output.print_json({"errorMessage": "This file belongs to a genrule or export_file target and is not supported right now", "version": CPP_GEN_CDB_SCRIPT_VERSION})
-    else:
-        ctx.output.print_json({"errorMessage": "Cannot find build target for this file", "version": CPP_GEN_CDB_SCRIPT_VERSION})
+    sourceLabel = owner.get_source(filename, ctx)
+    if sourceLabel in providers[CxxCompilationDbInfo].info:
+        cxx_compile_info = providers[CxxCompilationDbInfo].info[sourceLabel]
+
+    # HMAP CONVERTER
+    hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:hmapconverter").providers()[RunInfo]
+    outputDir = actionFactory.declare_output("merged_cdb")
+    cmd = cmd_args(hmapConverter)
+    cmd.add("--input-file")
+    cmd.add(compdbArtifact)
+    cmd.add("--working-dir")
+    cmd.add(buckRoot)
+    cmd.add("--output-dir")
+    cmd.add(outputDir.as_output())
+    cmd.add("--filename")
+    cmd.add(filename)
+    cmd.add("--use-dotslash")
+    if resolve_symlinks:
+        cmd.add("--resolve-symlinks")
+    if need_full_cdb:
+        cmd.add("--need-full-cdb")
+
+    # TODO: do we need these as well?
+    # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
+    # cmd.hidden(arguments.add(cxx_compile_info.args[:-1]))
+    cmd.hidden(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
+    actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
+    ensured = ctx.output.ensure(outputDir)
+    ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain, "version": CPP_GEN_CDB_SCRIPT_VERSION})
 
 def parseToolChain(platform, toolchain):
     if "llvm-fb" in toolchain:
