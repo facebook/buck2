@@ -106,7 +106,7 @@ impl EventsCtx {
 
         // We don't want to return early here without draining stdout/stderr.
         // TODO(brasselsprouts): simpler logic
-        let command_result = match tailers.take() {
+        match tailers.take() {
             Some(mut tailers) => {
                 let command_result = loop {
                     tokio::select! {
@@ -148,7 +148,7 @@ impl EventsCtx {
 
                 self.flush(&mut Some(tailers)).await?;
 
-                command_result?
+                command_result
             }
             None => loop {
                 tokio::select! {
@@ -163,7 +163,7 @@ impl EventsCtx {
                             }
                             StreamValue::Result(res) => {
                                 self.handle_command_result(&res).await?;
-                                break res
+                                break Ok(res)
                             }
                         };
                     }
@@ -178,9 +178,7 @@ impl EventsCtx {
                     }
                 }
             },
-        };
-
-        Ok(command_result)
+        }
     }
 
     /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
