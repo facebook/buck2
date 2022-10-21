@@ -98,75 +98,41 @@ impl EventsCtx {
             None => &mut noop_console_interaction as _,
         };
 
-        try {
-            let mut stream = stream.fuse();
-            // TODO(cjhopman): This is fragile. We are handling stdout/stderr here but we also want to stop
-            // the streaming of stdout/stderr on some things we see here but importantly we need to finish
-            // draining stdout/stderr even if we encounter errors. Also, it looks like we probably drop a lot
-            // of events/stdout/stderr if a handle_subscribers() call returns an error.
+        let mut stream = stream.fuse();
+        // TODO(cjhopman): This is fragile. We are handling stdout/stderr here but we also want to stop
+        // the streaming of stdout/stderr on some things we see here but importantly we need to finish
+        // draining stdout/stderr even if we encounter errors. Also, it looks like we probably drop a lot
+        // of events/stdout/stderr if a handle_subscribers() call returns an error.
 
-            // We don't want to return early here without draining stdout/stderr.
-            // TODO(brasselsprouts): simpler logic
-            let command_result = match tailers.take() {
-                Some(mut tailers) => {
-                    let command_result = loop {
-                        tokio::select! {
-                            next = stream.next() => {
-                                // Make sure we still flush if next produces an error is accurate
-                                let next: anyhow::Result<_> = try {
-                                    next.context(BuckdCommunicationError::MissingCommandResult)?
-                                        .context("Buck daemon event bus encountered an error")?
-                                };
-                                match next {
-                                    Ok(StreamValue::Event(event)) => {
-                                        let event = event.try_into()?;
-                                        self.handle_event(&event).await?;
-                                    }
-                                    Ok(StreamValue::Result(res)) => {
-                                        self.handle_command_result(&res).await?;
-                                        break Ok(res)
-                                    }
-                                    Err(e) => {break Err(e)}
-                                };
-                            }
-                            Some(stdout) = tailers.streams.stdout.next() => {
-                                self.handle_output(&stdout).await?;
-                            }
-                            Some(stderr) = tailers.streams.stderr.next() => {
-                                self.handle_stderr(stderr.trim_end()).await?;
-                            }
-                            c = console_interaction.char() => {
-                                self.handle_console_interaction(c?).await?;
-                            }
-                            tick = self.ticker.tick() => {
-                                self.tick(&tick).await?;
-                            }
-                            else => {
-                                unreachable!("The tick branch will always take precedence over an else case.");
-                            }
-                        }
-                    };
-
-                    self.flush(&mut Some(tailers)).await?;
-
-                    command_result?
-                }
-                None => loop {
+        // We don't want to return early here without draining stdout/stderr.
+        // TODO(brasselsprouts): simpler logic
+        let command_result = match tailers.take() {
+            Some(mut tailers) => {
+                let command_result = loop {
                     tokio::select! {
                         next = stream.next() => {
-                            let next = next
-                                .context(BuckdCommunicationError::MissingCommandResult)?
-                                .context("Buck daemon event bus encountered an error")?;
+                            // Make sure we still flush if next produces an error is accurate
+                            let next: anyhow::Result<_> = try {
+                                next.context(BuckdCommunicationError::MissingCommandResult)?
+                                    .context("Buck daemon event bus encountered an error")?
+                            };
                             match next {
-                                StreamValue::Event(event) => {
+                                Ok(StreamValue::Event(event)) => {
                                     let event = event.try_into()?;
                                     self.handle_event(&event).await?;
                                 }
-                                StreamValue::Result(res) => {
+                                Ok(StreamValue::Result(res)) => {
                                     self.handle_command_result(&res).await?;
-                                    break res
+                                    break Ok(res)
                                 }
+                                Err(e) => {break Err(e)}
                             };
+                        }
+                        Some(stdout) = tailers.streams.stdout.next() => {
+                            self.handle_output(&stdout).await?;
+                        }
+                        Some(stderr) = tailers.streams.stderr.next() => {
+                            self.handle_stderr(stderr.trim_end()).await?;
                         }
                         c = console_interaction.char() => {
                             self.handle_console_interaction(c?).await?;
@@ -178,11 +144,43 @@ impl EventsCtx {
                             unreachable!("The tick branch will always take precedence over an else case.");
                         }
                     }
-                },
-            };
+                };
 
-            command_result
-        }
+                self.flush(&mut Some(tailers)).await?;
+
+                command_result?
+            }
+            None => loop {
+                tokio::select! {
+                    next = stream.next() => {
+                        let next = next
+                            .context(BuckdCommunicationError::MissingCommandResult)?
+                            .context("Buck daemon event bus encountered an error")?;
+                        match next {
+                            StreamValue::Event(event) => {
+                                let event = event.try_into()?;
+                                self.handle_event(&event).await?;
+                            }
+                            StreamValue::Result(res) => {
+                                self.handle_command_result(&res).await?;
+                                break res
+                            }
+                        };
+                    }
+                    c = console_interaction.char() => {
+                        self.handle_console_interaction(c?).await?;
+                    }
+                    tick = self.ticker.tick() => {
+                        self.tick(&tick).await?;
+                    }
+                    else => {
+                        unreachable!("The tick branch will always take precedence over an else case.");
+                    }
+                }
+            },
+        };
+
+        Ok(command_result)
     }
 
     /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
