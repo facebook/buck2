@@ -16,7 +16,7 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.10"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.11"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
@@ -25,12 +25,18 @@ def _impl(ctx):
     owner = findOwningTarget(ctx, filename)
 
     if owner == None:
-        if genRuleTargetExist(ctx, filename):
-            ctx.output.print_json({"errorMessage": "This file belongs to a genrule or export_file target and is not supported right now", "version": CPP_GEN_CDB_SCRIPT_VERSION})
-            return
-        else:
-            ctx.output.print_json({"errorMessage": "Cannot find build target for this file", "version": CPP_GEN_CDB_SCRIPT_VERSION})
-            return
+        unfilteredOwners = ctx.cquery().owner(filename)
+        for target in unfilteredOwners:
+            if "export_file" in target.rule_type:
+                owners = findTargetsByReverseDependency(ctx, unfilteredOwners)
+                if len(owners) > 0:
+                    owner = pickTarget(ctx, owners)
+            elif "genrule" in target.rule_type:
+                ctx.output.print_json({"errorMessage": "This file belongs to a genrule and is not supported right now", "version": CPP_GEN_CDB_SCRIPT_VERSION})
+                return
+    if owner == None:
+        ctx.output.print_json({"errorMessage": "Cannot find build target for this file", "version": CPP_GEN_CDB_SCRIPT_VERSION})
+        return
 
     buckRoot = ctx.root()
     providers = ctx.analysis(owner).providers()
@@ -106,14 +112,36 @@ def findOwningTarget(ctx, filename):
         return pickTarget(ctx, owners)
     return None
 
-def genRuleTargetExist(ctx, filename):
-    unfilteredOwners = ctx.cquery().owner(filename)
-    for target in unfilteredOwners:
-        if "genrule" in target.rule_type:
-            return True
-        if "export_file" in target.rule_type:
-            return True
-    return False
+def findTargetsByReverseDependency(ctx, unfilteredTargets):
+    for searchDepth in range(1, 3):
+        for unfilteredTarget in unfilteredTargets:
+            buildPackage = str(unfilteredTarget.label).split(":")[0]
+            dirCount = buildPackage.count("/")
+            owners = []
+            fromTarget = str(unfilteredTarget.label).split(" ")[0]
+
+            # We only try targets from a few nearby packages
+            for _i in range(0, min(2, dirCount + 1)):
+                universe = buildPackage + "/..."
+                owners = ctx.cquery().kind(
+                    "|".join(BUCK_CPP_RULE_KINDS),
+                    ctx.cquery().rdeps(
+                        universe,
+                        fromTarget,
+                        searchDepth,
+                    ),
+                )
+                if buildPackage == "/" or len(buildPackage) == 0:
+                    break
+                if "/" not in buildPackage:
+                    break
+                buildPackage = buildPackage[0:buildPackage.rindex("/")]
+                if buildPackage == "//" or buildPackage == ".":
+                    buildPackage = "/"
+                if len(owners) > 0:
+                    return owners
+
+    return []
 
 def pickTarget(ctx, targets):
     if len(targets) == 1:
