@@ -1699,7 +1699,7 @@ fn create_ttl_refresh(
     re_manager: &Arc<ReConnectionManager>,
     min_ttl: Duration,
 ) -> Option<impl Future<Output = anyhow::Result<()>>> {
-    let mut digests_to_refresh = vec![];
+    let mut digests_to_refresh = HashSet::new();
 
     let ttl_deadline = Utc::now() + min_ttl;
 
@@ -1709,7 +1709,7 @@ fn create_ttl_refresh(
                 ArtifactMaterializationMethod::CasDownload { info } => {
                     if let Some(action_digest) = info.action_digest() {
                         if action_digest.expires() <= ttl_deadline {
-                            digests_to_refresh.push((action_digest.dupe(), info.re_use_case));
+                            digests_to_refresh.insert((action_digest.dupe(), info.re_use_case));
                         }
                     }
                 }
