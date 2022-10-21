@@ -19,8 +19,8 @@ use buck2_core::fs::paths::AbsPathBuf;
 use futures::FutureExt;
 use tokio::runtime;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// When `tail_file()` is invoked, the FileTailer will open the file and seek
 /// to the end. It'll then watch for changes to the file and copy any newly written
@@ -44,7 +44,7 @@ impl Drop for FileTailer {
 }
 
 impl FileTailer {
-    pub fn tail_file(file: AbsPathBuf) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
+    pub fn tail_file(file: AbsPathBuf) -> anyhow::Result<(UnboundedReceiver<String>, Self)> {
         let mut reader = BufReader::new(
             File::open(&file)
                 .with_context(|| format!("when setting up tailer for {}", file.display()))?,
@@ -92,7 +92,7 @@ impl FileTailer {
         });
 
         Ok((
-            UnboundedReceiverStream::new(receiver),
+            receiver,
             Self {
                 end_signaller: Some(tx),
                 thread: Some(thread),

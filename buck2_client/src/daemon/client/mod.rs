@@ -613,7 +613,6 @@ mod tests {
     use std::io::Write;
 
     use buck2_core::fs::paths::AbsPathBuf;
-    use futures::StreamExt;
 
     use super::*;
     use crate::file_tailer::FileTailer;
@@ -631,7 +630,7 @@ mod tests {
         // have to sleep long enough for a read or else this test is racy.
         tokio::time::sleep(Duration::from_millis(250)).await;
         std::mem::drop(tailer);
-        assert_eq!("after\n", &receiver.next().await.unwrap());
+        assert_eq!("after\n", &receiver.recv().await.unwrap());
 
         Ok(())
     }

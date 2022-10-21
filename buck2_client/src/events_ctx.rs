@@ -18,7 +18,7 @@ use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
 use thiserror::Error;
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteraction;
@@ -69,8 +69,8 @@ pub(crate) struct EventsCtx {
 }
 
 pub struct FileStreams {
-    stdout: UnboundedReceiverStream<String>,
-    stderr: UnboundedReceiverStream<String>,
+    stdout: UnboundedReceiver<String>,
+    stderr: UnboundedReceiver<String>,
 }
 
 pub struct FileTailers {
@@ -141,10 +141,10 @@ impl EventsCtx {
                                 ControlFlow::Break(res) => break res,
                             }
                         }
-                        Some(stdout) = tailers.streams.stdout.next() => {
+                        Some(stdout) = tailers.streams.stdout.recv() => {
                             self.handle_output(&stdout).await?;
                         }
-                        Some(stderr) = tailers.streams.stderr.next() => {
+                        Some(stderr) = tailers.streams.stderr.recv() => {
                             self.handle_stderr(stderr.trim_end()).await?;
                         }
                         c = console_interaction.char() => {
@@ -277,13 +277,13 @@ impl EventsCtx {
         let mut stderr_complete = false;
         while !stdout_complete || !stderr_complete {
             tokio::select! {
-                stdout = streams.stdout.next(), if !stdout_complete => {
+                stdout = streams.stdout.recv(), if !stdout_complete => {
                     match stdout {
                         Some(stdout) => {self.handle_output(&stdout).await?;}
                         None => {stdout_complete = true;}
                     }
                 }
-                stderr = streams.stderr.next(), if !stderr_complete => {
+                stderr = streams.stderr.recv(), if !stderr_complete => {
                     match stderr {
                         Some(stderr) => {self.handle_stderr(stderr.trim_end()).await?;}
                         None => {stderr_complete = true;}
