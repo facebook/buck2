@@ -848,6 +848,14 @@ if _is_running_on_linux():
             "-c",
             "fbcode.platform=platform010",
         )
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/cxx/dist_lto/omnibus:main",
+            "@//mode/opt-clang-thinlto",
+            "-c",
+            "fbcode.experimental_so_distributed_thinlto=True",  # temproray experimental flags, will change to `enable_distributed_thinlto` once stable
+            "-c",
+            "fbcode.platform=platform010",
+        )
 
     @buck_test(inplace=True)
     async def test_distributed_thinlto_with_rust(buck: Buck) -> None:

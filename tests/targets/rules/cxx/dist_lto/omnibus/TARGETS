@@ -1,0 +1,26 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+python_binary(
+    name = "main",
+    srcs = ["main.py"],
+    main_module = "buck2.tests.targets.rules.cxx.dist_lto.omnibus.main",
+    tags = ["noautodeps"],
+    deps = [
+        ":top_level_lib",
+    ],
+)
+
+cpp_library(
+    name = "top_level_lib",
+    srcs = ["top_level_lib.cpp"],
+    tags = ["noautodeps"],
+    deps = [
+        ":second_level_lib",
+    ],
+)
+
+cpp_library(
+    name = "second_level_lib",
+    srcs = ["second_level_lib.cpp"],
+)
