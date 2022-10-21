@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::ops::ControlFlow;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::daemon_dir::DaemonDir;
@@ -86,6 +88,28 @@ impl EventsCtx {
         }
     }
 
+    async fn handle_stream_next(
+        &mut self,
+        next: Option<anyhow::Result<StreamValue>>,
+    ) -> anyhow::Result<ControlFlow<anyhow::Result<CommandResult>, ()>> {
+        let next: anyhow::Result<_> = try {
+            next.context(BuckdCommunicationError::MissingCommandResult)?
+                .context("Buck daemon event bus encountered an error")?
+        };
+        match next {
+            Ok(StreamValue::Event(event)) => {
+                let event = event.try_into()?;
+                self.handle_event(&event).await?;
+                Ok(ControlFlow::Continue(()))
+            }
+            Ok(StreamValue::Result(res)) => {
+                self.handle_command_result(&res).await?;
+                Ok(ControlFlow::Break(Ok(res)))
+            }
+            Err(e) => Ok(ControlFlow::Break(Err(e))),
+        }
+    }
+
     async fn unpack_stream_inner<S: Stream<Item = anyhow::Result<StreamValue>> + Unpin>(
         &mut self,
         stream: S,
@@ -112,21 +136,10 @@ impl EventsCtx {
                     tokio::select! {
                         next = stream.next() => {
                             // Make sure we still flush if next produces an error is accurate
-                            let next: anyhow::Result<_> = try {
-                                next.context(BuckdCommunicationError::MissingCommandResult)?
-                                    .context("Buck daemon event bus encountered an error")?
-                            };
-                            match next {
-                                Ok(StreamValue::Event(event)) => {
-                                    let event = event.try_into()?;
-                                    self.handle_event(&event).await?;
-                                }
-                                Ok(StreamValue::Result(res)) => {
-                                    self.handle_command_result(&res).await?;
-                                    break Ok(res)
-                                }
-                                Err(e) => {break Err(e)}
-                            };
+                            match self.handle_stream_next(next).await? {
+                                ControlFlow::Continue(()) => {}
+                                ControlFlow::Break(res) => break res,
+                            }
                         }
                         Some(stdout) = tailers.streams.stdout.next() => {
                             self.handle_output(&stdout).await?;
@@ -153,19 +166,10 @@ impl EventsCtx {
             None => loop {
                 tokio::select! {
                     next = stream.next() => {
-                        let next = next
-                            .context(BuckdCommunicationError::MissingCommandResult)?
-                            .context("Buck daemon event bus encountered an error")?;
-                        match next {
-                            StreamValue::Event(event) => {
-                                let event = event.try_into()?;
-                                self.handle_event(&event).await?;
-                            }
-                            StreamValue::Result(res) => {
-                                self.handle_command_result(&res).await?;
-                                break Ok(res)
-                            }
-                        };
+                        match self.handle_stream_next(next).await? {
+                            ControlFlow::Continue(()) => {}
+                            ControlFlow::Break(res) => break res,
+                        }
                     }
                     c = console_interaction.char() => {
                         self.handle_console_interaction(c?).await?;
