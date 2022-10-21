@@ -244,12 +244,12 @@ impl BuckdClient {
                 let stream = grpc_to_stream(response);
                 pin_mut!(stream);
                 events_ctx
-                    .unpack_stream(stream, &mut self.tailers, console_interaction)
+                    .unpack_stream(stream, self.tailers.take(), console_interaction)
                     .await
             }
             ClientKind::Replayer(ref mut replayer) => {
                 events_ctx
-                    .unpack_stream(replayer, &mut self.tailers, console_interaction)
+                    .unpack_stream(replayer, self.tailers.take(), console_interaction)
                     .await
             }
         }

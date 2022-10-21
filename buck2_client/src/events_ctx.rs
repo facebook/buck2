@@ -139,7 +139,7 @@ impl EventsCtx {
     async fn unpack_stream_inner<S: Stream<Item = anyhow::Result<StreamValue>> + Unpin>(
         &mut self,
         stream: S,
-        tailers: &mut Option<FileTailers>,
+        tailers: Option<FileTailers>,
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandResult> {
         let mut noop_console_interaction = NoopConsoleInteraction;
@@ -156,7 +156,7 @@ impl EventsCtx {
 
         // We don't want to return early here without draining stdout/stderr.
         // TODO(brasselsprouts): simpler logic
-        match tailers.take() {
+        match tailers {
             Some(mut tailers) => {
                 let command_result = loop {
                     tokio::select! {
@@ -217,7 +217,7 @@ impl EventsCtx {
     >(
         &mut self,
         stream: S,
-        tailers: &mut Option<FileTailers>,
+        tailers: Option<FileTailers>,
         console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandOutcome<R>> {
         let command_result = self
