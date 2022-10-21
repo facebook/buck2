@@ -18,3 +18,21 @@ If the command cannot finish successfully, it may be that a dependency to run or
 
 Common issues:
 * Requesting a configuration during the step such as configerator or JustKnobs, and a error may be seen to this effect from the build errors. Add a "reads_configerator" or "justknobs" label to make these steps "local".
+
+## My local build succeeds. Remote Execution can't resolve the command to execute.
+
+Possible causes:
+
+* Locally installed tool
+* Referencing tool within the repo, but not specified as a dependency for RE to bring over
+
+### Locally installed tool
+
+This prevents easy reproduction by other developers, and upgrade difficulties.
+Adding this to an RE worker should be avoided, as this means extra cost on deployment in the future on upgrades.
+Also, this would become a slowly bloated out worker as developers each added tools.
+
+Better approaches:
+
+* Specify the dependency via export_file to use by buck target syntax `$(exe //exported/target/name)`
+* For a larger "package" or toolchain, consider leveraging [MSDK](https://www.internalfb.com/intern/wiki/Managed-sdk/) + [dotslash + CAS](https://fb.workplace.com/groups/200907040536486/permalink/1100355130591668).
