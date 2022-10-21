@@ -86,25 +86,19 @@ impl EventsCtx {
         }
     }
 
-    /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
-    /// event stream and returning it.
-    /// Also merges all other streams into a single, larger stream
-    pub async fn unpack_stream<
-        R: TryFrom<command_result::Result, Error = command_result::Result>,
-        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
-    >(
+    async fn unpack_stream_inner<S: Stream<Item = anyhow::Result<StreamValue>> + Unpin>(
         &mut self,
         stream: S,
         tailers: &mut Option<FileTailers>,
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
-    ) -> anyhow::Result<CommandOutcome<R>> {
+    ) -> anyhow::Result<CommandResult> {
         let mut noop_console_interaction = NoopConsoleInteraction;
         let console_interaction: &mut dyn ConsoleInteraction = match &mut console_interaction {
             Some(i) => i as _,
             None => &mut noop_console_interaction as _,
         };
 
-        let command_result: anyhow::Result<CommandResult> = try {
+        try {
             let mut stream = stream.fuse();
             // TODO(cjhopman): This is fragile. We are handling stdout/stderr here but we also want to stop
             // the streaming of stdout/stderr on some things we see here but importantly we need to finish
@@ -188,7 +182,24 @@ impl EventsCtx {
             };
 
             command_result
-        };
+        }
+    }
+
+    /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
+    /// event stream and returning it.
+    /// Also merges all other streams into a single, larger stream
+    pub async fn unpack_stream<
+        R: TryFrom<command_result::Result, Error = command_result::Result>,
+        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
+    >(
+        &mut self,
+        stream: S,
+        tailers: &mut Option<FileTailers>,
+        console_interaction: Option<ConsoleInteractionStream<'_>>,
+    ) -> anyhow::Result<CommandOutcome<R>> {
+        let command_result = self
+            .unpack_stream_inner(stream, tailers, console_interaction)
+            .await;
 
         match command_result {
             Ok(result) => convert_result(result),
