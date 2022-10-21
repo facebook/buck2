@@ -138,6 +138,9 @@ impl Drop for DeferredMaterializer {
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub defer_write_actions: bool,
+    pub ttl_refresh_frequency: Duration,
+    pub ttl_refresh_min_ttl: Duration,
+    pub ttl_refresh_enabled: bool,
 }
 
 struct DeferredMaterializerCommandProcessor {

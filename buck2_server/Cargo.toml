@@ -8,6 +8,7 @@ version = "0.1.0"
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
+chrono = { workspace = true }
 constant_time_eq = { workspace = true }
 crossbeam-channel = { workspace = true }
 flate2 = { workspace = true }

@@ -326,14 +326,34 @@ impl DaemonState {
                 blocking_executor,
             ))),
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
+                let defer_write_actions = root_config
+                    .parse("buck2", "defer_write_actions")?
+                    .unwrap_or(false);
+
+                // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
+                // < 1 hour.
+                let ttl_refresh_frequency = root_config
+                    .parse("buck2", "ttl_refresh_frequency_seconds")?
+                    .unwrap_or(1800);
+
+                let ttl_refresh_min_ttl = root_config
+                    .parse("buck2", "ttl_refresh_min_ttl_seconds")?
+                    .unwrap_or(3600);
+
+                let ttl_refresh_enabled = root_config
+                    .parse::<RolloutPercentage>("buck2", "ttl_refresh_enabled")?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll();
+
                 let config = DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materialization_method,
                         MaterializationMethod::Deferred
                     ),
-                    defer_write_actions: root_config
-                        .parse("buck2", "defer_write_actions")?
-                        .unwrap_or(false),
+                    defer_write_actions,
+                    ttl_refresh_frequency: chrono::Duration::seconds(ttl_refresh_frequency),
+                    ttl_refresh_min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
+                    ttl_refresh_enabled,
                 };
 
                 Ok(Arc::new(DeferredMaterializer::new(
