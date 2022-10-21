@@ -141,7 +141,7 @@ impl Drop for DeferredMaterializer {
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub defer_write_actions: bool,
-    pub ttl_refresh_frequency: Duration,
+    pub ttl_refresh_frequency: std::time::Duration,
     pub ttl_refresh_min_ttl: Duration,
     pub ttl_refresh_enabled: bool,
 }
@@ -154,7 +154,7 @@ struct DeferredMaterializerCommandProcessor {
     /// Used to emit MaterializationFinished to the command thread
     command_sender: mpsc::UnboundedSender<MaterializerCommand>,
     sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
-    ttl_refresh_frequency: Duration,
+    ttl_refresh_frequency: std::time::Duration,
     ttl_refresh_min_ttl: Duration,
     ttl_refresh_enabled: bool,
 }
@@ -667,10 +667,7 @@ impl DeferredMaterializerCommandProcessor {
         let mut next_version = 1u64;
 
         let refresh_stream = if self.ttl_refresh_enabled {
-            IntervalStream::new(tokio::time::interval(
-                self.ttl_refresh_frequency.to_std().unwrap_or_default(),
-            ))
-            .left_stream()
+            IntervalStream::new(tokio::time::interval(self.ttl_refresh_frequency)).left_stream()
         } else {
             futures::stream::empty().right_stream()
         };

@@ -351,7 +351,7 @@ impl DaemonState {
                         MaterializationMethod::Deferred
                     ),
                     defer_write_actions,
-                    ttl_refresh_frequency: chrono::Duration::seconds(ttl_refresh_frequency),
+                    ttl_refresh_frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
                     ttl_refresh_min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
                     ttl_refresh_enabled,
                 };
