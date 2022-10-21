@@ -93,8 +93,8 @@ impl FileStreams {
 }
 
 pub struct FileTailers {
-    _stdout_tailer: FileTailer,
-    _stderr_tailer: FileTailer,
+    _stdout_tailer: Option<FileTailer>,
+    _stderr_tailer: Option<FileTailer>,
     streams: FileStreams,
 }
 
@@ -156,56 +156,36 @@ impl EventsCtx {
 
         // We don't want to return early here without draining stdout/stderr.
         // TODO(brasselsprouts): simpler logic
-        match tailers {
-            Some(mut tailers) => {
-                let command_result = loop {
-                    tokio::select! {
-                        next = stream.next() => {
-                            // Make sure we still flush if next produces an error is accurate
-                            match self.handle_stream_next(next).await? {
-                                ControlFlow::Continue(()) => {}
-                                ControlFlow::Break(res) => break res,
-                            }
-                        }
-                        Some(event) = tailers.streams.next() => {
-                            self.dispatch_tailer_event(event).await?;
-                        }
-                        c = console_interaction.char() => {
-                            self.handle_console_interaction(c?).await?;
-                        }
-                        tick = self.ticker.tick() => {
-                            self.tick(&tick).await?;
-                        }
-                        else => {
-                            unreachable!("The tick branch will always take precedence over an else case.");
-                        }
-                    }
-                };
 
-                self.flush(&mut Some(tailers)).await?;
+        let mut tailers = tailers.unwrap_or_else(FileTailers::empty);
 
-                command_result
-            }
-            None => loop {
-                tokio::select! {
-                    next = stream.next() => {
-                        match self.handle_stream_next(next).await? {
-                            ControlFlow::Continue(()) => {}
-                            ControlFlow::Break(res) => break res,
-                        }
-                    }
-                    c = console_interaction.char() => {
-                        self.handle_console_interaction(c?).await?;
-                    }
-                    tick = self.ticker.tick() => {
-                        self.tick(&tick).await?;
-                    }
-                    else => {
-                        unreachable!("The tick branch will always take precedence over an else case.");
+        let command_result = loop {
+            tokio::select! {
+                next = stream.next() => {
+                    // Make sure we still flush if next produces an error is accurate
+                    match self.handle_stream_next(next).await? {
+                        ControlFlow::Continue(()) => {}
+                        ControlFlow::Break(res) => break res,
                     }
                 }
-            },
-        }
+                Some(event) = tailers.streams.next() => {
+                    self.dispatch_tailer_event(event).await?;
+                }
+                c = console_interaction.char() => {
+                    self.handle_console_interaction(c?).await?;
+                }
+                tick = self.ticker.tick() => {
+                    self.tick(&tick).await?;
+                }
+                else => {
+                    unreachable!("The tick branch will always take precedence over an else case.");
+                }
+            }
+        };
+
+        self.flush(&mut Some(tailers)).await?;
+
+        command_result
     }
 
     /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
@@ -383,11 +363,23 @@ impl FileTailers {
         let (stdout, stdout_tailer) = FileTailer::tail_file(daemon_dir.buckd_stdout())?;
         let (stderr, stderr_tailer) = FileTailer::tail_file(daemon_dir.buckd_stderr())?;
         let this = Self {
-            _stdout_tailer: stdout_tailer,
-            _stderr_tailer: stderr_tailer,
+            _stdout_tailer: Some(stdout_tailer),
+            _stderr_tailer: Some(stderr_tailer),
             streams: FileStreams { stdout, stderr },
         };
         Ok(this)
+    }
+
+    pub(crate) fn empty() -> FileTailers {
+        FileTailers {
+            _stdout_tailer: None,
+            _stderr_tailer: None,
+            streams: FileStreams {
+                // Empty streams.
+                stdout: tokio::sync::mpsc::unbounded_channel().1,
+                stderr: tokio::sync::mpsc::unbounded_channel().1,
+            },
+        }
     }
 
     pub fn stop_reading(self) -> FileStreams {
