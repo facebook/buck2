@@ -245,6 +245,13 @@ def _apple_bundle_macro_stub(**kwargs):
         **kwargs
     )
 
+def _apple_watchos_bundle_macro_stub(**kwargs):
+    apple_bundle_macro_impl(
+        apple_bundle_rule = _user_rules["apple_watchos_bundle"],
+        disable_resources_toolchain = True,
+        **kwargs
+    )
+
 def _apple_test_macro_stub(**kwargs):
     apple_test_macro_impl(
         apple_test_rule = __rules__["apple_test"],
@@ -271,6 +278,7 @@ __extra_rules__ = {
     "apple_bundle": _apple_bundle_macro_stub,
     "apple_library": _apple_library_macro_stub,
     "apple_test": _apple_test_macro_stub,
+    "apple_watchos_bundle": _apple_watchos_bundle_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
     "export_file": _export_file_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
@@ -280,8 +288,10 @@ __extra_rules__ = {
 
 __shimmed_native__ = __struct_to_dict(__internal__)
 __shimmed_native__.update(__rules__)
+__shimmed_native__.update(_user_rules)
+
+# Should come after the rules which are macro overriden
 __shimmed_native__.update(__extra_rules__)
 __shimmed_native__.update({"cxx": _cxx, "python": _python})
-__shimmed_native__.update(_user_rules)
 
 native = struct(**__shimmed_native__)

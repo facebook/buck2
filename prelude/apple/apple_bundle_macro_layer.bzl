@@ -16,7 +16,7 @@ _RESOURCE_BUNDLE_FIELDS = [
     "resource_group_map",
 ]
 
-def apple_bundle_macro_impl(apple_bundle_rule = None, apple_resource_bundle_rule = None, **kwargs):
+def apple_bundle_macro_impl(apple_bundle_rule = None, disable_resources_toolchain = False, apple_resource_bundle_rule = None, **kwargs):
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
 
@@ -25,7 +25,7 @@ def apple_bundle_macro_impl(apple_bundle_rule = None, apple_resource_bundle_rule
     # Only enable resource bundle rule split if there's a separate toolchain,
     # otherwise both rules will resolve to the same toolchain and it's just
     # additional overhead without any benefits.
-    resources_toolchain_enabled = (read_config("apple", "resources_toolchain", None) != None)
+    resources_toolchain_enabled = not disable_resources_toolchain and (read_config("apple", "resources_toolchain", None) != None)
     if resources_toolchain_enabled:
         resource_bundle_name = kwargs["name"] + "__ResourceBundle_Private"
         resource_bundle_kwargs = {
