@@ -703,7 +703,6 @@ mod tests {
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
-    use buck2_events::BuckEventError;
     use futures::TryStreamExt;
     use tempfile::TempDir;
 
@@ -769,7 +768,7 @@ mod tests {
         //Get event
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
             StreamValue::Event(e) => BuckEvent::try_from(e),
-            StreamValue::Result(_) => Err(BuckEventError::FoundResult),
+            StreamValue::Result(_) => panic!("found result"),
         }?;
 
         //Assert it's the same event created in the beginning

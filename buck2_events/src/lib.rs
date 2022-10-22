@@ -90,7 +90,7 @@ impl From<BuckEvent> for buck2_data::BuckEvent {
 }
 
 impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
-    type Error = BuckEventError;
+    type Error = anyhow::Error;
 
     fn try_from(
         buck2_data::BuckEvent {
@@ -100,7 +100,7 @@ impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
             parent_id,
             data,
         }: buck2_data::BuckEvent,
-    ) -> Result<BuckEvent, BuckEventError> {
+    ) -> anyhow::Result<BuckEvent> {
         fn new_span_id(num: u64) -> Option<SpanId> {
             NonZeroU64::new(num).map(SpanId)
         }
@@ -159,16 +159,15 @@ pub fn create_source_sink_pair() -> (impl EventSource, impl EventSink) {
     let source = ChannelEventSource::new(recv);
     (source, sink)
 }
+
 #[derive(Error, Debug)]
-pub enum BuckEventError {
+enum BuckEventError {
     #[error("The `buck2_data::BuckEvent` provided has no `Timestamp`")]
     MissingTimestamp,
     #[error("The `buck2_data::BuckEvent` provided has no `Data`")]
     MissingData,
     #[error("The `buck2_data::BuckEvent` contains an invalid UUID")]
     InvalidUUID(#[from] uuid::Error),
-    #[error("Expected BuckEvent, found Result")]
-    FoundResult,
     #[error("The `buck2_data::BuckEvent` provided a timestamp out of the system range")]
     TimestampOutOfRange(#[from] prost_types::TimestampOutOfSystemRangeError),
 }
