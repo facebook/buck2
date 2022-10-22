@@ -400,8 +400,6 @@ pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
-    use buck2_common::events;
-
     use crate::build_count::BuildCountManager;
 
     if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
@@ -409,7 +407,7 @@ pub(crate) fn try_get_invocation_recorder(
             ctx.async_cleanup_context().dupe(),
             buck2_events::sink::scribe::ThriftScribeSink::new(
                 ctx.fbinit(),
-                events::scribe_category()?,
+                buck2_events::sink::scribe::scribe_category()?,
                 1,
             )?,
             sanitized_argv,

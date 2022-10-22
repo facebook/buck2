@@ -158,7 +158,6 @@ mod imp {
     fn write_to_scribe(fb: FacebookInit, location: Option<Location>, message: String) {
         use std::time::SystemTime;
 
-        use buck2_common::events;
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
         use buck2_events::sink::scribe;
@@ -172,7 +171,7 @@ mod imp {
             return;
         }
 
-        let scribe_category = match events::scribe_category() {
+        let scribe_category = match scribe::scribe_category() {
             Ok(category) => category,
             Err(_) => return,
         };

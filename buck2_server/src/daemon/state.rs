@@ -415,7 +415,6 @@ impl DaemonState {
         &self,
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
-        use buck2_common::events;
         use buck2_core::facebook_only;
         use buck2_events::sink::scribe;
         use buck2_events::sink::scribe::ThriftScribeSink;
@@ -431,7 +430,7 @@ impl DaemonState {
                 TeeSink::new(
                     ThriftScribeSink::new(
                         self.fb,
-                        events::scribe_category()?,
+                        scribe::scribe_category()?,
                         data.event_logging_data.buffer_size,
                     )?,
                     sink,
