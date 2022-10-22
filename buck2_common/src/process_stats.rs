@@ -7,15 +7,15 @@
  * of this source tree.
  */
 
-pub(crate) struct ProcessStats {
-    pub(crate) rss_bytes: Option<u64>,
-    pub(crate) max_rss_bytes: u64,
-    pub(crate) user_cpu_us: u64,
-    pub(crate) system_cpu_us: u64,
+pub struct ProcessStats {
+    pub rss_bytes: Option<u64>,
+    pub max_rss_bytes: u64,
+    pub user_cpu_us: u64,
+    pub system_cpu_us: u64,
 }
 
 #[cfg(unix)]
-pub(crate) fn process_stats() -> Option<ProcessStats> {
+pub fn process_stats() -> Option<ProcessStats> {
     use crate::process_stats::proc_self_stat::ProcSelfStat;
 
     let usage = unsafe {
@@ -57,7 +57,7 @@ pub(crate) fn process_stats() -> Option<ProcessStats> {
 }
 
 #[cfg(not(unix))]
-pub(crate) fn process_stats() -> Option<ProcessStats> {
+pub fn process_stats() -> Option<ProcessStats> {
     None
 }
 
@@ -66,19 +66,19 @@ mod proc_self_stat {
     use std::fs;
 
     /// Parsed `/proc/self/stat` file.
-    pub(crate) struct ProcSelfStat {
+    pub struct ProcSelfStat {
         /// Resident Set Size: number of pages the process has in real memory.
         /// Raw value.
-        pub(crate) rss: u64,
+        pub rss: u64,
     }
 
     impl ProcSelfStat {
-        pub(crate) fn parse(stat: &str) -> Option<ProcSelfStat> {
+        pub fn parse(stat: &str) -> Option<ProcSelfStat> {
             let rss = stat.split(' ').nth(23)?.parse().ok()?;
             Some(ProcSelfStat { rss })
         }
 
-        pub(crate) fn read() -> Option<ProcSelfStat> {
+        pub fn read() -> Option<ProcSelfStat> {
             fs::read_to_string("/proc/self/stat")
                 .ok()
                 .and_then(|s| ProcSelfStat::parse(&s))

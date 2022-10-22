@@ -48,6 +48,7 @@ pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
+pub mod process_stats;
 pub mod result;
 pub mod sqlite;
 pub mod target_aliases;

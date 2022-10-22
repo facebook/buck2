@@ -11,13 +11,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
+use buck2_common::process_stats::process_stats;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::re::manager::ReConnectionManager;
 use dice::Dice;
 use gazebo::prelude::*;
-
-use crate::process_stats::process_stats;
 
 /// Stores state handles necessary to produce snapshots.
 #[derive(Clone, Dupe)]
