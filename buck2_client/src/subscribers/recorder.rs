@@ -10,13 +10,12 @@
 use std::path::PathBuf;
 
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
-#[cfg(fbcode_build)]
 use gazebo::dupe::Dupe;
 
+use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::subscribers::subscriber::EventSubscriber;
 
-#[cfg(fbcode_build)]
 mod imp {
     use std::collections::HashMap;
     use std::future::Future;
@@ -130,8 +129,7 @@ mod imp {
                         merge_base,
                         self.resolved_target_patterns
                             .as_ref()
-                            .map(|d| &d.target_patterns[..])
-                            .unwrap_or(target_patterns),
+                            .map_or(target_patterns, |d| &d.target_patterns[..]),
                     )
                     .await
                     .context("Error recording build count")
@@ -402,23 +400,14 @@ pub(crate) fn try_get_invocation_recorder(
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if ctx.replayer.is_none() {
         if let Some(sink) = new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1)? {
-            #[cfg(fbcode_build)]
-            {
-                use crate::build_count::BuildCountManager;
-
-                let recorder = imp::InvocationRecorder::new(
-                    ctx.async_cleanup_context().dupe(),
-                    sink,
-                    sanitized_argv,
-                    BuildCountManager::new(ctx.paths()?.build_count_dir()),
-                    ctx.paths()?.project_root().root().to_buf(),
-                );
-                return Ok(Some(Box::new(recorder)));
-            }
-            #[cfg(not(fbcode_build))]
-            {
-                let _ignored = (sink, sanitized_argv);
-            }
+            let recorder = imp::InvocationRecorder::new(
+                ctx.async_cleanup_context().dupe(),
+                sink,
+                sanitized_argv,
+                BuildCountManager::new(ctx.paths()?.build_count_dir()),
+                ctx.paths()?.project_root().root().to_buf(),
+            );
+            return Ok(Some(Box::new(recorder)));
         }
     }
     Ok(None)
