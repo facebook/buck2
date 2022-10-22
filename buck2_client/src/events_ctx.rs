@@ -101,7 +101,7 @@ impl EventsCtx {
         match next {
             Ok(StreamValue::Event(event)) => {
                 let event = event.try_into()?;
-                self.handle_event(&event).await?;
+                self.handle_event(event).await?;
                 Ok(ControlFlow::Continue(()))
             }
             Ok(StreamValue::Result(res)) => {
@@ -311,8 +311,8 @@ impl EventsCtx {
             .await
     }
 
-    async fn handle_event(&mut self, event: &buck2_events::BuckEvent) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.handle_event(event))
+    async fn handle_event(&mut self, event: buck2_events::BuckEvent) -> anyhow::Result<()> {
+        self.handle_subscribers(|subscriber| subscriber.handle_event(&event))
             .await
     }
 
