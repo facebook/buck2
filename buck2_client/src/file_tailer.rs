@@ -21,6 +21,13 @@ use tokio::runtime;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
+use crate::events_ctx::FileTailerEvent;
+
+pub(crate) enum StdoutOrStderr {
+    Stdout,
+    Stderr,
+}
+
 /// When `tail_file()` is invoked, the FileTailer will open the file and seek
 /// to the end. It'll then watch for changes to the file and copy any newly written
 /// data to the writer.
@@ -43,9 +50,10 @@ impl Drop for FileTailer {
 }
 
 impl FileTailer {
-    pub fn tail_file(
+    pub(crate) fn tail_file(
         file: AbsPathBuf,
-        sender: UnboundedSender<String>,
+        sender: UnboundedSender<FileTailerEvent>,
+        stdout_or_stderr: StdoutOrStderr,
     ) -> anyhow::Result<FileTailer> {
         let mut reader = BufReader::new(
             File::open(&file)
@@ -82,7 +90,11 @@ impl FileTailer {
 
                     let mut line = String::new();
                     while reader.read_line(&mut line).unwrap() != 0 {
-                        if sender.send(line).is_err() {
+                        let event = match stdout_or_stderr {
+                            StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
+                            StdoutOrStderr::Stderr => FileTailerEvent::Stderr(line),
+                        };
+                        if sender.send(event).is_err() {
                             break;
                         }
                         line = String::new();

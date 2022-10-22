@@ -26,6 +26,7 @@ use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::console_interaction_stream::NoopConsoleInteraction;
 use crate::file_tailer::FileTailer;
+use crate::file_tailer::StdoutOrStderr;
 use crate::stream_value::StreamValue;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -69,34 +70,16 @@ pub(crate) struct EventsCtx {
     ticker: Ticker,
 }
 
-pub struct FileStreams {
-    stdout: UnboundedReceiver<String>,
-    stderr: UnboundedReceiver<String>,
-}
-
+#[derive(PartialEq, Eq, Debug)]
 pub(crate) enum FileTailerEvent {
     Stdout(String),
     Stderr(String),
 }
 
-impl FileStreams {
-    pub(crate) async fn next(&mut self) -> Option<FileTailerEvent> {
-        tokio::select! {
-            Some(stdout) = self.stdout.recv() => {
-                Some(FileTailerEvent::Stdout(stdout))
-            }
-            Some(stderr) = self.stderr.recv() => {
-                Some(FileTailerEvent::Stderr(stderr))
-            }
-            else => None,
-        }
-    }
-}
-
 pub struct FileTailers {
     _stdout_tailer: Option<FileTailer>,
     _stderr_tailer: Option<FileTailer>,
-    streams: FileStreams,
+    stream: UnboundedReceiver<FileTailerEvent>,
 }
 
 impl EventsCtx {
@@ -169,7 +152,7 @@ impl EventsCtx {
                         ControlFlow::Break(res) => break res,
                     }
                 }
-                Some(event) = tailers.streams.next() => {
+                Some(event) = tailers.stream.recv() => {
                     self.dispatch_tailer_event(event).await?;
                 }
                 c = console_interaction.char() => {
@@ -280,7 +263,7 @@ impl EventsCtx {
         let mut complete = false;
         while !complete {
             tokio::select! {
-                event = streams.next() => {
+                event = streams.recv() => {
                     match event {
                         Some(event) => {self.dispatch_tailer_event(event).await?;}
                         None => {complete = true;}
@@ -354,14 +337,18 @@ impl EventSubscriber for EventsCtx {
 
 impl FileTailers {
     pub fn new(daemon_dir: &DaemonDir) -> anyhow::Result<Self> {
-        let (stdout_tx, stdout) = mpsc::unbounded_channel();
-        let (stderr_tx, stderr) = mpsc::unbounded_channel();
-        let stdout_tailer = FileTailer::tail_file(daemon_dir.buckd_stdout(), stdout_tx)?;
-        let stderr_tailer = FileTailer::tail_file(daemon_dir.buckd_stderr(), stderr_tx)?;
+        let (tx, rx) = mpsc::unbounded_channel();
+        let stdout_tailer = FileTailer::tail_file(
+            daemon_dir.buckd_stdout(),
+            tx.clone(),
+            StdoutOrStderr::Stdout,
+        )?;
+        let stderr_tailer =
+            FileTailer::tail_file(daemon_dir.buckd_stderr(), tx, StdoutOrStderr::Stderr)?;
         let this = Self {
             _stdout_tailer: Some(stdout_tailer),
             _stderr_tailer: Some(stderr_tailer),
-            streams: FileStreams { stdout, stderr },
+            stream: rx,
         };
         Ok(this)
     }
@@ -370,17 +357,14 @@ impl FileTailers {
         FileTailers {
             _stdout_tailer: None,
             _stderr_tailer: None,
-            streams: FileStreams {
-                // Empty streams.
-                stdout: tokio::sync::mpsc::unbounded_channel().1,
-                stderr: tokio::sync::mpsc::unbounded_channel().1,
-            },
+            // Empty stream.
+            stream: mpsc::unbounded_channel().1,
         }
     }
 
-    pub fn stop_reading(self) -> FileStreams {
+    pub(crate) fn stop_reading(self) -> UnboundedReceiver<FileTailerEvent> {
         // by dropping the tailers, they shut themselves down.
-        self.streams
+        self.stream
     }
 }
 

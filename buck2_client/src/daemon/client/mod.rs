@@ -615,7 +615,9 @@ mod tests {
     use buck2_core::fs::paths::AbsPathBuf;
 
     use super::*;
+    use crate::events_ctx::FileTailerEvent;
     use crate::file_tailer::FileTailer;
+    use crate::file_tailer::StdoutOrStderr;
 
     #[tokio::test]
     async fn test_tailer() -> anyhow::Result<()> {
@@ -625,12 +627,19 @@ mod tests {
         // If we could control the interval for tailer polling, we could reliably
         // test more of the behavior. For now, just test a simple case.
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
-        let tailer = FileTailer::tail_file(AbsPathBuf::new(file.path().to_owned())?, sender)?;
+        let tailer = FileTailer::tail_file(
+            AbsPathBuf::new(file.path().to_owned())?,
+            sender,
+            StdoutOrStderr::Stdout,
+        )?;
         writeln!(file, "after")?;
         // have to sleep long enough for a read or else this test is racy.
         tokio::time::sleep(Duration::from_millis(250)).await;
         std::mem::drop(tailer);
-        assert_eq!("after\n", &receiver.recv().await.unwrap());
+        assert_eq!(
+            FileTailerEvent::Stdout("after\n".to_owned()),
+            receiver.recv().await.unwrap()
+        );
 
         Ok(())
     }
