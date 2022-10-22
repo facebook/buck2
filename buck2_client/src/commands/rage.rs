@@ -20,6 +20,7 @@ use buck2_core::process::background_command;
 use buck2_data::RageInvoked;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
+use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::trace::TraceId;
 use chrono::offset::Local;
 use chrono::DateTime;
@@ -104,7 +105,7 @@ impl StreamingCommand for RageCommand {
         let new_trace_id = TraceId::new();
 
         // dispatch event to scribe if possible
-        match create_scribe_event_dispatcher(&ctx, new_trace_id.to_owned()) {
+        match create_scribe_event_dispatcher(&ctx, new_trace_id.to_owned())? {
             Some(dispatcher) => {
                 let recent_command_trace_id = old_trace_id.to_string();
                 let metadata = metadata::collect();
@@ -186,29 +187,11 @@ impl StreamingCommand for RageCommand {
 fn create_scribe_event_dispatcher(
     ctx: &ClientCommandContext,
     trace_id: TraceId,
-) -> Option<EventDispatcher> {
+) -> anyhow::Result<Option<EventDispatcher>> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink
     // without using configurations at the call site
-    #[cfg(fbcode_build)]
-    {
-        use buck2_events::sink::scribe;
-        if scribe::is_enabled() {
-            Some(EventDispatcher::new(
-                trace_id,
-                scribe::ThriftScribeSink::new(
-                    ctx.fbinit(),
-                    scribe::scribe_category().ok()?,
-                    /* buffer size */ 100,
-                )
-                .ok()?,
-            ))
-        } else {
-            None
-        }
-    }
-
-    #[cfg(not(fbcode_build))]
-    None
+    let sink = new_thrift_scribe_sink_if_enabled(ctx.fbinit(), /* buffer size */ 100)?;
+    Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
 }
 
 async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> anyhow::Result<()> {
