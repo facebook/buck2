@@ -58,6 +58,9 @@ use crate::trace::TraceId;
 /// the span created by the first and last events of the trace have a parent; as such, spans form a tree.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BuckEvent {
+    /// Full event, the rest of the fields are caches.
+    event: buck2_data::BuckEvent,
+
     /// A timestamp for when this event was emitted.
     timestamp: SystemTime,
 
@@ -72,9 +75,6 @@ pub struct BuckEvent {
     /// The ID of the span that contains this event. Will be non-None in all Events except the first and last events
     /// of a trace.
     parent_id: Option<SpanId>,
-
-    /// The kind of this event, combined with the event payload.
-    data: buck2_data::buck_event::Data,
 }
 
 impl BuckEvent {
@@ -85,12 +85,19 @@ impl BuckEvent {
         parent_id: Option<SpanId>,
         data: buck2_data::buck_event::Data,
     ) -> BuckEvent {
+        let event = buck2_data::BuckEvent {
+            timestamp: Some(timestamp.into()),
+            trace_id: trace_id.0.to_hyphenated().to_string(),
+            span_id: span_id.map_or(0, |s| s.0.into()),
+            parent_id: parent_id.map_or(0, |s| s.0.into()),
+            data: Some(data),
+        };
         BuckEvent {
+            event,
             timestamp,
             trace_id,
             span_id,
             parent_id,
-            data,
         }
     }
 
@@ -111,47 +118,45 @@ impl BuckEvent {
     }
 
     pub fn data(&self) -> &buck2_data::buck_event::Data {
-        &self.data
+        self.event
+            .data
+            .as_ref()
+            .expect("data is set, it is validated")
     }
 
     pub fn data_mut(&mut self) -> &mut buck2_data::buck_event::Data {
-        &mut self.data
+        self.event
+            .data
+            .as_mut()
+            .expect("data is set, it is validated")
     }
 }
 
 impl From<BuckEvent> for buck2_data::BuckEvent {
     fn from(e: BuckEvent) -> Self {
-        buck2_data::BuckEvent {
-            timestamp: Some(e.timestamp.into()),
-            trace_id: e.trace_id.0.to_hyphenated().to_string(),
-            span_id: e.span_id.map_or(0, |s| s.0.into()),
-            parent_id: e.parent_id.map_or(0, |s| s.0.into()),
-            data: Some(e.data),
-        }
+        e.event
     }
 }
 
 impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
     type Error = anyhow::Error;
 
-    fn try_from(
-        buck2_data::BuckEvent {
-            timestamp,
-            trace_id,
-            span_id,
-            parent_id,
-            data,
-        }: buck2_data::BuckEvent,
-    ) -> anyhow::Result<BuckEvent> {
+    fn try_from(event: buck2_data::BuckEvent) -> anyhow::Result<BuckEvent> {
+        event.data.as_ref().ok_or(BuckEventError::MissingData)?;
         fn new_span_id(num: u64) -> Option<SpanId> {
             NonZeroU64::new(num).map(SpanId)
         }
         Ok(Self {
-            timestamp: SystemTime::try_from(timestamp.ok_or(BuckEventError::MissingTimestamp)?)?,
-            trace_id: TraceId(Arc::new(Uuid::parse_str(&trace_id)?)),
-            span_id: new_span_id(span_id),
-            parent_id: new_span_id(parent_id),
-            data: data.ok_or(BuckEventError::MissingData)?,
+            timestamp: SystemTime::try_from(
+                event
+                    .timestamp
+                    .clone()
+                    .ok_or(BuckEventError::MissingTimestamp)?,
+            )?,
+            trace_id: TraceId(Arc::new(Uuid::parse_str(&event.trace_id)?)),
+            span_id: new_span_id(event.span_id),
+            parent_id: new_span_id(event.parent_id),
+            event,
         })
     }
 }

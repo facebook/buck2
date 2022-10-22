@@ -61,7 +61,7 @@ mod fbcode {
         fn send_internal(&self, mut event: BuckEvent, is_truncation: bool) {
             let message_key = event.trace_id.hash();
 
-            Self::smart_truncate_event(&mut event.data);
+            Self::smart_truncate_event(event.data_mut());
             let proto: buck2_data::BuckEvent = event.into();
 
             let mut buf = Vec::with_capacity(proto.encoded_len());
@@ -82,8 +82,12 @@ mod fbcode {
                 let json = serde_json::to_string(&proto).unwrap();
 
                 return self.send_internal(
-                    BuckEvent {
-                        data: buck2_data::buck_event::Data::Instant(InstantEvent {
+                    BuckEvent::new(
+                        SystemTime::now(),
+                        TraceId::new(),
+                        None,
+                        None,
+                        buck2_data::buck_event::Data::Instant(InstantEvent {
                             data: Some(
                                 Panic {
                                     location: Some(Location {
@@ -99,11 +103,7 @@ mod fbcode {
                                 .into(),
                             ),
                         }),
-                        parent_id: None,
-                        span_id: None,
-                        timestamp: SystemTime::now(),
-                        trace_id: TraceId::new(),
-                    },
+                    ),
                     true,
                 );
             }
@@ -173,7 +173,7 @@ mod fbcode {
 
     impl EventSink for ThriftScribeSink {
         fn send(&self, event: BuckEvent) {
-            if !should_send_event(&event.data) {
+            if !should_send_event(event.data()) {
                 return;
             }
             self.send_internal(event, false)
