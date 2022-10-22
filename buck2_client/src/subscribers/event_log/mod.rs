@@ -531,7 +531,10 @@ async fn open_event_log_for_writing(
 
     let file = match path.encoding.compression {
         Compression::None => box file as EventLogWriter,
-        Compression::Gzip => box GzipEncoder::new(file) as EventLogWriter,
+        Compression::Gzip => {
+            // TODO(nga): switch to zstd which should be faster and more efficient.
+            box GzipEncoder::with_quality(file, async_compression::Level::Fastest) as EventLogWriter
+        }
     };
 
     Ok(NamedEventLogWriter {
