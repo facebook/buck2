@@ -8,6 +8,7 @@
  */
 
 use std::ops::ControlFlow;
+use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_common::daemon_dir::DaemonDir;
@@ -311,7 +312,22 @@ impl EventsCtx {
             .await
     }
 
-    async fn handle_event(&mut self, event: buck2_events::BuckEvent) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, mut event: buck2_events::BuckEvent) -> anyhow::Result<()> {
+        if let buck2_data::buck_event::Data::Instant(instant_event) = &mut event.data {
+            if let Some(buck2_data::instant_event::Data::Snapshot(snapshot)) =
+                &mut instant_event.data
+            {
+                let now = SystemTime::now();
+                // `None` on overflow.
+                let this_event_client_delay_ms = match now.duration_since(event.timestamp) {
+                    Ok(duration) => i64::try_from(duration.as_millis()).ok(),
+                    Err(e) => i64::try_from(e.duration().as_millis())
+                        .ok()
+                        .and_then(|x| x.checked_neg()),
+                };
+                snapshot.this_event_client_delay_ms = this_event_client_delay_ms;
+            }
+        }
         self.handle_subscribers(|subscriber| subscriber.handle_event(&event))
             .await
     }
