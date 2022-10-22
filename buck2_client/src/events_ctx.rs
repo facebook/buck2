@@ -317,13 +317,14 @@ impl EventsCtx {
     }
 
     async fn handle_event(&mut self, mut event: BuckEvent) -> anyhow::Result<()> {
-        if let buck2_data::buck_event::Data::Instant(instant_event) = &mut event.data {
+        let timestamp = event.timestamp();
+        if let buck2_data::buck_event::Data::Instant(instant_event) = event.data_mut() {
             if let Some(buck2_data::instant_event::Data::Snapshot(snapshot)) =
                 &mut instant_event.data
             {
                 let now = SystemTime::now();
                 // `None` on overflow.
-                let this_event_client_delay_ms = match now.duration_since(event.timestamp) {
+                let this_event_client_delay_ms = match now.duration_since(timestamp) {
                     Ok(duration) => i64::try_from(duration.as_millis()).ok(),
                     Err(e) => i64::try_from(e.duration().as_millis())
                         .ok()

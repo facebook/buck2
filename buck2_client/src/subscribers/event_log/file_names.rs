@@ -27,11 +27,11 @@ pub(crate) fn get_logfile_name(
     command_name: &str,
 ) -> FileNameBuf {
     let time_str = {
-        let datetime: DateTime<Utc> = event.timestamp.into();
+        let datetime: DateTime<Utc> = event.timestamp().into();
         datetime.format("%Y%m%d-%H%M%S").to_string()
     };
 
-    let trace_id = &event.trace_id;
+    let trace_id = &event.trace_id();
     let extension = encoding.extension;
 
     // Sort order matters here: earliest builds are lexicographically first and deleted first.

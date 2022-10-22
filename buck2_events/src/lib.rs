@@ -59,22 +59,64 @@ use crate::trace::TraceId;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BuckEvent {
     /// A timestamp for when this event was emitted.
-    pub timestamp: SystemTime,
+    timestamp: SystemTime,
 
     /// A trace ID, globally identifying a series of events. Often corresponds to a particular command, although it
     /// does not have to.
-    pub trace_id: TraceId,
+    trace_id: TraceId,
 
     /// If this event starts a new span, the span ID assigned to this span, or None if this event is a leaf event
     /// that does not start a new span.
-    pub span_id: Option<SpanId>,
+    span_id: Option<SpanId>,
 
     /// The ID of the span that contains this event. Will be non-None in all Events except the first and last events
     /// of a trace.
-    pub parent_id: Option<SpanId>,
+    parent_id: Option<SpanId>,
 
     /// The kind of this event, combined with the event payload.
-    pub data: buck2_data::buck_event::Data,
+    data: buck2_data::buck_event::Data,
+}
+
+impl BuckEvent {
+    pub fn new(
+        timestamp: SystemTime,
+        trace_id: TraceId,
+        span_id: Option<SpanId>,
+        parent_id: Option<SpanId>,
+        data: buck2_data::buck_event::Data,
+    ) -> BuckEvent {
+        BuckEvent {
+            timestamp,
+            trace_id,
+            span_id,
+            parent_id,
+            data,
+        }
+    }
+
+    pub fn timestamp(&self) -> SystemTime {
+        self.timestamp
+    }
+
+    pub fn trace_id(&self) -> &TraceId {
+        &self.trace_id
+    }
+
+    pub fn span_id(&self) -> Option<SpanId> {
+        self.span_id
+    }
+
+    pub fn parent_id(&self) -> Option<SpanId> {
+        self.parent_id
+    }
+
+    pub fn data(&self) -> &buck2_data::buck_event::Data {
+        &self.data
+    }
+
+    pub fn data_mut(&mut self) -> &mut buck2_data::buck_event::Data {
+        &mut self.data
+    }
 }
 
 impl From<BuckEvent> for buck2_data::BuckEvent {
@@ -183,12 +225,12 @@ mod tests {
 
     #[test]
     fn round_trip_success() {
-        let test = BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: Some(SpanId::new()),
-            data: SpanStartEvent {
+        let test = BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            Some(SpanId::new()),
+            Some(SpanId::new()),
+            SpanStartEvent {
                 data: Some(
                     CommandStart {
                         data: None,
@@ -198,7 +240,7 @@ mod tests {
                 ),
             }
             .into(),
-        };
+        );
         assert_eq!(
             test,
             BuckEvent::try_from(buck2_data::BuckEvent::from(test.clone())).unwrap()

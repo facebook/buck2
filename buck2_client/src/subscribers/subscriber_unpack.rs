@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-use std::time::Duration;
-use std::time::Instant;
-
 use async_trait::async_trait;
 use buck2_data::buck_event;
 use buck2_data::InstantEvent;
@@ -22,79 +19,16 @@ use buck2_data::TestRunEnd;
 use buck2_data::TestRunStart;
 use buck2_events::BuckEvent;
 use cli_proto::CommandResult;
-use gazebo::prelude::*;
-use thiserror::Error;
+use gazebo::dupe::Dupe;
 
-/// Information about tick timing.
-#[derive(Debug, Clone, Dupe)]
-pub(crate) struct Tick {
-    /// The time that the ticker was started.
-    pub(crate) start_time: Instant,
-    /// Elapsed time since the ticker was started for this tick.
-    pub(crate) elapsed_time: Duration,
-}
+use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::subscriber::Tick;
+use crate::subscribers::subscriber::VisitorError;
 
-impl Tick {
-    pub fn now() -> Tick {
-        Self {
-            start_time: Instant::now(),
-            elapsed_time: Duration::ZERO,
-        }
-    }
-}
+pub(crate) struct EventSubscribersUnpackHolder<U: EventSubscriberUnpack>(pub(crate) U);
 
-/// Just a simple structure that makes it easier to deal with BuckEvent rather than
-/// needing to deal with the unpacking of optional fields yourself.
-pub(crate) enum UnpackedBuckEvent<'a> {
-    SpanStart(
-        &'a BuckEvent,
-        &'a SpanStartEvent,
-        &'a buck2_data::span_start_event::Data,
-    ),
-    SpanEnd(
-        &'a BuckEvent,
-        &'a SpanEndEvent,
-        &'a buck2_data::span_end_event::Data,
-    ),
-    Instant(
-        &'a BuckEvent,
-        &'a InstantEvent,
-        &'a buck2_data::instant_event::Data,
-    ),
-}
-
-pub(crate) fn unpack_event(event: &BuckEvent) -> anyhow::Result<UnpackedBuckEvent> {
-    match &event.data() {
-        buck_event::Data::SpanStart(v) => Ok(UnpackedBuckEvent::SpanStart(
-            event,
-            v,
-            v.data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField((*event).clone()))?,
-        )),
-        buck_event::Data::SpanEnd(v) => Ok(UnpackedBuckEvent::SpanEnd(
-            event,
-            v,
-            v.data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField((*event).clone()))?,
-        )),
-        buck_event::Data::Instant(v) => Ok(UnpackedBuckEvent::Instant(
-            event,
-            v,
-            v.data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField((*event).clone()))?,
-        )),
-        buck_event::Data::Record(_) => Err(VisitorError::UnexpectedRecord(event.clone()).into()),
-    }
-}
-
-/// Visitor trait.  Implement this to subscribe to the event streams.
-/// Each method will be called whenever an event occurs.
-// TODO(brasselsprouts): convert events so this event subscriber trait can be reduced.
 #[async_trait]
-pub(crate) trait EventSubscriber: Send {
+pub(crate) trait EventSubscriberUnpack: Send {
     async fn handle_output(&mut self, _raw_output: &str) -> anyhow::Result<()> {
         Ok(())
     }
@@ -107,9 +41,6 @@ pub(crate) trait EventSubscriber: Send {
     async fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         self.handle_inner_event(event).await
     }
-    /// Unpacks a [`BuckEvent`] and calls the appropriate specific event handle
-    ///
-    /// This should only be called by implementors of [`EventSubscriber`]
     async fn handle_inner_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         match event.data() {
             buck_event::Data::SpanStart(ref start) => self.handle_event_start(start, event.dupe()),
@@ -702,10 +633,36 @@ pub(crate) trait EventSubscriber: Send {
     }
 }
 
-#[derive(Error, Debug)]
-pub(crate) enum VisitorError {
-    #[error("Sent an event missing one or more fields: `{0:?}`")]
-    MissingField(BuckEvent),
-    #[error("Sent an unexpected Record event: `{0:?}`")]
-    UnexpectedRecord(BuckEvent),
+#[async_trait]
+impl<U: EventSubscriberUnpack> EventSubscriber for EventSubscribersUnpackHolder<U> {
+    async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
+        self.0.handle_output(raw_output).await
+    }
+
+    async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+        self.0.handle_stderr(stderr).await
+    }
+
+    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
+        self.0.handle_console_interaction(c).await
+    }
+
+    async fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+        self.0.handle_event(event).await
+    }
+
+    async fn handle_error(&mut self, error: &anyhow::Error) -> anyhow::Result<()> {
+        self.0.handle_error(error).await
+    }
+
+    async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
+        self.0.tick(tick).await
+    }
+
+    async fn handle_command_result(
+        &mut self,
+        result: &cli_proto::CommandResult,
+    ) -> anyhow::Result<()> {
+        self.0.handle_command_result(result).await
+    }
 }

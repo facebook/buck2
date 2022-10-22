@@ -1,12 +1,3 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
- */
-
 use gazebo::prelude::*;
 
 use crate::BuckEvent;
@@ -61,12 +52,12 @@ mod tests {
     async fn sending_event_smoke() {
         let (send, recv) = crossbeam_channel::unbounded();
         let sink = ChannelEventSink::new(send);
-        sink.send(BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: None,
-            parent_id: None,
-            data: SpanStartEvent {
+        sink.send(BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            None,
+            None,
+            SpanStartEvent {
                 data: Some(
                     CommandStart {
                         data: None,
@@ -76,10 +67,10 @@ mod tests {
                 ),
             }
             .into(),
-        });
+        ));
         let event = recv.recv().unwrap().unpack_buck().unwrap().clone();
         assert!(matches!(
-            event.data,
+            event.data(),
             SpanStart(SpanStartEvent {
                 data: Some(Command(CommandStart { .. }))
             })

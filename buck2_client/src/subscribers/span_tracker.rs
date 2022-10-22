@@ -118,7 +118,7 @@ impl SpanTracker {
     ) -> anyhow::Result<()> {
         let is_root = span_is_root(start);
         let span_id = event
-            .span_id
+            .span_id()
             .ok_or_else(|| SpanTrackerError::NonSpanEvent(event.clone()))?;
 
         self.all.entry(span_id).or_insert_with(|| Span {
@@ -133,7 +133,7 @@ impl SpanTracker {
             self.roots.insert(span_id, ());
         }
 
-        if let Some(parent_id) = event.parent_id {
+        if let Some(parent_id) = event.parent_id() {
             let parent = match self.all.get_mut(&parent_id) {
                 Some(parent) => parent,
                 None => {
@@ -197,7 +197,7 @@ impl EventSubscriber for SpanTracker {
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
         let span_id = event
-            .span_id
+            .span_id()
             .ok_or_else(|| SpanTrackerError::NonSpanEvent(event.clone()))?;
 
         // This event might not be eligible as a root, but we need to maintain the invariant that
@@ -214,7 +214,7 @@ impl EventSubscriber for SpanTracker {
             );
         }
 
-        if let Some(parent_id) = event.parent_id {
+        if let Some(parent_id) = event.parent_id() {
             let parent = match self.all.get_mut(&parent_id) {
                 Some(parent) => parent,
                 None => {
@@ -281,7 +281,7 @@ impl WhatRanState<OptionalSpanId> for SpanTracker {
 
         self.all
             .get(&span_id)
-            .map(|e| &e.info.event.data)
+            .map(|e| e.info.event.data())
             .and_then(WhatRanRelevantAction::from_buck_data)
     }
 }

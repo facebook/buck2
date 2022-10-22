@@ -31,6 +31,6 @@ impl EventSubscriber for BuildIdWriter {
         _command: &buck2_data::CommandStart,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        Ok(tokio::fs::write(&self.path, event.trace_id.to_string()).await?)
+        Ok(tokio::fs::write(&self.path, event.trace_id().to_string()).await?)
     }
 }

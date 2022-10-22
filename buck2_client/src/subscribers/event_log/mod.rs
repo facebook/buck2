@@ -290,8 +290,8 @@ impl EventLogPathBuf {
             })?
             .try_into()?;
         Ok(EventLogSummary {
-            trace_id: buck_event.trace_id,
-            timestamp: buck_event.timestamp,
+            trace_id: buck_event.trace_id().dupe(),
+            timestamp: buck_event.timestamp(),
             invocation,
         })
     }
@@ -429,7 +429,7 @@ impl EventLog {
                 .to_path_buf(),
             encoding,
         };
-        let mut log_files = vec![open_event_log_for_writing(path, event.trace_id.dupe()).await?];
+        let mut log_files = vec![open_event_log_for_writing(path, event.trace_id().dupe()).await?];
 
         // Also open the user's log file, if any as provided, with no encoding.
         if let Some(extra_path) = maybe_extra_path {
@@ -441,7 +441,7 @@ impl EventLog {
                             encoding: Encoding::JSON_GZIP,
                         },
                     ),
-                    event.trace_id.dupe(),
+                    event.trace_id().dupe(),
                 )
                 .await?,
             );
@@ -544,7 +544,7 @@ async fn open_event_log_for_writing(
 #[async_trait]
 impl EventSubscriber for EventLog {
     async fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
-        if let buck_event::Data::Instant(_instant) = &event.data {
+        if let buck_event::Data::Instant(_instant) = &event.data() {
             if let Some(instant_event::Data::RawOutput(_)) = _instant.data.as_ref() {
                 return Ok(());
             }
@@ -724,12 +724,12 @@ mod tests {
     }
 
     fn make_event() -> BuckEvent {
-        BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            Some(SpanId::new()),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Load(
                     LoadBuildFileStart {
                         module_id: "foo".to_owned(),
@@ -737,7 +737,7 @@ mod tests {
                     },
                 )),
             }),
-        }
+        )
     }
 
     #[tokio::test]
@@ -772,10 +772,10 @@ mod tests {
         }?;
 
         //Assert it's the same event created in the beginning
-        assert_eq!(retrieved_event.timestamp, event.timestamp);
-        assert_eq!(retrieved_event.trace_id, event.trace_id);
-        assert_eq!(retrieved_event.span_id, event.span_id);
-        assert_eq!(retrieved_event.data, event.data);
+        assert_eq!(retrieved_event.timestamp(), event.timestamp());
+        assert_eq!(retrieved_event.trace_id(), event.trace_id());
+        assert_eq!(retrieved_event.span_id(), event.span_id());
+        assert_eq!(retrieved_event.data(), event.data());
 
         assert!(
             events.try_next().await.unwrap().is_none(),
@@ -822,10 +822,10 @@ mod tests {
             StreamValue::Result(_) => panic!("expecting event"),
         };
 
-        assert_eq!(retrieved_event.timestamp, event.timestamp);
-        assert_eq!(retrieved_event.trace_id, event.trace_id);
-        assert_eq!(retrieved_event.span_id, event.span_id);
-        assert_eq!(retrieved_event.data, event.data);
+        assert_eq!(retrieved_event.timestamp(), event.timestamp());
+        assert_eq!(retrieved_event.trace_id(), event.trace_id());
+        assert_eq!(retrieved_event.span_id(), event.span_id());
+        assert_eq!(retrieved_event.data(), event.data());
 
         // TODO(nga): `tick` does not write gzip footer, so even after `tick`
         //   generated file is not a valid gzip file.

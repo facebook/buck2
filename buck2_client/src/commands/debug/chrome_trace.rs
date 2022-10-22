@@ -101,14 +101,14 @@ impl ChromeTraceFirstPass {
     }
 
     fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
-        match event.data {
+        match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => {
                 match start.data.as_ref() {
                     Some(buck2_data::span_start_event::Data::ExecutorStage(exec)) => {
                         // A local stage means that we want to show the entire action execution.
                         if let Some(buck2_data::executor_stage_start::Stage::Local(_)) = exec.stage
                         {
-                            self.local_actions.insert(event.parent_id.unwrap());
+                            self.local_actions.insert(event.parent_id().unwrap());
                         }
                     }
                     _ => {}
@@ -124,7 +124,7 @@ impl ChromeTraceFirstPass {
                             .try_into_duration()?
                             > Self::LONG_ANALYSIS_CUTOFF
                         {
-                            self.long_analyses.insert(event.span_id.unwrap());
+                            self.long_analyses.insert(event.span_id().unwrap());
                         }
                     }
                     Some(buck2_data::span_end_event::Data::Load(_)) => {
@@ -135,7 +135,7 @@ impl ChromeTraceFirstPass {
                             .try_into_duration()?
                             > Self::LONG_LOAD_CUTOFF
                         {
-                            self.long_loads.insert(event.span_id.unwrap());
+                            self.long_loads.insert(event.span_id().unwrap());
                         }
                     }
                     _ => {}
@@ -437,8 +437,8 @@ impl SpanCounters {
         amount: i32,
     ) -> anyhow::Result<()> {
         self.open_spans
-            .insert(event.span_id.unwrap(), (key, amount));
-        self.counter.bump(event.timestamp, key, amount)
+            .insert(event.span_id().unwrap(), (key, amount));
+        self.counter.bump(event.timestamp(), key, amount)
     }
 
     fn handle_event_end(
@@ -446,8 +446,8 @@ impl SpanCounters {
         _end: &buck2_data::SpanEndEvent,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        if let Some((key, value)) = self.open_spans.remove(&event.span_id.unwrap()) {
-            self.counter.subtract(event.timestamp, key, value)?;
+        if let Some((key, value)) = self.open_spans.remove(&event.span_id().unwrap()) {
+            self.counter.subtract(event.timestamp(), key, value)?;
         }
         Ok(())
     }
@@ -490,7 +490,7 @@ impl ChromeTraceWriter {
         track_key: &'static str,
         event: &BuckEvent,
     ) -> anyhow::Result<SpanTrackAssignment> {
-        match event.parent_id {
+        match event.parent_id() {
             None => Ok(SpanTrackAssignment::Owned(TrackId(
                 track_key,
                 self.unused_track_ids
@@ -504,7 +504,7 @@ impl ChromeTraceWriter {
                     .get(&parent_id)
                     .map(|open_span| open_span.track.get_track_id())
                     .ok_or_else(|| {
-                        ChromeTraceError::ParentSpanNotFound(event.span_id.unwrap(), parent_id)
+                        ChromeTraceError::ParentSpanNotFound(event.span_id().unwrap(), parent_id)
                     })?;
                 Ok(SpanTrackAssignment::Inherited(track_id))
             }
@@ -536,7 +536,7 @@ impl ChromeTraceWriter {
     }
 
     fn open_span(&mut self, event: &BuckEvent, span: ChromeTraceOpenSpan) -> anyhow::Result<()> {
-        self.open_spans.insert(event.span_id.unwrap(), span);
+        self.open_spans.insert(event.span_id().unwrap(), span);
         Ok(())
     }
 
@@ -552,19 +552,19 @@ impl ChromeTraceWriter {
             event,
             ChromeTraceOpenSpan {
                 name,
-                start: event.timestamp,
+                start: event.timestamp(),
                 process_id: 0,
                 track,
                 categories: vec!["buck2"],
                 args: json!({
-                    "span_id": event.span_id,
+                    "span_id": event.span_id(),
                 }),
             },
         )
     }
 
     fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
-        match event.data {
+        match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => match start
                 .data
                 .as_ref()
@@ -583,7 +583,7 @@ impl ChromeTraceWriter {
                     if self
                         .first_pass
                         .long_analyses
-                        .contains(&event.span_id.unwrap())
+                        .contains(&event.span_id().unwrap())
                     {
                         let name = format!(
                             "analysis {}",
@@ -601,7 +601,11 @@ impl ChromeTraceWriter {
                 buck2_data::span_start_event::Data::Load(eval) => {
                     self.span_counters
                         .bump_counter_while_span(event, "load", 1)?;
-                    if self.first_pass.long_loads.contains(&event.span_id.unwrap()) {
+                    if self
+                        .first_pass
+                        .long_loads
+                        .contains(&event.span_id().unwrap())
+                    {
                         let name = format!("load {}", eval.module_id);
                         self.open_named_span(event, name, Self::UNCATEGORIZED)?;
                     }
@@ -616,7 +620,7 @@ impl ChromeTraceWriter {
                     } else if self
                         .first_pass
                         .local_actions
-                        .contains(&event.span_id.unwrap())
+                        .contains(&event.span_id().unwrap())
                     {
                         Some(Self::UNCATEGORIZED)
                     } else {
@@ -636,7 +640,7 @@ impl ChromeTraceWriter {
                         stage.stage.as_ref().context("expected stage")?,
                     )?;
                     self.span_counters.bump_counter_while_span(event, name, 1)?;
-                    if self.open_spans.contains_key(&event.parent_id.unwrap()) {
+                    if self.open_spans.contains_key(&event.parent_id().unwrap()) {
                         // As a child event, this will inherit its parent's track.
                         self.open_named_span(event, name.to_owned(), Self::UNCATEGORIZED)?;
                     }
@@ -654,24 +658,24 @@ impl ChromeTraceWriter {
                     .ok_or_else(|| VisitorError::MissingField((*event).clone()))?;
                 if let buck2_data::instant_event::Data::Snapshot(_snapshot) = instant_data {
                     self.max_rss_gigabytes_counter.set(
-                        event.timestamp,
+                        event.timestamp(),
                         "max_rss_gigabyte",
                         (_snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
                     )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_ms(
-                            event.timestamp,
+                            event.timestamp(),
                             "average_user_cpu_in_usecs_per_msec",
                             _snapshot.buck2_user_cpu_us,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_ms(
-                            event.timestamp,
+                            event.timestamp(),
                             "average_system_cpu_in_usecs_per_msec",
                             _snapshot.buck2_system_cpu_us,
                         )?;
                     self.snapshot_counters.set(
-                        event.timestamp,
+                        event.timestamp(),
                         "blocking_executor_io_queue_size",
                         _snapshot.blocking_executor_io_queue_size,
                     )?;
@@ -688,7 +692,7 @@ impl ChromeTraceWriter {
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.span_counters.handle_event_end(end, event)?;
-        if let Some(open) = self.open_spans.remove(&event.span_id.unwrap()) {
+        if let Some(open) = self.open_spans.remove(&event.span_id().unwrap()) {
             let duration = end
                 .duration
                 .as_ref()

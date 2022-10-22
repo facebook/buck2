@@ -168,16 +168,16 @@ mod imp {
                     test_info: self.test_info.take(),
                     eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
                 };
-                let event = BuckEvent {
-                    timestamp: SystemTime::now(),
-                    trace_id: trace_id.dupe(),
-                    span_id: None,
-                    parent_id: None,
-                    data: buck2_data::RecordEvent {
+                let event = BuckEvent::new(
+                    SystemTime::now(),
+                    trace_id.dupe(),
+                    None,
+                    None,
+                    buck2_data::RecordEvent {
                         data: Some(record.into()),
                     }
                     .into(),
-                };
+                );
                 tracing::info!("Recording invocation to Scribe: {:?}", &event);
                 self.scribe.send(event);
                 let scribe = self.scribe.dupe();
@@ -215,7 +215,7 @@ mod imp {
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
             self.command_start = Some(command.clone());
-            self.trace_id = Some(event.trace_id.dupe());
+            self.trace_id = Some(event.trace_id().dupe());
             Ok(())
         }
 
@@ -225,7 +225,7 @@ mod imp {
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
             // Awkwardly unpacks the SpanEnd event so we can read its duration.
-            let command_end = match event.data {
+            let command_end = match event.data() {
                 buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
                 _ => {
                     return Err(anyhow::anyhow!(

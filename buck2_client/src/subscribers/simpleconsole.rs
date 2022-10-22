@@ -346,8 +346,8 @@ impl EventSubscriber for SimpleConsole {
 
         if self.verbosity.print_all_commands() {
             what_ran::emit_event_if_relevant(
-                event.parent_id.into(),
-                &event.data,
+                event.parent_id().into(),
+                event.data(),
                 self.spans(),
                 &mut PrintDebugCommandToStderr,
                 &WhatRanOptions::default(),
@@ -362,7 +362,7 @@ impl EventSubscriber for SimpleConsole {
         _command: &buck2_data::CommandStart,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        echo!("Build ID: {}", event.trace_id)?;
+        echo!("Build ID: {}", event.trace_id())?;
         self.notify_printed();
         Ok(())
     }
@@ -606,9 +606,9 @@ impl EventSubscriber for SimpleConsole {
         update: &buck2_data::Snapshot,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.re_panel_mut().update(event.timestamp, update);
-        self.io_state.update(event.timestamp, update);
-        self.two_snapshots.update(event.timestamp, update);
+        self.re_panel_mut().update(event.timestamp(), update);
+        self.io_state.update(event.timestamp(), update);
+        self.two_snapshots.update(event.timestamp(), update);
         Ok(())
     }
 }

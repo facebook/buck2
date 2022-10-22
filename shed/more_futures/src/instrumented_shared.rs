@@ -206,7 +206,7 @@ mod tests {
         // The "owning" dispatcher should receive the fake start/end events
         let owned_start_event = next_event(&mut events1).await;
         assert_matches!(
-            owned_start_event.data,
+            owned_start_event.data(),
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(_)),
             }),
@@ -215,7 +215,7 @@ mod tests {
         );
         let owned_end_event = next_event(&mut events1).await;
         assert_matches!(
-            owned_end_event.data,
+            owned_end_event.data(),
             buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
                 data: Some(buck2_data::span_end_event::Data::Fake(_)),
                 ..
@@ -226,7 +226,7 @@ mod tests {
 
         let shared_start_event = next_event(&mut events2).await;
         assert_matches!(
-            shared_start_event.data,
+            shared_start_event.data(),
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::SharedTask(_)),
             }),
@@ -236,7 +236,7 @@ mod tests {
 
         let shared_end_event = next_event(&mut events2).await;
         assert_matches!(
-            shared_end_event.data,
+            shared_end_event.data(),
             buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
                 data: Some(buck2_data::span_end_event::Data::SharedTask(
                     SharedTaskEnd {}

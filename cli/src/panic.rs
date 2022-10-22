@@ -192,16 +192,16 @@ mod imp {
             backtrace: get_stack(),
         }
         .into();
-        let event = BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: None,
-            parent_id: None,
-            data: InstantEvent {
+        let event = BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            None,
+            None,
+            InstantEvent {
                 data: Some(panic_payload),
             }
             .into(),
-        };
+        );
         let _err = sink.send(event);
 
         // There are some dubious ways of acquiring a handle to the current Tokio runtime, if one exists, such as this

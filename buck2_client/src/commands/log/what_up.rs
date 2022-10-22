@@ -108,8 +108,8 @@ impl WhatUpCommand {
                             Some(cutoff_time) => {
                                 if should_stop_reading(
                                     cutoff_time,
-                                    e.timestamp,
-                                    *first_timestamp.get_or_insert(e.timestamp),
+                                    e.timestamp(),
+                                    *first_timestamp.get_or_insert(e.timestamp()),
                                 )? {
                                     break;
                                 }

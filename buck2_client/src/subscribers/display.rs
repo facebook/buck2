@@ -147,7 +147,7 @@ pub(crate) fn display_event(
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
     let res: anyhow::Result<_> = try {
-        let data = match event.data {
+        let data = match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => start.data.as_ref().unwrap(),
             _ => Err(anyhow::Error::from(ParseEventError::UnexpectedEvent))?,
         };

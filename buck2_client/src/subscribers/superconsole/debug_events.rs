@@ -68,7 +68,7 @@ impl DebugEventsState {
         start_time: Instant,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        let event_time: SystemTime = event.timestamp;
+        let event_time: SystemTime = event.timestamp();
         let elapsed = start_time.elapsed();
         let events_start_time = match self.events_start_time {
             Some(v) => v,

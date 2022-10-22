@@ -1,12 +1,3 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
- */
-
 use async_trait::async_trait;
 
 use crate::Event;
@@ -50,12 +41,12 @@ mod tests {
         let (send, recv) = crossbeam_channel::unbounded();
         let sink = ChannelEventSink::new(send);
         let mut source = ChannelEventSource::new(recv);
-        sink.send(BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: None,
-            parent_id: None,
-            data: SpanStartEvent {
+        sink.send(BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            None,
+            None,
+            SpanStartEvent {
                 data: Some(
                     CommandStart {
                         data: None,
@@ -65,10 +56,10 @@ mod tests {
                 ),
             }
             .into(),
-        });
+        ));
         let event = source.receive().unwrap().unpack_buck().unwrap().clone();
         assert!(matches!(
-            event.data,
+            event.data(),
             SpanStart(SpanStartEvent {
                 data: Some(Command(CommandStart { .. }))
             })

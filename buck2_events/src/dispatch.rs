@@ -88,13 +88,7 @@ impl EventDispatcher {
     ) {
         let now = SystemTime::now();
 
-        let event = BuckEvent {
-            timestamp: now,
-            trace_id: self.trace_id.dupe(),
-            span_id,
-            parent_id,
-            data: data.into(),
-        };
+        let event = BuckEvent::new(now, self.trace_id.dupe(), span_id, parent_id, data.into());
         self.sink.send(event);
     }
 

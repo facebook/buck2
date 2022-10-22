@@ -367,7 +367,7 @@ mod tests {
     };
 
     fn get_span_start(event: &BuckEvent) -> &SpanStartEvent {
-        match event.data {
+        match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => start,
             _ => panic!("The buck event must be a start event"),
         }
@@ -379,29 +379,29 @@ mod tests {
         let now = SystemTime::now();
 
         let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
-        let label = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        let label = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
                     caramba: "test".to_owned(),
                 })),
             }),
-        };
+        );
 
-        let module = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        let module = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
                     caramba: "foo".to_owned(),
                 })),
             }),
-        };
+        );
 
         let mut state = SpanTracker::new();
         state
@@ -461,41 +461,41 @@ mod tests {
         let tick = Tick::now();
         let now = SystemTime::now();
 
-        let e1 = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        let e1 = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
                     caramba: "e1".to_owned(),
                 })),
             }),
-        };
+        );
 
-        let e2 = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        let e2 = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
                     caramba: "e2".to_owned(),
                 })),
             }),
-        };
+        );
 
-        let e3 = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        let e3 = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
                     caramba: "e3".to_owned(),
                 })),
             }),
-        };
+        );
 
         let mut state = SpanTracker::new();
 
@@ -556,12 +556,12 @@ mod tests {
 
         let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
 
-        let action = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(parent),
-            parent_id: None,
-            data: SpanStartEvent {
+        let action = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(parent),
+            None,
+            SpanStartEvent {
                 data: Some(
                     buck2_data::ActionExecutionStart {
                         key: Some(buck2_data::ActionKey {
@@ -589,14 +589,14 @@ mod tests {
                 ),
             }
             .into(),
-        };
+        );
 
-        let prepare = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: Some(parent),
-            data: SpanStartEvent {
+        let prepare = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            Some(parent),
+            SpanStartEvent {
                 data: Some(
                     buck2_data::ExecutorStageStart {
                         stage: Some(buck2_data::PrepareAction {}.into()),
@@ -605,7 +605,7 @@ mod tests {
                 ),
             }
             .into(),
-        };
+        );
 
         let mut state = SpanTracker::new();
         state
@@ -665,12 +665,12 @@ mod tests {
         // Now, add another action. Normally we don't have multiple stages actually running
         // concurrently but this is a test!
 
-        let re_download = BuckEvent {
-            timestamp: now,
-            trace_id: TraceId::new(),
-            span_id: Some(SpanId::new()),
-            parent_id: Some(parent),
-            data: SpanStartEvent {
+        let re_download = BuckEvent::new(
+            now,
+            TraceId::new(),
+            Some(SpanId::new()),
+            Some(parent),
+            SpanStartEvent {
                 data: Some(
                     buck2_data::ExecutorStageStart {
                         stage: Some(
@@ -684,7 +684,7 @@ mod tests {
                 ),
             }
             .into(),
-        };
+        );
 
         state
             .start_at(

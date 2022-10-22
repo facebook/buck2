@@ -307,8 +307,8 @@ impl EventSubscriber for StatefulSuperConsole {
             // borrowed.
             if let Some(console) = &mut self.super_console {
                 what_ran::emit_event_if_relevant(
-                    event.parent_id.into(),
-                    &event.data,
+                    event.parent_id().into(),
+                    event.data(),
                     self.state.simple_console.spans(),
                     console,
                     &WhatRanOptions::default(),
@@ -380,7 +380,7 @@ impl EventSubscriber for StatefulSuperConsole {
         _command: &buck2_data::CommandStart,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.session_info.trace_id = Some(event.trace_id.dupe());
+        self.state.session_info.trace_id = Some(event.trace_id().dupe());
         Ok(())
     }
 
@@ -759,12 +759,12 @@ mod tests {
 
         // start a new event.
         let id = SpanId::new();
-        let event = BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: Some(id),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+        let event = BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            Some(id),
+            None,
+            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Load(
                     LoadBuildFileStart {
                         module_id: "foo".to_owned(),
@@ -772,7 +772,7 @@ mod tests {
                     },
                 )),
             }),
-        };
+        );
         console.handle_event(&event).await.unwrap();
 
         // drop into simple console
@@ -787,12 +787,12 @@ mod tests {
 
         // finish the event from before
         // expect to successfully close event.
-        let event = BuckEvent {
-            timestamp: SystemTime::now(),
-            trace_id: TraceId::new(),
-            span_id: Some(id),
-            parent_id: None,
-            data: buck2_data::buck_event::Data::SpanEnd(SpanEndEvent {
+        let event = BuckEvent::new(
+            SystemTime::now(),
+            TraceId::new(),
+            Some(id),
+            None,
+            buck2_data::buck_event::Data::SpanEnd(SpanEndEvent {
                 data: Some(buck2_data::span_end_event::Data::Load(LoadBuildFileEnd {
                     module_id: "foo".to_owned(),
                     cell: "bar".to_owned(),
@@ -801,7 +801,7 @@ mod tests {
                 stats: None,
                 duration: None,
             }),
-        };
+        );
         assert!(console.handle_event(&event).await.is_ok());
     }
 
@@ -823,12 +823,12 @@ mod tests {
         )?;
 
         console
-            .handle_event(&BuckEvent {
-                timestamp: now,
-                trace_id: trace_id.dupe(),
-                span_id: Some(SpanId::new()),
-                parent_id: None,
-                data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+            .handle_event(&BuckEvent::new(
+                now,
+                trace_id.dupe(),
+                Some(SpanId::new()),
+                None,
+                buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                     data: Some(
                         buck2_data::CommandStart {
                             metadata: Default::default(),
@@ -837,16 +837,16 @@ mod tests {
                         .into(),
                     ),
                 }),
-            })
+            ))
             .await?;
 
         console
-            .handle_event(&BuckEvent {
-                timestamp: now,
-                trace_id: trace_id.dupe(),
-                span_id: None,
-                parent_id: None,
-                data: buck2_data::InstantEvent {
+            .handle_event(&BuckEvent::new(
+                now,
+                trace_id.dupe(),
+                None,
+                None,
+                buck2_data::InstantEvent {
                     data: Some(
                         buck2_data::RemoteExecutionSessionCreated {
                             session_id: "reSessionID-123".to_owned(),
@@ -856,16 +856,16 @@ mod tests {
                     ),
                 }
                 .into(),
-            })
+            ))
             .await?;
 
         console
-            .handle_event(&BuckEvent {
-                timestamp: now,
-                trace_id: trace_id.dupe(),
-                span_id: Some(SpanId::new()),
-                parent_id: None,
-                data: SpanStartEvent {
+            .handle_event(&BuckEvent::new(
+                now,
+                trace_id.dupe(),
+                Some(SpanId::new()),
+                None,
+                SpanStartEvent {
                     data: Some(
                         LoadBuildFileStart {
                             module_id: "foo".to_owned(),
@@ -875,7 +875,7 @@ mod tests {
                     ),
                 }
                 .into(),
-            })
+            ))
             .await?;
 
         console.tick(&tick).await?;

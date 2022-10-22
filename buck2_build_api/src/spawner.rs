@@ -101,12 +101,12 @@ mod tests {
 
         // Check that the events are received successfully & correctly.
         let event = next_event(&mut events).await;
-        let span_id = event.span_id.unwrap();
-        assert_eq!(event.trace_id, trace_id);
-        assert!(event.parent_id.is_none());
+        let span_id = event.span_id().unwrap();
+        assert_eq!(event.trace_id(), &trace_id);
+        assert!(event.parent_id().is_none());
 
         let end = next_event(&mut events).await;
-        assert_eq!(end.span_id.unwrap(), span_id);
+        assert_eq!(end.span_id().unwrap(), span_id);
     }
 
     #[tokio::test]
@@ -151,19 +151,19 @@ mod tests {
 
         // Check that the events are received successfully from the correct event sources.
         let event = next_event(&mut events1).await;
-        let span_id = event.span_id.unwrap();
-        assert_eq!(event.trace_id, trace_id1);
-        assert!(event.parent_id.is_none());
+        let span_id = event.span_id().unwrap();
+        assert_eq!(event.trace_id(), &trace_id1);
+        assert!(event.parent_id().is_none());
 
         let end = next_event(&mut events1).await;
-        assert_eq!(end.span_id.unwrap(), span_id);
+        assert_eq!(end.span_id().unwrap(), span_id);
 
         let event = next_event(&mut events2).await;
-        let span_id = event.span_id.unwrap();
-        assert_eq!(event.trace_id, trace_id2);
-        assert!(event.parent_id.is_none());
+        let span_id = event.span_id().unwrap();
+        assert_eq!(event.trace_id(), &trace_id2);
+        assert!(event.parent_id().is_none());
 
         let end = next_event(&mut events2).await;
-        assert_eq!(end.span_id.unwrap(), span_id);
+        assert_eq!(end.span_id().unwrap(), span_id);
     }
 }
