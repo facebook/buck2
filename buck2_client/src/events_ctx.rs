@@ -276,20 +276,13 @@ impl EventsCtx {
         let mut streams = tailers.stop_reading();
 
         // We need to loop again to drain stdout/stderr
-        let mut stdout_complete = false;
-        let mut stderr_complete = false;
-        while !stdout_complete || !stderr_complete {
+        let mut complete = false;
+        while !complete {
             tokio::select! {
-                stdout = streams.stdout.recv(), if !stdout_complete => {
-                    match stdout {
-                        Some(stdout) => {self.handle_output(&stdout).await?;}
-                        None => {stdout_complete = true;}
-                    }
-                }
-                stderr = streams.stderr.recv(), if !stderr_complete => {
-                    match stderr {
-                        Some(stderr) => {self.handle_stderr(stderr.trim_end()).await?;}
-                        None => {stderr_complete = true;}
+                event = streams.next() => {
+                    match event {
+                        Some(event) => {self.dispatch_tailer_event(event).await?;}
+                        None => {complete = true;}
                     }
                 }
                 tick = self.ticker.tick() => {
