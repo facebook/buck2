@@ -12,6 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use buck2_core::env_helper::EnvHelper;
+use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]
 mod fbcode {
@@ -257,8 +258,56 @@ mod fbcode {
     }
 }
 
-#[cfg(fbcode_build)]
+#[cfg(not(fbcode_build))]
+mod fbcode {
+    use crate::BuckEvent;
+    use crate::ControlEvent;
+    use crate::EventSink;
+
+    pub enum ThriftScribeSink {}
+
+    impl EventSink for ThriftScribeSink {
+        fn send(&self, _event: BuckEvent) {}
+
+        fn send_control(&self, _control_event: ControlEvent) {}
+    }
+
+    impl ThriftScribeSink {
+        pub async fn flush_blocking(&self) {}
+    }
+}
+
 pub use fbcode::*;
+
+fn new_thrift_scribe_sink_if_fbcode(
+    fb: FacebookInit,
+    buffer_size: usize,
+) -> anyhow::Result<Option<ThriftScribeSink>> {
+    #[cfg(fbcode_build)]
+    {
+        Ok(Some(ThriftScribeSink::new(
+            fb,
+            scribe_category()?,
+            buffer_size,
+        )?))
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        let _ = (fb, buffer_size);
+        Ok(None)
+    }
+}
+
+pub fn new_thrift_scribe_sink_if_enabled(
+    fb: FacebookInit,
+    buffer_size: usize,
+) -> anyhow::Result<Option<ThriftScribeSink>> {
+    if is_enabled() {
+        new_thrift_scribe_sink_if_fbcode(fb, buffer_size)
+    } else {
+        Ok(None)
+    }
+}
 
 /// Whether or not Scribe logging is enabled for this process. It must be explicitly disabled via `disable()`.
 static SCRIBE_ENABLED: AtomicBool = AtomicBool::new(true);
