@@ -377,7 +377,7 @@ impl EventLog {
                             serialized.push(b'\n');
                             Ok(serialized)
                         }
-                        LogMode::Protobuf => event.serialize_to_protobuf(),
+                        LogMode::Protobuf => event.serialize_to_protobuf_length_delimited(),
                     }?;
 
                     f.file
@@ -599,7 +599,7 @@ impl EventSubscriber for EventLog {
 
 pub(crate) trait SerializeForLog {
     fn serialize_to_json(&self) -> anyhow::Result<Vec<u8>>;
-    fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>>;
+    fn serialize_to_protobuf_length_delimited(&self) -> anyhow::Result<Vec<u8>>;
 }
 
 impl SerializeForLog for Invocation {
@@ -607,7 +607,7 @@ impl SerializeForLog for Invocation {
         serde_json::to_vec(&self).context("Failed to serialize event")
     }
 
-    fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>> {
+    fn serialize_to_protobuf_length_delimited(&self) -> anyhow::Result<Vec<u8>> {
         let invocation = buck2_data::Invocation {
             command_line_args: self.command_line_args.clone(),
             working_dir: self.working_dir.clone(),
@@ -625,7 +625,7 @@ impl SerializeForLog for StreamValue {
         serde_json::to_vec(&self).context("Failed to serialize event")
     }
 
-    fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>> {
+    fn serialize_to_protobuf_length_delimited(&self) -> anyhow::Result<Vec<u8>> {
         let progress = match self {
             Self::Event(e) => command_progress::Progress::Event(e.clone()),
             Self::Result(res) => command_progress::Progress::Result(res.clone()),
