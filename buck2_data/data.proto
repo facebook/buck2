@@ -343,6 +343,8 @@ message Snapshot {
   // Delay between time snapshot is created and time it is received
   // by the client.
   optional int64 this_event_client_delay_ms = 2001;
+  // Client average user + system CPU time since last snapshot processed.
+  optional uint32 client_cpu_percents = 2002;
 }
 
 enum TestStatus {
