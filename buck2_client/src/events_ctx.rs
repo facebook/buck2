@@ -18,6 +18,7 @@ use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
 use thiserror::Error;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::command_outcome::CommandOutcome;
@@ -353,8 +354,10 @@ impl EventSubscriber for EventsCtx {
 
 impl FileTailers {
     pub fn new(daemon_dir: &DaemonDir) -> anyhow::Result<Self> {
-        let (stdout, stdout_tailer) = FileTailer::tail_file(daemon_dir.buckd_stdout())?;
-        let (stderr, stderr_tailer) = FileTailer::tail_file(daemon_dir.buckd_stderr())?;
+        let (stdout_tx, stdout) = mpsc::unbounded_channel();
+        let (stderr_tx, stderr) = mpsc::unbounded_channel();
+        let stdout_tailer = FileTailer::tail_file(daemon_dir.buckd_stdout(), stdout_tx)?;
+        let stderr_tailer = FileTailer::tail_file(daemon_dir.buckd_stderr(), stderr_tx)?;
         let this = Self {
             _stdout_tailer: Some(stdout_tailer),
             _stderr_tailer: Some(stderr_tailer),
