@@ -9,6 +9,7 @@
 
 use std::path::PathBuf;
 
+use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 #[cfg(fbcode_build)]
 use gazebo::dupe::Dupe;
 
@@ -395,35 +396,31 @@ mod imp {
     }
 }
 
-#[cfg(fbcode_build)]
 pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
-    use crate::build_count::BuildCountManager;
+    if ctx.replayer.is_none() {
+        if let Some(sink) = new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1)? {
+            #[cfg(fbcode_build)]
+            {
+                use crate::build_count::BuildCountManager;
 
-    if buck2_events::sink::scribe::is_enabled() && ctx.replayer.is_none() {
-        let recorder = imp::InvocationRecorder::new(
-            ctx.async_cleanup_context().dupe(),
-            buck2_events::sink::scribe::ThriftScribeSink::new(
-                ctx.fbinit(),
-                buck2_events::sink::scribe::scribe_category()?,
-                1,
-            )?,
-            sanitized_argv,
-            BuildCountManager::new(ctx.paths()?.build_count_dir()),
-            ctx.paths()?.project_root().root().to_buf(),
-        );
-        return Ok(Some(Box::new(recorder)));
+                let recorder = imp::InvocationRecorder::new(
+                    ctx.async_cleanup_context().dupe(),
+                    sink,
+                    sanitized_argv,
+                    BuildCountManager::new(ctx.paths()?.build_count_dir()),
+                    ctx.paths()?.project_root().root().to_buf(),
+                );
+                return Ok(Some(Box::new(recorder)));
+            }
+            #[cfg(not(fbcode_build))]
+            {
+                let _ignored = (sink, sanitized_argv);
+            }
+        }
     }
-    Ok(None)
-}
-
-#[cfg(not(fbcode_build))]
-pub(crate) fn try_get_invocation_recorder(
-    _ctx: &ClientCommandContext,
-    _sanitized_argv: Vec<String>,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     Ok(None)
 }
 
