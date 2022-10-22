@@ -24,11 +24,14 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellName;
+use buck2_core::facebook_only;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::sink::scribe;
+use buck2_events::sink::tee::TeeSink;
 use buck2_events::trace::TraceId;
 use buck2_events::EventSource;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -410,32 +413,18 @@ impl DaemonState {
 
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given
     /// EventDispatcher will log to the returned EventSource and (optionally) to Scribe if enabled via buckconfig.
-    #[cfg(fbcode_build)]
     pub async fn prepare_events(
         &self,
         trace_id: TraceId,
     ) -> SharedResult<(impl EventSource, EventDispatcher)> {
-        use buck2_core::facebook_only;
-        use buck2_events::sink::scribe;
-        use buck2_events::sink::scribe::ThriftScribeSink;
-        use buck2_events::sink::tee::TeeSink;
-
         // facebook only: logging events to Scribe.
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data().await?;
-        let dispatcher = if scribe::is_enabled() {
-            EventDispatcher::new(
-                trace_id,
-                TeeSink::new(
-                    ThriftScribeSink::new(
-                        self.fb,
-                        scribe::scribe_category()?,
-                        data.event_logging_data.buffer_size,
-                    )?,
-                    sink,
-                ),
-            )
+        let dispatcher = if let Some(scribe_sink) =
+            scribe::new_thrift_scribe_sink_if_enabled(self.fb, data.event_logging_data.buffer_size)?
+        {
+            EventDispatcher::new(trace_id, TeeSink::new(scribe_sink, sink))
         } else {
             // Writing to Scribe via the HTTP gateway (what we do for a Cargo build) is many times slower than the fbcode
             // Scribe client, so we don't do it. It's really, really bad for build performance - turning it on regresses
@@ -443,15 +432,6 @@ impl DaemonState {
             EventDispatcher::new(trace_id, sink)
         };
         Ok((events, dispatcher))
-    }
-
-    #[cfg(not(fbcode_build))]
-    pub async fn prepare_events(
-        &self,
-        trace_id: TraceId,
-    ) -> SharedResult<(impl EventSource, EventDispatcher)> {
-        let (events, sink) = buck2_events::create_source_sink_pair();
-        Ok((events, EventDispatcher::new(trace_id, sink)))
     }
 
     /// Prepares a ServerCommandContext for processing a complex command (that accesses the dice computation graph, for example).
