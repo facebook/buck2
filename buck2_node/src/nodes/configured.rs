@@ -10,6 +10,7 @@
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
@@ -499,11 +500,36 @@ impl ConfiguredTargetNode {
 
 /// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require
 /// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
-#[derive(PartialEq, Eq, Hash)]
 struct ConfiguredTargetNodeDeps(OrderedSet<ConfiguredTargetNode>);
 
 impl ConfiguredTargetNodeDeps {
     fn iter(&self) -> impl ExactSizeIterator<Item = &ConfiguredTargetNode> {
         self.0.iter()
+    }
+}
+
+/// We only do Arc comparisons here. The rationale is that each ConfiguredTargetNode should only
+/// ever exist in one instance in the graph, so if the ptr eq doesn't match, then we don't do a
+/// deep comparison.
+impl PartialEq for ConfiguredTargetNodeDeps {
+    fn eq(&self, other: &Self) -> bool {
+        let it1 = self.iter();
+        let it2 = other.iter();
+        it1.len() == it2.len() && it1.zip(it2).all(|(x, y)| Arc::ptr_eq(&x.0, &y.0))
+    }
+}
+
+impl Eq for ConfiguredTargetNodeDeps {}
+
+/// This has historically only hashed the labels. This may or may not be right, because it means
+/// two nodes that reference different instances of a given dependency will hash equal, even if
+/// the dependency has definitely changed (e.g. because its own deps changed).
+impl Hash for ConfiguredTargetNodeDeps {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let it = self.0.iter();
+        state.write_usize(it.len());
+        for node in it {
+            node.name().hash(state);
+        }
     }
 }
