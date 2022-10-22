@@ -15,6 +15,7 @@
 pub mod args;
 pub mod build_count;
 pub mod cleanup_ctx;
+pub(crate) mod client_cpu_tracker;
 pub mod client_ctx;
 pub mod command_outcome;
 pub mod commands;

@@ -61,6 +61,10 @@ pub fn process_stats() -> Option<ProcessStats> {
     None
 }
 
+pub fn process_cpu_time_us() -> Option<u64> {
+    process_stats().map(|s| s.user_cpu_us + s.system_cpu_us)
+}
+
 #[cfg_attr(not(unix), allow(dead_code))]
 mod proc_self_stat {
     use std::fs;

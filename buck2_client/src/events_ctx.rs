@@ -21,6 +21,7 @@ use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+use crate::client_cpu_tracker::ClientCpuTracker;
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
@@ -68,6 +69,7 @@ pub(crate) struct EventsCtx {
     pub(crate) daemon_dir: DaemonDir,
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,
+    client_cpu_tracker: ClientCpuTracker,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -88,6 +90,7 @@ impl EventsCtx {
             daemon_dir,
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
+            client_cpu_tracker: ClientCpuTracker::new(),
         }
     }
 
@@ -326,6 +329,8 @@ impl EventsCtx {
                         .and_then(|x| x.checked_neg()),
                 };
                 snapshot.this_event_client_delay_ms = this_event_client_delay_ms;
+
+                snapshot.client_cpu_percents = self.client_cpu_tracker.tick_cpu_time_percents();
             }
         }
         self.handle_subscribers(|subscriber| subscriber.handle_event(&event))
