@@ -337,6 +337,12 @@ message Snapshot {
   uint64 dice_key_count = 101;
   uint64 dice_currently_running_key_count = 102;
   uint32 dice_active_transaction_count = 103;
+
+  // Client side metrics.
+
+  // Delay between time snapshot is created and time it is received
+  // by the client.
+  optional int64 this_event_client_delay_ms = 2001;
 }
 
 enum TestStatus {
