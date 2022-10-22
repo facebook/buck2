@@ -768,7 +768,7 @@ mod tests {
 
         //Get event
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
-            StreamValue::Event(e) => buck2_events::BuckEvent::try_from(e),
+            StreamValue::Event(e) => BuckEvent::try_from(e),
             StreamValue::Result(_) => Err(BuckEventError::FoundResult),
         }?;
 
@@ -819,7 +819,7 @@ mod tests {
         let (_invocation, mut events) = log.unpack_stream().await?;
 
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
-            StreamValue::Event(e) => buck2_events::BuckEvent::try_from(e).unwrap(),
+            StreamValue::Event(e) => BuckEvent::try_from(e).unwrap(),
             StreamValue::Result(_) => panic!("expecting event"),
         };
 

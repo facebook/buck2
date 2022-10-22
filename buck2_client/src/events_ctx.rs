@@ -12,6 +12,7 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_common::daemon_dir::DaemonDir;
+use buck2_events::BuckEvent;
 use cli_proto::command_result;
 use cli_proto::CommandResult;
 use futures::Future;
@@ -315,7 +316,7 @@ impl EventsCtx {
             .await
     }
 
-    async fn handle_event(&mut self, mut event: buck2_events::BuckEvent) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, mut event: BuckEvent) -> anyhow::Result<()> {
         if let buck2_data::buck_event::Data::Instant(instant_event) = &mut event.data {
             if let Some(buck2_data::instant_event::Data::Snapshot(snapshot)) =
                 &mut instant_event.data

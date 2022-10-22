@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_data::BuckEvent;
 use cli_proto::CommandResult;
 use serde::Deserialize;
 use serde::Serialize;
@@ -16,5 +15,5 @@ use serde::Serialize;
 #[allow(clippy::large_enum_variant)]
 pub enum StreamValue {
     Result(CommandResult),
-    Event(BuckEvent),
+    Event(buck2_data::BuckEvent),
 }

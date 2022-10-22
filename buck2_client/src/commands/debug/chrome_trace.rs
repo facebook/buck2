@@ -708,9 +708,7 @@ impl ChromeTraceWriter {
 }
 
 impl ChromeTraceCommand {
-    async fn load_events(
-        path: PathBuf,
-    ) -> anyhow::Result<(Invocation, Vec<buck2_events::BuckEvent>)> {
+    async fn load_events(path: PathBuf) -> anyhow::Result<(Invocation, Vec<BuckEvent>)> {
         let log_path = EventLogPathBuf::infer(path)?;
         let (invocation, mut stream_values) = log_path.unpack_stream().await?;
 
@@ -719,7 +717,7 @@ impl ChromeTraceCommand {
         while let Some(stream_value) = stream_values.try_next().await? {
             match stream_value {
                 StreamValue::Event(e) => {
-                    let buck_event_result = buck2_events::BuckEvent::try_from(e);
+                    let buck_event_result = BuckEvent::try_from(e);
                     match buck_event_result {
                         Ok(buck_event) => buck_events.push(buck_event),
                         Err(e) => crate::eprintln!("Error converting event-log: {:#}", e)?,
