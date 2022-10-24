@@ -39,11 +39,14 @@ def mk_env(args, parent):
     env["RUSTC"] = "rustc"
     for x in args.feature:
         env[mk_feature(x)] = "1"
+    env["HOST"] = "x86_64-unknown-linux-gnu"
     env["TARGET"] = "x86_64-unknown-linux-gnu"
     env["CARGO_CFG_TARGET_ARCH"] = "x86_64"
     env["CARGO_CFG_TARGET_OS"] = "linux"
     env["CARGO_CFG_TARGET_POINTER_WIDTH"] = "64"
     env["CARGO_CFG_TARGET_ENDIAN"] = "little"
+    for k, v in args.env or []:
+        env[k] = v
     return env
 
 def run_args(args):
