@@ -12,7 +12,7 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
+load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset", "is_sdk_modules_provided")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
@@ -207,7 +207,7 @@ def _compile_with_argsfile(
 
     # Swift compilation on RE without explicit modules is impractically expensive
     # because there's no shared module cache across different libraries.
-    prefer_local = not ctx.attrs.uses_explicit_modules
+    prefer_local = not _uses_explicit_modules(ctx)
 
     # Argsfile should also depend on all artifacts in it, otherwise they won't be materialised.
     cmd.hidden([shell_quoted_args])
@@ -245,7 +245,7 @@ def _get_shared_flags(
         "-no-clang-module-breadcrumbs",
     ])
 
-    if ctx.attrs.uses_explicit_modules:
+    if _uses_explicit_modules(ctx):
         cmd.add(get_disable_pch_validation_flags())
 
     if toolchain.resource_dir:
@@ -298,7 +298,7 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
     # 3. Transitive SDK deps of user-defined deps.
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
-    if ctx.attrs.uses_explicit_modules:
+    if _uses_explicit_modules(ctx):
         toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
         module_name = get_module_name(ctx)
         sdk_deps_tset = get_sdk_deps_tset(
@@ -339,7 +339,7 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
 def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
-    if ctx.attrs.uses_explicit_modules:
+    if _uses_explicit_modules(ctx):
         pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attrs.deps + ctx.attrs.exported_deps)
         cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
     else:
@@ -436,3 +436,7 @@ def _header_basename(header: ["artifact", "string"]) -> "string":
         return paths.basename(header)
     else:
         return header.basename
+
+def _uses_explicit_modules(ctx: "context") -> bool.type:
+    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)

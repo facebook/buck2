@@ -20,19 +20,19 @@ SDKDepTSet = transitive_set(args_projections = {
     "hidden": project_as_hidden,
 })
 
-def _check_if_no_sdk_modules_are_provided(toolchain: "SwiftToolchainInfo") -> bool.type:
+def is_sdk_modules_provided(toolchain: "SwiftToolchainInfo") -> bool.type:
     no_swift_modules = toolchain.compiled_sdk_swift_modules == None or len(toolchain.compiled_sdk_swift_modules) == 0
     no_clang_modules = toolchain.compiled_sdk_clang_modules == None or len(toolchain.compiled_sdk_clang_modules) == 0
     if no_swift_modules and no_clang_modules:
-        return True
-    return False
+        return False
+    return True
 
 def get_sdk_deps_tset(
         ctx: "context",
         module_name: str.type,
         required_modules: [str.type],
         toolchain: "SwiftToolchainInfo") -> "SDKDepTSet":
-    if _check_if_no_sdk_modules_are_provided(toolchain):
+    if not is_sdk_modules_provided(toolchain):
         return ctx.actions.tset(SDKDepTSet)
     all_sdk_deps = []
 
