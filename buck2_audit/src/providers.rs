@@ -73,6 +73,12 @@ impl AuditSubcommand for AuditProvidersCommand {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum AuditProvidersError {
+    #[error("Evaluation of at least one target providers failed")]
+    AtLeastOneFailed,
+}
+
 impl AuditProvidersCommand {
     async fn server_execute_with_dice(
         &self,
@@ -135,6 +141,7 @@ impl AuditProvidersCommand {
 
         let mut stdout = server_ctx.stdout()?;
 
+        let mut at_least_one_error = false;
         while let Some((target, result)) = futs.next().await {
             match result {
                 Ok(v) => {
@@ -154,10 +161,15 @@ impl AuditProvidersCommand {
                     } else {
                         buck2_client::eprintln!("{}: \n{:#}", target, e)?;
                     }
+                    at_least_one_error = true;
                 }
             }
         }
 
-        Ok(())
+        if at_least_one_error {
+            Err(AuditProvidersError::AtLeastOneFailed.into())
+        } else {
+            Ok(())
+        }
     }
 }
