@@ -1,3 +1,6 @@
-def rust_protobuf_library(name, **kwargs):
-    _unused = kwargs  # @unused
-    native.export_file(name = name, src = "MISSING_FILE", visibility = ["PUBLIC"])
+load(
+    "//:shims.bzl",
+    _rust_protobuf_library = "rust_protobuf_library",
+)
+
+rust_protobuf_library = _rust_protobuf_library
