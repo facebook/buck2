@@ -1,20 +1,5 @@
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
-
 def command_alias_impl(ctx):
-    target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
-
-    # NOTE: We *could* error out only on attempting to use the `env` here
-    # (which is where the mismatches platform would cause us to try to run `sh`
-    # on Windows or `cmd.exe` on UNIX), but that seems like we'd be hiding real
-    # issues rather than solving them, so for now let's just errr out
-    # consistently.
-    if (target_is_windows and (not exec_is_windows)) or ((not target_is_windows) and exec_is_windows):
-        fail(
-            "Target OS (target_is_windows = {}) and exec OS mismatch (exec_is_windows = {})".format(target_is_windows, exec_is_windows),
-        )
-
-    if target_is_windows:
+    if ctx.attrs._target_os_type == "windows":
         # If the target is Windows, create a batch file based command wrapper instead
         return _command_alias_impl_windows(ctx)
 
