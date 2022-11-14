@@ -350,13 +350,18 @@ impl WatchmanFileWatcher {
 #[async_trait]
 impl FileWatcher for WatchmanFileWatcher {
     async fn sync(&self, dice: DiceTransaction) -> anyhow::Result<DiceTransaction> {
-        span_async(buck2_data::FileWatcherStart {}, async {
-            let (stats, res) = match self.query.sync(dice).await {
-                Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
-                Err(e) => (None, Err(e)),
-            };
-            (res, buck2_data::FileWatcherEnd { stats })
-        })
+        span_async(
+            buck2_data::FileWatcherStart {
+                provider: buck2_data::FileWatcherProvider::Watchman as i32,
+            },
+            async {
+                let (stats, res) = match self.query.sync(dice).await {
+                    Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
+                    Err(e) => (None, Err(e)),
+                };
+                (res, buck2_data::FileWatcherEnd { stats })
+            },
+        )
         .await
     }
 }

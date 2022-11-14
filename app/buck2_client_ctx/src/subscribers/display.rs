@@ -216,7 +216,10 @@ pub(crate) fn display_event(
             },
             Data::CommandCritical(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Command(..) => Err(ParseEventError::UnexpectedEvent.into()),
-            Data::FileWatcher(..) => Ok("Syncing file changes (via Watchman)".to_owned()),
+            Data::FileWatcher(x) => Ok(format!(
+                "Syncing file changes (via {})",
+                display_file_watcher(x.provider)
+            )),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::CacheUpload(..) => Ok("upload".to_owned()),
@@ -235,6 +238,13 @@ pub(crate) fn display_event(
     };
 
     res.with_context(|| InvalidBuckEvent(Arc::new(event.clone())))
+}
+
+fn display_file_watcher(provider: i32) -> &'static str {
+    match buck2_data::FileWatcherProvider::from_i32(provider) {
+        Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
+        None => "unknown mechanism",
+    }
 }
 
 pub(crate) fn display_analysis_stage(
