@@ -404,14 +404,14 @@ def _create_jar_artifact(
     Returns a single artifacts that represents jar output file
     """
     javac_tool = javac_tool or java_toolchain.javac
-    unscrubbed_jar = actions.declare_output(paths.join(actions_prefix or "jar", "lib_unscrubbed.jar"))
+    jar_out = output or actions.declare_output(paths.join(actions_prefix or "jar", "lib.jar"))
 
     args = [
         java_toolchain.compile_and_package[RunInfo],
-        "--jar_tool",
-        java_toolchain.jar,
+        "--jar_builder_tool",
+        cmd_args(java_toolchain.jar_builder, delimiter = " "),
         "--output",
-        unscrubbed_jar.as_output(),
+        jar_out.as_output(),
     ]
 
     skip_javac = False if srcs or ap_params or plugin_params else True
@@ -454,13 +454,6 @@ def _create_jar_artifact(
         )
 
     actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_prefix)
-
-    jar_out = output or actions.declare_output(paths.join(actions_prefix or "jar", "lib.jar"))
-    actions.run(
-        cmd_args([java_toolchain.zip_scrubber, unscrubbed_jar, jar_out.as_output()]),
-        category = "scrub_jar",
-        identifier = actions_prefix,
-    )
 
     abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, jar_out)
 
