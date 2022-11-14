@@ -1,0 +1,33 @@
+[package]
+name = "allocative"
+version = "0.2.0"
+edition = "2021"
+description = "Inspect rust object tree and output it as flamegraph"
+license = "MIT OR Apache-2.0"
+authors = ["Meta"]
+repository = "https://github.com/facebookexperimental/allocative"
+documentation = "https://docs.rs/allocative"
+
+[dependencies]
+allocative_derive = { path = "../allocative_derive", version = "=0.2.0" }
+
+ctor = { workspace = true }
+
+anyhow = { version = "1.0.66", optional = true }
+bumpalo = { version = "3.11.1", optional = true }
+dashmap = { version = "4.0.2", optional = true }
+futures = { version = "0.3.25", optional = true }
+hashbrown = { version = "0.12.3", optional = true }
+indexmap = { version = "1.9.1", optional = true }
+num-bigint = { version = "0.4.3", optional = true }
+parking_lot = { version = "0.11.2", optional = true }
+smartstring = { version = "0.2.10", optional = true }
+once_cell = { version = "1.16.0", optional = true }
+owning_ref = { version = "0.4.1", optional = true }
+prost-types = { version = "0.10.1", optional = true }
+relative-path = { version = "1.7.2", optional = true }
+sequence_trie = { version = "0.3.6", optional = true }
+smallvec = { version = "1.10.0", optional = true }
+sorted_vector_map.optional = true
+sorted_vector_map.version = "0.1"
+# @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"

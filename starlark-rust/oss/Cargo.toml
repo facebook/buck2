@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "starlark",
+    "starlark_derive",
+]
+
+[workspace.dependencies]
+allocative = { version = "0.2" }
+gazebo = { version = "0.8.1" }

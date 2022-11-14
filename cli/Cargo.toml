@@ -1,0 +1,76 @@
+[package]
+description = ""
+edition = "2021"
+name = "cli"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+backtrace = { workspace = true }
+blake3 = { workspace = true }
+clap = { workspace = true }
+dirs = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+# @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps" }
+itertools = { workspace = true }
+libc = { workspace = true }
+nix = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sync_wrapper = { workspace = true }
+termimad = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+which = "4.2.4"
+
+dice = { path = "../dice/dice" }
+fbinit = { workspace = true }
+gazebo = { workspace = true }
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+host_sharing = { workspace = true }
+starlark = { workspace = true }
+# @oss-disable: user = { path = "../../common/rust/user", optional = true }
+allocative = { workspace = true }
+
+buck2_audit = { path = "../buck2_audit" }
+buck2_build_api = { path = "../buck2_build_api" }
+buck2_bxl = { path = "../buck2_bxl" }
+buck2_core = { path = "../app/buck2_core" }
+buck2_query = { path = "../buck2_query" }
+buck2_client = { path = "../buck2_client" }
+buck2_client_ctx = { path = "../app/buck2_client_ctx" }
+buck2_common = { path = "../buck2_common" }
+buck2_data = { path = "../buck2_data" }
+buck2_events = { path = "../buck2_events" }
+buck2_forkserver = { path = "../app/buck2_forkserver" }
+buck2_server = { path = "../buck2_server" }
+buck2_server_commands = { path = "../buck2_server_commands" }
+buck2_server_ctx = { path = "../buck2_server_ctx" }
+buck2_test = { path = "../app/buck2_test" }
+cli_proto = { path = "../cli_proto" }
+
+[target.'cfg(unix)'.dependencies]
+jemallocator = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+libc = { workspace = true }
+winapi = { workspace = true }
+
+[dev-dependencies]
+maplit = { workspace = true }
+tempfile = { workspace = true }
+
+[[bin]]
+name = "buck2"
+path = "bin/buck2.rs"
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

@@ -1,0 +1,52 @@
+[package]
+name = "buck2_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tempfile = { workspace = true }
+derive_more = { workspace = true }
+derivative = { workspace = true }
+fnv = { workspace = true }
+futures = { workspace = true }
+hashbrown = { workspace = true }
+itertools = { workspace = true }
+libc = { workspace = true }
+memchr = { workspace = true }
+once_cell = { workspace = true }
+relative-path = { workspace = true }
+ref-cast = { workspace = true }
+sequence_trie = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+regex = { workspace = true }
+dashmap = { workspace = true }
+either = { workspace = true }
+assert_matches = { workspace = true }
+static_assertions = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+smartstring = { workspace = true }
+starlark_map = { workspace = true }
+
+gazebo = { workspace = true }
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+internment_tweaks = { path = "../../shed/internment_tweaks" }
+allocative = { workspace = true }
+sorted_vector_map = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { workspace = true }
+
+[dev-dependencies]
+maplit = { workspace = true }
+serde_json = { workspace = true }
+test-case = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

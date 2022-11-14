@@ -1,0 +1,63 @@
+load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
+
+oncall("buck2")
+
+buck_filegroup(
+    name = "proto_sources",
+    srcs = [
+        "//buck2/buck2_data:data.proto",
+        "//buck2/cli_proto:daemon.proto",
+    ],
+)
+
+buck_genrule(
+    name = "proto_sources_unity",
+    srcs = [
+        ":proto_sources",
+    ],
+    outs = {
+        "daemon.proto": ["daemon.proto"],
+        "data.proto": ["data.proto"],
+    },
+    cmd = "cp $SRCS/daemon.proto $OUT/daemon.proto && cp $SRCS/data.proto $OUT/data.proto",
+    cmd_exe = "copy $SRCS/daemon.proto $OUT/daemon.proto && copy $SRCS/data.proto $OUT/data.proto",
+    default_outs = ["daemon.proto"],
+)
+
+grpc_library(
+    name = "proto",
+    srcs = [
+        ":proto_sources_unity[daemon.proto]",
+        ":proto_sources_unity[data.proto]",
+    ],
+    languages = ["py"],
+)
+
+python_binary(
+    # @autodeps-skip
+    name = "server",
+    srcs = ["server.py"],
+    base_module = "",
+    main_module = "server",
+    deps = [
+        "fbsource//third-party/pypi/python-daemon:python-daemon",
+        ":proto-py",
+    ],
+)
+
+python_pytest(
+    # @autodeps-skip
+    name = "tests",
+    srcs = ["test_daemon.py"],
+    env = {
+        "SCRIPT": "$(location :server)",
+        "TEST_EXECUTABLE": "$(location //buck2/cli:buck2)",
+    },
+    deps = [
+        "fbsource//third-party/pypi/python-daemon:python-daemon",
+        ":proto-py",
+    ],
+)

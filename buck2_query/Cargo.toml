@@ -1,0 +1,36 @@
+[package]
+name = "buck2_query"
+version = "0.1.0"
+edition = "2021"
+description = "Buck query generic implementation"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+enum-iterator = { workspace = true }
+fancy-regex = { workspace = true }
+futures = { workspace = true }
+indexmap = { workspace = true }
+indoc = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+ref-cast = { workspace = true }
+
+allocative = { workspace = true }
+gazebo = { workspace = true }
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+starlark_map = { workspace = true }
+
+buck2_core = { path = "../app/buck2_core" }
+buck2_query_parser = { path = "../app/buck2_query_parser" }
+buck2_query_derive = { path = "../app/buck2_query_derive" }
+
+[lib]
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

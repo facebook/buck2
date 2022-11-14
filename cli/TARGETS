@@ -1,0 +1,112 @@
+load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load(
+    "@fbsource//tools/build_defs:audit_dependencies_test.bzl",
+    "audit_dependencies_test",
+)
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
+
+oncall("build_infra")
+
+rust_library(
+    name = "cli",
+    srcs = glob(["src/**/*.rs"]),
+    os_deps = [
+        (
+            "linux",
+            [
+            ],
+        ),
+        (
+            "macos",
+            [
+            ],
+        ),
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:winapi",
+            ],
+        ),
+    ],
+    test_deps = [
+        "fbsource//third-party/rust:maplit",
+        "fbsource//third-party/rust:tempfile",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:backtrace",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:dirs",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:nix",
+        "fbsource//third-party/rust:rand",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:sync_wrapper",
+        "fbsource//third-party/rust:termimad",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-stream",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_client_ctx:buck2_client_ctx",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_forkserver:buck2_forkserver",
+        "//buck2/app/buck2_test:buck2_test",
+        "//buck2/buck2_audit:buck2_audit",
+        "//buck2/buck2_build_api:buck2_build_api",
+        "//buck2/buck2_bxl:buck2_bxl",
+        "//buck2/buck2_client:buck2_client",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_events:buck2_events",
+        "//buck2/buck2_query:buck2_query",
+        "//buck2/buck2_server:buck2_server",
+        "//buck2/buck2_server_commands:buck2_server_commands",
+        "//buck2/buck2_server_ctx:buck2_server_ctx",
+        "//buck2/cli_proto:cli_proto",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/starlark-rust/starlark:starlark",
+        "//common/rust/gflags:gflags",
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)
+
+buck_rust_binary(
+    name = "buck2",
+    srcs = ["bin/buck2.rs"],
+    crate_root = "bin/buck2.rs",
+    unittests = False,
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:tracing-subscriber",
+        "//buck2/app/buck2_client_ctx:buck2_client_ctx",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/buck2_events:buck2_events",
+        "//buck2/cli:cli",
+        "//common/rust/folly/logging:logging",
+        "//common/rust/gflags:gflags",
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)
+
+# We use //third-party/blake3/blake3-rust to avoid ODR violations instead.
+audit_dependencies_test(
+    name = "ban_third_party_rust_blake3",
+    blocklist_patterns = [
+        "fbsource//third-party/rust:blake3.*",
+    ],
+    # audit_dependencies_test doesn't work on Windows on Buck1, not sure why,
+    # but that's fine as we can just use Buck2 here.
+    compatible_with = None if is_buck2() else [
+        "ovr_config//os:linux",
+        "ovr_config//os:macos",
+    ],
+    contacts = ["oncall+build_infra@xmail.facebook.com"],
+    rule = ":buck2",
+)

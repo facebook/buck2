@@ -1,0 +1,7 @@
+[[buildscript]]
+[buildscript.gen_srcs]
+files = ["consts.rs", "op.rs"]
+
+[env]
+TYPENUM_BUILD_CONSTS = "consts.rs"
+TYPENUM_BUILD_OP = "op.rs"

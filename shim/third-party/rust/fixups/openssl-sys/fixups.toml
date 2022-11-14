@@ -1,0 +1,44 @@
+buildscript = []
+
+[platform_fixup.'cfg(all(target_os = "linux", target_arch = "x86_64"))']
+buildscript = []
+extra_deps = [
+  "buck//third-party/cxx/vendor/openssl-linux:openssl",
+]
+
+[platform_fixup.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))']
+buildscript = []
+extra_deps = []
+cfgs = [
+    # This seems to be the most important setting
+    "openssl",
+    "ossl101",
+    "ossl102",
+    "ossl102f",
+    "ossl102h",
+    "ossl110",
+    "ossl110f",
+    "ossl110g",
+    "ossl110h",
+
+    # Intersection of expando.c and //xplat/third-party/openssl/configure_110.sh
+    "osslconf=\"OPENSSL_NO_BUF_FREELISTS\"",
+    "osslconf=\"OPENSSL_NO_COMP\"",
+    # "osslconf=\"OPENSSL_NO_EC\"",
+    "osslconf=\"OPENSSL_NO_EC2M\"",
+    "osslconf=\"OPENSSL_NO_ENGINE\"",
+    "osslconf=\"OPENSSL_NO_KRB5\"",
+    # "osslconf=\"OPENSSL_NO_NEXTPROTONEG\"",
+    "osslconf=\"OPENSSL_NO_PSK\"",
+    "osslconf=\"OPENSSL_NO_RFC3779\"",
+    "osslconf=\"OPENSSL_NO_SHA\"",
+    "osslconf=\"OPENSSL_NO_SRP\"",
+    "osslconf=\"OPENSSL_NO_SSL3_METHOD\"",
+    "osslconf=\"OPENSSL_NO_STDIO\"",
+    "osslconf=\"OPENSSL_NO_TLSEXT\"",
+    # From opensslconf.h
+    "osslconf=\"OPENSSL_NO_BF\"",
+    "osslconf=\"OPENSSL_NO_CMS\"",
+    "osslconf=\"OPENSSL_NO_RMD160\"",
+    "osslconf=\"OPENSSL_NO_OCSP\"",
+]
