@@ -888,12 +888,12 @@ pub(crate) mod testing {
         where
             K: Default,
         {
-            Box::new(Dep::<K>::testing_new(
+            box Dep::<K>::testing_new(
                 // we'll never reach the below since all we do is use this for testing equality for
                 // tests
                 Arc::downgrade(&IncrementalEngine::new(K::default())),
                 k,
-            ))
+            )
         }
     }
 
@@ -1352,7 +1352,7 @@ mod tests {
             }
 
             fn into_dependency(self: Box<Self>) -> Box<dyn Dependency> {
-                Box::new(*self)
+                box (*self)
             }
 
             fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
@@ -1375,7 +1375,7 @@ mod tests {
                 _transaction_ctx: &Arc<TransactionCtx>,
                 _: &ComputationData,
             ) -> DiceResult<(Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>)> {
-                Ok((box self.clone(), self.1.dupe()))
+                Ok((box self.dupe(), self.1.dupe()))
             }
 
             fn lookup_node(

@@ -211,10 +211,10 @@ mod internals {
         }
 
         fn into_dependency(self: Box<Self>) -> Box<dyn Dependency> {
-            Box::new(Dep {
+            box Dep {
                 engine: self.engine,
                 k: self.node.key().clone(),
-            })
+            }
         }
 
         fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
