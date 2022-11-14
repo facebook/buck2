@@ -174,24 +174,24 @@ impl WatchmanQueryProcessor {
                 ChangeEvent::Watchman(ev) => {
                     match (&ev.kind, &ev.event) {
                         (WatchmanKind::File, typ) => {
-                            log_kind = buck2_data::FileWatcherKind::File as i32;
+                            log_kind = buck2_data::FileWatcherKind::File;
                             match typ {
                                 WatchmanEventType::Modify => {
                                     handler.file_changed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Modify as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Modify;
                                 }
                                 WatchmanEventType::Create => {
                                     handler.file_added(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Create as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Create;
                                 }
                                 WatchmanEventType::Delete => {
                                     handler.file_removed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Delete as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Delete;
                                 }
                             }
                         }
                         (WatchmanKind::Directory, typ) => {
-                            log_kind = buck2_data::FileWatcherKind::Directory as i32;
+                            log_kind = buck2_data::FileWatcherKind::Directory;
                             match typ {
                                 WatchmanEventType::Modify => {
                                     // We can safely ignore this, as it corresponds to files being added or removed,
@@ -201,20 +201,20 @@ impl WatchmanQueryProcessor {
                                 }
                                 WatchmanEventType::Create => {
                                     handler.dir_added(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Create as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Create;
                                 }
                                 WatchmanEventType::Delete => {
                                     handler.dir_removed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Delete as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Delete;
                                 }
                             }
                         }
                         (WatchmanKind::Symlink, typ) => {
-                            log_kind = buck2_data::FileWatcherKind::Symlink as i32;
+                            log_kind = buck2_data::FileWatcherKind::Symlink;
                             match typ {
                                 WatchmanEventType::Modify => {
                                     handler.file_changed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Modify as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Modify;
                                 }
                                 WatchmanEventType::Create => {
                                     warn!(
@@ -222,26 +222,26 @@ impl WatchmanQueryProcessor {
                                         cell_path
                                     );
                                     handler.file_added(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Create as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Create;
                                 }
                                 WatchmanEventType::Delete => {
                                     handler.file_removed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Delete as i32;
+                                    log_event = buck2_data::FileWatcherEventType::Delete;
                                 }
                             }
                         }
                     }
                 }
                 ChangeEvent::SyntheticDirectoryChange => {
-                    log_kind = buck2_data::FileWatcherKind::Directory as i32;
-                    log_event = buck2_data::FileWatcherEventType::Modify as i32;
+                    log_kind = buck2_data::FileWatcherKind::Directory;
+                    log_event = buck2_data::FileWatcherEventType::Modify;
                     handler.dir_changed(cell_path);
                 }
             };
 
             if let Some(file_changes) = file_changes {
-                event_for_log.event = log_event;
-                event_for_log.kind = log_kind;
+                event_for_log.event = log_event as i32;
+                event_for_log.kind = log_kind as i32;
                 file_changes.push(event_for_log);
             }
         }
