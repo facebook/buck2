@@ -123,48 +123,72 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
         &self,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<FrozenProviderCollectionValue> {
-        match self.dep_analysis_results.get(target.target()) {
-            None => Err(ResolutionError::MissingDep(target.clone()).into()),
-            Some(x) => {
-                let x = x.lookup_inner(target)?;
-                // IMPORTANT: Anything given back to the user must be kept alive
-                self.module.frozen_heap().add_reference(x.value().owner());
-                Ok(x.dupe())
-            }
-        }
+        get_dep(&self.dep_analysis_results, target, self.module)
     }
 
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
     ) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>> {
-        // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
-        for providers in self.dep_analysis_results.values() {
-            if let Some(placeholder_info) =
-                FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
-            {
-                if let Some(value) = placeholder_info.unkeyed_variables().get(name) {
-                    // IMPORTANT: Anything given back to the user must be kept alive
-                    self.module
-                        .frozen_heap()
-                        .add_reference(providers.value().owner());
-                    return Some(*value);
-                }
-            }
-        }
-        None
+        resolve_unkeyed_placeholder(&self.dep_analysis_results, name, self.module)
     }
 
     fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
-        match self.query_results.get(query) {
-            None => Err(anyhow::anyhow!(AnalysisError::MissingQuery(query.to_owned())).into()),
-            Some(x) => {
-                for (_, y) in x.iter() {
-                    // IMPORTANT: Anything given back to the user must be kept alive
-                    self.module.frozen_heap().add_reference(y.value().owner());
-                }
-                Ok(x.dupe())
+        resolve_query(&self.query_results, query, self.module)
+    }
+}
+
+pub fn get_dep<'v>(
+    dep_analysis_results: &HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    target: &ConfiguredProvidersLabel,
+    module: &'v Module,
+) -> anyhow::Result<FrozenProviderCollectionValue> {
+    match dep_analysis_results.get(target.target()) {
+        None => Err(ResolutionError::MissingDep(target.clone()).into()),
+        Some(x) => {
+            let x = x.lookup_inner(target)?;
+            // IMPORTANT: Anything given back to the user must be kept alive
+            module.frozen_heap().add_reference(x.value().owner());
+            Ok(x.dupe())
+        }
+    }
+}
+
+pub fn resolve_unkeyed_placeholder<'v>(
+    dep_analysis_results: &HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    name: &str,
+    module: &'v Module,
+) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>> {
+    // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
+    for providers in dep_analysis_results.values() {
+        if let Some(placeholder_info) =
+            FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
+        {
+            if let Some(value) = placeholder_info.unkeyed_variables().get(name) {
+                // IMPORTANT: Anything given back to the user must be kept alive
+                module
+                    .frozen_heap()
+                    .add_reference(providers.value().owner());
+                return Some(*value);
             }
+        }
+    }
+    None
+}
+
+pub fn resolve_query<'v>(
+    query_results: &HashMap<String, Arc<AnalysisQueryResult>>,
+    query: &str,
+    module: &'v Module,
+) -> SharedResult<Arc<AnalysisQueryResult>> {
+    match query_results.get(query) {
+        None => Err(anyhow::anyhow!(AnalysisError::MissingQuery(query.to_owned())).into()),
+        Some(x) => {
+            for (_, y) in x.iter() {
+                // IMPORTANT: Anything given back to the user must be kept alive
+                module.frozen_heap().add_reference(y.value().owner());
+            }
+            Ok(x.dupe())
         }
     }
 }
