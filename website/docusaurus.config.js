@@ -1,6 +1,7 @@
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const itemFilter = require('./sidebars.js').itemFilter;
+const {fbContent, isInternal} = require('docusaurus-plugin-internaldocs-fb/internal');
 
 // With JSDoc @type annotations, IDEs can provide config autocompletion
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
@@ -71,8 +72,14 @@ const itemFilter = require('./sidebars.js').itemFilter;
             label: 'API',
           },
           {
-            href: 'https://www.internalfb.com/code/buck2',
-            label: 'CodeHub',
+            href: fbContent({
+              internal: 'https://www.internalfb.com/code/buck2',
+              external: 'https://github.com/facebookincubator/buck2',
+            }),
+            label: fbContent({
+              internal: 'CodeHub',
+              external: 'GitHub',
+            }),
             position: 'right',
           },
         ],
@@ -91,7 +98,7 @@ const itemFilter = require('./sidebars.js').itemFilter;
           },
           {
             title: 'Community',
-            items: [
+            items: isInternal() ? [
               {
                 label: 'User group',
                 href: 'https://fb.workplace.com/groups/buck2users',
@@ -100,6 +107,11 @@ const itemFilter = require('./sidebars.js').itemFilter;
                 label: 'Announcement group',
                 href: 'https://fb.workplace.com/groups/buck2prototyping',
               },
+            ] : [
+              {
+                label: 'GitHub issues',
+                href: 'https://github.com/facebookincubator/buck2/issues',
+              },
             ],
           },
           {
@@ -107,7 +119,10 @@ const itemFilter = require('./sidebars.js').itemFilter;
             items: [
               {
                 label: 'Code',
-                href: 'https://www.internalfb.com/code/fbsource/fbcode/buck2/',
+                href: fbContent({
+                  internal: 'https://www.internalfb.com/code/fbsource/fbcode/buck2/',
+                  external: 'https://github.com/facebookincubator/buck2',
+                }),
               },
             ],
           },
