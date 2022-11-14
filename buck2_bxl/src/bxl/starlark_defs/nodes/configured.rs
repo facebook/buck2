@@ -42,6 +42,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -117,6 +118,15 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkConfiguredTargetNode,
     ) -> anyhow::Result<StarlarkAttrContext<'v>> {
         Ok(StarlarkAttrContext::new(this))
+    }
+
+    /// Gets a `StarlarkLazyResolvedAttrContext` for getting a resolved attrs lazily.
+    fn resolved_attrs_lazy<'v>(
+        this: &'v StarlarkConfiguredTargetNode,
+        ctx: &'v BxlContext<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkLazyResolvedAttrContext<'v>> {
+        Ok(StarlarkLazyResolvedAttrContext::new(this, ctx, eval))
     }
 
     /// Returns a struct of all the resolved attributes of this target node. The structs fields are the
@@ -355,5 +365,69 @@ fn attr_ctx_methods(builder: &mut MethodsBuilder) {
             .0
             .get(attr, AttrInspectOptions::All)
             .map(StarlarkConfiguredValue))
+    }
+}
+
+/// The context for getting resolved attrs lazily on a `StarlarkConfiguredTargetNode`.
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Display,
+    Trace,
+    NoSerialize,
+    StarlarkDocs,
+    Allocative
+)]
+#[starlark_docs_attrs(directory = "bxl")]
+#[derivative(Debug)]
+#[display(fmt = "{:?}", self)]
+pub struct StarlarkLazyResolvedAttrContext<'v> {
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    ctx: &'v BxlContext<'v>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    configured_target_node: &'v StarlarkConfiguredTargetNode,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    module: &'v Module,
+}
+
+impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrContext<'v> {
+    starlark_type!("lazy_resolved_attr_ctx");
+}
+
+impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrContext<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
+
+impl<'v> StarlarkTypeRepr for &'v StarlarkLazyResolvedAttrContext<'v> {
+    fn starlark_type_repr() -> String {
+        StarlarkLazyResolvedAttrContext::get_type_starlark_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v StarlarkLazyResolvedAttrContext<'v> {
+    fn unpack_value(x: Value<'v>) -> Option<&'v StarlarkLazyResolvedAttrContext<'v>> {
+        x.downcast_ref()
+    }
+}
+
+impl<'v> StarlarkLazyResolvedAttrContext<'v> {
+    pub fn new(
+        configured_target_node: &'v StarlarkConfiguredTargetNode,
+        ctx: &'v BxlContext<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> StarlarkLazyResolvedAttrContext<'v> {
+        Self {
+            ctx,
+            configured_target_node,
+            module: eval.module(),
+        }
     }
 }
