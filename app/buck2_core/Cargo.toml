@@ -16,6 +16,7 @@ itertools = { workspace = true }
 libc = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
+pin-project = { workspace = true }
 relative-path = { workspace = true }
 ref-cast = { workspace = true }
 sequence_trie = { workspace = true }
