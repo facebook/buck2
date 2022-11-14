@@ -861,15 +861,13 @@ def _static_library(
     all_external_debug_info = []
     all_external_debug_info.extend(external_debug_info)
 
-    # Track when object files contain external debug info.
-    if objects_have_external_debug_info:
-        # On darwin, the linked output references the archive that contains the
-        # object files instead of the originating objects.
-        if linker_type == "darwin":
-            all_external_debug_info.append(archive.artifact)
-            all_external_debug_info.extend(archive.external_objects)
-        else:
-            all_external_debug_info.extend(objects)
+    # On darwin, the linked output references the archive that contains the
+    # object files instead of the originating objects.
+    if linker_type == "darwin":
+        all_external_debug_info.append(archive.artifact)
+        all_external_debug_info.extend(archive.external_objects)
+    elif objects_have_external_debug_info:
+        all_external_debug_info.extend(objects)
 
     return (
         _CxxLibraryOutput(
