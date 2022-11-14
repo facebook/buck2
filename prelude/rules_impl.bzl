@@ -75,7 +75,7 @@ load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attr
 
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
-load(":attributes.bzl", "IncludeType", "LinkableDepType", "Linkage", "Platform", "attributes")
+load(":attributes.bzl", "IncludeType", "LinkableDepType", "Linkage", "attributes")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -301,12 +301,10 @@ def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
 def _target_os_type() -> "attribute":
-    # FIXME: prelude// should be standalone (not refer to ovr_config//)
-    return attrs.enum(Platform, default = select({
-        "DEFAULT": "linux",
-        "ovr_config//os:macos": "macos",
-        "ovr_config//os:windows": "windows",
-    }))
+    return attrs.default_only(attrs.dep(default = "prelude//os_lookup:os_lookup"))
+
+def _exec_os_type() -> "attribute":
+    return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup:os_lookup"))
 
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")
@@ -319,6 +317,7 @@ inlined_extra_attributes = {
         "_go_toolchain": _go_toolchain(),
     },
     "command_alias": {
+        "_exec_os_type": _exec_os_type(),
         "_find_and_replace_bat": attrs.exec_dep(providers = [RunInfo], default = "prelude//tools:find_and_replace.bat"),
         "_target_os_type": _target_os_type(),
     },
@@ -343,7 +342,7 @@ inlined_extra_attributes = {
     #c++
     "cxx_genrule": genrule_attributes() | {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_target_os_type": _target_os_type(),
+        "_exec_os_type": _exec_os_type(),
     },
     "cxx_library": {
         "allow_huge_dwp": attrs.bool(default = False),
@@ -403,7 +402,7 @@ inlined_extra_attributes = {
     "genrule": genrule_attributes() | {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
-        "_target_os_type": _target_os_type(),
+        "_exec_os_type": _exec_os_type(),
     },
     "go_binary": {
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
@@ -524,8 +523,8 @@ inlined_extra_attributes = {
     "python_bootstrap_binary": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attrs.source(),
+        "_exec_os_type": _exec_os_type(),
         "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
-        "_target_os_type": _target_os_type(),
         "_win_python_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//python_bootstrap/tools:win_python_wrapper"),
     },
     "python_bootstrap_library": {

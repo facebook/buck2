@@ -1,0 +1,20 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load(":defs.bzl", "os_lookup")
+
+os_lookup(
+    name = "os_lookup",
+    platform = select({
+        # FIXME: prelude// should be standalone (not refer to ovr_config//)
+        "DEFAULT": "linux",
+        "ovr_config//os:macos": "macos",
+        "ovr_config//os:windows": "windows",
+    }),
+    visibility = ["PUBLIC"],
+)
+
+buck_filegroup(
+    name = "files",
+    srcs = glob(
+        ["**"],
+    ),
+)
