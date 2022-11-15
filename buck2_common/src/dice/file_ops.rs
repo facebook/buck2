@@ -199,6 +199,7 @@ fn panic_expected_parent(path: &CellPath) -> ! {
     )
 }
 
+#[derive(Allocative)]
 pub struct FileChangeTracker {
     files_to_dirty: HashSet<ReadFileKey>,
     dirs_to_dirty: HashSet<ReadDirKey>,
