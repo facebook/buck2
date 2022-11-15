@@ -63,7 +63,7 @@ impl EventDispatcher {
     /// Creates a new null Event Dispatcher that accepts events but does not write them anywhere.
     pub fn null() -> EventDispatcher {
         EventDispatcher {
-            trace_id: TraceId::new(),
+            trace_id: TraceId::null(),
             sink: Arc::new(NullEventSink::new()),
         }
     }

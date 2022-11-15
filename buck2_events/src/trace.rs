@@ -61,6 +61,10 @@ impl TraceId {
         TraceId(Uuid::new_v4())
     }
 
+    pub fn null() -> TraceId {
+        TraceId(Uuid::nil())
+    }
+
     /// Retrieves the cached hash of this TraceId.
     pub fn hash(&self) -> i64 {
         NetworkEndian::read_i64(&self.0.as_bytes()[8..16])
