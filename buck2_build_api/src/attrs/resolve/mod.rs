@@ -11,6 +11,6 @@ pub(crate) mod attr_literal;
 pub(crate) mod attr_type;
 pub(crate) mod coerced_attr;
 pub mod configured_attr;
-pub(crate) mod ctx;
+pub mod ctx;
 #[cfg(test)]
 pub(crate) mod testing;

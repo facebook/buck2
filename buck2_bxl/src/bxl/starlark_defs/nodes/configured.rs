@@ -61,6 +61,8 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 
+mod attr_resolution_ctx;
+
 #[derive(Debug, Display, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "configured_target_node(name = {}, ...)", "self.0.name()")]
