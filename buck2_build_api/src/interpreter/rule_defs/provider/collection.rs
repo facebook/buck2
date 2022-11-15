@@ -17,6 +17,7 @@ use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
+use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
@@ -157,8 +158,15 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     /// Create most of the collection but don't do final assembly, or validate DefaultInfo here.
     /// This is an internal detail
     fn try_from_value_impl(
-        value: Value<'v>,
+        mut value: Value<'v>,
     ) -> anyhow::Result<SmallMap<Arc<ProviderId>, Value<'v>>> {
+        // Sometimes we might have a resolved promise here, in which case see through that
+        if let Some(promise) = StarlarkPromise::from_value(value) {
+            if let Some(x) = promise.get() {
+                value = x;
+            }
+        }
+
         let list = match List::from_value(value) {
             Some(v) => v,
             None => {
