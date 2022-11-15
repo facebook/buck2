@@ -937,7 +937,12 @@ impl DaemonApi for BuckdServer {
         Ok(
             streaming(req, event_source, dispatcher.dupe(), |req| async move {
                 let result = try {
-                    spawn_allocative(this, AbsPathBuf::try_from(req.output_path)?).await?;
+                    spawn_allocative(
+                        this,
+                        AbsPathBuf::try_from(req.output_path)?,
+                        dispatcher.dupe(),
+                    )
+                    .await?;
                     AllocativeResponse {}
                 };
 

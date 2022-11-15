@@ -81,6 +81,10 @@ impl EventDispatcher {
         self.event_with_span_id(instant, None, current_span());
     }
 
+    pub fn console_message(&self, message: String) {
+        self.instant_event(buck2_data::ConsoleMessage { message })
+    }
+
     fn event_with_span_id<E: Into<buck_event::Data>>(
         &self,
         data: E,
@@ -353,7 +357,7 @@ pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
 
 /// Send console message from the server.
 pub fn console_message(message: String) {
-    instant_event(buck2_data::ConsoleMessage { message })
+    get_dispatcher().console_message(message)
 }
 
 // Logs mercurial data
