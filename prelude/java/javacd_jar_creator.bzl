@@ -437,18 +437,16 @@ def create_jar_artifact_javacd(
         merged_jar = output
         if not merged_jar:
             merged_jar = declare_prefixed_output(actions_prefix, "merged.jar")
+        files_to_merge = [output_paths.jar, additional_compiled_srcs]
+        files_to_merge_file = actions.write("{}_files_to_merge.txt".format(actions_prefix), files_to_merge)
         actions.run(
-            [
-                java_toolchain.merge_to_jar[RunInfo],
-                "--jar_tool",
-                java_toolchain.jar,
+            cmd_args([
+                java_toolchain.jar_builder,
                 "--output",
                 merged_jar.as_output(),
-                "--jar",
-                output_paths.jar,
-                "--extra-files",
-                additional_compiled_srcs,
-            ],
+                "--entries-to-jar",
+                files_to_merge_file,
+            ]).hidden(files_to_merge),
             category = "{}merge_additional_srcs".format(actions_prefix),
         )
         return merged_jar
