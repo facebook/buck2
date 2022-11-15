@@ -80,6 +80,12 @@ pub struct RunCommand {
         help = "Additional arguments passed to the target when running it"
     )]
     extra_run_args: Vec<String>,
+
+    /// Instead of running the command, print out the command
+    /// formatted for shell interpolation, use as: $(buck2 run --emit-shell ...)
+    #[cfg(unix)]
+    #[clap(long)]
+    emit_shell: bool,
 }
 
 #[async_trait]
@@ -172,10 +178,18 @@ impl StreamingCommand for RunCommand {
                 .write_all(serialized.as_bytes())
                 .context("Failed to write command")?;
 
-            ExitResult::success()
-        } else {
-            ExitResult::exec(run_args[0].clone(), run_args, self.chdir)
+            return ExitResult::success();
         }
+
+        #[cfg(unix)]
+        {
+            if self.emit_shell {
+                buck2_client_ctx::println!("{}", shlex::join(run_args.iter().map(|a| a.as_str())))?;
+                return ExitResult::success();
+            }
+        }
+
+        ExitResult::exec(run_args[0].clone(), run_args, self.chdir)
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
