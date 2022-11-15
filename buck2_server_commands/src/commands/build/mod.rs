@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::fs::File;
 use std::future;
 use std::sync::Arc;
 
@@ -27,6 +26,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::fs::fs_util;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
@@ -246,12 +246,13 @@ async fn build(
     if let Some(build_report_collector) = build_report_collector {
         let report = build_report_collector.into_report();
         if !build_opts.unstable_build_report_filename.is_empty() {
-            let file = File::create(
+            let mut file = fs_util::create_file(
                 fs.resolve(cwd)
                     .as_path()
                     .join(&build_opts.unstable_build_report_filename),
-            )?;
-            serde_json::to_writer_pretty(&file, &report)?
+            )
+            .context("Error writing build report")?;
+            serde_json::to_writer_pretty(&mut file, &report)?
         } else {
             serialized_build_report = Some(serde_json::to_string(&report)?);
         };

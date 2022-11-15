@@ -10,7 +10,9 @@
 // We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
 // Various bugs have been raised - if they all get fixed we can migrate.
 use std::fs;
+use std::fs::File;
 use std::io;
+use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
@@ -344,6 +346,31 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
 pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDir.guard();
     fs::remove_dir(&path).with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
+}
+
+pub struct FileGuard {
+    file: File,
+    _guard: IoCounterGuard,
+}
+
+impl Write for FileGuard {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+pub fn create_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileGuard> {
+    let guard = IoCounterKey::Write.guard();
+    let file = File::create(path.as_ref())
+        .with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))?;
+    Ok(FileGuard {
+        file,
+        _guard: guard,
+    })
 }
 
 #[cfg(test)]
