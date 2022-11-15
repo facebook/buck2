@@ -772,7 +772,7 @@ mod tests {
             PackageRelativePathBuf::unchecked_new("baz/quz.cpp".to_owned()),
         );
         assert_eq!(
-            &expected,
+            expected.as_ref(),
             package_ctx
                 .coerce_path("baz/quz.cpp", false)
                 .unwrap()

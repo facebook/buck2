@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use either::Either;
 use static_assertions::assert_eq_size;
 
@@ -22,17 +23,17 @@ pub enum CoercedPath {
 assert_eq_size!(CoercedPath, [usize; 7]);
 
 impl CoercedPath {
-    pub fn path(&self) -> &BuckPath {
+    pub fn path(&self) -> BuckPathRef {
         match self {
-            CoercedPath::File(x) => x,
-            CoercedPath::Directory(x, _) => x,
+            CoercedPath::File(x) => x.as_ref(),
+            CoercedPath::Directory(x, _) => x.as_ref(),
         }
     }
 
-    pub fn inputs(&self) -> impl Iterator<Item = &BuckPath> {
+    pub fn inputs(&self) -> impl Iterator<Item = BuckPathRef> {
         match self {
-            CoercedPath::File(x) => Either::Left(std::iter::once(x)),
-            CoercedPath::Directory(_, xs) => Either::Right(xs.iter()),
+            CoercedPath::File(x) => Either::Left(std::iter::once(x.as_ref())),
+            CoercedPath::Directory(_, xs) => Either::Right(xs.iter().map(|x| x.as_ref())),
         }
     }
 }

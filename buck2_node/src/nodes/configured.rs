@@ -14,7 +14,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -315,7 +315,7 @@ impl ConfiguredTargetNode {
                 Ok(())
             }
 
-            fn input(&mut self, path: &'a BuckPath) -> anyhow::Result<()> {
+            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }

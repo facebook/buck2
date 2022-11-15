@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
@@ -30,7 +30,7 @@ pub trait CoercedAttrTraversal<'a> {
     ) -> anyhow::Result<()>;
     fn configuration_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
     fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn input(&mut self, input: &'a BuckPath) -> anyhow::Result<()>;
+    fn input(&mut self, input: BuckPathRef) -> anyhow::Result<()>;
     fn label(&mut self, _label: &'a ProvidersLabel) -> anyhow::Result<()> {
         Ok(())
     }

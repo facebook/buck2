@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 
@@ -39,7 +39,7 @@ pub trait ConfiguredAttrTraversal<'a> {
         Ok(())
     }
 
-    fn input(&mut self, _path: &'a BuckPath) -> anyhow::Result<()> {
+    fn input(&mut self, _path: BuckPathRef) -> anyhow::Result<()> {
         Ok(())
     }
 

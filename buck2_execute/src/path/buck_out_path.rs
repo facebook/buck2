@@ -13,7 +13,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -206,7 +206,7 @@ impl BuckPathResolver {
 
     /// Resolves a 'BuckPath' into a 'ProjectRelativePath' based on the package
     /// and cell.
-    pub fn resolve(&self, path: &BuckPath) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve(&self, path: BuckPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
         Ok(self.0.resolve_package(path.package())?.join(path.path()))
     }
 
@@ -434,13 +434,16 @@ mod tests {
         )]);
         let path_resolver = BuckPathResolver::new(cell_resolver);
 
-        let resolved = path_resolver.resolve(&BuckPath::new(
-            Package::new(
-                &CellName::unchecked_new("foo".into()),
-                CellRelativePath::unchecked_new("baz-package"),
-            ),
-            PackageRelativePathBuf::unchecked_new("faz.file".into()),
-        ))?;
+        let resolved = path_resolver.resolve(
+            BuckPath::new(
+                Package::new(
+                    &CellName::unchecked_new("foo".into()),
+                    CellRelativePath::unchecked_new("baz-package"),
+                ),
+                PackageRelativePathBuf::unchecked_new("faz.file".into()),
+            )
+            .as_ref(),
+        )?;
 
         assert_eq!(
             ProjectRelativePathBuf::unchecked_new("bar-cell/baz-package/faz.file".into()),
@@ -449,13 +452,16 @@ mod tests {
 
         assert_eq!(
             path_resolver
-                .resolve(&BuckPath::new(
-                    Package::new(
-                        &CellName::unchecked_new("none_existant".into()),
-                        CellRelativePath::unchecked_new("baz")
-                    ),
-                    PackageRelativePathBuf::unchecked_new("fazx".into())
-                ))
+                .resolve(
+                    BuckPath::new(
+                        Package::new(
+                            &CellName::unchecked_new("none_existant".into()),
+                            CellRelativePath::unchecked_new("baz")
+                        ),
+                        PackageRelativePathBuf::unchecked_new("fazx".into())
+                    )
+                    .as_ref()
+                )
                 .is_err(),
             true
         );

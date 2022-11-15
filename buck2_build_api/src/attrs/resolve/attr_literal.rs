@@ -147,7 +147,10 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 SplitTransitionDepAttrType::resolve_single(ctx, deps)
             }
             AttrLiteral::Query(query) => query.resolve(ctx),
-            AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(ctx, s.path())),
+            AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
+                ctx,
+                s.path().to_buck_path(),
+            )),
             AttrLiteral::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             AttrLiteral::Arg(arg) => arg.resolve(ctx),
             AttrLiteral::Label(label) => {
@@ -231,7 +234,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(heap, *s.clone())),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(f.path().clone()),
+                SourceArtifact::new(f.path().to_buck_path()),
             ))),
             AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
             AttrLiteral::Label(l) => heap.alloc(Label::new(heap, *l.clone())),

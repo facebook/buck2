@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -295,7 +295,7 @@ impl TargetNode {
         }
 
         impl<'a> CoercedAttrTraversal<'a> for TestCollector<'a> {
-            fn input(&mut self, _path: &'a BuckPath) -> anyhow::Result<()> {
+            fn input(&mut self, _path: BuckPathRef) -> anyhow::Result<()> {
                 Ok(())
             }
 
@@ -356,7 +356,7 @@ impl TargetNode {
         }
 
         impl<'a> CoercedAttrTraversal<'a> for InputsCollector {
-            fn input(&mut self, path: &'a BuckPath) -> anyhow::Result<()> {
+            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }

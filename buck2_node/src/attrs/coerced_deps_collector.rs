@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
@@ -98,7 +98,7 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
         Ok(())
     }
 
-    fn input(&mut self, _input: &'a BuckPath) -> anyhow::Result<()> {
+    fn input(&mut self, _input: BuckPathRef) -> anyhow::Result<()> {
         Ok(())
     }
 }

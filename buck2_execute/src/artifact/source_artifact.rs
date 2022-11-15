@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::BuckPathRef;
 use derive_more::Display;
 use gazebo::prelude::*;
 
@@ -29,7 +30,7 @@ impl SourceArtifact {
         Self(Arc::new(SourceArtifactData(path)))
     }
 
-    pub fn get_path(&self) -> &BuckPath {
-        &self.0.0
+    pub fn get_path(&self) -> BuckPathRef {
+        self.0.0.as_ref()
     }
 }

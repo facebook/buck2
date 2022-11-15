@@ -24,10 +24,9 @@ enum SourceLabelResolutionError {
 }
 
 pub(crate) trait SourceAttrTypeExt {
-    fn resolve_single_file<'v>(ctx: &dyn AttrResolutionContext<'v>, path: &BuckPath) -> Value<'v> {
-        ctx.heap().alloc(StarlarkArtifact::new(
-            SourceArtifact::new(path.clone()).into(),
-        ))
+    fn resolve_single_file<'v>(ctx: &dyn AttrResolutionContext<'v>, path: BuckPath) -> Value<'v> {
+        ctx.heap()
+            .alloc(StarlarkArtifact::new(SourceArtifact::new(path).into()))
     }
 
     fn resolve_label<'v>(
