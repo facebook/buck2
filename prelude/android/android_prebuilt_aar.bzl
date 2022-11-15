@@ -10,13 +10,12 @@ load(
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
 def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
-    manifest = ctx.actions.declare_output("unpack_dir/AndroidManifest.xml")
-    unpack_dir = cmd_args(manifest.as_output()).parent()
+    manifest = ctx.actions.declare_output("AndroidManifest.xml")
     all_classes_jar = ctx.actions.declare_output("classes.jar")
-    r_dot_txt = ctx.actions.declare_output("unpack_dir/R.txt")
-    res = ctx.actions.declare_output("unpack_dir/res")
-    assets = ctx.actions.declare_output("unpack_dir/assets")
-    jni = ctx.actions.declare_output("unpack_dir/jni")
+    r_dot_txt = ctx.actions.declare_output("R.txt")
+    res = ctx.actions.declare_output("res")
+    assets = ctx.actions.declare_output("assets")
+    jni = ctx.actions.declare_output("jni")
     annotation_jars_dir = ctx.actions.declare_output("annotation_jars")
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -28,8 +27,6 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         unpack_aar_tool,
         "--aar",
         ctx.attrs.aar,
-        "--unpack-dir",
-        unpack_dir,
         "--manifest-path",
         manifest.as_output(),
         "--all-classes-jar-path",
