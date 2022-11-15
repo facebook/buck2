@@ -83,7 +83,7 @@ def _get_dummy_r_dot_java(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
         java_toolchain,
-        android_resources,
+        dedupe(android_resources),
         ctx.attrs.resource_union_package,
     )
 
