@@ -52,6 +52,7 @@ use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
 use crate::digest::FileDigestFromProtoExt;
 
+#[allocative::root]
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
     Lazy::new(DashMapDirectoryInterner::new);
 
