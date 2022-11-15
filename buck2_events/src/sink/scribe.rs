@@ -166,6 +166,34 @@ mod fbcode {
                         _ => {}
                     }
                 }
+                Data::Record(ref mut rec) => {
+                    if let Some(buck2_data::record_event::Data::InvocationRecord(
+                        ref mut invocation_record,
+                    )) = rec.data
+                    {
+                        if let Some(ref mut file_changes) =
+                            invocation_record.file_changes_since_last_build
+                        {
+                            if let Some(buck2_data::file_changes::Data::Records(
+                                ref mut watchman_events,
+                            )) = file_changes.data
+                            {
+                                const MAX_FILE_CHANGE_BYTES: usize = 100 * 1024;
+                                let file_change_bytes: usize =
+                                    watchman_events.events.iter().map(|x| x.path.len()).sum();
+
+                                if file_change_bytes > MAX_FILE_CHANGE_BYTES {
+                                    file_changes.data = Some(
+                                        buck2_data::file_changes::Data::NoRecordReason(format!(
+                                            "Too long file change records ({} bytes, max {} bytes)",
+                                            file_change_bytes, MAX_FILE_CHANGE_BYTES
+                                        )),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => {}
             };
         }
