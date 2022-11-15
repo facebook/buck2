@@ -15,17 +15,29 @@ use std::mem;
 use dashmap::DashMap;
 
 use crate::allocative_trait::Allocative;
-use crate::key::Key;
+use crate::impls::common::CAPACITY_NAME;
+use crate::impls::common::KEY_NAME;
+use crate::impls::common::PTR_NAME;
+use crate::impls::common::UNUSED_CAPACITY_NAME;
+use crate::impls::common::VALUE_NAME;
 use crate::visitor::Visitor;
 
 impl<K: Allocative + Eq + Hash, V: Allocative> Allocative for DashMap<K, V> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
-        let entries = self.iter();
-        let mut visitor2 = visitor.enter_unique(Key::new("data"), mem::size_of::<*const ()>());
-        for entry in entries {
-            visitor2.visit_field(Key::new("key"), entry.key());
-            visitor2.visit_field(Key::new("value"), entry.value());
+        let mut visitor2 = visitor.enter_unique(PTR_NAME, mem::size_of::<*const ()>());
+        {
+            let mut capacity_visitor =
+                visitor2.enter(CAPACITY_NAME, self.capacity() * mem::size_of::<(K, V)>());
+            for entry in self.iter() {
+                capacity_visitor.visit_field(KEY_NAME, entry.key());
+                capacity_visitor.visit_field(VALUE_NAME, entry.value());
+            }
+            capacity_visitor.visit_simple(
+                UNUSED_CAPACITY_NAME,
+                self.capacity().saturating_sub(self.len()) * mem::size_of::<(K, V)>(),
+            );
+            capacity_visitor.exit();
         }
         visitor2.exit();
         visitor.exit();

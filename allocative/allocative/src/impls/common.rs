@@ -16,11 +16,17 @@ use crate::visitor::Visitor;
 /// "Field" describing allocated but unused capacity (e.g. in `Vec`).
 pub(crate) const UNUSED_CAPACITY_NAME: Key = Key::new("unused_capacity");
 
+/// "Field" describing all capacity (e.g. in `Vec`).
+pub(crate) const CAPACITY_NAME: Key = Key::new("capacity");
+
 /// Generic pointee field in types like `Box`.
 pub(crate) const PTR_NAME: Key = Key::new("ptr");
 
 /// Generic name for useful data (e.g. in `Vec`).
 pub(crate) const DATA_NAME: Key = Key::new("data");
+
+pub(crate) const KEY_NAME: Key = Key::new("key");
+pub(crate) const VALUE_NAME: Key = Key::new("value");
 
 pub(crate) fn visit_generic_map<'a, K: Allocative + 'a, V: Allocative + 'a>(
     visitor: &mut Visitor,
