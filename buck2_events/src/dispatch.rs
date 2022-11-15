@@ -21,6 +21,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::process::background_command;
 use buck2_data::buck_event;
 use buck2_data::instant_event::Data::HgInfo;
@@ -321,10 +322,19 @@ where
 }
 
 pub fn get_dispatcher() -> EventDispatcher {
+    static ENFORCE_DISPATCHER_SET: EnvHelper<bool> = EnvHelper::new("ENFORCE_DISPATCHER_SET");
+
     match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
         Ok(dispatcher) => dispatcher,
         Err(_) => {
-            if let Ok("1") = std::env::var("ENFORCE_DISPATCHER_SET").as_deref() {
+            let should_error = ENFORCE_DISPATCHER_SET
+                .get()
+                .ok()
+                .flatten()
+                .copied()
+                .unwrap_or_default();
+
+            if should_error {
                 panic!("dispatcher is not set")
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
