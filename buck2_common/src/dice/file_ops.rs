@@ -48,15 +48,6 @@ pub trait HasFileOps<'c> {
     fn file_ops(&'c self) -> Self::T;
 }
 
-pub trait FileChangeHandler {
-    fn file_changed(&mut self, path: CellPath);
-    fn file_removed(&mut self, path: CellPath);
-    fn file_added(&mut self, path: CellPath);
-    fn dir_changed(&mut self, path: CellPath);
-    fn dir_added(&mut self, path: CellPath);
-    fn dir_removed(&mut self, path: CellPath);
-}
-
 impl<'c> HasFileOps<'c> for DiceComputations {
     type T = DiceFileOps<'c>;
     fn file_ops(&'c self) -> DiceFileOps<'c> {
@@ -249,31 +240,29 @@ impl FileChangeTracker {
                 .extend([ReadDirKey(path), ReadDirKey(parent)]);
         }
     }
-}
 
-impl FileChangeHandler for FileChangeTracker {
-    fn file_changed(&mut self, path: CellPath) {
+    pub fn file_changed(&mut self, path: CellPath) {
         self.file_contents_modify(path)
     }
 
-    fn file_removed(&mut self, path: CellPath) {
+    pub fn file_removed(&mut self, path: CellPath) {
         self.file_existence_modify(path)
     }
 
-    fn file_added(&mut self, path: CellPath) {
+    pub fn file_added(&mut self, path: CellPath) {
         self.file_existence_modify(path)
     }
 
-    fn dir_changed(&mut self, path: CellPath) {
+    pub fn dir_changed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
         self.dirs_to_dirty.insert(ReadDirKey(path));
     }
 
-    fn dir_added(&mut self, path: CellPath) {
+    pub fn dir_added(&mut self, path: CellPath) {
         self.dir_existence_modify(path)
     }
 
-    fn dir_removed(&mut self, path: CellPath) {
+    pub fn dir_removed(&mut self, path: CellPath) {
         self.dir_existence_modify(path)
     }
 }

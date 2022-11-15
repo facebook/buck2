@@ -13,7 +13,6 @@ use std::path::Path;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::dice::file_ops::FileChangeHandler;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
