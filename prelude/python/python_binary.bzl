@@ -304,7 +304,6 @@ def convert_python_library_to_executable(
             rule_type = "python_binary",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = cxx_executable_srcs,
-            extra_link_flags = ["-Wl,--enable-huge-text"],
             extra_link_args = [
                 LinkArgs(tset = (link_info, ctx.attrs.prefer_stripped_native_objects)),
             ],
