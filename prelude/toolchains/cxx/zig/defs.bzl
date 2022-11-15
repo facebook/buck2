@@ -310,6 +310,7 @@ def _cxx_zig_toolchain_impl(ctx: "context") -> ["provider"]:
             archiver_supports_argfiles = True,
             #archive_contents = None,
             archive_objects_locally = False,
+            binary_extension = "",
             link_binaries_locally = False,
             link_libraries_locally = False,
             link_style = LinkStyle(ctx.attrs.link_style),
@@ -318,10 +319,13 @@ def _cxx_zig_toolchain_impl(ctx: "context") -> ["provider"]:
             linker = RunInfo(args = cmd_args([zig, "c++"])),
             linker_flags = cmd_args(target + ctx.attrs.linker_flags),
             #lto_mode = None,  # TODO support LTO
+            object_file_extension = "o",
             #mk_shlib_intf = None,  # not needed if shlib_interfaces = "disabled"
             shlib_interfaces = "disabled",
             shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
+            shared_library_extension = "so",
             static_dep_runtime_ld_flags = ctx.attrs.static_dep_runtime_ld_flags,
+            static_library_extension = "a",
             static_pic_dep_runtime_ld_flags = ctx.attrs.static_pic_dep_runtime_ld_flags,
             #requires_archives = None,
             #requires_objects = None,

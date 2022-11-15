@@ -10,6 +10,8 @@ LinkerInfo = provider(fields = [
     "archive_contents",
     "archive_objects_locally",
     # "archiver_platform",
+    # "" on Unix, "exe" on Windows
+    "binary_extension",  # str.type
     # Whether to run native links locally.  We support this for fbcode platforms
     # to avoid issues with C++ static links (see comment in
     # `platform/cxx_toolchains.bzl` for details).
@@ -25,9 +27,15 @@ LinkerInfo = provider(fields = [
     "linker_flags",
     "lto_mode",
     "mk_shlib_intf",
+    # "o" on Unix, "obj" on Windows
+    "object_file_extension",  # str.type
     "shlib_interfaces",
     "shared_dep_runtime_ld_flags",
+    # "so" on Linux, "dylib" on Mac, "dll" on Windows
+    "shared_library_extension",  # str.type
     "static_dep_runtime_ld_flags",
+    # "a" on Unix, "lib" on Windows
+    "static_library_extension",  # str.type
     "static_pic_dep_runtime_ld_flags",
     "requires_archives",
     "requires_objects",

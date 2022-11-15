@@ -834,7 +834,7 @@ def _static_library(
     linker_type = linker_info.type
 
     base_name = _base_static_library_name(ctx, stripped)
-    name = _archive_name(base_name, pic = pic)
+    name = _archive_name(base_name, pic = pic, extension = linker_info.static_library_extension)
     archive = make_archive(ctx, name, objects)
 
     linkable = None
@@ -1006,8 +1006,8 @@ def _soname(ctx: "context") -> str.type:
 def _base_static_library_name(ctx: "context", stripped: bool.type) -> str.type:
     return ctx.label.name + ".stripped" if stripped else ctx.label.name
 
-def _archive_name(name: str.type, pic: bool.type) -> str.type:
-    return "lib{}{}.a".format(name, ".pic" if pic else "")
+def _archive_name(name: str.type, pic: bool.type, extension: str.type) -> str.type:
+    return "lib{}{}.{}".format(name, ".pic" if pic else "", extension)
 
 def _attr_link_whole(ctx: "context") -> bool.type:
     return value_or(ctx.attrs.link_whole, False)

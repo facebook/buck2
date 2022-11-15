@@ -268,6 +268,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         # will trigger the necessary link tree and link args).
         shared_libs if impl_params.exe_shared_libs_link_tree else {},
         linker_info.link_weight,
+        linker_info.binary_extension,
         prefer_local = link_cxx_binary_locally(ctx),
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
@@ -383,12 +384,13 @@ def _link_into_executable(
         links: [LinkArgs.type],
         shared_libs: {str.type: LinkedObject.type},
         link_weight: int.type,
+        binary_extension: str.type,
         prefer_local: bool.type = False,
         enable_distributed_thinlto = False,
         strip: bool.type = False,
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
-    output = ctx.actions.declare_output(get_cxx_excutable_product_name(ctx))
+    output = ctx.actions.declare_output("{}{}".format(get_cxx_excutable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(ctx, output, shared_libs)
     exe = cxx_link(
         ctx,

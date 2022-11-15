@@ -272,7 +272,7 @@ def compile_cxx(
 
         filename_base = identifier + (".pic" if pic else "")
         object = ctx.actions.declare_output(
-            paths.join("__objects__", filename_base + ".o"),
+            paths.join("__objects__", "{}.{}".format(filename_base, linker_info.object_file_extension)),
         )
 
         cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)

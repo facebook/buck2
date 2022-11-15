@@ -55,6 +55,10 @@ def _cxx_toolchain(ctx):
                 mk_shlib_intf = ctx.attrs.make_shlib_intf,
                 link_style = LinkStyle(ctx.attrs.link_style),
                 link_weight = 1,
+                binary_extension = "",
+                object_file_extension = "o",
+                shared_library_extension = "so",
+                static_library_extension = "a",
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(
