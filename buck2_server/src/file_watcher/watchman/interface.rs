@@ -103,7 +103,9 @@ impl WatchmanQueryProcessor {
 
         info!("Watchman: {:?} (ignore = {})", ev, ignore);
 
-        if !ignore {
+        if ignore {
+            stats.add_ignored();
+        } else {
             let cell_path_str = cell_path.to_string();
             let log_kind;
             let log_event;
