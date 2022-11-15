@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::future;
+use std::io::BufWriter;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -246,12 +247,13 @@ async fn build(
     if let Some(build_report_collector) = build_report_collector {
         let report = build_report_collector.into_report();
         if !build_opts.unstable_build_report_filename.is_empty() {
-            let mut file = fs_util::create_file(
+            let file = fs_util::create_file(
                 fs.resolve(cwd)
                     .as_path()
                     .join(&build_opts.unstable_build_report_filename),
             )
             .context("Error writing build report")?;
+            let mut file = BufWriter::new(file);
             serde_json::to_writer_pretty(&mut file, &report)?
         } else {
             serialized_build_report = Some(serde_json::to_string(&report)?);
