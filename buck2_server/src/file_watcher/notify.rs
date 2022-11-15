@@ -35,7 +35,7 @@ use tracing::info;
 use crate::file_watcher::stats::FileWatcherStats;
 use crate::file_watcher::FileWatcher;
 
-#[derive(Debug, Clone, Copy, Dupe)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
 enum ChangeType {
     None,
     FileContents,
@@ -76,6 +76,7 @@ impl ChangeType {
 #[derive(Allocative)]
 struct NotifyFileData {
     changed: FileChangeTracker,
+    stats: FileWatcherStats,
     #[allocative(skip)]
     error: Option<anyhow::Error>,
 }
@@ -84,6 +85,7 @@ impl NotifyFileData {
     fn new() -> Self {
         Self {
             changed: FileChangeTracker::new(),
+            stats: FileWatcherStats::new(0, None),
             error: None,
         }
     }
@@ -102,6 +104,7 @@ impl NotifyFileData {
             self.error = Some(e);
             // Might as well clear out the memory we aren't going to use
             self.changed = FileChangeTracker::new();
+            self.stats = FileWatcherStats::new(0, None);
         }
     }
 
@@ -119,6 +122,7 @@ impl NotifyFileData {
             // It's not documented though.
             let path = root.relativize(AbsNormPath::new(&path)?)?;
             let cell_path = cells.get_cell_path(&path)?;
+            let cell_path_str = cell_path.to_string();
 
             let ignore = ignore_specs
                 .get(cell_path.cell())
@@ -130,7 +134,9 @@ impl NotifyFileData {
                 path, change_type, ignore
             );
 
-            if !ignore {
+            if ignore || change_type == ChangeType::None {
+                self.stats.add_ignored();
+            } else {
                 // We happen to know that file_added and file_removed do the same thing,
                 // so we just fire off one of them (added) to cause changes.
                 match change_type {
@@ -143,20 +149,27 @@ impl NotifyFileData {
                         self.changed.file_added(cell_path)
                     }
                 }
+                // The event type and watcher kind are just made up, but that's not a big deal
+                // since we only use this path open source, where we don't log the information to Scuba anyway.
+                // The path is right, which is probably what matters most
+                self.stats.add(
+                    cell_path_str,
+                    buck2_data::FileWatcherEventType::Modify,
+                    buck2_data::FileWatcherKind::File,
+                );
             }
         }
         Ok(())
     }
 
     fn sync(&mut self) -> anyhow::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
-        if let Some(err) = self.error.take() {
-            return Err(err);
-        }
+        let changed = mem::replace(&mut self.changed, FileChangeTracker::new());
+        let stats = mem::replace(&mut self.stats, FileWatcherStats::new(0, None));
 
-        let old = mem::replace(&mut self.changed, FileChangeTracker::new());
-        // TODO(ndmitchell): Put in proper stats next
-        let stats = FileWatcherStats::new(0, None);
-        Ok((stats.finish(), old))
+        match self.error.take() {
+            Some(err) => Err(err),
+            None => Ok((stats.finish(), changed)),
+        }
     }
 }
 
