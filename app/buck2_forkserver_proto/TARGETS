@@ -8,6 +8,7 @@ rust_protobuf_library(
     spec = "forkserver.proto",
     deps = [
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:prost-types",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )

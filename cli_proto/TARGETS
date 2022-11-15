@@ -12,6 +12,7 @@ rust_protobuf_library(
     spec = "daemon.proto",
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:thiserror",
         "//buck2/buck2_data:buck2_data",

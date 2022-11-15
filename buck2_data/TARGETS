@@ -11,6 +11,7 @@ rust_protobuf_library(
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",

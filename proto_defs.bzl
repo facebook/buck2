@@ -44,7 +44,6 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
         },
         deps = [
             "fbsource//third-party/rust:prost",
-            "fbsource//third-party/rust:prost-types",
             "fbsource//third-party/rust:tonic",
         ] + (deps or []),
     )
