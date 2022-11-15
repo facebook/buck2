@@ -81,9 +81,10 @@ impl WatchmanQueryProcessor {
             self.process_one_change(path, event, &mut handler, &mut stats)?;
         }
 
+        let stats = stats.finish();
         handler.write_to_dice(&ctx)?;
 
-        Ok((stats.finish(), ctx))
+        Ok((stats, ctx))
     }
 
     fn process_one_change(
