@@ -33,7 +33,7 @@ def build_junit_test(
         classpath.append(java_test_toolchain.java_custom_class_loader_library_jar)
 
     classpath.extend(
-        [java_test_toolchain.junit_test_runner_library_jar] +
+        [java_test_toolchain.test_runner_library_jar] +
         [
             get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info])
                 .project_as_args("full_jar_args", ordering = "bfs"),
@@ -55,7 +55,7 @@ def build_junit_test(
         # We add "FileClassPathRunner" to the classpath, and then write a line-separated classpath file which we pass
         # to the "FileClassPathRunner" as a system variable. The "FileClassPathRunner" then loads all the jars
         # from that file onto the classpath, and delegates running the test to the junit test runner.
-        cmd.extend(["-classpath", cmd_args(java_test_toolchain.junit_test_runner_library_jar)])
+        cmd.extend(["-classpath", cmd_args(java_test_toolchain.test_runner_library_jar)])
         classpath_args.add(cmd_args(classpath))
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
         cmd.append(cmd_args(classpath_args_file, format = "-Dbuck.classpath_file={}").hidden(classpath_args))
@@ -67,7 +67,13 @@ def build_junit_test(
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
         cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
-    cmd.extend(java_test_toolchain.junit_test_runner_main_class_args)
+    if (ctx.attrs.test_type == "junit5"):
+        cmd.extend(java_test_toolchain.junit5_test_runner_main_class_args)
+    elif (ctx.attrs.test_type == "testng"):
+        cmd.extend(java_test_toolchain.testng_test_runner_main_class_args)
+    else:
+        cmd.extend(java_test_toolchain.junit_test_runner_main_class_args)
+
     if ctx.attrs.test_case_timeout_ms:
         cmd.extend(["--default_test_timeout", ctx.attrs.test_case_timeout_ms])
 
