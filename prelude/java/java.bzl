@@ -3,8 +3,8 @@ load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_va
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
     "@prelude//java:java_toolchain.bzl",
-    "JUnitToolchainInfo",
     "JavaPlatformInfo",
+    "JavaTestToolchainInfo",
     "JavaToolchainInfo",
     "PrebuiltJarToolchainInfo",
 )
@@ -52,9 +52,9 @@ def dex_min_sdk_version():
 
     return select(min_sdk_version_dict)
 
-def select_junit_toolchain():
+def select_java_test_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return "fbsource//xplat/buck2/platform/java:junit"
+    return "fbsource//xplat/buck2/platform/java:java_test"
 
 def select_prebuilt_jar_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
@@ -129,17 +129,17 @@ extra_attributes = {
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
+        "_java_test_toolchain": attrs.exec_dep(
+            default = select_java_test_toolchain(),
+            providers = [
+                JavaTestToolchainInfo,
+            ],
+        ),
         "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,
-            ],
-        ),
-        "_junit_toolchain": attrs.exec_dep(
-            default = select_junit_toolchain(),
-            providers = [
-                JUnitToolchainInfo,
             ],
         ),
     },

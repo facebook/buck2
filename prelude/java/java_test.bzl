@@ -1,6 +1,6 @@
 load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_tset")
-load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
@@ -22,18 +22,18 @@ def build_junit_test(
         tests_java_packaging_info: "JavaPackagingInfo",
         extra_cmds: list.type = [],
         extra_classpath_entries: ["artifact"] = []) -> ExternalRunnerTestInfo.type:
-    junit_toolchain = ctx.attrs._junit_toolchain[JUnitToolchainInfo]
+    java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
 
     cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attrs.vm_args
     classpath = []
 
-    if junit_toolchain.use_java_custom_class_loader:
-        cmd.append("-Djava.system.class.loader=" + junit_toolchain.java_custom_class_loader_class)
-        cmd.extend(junit_toolchain.java_custom_class_loader_vm_args)
-        classpath.append(junit_toolchain.java_custom_class_loader_library_jar)
+    if java_test_toolchain.use_java_custom_class_loader:
+        cmd.append("-Djava.system.class.loader=" + java_test_toolchain.java_custom_class_loader_class)
+        cmd.extend(java_test_toolchain.java_custom_class_loader_vm_args)
+        classpath.append(java_test_toolchain.java_custom_class_loader_library_jar)
 
     classpath.extend(
-        [junit_toolchain.junit_test_runner_library_jar] +
+        [java_test_toolchain.junit_test_runner_library_jar] +
         [
             get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info])
                 .project_as_args("full_jar_args", ordering = "bfs"),
@@ -55,7 +55,7 @@ def build_junit_test(
         # We add "FileClassPathRunner" to the classpath, and then write a line-separated classpath file which we pass
         # to the "FileClassPathRunner" as a system variable. The "FileClassPathRunner" then loads all the jars
         # from that file onto the classpath, and delegates running the test to the junit test runner.
-        cmd.extend(["-classpath", cmd_args(junit_toolchain.junit_test_runner_library_jar)])
+        cmd.extend(["-classpath", cmd_args(java_test_toolchain.junit_test_runner_library_jar)])
         classpath_args.add(cmd_args(classpath))
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
         cmd.append(cmd_args(classpath_args_file, format = "-Dbuck.classpath_file={}").hidden(classpath_args))
@@ -67,13 +67,13 @@ def build_junit_test(
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
         cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
-    cmd.extend(junit_toolchain.junit_test_runner_main_class_args)
+    cmd.extend(java_test_toolchain.junit_test_runner_main_class_args)
     if ctx.attrs.test_case_timeout_ms:
         cmd.extend(["--default_test_timeout", ctx.attrs.test_case_timeout_ms])
 
     class_names = ctx.actions.declare_output("class_names")
     list_class_names_cmd = cmd_args([
-        junit_toolchain.list_class_names[RunInfo],
+        java_test_toolchain.list_class_names[RunInfo],
         "--jar",
         tests_java_library_info.library_output.full_library,
         "--output",

@@ -39,7 +39,7 @@ JavaToolchainInfo = provider(
     ],
 )
 
-JUnitToolchainInfo = provider(
+JavaTestToolchainInfo = provider(
     "Java test toolchain info",
     fields = [
         "java_custom_class_loader_class",

@@ -1,7 +1,7 @@
 load("@prelude//:attributes.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "dex_min_sdk_version", "select_junit_toolchain")
-load("@prelude//java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo")
+load("@prelude//java:java.bzl", "dex_min_sdk_version", "select_java_test_toolchain")
+load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":android_apk.bzl", "android_apk_impl")
@@ -189,13 +189,13 @@ extra_attributes = {
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "_android_toolchain": android_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
-        "_java_toolchain": java_toolchain_for_android(),
-        "_junit_toolchain": attrs.default_only(attrs.exec_dep(
-            default = select_junit_toolchain(),
+        "_java_test_toolchain": attrs.default_only(attrs.exec_dep(
+            default = select_java_test_toolchain(),
             providers = [
-                JUnitToolchainInfo,
+                JavaTestToolchainInfo,
             ],
         )),
+        "_java_toolchain": java_toolchain_for_android(),
         "_kotlin_toolchain": _kotlin_toolchain(),
     },
 }
