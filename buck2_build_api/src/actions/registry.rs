@@ -169,7 +169,7 @@ impl ActionsRegistry {
     ) -> anyhow::Result<DeferredId> {
         let reserved = registry.reserve::<Arc<RegisteredAction>>();
 
-        let mut bound_outputs = IndexSet::new();
+        let mut bound_outputs = IndexSet::with_capacity(outputs.len());
         for output in outputs {
             let bound = output
                 .bind(ActionKey::new(reserved.data().dupe()))?
