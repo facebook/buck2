@@ -17,6 +17,7 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::is_open_source;
 use dice::DiceTransaction;
 
 use crate::file_watcher::notify::NotifyFileWatcher;
@@ -40,19 +41,25 @@ impl dyn FileWatcher {
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Arc<dyn FileWatcher>> {
-        match root_config.get("buck2", "file_watcher") {
-            Some("watchman") | None => Ok(Arc::new(WatchmanFileWatcher::new(
+        let default = if is_open_source() {
+            "notify"
+        } else {
+            "watchman"
+        };
+
+        match root_config.get("buck2", "file_watcher").unwrap_or(default) {
+            "watchman" => Ok(Arc::new(WatchmanFileWatcher::new(
                 project_root.root(),
                 root_config,
                 cells,
                 ignore_specs,
             )?)),
-            Some("notify") => Ok(Arc::new(NotifyFileWatcher::new(
+            "notify" => Ok(Arc::new(NotifyFileWatcher::new(
                 project_root,
                 cells,
                 ignore_specs,
             )?)),
-            Some(other) => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
+            other => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
         }
     }
 }
