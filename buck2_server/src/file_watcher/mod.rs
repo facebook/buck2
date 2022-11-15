@@ -16,7 +16,7 @@ use buck2_common::file_ops::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::project::ProjectRoot;
 use dice::DiceTransaction;
 
 use crate::file_watcher::watchman::interface::WatchmanFileWatcher;
@@ -33,14 +33,14 @@ impl dyn FileWatcher {
     /// Create a new FileWatcher. Note that this is not async, since it's called during daemon
     /// startup and shouldn't be doing any work that could warrant suspending.
     pub fn new(
-        project_root: &AbsNormPath,
+        project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Arc<dyn FileWatcher>> {
         match root_config.get("buck2", "file_watcher") {
             Some("watchman") | None => Ok(Arc::new(WatchmanFileWatcher::new(
-                project_root,
+                project_root.root(),
                 root_config,
                 cells,
                 ignore_specs,
