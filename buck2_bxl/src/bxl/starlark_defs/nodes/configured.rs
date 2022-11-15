@@ -103,7 +103,17 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns a struct of all the attributes of this target node. The structs fields are the
-    /// attributes names, and the values are [`StarlarkConfiguredValue`]
+    /// attributes names, and the values are [`StarlarkConfiguredValue`].
+    ///
+    /// If you need to access many or all attrs on the same node, then this is the preferred way. Otherwise,
+
+    /// using `attrs_lazy()` would be a better option for only accessing only a few attrs, although this really
+    /// depends on what kind of attrs are on the node. Benchmarking performance will give you the best
+    /// indication on which method to use.
+    ///
+    /// You should store the result of this function call for further usage in the code rather than calling
+
+    /// `attrs()` each time you need to access the attrs.
     fn attrs<'v>(this: &StarlarkConfiguredTargetNode, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
@@ -117,14 +127,36 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(Struct::new(attrs)))
     }
 
-    /// Gets a `StarlarkLazyAttrs` for getting attrs lazily.
+    /// Gets a `StarlarkLazyAttrs` for getting attrs lazily. Returns a `StarlarkLazyAttrs` object
+    /// that you can call `get()` on that gets an attr one at a time.
+    ///
+    /// If you need to access only few attrs on the same node, then this is the preferred way. Otherwise,
+
+    /// using `attrs()` would be a better option for accessing many or all attrs, although this really
+    /// depends on what kind of attrs are on the node. Benchmarking performance will give you the best
+    /// indication on which method to use.
+    ///
+    /// You should store the result of this function call for further usage in the code rather than calling
+
+    /// `attrs_lazy()` each time to get the `StarlarkLazyAttrs` object.
     fn attrs_lazy<'v>(
         this: &'v StarlarkConfiguredTargetNode,
     ) -> anyhow::Result<StarlarkLazyAttrs<'v>> {
         Ok(StarlarkLazyAttrs::new(this))
     }
 
-    /// Gets a `StarlarkLazyResolvedAttrs` for getting a resolved attrs lazily.
+    /// Gets a `StarlarkLazyResolvedAttrs` for getting resolved attrs lazily. Returns a `StarlarkLazyResolvedAttrs` object
+    /// that you can call `get()` on that gets a resolved attr one at a time.
+    ///
+    /// If you need to access only few resolved attrs on the same node, then this is the preferred way. Otherwise,
+
+    /// using `resolved_attrs()` would be a better option for accessing many or all resolved attrs, although this really
+    /// depends on what kind of resolved attrs are on the node. Benchmarking performance will give you the best
+    /// indication on which method to use.
+    ///
+    /// You should store the result of this function call for further usage in the code rather than calling
+
+    /// `resolved_attrs_lazy()` each time to get the `StarlarkResolvedLazyAttrs` object.
     fn resolved_attrs_lazy<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
@@ -135,6 +167,16 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 
     /// Returns a struct of all the resolved attributes of this target node. The structs fields are the
     /// attributes names, and the values are Starlark `[Value]`.
+    ///
+    /// If you need to access many or all resolved attrs on the same node, then this is the preferred way. Otherwise,
+
+    /// using `resolved_attrs_lazy()` would be a better option for accessing only a few resolved attrs, although this really
+    /// depends on what kind of resolved attrs are on the node. Benchmarking performance will give you the best
+    /// indication on which method to use.
+    ///
+    /// You should store the result of this function call for further usage in the code rather than calling
+
+    /// `resolved_attrs()` each time you need all the resolved attrs.
     fn resolved_attrs<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
