@@ -7,9 +7,12 @@
  * of this source tree.
  */
 
+use allocative::Allocative;
+
 const MAX_PRINT_MESSAGES: usize = 3;
 const MAX_FILE_CHANGE_RECORDS: usize = 850;
 
+#[derive(Allocative)]
 pub(crate) struct FileWatcherStats {
     stats: buck2_data::FileWatcherStats,
     // None means overflowed MAX_FILE_CHANGE_RECORDS (so recording nothing)
