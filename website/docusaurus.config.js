@@ -1,7 +1,7 @@
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const itemFilter = require('./sidebars.js').itemFilter;
-const {fbContent, isInternal} = require('docusaurus-plugin-internaldocs-fb/internal');
+const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/internal');
 
 // With JSDoc @type annotations, IDEs can provide config autocompletion
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
@@ -26,7 +26,7 @@ const {fbContent, isInternal} = require('docusaurus-plugin-internaldocs-fb/inter
           sidebarPath: require.resolve('./sidebars_generated.js'),
           // Please change this to your repo.
           // editUrl: 'https://github.com/facebook/docusaurus/edit/main/website/',
-          async sidebarItemsGenerator({defaultSidebarItemsGenerator, docs, item, ...args}) {
+          async sidebarItemsGenerator({ defaultSidebarItemsGenerator, docs, item, ...args }) {
             const items = await defaultSidebarItemsGenerator({
               docs: itemFilter(item, docs),
               item: item,
@@ -44,8 +44,8 @@ const {fbContent, isInternal} = require('docusaurus-plugin-internaldocs-fb/inter
 
   plugins: [
     [require.resolve('docusaurus-lunr-search'), {
-        excludeRoutes: [
-        ]
+      excludeRoutes: [
+      ]
     }]
   ],
 
