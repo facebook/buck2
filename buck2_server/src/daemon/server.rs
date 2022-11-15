@@ -24,7 +24,6 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use allocative::Allocative;
-use allocative::FlameGraphBuilder;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
@@ -38,7 +37,6 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::error::reset_soft_error_counters;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::ControlEvent;
@@ -73,6 +71,7 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::ctx::ServerCommandContext;
+use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
 use crate::jemalloc_stats::jemalloc_stats;
@@ -230,7 +229,7 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
 }
 
 #[derive(Allocative)]
-struct BuckdServerData {
+pub(crate) struct BuckdServerData {
     /// The flag that is set to true when server is shutting down.
     stop_accepting_requests: AtomicBool,
     #[allocative(skip)]
@@ -937,33 +936,13 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.check_if_accepting_requests()?;
 
-        let inner = req.into_inner();
-
-        let this = self.0.dupe();
-
         let res: anyhow::Result<AllocativeResponse> = try {
-            tokio::task::spawn_blocking(move || {
-                let path = AbsPathBuf::try_from(inner.output_path)?;
-                let mut graph = FlameGraphBuilder::default();
-                // TODO(nga): this can take a long time. Emit some progress.
-                graph.visit_global_roots();
-                graph.visit_root(&this);
-                let fg = graph.finish();
-                fs_util::create_dir_if_not_exists(&path)?;
-                fs_util::write(path.join("flamegraph.src"), &fg.flamegraph())?;
-                let mut fg_svg = Vec::new();
-                inferno::flamegraph::from_reader(
-                    &mut inferno::flamegraph::Options::default(),
-                    fg.flamegraph().as_bytes(),
-                    &mut fg_svg,
-                )?;
-                fs_util::write(path.join("flamegraph.svg"), &fg_svg)?;
-
-                fs_util::write(path.join("warnings.txt"), fg.warnings())?;
-
-                anyhow::Ok(AllocativeResponse {})
-            })
-            .await??
+            spawn_allocative(
+                self.0.dupe(),
+                AbsPathBuf::try_from(req.into_inner().output_path)?,
+            )
+            .await?;
+            AllocativeResponse {}
         };
 
         Ok(result_to_response_stream(res))

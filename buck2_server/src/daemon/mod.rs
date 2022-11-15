@@ -9,12 +9,11 @@
 
 pub mod check_working_dir;
 pub mod common;
+pub mod daemon_tcp;
 pub mod dice_dump;
 pub mod disk_state;
 pub mod forkserver;
 pub mod panic;
-pub mod state;
-
-pub mod daemon_tcp;
-
 pub mod server;
+pub(crate) mod server_allocative;
+pub mod state;
