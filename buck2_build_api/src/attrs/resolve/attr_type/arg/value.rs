@@ -151,7 +151,7 @@ impl ResolvedMacro {
                 ))
             }
             ConfiguredMacro::UserUnkeyedPlaceholder(name) => {
-                let provider = ctx.resolve_unkeyed_placeholder(name).ok_or_else(|| {
+                let provider = ctx.resolve_unkeyed_placeholder(name)?.ok_or_else(|| {
                     ResolvedMacroError::UnkeyedPlaceholderUnresolved(name.to_owned())
                 })?;
                 Ok(ResolvedMacro::ArgLike(provider))

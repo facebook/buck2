@@ -225,17 +225,17 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn resolve_unkeyed_placeholder(
             &self,
             name: &str,
-        ) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike>> {
+        ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike>>> {
             for providers in self.deps.values() {
                 if let Some(placeholders) =
                     FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
                 {
                     if let Some(value) = placeholders.unkeyed_variables().get(name) {
-                        return Some(*value);
+                        return Ok(Some(*value));
                     }
                 }
             }
-            None
+            Ok(None)
         }
 
         fn resolve_query(&self, _query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {

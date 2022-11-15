@@ -40,7 +40,7 @@ pub trait AttrResolutionContext<'v> {
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>;
+    ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>>;
 
     /// Provides the result of the query. This will only provide results for queries that are reported during the configured attr traversal.
     // TODO(cjhopman): Ideally, we wouldn't need to split query attr resolution in this way, but processing queries is an async operation and the starlark Heap cannot be used in async code.

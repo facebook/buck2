@@ -129,8 +129,12 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>> {
-        resolve_unkeyed_placeholder(&self.dep_analysis_results, name, self.module)
+    ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>> {
+        Ok(resolve_unkeyed_placeholder(
+            &self.dep_analysis_results,
+            name,
+            self.module,
+        ))
     }
 
     fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
