@@ -107,7 +107,11 @@ def cxx_link(
         allow_args = True,
     )
     command = cxx_link_cmd(ctx)
-    command.add("-o", output.as_output())
+    if linker_info.type == "windows":
+        command.add("/Brepro")
+        command.add(cmd_args(output.as_output(), format = "/OUT:{}"))
+    else:
+        command.add("-o", output.as_output())
     command.add(cmd_args(argfile, format = "@{}"))
     command.hidden([hidden])
     category = "cxx_link"
