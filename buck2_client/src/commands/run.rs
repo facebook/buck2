@@ -65,13 +65,15 @@ pub struct RunCommand {
 
     #[clap(
         long = "command-args-file",
-        help = "Write the command to a file instead of executing it."
+        help = "Write the command to a file instead of executing it.",
+        group = "exec_options"
     )]
     command_args_file: Option<String>,
 
     #[clap(
         long = "chdir",
-        help = "Set the current working directory of the executable being run"
+        help = "Set the current working directory of the executable being run",
+        group = "exec_options"
     )]
     chdir: Option<String>,
 
@@ -84,7 +86,7 @@ pub struct RunCommand {
     /// Instead of running the command, print out the command
     /// formatted for shell interpolation, use as: $(buck2 run --emit-shell ...)
     #[cfg(unix)]
-    #[clap(long)]
+    #[clap(long, group = "exec_options")]
     emit_shell: bool,
 }
 
