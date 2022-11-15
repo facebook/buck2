@@ -220,7 +220,7 @@ impl FileChangeTracker {
         self.paths_to_dirty.insert(PathMetadataKey(path));
     }
 
-    fn file_existence_modify(&mut self, path: CellPath) {
+    pub fn file_added_or_removed(&mut self, path: CellPath) {
         let parent = path
             .parent()
             .unwrap_or_else(|| panic_expected_parent(&path));
@@ -229,7 +229,7 @@ impl FileChangeTracker {
         self.dirs_to_dirty.insert(ReadDirKey(parent));
     }
 
-    fn dir_existence_modify(&mut self, path: CellPath) {
+    pub fn dir_added_or_removed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
         if let Some(parent) = path.parent() {
             // The above can be None (validly!) if we have a cell we either create or delete.
@@ -246,11 +246,11 @@ impl FileChangeTracker {
     }
 
     pub fn file_removed(&mut self, path: CellPath) {
-        self.file_existence_modify(path)
+        self.file_added_or_removed(path)
     }
 
     pub fn file_added(&mut self, path: CellPath) {
-        self.file_existence_modify(path)
+        self.file_added_or_removed(path)
     }
 
     pub fn dir_changed(&mut self, path: CellPath) {
@@ -259,11 +259,11 @@ impl FileChangeTracker {
     }
 
     pub fn dir_added(&mut self, path: CellPath) {
-        self.dir_existence_modify(path)
+        self.dir_added_or_removed(path)
     }
 
     pub fn dir_removed(&mut self, path: CellPath) {
-        self.dir_existence_modify(path)
+        self.dir_added_or_removed(path)
     }
 }
 
