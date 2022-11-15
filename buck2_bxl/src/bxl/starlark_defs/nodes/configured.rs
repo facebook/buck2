@@ -38,6 +38,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
+use once_cell::sync::OnceCell;
 use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -60,6 +61,7 @@ use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrResolutionContext;
 
 mod attr_resolution_ctx;
 
@@ -128,7 +130,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         ctx: &'v BxlContext<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkLazyResolvedAttrContext<'v>> {
-        Ok(StarlarkLazyResolvedAttrContext::new(this, ctx, eval))
+        Ok(StarlarkLazyResolvedAttrContext::new(
+            this,
+            ctx,
+            eval.module(),
+        ))
     }
 
     /// Returns a struct of all the resolved attributes of this target node. The structs fields are the
@@ -387,19 +393,20 @@ pub struct StarlarkLazyResolvedAttrContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    ctx: &'v BxlContext<'v>,
+    configured_node: &'v ConfiguredTargetNode,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    configured_target_node: &'v StarlarkConfiguredTargetNode,
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    module: &'v Module,
+    resolution_ctx: LazyAttrResolutionContext<'v>,
 }
 
 impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrContext<'v> {
     starlark_type!("lazy_resolved_attr_ctx");
+
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(resolved_attr_ctx_methods)
+    }
 }
 
 impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrContext<'v> {
@@ -422,14 +429,38 @@ impl<'v> UnpackValue<'v> for &'v StarlarkLazyResolvedAttrContext<'v> {
 
 impl<'v> StarlarkLazyResolvedAttrContext<'v> {
     pub fn new(
-        configured_target_node: &'v StarlarkConfiguredTargetNode,
+        configured_node: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        module: &'v Module,
     ) -> StarlarkLazyResolvedAttrContext<'v> {
-        Self {
+        let configured_node = &configured_node.0;
+        let resolution_ctx = LazyAttrResolutionContext {
+            module,
+            configured_node,
             ctx,
-            configured_target_node,
-            module: eval.module(),
+            dep_analysis_results: OnceCell::new(),
+            query_results: OnceCell::new(),
+        };
+
+        Self {
+            configured_node,
+            resolution_ctx,
         }
+    }
+}
+
+#[starlark_module]
+fn resolved_attr_ctx_methods(builder: &mut MethodsBuilder) {
+    /// Gets a single resolved attribute.
+    fn get<'v>(
+        this: &StarlarkLazyResolvedAttrContext<'v>,
+        attr: &str,
+    ) -> anyhow::Result<Option<Value<'v>>> {
+        Ok(
+            match this.configured_node.get(attr, AttrInspectOptions::All) {
+                Some(attr) => Some(attr.resolve_single(&this.resolution_ctx)?),
+                None => None,
+            },
+        )
     }
 }
