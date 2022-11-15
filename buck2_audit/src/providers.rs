@@ -63,7 +63,7 @@ impl AuditSubcommand for AuditProvidersCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
-                self.server_execute_with_dice(client_ctx, server_ctx, ctx)
+                self.server_execute_with_dice(client_ctx, &**server_ctx, ctx)
             })
             .await
     }
@@ -83,7 +83,7 @@ impl AuditProvidersCommand {
     async fn server_execute_with_dice(
         &self,
         client_ctx: ClientContext,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<()> {
         let cells = ctx.get_cell_resolver().await?;

@@ -300,9 +300,9 @@ impl ServerCommandTemplate for DocsServerCommand {
     type EndEvent = buck2_data::DocsCommandEnd;
     type Response = UnstableDocsResponse;
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         docs(server_ctx, ctx, &self.req).await
@@ -315,7 +315,7 @@ impl ServerCommandTemplate for DocsServerCommand {
 }
 
 async fn docs(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     dice_ctx: DiceTransaction,
     request: &UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {

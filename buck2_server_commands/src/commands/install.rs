@@ -155,9 +155,9 @@ impl ServerCommandTemplate for InstallServerCommand {
         }
     }
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         install(server_ctx, ctx, &self.req).await
@@ -170,7 +170,7 @@ impl ServerCommandTemplate for InstallServerCommand {
 }
 
 async fn install(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
@@ -247,7 +247,7 @@ async fn install(
         }
     }
 
-    let install_log_dir = &get_installer_log_directory(&*server_ctx, &ctx).await?;
+    let install_log_dir = &get_installer_log_directory(server_ctx, &ctx).await?;
 
     let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
     for (installer_label, install_info_vector) in &installer_to_files_map {

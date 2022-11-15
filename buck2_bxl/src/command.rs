@@ -79,9 +79,9 @@ impl ServerCommandTemplate for BxlServerCommand {
         buck2_data::BxlCommandEnd { bxl_label }
     }
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         bxl(server_ctx, ctx, &self.req).await
@@ -93,7 +93,7 @@ impl ServerCommandTemplate for BxlServerCommand {
 }
 
 async fn bxl(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &BxlRequest,
 ) -> anyhow::Result<cli_proto::BxlResponse> {

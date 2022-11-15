@@ -593,7 +593,7 @@ pub(crate) async fn run_lsp_server_command(
     };
     span_async(start_event, async move {
         let result = ctx
-            .with_dice_ctx(|server_ctx, ctx| run_lsp_server(server_ctx, ctx, req))
+            .with_dice_ctx(|server_ctx, ctx| run_lsp_server(&**server_ctx, ctx, req))
             .await;
         let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
         (result, end_event)
@@ -603,7 +603,7 @@ pub(crate) async fn run_lsp_server_command(
 
 /// Run an LSP server for a given client.
 async fn run_lsp_server(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     dice_ctx: DiceTransaction,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {

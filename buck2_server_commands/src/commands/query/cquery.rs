@@ -59,9 +59,9 @@ impl ServerCommandTemplate for CqueryServerCommand {
         }
     }
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         cquery(server_ctx, ctx, &self.req).await
@@ -73,7 +73,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
 }
 
 async fn cquery(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {

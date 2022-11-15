@@ -201,9 +201,9 @@ impl ServerCommandTemplate for TestServerCommand {
         }
     }
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         test(server_ctx, ctx, &self.req).await
@@ -211,7 +211,7 @@ impl ServerCommandTemplate for TestServerCommand {
 }
 
 async fn test(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &TestRequest,
 ) -> anyhow::Result<TestResponse> {

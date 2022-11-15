@@ -128,9 +128,9 @@ impl ServerCommandTemplate for ProfileServerCommand {
     type EndEvent = buck2_data::ProfileCommandEnd;
     type Response = cli_proto::ProfileResponse;
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         let output: PathBuf = self.req.destination_path.clone().into();
@@ -184,7 +184,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
 }
 
 async fn generate_profile(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     client_ctx: &ClientContext,
     pattern: &buck2_data::TargetPattern,

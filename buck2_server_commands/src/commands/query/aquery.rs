@@ -39,9 +39,9 @@ impl ServerCommandTemplate for AqueryServerCommand {
     type EndEvent = buck2_data::AqueryCommandEnd;
     type Response = cli_proto::AqueryResponse;
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         aquery(server_ctx, ctx, &self.req).await
@@ -53,7 +53,7 @@ impl ServerCommandTemplate for AqueryServerCommand {
 }
 
 async fn aquery(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &AqueryRequest,
 ) -> anyhow::Result<AqueryResponse> {

@@ -88,9 +88,9 @@ impl ServerCommandTemplate for BuildServerCommand {
         }
     }
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         build(server_ctx, ctx, &self.req).await
@@ -109,7 +109,7 @@ enum TargetResolutionConfig {
 }
 
 async fn build(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &BuildRequest,
 ) -> anyhow::Result<cli_proto::BuildResponse> {

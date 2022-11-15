@@ -43,9 +43,9 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
     type EndEvent = buck2_data::ProfileCommandEnd;
     type Response = cli_proto::ProfileResponse;
 
-    async fn command(
+    async fn command<'v>(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &'v dyn ServerCommandContextTrait,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         match self
