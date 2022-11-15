@@ -96,7 +96,11 @@ impl UnregisteredSymlinkedDirAction {
     fn unpack_args(
         srcs: Value,
     ) -> Option<(Vec<(ArtifactGroup, PathBuf)>, SmallSet<ArtifactGroup>)> {
-        Dict::from_value(srcs)?
+        let srcs = Dict::from_value(srcs)?;
+
+        // This assignment doesn't look like it should be necessary, but we get an error if we
+        // don't do it.
+        let res = srcs
             .iter()
             .map(|(k, v)| {
                 let (artifact, associates) = v
@@ -112,7 +116,7 @@ impl UnregisteredSymlinkedDirAction {
                 ))
             })
             .fold_options(
-                (Vec::new(), SmallSet::new()),
+                (Vec::with_capacity(srcs.len()), SmallSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
                     assoc.iter().for_each(|a| {
@@ -120,7 +124,9 @@ impl UnregisteredSymlinkedDirAction {
                     });
                     (aps, assocs)
                 },
-            )
+            );
+
+        res
     }
 
     pub fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
