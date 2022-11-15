@@ -134,9 +134,6 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # Perform makes compilation in situ.
     "uses_make",
 
-    # Runs mvn, which isn't in third-party.
-    "uses_maven",
-
     # Like it says in the label
     "uses_mkscratch",
 
