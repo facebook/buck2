@@ -29,15 +29,13 @@ use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
 
+use crate::file_watcher::stats::FileWatcherStats;
 use crate::file_watcher::watchman::core::SyncableQuery;
 use crate::file_watcher::watchman::core::SyncableQueryProcessor;
 use crate::file_watcher::watchman::core::WatchmanEvent;
 use crate::file_watcher::watchman::core::WatchmanEventType;
 use crate::file_watcher::watchman::core::WatchmanKind;
 use crate::file_watcher::FileWatcher;
-
-const MAX_WATCHMAN_MESSAGES: usize = 3;
-const MAX_FILE_CHANGE_RECORDS: usize = 850;
 
 struct WatchmanQueryProcessor {
     cells: CellResolver,
@@ -58,76 +56,35 @@ impl WatchmanQueryProcessor {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransaction)> {
-        let mut stats = buck2_data::FileWatcherStats {
-            branched_from_revision: mergebase.clone(),
-            ..Default::default()
-        };
-
         let mut handler = FileChangeTracker::new();
-        let mut iter = events.into_iter();
+        let mut stats = FileWatcherStats::new(events.len(), mergebase.as_deref());
 
-        let mut file_changes = if iter.len() > MAX_FILE_CHANGE_RECORDS {
-            buck2_data::FileChanges {
-                data: Some(buck2_data::file_changes::Data::NoRecordReason(format!(
-                    "Too many files changed ({}, max {})",
-                    iter.len(),
-                    MAX_FILE_CHANGE_RECORDS
-                ))),
-            }
-        } else {
-            buck2_data::FileChanges {
-                data: Some(buck2_data::file_changes::Data::Records(
-                    buck2_data::FileWatcherEvents { events: vec![] },
-                )),
-            }
-        };
+        for ev in events {
+            // If the path is invalid, then walk up all the way until you find a valid dir to
+            // invalidate listings. We don't need to invalidate the file itself, as we can't
+            // read invalid files.
 
-        {
-            let mut messages = 0;
+            let (path, event) = match ProjectRelativePath::new(&ev.path) {
+                Ok(path) => (path, ChangeEvent::Watchman(&ev)),
+                Err(_) => {
+                    // If we error out here then we might miss other changes. This seems like
+                    // it shouldn't happen, since the empty path should always be a valid path.
+                    let path = find_first_valid_parent(&ev.path)
+                        .with_context(|| {
+                            format!("Invalid path had no valid parent: `{}`", ev.path.display())
+                        })
+                        .unwrap();
 
-            let mut file_changes = match file_changes.data {
-                Some(buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
-                    ref mut events,
-                })) => Some(events),
-                _ => None,
+                    (path, ChangeEvent::SyntheticDirectoryChange)
+                }
             };
 
-            while let Some(ev) = iter.next() {
-                // If the path is invalid, then walk up all the way until you find a valid dir to
-                // invalidate listings. We don't need to invalidate the file itself, as we can't
-                // read invalid files.
-
-                let (path, event) = match ProjectRelativePath::new(&ev.path) {
-                    Ok(path) => (path, ChangeEvent::Watchman(&ev)),
-                    Err(_) => {
-                        // If we error out here then we might miss other changes. This seems like
-                        // it shouldn't happen, since the empty path should always be a valid path.
-                        let path = find_first_valid_parent(&ev.path)
-                            .with_context(|| {
-                                format!("Invalid path had no valid parent: `{}`", ev.path.display())
-                            })
-                            .unwrap();
-
-                        (path, ChangeEvent::SyntheticDirectoryChange)
-                    }
-                };
-
-                self.process_one_change(
-                    path,
-                    event,
-                    &mut handler,
-                    &mut stats,
-                    file_changes.as_deref_mut(),
-                    &mut messages,
-                    iter.len(),
-                )?;
-            }
+            self.process_one_change(path, event, &mut handler, &mut stats)?;
         }
 
-        stats.file_changes_since_last_build = Some(file_changes);
         handler.write_to_dice(&ctx)?;
 
-        Ok((stats, ctx))
+        Ok((stats.finish(), ctx))
     }
 
     fn process_one_change(
@@ -135,10 +92,7 @@ impl WatchmanQueryProcessor {
         path: &ProjectRelativePath,
         ev: ChangeEvent<'_>,
         handler: &mut FileChangeTracker,
-        stats: &mut buck2_data::FileWatcherStats,
-        file_changes: Option<&mut Vec<buck2_data::FileWatcherEvent>>,
-        messages: &mut usize,
-        events_remaining: usize,
+        stats: &mut FileWatcherStats,
     ) -> anyhow::Result<()> {
         let cell_path = self.cells.get_cell_path(path)?;
 
@@ -149,24 +103,9 @@ impl WatchmanQueryProcessor {
             .is_match(cell_path.path());
 
         info!("Watchman: {:?} (ignore = {})", ev, ignore);
-        stats.events_total += 1;
 
         if !ignore {
-            stats.events_processed += 1;
-            let mut event_for_log = buck2_data::FileWatcherEvent {
-                path: cell_path.to_string(),
-                ..Default::default()
-            };
-
-            if *messages < MAX_WATCHMAN_MESSAGES {
-                *messages += 1;
-                if *messages == MAX_WATCHMAN_MESSAGES && events_remaining > 0 {
-                    eprintln!("{} additional file changes", events_remaining + 1);
-                } else {
-                    eprintln!("File changed: {}", cell_path);
-                }
-            }
-
+            let cell_path_str = cell_path.to_string();
             let log_kind;
             let log_event;
 
@@ -239,11 +178,7 @@ impl WatchmanQueryProcessor {
                 }
             };
 
-            if let Some(file_changes) = file_changes {
-                event_for_log.event = log_event as i32;
-                event_for_log.kind = log_kind as i32;
-                file_changes.push(event_for_log);
-            }
+            stats.add(cell_path_str, log_event, log_kind);
         }
 
         Ok(())

@@ -21,6 +21,7 @@ use dice::DiceTransaction;
 
 use crate::file_watcher::watchman::interface::WatchmanFileWatcher;
 
+mod stats;
 mod watchman;
 
 #[async_trait]
