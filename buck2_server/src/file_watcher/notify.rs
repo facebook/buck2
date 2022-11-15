@@ -137,16 +137,14 @@ impl NotifyFileData {
             if ignore || change_type == ChangeType::None {
                 self.stats.add_ignored();
             } else {
-                // We happen to know that file_added and file_removed do the same thing,
-                // so we just fire off one of them (added) to cause changes.
                 match change_type {
                     ChangeType::None => {}
                     ChangeType::FileContents => self.changed.file_changed(cell_path),
-                    ChangeType::FileExistence => self.changed.file_added(cell_path),
-                    ChangeType::DirExistence => self.changed.dir_added(cell_path),
+                    ChangeType::FileExistence => self.changed.file_added_or_removed(cell_path),
+                    ChangeType::DirExistence => self.changed.dir_added_or_removed(cell_path),
                     ChangeType::SomeExistence | ChangeType::Unknown => {
-                        self.changed.dir_added(cell_path.clone());
-                        self.changed.file_added(cell_path)
+                        self.changed.dir_added_or_removed(cell_path.clone());
+                        self.changed.file_added_or_removed(cell_path)
                     }
                 }
                 // The event type and watcher kind are just made up, but that's not a big deal
