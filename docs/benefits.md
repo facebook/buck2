@@ -8,7 +8,7 @@ Buck2 is an improvement over the existing Buck1 build system. In this post we la
 
 <FbInternalOnly>
 
-For reports from real users see [our testimonials page](testimonials.md), which includes Workplace posts giving full context.
+For reports from real users see [our testimonials page](testimonials.fb.md), which includes Workplace posts giving full context.
 
 </FbInternalOnly>
 
