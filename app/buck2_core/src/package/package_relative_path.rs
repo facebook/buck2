@@ -336,6 +336,10 @@ impl PackageRelativePathBuf {
         Self(ForwardRelativePathBuf::unchecked_new(s))
     }
 
+    pub fn as_path(&self) -> &PackageRelativePath {
+        self
+    }
+
     /// Creates a new 'PackageRelativePathBuf' with a given capacity used to create the internal
     /// 'String'. See 'with_capacity' defined on 'ForwardRelativePathBuf'
     pub fn with_capacity(cap: usize) -> Self {
