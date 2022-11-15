@@ -27,7 +27,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
             extension,
         ))
 
-    output = ctx.actions.declare_output(binary_jar.basename[:-4] + "_symlink.jar")
+    output = ctx.actions.declare_output("symlink/{}".format(binary_jar.short_path))
     ctx.actions.symlink_file(output, binary_jar)
 
     abi = None
