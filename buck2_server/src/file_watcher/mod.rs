@@ -19,8 +19,10 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use dice::DiceTransaction;
 
+use crate::file_watcher::notify::NotifyFileWatcher;
 use crate::file_watcher::watchman::interface::WatchmanFileWatcher;
 
+mod notify;
 mod stats;
 mod watchman;
 
@@ -42,6 +44,11 @@ impl dyn FileWatcher {
             Some("watchman") | None => Ok(Arc::new(WatchmanFileWatcher::new(
                 project_root.root(),
                 root_config,
+                cells,
+                ignore_specs,
+            )?)),
+            Some("notify") => Ok(Arc::new(NotifyFileWatcher::new(
+                project_root,
                 cells,
                 ignore_specs,
             )?)),

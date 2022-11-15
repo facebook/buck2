@@ -243,6 +243,7 @@ pub(crate) fn display_event(
 fn display_file_watcher(provider: i32) -> &'static str {
     match buck2_data::FileWatcherProvider::from_i32(provider) {
         Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
+        Some(buck2_data::FileWatcherProvider::RustNotify) => "notify",
         None => "unknown mechanism",
     }
 }

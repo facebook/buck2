@@ -969,7 +969,11 @@ message FileWatcherStart {
   FileWatcherProvider provider = 1;
 }
 
-enum FileWatcherProvider { WATCHMAN = 0; }
+enum FileWatcherProvider {
+  WATCHMAN = 0;
+  // The Rust `notify` crate
+  RUST_NOTIFY = 1;
+}
 
 enum FileWatcherEventType {
   CREATE = 0;
