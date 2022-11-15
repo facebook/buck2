@@ -576,6 +576,7 @@ message ProfileResponse {
 }
 
 message AllocativeRequest {
+  ClientContext context = 2;
   string output_path = 1;
 }
 

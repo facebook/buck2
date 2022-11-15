@@ -504,19 +504,6 @@ fn error_to_response_stream(e: anyhow::Error) -> Response<ResponseStream> {
     )))))
 }
 
-fn result_to_response_stream<R: Into<command_result::Result>>(
-    result: anyhow::Result<R>,
-) -> Response<ResponseStream> {
-    match result {
-        Ok(result) => Response::new(Box::pin(stream::once(future::ready(Ok(CommandProgress {
-            progress: Some(command_progress::Progress::Result(CommandResult {
-                result: Some(result.into()),
-            })),
-        }))))),
-        Err(e) => error_to_response_stream(e),
-    }
-}
-
 /// tonic requires the response for a streaming api to be a Sync Stream. With async/await, that requirement is really difficult
 /// to meet. This simple wrapper allows us to wrap a non-Sync stream into a Sync one (the inner stream is never accessed in a
 /// non-exclusive manner).
@@ -936,16 +923,29 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.check_if_accepting_requests()?;
 
-        let res: anyhow::Result<AllocativeResponse> = try {
-            spawn_allocative(
-                self.0.dupe(),
-                AbsPathBuf::try_from(req.into_inner().output_path)?,
-            )
-            .await?;
-            AllocativeResponse {}
+        let res: anyhow::Result<(_, _)> = try {
+            let trace_id = req.get_ref().client_context()?.trace_id.parse()?;
+            self.0.daemon_state.prepare_events(trace_id).await?
         };
 
-        Ok(result_to_response_stream(res))
+        let (event_source, dispatcher) = match res {
+            Ok((event_source, dispatcher)) => (event_source, dispatcher),
+            Err(e) => return Ok(error_to_response_stream(e)),
+        };
+
+        let this = self.0.dupe();
+        Ok(
+            streaming(req, event_source, dispatcher.dupe(), |req| async move {
+                let result = try {
+                    spawn_allocative(this, AbsPathBuf::try_from(req.output_path)?).await?;
+                    AllocativeResponse {}
+                };
+
+                let result: CommandResult = result_to_command_result(result);
+                dispatcher.control_event(ControlEvent::CommandResult(result));
+            })
+            .await,
+        )
     }
 
     type UnstableDocsStream = ResponseStream;

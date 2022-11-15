@@ -267,5 +267,6 @@ define_request!(GenericRequest, has(context));
 define_request!(UnstableDocsRequest, has(context));
 define_request!(ProfileRequest, has(context));
 define_request!(MaterializeRequest, has(context));
+define_request!(AllocativeRequest, has(context));
 
 define_request!(InstallRequest, has(context, build_options));

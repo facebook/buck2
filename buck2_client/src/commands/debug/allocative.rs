@@ -48,10 +48,12 @@ impl StreamingCommand for AllocativeCommand {
         _matches: &ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
+        let context = ctx.empty_client_context()?;
         buckd
             .with_flushing()
             .allocative(
                 AllocativeRequest {
+                    context: Some(context),
                     output_path: self
                         .output
                         .resolve(&ctx.working_dir)
