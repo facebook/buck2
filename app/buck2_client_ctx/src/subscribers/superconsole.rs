@@ -715,7 +715,7 @@ impl Component for SessionInfoComponent {
                     }
                 }
                 if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
-                    headers.push(Line::unstyled("Test Session:")?);
+                    headers.push(Line::unstyled("Test UI:")?);
                     ids.push(Span::new_unstyled(info)?);
                 }
                 // pad all headers to the max width.
@@ -948,7 +948,8 @@ mod tests {
         let full = SessionInfoComponent.draw_unchecked(
             &state,
             Dimensions {
-                width: 114, // "Test Session: " + 100 chars
+                // Enough to print everything on one line (we need 109 in fbcode and 110 in OSS)
+                width: 110,
                 height: 1,
             },
             DrawMode::Normal,
@@ -959,7 +960,8 @@ mod tests {
         let multiline = SessionInfoComponent.draw_unchecked(
             &state,
             Dimensions {
-                width: 100, // Just long enough to print all
+                // Just long enough to print each on one line.
+                width: 100,
                 height: 1,
             },
             DrawMode::Normal,
