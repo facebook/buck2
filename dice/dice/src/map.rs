@@ -14,8 +14,8 @@ use anymap::any::Any;
 use anymap::Map;
 use gazebo::prelude::*;
 
+use crate::incremental::ErasedEngine;
 use crate::incremental::IncrementalComputeProperties;
-use crate::introspection::graph::EngineForIntrospection;
 use crate::IncrementalEngine;
 
 /// A dynamically typed Map for DICE to map computations to their key, value
@@ -24,7 +24,7 @@ use crate::IncrementalEngine;
 pub struct DiceMap {
     #[allocative(skip)]
     typed: Map<dyn Any + Sync + Send>,
-    erased: Vec<Arc<dyn EngineForIntrospection + Send + Sync + 'static>>,
+    erased: Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>,
 }
 
 impl DiceMap {
@@ -56,23 +56,26 @@ impl DiceMap {
             let cache = new();
             self.typed.insert::<Arc<IncrementalEngine<S>>>(cache.dupe());
             self.erased
-                .push(cache.dupe() as Arc<dyn EngineForIntrospection + Send + Sync + 'static>);
+                .push(cache.dupe() as Arc<dyn ErasedEngine + Send + Sync + 'static>);
             cache
         }
     }
 
-    pub(crate) fn engines(&self) -> &[Arc<dyn EngineForIntrospection + Send + Sync + 'static>] {
+    pub(crate) fn engines(&self) -> &[Arc<dyn ErasedEngine + Send + Sync + 'static>] {
         self.erased.as_slice()
     }
 
     pub(crate) fn key_count(&self) -> usize {
-        self.erased.iter().map(|e| e.len_for_introspection()).sum()
+        self.erased
+            .iter()
+            .map(|e| e.introspect().len_for_introspection())
+            .sum()
     }
 
     pub(crate) fn currently_running_key_count(&self) -> usize {
         self.erased
             .iter()
-            .map(|e| e.currently_running_key_count())
+            .map(|e| e.introspect().currently_running_key_count())
             .sum()
     }
 }

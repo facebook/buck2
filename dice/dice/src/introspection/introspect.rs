@@ -27,6 +27,7 @@ pub fn serialize_graph(
     let mut reg = NodeRegistry::new();
 
     for engine in &graph.introspectables {
+        let engine = engine.introspect();
         for (k, vs) in engine.edges() {
             let k = reg.map(k);
 
@@ -63,12 +64,12 @@ where
     let num_nodes = graph
         .introspectables
         .iter()
-        .map(|engine| engine.len_for_introspection())
+        .map(|engine| engine.introspect().len_for_introspection())
         .sum();
 
     let mut seq = writer.serialize_seq(Some(num_nodes))?;
     for engine in &graph.introspectables {
-        for node in engine.nodes(&mut reg) {
+        for node in engine.introspect().nodes(&mut reg) {
             seq.serialize_element(&node)?;
         }
     }

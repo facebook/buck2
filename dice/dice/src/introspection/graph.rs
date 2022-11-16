@@ -18,7 +18,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-use allocative::Allocative;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use serde::de::Error;
@@ -30,10 +29,11 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::dice_task::DiceTaskStateForDebugging;
+use crate::incremental::ErasedEngine;
 use crate::introspection::serialize_dense_graph;
 
 pub struct GraphIntrospectable {
-    pub(crate) introspectables: Vec<Arc<dyn EngineForIntrospection + Send + Sync + 'static>>,
+    pub(crate) introspectables: Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>,
 }
 
 impl Serialize for GraphIntrospectable {
@@ -172,7 +172,7 @@ pub struct SerializedGraphNodesForKey {
     pub nodes: BTreeMap<VersionNumber, Option<SerializedGraphNode>>,
 }
 
-pub(crate) trait EngineForIntrospection: Allocative {
+pub(crate) trait EngineForIntrospection {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
     fn keys_currently_running<'a>(

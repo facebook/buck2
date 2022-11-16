@@ -65,6 +65,7 @@ use crate::incremental::history::CellHistory;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRanges;
+use crate::introspection::graph::EngineForIntrospection;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
@@ -115,6 +116,19 @@ pub(crate) struct IncrementalEngine<K: IncrementalComputeProperties> {
 impl<K: IncrementalComputeProperties> Debug for IncrementalEngine<K> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IncrementalEngine").finish_non_exhaustive()
+    }
+}
+
+pub(crate) trait ErasedEngine: Allocative {
+    fn introspect(&self) -> &dyn EngineForIntrospection;
+}
+
+impl<K> ErasedEngine for IncrementalEngine<K>
+where
+    K: IncrementalComputeProperties,
+{
+    fn introspect(&self) -> &dyn EngineForIntrospection {
+        self
     }
 }
 
