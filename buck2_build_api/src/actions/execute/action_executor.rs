@@ -37,6 +37,8 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::output_size::OutputCountAndBytes;
+use buck2_execute::output_size::OutputSize;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_interpreter::dice::HasEvents;
@@ -64,6 +66,22 @@ use crate::calculation::Calculation;
 /// This is the result of the action as exposed to other things in the dice computation.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
 pub struct ActionOutputs(Arc<ActionOutputsData>);
+
+impl OutputSize for ActionOutputs {
+    fn calc_output_count_and_bytes(&self) -> OutputCountAndBytes {
+        let mut total_count = 0;
+        let mut total_bytes = 0;
+        for v in self.values() {
+            let count_and_bytes = v.calc_output_count_and_bytes();
+            total_count += count_and_bytes.count;
+            total_bytes += count_and_bytes.bytes;
+        }
+        OutputCountAndBytes {
+            count: total_count,
+            bytes: total_bytes,
+        }
+    }
+}
 
 #[derive(Derivative, Debug, Allocative)]
 #[derivative(PartialEq, Eq)]

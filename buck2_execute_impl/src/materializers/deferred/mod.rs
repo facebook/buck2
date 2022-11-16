@@ -57,6 +57,7 @@ use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ReConnectionManager;
 use chrono::Duration;
 use chrono::Utc;
@@ -1263,6 +1264,9 @@ impl DeferredMaterializerCommandProcessor {
                                         .map(|digest| digest.to_string()),
                                     success: error.is_none(),
                                     error,
+                                    method: Some(
+                                        buck2_data::MaterializationMethod::CasDownload as i32,
+                                    ),
                                 },
                             )
                         },
@@ -1304,17 +1308,51 @@ impl DeferredMaterializerCommandProcessor {
                 })?;
             }
             ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => {
-                self.io_executor
-                    .execute_io_inline(|| {
-                        for a in copied_artifacts {
-                            materialize_files(
-                                a.dest_entry.as_ref(),
-                                &self.fs.root().join(&a.src),
-                                &self.fs.root().join(&a.dest),
-                            )?;
-                        }
-                        Ok(())
-                    })
+                event_dispatcher
+                    .span_async(
+                        buck2_data::MaterializationStart {
+                            action_digest: None,
+                        },
+                        async {
+                            let mut total_bytes: u64 = 0;
+                            let mut file_count: u64 = 0;
+                            let res = self
+                                .io_executor
+                                .execute_io_inline(|| {
+                                    for a in copied_artifacts {
+                                        let count_and_bytes =
+                                            a.dest_entry.calc_output_count_and_bytes();
+                                        file_count += count_and_bytes.count;
+                                        total_bytes += count_and_bytes.bytes;
+
+                                        materialize_files(
+                                            a.dest_entry.as_ref(),
+                                            &self.fs.root().join(&a.src),
+                                            &self.fs.root().join(&a.dest),
+                                        )?;
+                                    }
+                                    Ok(())
+                                })
+                                .await;
+
+                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
+
+                            (
+                                res,
+                                buck2_data::MaterializationEnd {
+                                    action_digest: None,
+                                    file_count,
+                                    total_bytes,
+                                    path: path.as_str().to_owned(),
+                                    success: error.is_none(),
+                                    error,
+                                    method: Some(
+                                        buck2_data::MaterializationMethod::LocalCopy as i32,
+                                    ),
+                                },
+                            )
+                        },
+                    )
                     .await?;
             }
             ArtifactMaterializationMethod::Write {

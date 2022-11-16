@@ -90,6 +90,10 @@ fn main() -> io::Result<()> {
             "buck.data.ActionKind",
             "#[derive(::gazebo::variants::VariantName)]",
         )
+        .type_attribute(
+            "buck.data.MaterializationMethod",
+            "#[derive(::gazebo::variants::VariantName)]",
+        )
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
         .field_attribute(

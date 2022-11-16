@@ -183,7 +183,12 @@ impl CachingExecutor {
             return Ok(None);
         }
 
-        let output_bytes = result.outputs.values().calc_output_bytes();
+        let output_bytes = result
+            .outputs
+            .values()
+            .into_iter()
+            .map(|v| v.calc_output_count_and_bytes().bytes)
+            .sum();
 
         match &result.report.status {
             CommandExecutionStatus::Success {

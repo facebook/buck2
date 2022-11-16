@@ -157,7 +157,7 @@ async fn build_action_no_redirect(
                     });
                 }
 
-                output_size = outputs.values().calc_output_bytes();
+                output_size = outputs.calc_output_count_and_bytes().bytes;
                 action_result = Ok(outputs);
                 execution_kind = Some(meta.execution_kind.as_enum());
                 wall_time = Some(meta.timing.wall_time);

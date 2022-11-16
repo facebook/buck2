@@ -1257,6 +1257,11 @@ message MaterializationStart {
   optional string action_digest = 1;
 };
 
+enum MaterializationMethod {
+  MATERIALIZATION_METHOD_CAS_DOWNLOAD = 0;
+  MATERIALIZATION_METHOD_LOCAL_COPY = 1;
+}
+
 message MaterializationEnd {
   uint64 file_count = 1;
   uint64 total_bytes = 2;
@@ -1270,4 +1275,7 @@ message MaterializationEnd {
   bool success = 5;
   // An error, if any occurred.
   optional string error = 6;
+
+  // The type of entry that was materialized
+  optional MaterializationMethod method = 7;
 };
