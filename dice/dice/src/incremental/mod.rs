@@ -1086,6 +1086,7 @@ mod tests {
     use crate::StorageProperties;
     use crate::StorageType;
     use crate::ValueWithDeps;
+    use crate::VersionTracker;
     use crate::WeakDiceFutureHandle;
 
     #[tokio::test]
@@ -1107,11 +1108,14 @@ mod tests {
         };
         let engine = IncrementalEngine::new(EvaluatorFn::new(async move |k| eval_fn(k)));
 
+        let vt = VersionTracker::new();
+
         let eval_ctx = Arc::new(TransactionCtx::new(
-            VersionGuard {
-                version: VersionNumber::new(1),
-                minor_version_guard: MinorVersionGuard::testing_new(0),
-            },
+            VersionGuard::testing_new(
+                vt.dupe(),
+                VersionNumber::new(1),
+                MinorVersionGuard::testing_new(0),
+            ),
             VersionForWrites::testing_new(VersionNumber::new(2)),
             Changes::new(),
             ActiveTransactionCountGuard::testing_new(),
@@ -1658,11 +1662,13 @@ mod tests {
 
     #[tokio::test]
     async fn dirty_invalidates_rdeps_across_engines() -> anyhow::Result<()> {
+        let vt = VersionTracker::new();
         let ctx = Arc::new(TransactionCtx::new(
-            VersionGuard {
-                version: VersionNumber::new(0),
-                minor_version_guard: MinorVersionGuard::testing_new(0),
-            },
+            VersionGuard::testing_new(
+                vt.dupe(),
+                VersionNumber::new(0),
+                MinorVersionGuard::testing_new(0),
+            ),
             VersionForWrites::testing_new(VersionNumber::new(1)),
             Changes::new(),
             ActiveTransactionCountGuard::testing_new(),

@@ -18,7 +18,6 @@ use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
 use crate::incremental::versions::MinorVersion;
-use crate::incremental::versions::MinorVersionGuard;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
 use crate::incremental::versions::VersionNumber;
@@ -64,8 +63,7 @@ impl Drop for ActiveTransactionCountGuard {
 /// TODO express validity with lifetimes
 #[derive(Allocative)]
 pub(crate) struct TransactionCtx {
-    version: VersionNumber,
-    minor_version: MinorVersionGuard,
+    version_guard: VersionGuard,
     version_for_writes: VersionForWrites,
     changes: Mutex<Changes>,
     _active_transaction_count_guard: ActiveTransactionCountGuard,
@@ -73,14 +71,13 @@ pub(crate) struct TransactionCtx {
 
 impl TransactionCtx {
     pub(crate) fn new(
-        version: VersionGuard,
+        version_guard: VersionGuard,
         version_for_writes: VersionForWrites,
         changes: Changes,
         active_transaction_count_guard: ActiveTransactionCountGuard,
     ) -> Self {
         Self {
-            version: version.version,
-            minor_version: version.minor_version_guard,
+            version_guard,
             version_for_writes,
             changes: Mutex::new(changes),
             _active_transaction_count_guard: active_transaction_count_guard,
@@ -88,11 +85,11 @@ impl TransactionCtx {
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.version
+        self.version_guard.version
     }
 
     pub(crate) fn get_minor_version(&self) -> MinorVersion {
-        *self.minor_version
+        *self.version_guard.minor_version_guard
     }
 
     pub(crate) fn get_version_for_writes(&self) -> VersionNumber {
@@ -106,8 +103,11 @@ impl TransactionCtx {
     #[cfg(test)]
     pub(crate) fn testing_new(v: VersionNumber) -> Self {
         Self {
-            version: v,
-            minor_version: MinorVersionGuard::testing_new(0),
+            version_guard: VersionGuard::testing_new(
+                crate::VersionTracker::new(),
+                v,
+                crate::incremental::versions::MinorVersionGuard::testing_new(0),
+            ),
             version_for_writes: VersionForWrites::testing_new(v),
             changes: Mutex::new(Changes::new()),
             _active_transaction_count_guard: ActiveTransactionCountGuard::testing_new(),
@@ -120,7 +120,7 @@ impl TransactionCtx {
             let version_for_writes = self.get_version_for_writes();
             let num_changes = changed.ops().len();
             debug!(
-                old_version = ?self.version,
+                old_version = ?self.version_guard.version,
                 version_for_writes = ?version_for_writes,
                 msg = "committing new changes",
                 num_changes = num_changes
@@ -133,12 +133,12 @@ impl TransactionCtx {
 
         if is_changed {
             debug!(
-                old_version = %self.version,
+                old_version = %self.version_guard.version,
                 version_for_writes = %self.get_version_for_writes(),
                 msg = "committed new changes",
             );
         } else {
-            debug!(version = %self.version, msg = "no changes to commit");
+            debug!(version = %self.version_guard.version, msg = "no changes to commit");
             self.version_for_writes.rollback()
         }
     }
