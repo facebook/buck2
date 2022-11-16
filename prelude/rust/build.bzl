@@ -679,10 +679,9 @@ def _rustc_invoke(
     json_diag = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
     txt_diag = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
 
-    rustc_action = toolchain_info.rustc_action
+    rustc_action = cmd_args(toolchain_info.rustc_action)
 
     compile_cmd = cmd_args(
-        rustc_action,
         cmd_args(json_diag.as_output(), format = "--diag-json={}"),
         cmd_args(txt_diag.as_output(), format = "--diag-txt={}"),
         "--buck-target={}".format(ctx.label.raw_target()),
@@ -691,7 +690,9 @@ def _rustc_invoke(
     for k, v in crate_map.items():
         compile_cmd.add(cmd_args("--crate-map=", k, "=", str(v.raw_target()), delimiter = ""))
     for k, v in plain_env.items():
-        compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
+        # The env variable may have newlines in it (yuk), but when writing them to an @file,
+        # we can't escape the newlines. Therefore leave them on the command line
+        rustc_action.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():
         compile_cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
 
@@ -705,12 +706,13 @@ def _rustc_invoke(
 
     compile_cmd.add(rustc_cmd)
     compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
+    compile_cmd_file, extra_args = ctx.actions.write("{}-{}.args".format(prefix, diag), compile_cmd, allow_args = True)
 
     incremental_enabled = ctx.attrs.incremental_enabled
     local_only = (is_binary and link_cxx_binary_locally(ctx)) or incremental_enabled
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
     ctx.actions.run(
-        compile_cmd,
+        cmd_args(rustc_action, cmd_args(compile_cmd_file, format = "@{}")).hidden(compile_cmd, extra_args),
         local_only = local_only,
         category = "rustc",
         identifier = identifier,
