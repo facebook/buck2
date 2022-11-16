@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::io::Write;
+use std::iter;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -694,7 +695,7 @@ impl Component for SessionInfoComponent {
     fn draw_unchecked(
         &self,
         state: &State,
-        _dimensions: Dimensions,
+        dimensions: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         match state.get::<SessionInfo>() {
@@ -720,12 +721,37 @@ impl Component for SessionInfoComponent {
                 // pad all headers to the max width.
                 headers.justify();
                 headers.pad_lines_right(1);
-                headers
-                    .iter_mut()
-                    .zip(ids.into_iter())
-                    .for_each(|(header, id)| header.0.push(id));
 
-                Ok(headers)
+                let max_len = headers
+                    .iter()
+                    .zip(ids.iter())
+                    .map(|(header, id)| header.len() + id.len())
+                    .max()
+                    .unwrap_or(0);
+
+                let lines = if max_len > dimensions.width {
+                    headers
+                        .into_iter()
+                        .zip(ids.into_iter())
+                        .flat_map(|(header, id)| {
+                            iter::once(header).chain(iter::once(Line(vec![id])))
+                        })
+                        .collect()
+                } else {
+                    headers
+                        .iter_mut()
+                        .zip(ids.into_iter())
+                        .for_each(|(header, id)| header.0.push(id));
+                    headers
+                };
+
+                let max_len = lines.iter().map(|line| line.len()).max().unwrap_or(0);
+
+                Ok(if max_len > dimensions.width {
+                    vec![Line::unstyled("<Terminal too small for build details>")?]
+                } else {
+                    lines
+                })
             }
             Err(_) => Ok(vec![]),
         }
@@ -905,6 +931,52 @@ mod tests {
         console
             .handle_command_result(&cli_proto::CommandResult { result: None })
             .await?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_session_info() -> anyhow::Result<()> {
+        let info = SessionInfo {
+            trace_id: Some(TraceId::null()),
+            test_session: Some(buck2_data::TestSessionInfo {
+                info: (0..100).map(|_| "a").collect(),
+            }),
+        };
+        let state = superconsole::state![&info];
+
+        let full = SessionInfoComponent.draw_unchecked(
+            &state,
+            Dimensions {
+                width: 114, // "Test Session: " + 100 chars
+                height: 1,
+            },
+            DrawMode::Normal,
+        )?;
+
+        assert_eq!(full.len(), 2);
+
+        let multiline = SessionInfoComponent.draw_unchecked(
+            &state,
+            Dimensions {
+                width: 100, // Just long enough to print all
+                height: 1,
+            },
+            DrawMode::Normal,
+        )?;
+
+        assert_eq!(multiline.len(), 4);
+
+        let too_small = SessionInfoComponent.draw_unchecked(
+            &state,
+            Dimensions {
+                width: 1,
+                height: 1,
+            },
+            DrawMode::Normal,
+        )?;
+
+        assert_eq!(too_small.len(), 1);
 
         Ok(())
     }
