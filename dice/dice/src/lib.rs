@@ -334,7 +334,9 @@ impl Dice {
         Arc::new(Dice {
             data,
             map: Arc::new(RwLock::new(DiceMap::new())),
-            global_versions: VersionTracker::new(),
+            global_versions: VersionTracker::new(box |_| {
+                // TODO do the version gc here
+            }),
             detect_cycles,
             active_transaction_count: AtomicU32::new(0),
         })

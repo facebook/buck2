@@ -104,7 +104,7 @@ impl TransactionCtx {
     pub(crate) fn testing_new(v: VersionNumber) -> Self {
         Self {
             version_guard: VersionGuard::testing_new(
-                crate::VersionTracker::new(),
+                crate::VersionTracker::new(box |_| {}),
                 v,
                 crate::incremental::versions::MinorVersionGuard::testing_new(0),
             ),

@@ -1108,7 +1108,7 @@ mod tests {
         };
         let engine = IncrementalEngine::new(EvaluatorFn::new(async move |k| eval_fn(k)));
 
-        let vt = VersionTracker::new();
+        let vt = VersionTracker::new(box |_| {});
 
         let eval_ctx = Arc::new(TransactionCtx::new(
             VersionGuard::testing_new(
@@ -1662,7 +1662,7 @@ mod tests {
 
     #[tokio::test]
     async fn dirty_invalidates_rdeps_across_engines() -> anyhow::Result<()> {
-        let vt = VersionTracker::new();
+        let vt = VersionTracker::new(box |_| {});
         let ctx = Arc::new(TransactionCtx::new(
             VersionGuard::testing_new(
                 vt.dupe(),

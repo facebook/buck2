@@ -500,7 +500,7 @@ impl VersionForWrites {
 
         Self {
             v: OnceCell::from(VersionWriteGuard { lock, v }),
-            version_tracker: VersionTracker::new(),
+            version_tracker: VersionTracker::new(box |_| {}),
         }
     }
 }
@@ -533,6 +533,9 @@ impl Drop for VersionForWrites {
 /// values are up to date.
 #[derive(Allocative)]
 pub(crate) struct VersionTracker {
+    // ran when cleaning up the active version
+    #[allocative(skip)]
+    on_cleanup: Box<dyn Fn(VersionNumber)>,
     current: RwLock<VersionToMinor>,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: DashMap<VersionNumber, usize>,
@@ -583,6 +586,7 @@ impl Drop for VersionGuard {
                 *entry.get_mut() -= 1;
                 if *entry.get() == 0 {
                     entry.remove();
+                    (self.tracker.on_cleanup)(self.version);
                 }
             }
             Entry::Vacant(_) => {
@@ -600,8 +604,9 @@ struct VersionToMinor {
 }
 
 impl VersionTracker {
-    pub(crate) fn new() -> Arc<Self> {
+    pub(crate) fn new(on_cleanup: Box<dyn Fn(VersionNumber)>) -> Arc<Self> {
         Arc::new(VersionTracker {
+            on_cleanup,
             current: RwLock::new(VersionToMinor {
                 version: VersionNumber::ZERO,
                 minor_version_tracker: vec![MinorVersionTracker::new()],
@@ -738,6 +743,7 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
     use std::sync::Barrier;
+    use std::sync::Mutex;
     use std::thread;
     use std::time::Duration;
 
@@ -753,7 +759,7 @@ mod tests {
 
     #[test]
     fn simple_version_increases() {
-        let vt = VersionTracker::new();
+        let vt = VersionTracker::new(box |_| {});
         let vg = vt.current();
         assert_eq!(
             (vg.version, *vg.minor_version_guard),
@@ -771,7 +777,14 @@ mod tests {
 
     #[test]
     fn active_versions_are_tracked() {
-        let vt = VersionTracker::new();
+        let cleaned = Arc::new(Mutex::new(None));
+
+        let vt = VersionTracker::new({
+            let c = cleaned.dupe();
+            box move |v| {
+                *c.lock().unwrap() = Some(v);
+            }
+        });
         let vg1 = vt.current();
         assert_eq!(vg1.version, VersionNumber::new(0));
         assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
@@ -782,6 +795,7 @@ mod tests {
 
         drop(vg2);
 
+        assert!(cleaned.lock().unwrap().is_none());
         assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
 
         {
@@ -798,16 +812,19 @@ mod tests {
         drop(vg3);
 
         assert!(vt.active_versions.get(&VersionNumber::new(1)).is_none());
+        assert_eq!(*cleaned.lock().unwrap(), Some(VersionNumber::new(1)));
 
         assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
 
         drop(vg1);
+
+        assert_eq!(*cleaned.lock().unwrap(), Some(VersionNumber::new(0)));
         assert!(vt.active_versions.get(&VersionNumber::new(0)).is_none());
     }
 
     #[test]
     fn write_version_commits_on_drop() {
-        let vt = VersionTracker::new();
+        let vt = VersionTracker::new(box |_| {});
         {
             let vg = vt.current();
             assert_eq!(
@@ -861,7 +878,7 @@ mod tests {
 
     #[test]
     fn write_version_is_lazy() {
-        let vt = VersionTracker::new();
+        let vt = VersionTracker::new(box |_| {});
 
         let write1 = vt.write();
         let write2 = vt.write();
@@ -878,7 +895,7 @@ mod tests {
 
     #[test]
     fn write_version_rollbacks() {
-        let vt = VersionTracker::new();
+        let vt = VersionTracker::new(box |_| {});
 
         let write1 = vt.write();
         let write2 = vt.write();
@@ -1246,7 +1263,7 @@ mod tests {
 
     #[test]
     fn version_write_is_exclusive() {
-        let tracker = VersionTracker::new();
+        let tracker = VersionTracker::new(box |_| {});
         let write_v = tracker.write();
         assert_eq!(write_v.get(), VersionNumber::new(1));
 
