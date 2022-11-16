@@ -1274,38 +1274,64 @@ impl DeferredMaterializerCommandProcessor {
                     .await?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {
-                async {
-                    let downloaded = http_download(
-                        &http_client()?,
-                        &self.fs,
-                        &path,
-                        &info.url,
-                        &info.checksum,
-                        info.metadata.is_executable,
+                event_dispatcher
+                    .span_async(
+                        buck2_data::MaterializationStart {
+                            action_digest: None,
+                        },
+                        async {
+                            let res = async {
+                                let downloaded = http_download(
+                                    &http_client()?,
+                                    &self.fs,
+                                    &path,
+                                    &info.url,
+                                    &info.checksum,
+                                    info.metadata.is_executable,
+                                )
+                                .await?;
+
+                                // Check that the size we got was the one that we expected. This isn't stricly
+                                // speaking necessary here, but since an invalid size would break actions
+                                // running on RE, it's a good idea to catch it here when materializing so that
+                                // our test suite can surface bugs when downloading things locally.
+                                if downloaded.size() != info.metadata.digest.size() {
+                                    return Err(anyhow::anyhow!(
+                                        "Downloaded size ({}) does not match expected size ({})",
+                                        downloaded.size(),
+                                        info.metadata.digest.size(),
+                                    ));
+                                }
+
+                                Ok(())
+                            }
+                            .await
+                            .with_context(|| {
+                                format!(
+                                    "Error materializing HTTP resource declared by target `{}`",
+                                    info.owner
+                                )
+                            });
+
+                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
+
+                            (
+                                res,
+                                buck2_data::MaterializationEnd {
+                                    action_digest: None,
+                                    file_count: 1,
+                                    total_bytes: info.metadata.digest.size(),
+                                    path: path.as_str().to_owned(),
+                                    success: error.is_none(),
+                                    error,
+                                    method: Some(
+                                        buck2_data::MaterializationMethod::HttpDownload as i32,
+                                    ),
+                                },
+                            )
+                        },
                     )
                     .await?;
-
-                    // Check that the size we got was the one that we expected. This isn't stricly
-                    // speaking necessary here, but since an invalid size would break actions
-                    // running on RE, it's a good idea to catch it here when materializing so that
-                    // our test suite can surface bugs when downloading things locally.
-                    if downloaded.size() != info.metadata.digest.size() {
-                        return Err(anyhow::anyhow!(
-                            "Downloaded size ({}) does not match expected size ({})",
-                            downloaded.size(),
-                            info.metadata.digest.size(),
-                        ));
-                    }
-
-                    Ok(())
-                }
-                .await
-                .with_context(|| {
-                    format!(
-                        "Error materializing HTTP resource declared by target `{}`",
-                        info.owner
-                    )
-                })?;
             }
             ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => {
                 event_dispatcher

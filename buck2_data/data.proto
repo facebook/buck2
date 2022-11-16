@@ -1260,6 +1260,7 @@ message MaterializationStart {
 enum MaterializationMethod {
   MATERIALIZATION_METHOD_CAS_DOWNLOAD = 0;
   MATERIALIZATION_METHOD_LOCAL_COPY = 1;
+  MATERIALIZATION_METHOD_HTTP_DOWNLOAD = 2;
 }
 
 message MaterializationEnd {
