@@ -204,25 +204,26 @@ impl PreparedCommandExecutor for HybridExecutor {
         } else {
             // In the full-hybrid case, we do race both executors. If the low-pass filter is in
             // use, then we wrap the local execution with that.
+            //
+            // If the command prefers local execution, then it'll count in the low-pass
+            // filter but it will not wait for access. This ensures that commands that are
+            // flagged as prefer_local for performance reasons get to run locally even when
+            // full hybrid is enabled.
+            //
+            // NOTE (@torozco): that we only use the command's executor preference here.
+            // Ideally we'd probably just use `executor_preference` (which folds in this
+            // executor's preference), but anecdotally I've seen a bunch of users pass
+            // `--prefer-local` without necessarily knowing why so I'd like them to not get
+            // this behavor by default.
+            let command_prefers_local = command.request.executor_preference().prefers_local();
 
             let jobs = jobs.map_local(move |local| {
                 if low_pass_filter {
-                    // If the command prefers local execution, then it'll count in the low-pass
-                    // filter but it will not wait for access. This ensures that commands that are
-                    // flagged as prefer_local for performance reasons get to run locally even when
-                    // full hybrid is enabled.
-                    //
-                    // NOTE (@torozco): that we only use the command's executor preference here.
-                    // Ideally we'd probably just use `executor_preference` (which folds in this
-                    // executor's preference), but anecdotally I've seen a bunch of users pass
-                    // `--prefer-local` without necessarily knowing why so I'd like them to not get
-                    // this behavor by default.
-                    let bypass_low_pass_filter =
-                        if command.request.executor_preference().prefers_local() {
-                            futures::future::ready(()).left_future()
-                        } else {
-                            futures::future::pending().right_future()
-                        };
+                    let bypass_low_pass_filter = if command_prefers_local {
+                        futures::future::ready(()).left_future()
+                    } else {
+                        futures::future::pending().right_future()
+                    };
 
                     async move {
                         // Block local until either conditon is met:
@@ -246,7 +247,13 @@ impl PreparedCommandExecutor for HybridExecutor {
                 }
             });
 
-            jobs.execute_concurrent().await
+            if command_prefers_local {
+                // As noted above, don't race in this scenario, since this is typically used for
+                // actions that are too expensive to run on RE.
+                jobs.execute_sequential().await
+            } else {
+                jobs.execute_concurrent().await
+            }
         };
 
         let mut res = if is_retryable_status(&first_res) {
