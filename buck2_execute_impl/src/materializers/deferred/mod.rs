@@ -1387,12 +1387,36 @@ impl DeferredMaterializerCommandProcessor {
                 is_executable,
                 ..
             } => {
-                self.io_executor
-                    .execute_io_inline(|| {
-                        let data = zstd::bulk::decompress(compressed_data, *decompressed_size)
-                            .context("Error decompressing data")?;
-                        self.fs.write_file(&path, &data, *is_executable)
-                    })
+                event_dispatcher
+                    .span_async(
+                        buck2_data::MaterializationStart {
+                            action_digest: None,
+                        },
+                        async {
+                            let res = self
+                                .io_executor
+                                .execute_io_inline(|| {
+                                    let data =
+                                        zstd::bulk::decompress(compressed_data, *decompressed_size)
+                                            .context("Error decompressing data")?;
+                                    self.fs.write_file(&path, &data, *is_executable)
+                                })
+                                .await;
+                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
+                            (
+                                res,
+                                buck2_data::MaterializationEnd {
+                                    action_digest: None,
+                                    file_count: 1,
+                                    total_bytes: *decompressed_size as u64,
+                                    path: path.as_str().to_owned(),
+                                    success: error.is_none(),
+                                    error,
+                                    method: Some(buck2_data::MaterializationMethod::Write as i32),
+                                },
+                            )
+                        },
+                    )
                     .await?;
             }
         };
