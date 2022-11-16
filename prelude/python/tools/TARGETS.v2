@@ -1,5 +1,3 @@
-load("@prelude//python:make_pex.bzl", "make_pex_inplace_binary", "make_pex_modules_binary")
-
 prelude = native
 
 prelude.python_bootstrap_binary(
@@ -26,17 +24,32 @@ prelude.export_file(
     visibility = ["PUBLIC"],
 )
 
-make_pex_inplace_binary(
-    name = "make_pex_inplace",
-    src = "make_pex_inplace.py",
-    template = "run_inplace.py.in",
-    template_lite = "run_inplace_lite.py.in",
+prelude.python_bootstrap_binary(
+    name = "make_pex_inplace.py",
+    main = "make_pex_inplace.py",
     visibility = ["PUBLIC"],
 )
 
-make_pex_modules_binary(
+prelude.export_file(
+    name = "run_inplace_lite.py.in",
+    src = "run_inplace_lite.py.in",
+)
+
+prelude.export_file(
+    name = "run_inplace.py.in",
+    src = "run_inplace.py.in",
+)
+
+prelude.command_alias(
+    name = "make_pex_inplace",
+    exe = ":make_pex_inplace.py",
+    args = ["--template", "$(location :run_inplace.py.in)", "--template-lite", "$(location :run_inplace_lite.py.in)"],
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "make_pex_modules",
-    src = "make_pex_modules.py",
+    main = "make_pex_modules.py",
     visibility = ["PUBLIC"],
 )
 

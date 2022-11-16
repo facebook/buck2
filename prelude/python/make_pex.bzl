@@ -245,31 +245,3 @@ def _pex_modules_args(
         hidden = []
 
     return (cmd, hidden)
-
-def _make_pex_inplace_binary_impl(ctx: "context") -> ["provider"]:
-    return [
-        DefaultInfo(),
-        RunInfo([ctx.attrs.src, "--template", ctx.attrs.template, "--template-lite", ctx.attrs.template_lite]),
-    ]
-
-make_pex_inplace_binary = rule(
-    impl = _make_pex_inplace_binary_impl,
-    attrs = {
-        "src": attrs.source(),
-        "template": attrs.source(),
-        "template_lite": attrs.source(),
-    },
-)
-
-def _make_pex_modules_binary_impl(ctx: "context") -> ["provider"]:
-    return [
-        DefaultInfo(),
-        RunInfo([ctx.attrs.src]),
-    ]
-
-make_pex_modules_binary = rule(
-    impl = _make_pex_modules_binary_impl,
-    attrs = {
-        "src": attrs.source(),
-    },
-)
