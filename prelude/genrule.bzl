@@ -2,6 +2,7 @@
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "value_or")
 
 # Currently, some rules require running from the project root, so provide an
@@ -156,7 +157,7 @@ def process_genrule(
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
     # Some custom rules use `process_genrule` but doesn't set this attrbiute.
-    is_windows = hasattr(ctx.attrs, "_target_os_type") and ctx.attrs._target_os_type == "windows"
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     if is_windows:
         path_sep = "\\"
         cmd = ctx.attrs.cmd_exe if ctx.attrs.cmd_exe != None else ctx.attrs.cmd
