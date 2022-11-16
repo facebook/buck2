@@ -193,7 +193,14 @@ async fn check_execution_platform(
     for dep in exec_deps {
         let dep_node = ctx
             .get_configured_target_node(&dep.configure(exec_platform.cfg().dupe()))
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Error checking compatibility of `{}` with `{}`",
+                    dep,
+                    exec_platform.cfg()
+                )
+            })?;
         if let MaybeCompatible::Incompatible(reason) = dep_node {
             return Ok(Err(
                 ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(reason.dupe()),
