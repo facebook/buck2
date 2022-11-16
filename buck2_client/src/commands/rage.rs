@@ -74,7 +74,7 @@ impl StreamingCommand for RageCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
@@ -103,67 +103,10 @@ impl StreamingCommand for RageCommand {
         let old_trace_id = &chosen_log.trace_id;
         let new_trace_id = TraceId::new();
 
-        // dispatch event to scribe if possible
-        match create_scribe_event_dispatcher(&ctx, new_trace_id.to_owned())? {
-            Some(dispatcher) => {
-                let recent_command_trace_id = old_trace_id.to_string();
-                let metadata = metadata::collect();
-                let rage_invoked = RageInvoked {
-                    metadata,
-                    recent_command_trace_id,
-                };
-                dispatcher.instant_event(rage_invoked);
-            }
-            None => {}
-        }
+        dispatch_event_to_scribe(&ctx, &new_trace_id, old_trace_id)?;
 
         if self.dice_dump {
-            let dice_dump_folder_name = format!("{:?}", chrono::Utc::now());
-            let dice_dump_folder = ctx.paths()?.dice_dump_dir();
-
-            create_dir_all(&dice_dump_folder).with_context(|| {
-                format!(
-                    "Failed to create directory {:?}, no dice dump will be created",
-                    &dice_dump_folder
-                )
-            })?;
-
-            let this_dice_dump_folder = dice_dump_folder
-                .as_path()
-                .join(Path::new(&dice_dump_folder_name));
-
-            buck2_client_ctx::eprintln!("Dumping Buck2 internal state...")?;
-
-            buckd
-                .with_flushing()
-                .unstable_dice_dump(UnstableDiceDumpRequest {
-                    destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
-                    format: DiceDumpFormat::Tsv.into(),
-                })
-                .await
-                .with_context(|| {
-                    format!(
-                        "Dice Dump at {:?} failed to complete",
-                        this_dice_dump_folder,
-                    )
-                })?;
-
-            // create dice dump name using the old command being rage on and the trace id of this rage command.
-            let filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id,);
-            buck2_client_ctx::eprintln!(
-                "Compressed internal state file being uploaded to manifold as {}...",
-                &filename
-            )?;
-            dice_dump_upload(&this_dice_dump_folder, &filename)
-                .await
-                .with_context(|| "Failed during manifold upload!")?;
-
-            remove_dir_all(&this_dice_dump_folder).with_context(|| {
-            format!(
-                "Failed to remove Buck2 internal state folder at {:?}. Please remove this manually as it could be quite large.",
-                this_dice_dump_folder
-            )
-        })?;
+            upload_dice_dump(buckd, &ctx, &new_trace_id, old_trace_id).await?;
         }
 
         ExitResult::success()
@@ -182,6 +125,82 @@ impl StreamingCommand for RageCommand {
     }
 }
 
+fn dispatch_event_to_scribe(
+    ctx: &ClientCommandContext,
+    new_trace_id: &TraceId,
+    old_trace_id: &TraceId,
+) -> anyhow::Result<()> {
+    // dispatch event to scribe if possible
+    match create_scribe_event_dispatcher(ctx, new_trace_id.to_owned())? {
+        Some(dispatcher) => {
+            let recent_command_trace_id = old_trace_id.to_string();
+            let metadata = metadata::collect();
+            let rage_invoked = RageInvoked {
+                metadata,
+                recent_command_trace_id,
+            };
+            dispatcher.instant_event(rage_invoked);
+        }
+        None => {}
+    };
+    Ok(())
+}
+
+async fn upload_dice_dump(
+    mut buckd: BuckdClientConnector,
+    ctx: &ClientCommandContext,
+    new_trace_id: &TraceId,
+    old_trace_id: &TraceId,
+) -> anyhow::Result<()> {
+    let dice_dump_folder_name = format!("{:?}", chrono::Utc::now());
+    let dice_dump_folder = ctx.paths()?.dice_dump_dir();
+
+    create_dir_all(&dice_dump_folder).with_context(|| {
+        format!(
+            "Failed to create directory {:?}, no dice dump will be created",
+            &dice_dump_folder
+        )
+    })?;
+
+    let this_dice_dump_folder = dice_dump_folder
+        .as_path()
+        .join(Path::new(&dice_dump_folder_name));
+
+    buck2_client_ctx::eprintln!("Dumping Buck2 internal state...")?;
+
+    buckd
+        .with_flushing()
+        .unstable_dice_dump(UnstableDiceDumpRequest {
+            destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
+            format: DiceDumpFormat::Tsv.into(),
+        })
+        .await
+        .with_context(|| {
+            format!(
+                "Dice Dump at {:?} failed to complete",
+                this_dice_dump_folder,
+            )
+        })?;
+
+    // create dice dump name using the old command being rage on and the trace id of this rage command.
+    let filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id);
+    buck2_client_ctx::eprintln!(
+        "Compressed internal state file being uploaded to manifold as {}...",
+        &filename
+    )?;
+    upload_to_manifold(&this_dice_dump_folder, &filename)
+        .await
+        .with_context(|| "Failed during manifold upload!")?;
+
+    remove_dir_all(&this_dice_dump_folder).with_context(|| {
+        format!(
+            "Failed to remove Buck2 internal state folder at {:?}. Please remove this manually as it could be quite large.",
+            this_dice_dump_folder
+        )
+    })?;
+    Ok(())
+}
+
 #[allow(unused_variables)] // Conditional compilation
 fn create_scribe_event_dispatcher(
     ctx: &ClientCommandContext,
@@ -193,7 +212,10 @@ fn create_scribe_event_dispatcher(
     Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
 }
 
-async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> anyhow::Result<()> {
+async fn upload_to_manifold(
+    dice_dump_folder_to_upload: &Path,
+    filename: &str,
+) -> anyhow::Result<()> {
     if !cfg!(target_os = "windows") {
         buck2_core::facebook_only();
         let manifold_url = match log_upload_url() {
