@@ -3,7 +3,6 @@
 
 SwiftToolchainInfo = provider(fields = [
     "architecture",
-    "can_toolchain_emit_obj_c_header_textually",  # bool
     "compiled_sdk_clang_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Clang SDK modules.
     "compiled_sdk_swift_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Swift SDK modules.
     "compiler_flags",

@@ -74,6 +74,7 @@ def compile_swift(
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     module_name = get_module_name(ctx)
+    unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_object = ctx.actions.declare_output(module_name + ".o")
     output_swiftmodule = ctx.actions.declare_output(module_name + ".swiftmodule")
@@ -86,14 +87,10 @@ def compile_swift(
         extra_search_paths_flags,
     )
 
-    if toolchain.can_toolchain_emit_obj_c_header_textually:
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header)
-    else:
-        unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header)
-        _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
-
+    _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header)
     swift_argsfile = _compile_object(ctx, toolchain, shared_flags, srcs, output_object)
+
+    _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
@@ -279,12 +276,6 @@ def _get_shared_flags(
                 "-Xfrontend",
                 "-prefix-serialized-debugging-options",
             ])
-
-    if toolchain.can_toolchain_emit_obj_c_header_textually:
-        cmd.add([
-            "-Xfrontend",
-            "-emit-objc-header-textually",
-        ])
 
     # Add flags required to import ObjC module dependencies
     _add_clang_deps_flags(ctx, cmd)

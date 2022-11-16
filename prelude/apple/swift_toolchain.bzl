@@ -41,7 +41,6 @@ def swift_toolchain_impl(ctx):
         DefaultInfo(),
         SwiftToolchainInfo(
             architecture = ctx.attrs.architecture,
-            can_toolchain_emit_obj_c_header_textually = ctx.attrs.can_toolchain_emit_obj_c_header_textually,
             # TODO(T99038725): until we add -debug-compilation-dir we need to wrap
             # the Swift invocations so that we can apply a debug prefix map for
             # the current directory while maintaining cache hit.
