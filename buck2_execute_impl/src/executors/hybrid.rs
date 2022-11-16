@@ -200,8 +200,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         let ((mut first_res, first_priority), second) = if fallback_only {
             // In the fallback-only case, the primary always "wins" the race, since we don't start
             // the secondary.
-            let (primary, secondary) = jobs.into_boxfutures();
-            (primary.await, Either::Right(secondary))
+            jobs.execute_sequential().await
         } else {
             // In the full-hybrid case, we do race both executors. If the low-pass filter is in
             // use, then we wrap the local execution with that.
@@ -247,8 +246,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                 }
             });
 
-            let (primary, secondary) = jobs.into_boxfutures();
-            Either::factor_first(futures::future::select(primary, secondary).await)
+            jobs.execute_concurrent().await
         };
 
         let mut res = if is_retryable_status(&first_res) {
@@ -443,6 +441,27 @@ where
         } else {
             (remote, local)
         }
+    }
+
+    /// Race both futures, return the first result and the second future.
+    async fn execute_concurrent<'a>(self) -> (O, BoxFuture<'a, O>)
+    where
+        L: Send + 'a,
+        R: Send + 'a,
+    {
+        let (primary, secondary) = self.into_boxfutures();
+        let (out, futs) = Either::factor_first(futures::future::select(primary, secondary).await);
+        (out, futs.into_inner())
+    }
+
+    /// Run primary then return secondary.
+    async fn execute_sequential<'a>(self) -> (O, BoxFuture<'a, O>)
+    where
+        L: Send + 'a,
+        R: Send + 'a,
+    {
+        let (primary, secondary) = self.into_boxfutures();
+        (primary.await, secondary)
     }
 }
 
