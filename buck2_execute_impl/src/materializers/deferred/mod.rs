@@ -164,6 +164,11 @@ struct DeferredMaterializerCommandProcessor {
     ttl_refresh_enabled: bool,
 }
 
+struct MaterializationStat {
+    file_count: u64,
+    total_bytes: u64,
+}
+
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
 // possible, in fact) to add  `context` to this SharedProcessingError and lose the variant.
 #[derive(Debug, Clone, Dupe)]
@@ -383,6 +388,27 @@ enum ArtifactMaterializationMethod {
     /// The file must be fetched over HTTP.
     #[display(fmt = "http download ({})", info)]
     HttpDownload { info: HttpDownloadInfo },
+}
+
+trait MaterializationMethodToProto {
+    fn to_proto(&self) -> buck2_data::MaterializationMethod;
+}
+
+impl MaterializationMethodToProto for ArtifactMaterializationMethod {
+    fn to_proto(&self) -> buck2_data::MaterializationMethod {
+        match self {
+            ArtifactMaterializationMethod::LocalCopy { .. } => {
+                buck2_data::MaterializationMethod::LocalCopy
+            }
+            ArtifactMaterializationMethod::CasDownload { .. } => {
+                buck2_data::MaterializationMethod::CasDownload
+            }
+            ArtifactMaterializationMethod::Write { .. } => buck2_data::MaterializationMethod::Write,
+            ArtifactMaterializationMethod::HttpDownload { .. } => {
+                buck2_data::MaterializationMethod::HttpDownload
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -1175,13 +1201,13 @@ impl DeferredMaterializerCommandProcessor {
     }
 
     /// Materializes an `entry` at `path`, using the materialization `method`
-    #[instrument(level = "debug", skip(self), fields(path = %path, method = %method, entry = %entry))]
-    async fn materialize_entry(
+    #[instrument(level = "debug", skip(self, stat), fields(path = %path, method = %method, entry = %entry))]
+    async fn materialize_entry_span(
         self: Arc<Self>,
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
-        event_dispatcher: EventDispatcher,
+        stat: &mut MaterializationStat,
     ) -> Result<(), MaterializeEntryError> {
         // Materialize the dir structure, and symlinks
         self.io_executor
@@ -1218,167 +1244,78 @@ impl DeferredMaterializerCommandProcessor {
                         }
                     }
                 }
-
-                let file_count: u64 = files.len().try_into().unwrap_or_default();
-                let total_bytes: u64 = files
+                stat.file_count = files.len().try_into().unwrap_or_default();
+                stat.total_bytes = files
                     .iter()
                     .map(|x| u64::try_from(x.named_digest.digest.size_in_bytes).unwrap_or_default())
                     .sum();
 
                 let connection = self.re_client_manager.get_re_connection();
                 let re_client = connection.get_client();
-                event_dispatcher
-                    .span_async(
-                        buck2_data::MaterializationStart {
-                            action_digest: info.action_digest().map(|digest| digest.to_string()),
-                        },
-                        async {
-                            let res = async {
-                                re_client
-                                    .materialize_files(files, info.re_use_case)
-                                    .await
-                                    .map_err(|e| match e.downcast_ref::<REClientError>() {
-                                        Some(e) if e.code == TCode::NOT_FOUND => {
-                                            MaterializeEntryError::NotFound { info: info.dupe() }
-                                        }
-                                        _ => MaterializeEntryError::Error(e.context({
-                                            format!(
-                                                "Error materializing files declared by action: {}",
-                                                info
-                                            )
-                                        })),
-                                    })
-                            }
-                            .await;
 
-                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
-
-                            (
-                                res,
-                                buck2_data::MaterializationEnd {
-                                    file_count,
-                                    total_bytes,
-                                    path: path.as_str().to_owned(),
-                                    action_digest: info
-                                        .action_digest()
-                                        .map(|digest| digest.to_string()),
-                                    success: error.is_none(),
-                                    error,
-                                    method: Some(
-                                        buck2_data::MaterializationMethod::CasDownload as i32,
-                                    ),
-                                },
-                            )
-                        },
-                    )
-                    .await?;
+                re_client
+                    .materialize_files(files, info.re_use_case)
+                    .await
+                    .map_err(|e| match e.downcast_ref::<REClientError>() {
+                        Some(e) if e.code == TCode::NOT_FOUND => {
+                            MaterializeEntryError::NotFound { info: info.dupe() }
+                        }
+                        _ => MaterializeEntryError::Error(e.context({
+                            format!("Error materializing files declared by action: {}", info)
+                        })),
+                    })?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {
-                event_dispatcher
-                    .span_async(
-                        buck2_data::MaterializationStart {
-                            action_digest: None,
-                        },
-                        async {
-                            let res = async {
-                                let downloaded = http_download(
-                                    &http_client()?,
-                                    &self.fs,
-                                    &path,
-                                    &info.url,
-                                    &info.checksum,
-                                    info.metadata.is_executable,
-                                )
-                                .await?;
-
-                                // Check that the size we got was the one that we expected. This isn't stricly
-                                // speaking necessary here, but since an invalid size would break actions
-                                // running on RE, it's a good idea to catch it here when materializing so that
-                                // our test suite can surface bugs when downloading things locally.
-                                if downloaded.size() != info.metadata.digest.size() {
-                                    return Err(anyhow::anyhow!(
-                                        "Downloaded size ({}) does not match expected size ({})",
-                                        downloaded.size(),
-                                        info.metadata.digest.size(),
-                                    ));
-                                }
-
-                                Ok(())
-                            }
-                            .await
-                            .with_context(|| {
-                                format!(
-                                    "Error materializing HTTP resource declared by target `{}`",
-                                    info.owner
-                                )
-                            });
-
-                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
-
-                            (
-                                res,
-                                buck2_data::MaterializationEnd {
-                                    action_digest: None,
-                                    file_count: 1,
-                                    total_bytes: info.metadata.digest.size(),
-                                    path: path.as_str().to_owned(),
-                                    success: error.is_none(),
-                                    error,
-                                    method: Some(
-                                        buck2_data::MaterializationMethod::HttpDownload as i32,
-                                    ),
-                                },
-                            )
-                        },
+                async {
+                    let downloaded = http_download(
+                        &http_client()?,
+                        &self.fs,
+                        &path,
+                        &info.url,
+                        &info.checksum,
+                        info.metadata.is_executable,
                     )
                     .await?;
+
+                    // Check that the size we got was the one that we expected. This isn't stricly
+                    // speaking necessary here, but since an invalid size would break actions
+                    // running on RE, it's a good idea to catch it here when materializing so that
+                    // our test suite can surface bugs when downloading things locally.
+                    if downloaded.size() != info.metadata.digest.size() {
+                        return Err(anyhow::anyhow!(
+                            "Downloaded size ({}) does not match expected size ({})",
+                            downloaded.size(),
+                            info.metadata.digest.size(),
+                        ));
+                    }
+                    stat.file_count = 1;
+                    stat.total_bytes = info.metadata.digest.size();
+                    Ok(())
+                }
+                .await
+                .with_context(|| {
+                    format!(
+                        "Error materializing HTTP resource declared by target `{}`",
+                        info.owner
+                    )
+                })?;
             }
             ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => {
-                event_dispatcher
-                    .span_async(
-                        buck2_data::MaterializationStart {
-                            action_digest: None,
-                        },
-                        async {
-                            let mut total_bytes: u64 = 0;
-                            let mut file_count: u64 = 0;
-                            let res = self
-                                .io_executor
-                                .execute_io_inline(|| {
-                                    for a in copied_artifacts {
-                                        let count_and_bytes =
-                                            a.dest_entry.calc_output_count_and_bytes();
-                                        file_count += count_and_bytes.count;
-                                        total_bytes += count_and_bytes.bytes;
+                self.io_executor
+                    .execute_io_inline(|| {
+                        for a in copied_artifacts {
+                            let count_and_bytes = a.dest_entry.calc_output_count_and_bytes();
+                            stat.file_count += count_and_bytes.count;
+                            stat.total_bytes += count_and_bytes.bytes;
 
-                                        materialize_files(
-                                            a.dest_entry.as_ref(),
-                                            &self.fs.root().join(&a.src),
-                                            &self.fs.root().join(&a.dest),
-                                        )?;
-                                    }
-                                    Ok(())
-                                })
-                                .await;
-
-                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
-
-                            (
-                                res,
-                                buck2_data::MaterializationEnd {
-                                    action_digest: None,
-                                    file_count,
-                                    total_bytes,
-                                    path: path.as_str().to_owned(),
-                                    success: error.is_none(),
-                                    error,
-                                    method: Some(
-                                        buck2_data::MaterializationMethod::LocalCopy as i32,
-                                    ),
-                                },
-                            )
-                        },
-                    )
+                            materialize_files(
+                                a.dest_entry.as_ref(),
+                                &self.fs.root().join(&a.src),
+                                &self.fs.root().join(&a.dest),
+                            )?;
+                        }
+                        Ok(())
+                    })
                     .await?;
             }
             ArtifactMaterializationMethod::Write {
@@ -1387,39 +1324,63 @@ impl DeferredMaterializerCommandProcessor {
                 is_executable,
                 ..
             } => {
-                event_dispatcher
-                    .span_async(
-                        buck2_data::MaterializationStart {
-                            action_digest: None,
-                        },
-                        async {
-                            let res = self
-                                .io_executor
-                                .execute_io_inline(|| {
-                                    let data =
-                                        zstd::bulk::decompress(compressed_data, *decompressed_size)
-                                            .context("Error decompressing data")?;
-                                    self.fs.write_file(&path, &data, *is_executable)
-                                })
-                                .await;
-                            let error = res.as_ref().err().map(|e| format!("{:#}", e));
-                            (
-                                res,
-                                buck2_data::MaterializationEnd {
-                                    action_digest: None,
-                                    file_count: 1,
-                                    total_bytes: *decompressed_size as u64,
-                                    path: path.as_str().to_owned(),
-                                    success: error.is_none(),
-                                    error,
-                                    method: Some(buck2_data::MaterializationMethod::Write as i32),
-                                },
-                            )
-                        },
-                    )
+                stat.file_count = 1;
+                self.io_executor
+                    .execute_io_inline(|| {
+                        let data = zstd::bulk::decompress(compressed_data, *decompressed_size)
+                            .context("Error decompressing data")?;
+                        stat.total_bytes = *decompressed_size as u64;
+                        self.fs.write_file(&path, &data, *is_executable)
+                    })
                     .await?;
             }
         };
+        Ok(())
+    }
+
+    /// Materializes an `entry` at `path`, using the materialization `method`
+    #[instrument(level = "debug", skip(self), fields(path = %path, method = %method, entry = %entry))]
+    async fn materialize_entry(
+        self: Arc<Self>,
+        path: ProjectRelativePathBuf,
+        method: Arc<ArtifactMaterializationMethod>,
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        event_dispatcher: EventDispatcher,
+    ) -> Result<(), MaterializeEntryError> {
+        let materialization_start = buck2_data::MaterializationStart {
+            action_digest: match method.as_ref() {
+                ArtifactMaterializationMethod::CasDownload { info } => {
+                    info.action_digest().map(|digest| digest.to_string())
+                }
+                _ => None,
+            },
+        };
+        event_dispatcher
+            .span_async(materialization_start, async {
+                let path_string = path.as_str().to_owned();
+                let mut stat = MaterializationStat {
+                    file_count: 0,
+                    total_bytes: 0,
+                };
+                let res = self
+                    .materialize_entry_span(path, method.dupe(), entry, &mut stat)
+                    .await;
+                let error = res.as_ref().err().map(|e| format!("{:#}", e));
+
+                (
+                    res,
+                    buck2_data::MaterializationEnd {
+                        action_digest: None,
+                        file_count: stat.file_count,
+                        total_bytes: stat.total_bytes,
+                        path: path_string,
+                        success: error.is_none(),
+                        error,
+                        method: Some(method.to_proto() as i32),
+                    },
+                )
+            })
+            .await?;
         Ok(())
     }
 }
