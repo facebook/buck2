@@ -587,7 +587,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             RandomState,
         >,
     ) -> GraphNode<ProjectionKeyProperties<P>> {
-        let (tx, rx) = futures::channel::oneshot::channel();
+        let (tx, rx) = tokio::sync::oneshot::channel();
         drop(vacant.insert(SyncDiceTaskHandle { rx: rx.shared() }));
 
         let node = match self.versioned_cache.get(

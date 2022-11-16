@@ -22,7 +22,7 @@ pub(crate) struct SyncDiceTaskHandle<S: StorageProperties> {
     // Doesn't have peek, so we cannot check if the value is there.
     // Could measure the size of the channel though.
     #[allocative(skip)]
-    pub(crate) rx: Shared<futures::channel::oneshot::Receiver<GraphNode<S>>>,
+    pub(crate) rx: Shared<tokio::sync::oneshot::Receiver<GraphNode<S>>>,
 }
 
 impl<S: StorageProperties> Dupe for SyncDiceTaskHandle<S> {}
