@@ -14,7 +14,6 @@ use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::working_dir::WorkingDir;
-use buck2_core::truncate::truncate_container;
 use buck2_events::trace::TraceId;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
@@ -113,17 +112,9 @@ impl ClientCommandContext {
         arg_matches: &clap::ArgMatches,
         sanitized_argv: Vec<String>,
     ) -> anyhow::Result<ClientContext> {
-        let config_overrides = config_opts.config_overrides(arg_matches)?;
-        if !config_overrides.is_empty() && config_opts.reuse_current_config {
-            tracing::warn!(
-                "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
-                truncate_container(config_overrides.iter().map(|e| &*e.config_override), 200),
-            );
-        }
-
         // TODO(cjhopman): Support non unicode paths?
         Ok(ClientContext {
-            config_overrides,
+            config_overrides: config_opts.config_overrides(arg_matches)?,
             target_platform: config_opts.target_platforms.clone().unwrap_or_default(),
             host_platform: match config_opts.host_platform_override() {
                 HostPlatformOverride::Default => GrpcHostPlatformOverride::Default,

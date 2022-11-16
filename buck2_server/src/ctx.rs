@@ -48,6 +48,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
+use buck2_core::truncate::truncate_container;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -386,26 +387,48 @@ impl CellConfigLoader {
     ) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.loaded_cell_configs
             .get_or_init(async move {
+                let fs = &self.project_root;
+                let cwd = &self.working_dir;
+                // if --reuse-current-config is set, we always prefer that over any config overrides
                 if self.reuse_current_config {
+                    // if we have previous configs, use those
                     if dice_ctx.is_cell_resolver_key_set().await?
                         && dice_ctx.is_legacy_configs_key_set().await?
                     {
-                        return Ok::<(CellResolver, LegacyBuckConfigs), anyhow::Error>((
+                        // if we have previous configs and both --reuse-current-config and config overrides
+                        // were set, then ignore overrides and use current config
+                        if !self.config_overrides.is_empty() {
+                            warn!(
+                                "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
+                                truncate_container(self.config_overrides.iter().map(|e| &*e.config_override), 200),
+                            );
+                        }
+                        Ok::<(CellResolver, LegacyBuckConfigs), anyhow::Error>((
                             dice_ctx.get_cell_resolver().await?,
                             dice_ctx.get_legacy_configs().await?,
-                        ))
-                            .shared_error();
+                        )).shared_error()
                     } else {
-                        warn!(
-                            "--reuse-current-config flag was set, but there was no previous invocation detected"
-                        );
+                        if self.config_overrides.is_empty() {
+                            // if we do not have previous cells and configs, and config overrides are empty,
+                            // then we should use default configs
+                            warn!(
+                                "--reuse-current-config flag was set, but there was no previous invocation detected. Using default configs"
+                            );
+                        } else {
+                            // if we do not have previous cells and configs, and config overrides is not empty,
+                            // then we should use default configs and ignore any config overrides
+                            warn!(
+                                "Both --reuse-current-config flag and config overrides were set, but there was no previous invocation. Using default configs. Ignoring config overrides: [{}]",
+                                truncate_container(self.config_overrides.iter().map(|e| &*e.config_override), 200),
+                            );
+                        }
+                        parse_legacy_cells(std::iter::empty(), &fs.resolve(cwd), fs)
+                            .shared_error()
                     }
+                } else {
+                    parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
+                        .shared_error()
                 }
-
-                let fs = &self.project_root;
-                let cwd = &self.working_dir;
-                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
-                    .shared_error()
             })
             .await
             .clone()
