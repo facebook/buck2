@@ -185,6 +185,8 @@ APPLE_TEST_FRAMEWORKS = {
 APPLE_SYSTEM_MODULE_OVERRIDES = {
     "Dispatch": ("dispatch", ("dispatch.h",)),
     "ObjectiveC": ("objc", ("runtime.h",)),
+    # T137990204: temporary workaround to unblock toolchain revert
+    "MediaSourcePluginUtil": ("MediaSourcePluginUtil", ("MediaSourcePluginUtils.h",)),
 }
 
 
