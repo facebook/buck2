@@ -146,6 +146,7 @@ async fn build_action_no_redirect(
 
         #[allow(unused_mut)] // Not set in all configurations
         let mut buck2_revision = None;
+        #[allow(unused_mut)] // Not set in all configurations
         let mut buck2_build_time = None;
 
         match execute_result {
