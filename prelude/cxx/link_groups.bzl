@@ -123,13 +123,10 @@ def get_filtered_labels_to_links_map(
         if actual_link_style == LinkStyle("shared"):
             add_link(target, LinkStyle("shared"))
 
-            # The following logic ensures that we pull in the shared version
-            # of deps necessary for prebuilt third party libraries.
-            if "third-party-buck/" in str(target):
-                for exported_dep in node.exported_deps:
-                    exported_node = linkable_graph_node_map[exported_dep]
-                    if exported_node.preferred_linkage == Linkage("any"):
-                        link_group_preferred_linkage[exported_dep] = Linkage("shared")
+            for exported_dep in node.exported_deps:
+                exported_node = linkable_graph_node_map[exported_dep]
+                if exported_node.preferred_linkage == Linkage("any"):
+                    link_group_preferred_linkage[exported_dep] = Linkage("shared")
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 
