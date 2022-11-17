@@ -207,7 +207,7 @@ pub struct GlobalInterpreterState {
     disable_starlark_types: bool,
 }
 
-/// Configure globals for all three possible environments: `BUCK`, `bxl` and `bxl`.
+/// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
 pub fn configure_base_globals(
     configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
 ) -> GlobalsBuilder {
