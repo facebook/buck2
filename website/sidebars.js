@@ -27,6 +27,7 @@ const universallyExcludedDirs = new Set([
 const manualSidebar = [
   'index',
   'why',
+  'getting_started',
   'benefits',
   isInternal() ? 'migration_guide' : [],
   isInternal() ? {

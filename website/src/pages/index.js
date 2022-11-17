@@ -38,6 +38,11 @@ function HomepageHeader() {
               to="/docs/why">
               Why Buck2?
             </Link>
+            <Link
+              className="button button--secondary button--lg"
+              to="/docs/getting_started">
+              Getting started
+            </Link>
           </div>
         </OssOnly>
       </div>

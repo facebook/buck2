@@ -49,4 +49,4 @@ There are also some things that aren't quite yet finished:
 * We don't have mechanisms to build in release mode yet (that should be achieved by modifying the toolchain).
 * Our Windows/Mac builds are still in progress, our open source code is mostly tested on Linux.
 
-If none of that puts you off, give it a go!
+If none of that puts you off, [give it a go](getting_started.md)!
