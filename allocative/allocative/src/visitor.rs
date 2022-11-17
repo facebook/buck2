@@ -10,6 +10,7 @@
 use std::mem;
 
 use crate::allocative_trait::Allocative;
+use crate::impls::common::CAPACITY_NAME;
 use crate::impls::common::UNUSED_CAPACITY_NAME;
 use crate::key::Key;
 
@@ -173,11 +174,13 @@ impl<'a> Visitor<'a> {
         'a: 'b,
         T: Allocative,
     {
-        self.visit_slice(data);
-        self.visit_simple(
+        let mut visitor = self.enter(CAPACITY_NAME, mem::size_of::<T>() * capacity);
+        visitor.visit_slice(data);
+        visitor.visit_simple(
             UNUSED_CAPACITY_NAME,
             mem::size_of::<T>() * capacity.wrapping_sub(data.len()),
         );
+        visitor.exit();
     }
 
     fn exit_impl(&mut self) {
