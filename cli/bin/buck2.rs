@@ -13,7 +13,10 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
+use std::fs;
+use std::fs::File;
 use std::io;
+use std::path::PathBuf;
 
 use anyhow::Context as _;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -32,6 +35,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
     const ENV_VAR: &str = "BUCK_LOG";
+    static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
     // By default, show warnings/errors.
     // If the user specifies BUCK_LOG, we want to honour that.
@@ -48,10 +52,25 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
         None => EnvFilter::new("warn"),
     };
 
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_writer(io::stderr)
-        .init();
+    let logger = tracing_subscriber::fmt().with_env_filter(filter);
+
+    match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
+        Some(path) => {
+            let path = PathBuf::from(path);
+            // we set the writer to stderr first until later, when we have the logdir, set the
+            // tracing log sink to that file
+
+            fs::create_dir_all(&path)?;
+            let tracing_log = path.join("tracing_log");
+            let file = File::create(tracing_log)?;
+
+            logger.with_writer(file).init();
+        }
+        _ => {
+            logger.with_writer(io::stderr).init();
+        }
+    };
+
     #[cfg(fbcode_build)]
     {
         use buck2_events::sink::scribe;

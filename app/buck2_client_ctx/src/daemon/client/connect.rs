@@ -153,6 +153,11 @@ impl<'a> BuckdLifecycle<'a> {
             .arg(self.paths.isolation.as_str())
             .arg("daemon");
 
+        static DAEMON_LOG_TO_FILE: EnvHelper<u8> = EnvHelper::<u8>::new("BUCK_DAEMON_LOG_TO_FILE");
+        if DAEMON_LOG_TO_FILE.get_copied()? == Some(1) {
+            cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());
+        }
+
         // It is the responsibility of processes that invoke buck2 to indicate via this environment variable whether or
         // not the child process should log to Scribe. The top-level buck2 CLI is invoked via the wrapper, which does
         // this; the `buck2 daemon` command must also be instructed to log to Scribe if the top-level CLI was itself
