@@ -15,6 +15,7 @@ use crate::commands::docs::query::DocsCqueryCommand;
 use crate::commands::docs::query::DocsUqueryCommand;
 use crate::commands::docs::starlark::DocsStarlarkCommand;
 
+mod output;
 mod query;
 mod starlark;
 
