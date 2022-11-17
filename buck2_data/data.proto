@@ -1030,6 +1030,8 @@ message SpanCancelled {}
 message ConfiguredTargetLabel {
   TargetLabel label = 1;
   Configuration configuration = 2;
+  // Only present on toolchain_deps
+  optional Configuration execution_configuration = 3;
 }
 
 // A bxl function key, which is a bxl function and its args

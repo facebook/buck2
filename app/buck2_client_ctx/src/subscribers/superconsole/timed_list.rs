@@ -585,6 +585,7 @@ mod tests {
                                     configuration: Some(buck2_data::Configuration {
                                         full_name: "conf".into(),
                                     }),
+                                    execution_configuration: None,
                                 },
                             )),
                             key: "".to_owned(),

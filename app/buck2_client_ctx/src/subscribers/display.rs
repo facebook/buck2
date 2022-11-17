@@ -62,6 +62,8 @@ pub fn display_configured_target_label(
     if let ConfiguredTargetLabel {
         label: Some(TargetLabel { package, name }),
         configuration: Some(configuration),
+        // We never display execution configurations at the moment
+        execution_configuration: _,
     } = ctl
     {
         Ok(if opts.with_configuration {

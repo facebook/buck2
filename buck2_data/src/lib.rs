@@ -141,6 +141,7 @@ impl ToProtoMessage for buck2_core::target::ConfiguredTargetLabel {
         crate::ConfiguredTargetLabel {
             label: Some(self.unconfigured().as_proto()),
             configuration: Some(self.cfg().as_proto()),
+            execution_configuration: self.exec_cfg().map(ToProtoMessage::as_proto),
         }
     }
 }
