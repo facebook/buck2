@@ -83,12 +83,12 @@ implemented_rules = {
 }
 
 # Can't load `read_bool` here because it will cause circular load.
-DISABLE_TRANSITIONS = read_config("buck2", "android_td_disable_transitions_hack") in ("True", "true")
+DISABLE_SPLIT_TRANSITIONS = read_config("buck2", "android_td_disable_transitions_hack") in ("True", "true")
 
-def _transition_dep_wrapper(transition_dep):
-    if DISABLE_TRANSITIONS:
-        return attrs.dep()
-    return transition_dep
+def _transition_dep_wrapper(split_transition_dep, transition_dep):
+    if DISABLE_SPLIT_TRANSITIONS:
+        return transition_dep
+    return split_transition_dep
 
 extra_attributes = {
     "android_aar": {
@@ -99,15 +99,15 @@ extra_attributes = {
     },
     "android_binary": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
-        "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition))), sorted = False, default = {}),
-        "build_config_values_file": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
-        "deps": attrs.list(_transition_dep_wrapper(attrs.split_transition_dep(cfg = cpu_split_transition)), default = []),
+        "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
+        "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+        "deps": attrs.list(_transition_dep_wrapper(split_transition_dep = attrs.split_transition_dep(cfg = cpu_split_transition), transition_dep = attrs.transition_dep(cfg = cpu_transition)), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
-        "manifest": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
-        "manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
+        "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+        "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
-        "module_manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
+        "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_installer": attrs.default_only(attrs.label(
             # FIXME: prelude// should be standalone (not refer to buck//)
             default = "buck//src/com/facebook/buck/installer/android:android_installer",
@@ -127,10 +127,10 @@ extra_attributes = {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "apk": attrs.transition_dep(cfg = do_not_build_only_native_code_transition),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
-        "deps": attrs.list(_transition_dep_wrapper(attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk)), default = []),
+        "deps": attrs.list(_transition_dep_wrapper(split_transition_dep = attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk), transition_dep = attrs.transition_dep(cfg = cpu_transition)), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
-        "manifest": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
-        "manifest_skeleton": attrs.option(attrs.one_of(_transition_dep_wrapper(attrs.transition_dep(cfg = cpu_transition)), attrs.source()), default = None),
+        "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+        "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
