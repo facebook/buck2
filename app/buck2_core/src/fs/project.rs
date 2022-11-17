@@ -431,7 +431,7 @@ impl ProjectRoot {
         if !path.exists() {
             return Ok(());
         }
-        let path_type = fs_util::metadata(&path)?.file_type();
+        let path_type = fs_util::symlink_metadata(&path)?.file_type();
 
         if path_type.is_dir() {
             fs_util::remove_dir_all(&path)
