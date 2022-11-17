@@ -26,7 +26,6 @@ pub(crate) mod versions;
 
 use std::borrow::Cow;
 use std::collections::hash_map::RandomState;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -44,10 +43,6 @@ use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_task;
-use parking_lot::MappedRwLockReadGuard;
-use parking_lot::RwLock;
-use parking_lot::RwLockReadGuard;
-use parking_lot::RwLockWriteGuard;
 use tracing::Span;
 
 use crate::ctx::ComputationData;
@@ -115,7 +110,7 @@ pub(crate) struct IncrementalEngine<K: IncrementalComputeProperties> {
     versioned_cache: VersionedGraph<K>,
     /// tracks the currently running computations. This is evicted upon
     /// completion of the computation
-    currently_running: RwLock<HashMap<VersionNumber, DashMap<K::Key, K::DiceTask>>>,
+    currently_running: DashMap<(K::Key, VersionNumber), K::DiceTask>,
 }
 
 impl<K: IncrementalComputeProperties> Debug for IncrementalEngine<K> {
@@ -126,8 +121,6 @@ impl<K: IncrementalComputeProperties> Debug for IncrementalEngine<K> {
 
 pub(crate) trait ErasedEngine: Allocative {
     fn introspect(&self) -> &dyn EngineForIntrospection;
-
-    fn gc_version(&self, v: VersionNumber);
 }
 
 impl<K> ErasedEngine for IncrementalEngine<K>
@@ -136,12 +129,6 @@ where
 {
     fn introspect(&self) -> &dyn EngineForIntrospection {
         self
-    }
-
-    fn gc_version(&self, v: VersionNumber) {
-        let mut running_map = self.currently_running.write();
-        running_map.remove(&v);
-        running_map.shrink_to_fit();
     }
 }
 
@@ -162,7 +149,7 @@ where
     pub(crate) fn new(evaluator: K) -> Arc<Self> {
         Arc::new(Self {
             versioned_cache: VersionedGraph::new(evaluator),
-            currently_running: RwLock::new(HashMap::new()),
+            currently_running: DashMap::new(),
         })
     }
 
@@ -291,17 +278,17 @@ where
             DiceFuture::Ready(Some(Ok(entry)))
         } else {
             let this = self.dupe();
-
-            let running_map = self.get_running_map(transaction_ctx);
-
-            let res = match running_map.entry(k.clone()) {
-                Entry::Occupied(mut occupied) => {
+            match self
+                .currently_running
+                .entry((k.clone(), transaction_ctx.get_version()))
+            {
+                Entry::Occupied(occupied) => {
                     if let Some(existing) = occupied.get().pollable() {
                         debug!("found a task that is currently running. polling on existing task");
                         existing
                     } else {
                         let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra);
-                        occupied.insert(task);
+                        occupied.replace_entry(task);
 
                         fut
                     }
@@ -312,9 +299,7 @@ where
 
                     fut
                 }
-            };
-
-            res
+            }
         }
     }
 
@@ -390,12 +375,7 @@ where
                 // remove the current task when complete since only one of each task can be alive.
                 // However, when canceling, we make sure to only remove canceled tasks since we
                 // allow new tasks to replace canceled tasks when necessary.
-                let removed = self
-                    .currently_running
-                    .read()
-                    .get(&v)
-                    .expect("entry should exist if running")
-                    .remove(&k);
+                let removed = self.currently_running.remove(&(k, v));
                 assert!(
                     removed.is_some(),
                     "recompute can only be called by a running task"
@@ -409,34 +389,29 @@ where
 
                 Some(box move || {
                     if let Some(engine) = engine.upgrade() {
-                        match engine.currently_running.read().get(&v) {
-                            None => {}
-                            Some(map) => {
-                                match map.entry(k) {
-                                    Entry::Occupied(entry) => {
-                                        // on cancellation, we must check that the `currently_running` entry
-                                        // is still of an entry that is canceled. This is because we allow
-                                        // new tasks to override the entry if they see a canceled one, which
-                                        // means when we attempt to remove ourselves, someone may have
-                                        // already removed us (the canceled task).
-                                        // Also extremely important: when checking for cancel or not, we
-                                        // must make sure to NOT obtain an actual strong reference to the
-                                        // underlying task. This is because if we do, then we, on this thread,
-                                        // may become responsible for dropping that task, which requires
-                                        // this thread to run the destructor, and the task cancellation
-                                        // handling. Since we currently, in the task cancellation, hold a
-                                        // lock to the `currently_running`, doing another task cancellation
-                                        // would result in deadlock on the `currently_running` map.
-                                        // So, we use the `is_pollable` function, which tests for
-                                        // cancellation without ever obtaining the actual task, so that
-                                        // this thread is never responsible for dropping another future.
-                                        if !entry.get().is_pollable() {
-                                            entry.remove();
-                                        }
-                                    }
-                                    Entry::Vacant(_) => {}
+                        match engine.currently_running.entry((k, v)) {
+                            Entry::Occupied(entry) => {
+                                // on cancellation, we must check that the `currently_running` entry
+                                // is still of an entry that is canceled. This is because we allow
+                                // new tasks to override the entry if they see a canceled one, which
+                                // means when we attempt to remove ourselves, someone may have
+                                // already removed us (the canceled task).
+                                // Also extremely important: when checking for cancel or not, we
+                                // must make sure to NOT obtain an actual strong reference to the
+                                // underlying task. This is because if we do, then we, on this thread,
+                                // may become responsible for dropping that task, which requires
+                                // this thread to run the destructor, and the task cancellation
+                                // handling. Since we currently, in the task cancellation, hold a
+                                // lock to the `currently_running`, doing another task cancellation
+                                // would result in deadlock on the `currently_running` map.
+                                // So, we use the `is_pollable` function, which tests for
+                                // cancellation without ever obtaining the actual task, so that
+                                // this thread is never responsible for dropping another future.
+                                if !entry.get().is_pollable() {
+                                    entry.remove();
                                 }
                             }
+                            Entry::Vacant(_) => {}
                         }
                     }
                 })
@@ -544,9 +519,10 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         ) {
             entry.dupe()
         } else {
-            let running_map = self.get_running_map(transaction_ctx);
-
-            let res = match running_map.entry(k.clone()) {
+            match self
+                .currently_running
+                .entry((k.clone(), transaction_ctx.get_version()))
+            {
                 Entry::Occupied(occupied) => {
                     let shared = occupied.get().dupe();
                     // Release table lock.
@@ -566,9 +542,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                     extra,
                     vacant,
                 ),
-            };
-
-            res
+            }
         }
     }
 
@@ -582,13 +556,13 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
         vacant: VacantEntry<
-            ProjectionKeyAsKey<P>,
+            (ProjectionKeyAsKey<P>, VersionNumber),
             SyncDiceTaskHandle<ProjectionKeyProperties<P>>,
             RandomState,
         >,
     ) -> GraphNode<ProjectionKeyProperties<P>> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        drop(vacant.insert(SyncDiceTaskHandle { rx: rx.shared() }));
+        vacant.insert(SyncDiceTaskHandle { rx: rx.shared() });
 
         let node = match self.versioned_cache.get(
             VersionedGraphKeyRef::new(transaction_ctx.get_version(), k),
@@ -631,10 +605,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
 
         let removed = self
             .currently_running
-            .read()
-            .get(&transaction_ctx.get_version())
-            .expect("running task should be present")
-            .remove(k);
+            .remove(&(k.clone(), transaction_ctx.get_version()));
         assert!(removed.is_some());
 
         node
@@ -760,28 +731,29 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         let derive_from_both_deps =
             BothDeps::only_one_dep(transaction_ctx.get_version(), value.dupe(), &cache);
 
-        let running_map = self.get_running_map(transaction_ctx);
+        Ok(
+            match self
+                .currently_running
+                .entry((k.clone(), transaction_ctx.get_version()))
+            {
+                Entry::Occupied(occupied) => {
+                    debug!("found a task that is currently running. polling on existing task");
+                    let existing = occupied.get().rx.clone();
+                    // Release table lock.
+                    drop(occupied);
 
-        let res = match running_map.entry(k.clone()) {
-            Entry::Occupied(occupied) => {
-                debug!("found a task that is currently running. polling on existing task");
-                let existing = occupied.get().rx.clone();
-                // Release table lock.
-                drop(occupied);
-
-                existing.await.expect("sync task cannot fail")
-            }
-            Entry::Vacant(vacant) => self.eval_projection_task(
-                k,
-                &value,
-                derive_from_both_deps,
-                transaction_ctx,
-                extra,
-                vacant,
-            ),
-        };
-
-        Ok(res)
+                    existing.await.expect("sync task cannot fail")
+                }
+                Entry::Vacant(vacant) => self.eval_projection_task(
+                    k,
+                    &value,
+                    derive_from_both_deps,
+                    transaction_ctx,
+                    extra,
+                    vacant,
+                ),
+            },
+        )
     }
 }
 
@@ -877,32 +849,6 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
             deps: computed_deps,
             rdeps: computed_nodes,
         }))
-    }
-
-    fn get_running_map<'a>(
-        self: &'a Arc<Self>,
-        transaction_ctx: &Arc<TransactionCtx>,
-    ) -> MappedRwLockReadGuard<'a, DashMap<K::Key, K::DiceTask>> {
-        let locked = self.currently_running.read();
-
-        if locked.get(&transaction_ctx.get_version()).is_some() {
-            RwLockReadGuard::map(locked, |locked| {
-                locked
-                    .get(&transaction_ctx.get_version())
-                    .expect("just checked")
-            })
-        } else {
-            drop(locked);
-            let mut map = self.currently_running.write();
-            map.entry(transaction_ctx.get_version()).or_default();
-
-            let locked = RwLockWriteGuard::downgrade(map);
-            RwLockReadGuard::map(locked, |locked| {
-                locked
-                    .get(&transaction_ctx.get_version())
-                    .expect("just inserted")
-            })
-        }
     }
 }
 
@@ -1614,13 +1560,7 @@ mod tests {
                     VersionNumber::new(1),
                 );
 
-            assert!(
-                engine
-                    .currently_running
-                    .read()
-                    .iter()
-                    .all(|(_v, e)| e.is_empty())
-            );
+            assert!(engine.currently_running.is_empty());
 
             node
         };
@@ -1674,13 +1614,7 @@ mod tests {
                 VersionNumber::new(1),
             )])
         );
-        assert!(
-            engine
-                .currently_running
-                .read()
-                .iter()
-                .all(|(_v, e)| e.is_empty())
-        );
+        assert!(engine.currently_running.is_empty());
 
         // now force the dependency to be different and have versions [3]
         assert!(engine.update_injected_value(1, VersionNumber::new(3), 200));
@@ -1716,13 +1650,7 @@ mod tests {
                     VersionNumber::new(3),
                 );
 
-            assert!(
-                engine
-                    .currently_running
-                    .read()
-                    .iter()
-                    .all(|(_v, e)| e.is_empty())
-            );
+            assert!(engine.currently_running.is_empty());
 
             node
         };
@@ -1927,13 +1855,7 @@ mod tests {
 
             assert!(!ran_counter.load(Ordering::SeqCst));
 
-            assert!(
-                engine
-                    .currently_running
-                    .read()
-                    .iter()
-                    .all(|(_v, e)| e.is_empty())
-            );
+            assert!(engine.currently_running.is_empty());
         })
     }
 

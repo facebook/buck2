@@ -177,8 +177,7 @@ pub(crate) trait EngineForIntrospection {
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
     fn keys_currently_running<'a>(
         &'a self,
-    ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)>;
-    fn versions_currently_running<'a>(&'a self) -> Vec<VersionNumber>;
+    ) -> Box<dyn Iterator<Item = (AnyKey, VersionNumber, DiceTaskStateForDebugging)> + 'a>;
     fn nodes<'a>(
         &'a self,
         keys: &'a mut HashMap<AnyKey, KeyID>,

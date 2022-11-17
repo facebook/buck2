@@ -73,36 +73,23 @@ where
 
     fn keys_currently_running<'a>(
         &'a self,
-    ) -> Vec<(
-        AnyKey,
-        crate::introspection::graph::VersionNumber,
-        DiceTaskStateForDebugging,
-    )> {
-        self.currently_running
-            .read()
-            .iter()
-            .flat_map(|(v, es)| {
-                es.iter()
-                    .map(move |entry| {
-                        let k = entry.key();
-                        let e = entry.value();
-                        (
-                            AnyKey::new(k.clone()),
-                            crate::introspection::graph::VersionNumber(v.0),
-                            e.state_for_debugging(),
-                        )
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    }
-
-    fn versions_currently_running<'a>(&'a self) -> Vec<crate::introspection::graph::VersionNumber> {
-        self.currently_running
-            .read()
-            .iter()
-            .map(|e| e.0.to_introspectable())
-            .collect()
+    ) -> Box<
+        dyn Iterator<
+                Item = (
+                    AnyKey,
+                    crate::introspection::graph::VersionNumber,
+                    DiceTaskStateForDebugging,
+                ),
+            > + 'a,
+    > {
+        box self.currently_running.iter().map(|e| {
+            let (k, v) = e.key();
+            (
+                AnyKey::new(k.clone()),
+                crate::introspection::graph::VersionNumber(v.0),
+                e.value().state_for_debugging(),
+            )
+        })
     }
 
     fn nodes<'a>(
@@ -178,10 +165,6 @@ where
     }
 
     fn currently_running_key_count(&self) -> usize {
-        self.currently_running
-            .read()
-            .iter()
-            .map(|(_, e)| e.len())
-            .sum()
+        self.currently_running.len()
     }
 }

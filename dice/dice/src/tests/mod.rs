@@ -141,13 +141,6 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
             (vg.version, *vg.minor_version_guard),
             (VersionNumber::new(2), MinorVersion::testing_new(1))
         );
-        assert!(dice.map.read().engines().iter().all(|engine| {
-            engine
-                .introspect()
-                .versions_currently_running()
-                .first()
-                .is_none()
-        }));
     }
 
     {
@@ -165,13 +158,6 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
             (vg.version, *vg.minor_version_guard),
             (VersionNumber::new(3), MinorVersion::testing_new(1))
         );
-        assert!(dice.map.read().engines().iter().all(|engine| {
-            engine
-                .introspect()
-                .versions_currently_running()
-                .first()
-                .is_none()
-        }));
     }
 
     Ok(())

@@ -189,7 +189,6 @@
 #![feature(entry_insert)]
 #![feature(fn_traits)]
 #![feature(test)]
-#![feature(map_try_insert)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
@@ -332,15 +331,11 @@ impl Dice {
     }
 
     fn new(data: DiceData, detect_cycles: DetectCycles) -> Arc<Self> {
-        let map = Arc::new(RwLock::new(DiceMap::new()));
-        let weak_map = Arc::downgrade(&map);
         Arc::new(Dice {
             data,
-            map,
-            global_versions: VersionTracker::new(box move |v| {
-                if let Some(engines) = weak_map.upgrade() {
-                    engines.read().engines().map(|engine| engine.gc_version(v));
-                }
+            map: Arc::new(RwLock::new(DiceMap::new())),
+            global_versions: VersionTracker::new(box |_| {
+                // TODO do the version gc here
             }),
             detect_cycles,
             active_transaction_count: AtomicU32::new(0),
