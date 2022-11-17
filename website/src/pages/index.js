@@ -5,7 +5,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './index.module.css';
 import HomepageFeatures from '../components/HomepageFeatures';
-import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+import { FbInternalOnly, OssOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -31,6 +31,15 @@ function HomepageHeader() {
             </Link>
           </div>
         </FbInternalOnly>
+        <OssOnly>
+          <div className={styles.buttons}>
+            <Link
+              className="button button--secondary button--lg"
+              to="/docs/why">
+              Why Buck2?
+            </Link>
+          </div>
+        </OssOnly>
       </div>
     </header>
   );
