@@ -22,10 +22,12 @@ use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_execute::materialize::http::Checksum;
+use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use chrono::TimeZone;
 use chrono::Utc;
 use derive_more::Display;
+use dice::DiceComputations;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use indexmap::indexset;
@@ -38,6 +40,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_type;
+use starlark::values::dict::DictOf;
 use starlark::values::docs::DocItem;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
@@ -86,6 +89,7 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
+use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
 #[derive(Error, Debug)]
 enum DownloadFileError {
@@ -217,6 +221,28 @@ impl<'v> AnalysisContext<'v> {
             }),
             label,
         }
+    }
+
+    pub(crate) async fn run_promises(
+        &self,
+        dice: &DiceComputations,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<()> {
+        // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
+        // We keep going until there are no promises left.
+        loop {
+            let promises = self.actions.state().get_promises();
+            if let Some(promises) = promises {
+                promises.run_promises(dice, eval).await?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
+        self.actions.state().assert_no_promises()
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
@@ -896,6 +922,19 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     fn artifact_tag<'v>(this: &AnalysisActions<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let _ = this;
         Ok(heap.alloc(ArtifactTag::new()))
+    }
+
+    /// Generate an anonymous target
+    fn anon_target<'v>(
+        this: &AnalysisActions<'v>,
+        rule: ValueTyped<'v, FrozenRuleCallable>,
+        attrs: DictOf<'v, &'v str, Value<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+        let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
+        let mut this = this.state();
+        this.register_anon_target(res, rule, attrs)?;
+        Ok(res)
     }
 }
 

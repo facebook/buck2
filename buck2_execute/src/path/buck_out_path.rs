@@ -395,6 +395,39 @@ impl BaseDeferredKey {
 
                 ProjectRelativePathBuf::unchecked_new(join(&parts))
             }
+            BaseDeferredKey::AnonTarget(target) => {
+                let cell_relative_path = target.name().pkg().cell_relative_path().as_str();
+
+                // It is performance critical that we use slices and allocate via `join` instead of
+                // repeated calls to `join` on the path object because `join` allocates on each call,
+                // which has a significant impact.
+                let parts = [
+                    base.as_str(),
+                    "/",
+                    prefix.as_str(),
+                    "/",
+                    target.name().pkg().cell_name().as_str(),
+                    "/",
+                    target.exec_cfg().output_hash(),
+                    "/__anon__",
+                    cell_relative_path,
+                    if cell_relative_path.is_empty() {
+                        ""
+                    } else {
+                        "/"
+                    },
+                    target.rule_type_attrs_hash(),
+                    "/__",
+                    target.name().name().as_ref(),
+                    "__",
+                    action_key.unwrap_or_default(),
+                    if action_key.is_none() { "" } else { "__" },
+                    "/",
+                    path.as_str(),
+                ];
+
+                ProjectRelativePathBuf::unchecked_new(join(&parts))
+            }
         }
     }
 }

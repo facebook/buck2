@@ -67,6 +67,9 @@ impl ToProtoMessage for ActionKey {
                     buck2_data::action_key::Owner::TargetLabel(t.as_proto())
                 }
                 BaseDeferredKey::BxlLabel(l) => buck2_data::action_key::Owner::BxlKey(l.as_proto()),
+                BaseDeferredKey::AnonTarget(t) => {
+                    buck2_data::action_key::Owner::AnonTarget(t.as_proto())
+                }
             }),
             key: self.deferred_key().action_key(),
         }

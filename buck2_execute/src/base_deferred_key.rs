@@ -7,12 +7,15 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_core::target::ConfiguredTargetLabel;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
+use crate::anon_target::AnonTarget;
 use crate::bxl::types::BxlKey;
 
 /// Key types for the base 'DeferredKey'
@@ -30,6 +33,9 @@ use crate::bxl::types::BxlKey;
 pub enum BaseDeferredKey {
     #[display(fmt = "{}", _0)]
     TargetLabel(ConfiguredTargetLabel),
+
+    #[display(fmt = "{}", _0)]
+    AnonTarget(Arc<AnonTarget>),
 
     #[display(fmt = "{}", _0)]
     BxlLabel(BxlKey),

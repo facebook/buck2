@@ -281,6 +281,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
                 ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
             ))),
             Some(BaseDeferredKey::BxlLabel(_)) => Ok(None),
+            Some(BaseDeferredKey::AnonTarget(_)) => Ok(None),
         }
     }
 

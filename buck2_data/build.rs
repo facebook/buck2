@@ -82,6 +82,7 @@ fn main() -> io::Result<()> {
         .type_attribute("buck.data.TargetLabel", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.Configuration", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.ConfiguredTargetLabel", "#[derive(Eq, Hash)]")
+        .type_attribute("buck.data.AnonTarget", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.BxlFunctionLabel", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.BxlFunctionKey", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.ActionKey.owner", "#[derive(Eq, Hash)]")

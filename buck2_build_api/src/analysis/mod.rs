@@ -16,11 +16,14 @@ use buck2_common::result::SharedResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
+use dice::DiceComputations;
+use futures::Future;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
@@ -46,6 +49,7 @@ use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info:
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
+pub(crate) mod anon_targets;
 pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
@@ -215,6 +219,7 @@ struct AnalysisEnv<'a> {
 }
 
 async fn run_analysis<'a>(
+    dice: &DiceComputations,
     label: &ConfiguredTargetLabel,
     results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
@@ -230,7 +235,7 @@ async fn run_analysis<'a>(
         execution_platform,
         impl_function,
     )?;
-    run_analysis_with_env(analysis_env, node, profile_mode).await
+    run_analysis_with_env(dice, analysis_env, node, profile_mode).await
 }
 
 impl<'a> AnalysisEnv<'a> {
@@ -263,7 +268,20 @@ pub fn get_deps_from_analysis_results<'a>(
         >>()
 }
 
-async fn run_analysis_with_env(
+fn run_analysis_with_env<'a>(
+    dice: &'a DiceComputations,
+    analysis_env: AnalysisEnv<'a>,
+    node: &'a ConfiguredTargetNode,
+    profile_mode: &'a StarlarkProfileModeOrInstrumentation,
+) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
+    let fut = async move {
+        run_analysis_with_env_underlying(dice, analysis_env, node, profile_mode).await
+    };
+    unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
+}
+
+async fn run_analysis_with_env_underlying(
+    dice: &DiceComputations,
     analysis_env: AnalysisEnv<'_>,
     node: &ConfiguredTargetNode,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
@@ -320,6 +338,7 @@ async fn run_analysis_with_env(
         .evaluation_complete(&mut eval)
         .context("Profiler finalization failed")?;
 
+    ctx.run_promises(dice, &mut eval).await?;
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     let res = env.heap().alloc(res_typed);

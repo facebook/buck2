@@ -29,6 +29,7 @@ use gazebo::prelude::*;
 use owning_ref::ArcRef;
 use owning_ref::BoxRef;
 
+use crate::analysis::anon_targets::eval_anon_target;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::ArtifactGroup;
@@ -85,6 +86,9 @@ async fn lookup_deferred_inner(
 
             Ok(DeferredHolder::Bxl(bxl_result))
         }
+        BaseDeferredKey::AnonTarget(target) => Ok(DeferredHolder::Analysis(
+            eval_anon_target(dice, target).await?,
+        )),
     }
 }
 

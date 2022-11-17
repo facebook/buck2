@@ -24,6 +24,7 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::Tuple;
 use starlark::values::OwnedFrozenValue;
+use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::Artifact;
@@ -92,6 +93,9 @@ impl DynamicLambda {
                 // do nothing. This is for grabbing the execution platform, which for bxl, we
                 // hard code to a local execution.
             }
+            BaseDeferredKey::AnonTarget(_) => {
+                // This will return an error later, so doesn't need to have the dependency
+            }
         }
         depends.extend(dynamic.into_iter().map(DeferredInput::MaterializedArtifact));
         Self {
@@ -145,6 +149,12 @@ impl Deferred for DynamicAction {
     }
 }
 
+#[derive(Debug, Error)]
+enum DynamicLambdaError {
+    #[error("dynamic_output and anon_target cannot be used together (yet)")]
+    AnonTargetIncompatible,
+}
+
 impl Deferred for DynamicLambda {
     type Output = DynamicLambdaOutput;
 
@@ -175,6 +185,9 @@ impl Deferred for DynamicLambda {
                 }
                 BaseDeferredKey::BxlLabel(_) => {
                     (*bxl::execution_platform::EXECUTION_PLATFORM).dupe()
+                }
+                BaseDeferredKey::AnonTarget(_) => {
+                    return Err(DynamicLambdaError::AnonTargetIncompatible.into());
                 }
             }
         };
@@ -237,6 +250,13 @@ impl Deferred for DynamicLambda {
                     ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
                 ))),
                 BaseDeferredKey::BxlLabel(_) => None,
+                BaseDeferredKey::AnonTarget(target) => Some(heap.alloc_typed(LabelGen::new(
+                    heap,
+                    ConfiguredProvidersLabel::new(
+                        target.configured_label(),
+                        ProvidersName::Default,
+                    ),
+                ))),
             },
             registry,
         ));
@@ -246,6 +266,7 @@ impl Deferred for DynamicLambda {
             &[ctx.to_value(), heap.alloc(artifacts), heap.alloc(outputs)],
             &[],
         )?;
+        ctx.assert_no_promises()?;
 
         let analysis_registry = ctx.take_state();
 

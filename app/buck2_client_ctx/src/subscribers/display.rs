@@ -19,6 +19,7 @@ use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
 use buck2_data::ActionName;
+use buck2_data::AnonTarget;
 use buck2_data::BxlFunctionKey;
 use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
@@ -76,6 +77,20 @@ pub fn display_configured_target_label(
     }
 }
 
+pub fn display_anon_target(ctl: &AnonTarget) -> anyhow::Result<String> {
+    if let AnonTarget {
+        name: Some(TargetLabel { package, name }),
+        // We currently never display execution configurations, only normal configurations
+        execution_configuration: _,
+        hash,
+    } = ctl
+    {
+        Ok(format!("{}:{}@{}", package, name, hash))
+    } else {
+        Err(ParseEventError::InvalidAnonTarget.into())
+    }
+}
+
 pub(crate) fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     if let BxlFunctionKey {
         label: Some(BxlFunctionLabel { bxl_path, name }),
@@ -98,6 +113,7 @@ pub(crate) fn display_action_owner(
             display_configured_target_label(target_label, opts)
         }
         action_key::Owner::BxlKey(bxl_key) => display_bxl_key(bxl_key),
+        action_key::Owner::AnonTarget(anon_target) => display_anon_target(anon_target),
     }
 }
 
@@ -304,6 +320,8 @@ enum ParseEventError {
     MissingConfiguredTargetLabel,
     #[error("Invalid configured target label")]
     InvalidConfiguredTargetLabel,
+    #[error("Invalid anon target")]
+    InvalidAnonTarget,
     #[error("Missing action key")]
     MissingActionKey,
     #[error("Missing suite name")]

@@ -278,6 +278,7 @@ async fn get_analysis_result(
                         async {
                             (
                                 run_analysis(
+                                    ctx,
                                     target,
                                     dep_analysis,
                                     query_results,

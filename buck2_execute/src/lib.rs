@@ -13,6 +13,7 @@
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 
+pub mod anon_target;
 pub mod artifact;
 pub mod artifact_utils;
 pub mod artifact_value;

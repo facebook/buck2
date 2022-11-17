@@ -16,6 +16,7 @@ use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::path::buck_out_path::BuckOutPath;
+use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
 use gazebo::prelude::*;
@@ -24,6 +25,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::dict::DictOf;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
@@ -31,6 +33,7 @@ use starlark::values::Tracer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
@@ -38,6 +41,7 @@ use crate::actions::artifact::DeclaredArtifact;
 use crate::actions::artifact::OutputArtifact;
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
+use crate::analysis::anon_targets::AnonTargetsRegistry;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::types::BaseKey;
@@ -48,6 +52,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -60,6 +65,7 @@ pub struct AnalysisRegistry<'v> {
     artifact_groups: ArtifactGroupRegistry,
     #[derivative(Debug = "ignore")]
     dynamic: DynamicRegistry,
+    anon_targets: AnonTargetsRegistry<'v>,
     analysis_value_storage: AnalysisValueStorage<'v>,
 }
 
@@ -88,9 +94,10 @@ impl<'v> AnalysisRegistry<'v> {
     ) -> Self {
         AnalysisRegistry {
             deferred,
-            actions: ActionsRegistry::new(owner.dupe(), execution_platform),
+            actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
             dynamic: DynamicRegistry::new(owner),
+            anon_targets: AnonTargetsRegistry::new(execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
         }
     }
@@ -238,6 +245,23 @@ impl<'v> AnalysisRegistry<'v> {
         Ok(())
     }
 
+    pub(crate) fn register_anon_target(
+        &mut self,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        rule: ValueTyped<'v, FrozenRuleCallable>,
+        attributes: DictOf<'v, &'v str, Value<'v>>,
+    ) -> anyhow::Result<()> {
+        self.anon_targets.register(promise, rule, attributes)
+    }
+
+    pub(crate) fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+        self.anon_targets.get_promises()
+    }
+
+    pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
+        self.anon_targets.assert_no_promises()
+    }
+
     /// You MUST pass the same module to both the first function and the second one.
     /// It requires both to get the lifetimes to line up.
     pub fn finalize(
@@ -249,6 +273,7 @@ impl<'v> AnalysisRegistry<'v> {
             dynamic,
             actions,
             artifact_groups,
+            anon_targets: _,
             analysis_value_storage,
         } = self;
         analysis_value_storage.write_to_module(env);
