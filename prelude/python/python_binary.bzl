@@ -31,7 +31,6 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
 )
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//utils:types.bzl",
     "unchecked",  # @unused Used as a type
@@ -443,7 +442,7 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
     run_args = []
 
     # Windows can't run PAR directly.
-    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._target_os_type == "windows":
         run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
     run_args.append(output)
 

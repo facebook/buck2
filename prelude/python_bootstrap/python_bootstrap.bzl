@@ -1,5 +1,3 @@
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
-
 PythonBootstrapSources = provider(fields = ["srcs"])
 
 PythonBootstrapToolchainInfo = provider(fields = ["interpreter", "windows_interpreter"])
@@ -37,7 +35,7 @@ def python_bootstrap_binary_impl(ctx: "context") -> ["provider"]:
     run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
     output = ctx.actions.copy_file(ctx.attrs.main.short_path, ctx.attrs.main)
 
-    is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    is_windows = ctx.attrs._target_os_type == "windows"
 
     run_args = cmd_args()
     if is_windows:
