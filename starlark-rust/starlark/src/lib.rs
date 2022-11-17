@@ -65,7 +65,6 @@
 //! a [`Globals`](environment::Globals) object.
 //!
 //! ```
-//! #![feature(box_syntax)]
 //! #[macro_use]
 //! extern crate starlark;
 //! # fn run() -> anyhow::Result<()> {
@@ -106,7 +105,6 @@
 //! to "write out" a JSON value, and use the [`Evaluator.extra`](eval::Evaluator::extra) field to store it.
 //!
 //! ```
-//! #![feature(box_syntax)]
 //! #[macro_use]
 //! extern crate starlark;
 //! # fn run() -> anyhow::Result<()> {

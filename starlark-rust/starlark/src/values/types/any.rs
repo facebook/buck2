@@ -25,7 +25,6 @@
 //! [`Duration`](std::time::Duration) type.
 //!
 //! ```
-//! #![feature(box_syntax)]
 //! #[macro_use]
 //! extern crate starlark;
 //! # fn main() {
