@@ -14,10 +14,12 @@ use buck2_client_ctx::streaming::BuckSubcommand;
 use crate::commands::docs::query::DocsCqueryCommand;
 use crate::commands::docs::query::DocsUqueryCommand;
 use crate::commands::docs::starlark::DocsStarlarkCommand;
+use crate::commands::docs::target_patterns::DocsTargetPatternsCommand;
 
 mod output;
 mod query;
 mod starlark;
+mod target_patterns;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, clap::Parser)]
@@ -26,6 +28,7 @@ enum DocsKind {
     Uquery(DocsUqueryCommand),
     Query(DocsUqueryCommand),
     Cquery(DocsCqueryCommand),
+    TargetPatterns(DocsTargetPatternsCommand),
 }
 
 #[derive(Debug, clap::Parser)]
@@ -46,6 +49,7 @@ impl DocsCommand {
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Query(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::TargetPatterns(cmd) => cmd.exec(submatches, ctx),
         }
     }
 }

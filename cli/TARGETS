@@ -11,7 +11,10 @@ oncall("build_infra")
 
 rust_library(
     name = "cli",
-    srcs = glob(["src/**/*.rs"]),
+    srcs = glob([
+        "src/**/*.rs",
+        "src/**/*.md",
+    ]),
     os_deps = [
         (
             "linux",
