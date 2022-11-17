@@ -11,6 +11,7 @@ load(
     "merge_framework_linkables",
 )
 load("@prelude//utils:utils.bzl", "expect")
+load(":apple_framework_versions.bzl", "get_framework_linker_args")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
@@ -34,9 +35,7 @@ def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLink
 
     expanded_frameworks_paths = _expand_sdk_framework_paths(ctx, linkable.unresolved_framework_paths)
     flags = _get_framework_search_path_flags(expanded_frameworks_paths)
-
-    for framework_name in linkable.framework_names:
-        flags.add(["-framework", framework_name])
+    flags.add(get_framework_linker_args(ctx, linkable.framework_names))
 
     for library_name in linkable.library_names:
         flags.add("-l" + library_name)
