@@ -225,7 +225,7 @@ def _compiler_compile(ctx: "context", compiler: "cmd_args", cc: "cmd_args", incl
     is_native = bytecode_or_native.value == "native"
 
     cmd = _compiler(ctx, compiler, cc)
-    cmd.add("-annot", "-bin-annot")
+    cmd.add("-annot", "-bin-annot", "-no-alias-deps")
     cmd.add(ocaml_toolchain.ocaml_compiler_flags)
 
     # All ocaml libs in context
