@@ -61,8 +61,6 @@ pub enum LibraryExtension {
     /// Partially apply a function, `partial(f, *args, **kwargs)` will create a function where those `args` `kwargs`
     /// are already applied to `f`.
     Partial,
-    /// Remove duplicate entries in the list, using pointer-based equality always.
-    Dedupe,
     /// Create a regex from a string.
     ExperimentalRegex,
     /// Add a function `debug(x)` which shows the Rust [`Debug`](std::fmt::Debug) representation of a value.
@@ -92,7 +90,6 @@ impl LibraryExtension {
             Map,
             Filter,
             Partial,
-            Dedupe,
             ExperimentalRegex,
             Debug,
             Print,
@@ -113,7 +110,6 @@ impl LibraryExtension {
             Map => extra::map(builder),
             Filter => extra::filter(builder),
             Partial => extra::partial(builder),
-            Dedupe => extra::dedupe(builder),
             ExperimentalRegex => extra::regex(builder),
             Debug => extra::debug(builder),
             Print => extra::print(builder),

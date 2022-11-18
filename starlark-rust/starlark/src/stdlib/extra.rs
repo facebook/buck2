@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
 
@@ -44,7 +43,6 @@ use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
-use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -124,27 +122,6 @@ pub fn debug(builder: &mut GlobalsBuilder) {
     /// mostly intended for debugging purposes.
     fn debug(#[starlark(require = pos)] val: Value) -> anyhow::Result<String> {
         Ok(format!("{:?}", val))
-    }
-}
-
-#[starlark_module]
-pub fn dedupe(builder: &mut GlobalsBuilder) {
-    /// Remove duplicates in a list. Uses identity of value (pointer),
-    /// rather than by equality.
-    fn dedupe<'v>(
-        #[starlark(require = pos)] val: Value<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        let mut seen = HashSet::new();
-        let mut res = Vec::new();
-        for v in val.iterate(heap)? {
-            let p = v.ptr_value();
-            if !seen.contains(&p) {
-                seen.insert(p);
-                res.push(v);
-            }
-        }
-        Ok(heap.alloc_list(&res))
     }
 }
 
@@ -399,19 +376,6 @@ assert_eq(
                 debug([1,2]),
                 "Value(ListGen(List { content: Cell { value: ValueTyped(Value(Array { len: 2, capacity: 2, iter_count: 0, content: [Value(1), Value(2)] })) } }))"
                 )"#,
-        );
-    }
-
-    #[test]
-    fn test_dedupe() {
-        assert::pass(
-            r#"
-assert_eq(dedupe([1,2,3]), [1,2,3])
-assert_eq(dedupe([1,2,3,2,1]), [1,2,3])
-a = [1]
-b = [1]
-assert_eq(dedupe([a,b,a]), [a,b])
-"#,
         );
     }
 

@@ -52,6 +52,7 @@ use crate::extra::InterpreterConfiguror;
 use crate::file_loader::InterpreterFileLoader;
 use crate::file_loader::LoadResolver;
 use crate::file_loader::LoadedModules;
+use crate::functions::dedupe::dedupe;
 use crate::import_paths::ImportPaths;
 use crate::package_imports::ImplicitImport;
 use crate::parse_import::parse_import;
@@ -215,7 +216,6 @@ pub fn configure_base_globals(
         LibraryExtension::Abs,
         LibraryExtension::Breakpoint,
         LibraryExtension::Debug,
-        LibraryExtension::Dedupe,
         LibraryExtension::EnumType,
         LibraryExtension::Filter,
         LibraryExtension::Json,
@@ -229,7 +229,8 @@ pub fn configure_base_globals(
     ];
     let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
         .with(register_globals)
-        .with(register_natives);
+        .with(register_natives)
+        .with(dedupe);
     global_env.struct_("__internal__", |x| {
         register_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done

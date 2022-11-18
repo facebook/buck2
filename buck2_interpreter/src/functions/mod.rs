@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub(crate) mod dedupe;
 pub mod host_info;
 pub mod read_config;
