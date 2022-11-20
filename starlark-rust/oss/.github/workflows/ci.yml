@@ -30,4 +30,4 @@ jobs:
     - uses: EmbarkStudios/cargo-deny-action@v1
       if: matrix.os == 'ubuntu-latest' # Only works on Linux
       with:
-        command: check advisories bans sources
+        command: check bans sources
