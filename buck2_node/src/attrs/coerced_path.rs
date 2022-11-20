@@ -16,11 +16,11 @@ use static_assertions::assert_eq_size;
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum CoercedPath {
     File(BuckPath),
-    Directory(BuckPath, Vec<BuckPath>),
+    Directory(BuckPath, Box<[BuckPath]>),
 }
 
 // Avoid changing the size accidentally.
-assert_eq_size!(CoercedPath, [usize; 7]);
+assert_eq_size!(CoercedPath, [usize; 6]);
 
 impl CoercedPath {
     pub fn path(&self) -> BuckPathRef {
