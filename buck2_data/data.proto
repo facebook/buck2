@@ -1214,6 +1214,8 @@ message InvocationRecord {
   optional uint64 event_count = 38;
   // Time elapsed from a command start until the first action begins execution.
   optional uint64 time_to_first_action_execution_ms = 39;
+  // Total size, in bytes, of all materialized outputs.
+  optional uint64 materialization_output_size = 40;
 }
 
 message CacheUploadStart {

@@ -84,6 +84,7 @@ mod imp {
         run_command_failure_count: u64,
         event_count: u64,
         time_to_first_action_execution: Option<Duration>,
+        materialization_output_size: u64,
     }
 
     impl InvocationRecorder {
@@ -132,6 +133,7 @@ mod imp {
                 run_command_failure_count: 0,
                 event_count: 0,
                 time_to_first_action_execution: None,
+                materialization_output_size: 0,
             }
         }
 
@@ -194,6 +196,7 @@ mod imp {
                     time_to_first_action_execution_ms: self
                         .time_to_first_action_execution
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                    materialization_output_size: Some(self.materialization_output_size),
                 };
                 let event = BuckEvent::new(
                     SystemTime::now(),
@@ -368,6 +371,15 @@ mod imp {
         ) -> anyhow::Result<()> {
             self.re_session_id = Some(session.session_id.clone());
             self.re_experiment_name = Some(session.experiment_name.clone());
+            Ok(())
+        }
+
+        async fn handle_materialization_end(
+            &mut self,
+            materialization: &buck2_data::MaterializationEnd,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            self.materialization_output_size += materialization.total_bytes;
             Ok(())
         }
 
