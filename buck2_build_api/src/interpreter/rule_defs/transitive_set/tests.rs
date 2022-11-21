@@ -706,3 +706,30 @@ fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_accessors() -> anyhow::Result<()> {
+    let mut tester = Tester::new()?;
+    tester.set_additional_globals(|builder| {
+        tset_factory(builder);
+    });
+
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def project1(_value):
+            pass
+
+        FooSet = transitive_set(args_projections = { "foo": project1 })
+
+        def test():
+            s = make_tset(FooSet)
+            assert_eq(s.definition, FooSet)
+
+            proj = s.project_as_args("foo")
+            assert_eq(proj.transitive_set, s)
+            assert_eq(proj.projection_name, "foo")
+        "#
+    ))?;
+
+    Ok(())
+}
