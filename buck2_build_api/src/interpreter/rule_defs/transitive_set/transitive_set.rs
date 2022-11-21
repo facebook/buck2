@@ -354,7 +354,9 @@ impl<'v> TransitiveSet<'v> {
                     got: format_def(set.definition),
                 })
             }
-            None => Err(TransitiveSetError::TransitiveValueIsNotTransitiveSet),
+            None => {
+                Err(TransitiveSetError::TransitiveValueIsNotTransitiveSet { got: v.to_string() })
+            }
         })?;
 
         let node = value.into_try_map(|value| {

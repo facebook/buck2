@@ -62,8 +62,8 @@ pub enum TransitiveSetError {
     )]
     TransitiveSetUsedBeforeAssignment,
 
-    #[error("Transitive set transitive values must be transitive")]
-    TransitiveValueIsNotTransitiveSet,
+    #[error("Transitive set transitive values must be transitive sets, got `{}`", .got)]
+    TransitiveValueIsNotTransitiveSet { got: String },
 
     #[error(
         "Transitive set transitive values must be of the same transitive set type (expected: `{}`, got: `{}`)",
