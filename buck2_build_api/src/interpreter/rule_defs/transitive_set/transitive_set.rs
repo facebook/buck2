@@ -523,4 +523,10 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             ordering: TransitiveSetOrdering::parse(ordering)?,
         }))
     }
+
+    #[starlark(attribute)]
+    fn definition<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+        let set = TransitiveSet::from_value(this).context("Invalid this")?;
+        Ok(set.definition)
+    }
 }
