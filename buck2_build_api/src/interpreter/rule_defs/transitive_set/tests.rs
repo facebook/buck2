@@ -36,6 +36,33 @@ fn test_define_transitive_set() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_hash_transitive_set() -> anyhow::Result<()> {
+    let mut tester = Tester::new()?;
+    tester.set_additional_globals(tset_factory);
+
+    tester.add_import(
+        &import("root", "test", "def1.bzl"),
+        indoc!(
+            r#"
+            FooSet = transitive_set()
+            dict = {FooSet: 1}
+            "#
+        ),
+    )?;
+
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        load("//test:def1.bzl", "FooSet", "dict")
+
+        def test():
+            assert_eq(dict[FooSet], 1)
+        "#
+    ))?;
+
+    Ok(())
+}
+
+#[test]
 fn test_define_transitive_set_projections() -> anyhow::Result<()> {
     run_simple_starlark_test(indoc!(
         r#"

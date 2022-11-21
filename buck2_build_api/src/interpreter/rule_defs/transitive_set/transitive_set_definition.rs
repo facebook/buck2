@@ -10,9 +10,11 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::bzl::ModuleID;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -22,6 +24,7 @@ use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::collections::SmallMap;
+use starlark::collections::StarlarkHasher;
 use starlark::eval::Evaluator;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
@@ -67,7 +70,7 @@ pub struct TransitiveSetProjectionSpec<V> {
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
-#[derive(Debug, Clone, Display, Allocative)]
+#[derive(Debug, Clone, Display, Allocative, Hash)]
 #[display(fmt = "{}", "name")]
 struct TransitiveSetId {
     module_id: ModuleID,
@@ -226,6 +229,15 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         }
     }
 
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+        let id = self.id.borrow();
+        let id = id
+            .as_deref()
+            .context("cannot hash a transitive_set_definition without id")?;
+        id.hash(hasher);
+        Ok(())
+    }
+
     // TODO (torozco): extra_memory()?
 }
 
@@ -276,6 +288,11 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
         } else {
             None
         }
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+        self.id.hash(hasher);
+        Ok(())
     }
 }
 
