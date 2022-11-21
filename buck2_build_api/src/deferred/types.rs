@@ -243,7 +243,7 @@ impl<T: Send + Sync + 'static> DeferredData<T> {
 
 /// A key to lookup a 'Deferred' of any result type
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))] // Recusive type
+#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))] // Recursive type
 pub enum DeferredKey {
     /// Base means it's the first deferred registered that can be looked up via the ID based on
     /// analysis of the 'ConfiguredTargetLabel'.
