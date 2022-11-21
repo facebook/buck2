@@ -23,7 +23,7 @@ def pascal_binary_impl(_ctx: "context") -> ["provider"]:
 
 * Now implement the rules. See the rest of this doc.
 
-* Before merging a diff, it's important that all your Starlark is warning free (we'll test this in CI if you don't want to set up Buck2 for local development). If you do set it up locally, see the `README.md` in the root of `fbcode/buck2` and then running `./test.py --lint-only` will confirm your Starlark code is warning free.
+* Before merging a diff, it's important that all your Starlark is warning free (we'll test this in CI if you don't want to set up Buck2 for local development). <FbInternalOnly>If you do set it up locally, see the `README.md` in the root of `fbcode/buck2` and then running `./test.py --lint-only` will confirm your Starlark code is warning free.</FbInternalOnly>
 
 ## Concepts and design
 
