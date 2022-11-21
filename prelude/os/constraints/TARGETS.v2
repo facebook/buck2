@@ -22,3 +22,9 @@ constraint_value(
     constraint_setting = ":os",
     visibility = ["PUBLIC"],
 )
+
+constraint_value(
+    name = "android",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
