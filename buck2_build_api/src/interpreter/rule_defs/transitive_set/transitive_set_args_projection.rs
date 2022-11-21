@@ -27,6 +27,7 @@ use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -239,5 +240,17 @@ fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
             projection: projection.projection,
             ordering: projection.ordering,
         }))
+    }
+
+    #[starlark(attribute)]
+    fn projection_name<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+        let projection = TransitiveSetArgsProjection::from_value(this).context("Invalid this")?;
+        Ok(heap.alloc_str(projection.projection_name()?))
+    }
+
+    #[starlark(attribute)]
+    fn transitive_set<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+        let projection = TransitiveSetArgsProjection::from_value(this).context("Invalid this")?;
+        Ok(projection.transitive_set)
     }
 }
