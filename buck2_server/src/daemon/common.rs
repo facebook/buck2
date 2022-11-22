@@ -269,7 +269,7 @@ pub fn get_executor_config_for_strategy(
                 level: HybridExecutionLevel::Limited,
             }
         }
-        // NOTE: We don't differnetiate between the preferences for Hybrid here. This gets injected
+        // NOTE: We don't differentiate between the preferences for Hybrid here. This gets injected
         // later when we actually instantiate the Executor.
         ExecutionStrategy::Hybrid | ExecutionStrategy::HybridPreferLocal => {
             CommandExecutorKind::Hybrid {
