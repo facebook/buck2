@@ -1,6 +1,40 @@
 # Buck2
 
-This repo contains the code for the Buck2 build system - the successor to the original Buck build system.
+**WARNING:** This project is not yet polished and if you try and use it, you will probably have a bad time. If you are willing to work with us, please give it a go and [let us know](https://github.com/facebookincubator/buck2/issues) what is blocking you.
+
+This repo contains the code for the Buck2 build system - the successor to the original [Buck build system](https://buck.build). To understand why it might be interesting, see [this explainer](docs/why.md). For the moment, we only test it on Linux, and don't recommend running benchmarks as features like the disk cache are not entirely implemented in the open source build.
+
+## Getting started
+
+### Building Buck2
+
+To build Buck2 type `cargo build --bin=buck2 --release` from this directory and copy the resulting binary (probably `target/release/buck2`) to your `$PATH`. Typing `buck2 --help` should now work.
+
+### Building sample targets
+
+__FIXME(marwhal): This section needs to be made to work__
+
+If you `cd examples/prelude` and type `buck2 build ...` that will build a number of targets in a variety of languages. Doing so requires that `python3` and `clang` are both on your `$PATH`.
+
+### Bootstrapping Buck2
+
+To build Buck2 using Buck2:
+
+* Install [`reindeer`](https://github.com/facebookincubator/reindeer), which is used to make Buck targets for Rust libraries.
+* Run `reindeer --third-party-dir shim/third-party/rust vendor`
+* Run `reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUCK_OSS`
+* Run `buck2 build :buck2`
+
+Note that the resulting binary will be compiled without optimisations or [jemalloc](https://github.com/jemalloc/jemalloc), so we recommend using the Cargo-produced binary in further development.
+
+### Making your own project
+
+A Buck2 project requires:
+
+* A `.buckconfig` file in the root which has a `[repositories]` section listing out interesting cells. We recommend copying from `examples/prelude` to ensure it contains the necessary fields.
+* A `prelude` directory, which should be produced with `git submodule add https://github.com/facebookincubator/buck2-prelude.git prelude`
+* A `toolchains` directory, which specifies where to find the relevant toolchains. We recommend copying from `examples/prelude` to start, but you may wish to use alternative toolchains.
+* Some `BUILD` files that specify the targets specific to your project.
 
 ## Terminology conventions
 
