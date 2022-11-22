@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
 def get_flags_for_reproducible_build(compiler_type: str.type) -> [str.type]:

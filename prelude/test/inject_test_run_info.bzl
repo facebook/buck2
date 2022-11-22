@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 def inject_test_run_info(ctx: "context", test_info: ExternalRunnerTestInfo.type) -> ["provider"]:
     # Access this here so we get failures in CI if we forget to inject it
     # anywhere, regardless of whether an `env` is used.

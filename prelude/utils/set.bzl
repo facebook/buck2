@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 # A set is useful when the `dedupe` builtin is not applicable. Dedupe looks at
 # identity of the value (some kind of pointer) rather than equality, so for
 # example doesn't eliminate duplicates of the same string value obtained from

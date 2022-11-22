@@ -1,3 +1,10 @@
+@REM Copyright (c) Meta Platforms, Inc. and affiliates.
+@REM
+@REM This source code is licensed under both the MIT license found in the
+@REM LICENSE-MIT file in the root directory of this source tree and the Apache
+@REM License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+@REM of this source tree.
+
 :: A wrapper to set PYTHONPATH and run a python command with the specified interpreter
 :: First arg: paths to library that should be made available
 :: Second arg: path to python interpreter

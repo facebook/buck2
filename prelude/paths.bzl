@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# @lint-ignore-every LICENSELINT
+
 """Skylib module containing file path manipulation functions.
 
 NOTE: The functions in this module currently only support paths with Unix-style

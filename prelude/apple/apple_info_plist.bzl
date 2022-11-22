@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")

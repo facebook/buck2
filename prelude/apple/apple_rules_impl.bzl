@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 load("@prelude//:attributes.bzl", "LinkableDepType", "Linkage")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")

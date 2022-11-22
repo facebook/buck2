@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_override_spec = "registration_spec")
 load("@prelude//apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")

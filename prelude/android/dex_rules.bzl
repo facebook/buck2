@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 load("@prelude//android:android_providers.bzl", "DexFilesInfo", "ExopackageDexInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
 load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")

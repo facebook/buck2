@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")

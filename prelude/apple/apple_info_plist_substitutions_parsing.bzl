@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 # `apple_bundle.info_plist_substitutions` might contain `CODE_SIGN_ENTITLEMENTS` key which (as per v1 documentation):
 #
 # > Code signing will embed entitlements pointed to by the entitlements_file arg in the bundle's apple_binary.
