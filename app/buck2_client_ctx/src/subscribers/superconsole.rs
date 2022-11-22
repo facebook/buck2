@@ -46,6 +46,8 @@ use crate::subscribers::io::IoHeader;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
+use crate::subscribers::superconsole::commands::CommandsComponent;
+use crate::subscribers::superconsole::commands::CommandsComponentState;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsState;
 use crate::subscribers::superconsole::dice::DiceComponent;
@@ -59,6 +61,7 @@ use crate::what_ran;
 use crate::what_ran::local_command_to_string;
 use crate::what_ran::WhatRanOptions;
 
+mod commands;
 mod common;
 pub(crate) mod debug_events;
 pub(crate) mod dice;
@@ -123,6 +126,7 @@ pub(crate) struct SuperConsoleState {
     time_speed: TimeSpeed,
     dice_state: DiceState,
     debug_events: DebugEventsState,
+    commands_state: CommandsComponentState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole,
     timed_list: TimedListState,
@@ -149,6 +153,7 @@ impl StatefulSuperConsole {
         }
         components.push(box DebugEventsComponent);
         components.push(box DiceComponent);
+        components.push(box CommandsComponent);
         components.push(box TimedList::new(MAX_EVENTS, CUTOFFS, header));
         let root = box Split::new(components, Direction::Vertical, SplitKind::Adaptive);
         // bound all components to our recommended grapheme-width
@@ -215,6 +220,7 @@ impl StatefulSuperConsole {
                 simple_console: SimpleConsole::with_tty(verbosity, show_waiting_message),
                 dice_state: DiceState::new(config.enable_dice),
                 debug_events: DebugEventsState::new(config.enable_debug_events),
+                commands_state: CommandsComponentState { enabled: false },
                 timed_list: TimedListState::default(),
             },
             super_console: Some(super_console),
@@ -262,6 +268,7 @@ impl SuperConsoleState {
             self.simple_console.re_panel(),
             &self.simple_console.io_state,
             &self.debug_events,
+            &self.commands_state,
             &self.timed_list,
         ]
     }
@@ -364,6 +371,9 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 &mut s.state.simple_console.io_state.enabled
             })
             .await?;
+        } else if c == 'c' {
+            self.toggle("Commands", 'c', |s| &mut s.state.commands_state.enabled)
+                .await?;
         } else if c == '?' || c == 'h' {
             self.handle_stderr(
                 "Help:\n\
