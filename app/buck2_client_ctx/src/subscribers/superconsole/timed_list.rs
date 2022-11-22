@@ -243,14 +243,15 @@ impl Component for CountComponent {
             time_speed.speed(),
         );
 
-        let cache_hit_percentage = action_stats.action_cache_hit_percentage();
-
         let contents = match mode {
             DrawMode::Normal => {
                 if action_stats.log_stats() {
                     format!(
                         "Jobs: In progress: {}. Finished: {}. Cache hits: {}%. Time elapsed: {}",
-                        progress, finished, cache_hit_percentage, elapsed
+                        progress,
+                        finished,
+                        action_stats.action_cache_hit_percentage(),
+                        elapsed
                     )
                 } else {
                     format!(
@@ -262,14 +263,8 @@ impl Component for CountComponent {
             DrawMode::Final => {
                 if action_stats.log_stats() {
                     format!(
-                        "Jobs completed: {}. Time elapsed: {}. Cache hits: {}%. Commands: {} (cached: {}, remote: {}, local: {})",
-                        finished,
-                        elapsed,
-                        cache_hit_percentage,
-                        action_stats.total_executed_and_cached_actions(),
-                        action_stats.cached_actions,
-                        action_stats.remote_actions,
-                        action_stats.local_actions
+                        "Jobs completed: {}. Time elapsed: {}. {}",
+                        finished, elapsed, action_stats,
                     )
                 } else {
                     format!("Jobs completed: {}. Time elapsed: {}.", finished, elapsed,)

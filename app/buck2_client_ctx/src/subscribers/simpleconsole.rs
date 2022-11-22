@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::fmt;
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
@@ -194,6 +195,20 @@ impl ActionStats {
 
     pub(crate) fn log_stats(&self) -> bool {
         self.total_executed_and_cached_actions() > 0
+    }
+}
+
+impl fmt::Display for ActionStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Cache hits: {}%. Commands: {} (cached: {}, remote: {}, local: {})",
+            self.action_cache_hit_percentage(),
+            self.total_executed_and_cached_actions(),
+            self.cached_actions,
+            self.remote_actions,
+            self.local_actions
+        )
     }
 }
 
