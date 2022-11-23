@@ -28,7 +28,10 @@ system_conan_toolchain = rule(
 def _conan_lock_update_impl(ctx):
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
 
-    conanfile = cmd_args([ctx.attrs.conanfile], format = 'CONANFILE="{}"')
+    # TODO[AH] This assumes that buck2 is in PATH when executing the script via `buck2 run`.
+    #   Consider making the name/path `buck2` configurable via an environment variable.
+    root = cmd_args(["ROOT=`buck2 root`"])
+    conanfile = cmd_args([ctx.attrs.conanfile], format = 'CONANFILE="$ROOT/{}"')
     lockfile_out = cmd_args([ctx.attrs.lockfile_name], format = 'LOCKFILE_OUT="`dirname $CONANFILE`/{}"')
     conan_cmd = cmd_args([conan_toolchain.conan, "lock", "create"], delimiter = " ")
     if ctx.attrs.lockfile:
@@ -41,6 +44,7 @@ def _conan_lock_update_impl(ctx):
         output,
         cmd_args([
             "#!/bin/sh",
+            root,
             conanfile,
             lockfile_out,
             conan_cmd,
