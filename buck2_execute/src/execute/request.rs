@@ -238,7 +238,7 @@ impl CommandExecutionRequest {
         let artifact_outputs = self
             .artifact_outputs
             .iter()
-            .map(CommandExecutionOutputRef::BuildArtifact);
+            .map(|path| CommandExecutionOutputRef::BuildArtifact { path });
 
         let test_outputs = self.test_outputs.as_ref().into_iter().flat_map(|outputs| {
             outputs
@@ -305,7 +305,9 @@ impl CommandExecutionRequest {
 
 #[derive(From, UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutputRef<'a> {
-    BuildArtifact(&'a BuckOutPath),
+    BuildArtifact {
+        path: &'a BuckOutPath,
+    },
     TestPath {
         path: &'a BuckOutTestPath,
         create: OutputCreationBehavior,
@@ -317,8 +319,8 @@ impl<'a> CommandExecutionOutputRef<'a> {
     /// path as well as any dirs to create.
     pub fn resolve(&self, fs: &ArtifactFs) -> ResolvedCommandExecutionOutput {
         match self {
-            Self::BuildArtifact(artifact) => ResolvedCommandExecutionOutput {
-                path: fs.resolve_build(artifact),
+            Self::BuildArtifact { path } => ResolvedCommandExecutionOutput {
+                path: fs.resolve_build(path),
                 create: OutputCreationBehavior::Parent,
             },
             Self::TestPath { path, create } => ResolvedCommandExecutionOutput {
@@ -330,7 +332,9 @@ impl<'a> CommandExecutionOutputRef<'a> {
 
     pub fn cloned(&self) -> CommandExecutionOutput {
         match self {
-            Self::BuildArtifact(a) => CommandExecutionOutput::BuildArtifact((*a).dupe()),
+            Self::BuildArtifact { path } => CommandExecutionOutput::BuildArtifact {
+                path: (*path).dupe(),
+            },
             Self::TestPath { path, create } => CommandExecutionOutput::TestPath {
                 path: (*path).clone(),
                 create: *create,
@@ -341,7 +345,9 @@ impl<'a> CommandExecutionOutputRef<'a> {
 
 #[derive(From, UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutput {
-    BuildArtifact(BuckOutPath),
+    BuildArtifact {
+        path: BuckOutPath,
+    },
     TestPath {
         path: BuckOutTestPath,
         create: OutputCreationBehavior,
@@ -351,7 +357,7 @@ pub enum CommandExecutionOutput {
 impl CommandExecutionOutput {
     pub fn as_ref<'a>(&'a self) -> CommandExecutionOutputRef<'a> {
         match self {
-            Self::BuildArtifact(ref a) => CommandExecutionOutputRef::BuildArtifact(a),
+            Self::BuildArtifact { ref path } => CommandExecutionOutputRef::BuildArtifact { path },
             Self::TestPath { ref path, create } => CommandExecutionOutputRef::TestPath {
                 path,
                 create: *create,

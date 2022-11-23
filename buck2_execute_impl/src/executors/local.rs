@@ -411,7 +411,7 @@ impl LocalExecutor {
             let value = extract_artifact_value(&builder, path.as_ref())?;
             if let Some(value) = value {
                 match output {
-                    CommandExecutionOutput::BuildArtifact(..) => {
+                    CommandExecutionOutput::BuildArtifact { .. } => {
                         to_declare.push((path, value.dupe()));
                     }
                     CommandExecutionOutput::TestPath { .. } => {
@@ -616,8 +616,8 @@ pub async fn materialize_build_outputs_from_previous_run(
 
     for output in request.outputs() {
         match output {
-            CommandExecutionOutputRef::BuildArtifact(artifact) => {
-                paths.push(artifact_fs.resolve_build(artifact));
+            CommandExecutionOutputRef::BuildArtifact { path } => {
+                paths.push(artifact_fs.resolve_build(path));
             }
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
