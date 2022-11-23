@@ -477,7 +477,7 @@ pub(crate) mod testings {
 
             let outputs = outputs
                 .into_iter()
-                .filter_map(|(o, v)| Some((o.into_build_artifact()?, v)))
+                .filter_map(|(o, v)| Some((o.into_build_artifact()?.0, v)))
                 .collect();
             let outputs = ActionOutputs::new(outputs);
 

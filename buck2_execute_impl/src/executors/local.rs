@@ -616,7 +616,10 @@ pub async fn materialize_build_outputs_from_previous_run(
 
     for output in request.outputs() {
         match output {
-            CommandExecutionOutputRef::BuildArtifact { path } => {
+            CommandExecutionOutputRef::BuildArtifact {
+                path,
+                output_type: _,
+            } => {
                 paths.push(artifact_fs.resolve_build(path));
             }
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}

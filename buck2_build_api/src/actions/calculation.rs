@@ -487,6 +487,7 @@ mod tests {
     use buck2_execute::execute::output::CommandStdStreams;
     use buck2_execute::execute::prepared::PreparedCommandExecutor;
     use buck2_execute::execute::request::CommandExecutionOutput;
+    use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::result::CommandExecutionReport;
     use buck2_execute::execute::result::CommandExecutionStatus;
     use buck2_execute::execute::testing_dry_run::DryRunEntry;
@@ -696,7 +697,8 @@ mod tests {
             DryRunEntry {
                 args: vec!["foo".to_owned(), "cmd".to_owned()],
                 outputs: vec![CommandExecutionOutput::BuildArtifact {
-                    path: build_artifact.get_path().dupe()
+                    path: build_artifact.get_path().dupe(),
+                    output_type: OutputType::FileOrDirectory,
                 }],
                 env: hashmap![]
             }
@@ -742,7 +744,8 @@ mod tests {
             DryRunEntry {
                 args: vec!["bar".to_owned(), "cmd".to_owned()],
                 outputs: vec![CommandExecutionOutput::BuildArtifact {
-                    path: build_artifact.get_path().dupe()
+                    path: build_artifact.get_path().dupe(),
+                    output_type: OutputType::FileOrDirectory,
                 }],
                 env: hashmap![]
             }
@@ -788,7 +791,8 @@ mod tests {
             DryRunEntry {
                 args: vec!["ensure".to_owned(), "cmd".to_owned()],
                 outputs: vec![CommandExecutionOutput::BuildArtifact {
-                    path: build_artifact.get_path().dupe()
+                    path: build_artifact.get_path().dupe(),
+                    output_type: OutputType::FileOrDirectory,
                 }],
                 env: hashmap![]
             }

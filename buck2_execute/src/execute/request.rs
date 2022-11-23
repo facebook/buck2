@@ -234,10 +234,13 @@ impl CommandExecutionRequest {
     }
 
     pub fn outputs<'a>(&'a self) -> impl Iterator<Item = CommandExecutionOutputRef<'a>> + 'a {
-        let artifact_outputs = self
-            .artifact_outputs
-            .iter()
-            .map(|path| CommandExecutionOutputRef::BuildArtifact { path });
+        let artifact_outputs =
+            self.artifact_outputs
+                .iter()
+                .map(|path| CommandExecutionOutputRef::BuildArtifact {
+                    path,
+                    output_type: OutputType::FileOrDirectory,
+                });
 
         let test_outputs = self.test_outputs.as_ref().into_iter().flat_map(|outputs| {
             outputs
@@ -302,10 +305,19 @@ impl CommandExecutionRequest {
     }
 }
 
+/// Is an output a file or a directory
+#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone, Dupe)]
+pub enum OutputType {
+    /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.
+    /// We aim to mostly remove this alternative over time.
+    FileOrDirectory,
+}
+
 #[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutputRef<'a> {
     BuildArtifact {
         path: &'a BuckOutPath,
+        output_type: OutputType,
     },
     TestPath {
         path: &'a BuckOutTestPath,
@@ -318,7 +330,10 @@ impl<'a> CommandExecutionOutputRef<'a> {
     /// path as well as any dirs to create.
     pub fn resolve(&self, fs: &ArtifactFs) -> ResolvedCommandExecutionOutput {
         match self {
-            Self::BuildArtifact { path } => ResolvedCommandExecutionOutput {
+            Self::BuildArtifact {
+                path,
+                output_type: _,
+            } => ResolvedCommandExecutionOutput {
                 path: fs.resolve_build(path),
                 create: OutputCreationBehavior::Parent,
             },
@@ -331,8 +346,9 @@ impl<'a> CommandExecutionOutputRef<'a> {
 
     pub fn cloned(&self) -> CommandExecutionOutput {
         match self {
-            Self::BuildArtifact { path } => CommandExecutionOutput::BuildArtifact {
+            Self::BuildArtifact { path, output_type } => CommandExecutionOutput::BuildArtifact {
                 path: (*path).dupe(),
+                output_type: *output_type,
             },
             Self::TestPath { path, create } => CommandExecutionOutput::TestPath {
                 path: (*path).clone(),
@@ -346,6 +362,7 @@ impl<'a> CommandExecutionOutputRef<'a> {
 pub enum CommandExecutionOutput {
     BuildArtifact {
         path: BuckOutPath,
+        output_type: OutputType,
     },
     TestPath {
         path: BuckOutTestPath,
@@ -356,7 +373,13 @@ pub enum CommandExecutionOutput {
 impl CommandExecutionOutput {
     pub fn as_ref<'a>(&'a self) -> CommandExecutionOutputRef<'a> {
         match self {
-            Self::BuildArtifact { ref path } => CommandExecutionOutputRef::BuildArtifact { path },
+            Self::BuildArtifact {
+                ref path,
+                output_type,
+            } => CommandExecutionOutputRef::BuildArtifact {
+                path,
+                output_type: *output_type,
+            },
             Self::TestPath { ref path, create } => CommandExecutionOutputRef::TestPath {
                 path,
                 create: *create,
