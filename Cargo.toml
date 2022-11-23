@@ -129,6 +129,9 @@ memmap = "0.7.0"
 multimap = "0.8.3"
 nix = "0.22"
 nom = "6.1.2"
+# The internal Meta rust-analyzer requires a notify of a similar version.
+# Reindeer can't have two distinct tagged versions of a single version, so we have to share.
+# Upgrade to 5.0 once the Meta rust-analyzer uses that.
 notify = "=5.0.0-pre.16"
 num_cpus = "1.11"
 object = "0.25.3"
