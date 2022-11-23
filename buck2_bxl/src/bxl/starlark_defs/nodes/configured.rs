@@ -39,6 +39,7 @@ use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
+use serde::Serialize;
 use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -308,7 +309,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     Clone,
     Display,
     ProvidesStaticType,
-    NoSerialize,
+    Serialize,
     StarlarkDocs,
     Allocative
 )]
