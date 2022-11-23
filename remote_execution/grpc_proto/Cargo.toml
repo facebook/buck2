@@ -1,0 +1,20 @@
+[package]
+name = "grpc_proto"
+version = "0.1.0"
+edition = "2021"
+description = "A library providing gRPC client for Bazel remote execution"
+
+[dependencies]
+prost-types = { workspace = true }
+prost = { workspace = true }
+tonic = { workspace = true }
+
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+
+[build-dependencies]
+buck2_protoc_dev = { path = "../../app/buck2_protoc_dev" }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]
