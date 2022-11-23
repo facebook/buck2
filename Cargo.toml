@@ -194,7 +194,7 @@ walkdir = "2.3.2"
 winapi = { version = "0.3", features = ["everything"] }
 xattr = "0.2.2"
 zip = "0.5"
-zstd = "=0.11.1"
+zstd = "=0.11.1" # Due to https://github.com/gyscos/zstd-rs/issues/177
 
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../common/rust/shed/fbinit"
