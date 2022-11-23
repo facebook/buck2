@@ -9,7 +9,7 @@ rust_protobuf_library(
         "BUCK_HACK_PROTOC_INCLUDE": "$(location //buck2/buck2_data:data.proto)",
     },
     build_script = "build.rs",
-    spec = "daemon.proto",
+    protos = ["daemon.proto"],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:prost-types",

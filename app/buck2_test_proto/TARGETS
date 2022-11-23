@@ -7,7 +7,7 @@ rust_protobuf_library(
     name = "buck2_test_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    spec = "test.proto",
+    protos = ["test.proto"],
     deps = [
         "fbsource//third-party/rust:prost-types",
     ],

@@ -10,7 +10,7 @@ load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
-def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps = None):
+def rust_protobuf_library(name, srcs, build_script, protos, build_env = None, deps = None):
     build_name = name + "-build"
     proto_name = name + "-proto"
 
@@ -33,7 +33,7 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
 
     buck_genrule(
         name = proto_name,
-        srcs = [spec],
+        srcs = protos,
         # The binary doesn't look at the command line, but with Buck1, if we don't have $OUT
         # on the command line, it doesn't set the environment variable, so put it on.
         cmd = "$(exe :{}) --required-for-buck1=$OUT".format(build_name),
@@ -55,6 +55,7 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
     )
 
     # For python tests only
-    export_file(
-        name = spec,
-    )
+    for proto in protos:
+        export_file(
+            name = proto,
+        )

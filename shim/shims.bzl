@@ -44,7 +44,7 @@ def rust_protobuf_library(
         name,
         srcs,
         build_script,
-        spec,
+        protos,
         build_env = None,
         deps = None):
     deps = _fix_deps(deps) if deps else None
@@ -77,8 +77,7 @@ def rust_protobuf_library(
 
     native.genrule(
         name = proto_name,
-        srcs = [
-            spec,
+        srcs = protos + [
             "buck//third-party/proto:google_protobuf",
         ],
         out = ".",
@@ -101,10 +100,11 @@ def rust_protobuf_library(
     )
 
     # For python tests only
-    native.export_file(
-        name = spec,
-        visibility = ["PUBLIC"],
-    )
+    for proto in protos:
+        native.export_file(
+            name = proto,
+            visibility = ["PUBLIC"],
+        )
 
 # Configuration that is used when building open source using Buck2 as the build system.
 # E.g. not applied either internally, or when using Cargo to build the open source code.

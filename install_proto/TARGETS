@@ -9,7 +9,7 @@ rust_protobuf_library(
     name = "install_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    spec = "install.proto",
+    protos = ["install.proto"],
 )
 
 python_binary(

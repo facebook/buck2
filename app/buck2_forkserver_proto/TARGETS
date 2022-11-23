@@ -5,7 +5,7 @@ rust_protobuf_library(
     name = "buck2_forkserver_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    spec = "forkserver.proto",
+    protos = ["forkserver.proto"],
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:prost-types",
