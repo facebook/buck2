@@ -304,7 +304,7 @@ impl CommandExecutionRequest {
 }
 
 /// Is an output a file or a directory
-#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone, Dupe)]
+#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone, Dupe, Allocative)]
 pub enum OutputType {
     /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.
     /// We aim to mostly remove this alternative over time.

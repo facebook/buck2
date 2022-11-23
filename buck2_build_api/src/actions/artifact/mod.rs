@@ -30,6 +30,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derive_more::Display;
 use derive_more::From;
@@ -224,10 +225,10 @@ pub struct DeclaredArtifact {
 }
 
 impl DeclaredArtifact {
-    pub(super) fn new(path: BuckOutPath) -> DeclaredArtifact {
+    pub(super) fn new(path: BuckOutPath, output_type: OutputType) -> DeclaredArtifact {
         DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
-                UnboundArtifact(path),
+                UnboundArtifact(path, output_type),
             ))),
             projected_path: None,
         }
@@ -389,11 +390,12 @@ impl Deref for OutputArtifact {
 }
 
 #[derive(Clone, Dupe, Debug, Display, Allocative)]
-pub struct UnboundArtifact(BuckOutPath);
+#[display(fmt = "{}", "self.0")]
+pub struct UnboundArtifact(BuckOutPath, OutputType);
 
 impl UnboundArtifact {
     fn bind(self, key: ActionKey) -> BuildArtifact {
-        BuildArtifact::new(self.0, key)
+        BuildArtifact::new(self.0, key, self.1)
     }
 }
 
@@ -401,6 +403,7 @@ pub mod testing {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use gazebo::prelude::*;
 
@@ -465,6 +468,7 @@ pub mod testing {
                     BaseDeferredKey::TargetLabel(target),
                     id,
                 ))),
+                OutputType::FileOrDirectory,
             )
         }
     }
@@ -494,6 +498,7 @@ mod tests {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -516,10 +521,13 @@ mod tests {
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         );
-        let declared = DeclaredArtifact::new(BuckOutPath::new(
-            BaseDeferredKey::TargetLabel(target.dupe()),
-            ForwardRelativePathBuf::unchecked_new("bar.out".into()),
-        ));
+        let declared = DeclaredArtifact::new(
+            BuckOutPath::new(
+                BaseDeferredKey::TargetLabel(target.dupe()),
+                ForwardRelativePathBuf::unchecked_new("bar.out".into()),
+            ),
+            OutputType::FileOrDirectory,
+        );
         let key = ActionKey::testing_new(DeferredKey::Base(
             BaseDeferredKey::TargetLabel(target.dupe()),
             DeferredId::testing_new(0),

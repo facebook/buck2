@@ -23,6 +23,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use gazebo::dupe::Dupe;
@@ -74,7 +75,7 @@ impl ActionsRegistry {
 
     pub fn declare_dynamic_output(&mut self, path: BuckOutPath) -> DeclaredArtifact {
         // We don't want to claim path, because the output belongs to different (outer) context
-        DeclaredArtifact::new(path)
+        DeclaredArtifact::new(path, OutputType::FileOrDirectory)
     }
 
     pub fn claim_output_path(&mut self, path: &ForwardRelativePath) -> anyhow::Result<()> {
@@ -152,7 +153,7 @@ impl ActionsRegistry {
             hidden,
             self.action_key.dupe(),
         );
-        let declared = DeclaredArtifact::new(out_path);
+        let declared = DeclaredArtifact::new(out_path, OutputType::FileOrDirectory);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
         }

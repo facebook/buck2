@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
 use derive_more::Display;
@@ -28,11 +29,17 @@ pub struct BuildArtifact {
     // TODO(ndmitchell): Clean this up by making it more explicit in ActionKey.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub(super) key: ActionKey,
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub(super) output_type: OutputType,
 }
 
 impl BuildArtifact {
-    pub(super) fn new(path: BuckOutPath, key: ActionKey) -> Self {
-        BuildArtifact { path, key }
+    pub(super) fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> Self {
+        BuildArtifact {
+            path,
+            key,
+            output_type,
+        }
     }
 
     pub fn get_path(&self) -> &BuckOutPath {
@@ -41,6 +48,10 @@ impl BuildArtifact {
 
     pub fn key(&self) -> &ActionKey {
         &self.key
+    }
+
+    pub fn output_type(&self) -> OutputType {
+        self.output_type
     }
 }
 
