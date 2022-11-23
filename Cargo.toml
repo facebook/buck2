@@ -52,8 +52,8 @@ members = [
     # "gazebo_lint/linter_test",
     # @oss-disable: "gazebo/gazebo",
     # @oss-disable: "gazebo/gazebo_derive",
+    "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
-    "remote_execution/stub",
     "starlark-rust/starlark",
     "starlark-rust/starlark_derive",
     "starlark-rust/starlark_map",
@@ -159,6 +159,8 @@ sha2 = "0.10"
 shlex = "1.1"
 siphasher = "0.3.5"
 slog = "2.7.0"
+slog-async = "2.7.0"
+slog-term = "2.9.0"
 smallvec = "1.7"
 smartstring = "0.2.9"
 static_assertions = "1.1.0"
@@ -210,7 +212,7 @@ gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"
 host_sharing = { path = "host_sharing" }
 more_futures = { path = "shed/more_futures" }
-remote_execution = { path = "remote_execution/stub" }
+remote_execution = { path = "remote_execution/oss/re_grpc" }
 starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }
 
