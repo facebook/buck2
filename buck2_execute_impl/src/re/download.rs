@@ -201,7 +201,7 @@ impl CasDownloader<'_> {
         let mut to_declare = Vec::with_capacity(output_paths.len());
         let mut mapped_outputs = IndexMap::with_capacity(output_paths.len());
 
-        for (requested, path) in requested_outputs.zip(output_paths.iter()) {
+        for (requested, (path, _)) in requested_outputs.zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path.as_ref())?;
             if let Some(value) = value {
                 to_declare.push((path.clone(), value.dupe()));

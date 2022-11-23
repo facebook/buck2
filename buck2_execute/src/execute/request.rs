@@ -330,16 +330,15 @@ impl<'a> CommandExecutionOutputRef<'a> {
     /// path as well as any dirs to create.
     pub fn resolve(&self, fs: &ArtifactFs) -> ResolvedCommandExecutionOutput {
         match self {
-            Self::BuildArtifact {
-                path,
-                output_type: _,
-            } => ResolvedCommandExecutionOutput {
+            Self::BuildArtifact { path, output_type } => ResolvedCommandExecutionOutput {
                 path: fs.resolve_build(path),
                 create: OutputCreationBehavior::Parent,
+                output_type: *output_type,
             },
             Self::TestPath { path, create } => ResolvedCommandExecutionOutput {
                 path: fs.buck_out_path_resolver().resolve_test(path),
                 create: *create,
+                output_type: OutputType::FileOrDirectory,
             },
         }
     }
@@ -392,6 +391,7 @@ impl CommandExecutionOutput {
 /// output.
 pub struct ResolvedCommandExecutionOutput {
     pub path: ProjectRelativePathBuf,
+    pub output_type: OutputType,
     create: OutputCreationBehavior,
 }
 

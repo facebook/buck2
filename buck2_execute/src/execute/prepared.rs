@@ -17,12 +17,13 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::request::CommandExecutionRequest;
+use crate::execute::request::OutputType;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 
 pub struct ActionPaths {
     pub inputs: ActionImmutableDirectory,
-    pub outputs: Vec<ProjectRelativePathBuf>,
+    pub outputs: Vec<(ProjectRelativePathBuf, OutputType)>,
 
     /// Total size of input files.
     pub input_files_bytes: u64,

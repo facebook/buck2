@@ -131,7 +131,7 @@ impl CommandExecutor {
         let (action_paths, action) = match manager.stage(buck2_data::PrepareAction {}, || {
             let action_paths = self.preamble(request.inputs(), request.outputs())?;
             let input_digest = action_paths.inputs.fingerprint();
-            let outputs = action_paths.outputs.map(|x| x.as_str().to_owned());
+            let outputs = action_paths.outputs.map(|x| x.0.as_str().to_owned());
             let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
                 CommandExecutionInput::Artifact(_) => None,
                 CommandExecutionInput::ActionMetadata(metadata) => {
@@ -175,7 +175,8 @@ impl CommandExecutor {
                 if let Some(dir) = resolved.path_to_create() {
                     builder.mkdir(dir)?;
                 }
-                Ok(resolved.into_path())
+                let output_type = resolved.output_type;
+                Ok((resolved.into_path(), output_type))
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
