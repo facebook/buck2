@@ -5,11 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-"""Conan C/C++ Package Manager Toolchain."""
+"""Conan C/C++ Package Manager Toolchain.
+
+Provides a toolchain and rules to use the [Conan package manager][conan] to
+manage and install third-party C/C++ dependencies.
+"""
 
 ConanToolchainInfo = provider(fields = ["conan"])
 
-def _system_conan_toolchain_impl(ctx):
+def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         ConanToolchainInfo(
@@ -20,12 +24,13 @@ def _system_conan_toolchain_impl(ctx):
 system_conan_toolchain = rule(
     impl = _system_conan_toolchain_impl,
     attrs = {
-        "conan_path": attrs.string(),
+        "conan_path": attrs.string(doc = "Path to the Conan executable."),
     },
     is_toolchain_rule = True,
+    doc = "Uses a globally installed Conan executable.",
 )
 
-def _conan_lock_update_impl(ctx):
+def _conan_lock_update_impl(ctx: "context") -> ["provider"]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
 
     # TODO[AH] This assumes that buck2 is in PATH when executing the script via `buck2 run`.
@@ -64,9 +69,10 @@ def _conan_lock_update_impl(ctx):
 conan_lock_update = rule(
     impl = _conan_lock_update_impl,
     attrs = {
-        "conanfile": attrs.source(),
-        "lockfile_name": attrs.string(),
-        "lockfile": attrs.option(attrs.source(), default = None),
+        "conanfile": attrs.source(doc = "The conanfile defining the project dependencies."),
+        "lockfile_name": attrs.string(doc = "Generate a lockfile with this name next to the conanfile."),
+        "lockfile": attrs.option(attrs.source(doc = "A pre-existing lockfile to base the dependency resolution on."), default = None),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
     },
+    doc = "Defines a runnable target that will invoke Conan to generate a lock-file based on the given conanfile.",
 )
