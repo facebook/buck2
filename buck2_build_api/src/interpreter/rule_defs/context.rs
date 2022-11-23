@@ -407,10 +407,15 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] filename: Option<&str>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
-        let artifact = match filename {
-            None => this.state().declare_output(None, prefix)?,
-            Some(filename) => this.state().declare_output(Some(prefix), filename)?,
+        // We take either one or two positional arguments, namely (filename) or (prefix, filename).
+        // The prefix argument is optional, but first, so we pretend the filename is optional
+        // and fix them up here.
+        let (prefix, filename) = match filename {
+            None => (None, prefix),
+            Some(filename) => (Some(prefix), filename),
         };
+
+        let artifact = this.state().declare_output(prefix, filename)?;
 
         Ok(StarlarkDeclaredArtifact::new(
             eval.call_stack_top_location(),
