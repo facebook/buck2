@@ -19,6 +19,7 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../../gazebo_lint/gazebo_lint"
 
+buck2_core = { path = "../../../app/buck2_core" }
 re_grpc_proto = { path = "../re_grpc_proto" }
 
 [features]

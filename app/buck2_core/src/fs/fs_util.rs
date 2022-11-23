@@ -12,6 +12,7 @@
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
@@ -332,6 +333,17 @@ pub fn remove_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
         return Ok(());
     }
     r
+}
+
+pub fn read_to_bytes<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<u8>> {
+    let path_display = P::as_ref(&path).display();
+    let metadata =
+        fs::metadata(&path).context(format!("When reading metadata `{}`", path_display))?;
+    let mut file = File::open(&path).context(format!("When openning file `{}`", path_display))?;
+    let mut buffer = vec![0; metadata.len() as usize];
+    file.read_exact(&mut buffer)
+        .with_context(|| format!("read_to_bytes({})", path_display))?;
+    Ok(buffer)
 }
 
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {

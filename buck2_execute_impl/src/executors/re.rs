@@ -62,14 +62,12 @@ pub enum RemoteExecutorError {
 impl ReExecutionPlatform {
     pub fn intrinsic_properties(&self) -> SortedMap<String, String> {
         match self {
-            Self::Linux => {
-                SortedMap::from_iter([("platform".to_owned(), "linux-remote-execution".to_owned())])
-            }
+            Self::Linux => SortedMap::from_iter([("OSFamily".to_owned(), "linux".to_owned())]),
             Self::MacOS { xcode_version } => SortedMap::from_iter([
                 ("platform".to_owned(), "mac".to_owned()),
                 ("subplatform".to_owned(), format!("xcode-{}", xcode_version)),
             ]),
-            Self::Windows => SortedMap::from_iter([("platform".to_owned(), "windows".to_owned())]),
+            Self::Windows => SortedMap::from_iter([("OSFamily".to_owned(), "windows".to_owned())]),
         }
     }
 }
