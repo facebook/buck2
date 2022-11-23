@@ -46,7 +46,7 @@ constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.4", features = ["async", "async_tokio", "html_reports"] }
 crossbeam-channel = "0.5"
-crossbeam-epoch = "=0.9.7"
+crossbeam-epoch = "0.9.7"
 crossterm = "0.23"
 ctor = "0.1.26"
 dashmap = "4.0.2"
