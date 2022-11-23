@@ -52,6 +52,7 @@ members = [
     # "gazebo_lint/linter_test",
     # @oss-disable: "gazebo/gazebo",
     # @oss-disable: "gazebo/gazebo_derive",
+    "remote_execution/oss/re_grpc_proto",
     "remote_execution/stub",
     "starlark-rust/starlark",
     "starlark-rust/starlark_derive",

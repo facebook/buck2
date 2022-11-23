@@ -1,0 +1,13 @@
+[package]
+name = "re_grpc_proto"
+version = "0.1.0"
+edition = "2021"
+description = "A library providing gRPC client for Bazel remote execution"
+
+[dependencies]
+prost-types = { workspace = true }
+prost = { workspace = true }
+tonic = { workspace = true }
+
+[build-dependencies]
+buck2_protoc_dev = { path = "../../../app/buck2_protoc_dev" }
