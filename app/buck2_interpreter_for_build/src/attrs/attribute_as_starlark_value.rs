@@ -24,7 +24,6 @@ use starlark::values::StarlarkValue;
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "{}", .0)]
 pub struct AttributeAsStarlarkValue(pub Attribute);
 
 starlark_simple_value!(AttributeAsStarlarkValue);

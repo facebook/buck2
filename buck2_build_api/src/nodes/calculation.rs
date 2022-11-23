@@ -257,7 +257,6 @@ async fn execution_platforms_for_toolchain(
     target: ConfiguredTargetLabel,
 ) -> SharedResult<ToolchainConstraints> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{}", .0)]
     struct ExecutionPlatformsForToolchainKey(ConfiguredTargetLabel);
 
     #[async_trait]

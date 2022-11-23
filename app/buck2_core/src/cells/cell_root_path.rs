@@ -60,7 +60,6 @@ impl AsRef<ProjectRelativePath> for CellRootPath {
 
 /// Path to the cell root.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display, Allocative)]
-#[display(fmt = "{}", .0)]
 pub struct CellRootPathBuf(ProjectRelativePathBuf);
 
 impl CellRootPathBuf {

@@ -158,7 +158,6 @@ async fn ensure_artifact(
 }
 
 #[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative)]
-#[display(fmt = "{}", .0)]
 struct EnsureProjectedArtifactKey(ProjectedArtifact);
 
 #[async_trait]
@@ -199,7 +198,6 @@ impl Key for EnsureProjectedArtifactKey {
 }
 
 #[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative)]
-#[display(fmt = "{}", .0)]
 struct EnsureTransitiveSetProjectionKey(TransitiveSetProjectionKey);
 
 #[async_trait]

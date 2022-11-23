@@ -141,7 +141,6 @@ pub trait HasTargetAliasResolver {
 }
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative)]
-#[display(fmt = "{}", .0)]
 struct TargetAliasResolverKey {
     cell_name: CellName,
 }

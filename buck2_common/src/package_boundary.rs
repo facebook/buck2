@@ -176,7 +176,6 @@ impl HasPackageBoundaryExceptions for DiceComputations {
 
     async fn get_package_boundary_exception(&self, path: &CellPath) -> SharedResult<bool> {
         #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
-        #[display(fmt = "{}", .0)]
         #[repr(transparent)]
         struct PackageBoundaryExceptionKey(CellPath);
 

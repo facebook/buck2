@@ -510,9 +510,7 @@ impl<'a> Lexer<'a> {
 
 #[derive(Debug, Clone, Eq, PartialEq, Display)]
 pub enum TokenInt {
-    #[display(fmt = "{}", .0)]
     I32(i32),
-    #[display(fmt = "{}", .0)]
     BigInt(BigInt),
 }
 

@@ -45,7 +45,6 @@ pub enum CliArgValue {
 #[derive(
     Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{}", .0)]
 pub struct BxlKey(Arc<BxlKeyData>);
 
 impl BxlKey {

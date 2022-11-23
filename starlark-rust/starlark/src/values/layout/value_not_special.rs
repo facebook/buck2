@@ -28,7 +28,6 @@ use crate::values::Value;
 
 /// `FrozenValue` which is not `i32` or `str`.
 #[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
-#[display(fmt = "{}", .0)]
 pub(crate) struct FrozenValueNotSpecial(FrozenValue);
 
 impl FrozenValueNotSpecial {

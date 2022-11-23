@@ -56,7 +56,6 @@ struct BuckOutPathData {
 /// For `Eq`/`Hash` we want the equality to be based on the path on disk,
 /// regardless of how the path looks to the user. Therefore we ignore the `hidden` field.
 #[derive(Clone, Dupe, Debug, Display, Hash, PartialEq, Eq, Allocative)]
-#[display(fmt = "{}", .0)]
 pub struct BuckOutPath(Arc<BuckOutPathData>);
 
 impl BuckOutPath {

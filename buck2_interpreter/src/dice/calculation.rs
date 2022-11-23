@@ -420,7 +420,6 @@ mod keys {
     use crate::common::OwnedStarlarkModulePath;
 
     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{}", .0)]
     pub struct EvalImportKey(pub OwnedStarlarkModulePath);
 }
 

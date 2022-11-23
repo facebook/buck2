@@ -25,7 +25,6 @@ use crate::cells::CellName;
     RefCast,
     Allocative
 )]
-#[display(fmt = "{}", .0)]
 #[repr(C)]
 pub struct BuildFileCell(CellName);
 
