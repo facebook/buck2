@@ -311,6 +311,8 @@ pub enum OutputType {
     /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.
     /// We aim to mostly remove this alternative over time.
     FileOrDirectory,
+    File,
+    Directory,
 }
 
 #[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
