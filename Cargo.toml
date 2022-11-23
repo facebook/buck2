@@ -178,7 +178,7 @@ tokio = { version = "1.5", features = ["full"] }
 tokio-rusqlite = "0.3.0"
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tokio-util = { version = "0.7.1", features = ["full"] }
-toml = "=0.5.8"
+toml = "0.5.8"
 tonic = "0.7.2"
 tonic-build = { version = "0.7.2", features = ["prost"] }
 tower = "0.4"
