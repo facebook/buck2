@@ -482,7 +482,7 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
     ) -> ValueWithDeps<K::Value> {
-        let ctx = DiceComputationImpl::from_transaction_ctx(
+        let ctx = DiceComputationImpl::new_for_key_evaluation(
             self.dice
                 .upgrade()
                 .expect("Dice holds DiceMap so it should still be alive here"),

@@ -338,7 +338,7 @@ impl DiceComputationImpl {
         }
     }
 
-    pub(super) fn from_transaction_ctx(
+    pub(super) fn new_for_key_evaluation(
         dice: Arc<Dice>,
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
