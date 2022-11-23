@@ -175,9 +175,9 @@ impl CommandExecutor {
                 if let Some(dir) = resolved.path_to_create() {
                     builder.mkdir(dir)?;
                 }
-                anyhow::Ok(resolved.into_path())
+                Ok(resolved.into_path())
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         insert_entry(
             &mut builder,
