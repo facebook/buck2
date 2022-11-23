@@ -24,3 +24,45 @@ system_conan_toolchain = rule(
     },
     is_toolchain_rule = True,
 )
+
+def _conan_lock_update_impl(ctx):
+    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+
+    conanfile = cmd_args([ctx.attrs.conanfile], format = 'CONANFILE="{}"')
+    lockfile_out = cmd_args([ctx.attrs.lockfile_name], format = 'LOCKFILE_OUT="`dirname $CONANFILE`/{}"')
+    conan_cmd = cmd_args([conan_toolchain.conan, "lock", "create"], delimiter = " ")
+    if ctx.attrs.lockfile:
+        conan_cmd.add(["--lockfile", ctx.attrs.lockfile])
+    conan_cmd.add(["--lockfile-out", "$LOCKFILE_OUT"])
+    conan_cmd.add(["$CONANFILE"])
+
+    output = ctx.actions.declare_output(ctx.label.name)
+    script, inputs = ctx.actions.write(
+        output,
+        cmd_args([
+            "#!/bin/sh",
+            conanfile,
+            lockfile_out,
+            conan_cmd,
+        ]),
+        is_executable = True,
+        allow_args = True,
+    )
+
+    run = cmd_args("/bin/sh", script)
+    run.hidden(inputs)
+
+    return [
+        DefaultInfo(default_outputs = [output]),
+        RunInfo(args = [run]),
+    ]
+
+conan_lock_update = rule(
+    impl = _conan_lock_update_impl,
+    attrs = {
+        "conanfile": attrs.source(),
+        "lockfile_name": attrs.string(),
+        "lockfile": attrs.option(attrs.source(), default = None),
+        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+    },
+)
