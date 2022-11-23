@@ -277,10 +277,7 @@ pub struct CommonBuildOptions {
     #[clap(short = 'j', long = "num-threads", value_name = "THREADS")]
     pub num_threads: Option<u32>,
 
-    /// **You probably should not use this, use --prefer-local instead**. Enable only local
-    /// execution. Will reject actions that cannot execute locally. If execution platforms are
-    /// enabled and you have a hybrid platform, this will most likely result in just rejecting all
-    /// actions.
+    /// Enable only local execution. Will reject actions that cannot execute locally.
     #[clap(long, group = "build_strategy")]
     local_only: bool,
 
