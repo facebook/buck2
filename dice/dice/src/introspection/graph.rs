@@ -64,7 +64,6 @@ pub struct NodeID(pub usize);
     PartialOrd,
     derive_more::Display
 )]
-#[display(fmt = "{}", self.0)]
 pub struct VersionNumber(pub usize);
 
 impl Serialize for VersionNumber {

@@ -46,7 +46,7 @@ enum PathData {
     #[display(fmt = "materialized")]
     Materialized,
 
-    #[display(fmt = "declared: {}", .0)]
+    #[display(fmt = "declared: {}", "_0")]
     Declared(Arc<ArtifactMaterializationMethod>),
 }
 

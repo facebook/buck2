@@ -312,7 +312,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     StarlarkDocs,
     Allocative
 )]
-#[display(fmt = "Traversal({})", self.0)]
+#[display(fmt = "Traversal({})", "self.0")]
 #[repr(C)]
 #[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkConfiguredValue(ConfiguredAttr);

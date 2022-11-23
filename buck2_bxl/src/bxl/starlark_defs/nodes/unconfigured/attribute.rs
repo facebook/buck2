@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Display;
+
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -34,15 +37,19 @@ use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
     Coerce,
     Trace,
     Freeze,
-    Display,
     ProvidesStaticType,
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "Traversal({})", self.0)]
 #[repr(C)]
 pub struct StarlarkTargetNodeCoercedAttributesGen<V> {
     pub(super) inner: V,
+}
+
+impl<V: Display> Display for StarlarkTargetNodeCoercedAttributesGen<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Traversal({})", self.inner)
+    }
 }
 
 starlark_complex_value!(pub StarlarkTargetNodeCoercedAttributes);

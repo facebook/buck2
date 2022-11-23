@@ -154,7 +154,7 @@ impl InjectedKey for LegacyBuckConfigKey {
 }
 
 #[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative)]
-#[display(fmt = "LegacyBuckConfigForCellKey({})", .0)]
+#[display(fmt = "LegacyBuckConfigForCellKey({})", "self.cell_name")]
 struct LegacyBuckConfigForCellKey {
     cell_name: CellName,
 }
