@@ -15,7 +15,6 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
-use derive_more::From;
 use gazebo::dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
@@ -303,7 +302,7 @@ impl CommandExecutionRequest {
     }
 }
 
-#[derive(From, UnpackVariants, PartialEq, Eq, Hash, Debug)]
+#[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutputRef<'a> {
     BuildArtifact {
         path: &'a BuckOutPath,
@@ -343,7 +342,7 @@ impl<'a> CommandExecutionOutputRef<'a> {
     }
 }
 
-#[derive(From, UnpackVariants, PartialEq, Eq, Hash, Debug)]
+#[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutput {
     BuildArtifact {
         path: BuckOutPath,
