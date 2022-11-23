@@ -22,6 +22,7 @@ use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
@@ -381,7 +382,10 @@ impl IncrementalActionExecutable for RunAction {
         let req = CommandExecutionRequest::new(
             cli,
             inputs,
-            self.outputs.iter().map(|b| b.get_path().dupe()).collect(),
+            self.outputs
+                .iter()
+                .map(|b| (b.get_path().dupe(), OutputType::FileOrDirectory))
+                .collect(),
             env,
         )
         .with_prefetch_lossy_stderr(true)

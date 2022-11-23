@@ -517,6 +517,7 @@ mod tests {
     use buck2_execute::execute::command_executor::CommandExecutor;
     use buck2_execute::execute::request::CommandExecutionInput;
     use buck2_execute::execute::request::CommandExecutionRequest;
+    use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
@@ -634,7 +635,10 @@ mod tests {
                             ))
                         })
                         .collect(),
-                    self.outputs.iter().map(|b| b.get_path().dupe()).collect(),
+                    self.outputs
+                        .iter()
+                        .map(|b| (b.get_path().dupe(), OutputType::FileOrDirectory))
+                        .collect(),
                     HashMap::new(),
                 );
 

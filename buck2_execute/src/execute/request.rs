@@ -19,7 +19,6 @@ use gazebo::dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
-use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::artifact::fs::ArtifactFs;
@@ -120,7 +119,7 @@ impl ExecutorPreference {
 pub struct CommandExecutionRequest {
     args: Vec<String>,
     inputs: Vec<CommandExecutionInput>,
-    artifact_outputs: IndexSet<BuckOutPath>,
+    artifact_outputs: IndexMap<BuckOutPath, OutputType>,
     test_outputs: Option<IndexMap<BuckOutTestPath, OutputCreationBehavior>>,
     env: HashMap<String, String>,
     timeout: Option<Duration>,
@@ -149,7 +148,7 @@ impl CommandExecutionRequest {
     pub fn new(
         args: Vec<String>,
         inputs: Vec<CommandExecutionInput>,
-        artifact_outputs: IndexSet<BuckOutPath>,
+        artifact_outputs: IndexMap<BuckOutPath, OutputType>,
         env: HashMap<String, String>,
     ) -> Self {
         Self {
@@ -234,13 +233,12 @@ impl CommandExecutionRequest {
     }
 
     pub fn outputs<'a>(&'a self) -> impl Iterator<Item = CommandExecutionOutputRef<'a>> + 'a {
-        let artifact_outputs =
-            self.artifact_outputs
-                .iter()
-                .map(|path| CommandExecutionOutputRef::BuildArtifact {
-                    path,
-                    output_type: OutputType::FileOrDirectory,
-                });
+        let artifact_outputs = self.artifact_outputs.iter().map(|(path, output_type)| {
+            CommandExecutionOutputRef::BuildArtifact {
+                path,
+                output_type: *output_type,
+            }
+        });
 
         let test_outputs = self.test_outputs.as_ref().into_iter().flat_map(|outputs| {
             outputs

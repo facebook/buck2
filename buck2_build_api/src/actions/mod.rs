@@ -349,6 +349,7 @@ pub(crate) mod testings {
     use async_trait::async_trait;
     use buck2_core::category::Category;
     use buck2_execute::execute::request::CommandExecutionRequest;
+    use buck2_execute::execute::request::OutputType;
     use derivative::Derivative;
     use gazebo::dupe::Dupe;
     use indexmap::IndexSet;
@@ -469,7 +470,10 @@ pub(crate) mod testings {
             let req = CommandExecutionRequest::new(
                 self.cmd.clone(),
                 Vec::new(),
-                self.outputs.iter().map(|b| b.get_path().dupe()).collect(),
+                self.outputs
+                    .iter()
+                    .map(|b| (b.get_path().dupe(), OutputType::FileOrDirectory))
+                    .collect(),
                 hashmap![],
             );
 
