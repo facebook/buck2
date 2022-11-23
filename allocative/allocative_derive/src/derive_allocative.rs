@@ -170,7 +170,7 @@ fn gen_visit_enum_variant(input: &Variant) -> syn::Result<proc_macro2::TokenStre
                         Ok(quote_spanned! {f.span()=>
                         })
                     } else {
-                        gen_visit_field_new(&i.to_string(), n, f)
+                        gen_visit_field(&i.to_string(), n, f)
                     }
                 })
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
@@ -192,7 +192,7 @@ fn gen_visit_enum_variant(input: &Variant) -> syn::Result<proc_macro2::TokenStre
                         Ok(quote_spanned! {f.span()=>
                         })
                     } else {
-                        gen_visit_field_new(&ident.to_string(), ident, f)
+                        gen_visit_field(&ident.to_string(), ident, f)
                     }
                 })
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
@@ -235,7 +235,7 @@ fn gen_visit_struct(input: &DataStruct) -> syn::Result<proc_macro2::TokenStream>
             let visit_fields = names
                 .iter()
                 .zip(named.named.iter())
-                .map(|(ident, f)| gen_visit_field_new(&ident.to_string(), ident, f))
+                .map(|(ident, f)| gen_visit_field(&ident.to_string(), ident, f))
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
             Ok(quote_spanned! {input.fields.span()=>
                 let Self { #(#names),* } = self;
@@ -248,7 +248,7 @@ fn gen_visit_struct(input: &DataStruct) -> syn::Result<proc_macro2::TokenStream>
                 .iter()
                 .enumerate()
                 .zip(unnamed.unnamed.iter())
-                .map(|((i, ident), field)| gen_visit_field_new(&i.to_string(), ident, field))
+                .map(|((i, ident), field)| gen_visit_field(&i.to_string(), ident, field))
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
             Ok(quote_spanned! {input.fields.span()=>
                 let Self(#(#names),*) = self;
@@ -259,7 +259,7 @@ fn gen_visit_struct(input: &DataStruct) -> syn::Result<proc_macro2::TokenStream>
     }
 }
 
-fn gen_visit_field_new(
+fn gen_visit_field(
     label: &str,
     ident: &Ident,
     field: &Field,
