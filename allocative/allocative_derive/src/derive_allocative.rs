@@ -269,8 +269,10 @@ fn gen_visit_field(
     if attrs.skip {
         Ok(quote_spanned! {field.span()=>})
     } else {
+        // Specify type parameter explicitly to prevent implicit conversion.
+        let ty = &field.ty;
         Ok(quote_spanned! {ident.span()=>
-            visitor.visit_field(#field_key, #ident);
+            visitor.visit_field::<#ty>(#field_key, #ident);
         })
     }
 }
