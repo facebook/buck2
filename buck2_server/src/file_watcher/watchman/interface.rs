@@ -225,8 +225,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
         // it. So, we just send it off to its own thread.
-        let (ctx, map) = ctx.unstable_take();
-        std::thread::spawn(|| drop(map));
+        let ctx = ctx.unstable_take();
 
         Ok((
             buck2_data::FileWatcherStats {

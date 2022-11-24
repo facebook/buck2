@@ -15,6 +15,7 @@ use std::future::Future;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::thread;
 
 use allocative::Allocative;
 use futures::FutureExt;
@@ -147,9 +148,11 @@ impl DiceTransaction {
         DiceTransaction(self.0.0.commit())
     }
 
-    pub fn unstable_take(self) -> (Self, DiceMap) {
+    pub fn unstable_take(self) -> Self {
         let map = self.0.0.unstable_take();
-        (self, map)
+        // Destructors can be slow, so we do this in a separate thread.
+        thread::spawn(|| drop(map));
+        self
     }
 
     /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the

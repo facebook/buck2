@@ -21,7 +21,7 @@ use crate::IncrementalEngine;
 /// A dynamically typed Map for DICE to map computations to their key, value
 /// cache maps.
 #[derive(Allocative)]
-pub struct DiceMap {
+pub(crate) struct DiceMap {
     #[allocative(skip)]
     typed: Map<dyn Any + Sync + Send>,
     erased: Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>,
