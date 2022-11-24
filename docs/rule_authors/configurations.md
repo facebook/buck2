@@ -140,6 +140,34 @@ A build configures a fixed list of one or more execution platforms.
 Some target deps are "execution deps". These are the dependencies of the target that should be built for the execution platform. For example,
 a compiler or other build tool would be an execution dep. This includes all exe macro deps (ex. `$(exe //:tool)`) and includes all `attrs.exec_dep()` deps.
 
+## Toolchain deps
+
+In addition to `attrs.exec_dep()`, we have an `attrs.toolchain_dep()` primitive that's similar but different in an important way. These nodes don't select
+their execution platform, but instead have it forced on them by whatever includes them, hence it must be recorded in the configured target label.
+The execution platform resolution sees through them.
+
+In other words, `attrs.toolchain_dep()` is like a mix of `attrs.dep()` and `attrs.exec_dep()`: it inherits target platform like `attrs.dep()` (so any
+`select()`s on the target of the `attrs.toolchain_dep()` will evaluate as if they were on the target containing the `attrs.toolchain_dep()` - i.e., target
+platform gets inherited as normal) and any `attrs.exec_dep()`s of the `attrs.toolchain_dep()` target become `attrs.exec_deps()` on the dependent of
+target the `attrs.toolchain_dep()` (i.e., they get passed up the dep tree, so participate in exec platfom resolution).
+
+Illustrated as an example:
+
+```
+target(
+    name = "A",
+    toolchain = attrs.toolchain_dep(default = ":B"),
+)
+target(
+    name = "B",
+    tool = attrs.exec_dep(default = ":C")
+)
+```
+
+The above means that `:C` will be an execution dependency of `:A` and any `select()`s defined in `:B` would be evaluated against
+the same target platform as `:A` (as target platform gets inherited by `attrs.toolchain_dep()`s).
+
+
 ## Running non-execution deps
 
 If you have a binary that you want to run, but it isn't a build tool, then you should use `$(exe_target //:binary)` rather than `$(exe //:binary)`. That
