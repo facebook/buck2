@@ -379,15 +379,14 @@ pub(crate) fn format_test_result(
     }?;
     let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {}", name,))?]);
     if let Some(duration) = duration {
-        let duration = match Duration::try_from(duration.clone()) {
-            Ok(duration) | Err(duration) => duration,
-        };
-        base.0.push(Span::new_unstyled(format!(
-            " ({})",
-            // Set time_speed parameter as 1.0 because this is taking the duration of something that was measured somewhere else,
-            // so it doesn't make sense to apply the speed adjustment.
-            duration_as_secs_elapsed(duration, 1.0)
-        ))?);
+        if let Ok(duration) = Duration::try_from(duration.clone()) {
+            base.0.push(Span::new_unstyled(format!(
+                " ({})",
+                // Set time_speed parameter as 1.0 because this is taking the duration of something that was measured somewhere else,
+                // so it doesn't make sense to apply the speed adjustment.
+                duration_as_secs_elapsed(duration, 1.0)
+            ))?);
+        }
     }
     // If a test has details, we always show them. It's the test runner's
     // responsibility to withhold details when these are not relevant.

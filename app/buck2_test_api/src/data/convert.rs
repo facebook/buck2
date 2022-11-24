@@ -118,7 +118,7 @@ impl TryInto<buck2_test_proto::ExecutionStatus> for ExecutionStatus {
 
         let status = match self {
             Self::Finished { exitcode } => Status::Finished(exitcode),
-            Self::TimedOut { duration } => Status::TimedOut(duration.into()),
+            Self::TimedOut { duration } => Status::TimedOut(duration.try_into()?),
         };
 
         Ok(buck2_test_proto::ExecutionStatus {
@@ -280,7 +280,7 @@ impl TryInto<buck2_test_proto::TestResult> for TestResult {
             status: self.status.try_into().context("Invalid `status`")?,
             details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
-            duration: self.duration.map(|d| d.into()),
+            duration: self.duration.into_try_map(|d| d.try_into())?,
         })
     }
 }
@@ -527,7 +527,7 @@ impl TryInto<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
 
         Ok(buck2_test_proto::ExecuteRequest2 {
             test_executable,
-            timeout: Some(self.timeout.into()),
+            timeout: Some(self.timeout.try_into()?),
             host_sharing_requirements: Some(
                 host_sharing_requirements_to_grpc(self.host_sharing_requirements)
                     .context("Invalid `host_sharing_requirements`")?,
@@ -589,9 +589,9 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
                 self.start_time
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap_or_default()
-                    .into(),
+                    .try_into()?,
             ),
-            execution_time: Some(self.execution_time.into()),
+            execution_time: Some(self.execution_time.try_into()?),
         })
     }
 }

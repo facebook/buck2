@@ -148,13 +148,15 @@ impl BuildSignalReceiver {
         }
 
         instant_event(BuildGraphExecutionInfo {
-            critical_path: self
-                .extract_critical_path()
-                .into_map(|(name, duration, action)| CriticalPathEntry {
-                    action_name: name,
-                    action_key: Some(action.key().as_proto()),
-                    duration: Some(duration.into()),
-                }),
+            critical_path: self.extract_critical_path().into_try_map(
+                |(name, duration, action)| {
+                    anyhow::Ok(CriticalPathEntry {
+                        action_name: name,
+                        action_key: Some(action.key().as_proto()),
+                        duration: Some(duration.try_into()?),
+                    })
+                },
+            )?,
             metadata: metadata::collect(),
         });
         Ok(())

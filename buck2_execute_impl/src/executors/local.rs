@@ -766,7 +766,7 @@ mod unix {
                 path: working_directory.as_os_str().as_bytes().to_vec(),
             }),
             env: vec![],
-            timeout: comand_timeout.map(|d| d.into()),
+            timeout: comand_timeout.into_try_map(|d| d.try_into())?,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver

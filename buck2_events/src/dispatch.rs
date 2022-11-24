@@ -276,7 +276,7 @@ impl Drop for Span {
 
         self.dispatcher.event_with_span_id(
             SpanEndEvent {
-                duration: Some(self.start_instant.elapsed().into()),
+                duration: self.start_instant.elapsed().try_into().ok(),
                 data: Some(data),
                 stats: Some(buck2_data::SpanStats {
                     max_poll_time_us: self.stats.max_poll_time.as_micros() as u64,

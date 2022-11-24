@@ -64,7 +64,7 @@ pub fn convert_test_result(
         name,
         status: status.try_into().context("Invalid `status`")?,
         msg: msg.map(|msg| buck2_data::test_result::OptionalMsg { msg }),
-        duration: duration.map(Into::into),
+        duration: duration.and_then(|d| d.try_into().ok()),
         details,
     })
 }

@@ -52,7 +52,7 @@ where
             }
             CommandEvent::Exit(GatherOutputStatus::TimedOut(duration)) => {
                 Data::Timeout(buck2_forkserver_proto::TimeoutEvent {
-                    duration: Some(duration.into()),
+                    duration: duration.try_into().ok(),
                 })
             }
             CommandEvent::Exit(GatherOutputStatus::Cancelled) => {

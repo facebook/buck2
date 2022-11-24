@@ -164,11 +164,13 @@ mod imp {
                     command_critical_start: self.command_critical_start.take(),
                     command_critical_end: self.command_critical_end.take(),
                     command_duration: self.command_duration.take(),
-                    client_walltime: Some(self.start_time.elapsed().into()),
+                    client_walltime: self.start_time.elapsed().try_into().ok(),
                     re_session_id: self.re_session_id.take().unwrap_or_default(),
                     re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
                     cli_args: self.cli_args.clone(),
-                    critical_path_duration: self.critical_path_duration.map(Into::into),
+                    critical_path_duration: self
+                        .critical_path_duration
+                        .and_then(|x| x.try_into().ok()),
                     client_metadata: Some(Self::collect_client_metadata()),
                     tags: self.tags.drain(..).collect(),
                     run_local_count: self.run_local_count,

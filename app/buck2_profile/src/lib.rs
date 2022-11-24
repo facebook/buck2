@@ -97,7 +97,7 @@ pub fn get_profile_response(
     };
 
     Ok(cli_proto::ProfileResponse {
-        elapsed: Some(profile_data.elapsed().into()),
+        elapsed: Some(profile_data.elapsed().try_into()?),
         total_retained_bytes: profile_data.total_retained_bytes() as u64,
     })
 }

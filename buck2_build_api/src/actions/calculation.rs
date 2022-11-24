@@ -223,7 +223,7 @@ async fn build_action_no_redirect(
                 failed: error.is_some(),
                 error,
                 always_print_stderr: action.always_print_stderr(),
-                wall_time: wall_time.map(Into::into),
+                wall_time: wall_time.and_then(|d| d.try_into().ok()),
                 execution_kind: execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                     as i32,
                 output_size,
@@ -308,7 +308,7 @@ async fn command_execution_report_to_proto(
         CommandExecutionStatus::Failure { .. } => buck2_data::command_execution::Failure {}.into(),
         CommandExecutionStatus::TimedOut { duration, .. } => {
             buck2_data::command_execution::Timeout {
-                duration: Some((*duration).into()),
+                duration: (*duration).try_into().ok(),
             }
             .into()
         }
@@ -382,13 +382,13 @@ async fn command_details(
         CommandExecutionKind::Remote { digest } => buck2_data::RemoteCommand {
             action_digest: digest.to_string(),
             cache_hit: false,
-            queue_time: command.timing.re_queue_time.map(Into::into),
+            queue_time: command.timing.re_queue_time.and_then(|d| d.try_into().ok()),
         }
         .into(),
         CommandExecutionKind::ActionCache { digest } => buck2_data::RemoteCommand {
             action_digest: digest.to_string(),
             cache_hit: true,
-            queue_time: command.timing.re_queue_time.map(Into::into),
+            queue_time: command.timing.re_queue_time.and_then(|d| d.try_into().ok()),
         }
         .into(),
     });
