@@ -19,11 +19,10 @@ fn get_env(key: &str) -> Option<OsString> {
     env::var_os(key)
 }
 
-/// Set up $PROTOC to point to the in repo binary if available,
-/// and $PROTOC_INCLUDE to point at the inclusions.
+/// Set up $PROTOC to point to the in repo binary if available.
 ///
 /// Note: repo root is expected to be a relative or absolute path to the root of the repository.
-fn maybe_setup_protoc(repo_root: &str) {
+fn maybe_set_protoc(repo_root: &str) {
     // Bail if the env var is explicitly set
     if get_env("PROTOC").is_some() {
         return;
@@ -42,9 +41,23 @@ fn maybe_setup_protoc(repo_root: &str) {
 
     let protoc = fs::canonicalize(protoc).expect("Failed to canonicalize protoc path");
     env::set_var("PROTOC", protoc);
+}
+
+/// Set $PROTOC_INCLUDE.
+fn maybe_set_protoc_include(repo_root: &str) {
+    // Bail if the env var is explicitly set
+    if get_env("PROTOC_INCLUDE").is_some() {
+        return;
+    }
 
     let mut protoc_include = PathBuf::from(repo_root);
     protoc_include.push("third-party/protobuf/protobuf/src");
+
+    // Bail if we can't find the path to the in repo protoc, e.g. for OSS builds.
+    if !protoc_include.exists() {
+        return;
+    }
+
     let protoc_include =
         fs::canonicalize(protoc_include).expect("Failed to canonicalize protoc include path");
     env::set_var("PROTOC_INCLUDE", protoc_include);
@@ -82,8 +95,9 @@ impl Builder {
     }
 
     pub fn setup_protoc(self, repo_root: &str) -> Self {
-        maybe_setup_protoc(repo_root);
-        // It would be great if this was on the config rather than an env variable...
+        // It would be great if there were on the config rather than an env variables...
+        maybe_set_protoc(repo_root);
+        maybe_set_protoc_include(repo_root);
         self
     }
 
