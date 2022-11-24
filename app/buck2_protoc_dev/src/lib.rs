@@ -8,10 +8,16 @@
  */
 
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+
+fn get_env(key: &str) -> Option<OsString> {
+    println!("cargo:rerun-if-env-changed={}", key);
+    env::var_os(key)
+}
 
 /// Set up $PROTOC to point to the in repo binary if available,
 /// and $PROTOC_INCLUDE to point at the inclusions.
@@ -19,7 +25,7 @@ use std::path::PathBuf;
 /// Note: repo root is expected to be a relative or absolute path to the root of the repository.
 fn maybe_setup_protoc(repo_root: &str) {
     // Bail if the env var is explicitly set
-    if env::var_os("PROTOC").is_some() {
+    if get_env("PROTOC").is_some() {
         return;
     }
 
@@ -76,8 +82,6 @@ impl Builder {
     }
 
     pub fn setup_protoc(self, repo_root: &str) -> Self {
-        // Tonic build uses $PROTOC to determine the protoc path.
-        println!("cargo:rerun-if-env-changed=PROTOC");
         maybe_setup_protoc(repo_root);
         // It would be great if this was on the config rather than an env variable...
         self
@@ -92,9 +96,8 @@ impl Builder {
 
         // Buck likes to set $OUT in a genrule, while Cargo likes to set $OUT_DIR.
         // If we have $OUT set only, move it into the config
-        if env::var_os("OUT_DIR").is_none() {
-            if let Some(out) = env::var_os("OUT") {
-                println!("cargo:rerun-if-env-changed=OUT");
+        if get_env("OUT_DIR").is_none() {
+            if let Some(out) = get_env("OUT") {
                 tonic = tonic.out_dir(out);
             }
         }
