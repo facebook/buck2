@@ -271,10 +271,6 @@ enum BuckEventError {
     MissingTimestamp,
     #[error("The `buck2_data::BuckEvent` provided has no `Data`")]
     MissingData,
-    #[error("The `buck2_data::BuckEvent` contains an invalid UUID")]
-    InvalidUUID(#[from] uuid::Error),
-    #[error("The `buck2_data::BuckEvent` provided a timestamp out of the system range")]
-    TimestampOutOfRange(#[from] prost_types::TimestampOutOfSystemRangeError),
     #[error("Sent an event missing one or more fields: `{0:?}`")]
     MissingField(BuckEvent),
 }

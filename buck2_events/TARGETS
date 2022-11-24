@@ -20,7 +20,6 @@ rust_library(
         "fbsource//third-party/rust:hostname",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:prost",
-        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:sys-info",
