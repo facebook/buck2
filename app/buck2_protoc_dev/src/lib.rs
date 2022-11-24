@@ -19,48 +19,38 @@ fn get_env(key: &str) -> Option<OsString> {
     env::var_os(key)
 }
 
+fn maybe_set_var(var: &str, path: &Path) {
+    // Bail if the env var is explicitly set
+    if get_env(var).is_some() {
+        return;
+    }
+
+    // Bail if we can't find the path, e.g. for OSS builds.
+    if !path.exists() {
+        return;
+    }
+
+    let path = fs::canonicalize(path).expect("Failed to canonicalize path");
+    env::set_var(var, path);
+}
+
 /// Set up $PROTOC to point to the in repo binary if available.
 ///
 /// Note: repo root is expected to be a relative or absolute path to the root of the repository.
 fn maybe_set_protoc(repo_root: &str) {
-    // Bail if the env var is explicitly set
-    if get_env("PROTOC").is_some() {
-        return;
-    }
-
     let mut protoc = PathBuf::from(repo_root);
     protoc.push("third-party/protobuf/dotslash/protoc");
     if cfg!(windows) {
         protoc.push(".exe");
     }
-
-    // Bail if we can't find the path to the in repo protoc, e.g. for OSS builds.
-    if !protoc.exists() {
-        return;
-    }
-
-    let protoc = fs::canonicalize(protoc).expect("Failed to canonicalize protoc path");
-    env::set_var("PROTOC", protoc);
+    maybe_set_var("PROTOC", &protoc)
 }
 
 /// Set $PROTOC_INCLUDE.
 fn maybe_set_protoc_include(repo_root: &str) {
-    // Bail if the env var is explicitly set
-    if get_env("PROTOC_INCLUDE").is_some() {
-        return;
-    }
-
     let mut protoc_include = PathBuf::from(repo_root);
     protoc_include.push("third-party/protobuf/protobuf/src");
-
-    // Bail if we can't find the path to the in repo protoc, e.g. for OSS builds.
-    if !protoc_include.exists() {
-        return;
-    }
-
-    let protoc_include =
-        fs::canonicalize(protoc_include).expect("Failed to canonicalize protoc include path");
-    env::set_var("PROTOC_INCLUDE", protoc_include);
+    maybe_set_var("PROTOC_INCLUDE", &protoc_include);
 }
 
 pub struct Builder {
