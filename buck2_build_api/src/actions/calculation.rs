@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
-use std::fmt::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -36,7 +34,6 @@ use crate::actions::build_listener::ActionRedirectionSignal;
 use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
-use crate::actions::execute::error::ExecuteError;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -185,7 +182,7 @@ async fn build_action_no_redirect(
                     .and_then(|r| r.status.execution_kind())
                     .map(|e| e.as_enum());
                 wall_time = None;
-                error = Some(error_to_proto(&e));
+                error = Some(e.as_proto());
                 output_size = 0;
                 // We define the below fields only in the instance of an action error
                 // so as to reduce Scribe traffic and log it in buck2_action_errors
@@ -399,39 +396,6 @@ async fn command_details(
         stderr,
         command,
     }
-}
-
-fn error_to_proto(err: &ExecuteError) -> buck2_data::action_execution_end::Error {
-    match err {
-        ExecuteError::MissingOutputs { wanted } => buck2_data::CommandOutputsMissing {
-            message: format!("Action failed to produce outputs: {}", error_items(wanted)),
-        }
-        .into(),
-        ExecuteError::MismatchedOutputs { wanted, got } => buck2_data::CommandOutputsMissing {
-            message: format!(
-                "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
-                error_items(wanted),
-                error_items(got)
-            ),
-        }
-        .into(),
-        ExecuteError::Error { error } => format!("{:#}", error).into(),
-        ExecuteError::CommandExecutionError => buck2_data::CommandExecutionError {}.into(),
-    }
-}
-
-fn error_items<T: Display>(xs: &[T]) -> String {
-    if xs.is_empty() {
-        return "none".to_owned();
-    }
-    let mut res = String::new();
-    for (i, x) in xs.iter().enumerate() {
-        if i != 0 {
-            res.push_str(", ");
-        }
-        write!(res, "`{}`", x).unwrap();
-    }
-    res
 }
 
 #[cfg(test)]
