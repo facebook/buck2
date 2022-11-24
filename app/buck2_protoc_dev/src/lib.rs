@@ -13,7 +13,8 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
-/// Set up $PROTOC to point to the in repo binary if available
+/// Set up $PROTOC to point to the in repo binary if available,
+/// and $PROTOC_INCLUDE to point at the inclusions.
 ///
 /// Note: repo root is expected to be a relative or absolute path to the root of the repository.
 fn maybe_setup_protoc(repo_root: &str) {
@@ -35,6 +36,12 @@ fn maybe_setup_protoc(repo_root: &str) {
 
     let protoc = fs::canonicalize(protoc).expect("Failed to canonicalize protoc path");
     env::set_var("PROTOC", protoc);
+
+    let mut protoc_include = PathBuf::from(repo_root);
+    protoc_include.push("third-party/protobuf/protobuf/src");
+    let protoc_include =
+        fs::canonicalize(protoc_include).expect("Failed to canonicalize protoc include path");
+    env::set_var("PROTOC_INCLUDE", protoc_include);
 }
 
 pub struct Builder {
