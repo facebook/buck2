@@ -73,9 +73,13 @@ impl ActionsRegistry {
         self.action_key = Some(action_key);
     }
 
-    pub fn declare_dynamic_output(&mut self, path: BuckOutPath) -> DeclaredArtifact {
+    pub fn declare_dynamic_output(
+        &mut self,
+        path: BuckOutPath,
+        output_type: OutputType,
+    ) -> DeclaredArtifact {
         // We don't want to claim path, because the output belongs to different (outer) context
-        DeclaredArtifact::new(path, OutputType::FileOrDirectory)
+        DeclaredArtifact::new(path, output_type)
     }
 
     pub fn claim_output_path(&mut self, path: &ForwardRelativePath) -> anyhow::Result<()> {
@@ -141,6 +145,7 @@ impl ActionsRegistry {
         &mut self,
         prefix: Option<ForwardRelativePathBuf>,
         path: ForwardRelativePathBuf,
+        output_type: OutputType,
     ) -> anyhow::Result<DeclaredArtifact> {
         let (path, hidden) = match prefix {
             None => (path, 0),
@@ -153,7 +158,7 @@ impl ActionsRegistry {
             hidden,
             self.action_key.dupe(),
         );
-        let declared = DeclaredArtifact::new(out_path, OutputType::FileOrDirectory);
+        let declared = DeclaredArtifact::new(out_path, output_type);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
         }
@@ -261,6 +266,7 @@ mod tests {
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_node::configuration::execution::ExecutionPlatform;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -291,19 +297,23 @@ mod tests {
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
         let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
-        let declared1 = actions.declare_artifact(None, out1.clone())?;
+        let declared1 =
+            actions.declare_artifact(None, out1.clone(), OutputType::FileOrDirectory)?;
         declared1
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
         let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
         let buckout2 = BuckOutPath::new(base, out2.clone());
-        let declared2 = actions.declare_artifact(None, out2)?;
+        let declared2 = actions.declare_artifact(None, out2, OutputType::FileOrDirectory)?;
         declared2
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout2.path()));
 
-        if actions.declare_artifact(None, out1).is_ok() {
+        if actions
+            .declare_artifact(None, out1, OutputType::FileOrDirectory)
+            .is_ok()
+        {
             panic!("should error due to duplicate artifact")
         }
 
@@ -387,7 +397,7 @@ mod tests {
         let mut actions =
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let declared = actions.declare_artifact(None, out)?;
+        let declared = actions.declare_artifact(None, out, OutputType::FileOrDirectory)?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(
@@ -438,7 +448,7 @@ mod tests {
             ),
         );
         let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let declared = actions.declare_artifact(None, out)?;
+        let declared = actions.declare_artifact(None, out, OutputType::FileOrDirectory)?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(

@@ -228,7 +228,7 @@ impl Deferred for DynamicLambda {
         let mut declared_outputs = IndexSet::with_capacity(self.outputs.len());
         for x in &self.outputs {
             let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
-            let declared = registry.declare_dynamic_output(x.get_path().dupe());
+            let declared = registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
             declared_outputs.insert(declared.dupe());
             let v = heap.alloc(StarlarkDeclaredArtifact::new(
                 None,

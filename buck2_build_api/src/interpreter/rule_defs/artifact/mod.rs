@@ -68,6 +68,7 @@ pub mod testing {
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_interpreter::extra::BuildContext;
@@ -155,6 +156,7 @@ pub mod testing {
             let artifact = registry.declare_artifact(
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
+                OutputType::FileOrDirectory,
             )?;
             Ok(StarlarkDeclaredArtifact::new(
                 None,
@@ -179,6 +181,7 @@ pub mod testing {
             let artifact = registry.declare_artifact(
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
+                OutputType::FileOrDirectory,
             )?;
             let outputs = indexset![artifact.as_output()];
             registry.register(
@@ -249,8 +252,12 @@ pub mod testing {
                     .iter()
                     .map(|a| ArtifactGroup::Artifact(a.artifact())),
             ));
-            let (declaration, output_artifact) =
-                analysis_registry.get_or_declare_output(eval, artifact, "param_name")?;
+            let (declaration, output_artifact) = analysis_registry.get_or_declare_output(
+                eval,
+                artifact,
+                "param_name",
+                OutputType::FileOrDirectory,
+            )?;
 
             actions_registry.register(
                 &mut deferred,

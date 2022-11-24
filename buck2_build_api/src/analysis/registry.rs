@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -113,14 +114,19 @@ impl<'v> AnalysisRegistry<'v> {
         self.actions.claim_output_path(path)
     }
 
-    pub(crate) fn declare_dynamic_output(&mut self, path: BuckOutPath) -> DeclaredArtifact {
-        self.actions.declare_dynamic_output(path)
+    pub(crate) fn declare_dynamic_output(
+        &mut self,
+        path: BuckOutPath,
+        output_type: OutputType,
+    ) -> DeclaredArtifact {
+        self.actions.declare_dynamic_output(path, output_type)
     }
 
     pub(crate) fn declare_output(
         &mut self,
         prefix: Option<&str>,
         filename: &str,
+        output_type: OutputType,
     ) -> anyhow::Result<DeclaredArtifact> {
         // We want this artifact to be a file/directory inside the current context, which means
         // things like `..` and the empty path `.` can be bad ideas. The `::new` method checks for those
@@ -135,7 +141,7 @@ impl<'v> AnalysisRegistry<'v> {
             None => None,
             Some(x) => Some(ForwardRelativePath::new(x)?.to_owned()),
         };
-        self.actions.declare_artifact(prefix, path)
+        self.actions.declare_artifact(prefix, path, output_type)
     }
 
     /// Takes a string or artifact/output artifact and converts it into an output artifact
@@ -155,11 +161,12 @@ impl<'v> AnalysisRegistry<'v> {
         eval: &Evaluator<'v2, '_>,
         value: Value<'v2>,
         param_name: &str,
+        output_type: OutputType,
     ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
         if let Some(dest_str) = value.unpack_str() {
-            let artifact = self.declare_output(None, dest_str)?;
+            let artifact = self.declare_output(None, dest_str, output_type)?;
             Ok((
                 ArtifactDeclaration {
                     artifact: ArtifactDeclarationKind::DeclaredArtifact(artifact.dupe()),

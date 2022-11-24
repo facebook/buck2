@@ -21,6 +21,7 @@ use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
@@ -366,7 +367,8 @@ fn create_dir_tree<'v>(
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state();
-    let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+    let (declaration, output_artifact) =
+        this.get_or_declare_output(eval, output, "output", OutputType::Directory)?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
     let value = declaration.into_declared_artifact(unioned_associated_artifacts);
@@ -386,7 +388,9 @@ fn copy_file<'v>(
 
     let (artifact, associated_artifacts) = src.get_bound_artifact_and_associated_artifacts()?;
     let mut this = this.state();
-    let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, "dest")?;
+    // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
+    let (declaration, output_artifact) =
+        this.get_or_declare_output(eval, dest, "dest", OutputType::FileOrDirectory)?;
 
     this.register_action(
         indexset![ArtifactGroup::Artifact(artifact)],
@@ -415,7 +419,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(filename) => (Some(prefix), filename),
         };
 
-        let artifact = this.state().declare_output(prefix, filename)?;
+        let artifact =
+            this.state()
+                .declare_output(prefix, filename, OutputType::FileOrDirectory)?;
 
         Ok(StarlarkDeclaredArtifact::new(
             eval.call_stack_top_location(),
@@ -432,7 +438,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let (declaration, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", OutputType::File)?;
 
         UnregisteredWriteJsonAction::validate(content)?;
         this.register_action(
@@ -524,7 +531,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         }
 
         let mut this = this.state();
-        let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let (declaration, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", OutputType::File)?;
 
         let (content_cli, written_macro_count, mut associated_artifacts) =
             if let Some(content_arg) = content.as_command_line() {
@@ -550,8 +558,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
             let mut written_macro_files = indexset![];
             for i in 0..written_macro_count {
-                let macro_file =
-                    this.declare_output(None, &format!("{}/{}.macro", &macro_directory_path, i))?;
+                let macro_file = this.declare_output(
+                    None,
+                    &format!("{}/{}.macro", &macro_directory_path, i),
+                    OutputType::File,
+                )?;
                 written_macro_files.insert(macro_file);
             }
 
@@ -815,7 +826,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        let (declaration, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let (declaration, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", OutputType::File)?;
 
         let checksum = match (
             sha1.into_option().map(Arc::from),
@@ -862,7 +874,13 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
         let expires_after_timestamp = Utc.timestamp(expires_after_timestamp, 0);
 
-        let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
+        let output_type = if is_tree {
+            OutputType::Directory
+        } else {
+            OutputType::File
+        };
+        let (output_value, output_artifact) =
+            this.get_or_declare_output(eval, output, "output", output_type)?;
 
         this.register_action(
             IndexSet::new(),
