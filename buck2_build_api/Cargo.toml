@@ -47,6 +47,7 @@ assert_matches = { workspace = true }
 crossbeam-epoch = { workspace = true }
 http = { workspace = true }
 parking_lot = { workspace = true }
+fnv = { workspace = true }
 
 allocative = { workspace = true }
 # @oss-disable: build_info = { path = "../../common/rust/build_info" }

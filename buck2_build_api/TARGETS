@@ -23,6 +23,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:fancy-regex",
+        "fbsource//third-party/rust:fnv",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:hex",

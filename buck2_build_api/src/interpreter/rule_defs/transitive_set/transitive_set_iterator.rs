@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use anyhow::Context as _;
+use fnv::FnvBuildHasher;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
@@ -49,7 +50,7 @@ where
 /// A DFS, left-to-right iterator over a TransitiveSet.
 pub struct PreorderTransitiveSetIteratorGen<'a, 'v, V> {
     stack: Vec<&'a TransitiveSetGen<V>>,
-    seen: HashSet<ValueIdentity<'v>>,
+    seen: HashSet<ValueIdentity<'v>, FnvBuildHasher>,
 }
 
 impl<'a, 'v, V> PreorderTransitiveSetIteratorGen<'a, 'v, V>
@@ -61,7 +62,7 @@ where
     pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
         Self {
             stack: vec![set],
-            seen: HashSet::new(),
+            seen: Default::default(),
         }
     }
 
@@ -110,7 +111,7 @@ where
 pub struct PostorderTransitiveSetIteratorGen<'a, 'v, V> {
     stack: Vec<Option<&'a TransitiveSetGen<V>>>,
     parent_stack: Vec<&'a TransitiveSetGen<V>>,
-    seen: HashSet<ValueIdentity<'v>>,
+    seen: HashSet<ValueIdentity<'v>, FnvBuildHasher>,
 }
 
 impl<'a, 'v, V> PostorderTransitiveSetIteratorGen<'a, 'v, V>
@@ -123,7 +124,7 @@ where
         Self {
             stack: vec![Some(set)],
             parent_stack: vec![],
-            seen: HashSet::new(),
+            seen: Default::default(),
         }
     }
 
@@ -184,7 +185,7 @@ where
 /// one parent it is returned in the order of its last occurrence.
 pub struct TopologicalTransitiveSetIteratorGen<'a, 'v, V> {
     output_stack: Vec<&'a TransitiveSetGen<V>>,
-    instance_counts: HashMap<ValueIdentity<'v>, u32>,
+    instance_counts: HashMap<ValueIdentity<'v>, u32, FnvBuildHasher>,
 }
 
 impl<'a, 'v, V> TopologicalTransitiveSetIteratorGen<'a, 'v, V>
@@ -200,9 +201,11 @@ where
         }
     }
 
-    fn count_instances(set: &'a TransitiveSetGen<V>) -> HashMap<ValueIdentity<'v>, u32> {
+    fn count_instances(
+        set: &'a TransitiveSetGen<V>,
+    ) -> HashMap<ValueIdentity<'v>, u32, FnvBuildHasher> {
         let mut stack = vec![set];
-        let mut instance_counts: HashMap<ValueIdentity<'v>, u32> = HashMap::new();
+        let mut instance_counts = HashMap::<ValueIdentity<'v>, u32, FnvBuildHasher>::default();
 
         while let Some(next) = stack.pop() {
             for child in next.children.iter().rev() {
@@ -277,7 +280,7 @@ where
 /// A breadth-first-search (BFS), left-to-right iterator over a TransitiveSet.
 pub struct BfsTransitiveSetIteratorGen<'a, 'v, V> {
     queue: VecDeque<&'a TransitiveSetGen<V>>,
-    seen: HashSet<ValueIdentity<'v>>,
+    seen: HashSet<ValueIdentity<'v>, FnvBuildHasher>,
 }
 
 impl<'a, 'v, V> BfsTransitiveSetIteratorGen<'a, 'v, V>
@@ -289,7 +292,7 @@ where
     pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
         Self {
             queue: VecDeque::from(vec![set]),
-            seen: HashSet::new(),
+            seen: Default::default(),
         }
     }
 
