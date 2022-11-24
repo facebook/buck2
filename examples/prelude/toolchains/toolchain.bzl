@@ -27,10 +27,6 @@ load(
     "PythonPlatformInfo",
     "PythonToolchainInfo",
 )
-load(
-    "@prelude//python_bootstrap:python_bootstrap.bzl",
-    "PythonBootstrapToolchainInfo",
-)
 
 DEFAULT_MAKE_COMP_DB = "@prelude//cxx/tools:make_comp_db"
 DEFAULT_MAKE_PEX_INPLACE = "@prelude//python/tools:make_pex_inplace"
@@ -128,17 +124,5 @@ python_toolchain = rule(
         "make_pex_modules": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_MODULES),
         "make_source_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
     },
-    is_toolchain_rule = True,
-)
-
-def _python_bootstrap_toolchain(_ctx):
-    return [
-        DefaultInfo(),
-        PythonBootstrapToolchainInfo(interpreter = "python"),
-    ]
-
-python_bootstrap_toolchain = rule(
-    impl = _python_bootstrap_toolchain,
-    attrs = {},
     is_toolchain_rule = True,
 )
