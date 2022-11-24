@@ -34,8 +34,8 @@ pub(crate) fn visit_generic_map<'a, K: Allocative + 'a, V: Allocative + 'a>(
 ) {
     let mut visitor = visitor.enter_unique(Key::new("data"), mem::size_of::<*const ()>());
     for (k, v) in entries {
-        visitor.visit_field(Key::new("key"), k);
-        visitor.visit_field(Key::new("value"), v);
+        visitor.visit_field(KEY_NAME, k);
+        visitor.visit_field(VALUE_NAME, v);
     }
     visitor.exit();
 }
