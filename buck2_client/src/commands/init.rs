@@ -251,7 +251,11 @@ fn set_up_project(
             ));
         }
 
-        std::fs::create_dir(path.join("toolchains"))?;
+        let toolchains = path.join("toolchains");
+        if !toolchains.exists() {
+            std::fs::create_dir(&toolchains)?;
+        }
+
         writeln!(buck_config, "prelude = prelude")?;
         writeln!(buck_config, "toolchains = toolchains")?;
 
