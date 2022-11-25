@@ -66,6 +66,36 @@ def parse_lockfile(lockfile):
     return pkgs
 
 
+def generate_targets(pkgs, bzl_out):
+    """Write Buck2 targets for the packages to bzl_out."""
+    header = """\
+load("prelude//toolchains/conan:defs.bzl", "conan_package")
+
+def conan_packages():
+"""
+    package_template = """\
+    conan_package(
+        name = {name},
+        reference = {reference},
+        options = {options},
+        deps = {deps},
+    )
+"""
+    with open(bzl_out, "w") as f:
+        f.write(header)
+        for pkg in pkgs.values():
+            name = pkg["name"]
+            reference = pkg["reference"]
+            options = pkg["options"].split("\n")
+            print(options)
+            deps = [":" + pkgs[key]["name"] for key in pkg["requires"]]
+            f.write(package_template.format(
+                name = repr(name),
+                reference = repr(reference),
+                options = repr(options),
+                deps = repr(deps)))
+
+
 def main():
     parser = argparse.ArgumentParser(
             prog = "conan_update",
@@ -87,13 +117,19 @@ def main():
             metavar="FILE",
             type=str,
             required=True,
-            help="Name oo the Conan lock-file to generate, relative to the Conanfile.")
+            help="Name of the Conan lock-file to generate, relative to the Conanfile.")
     parser.add_argument(
             "--lockfile",
             metavar="FILE",
             type=str,
             required=False,
             help="Path to an existing Conan lock-file to base resolution on, relative to the repository root.")
+    parser.add_argument(
+            "--bzl-out",
+            metavar="FILE",
+            type=str,
+            required=False,
+            help="Name of the Starlark file to generate, relative to the Conanfile.")
     args = parser.parse_args()
 
     root = find_root()
@@ -105,9 +141,11 @@ def main():
         lockfile = os.path.join(root, args.lockfile)
     else:
         lockfile = None
+    bzl_out = os.path.join(os.path.dirname(conanfile), args.bzl_out)
 
     conan_lock(conan, conanfile, lockfile_out, lockfile)
     pkgs = parse_lockfile(lockfile_out)
+    generate_targets(pkgs, bzl_out)
 
 
 if __name__ == "__main__":
