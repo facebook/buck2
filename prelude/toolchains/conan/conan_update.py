@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import subprocess
 
@@ -21,6 +22,48 @@ def conan_lock(conan, conanfile, lockfile_out, lockfile=None):
     # Enable Conan revisions for reproducibility
     env["CONAN_REVISIONS_ENABLED"] = "1"
     subprocess.check_call(args, env=env)
+
+
+def parse_reference(ref):
+    """Parse a Conan package reference of the form name/version#revision."""
+    name, version_ref = ref.split("/")
+    version, ref = version_ref.split("#")
+    return name, version, ref
+
+
+def parse_lockfile(lockfile):
+    """Parse Conan lockfile into a package collection."""
+    with open(lockfile) as f:
+        data = json.load(f)
+
+    assert data["version"] == "0.4", "Unsupported Conan lockfile version"
+    # TODO[AH] profile_host should match the buck2 configuration.
+    graph = data["graph_lock"]
+    assert graph["revisions_enabled"] == True, "Enable revisions for reproducibility"
+    nodes = graph["nodes"]
+
+    pkgs = {}
+    for key, item in nodes.items():
+        if key == "0":
+            # Skip the root package, it just bundles all dependencies.
+            continue
+        ref = item["ref"]
+        name, version, revision = parse_reference(ref)
+        package_id = item["package_id"]
+        options = item["options"]
+        requires = item.get("requires", [])
+        # context = item["context"]  # TODO[AH] Do we need this?
+        pkgs[key] = {
+            "name": name,
+            "version": version,
+            "revision": revision,
+            "reference": ref,
+            "package_id": package_id,
+            "options": options,
+            "requires": requires,
+        }
+
+    return pkgs
 
 
 def main():
@@ -64,6 +107,7 @@ def main():
         lockfile = None
 
     conan_lock(conan, conanfile, lockfile_out, lockfile)
+    pkgs = parse_lockfile(lockfile_out)
 
 
 if __name__ == "__main__":
