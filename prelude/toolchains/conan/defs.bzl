@@ -40,6 +40,7 @@ def _conan_lock_update_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--lockfile-out", ctx.attrs.lockfile_name])
     if ctx.attrs.lockfile:
         cmd.add(["--lockfile", ctx.attrs.lockfile])
+    cmd.add(["--bzl-out", ctx.attrs.bzl_name])
 
     return [
         DefaultInfo(default_outputs = []),
@@ -52,6 +53,7 @@ conan_lock_update = rule(
         "conanfile": attrs.source(doc = "The conanfile defining the project dependencies."),
         "lockfile_name": attrs.string(doc = "Generate a lockfile with this name next to the conanfile."),
         "lockfile": attrs.option(attrs.source(doc = "A pre-existing lockfile to base the dependency resolution on."), default = None),
+        "bzl_name": attrs.string(doc = "Generate a .bzl file with this name next to the conanfile to define the Conan package targets."),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_update": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_update"),
     },
