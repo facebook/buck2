@@ -17,7 +17,10 @@ def conan_lock(conan, conanfile, lockfile_out, lockfile=None):
         args.extend(["--lockfile", lockfile])
     args.extend(["--lockfile-out", lockfile_out])
     args.append(conanfile)
-    subprocess.check_call(args)
+    env = dict(os.environ)
+    # Enable Conan revisions for reproducibility
+    env["CONAN_REVISIONS_ENABLED"] = "1"
+    subprocess.check_call(args, env=env)
 
 
 def main():
