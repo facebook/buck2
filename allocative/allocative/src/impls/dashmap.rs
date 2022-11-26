@@ -13,9 +13,11 @@ use std::hash::Hash;
 use std::mem;
 
 use dashmap::DashMap;
+use dashmap::DashSet;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::CAPACITY_NAME;
+use crate::impls::common::DATA_NAME;
 use crate::impls::common::KEY_NAME;
 use crate::impls::common::PTR_NAME;
 use crate::impls::common::UNUSED_CAPACITY_NAME;
@@ -41,5 +43,24 @@ impl<K: Allocative + Eq + Hash, V: Allocative> Allocative for DashMap<K, V> {
         }
         visitor2.exit();
         visitor.exit();
+    }
+}
+
+impl<T: Allocative + Eq + Hash> Allocative for DashSet<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        let mut visitor2 = visitor.enter_unique(PTR_NAME, mem::size_of::<*const ()>());
+        {
+            let mut capacity_visitor =
+                visitor2.enter(CAPACITY_NAME, self.capacity() * mem::size_of::<T>());
+            for entry in self.iter() {
+                capacity_visitor.visit_field(DATA_NAME, entry.key());
+            }
+            capacity_visitor.visit_simple(
+                UNUSED_CAPACITY_NAME,
+                self.capacity().saturating_sub(self.len()) * mem::size_of::<T>(),
+            );
+            capacity_visitor.exit();
+        }
     }
 }
