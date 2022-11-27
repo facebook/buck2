@@ -146,6 +146,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Locally built toolchains which do not exist on RE
     "toolchain_testing",
+
+    # sphinx_wiki always needs to run locally
+    "sphinx_wiki",
 ]}
 
 def genrule_labels_require_local(labels):
