@@ -12,11 +12,11 @@
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use async_std_ext::prelude::AsyncOptionExt;
 use buck2_build_api::calculation::load_patterns;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::lex_target_pattern;
@@ -342,6 +342,18 @@ impl CliArgType {
         }
     }
 
+    async fn async_map_or<T, U, F, FUT>(me: Option<T>, default: U, f: F) -> U
+    where
+        U: Send,
+        F: FnOnce(T) -> FUT + Send,
+        FUT: Future<Output = U> + Send,
+    {
+        match me {
+            Some(t) => f(t).await,
+            None => default,
+        }
+    }
+
     pub fn parse_clap<'a>(
         &'a self,
         clap: ArgAccessor<'a>,
@@ -371,9 +383,8 @@ impl CliArgType {
                     clap.value_of().map(|s| CliArgValue::String(s.to_owned()))
                 }
                 CliArgType::List(inner) => {
-                    let r: anyhow::Result<_> = clap
-                        .values_of()
-                        .async_map_or(Ok(None), async move |values| {
+                    let r: anyhow::Result<_> =
+                        Self::async_map_or(clap.values_of(), Ok(None), async move |values| {
                             futures::future::join_all(values.map(async move |v| try {
                                 inner
                                     .parse_clap(ArgAccessor::Literal(v), ctx)

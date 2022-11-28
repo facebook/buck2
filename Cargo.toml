@@ -57,7 +57,6 @@ members = [
     "starlark-rust/starlark",
     "starlark-rust/starlark_derive",
     "starlark-rust/starlark_map",
-    "shed/async_std_ext",
     "shed/internment_tweaks",
     "shed/more_futures",
     "superconsole",

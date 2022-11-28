@@ -24,7 +24,6 @@ tokio = { workspace = true }
 fbinit = { workspace = true }
 
 allocative = { workspace = true }
-async_std_ext = { path = "../shed/async_std_ext" }
 gazebo = { workspace = true }
 dice = { path = "../dice/dice" }
 buck2_events = { path = "../buck2_events" }
