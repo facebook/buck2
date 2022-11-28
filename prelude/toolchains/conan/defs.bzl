@@ -59,3 +59,15 @@ conan_lock_update = rule(
     },
     doc = "Defines a runnable target that will invoke Conan to generate a lock-file based on the given conanfile.",
 )
+
+def _conan_package_impl(ctx: "context") -> ["provider"]:
+    return [DefaultInfo()]
+
+conan_package = rule(
+    impl = _conan_package_impl,
+    attrs = {
+        "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
+        "options": attrs.list(attrs.string(doc = "Conan build options.")),
+        "deps": attrs.list(attrs.dep(providers = [], doc = "Conan Package dependencies.")),
+    },
+)
