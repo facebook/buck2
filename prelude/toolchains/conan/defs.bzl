@@ -70,6 +70,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--lockfile", conan_toolchain.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
     cmd.add([cmd_args(ctx.attrs.options, prepend = "--option")])
     cmd.add(["--install-folder", install_folder.as_output()])
@@ -82,6 +83,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
 conan_package = rule(
     impl = _conan_package_impl,
     attrs = {
+        "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
         "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
         "options": attrs.list(attrs.string(doc = "Conan build options.")),
         "deps": attrs.list(attrs.dep(providers = [], doc = "Conan Package dependencies.")),
