@@ -87,7 +87,6 @@ def conan_packages():
             name = pkg["name"]
             reference = pkg["reference"]
             options = pkg["options"].split("\n")
-            print(options)
             deps = [":" + pkgs[key]["name"] for key in pkg["requires"]]
             f.write(package_template.format(
                 name = repr(name),
