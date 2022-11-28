@@ -21,7 +21,6 @@ const XCODE_SELECT_SYMLINK: &str = "/var/db/xcode_select_link";
 #[allow(non_snake_case)]
 struct XcodeInfoPlist {
     CFBundleShortVersionString: String,
-    CFBundleIconName: String,
 }
 
 /// Versioning information for the currently selected Xcode on the host machine.
@@ -37,8 +36,6 @@ pub struct XcodeVersionInfo {
     pub patch_version: Option<String>,
     /// Xcode-specific build number like "14A309"
     pub build_number: Option<String>,
-    /// Whether this Xcode is considered a "beta" version.
-    pub is_beta: bool,
 }
 
 impl XcodeVersionInfo {
@@ -73,10 +70,11 @@ impl XcodeVersionInfo {
         let minor = version_parts.next()?;
         let patch = version_parts.next()?;
 
-        let (build_number, is_beta) = match app_name_parts.next() {
-            Some("beta") => (None, true),
-            Some(build_id) => (Some(build_id), false),
-            None => (None, false),
+        // Build number is optional.
+        let build_number = match app_name_parts.next() {
+            Some("beta") => None,
+            Some(build_id) => Some(build_id.to_owned()),
+            _ => None,
         };
 
         Some(Self {
@@ -84,8 +82,7 @@ impl XcodeVersionInfo {
             major_version: Some(major.to_owned()),
             minor_version: Some(minor.to_owned()),
             patch_version: Some(patch.to_owned()),
-            build_number: build_number.map(|b| b.to_owned()),
-            is_beta,
+            build_number,
         })
     }
 
@@ -109,8 +106,6 @@ impl XcodeVersionInfo {
             patch_version: patch,
             // Build Identifier isn't actually stored in Info.plist. Weird.
             build_number: None,
-            // Info.plist marks the icon names as "XcodeBeta".
-            is_beta: plist.CFBundleIconName.contains("Beta"),
         })
     }
 }
@@ -118,9 +113,8 @@ impl XcodeVersionInfo {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
 
-    use super::XcodeVersionInfo;
+    use super::*;
 
     #[test]
     fn test_fails_to_resolve_from_path() {
@@ -142,7 +136,6 @@ mod tests {
             minor_version: Some("0".to_owned()),
             patch_version: Some("0".to_owned()),
             build_number: Some("14A309".to_owned()),
-            is_beta: false,
         };
         assert_eq!(want, got);
     }
@@ -159,7 +152,6 @@ mod tests {
             minor_version: Some("0".to_owned()),
             patch_version: Some("0".to_owned()),
             build_number: None,
-            is_beta: true,
         };
         assert_eq!(want, got);
     }
@@ -207,7 +199,6 @@ mod tests {
             major_version: Some("14".to_owned()),
             minor_version: Some("0".to_owned()),
             patch_version: Some("1".to_owned()),
-            is_beta: false,
             build_number: None,
         };
         assert_eq!(want, got);
@@ -236,7 +227,6 @@ mod tests {
             major_version: Some("14".to_owned()),
             minor_version: Some("0".to_owned()),
             patch_version: Some("0".to_owned()),
-            is_beta: false,
             build_number: None,
         };
         assert_eq!(want, got);
@@ -265,7 +255,6 @@ mod tests {
             major_version: Some("14".to_owned()),
             minor_version: Some("0".to_owned()),
             patch_version: Some("0".to_owned()),
-            is_beta: true,
             build_number: None,
         };
         assert_eq!(want, got);

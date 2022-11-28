@@ -113,7 +113,6 @@ fn new_host_info(
                 "patch_version",
                 alloc_option_str(&heap, xcode_info.patch_version),
             ),
-            ("is_beta", heap.alloc(xcode_info.is_beta)),
             (
                 "build_number",
                 alloc_option_str(&heap, xcode_info.build_number),
