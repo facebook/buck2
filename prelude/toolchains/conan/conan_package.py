@@ -12,7 +12,8 @@ def conan_install(conan, reference, lockfile, options, install_folder, output_fo
     # TODO options cannot be combined with lockfile.
     #for option in options:
     #    args.extend(["--options", option])
-    args.append(reference + "@")
+    # TODO remove revision, it's not supported on the command line.
+    args.append(reference.split("#")[0] + "@")
 
     env = dict(os.environ)
     # Enable Conan revisions for reproducibility
