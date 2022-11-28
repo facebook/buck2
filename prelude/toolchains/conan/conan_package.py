@@ -26,6 +26,12 @@ def conan_install(conan, reference, options, install_folder, output_folder, user
     # TODO Enable if needed with a hermetic short path.
     env["CONAN_USER_HOME_SHORT"] = "None"
 
+    # Workaround gcc/clang ABI compatibility warning.
+    # TODO Solve this through the proper toolchain configuration.
+    subprocess.check_call("conan profile new default".split(), env=env)
+    subprocess.check_call("conan profile update settings.compiler=gcc default".split(), env=env)
+    subprocess.check_call("conan profile update settings.compiler.version=11 default".split(), env=env)
+    subprocess.check_call("conan profile update settings.compiler.libcxx=libstdc++11 default".split(), env=env)
     subprocess.check_call(args, env=env)
 
 
