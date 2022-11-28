@@ -21,7 +21,7 @@ def conan_install(conan, reference, options, install_folder, output_folder, user
     # TODO Remove this debug output.
     env["CONAN_PRINT_RUN_COMMANDS"] = "1"
     # Set the Conan base directory.
-    env["CONAN_USER_HOME"] = user_home
+    env["CONAN_USER_HOME"] = os.path.abspath(user_home)
     # Disable the short paths feature on Windows.
     # TODO Enable if needed with a hermetic short path.
     env["CONAN_USER_HOME_SHORT"] = "None"
