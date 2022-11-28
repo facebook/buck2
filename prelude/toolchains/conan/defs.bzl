@@ -70,7 +70,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
-    cmd.add(["--lockfile", conan_toolchain.lockfile])
+    cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
     cmd.add([cmd_args(ctx.attrs.options, prepend = "--option")])
     cmd.add(["--install-folder", install_folder.as_output()])
