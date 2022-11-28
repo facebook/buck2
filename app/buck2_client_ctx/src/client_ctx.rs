@@ -15,6 +15,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_events::trace::TraceId;
+use cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
 use gazebo::dupe::Dupe;
@@ -23,6 +24,7 @@ use tokio::runtime::Builder;
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::cleanup_ctx::AsyncCleanupContextGuard;
 use crate::common::CommonBuildConfigurationOptions;
+use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
@@ -117,10 +119,16 @@ impl ClientCommandContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,
             target_platform: config_opts.target_platforms.clone().unwrap_or_default(),
             host_platform: match config_opts.host_platform_override() {
-                HostPlatformOverride::Default => GrpcHostPlatformOverride::Default,
+                HostPlatformOverride::Default => GrpcHostPlatformOverride::DefaultPlatform,
                 HostPlatformOverride::Linux => GrpcHostPlatformOverride::Linux,
                 HostPlatformOverride::MacOs => GrpcHostPlatformOverride::MacOs,
                 HostPlatformOverride::Windows => GrpcHostPlatformOverride::Windows,
+            }
+            .into(),
+            host_arch: match config_opts.host_arch_override() {
+                HostArchOverride::Default => GrpcHostArchOverride::DefaultArch,
+                HostArchOverride::X86_64 => GrpcHostArchOverride::X8664,
+                HostArchOverride::AArch64 => GrpcHostArchOverride::AArch64,
             }
             .into(),
             oncall: config_opts.oncall.as_ref().cloned().unwrap_or_default(),
@@ -159,6 +167,7 @@ impl ClientCommandContext {
             config_overrides: Default::default(),
             target_platform: Default::default(),
             host_platform: Default::default(),
+            host_arch: Default::default(),
             oncall: Default::default(),
             disable_starlark_types: false,
             trace_id: format!("{}", trace_id),

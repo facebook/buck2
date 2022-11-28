@@ -88,6 +88,22 @@ pub enum HostPlatformOverride {
     Windows,
 }
 
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    Copy,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "lower")]
+pub enum HostArchOverride {
+    Default,
+    AArch64,
+    X86_64,
+}
+
 /// Defines options related to commands that involves a streaming daemon command.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct CommonDaemonCommandOptions {
@@ -146,6 +162,9 @@ pub struct CommonBuildConfigurationOptions {
 
     #[clap(long, ignore_case = true, value_name = "HOST", arg_enum)]
     fake_host: Option<HostPlatformOverride>,
+
+    #[clap(long, ignore_case = true, value_name = "ARCH", arg_enum)]
+    fake_arch: Option<HostArchOverride>,
 
     // TODO(cjhopman): Why is this only in CommonConfigOptions options, it has nothing to do with config? Shouldn't all commands support --oncall?
     #[clap(long)]
@@ -242,6 +261,12 @@ impl CommonBuildConfigurationOptions {
             None => HostPlatformOverride::Default,
         }
     }
+    pub fn host_arch_override(&self) -> HostArchOverride {
+        match &self.fake_arch {
+            Some(v) => *v,
+            None => HostArchOverride::Default,
+        }
+    }
 
     pub fn default_ref() -> &'static Self {
         static DEFAULT: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
@@ -249,6 +274,7 @@ impl CommonBuildConfigurationOptions {
             config_files: vec![],
             target_platforms: None,
             fake_host: None,
+            fake_arch: None,
             oncall: None,
             disable_starlark_types: false,
             reuse_current_config: false,

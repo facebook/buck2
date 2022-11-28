@@ -55,7 +55,7 @@ message ClientContext {
   /// Empty string means not specified.
   string target_platform = 5;
   enum HostPlatformOverride {
-    DEFAULT = 0;
+    DEFAULT_PLATFORM = 0;
     LINUX = 1;
     MAC_OS = 2;
     WINDOWS = 3;
@@ -67,6 +67,12 @@ message ClientContext {
   bool reuse_current_config = 10;
   optional string daemon_uuid = 11;
   repeated string sanitized_argv = 12;
+  enum HostArchOverride {
+    DEFAULT_ARCH = 0;
+    AArch64 = 1;
+    X86_64 = 2;
+  }
+  HostArchOverride host_arch = 13;
 }
 
 message TargetsRequest {

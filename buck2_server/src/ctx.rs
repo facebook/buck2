@@ -79,6 +79,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::raw_output::RawOuputGuard;
 use buck2_server_ctx::raw_output::RawOutputWriter;
 use buck2_server_ctx::raw_output::StdoutOrStderr;
+use cli_proto::client_context::HostArchOverride;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::ClientContext;
@@ -160,6 +161,7 @@ pub struct ServerCommandContext {
     pub oncall: Option<String>,
 
     host_platform_override: HostPlatformOverride,
+    host_arch_override: HostArchOverride,
 
     // This ensures that there's only one RE connection during the lifetime of this context. It's possible
     // that we give out other handles, but we don't depend on the lifetimes of those for this guarantee. We
@@ -270,6 +272,7 @@ impl ServerCommandContext {
             base_context,
             working_dir: project_path.to_buf().into(),
             host_platform_override: client_context.host_platform(),
+            host_arch_override: client_context.host_arch(),
             oncall,
             _re_connection_handle: re_connection_handle,
             build_signals,
@@ -349,7 +352,7 @@ impl ServerCommandContext {
 
     async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
         let (interpreter_platform, interpreter_architecture) =
-            host_info::get_host_info(self.host_platform_override);
+            host_info::get_host_info(self.host_platform_override, self.host_arch_override);
 
         Ok(DiceCommandUpdater {
             file_watcher: self.base_context.file_watcher.dupe(),

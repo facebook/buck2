@@ -310,7 +310,7 @@ fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecution
         HostPlatformOverride::Linux => linux,
         HostPlatformOverride::MacOs => mac,
         HostPlatformOverride::Windows => windows,
-        HostPlatformOverride::Default => match std::env::consts::OS {
+        HostPlatformOverride::DefaultPlatform => match std::env::consts::OS {
             "linux" => linux,
             "macos" => mac,
             "windows" => windows,
