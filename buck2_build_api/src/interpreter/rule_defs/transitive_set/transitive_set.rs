@@ -529,4 +529,13 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         let set = TransitiveSet::from_value(this).context("Invalid this")?;
         Ok(set.definition)
     }
+
+    #[starlark(attribute)]
+    fn value<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+        let set = TransitiveSet::from_value(this).context("Invalid this")?;
+        Ok(match set.node.as_ref() {
+            Some(node) => node.value,
+            None => Value::new_none(),
+        })
+    }
 }

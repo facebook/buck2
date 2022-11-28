@@ -717,17 +717,21 @@ fn test_accessors() -> anyhow::Result<()> {
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def project1(_value):
-            pass
+            return []
 
         FooSet = transitive_set(args_projections = { "foo": project1 })
 
         def test():
             s = make_tset(FooSet)
             assert_eq(s.definition, FooSet)
+            assert_eq(s.value,  None)
 
             proj = s.project_as_args("foo")
             assert_eq(proj.transitive_set, s)
             assert_eq(proj.projection_name, "foo")
+
+            s2 = make_tset(FooSet, value = 1)
+            assert_eq(s2.value,  1)
         "#
     ))?;
 
