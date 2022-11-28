@@ -66,7 +66,7 @@ def parse_lockfile(lockfile):
     return pkgs
 
 
-def generate_targets(pkgs, bzl_out):
+def generate_targets(lockfile, pkgs, bzl_out):
     """Write Buck2 targets for the packages to bzl_out."""
     header = """\
 load("@prelude//toolchains/conan:defs.bzl", "conan_package")
@@ -76,6 +76,7 @@ def conan_packages():
     package_template = """\
     conan_package(
         name = {name},
+        lockfile = {lockfile},
         reference = {reference},
         options = {options},
         deps = {deps},
@@ -90,6 +91,8 @@ def conan_packages():
             deps = [":" + pkgs[key]["name"] for key in pkg["requires"]]
             f.write(package_template.format(
                 name = repr(name),
+                # TODO[AH] Remove that lockfile and generate a minimal one in the rule.
+                lockfile = repr(":" + os.path.relpath(lockfile, bzl_out)),
                 reference = repr(reference),
                 options = repr(options),
                 deps = repr(deps)))
@@ -144,7 +147,7 @@ def main():
 
     conan_lock(conan, conanfile, lockfile_out, lockfile)
     pkgs = parse_lockfile(lockfile_out)
-    generate_targets(pkgs, bzl_out)
+    generate_targets(lockfile_out, pkgs, bzl_out)
 
 
 if __name__ == "__main__":
