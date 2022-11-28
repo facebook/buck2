@@ -99,6 +99,11 @@ def main():
     # TODO Look into --settings and the like to configure a Buck2 provided toolchain.
     args = parser.parse_args()
 
+    # TODO Do we need to pre-create these?
+    os.mkdir(args.install_folder)
+    os.mkdir(args.output_folder)
+    os.mkdir(args.user_home)
+
     conan = args.conan
     conan_install(
             conan,
