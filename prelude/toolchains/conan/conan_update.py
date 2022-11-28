@@ -19,16 +19,20 @@ def conan_lock(conan, conanfile, lockfile_out, lockfile=None):
     args.extend(["--lockfile-out", lockfile_out])
     args.append(conanfile)
     env = dict(os.environ)
+    # TODO[AH] Enable Conan revisions for reproducibility
     # Enable Conan revisions for reproducibility
-    env["CONAN_REVISIONS_ENABLED"] = "1"
+    #env["CONAN_REVISIONS_ENABLED"] = "1"
     subprocess.check_call(args, env=env)
 
 
 def parse_reference(ref):
     """Parse a Conan package reference of the form name/version#revision."""
-    name, version_ref = ref.split("/")
-    version, ref = version_ref.split("#")
-    return name, version, ref
+    # TODO[AH] Enable Conan revisions for reproducibility
+    #name, version_ref = ref.split("/")
+    #version, ref = version_ref.split("#")
+    #return name, version, ref
+    name, version = ref.split("/")
+    return name, version
 
 
 def parse_lockfile(lockfile):
@@ -39,7 +43,8 @@ def parse_lockfile(lockfile):
     assert data["version"] == "0.4", "Unsupported Conan lockfile version"
     # TODO[AH] profile_host should match the buck2 configuration.
     graph = data["graph_lock"]
-    assert graph["revisions_enabled"] == True, "Enable revisions for reproducibility"
+    # TODO[AH] Enable Conan revisions for reproducibility
+    #assert graph["revisions_enabled"] == True, "Enable revisions for reproducibility"
     nodes = graph["nodes"]
 
     pkgs = {}
@@ -48,7 +53,9 @@ def parse_lockfile(lockfile):
             # Skip the root package, it just bundles all dependencies.
             continue
         ref = item["ref"]
-        name, version, revision = parse_reference(ref)
+        # TODO[AH] Enable Conan revisions for reproducibility
+        #name, version, revision = parse_reference(ref)
+        name, version = parse_reference(ref)
         package_id = item["package_id"]
         options = item["options"]
         requires = item.get("requires", [])
@@ -56,7 +63,7 @@ def parse_lockfile(lockfile):
         pkgs[key] = {
             "name": name,
             "version": version,
-            "revision": revision,
+            #"revision": revision,
             "reference": ref,
             "package_id": package_id,
             "options": options,
