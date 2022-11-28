@@ -33,6 +33,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 
 use crate::actions::impls::write_json::visit_json_artifacts;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
@@ -442,14 +443,12 @@ impl<'v> TransitiveSet<'v> {
 #[starlark_module]
 fn transitive_set_methods(builder: &mut MethodsBuilder) {
     fn project_as_json<'v>(
-        this: Value<'v>,
+        this: ValueOf<'v, &'v TransitiveSet<'v>>,
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        let set = TransitiveSet::from_value(this).context("Invalid this")?;
-
-        let def = transitive_set_definition_from_value(set.definition)
+        let def = transitive_set_definition_from_value(this.typed.definition)
             .context("Invalid this.definition")?;
 
         let index = def
@@ -457,21 +456,19 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .get_index_of_projection(TransitiveSetProjectionKind::Json, projection)?;
 
         Ok(heap.alloc(TransitiveSetJsonProjection {
-            transitive_set: this,
+            transitive_set: this.value,
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         }))
     }
 
     fn project_as_args<'v>(
-        this: Value<'v>,
+        this: ValueOf<'v, &'v TransitiveSet<'v>>,
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        let set = TransitiveSet::from_value(this).context("Invalid this")?;
-
-        let def = transitive_set_definition_from_value(set.definition)
+        let def = transitive_set_definition_from_value(this.typed.definition)
             .context("Invalid this.definition")?;
 
         let index = def
@@ -479,16 +476,17 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .get_index_of_projection(TransitiveSetProjectionKind::Args, projection)?;
 
         Ok(heap.alloc(TransitiveSetArgsProjection {
-            transitive_set: this,
+            transitive_set: this.value,
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         }))
     }
 
-    fn reduce<'v>(this: Value<'v>, reduction: &str) -> anyhow::Result<Value<'v>> {
-        let set = TransitiveSet::from_value(this).context("Invalid this")?;
-
-        let def = transitive_set_definition_from_value(set.definition)
+    fn reduce<'v>(
+        this: ValueOf<'v, &'v TransitiveSet<'v>>,
+        reduction: &str,
+    ) -> anyhow::Result<Value<'v>> {
+        let def = transitive_set_definition_from_value(this.typed.definition)
             .context("Invalid this.definition")?;
 
         let index = match def.operations().reductions.get_index_of(reduction) {
@@ -507,33 +505,32 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             }
         };
 
-        set.reductions
+        this.typed
+            .reductions
             .get(index)
             .copied()
             .with_context(|| format!("Missing reduction {}", index))
     }
 
     fn traverse<'v>(
-        this: Value<'v>,
+        this: ValueOf<'v, &'v TransitiveSet<'v>>,
         heap: &'v Heap,
         #[starlark(require = named, default = "preorder")] ordering: &str,
     ) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetTraversal {
-            inner: this,
+            inner: this.value,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         }))
     }
 
     #[starlark(attribute)]
-    fn definition<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
-        let set = TransitiveSet::from_value(this).context("Invalid this")?;
-        Ok(set.definition)
+    fn definition<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> anyhow::Result<Value<'v>> {
+        Ok(this.typed.definition)
     }
 
     #[starlark(attribute)]
-    fn value<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
-        let set = TransitiveSet::from_value(this).context("Invalid this")?;
-        Ok(match set.node.as_ref() {
+    fn value<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> anyhow::Result<Value<'v>> {
+        Ok(match this.typed.node.as_ref() {
             Some(node) => node.value,
             None => Value::new_none(),
         })

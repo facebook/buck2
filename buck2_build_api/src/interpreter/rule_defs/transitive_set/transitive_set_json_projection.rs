@@ -29,6 +29,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
@@ -114,12 +115,14 @@ where
 
 #[starlark_module]
 fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
-    fn traverse<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let projection = TransitiveSetJsonProjection::from_value(this).context("Invalid this")?;
+    fn traverse<'v>(
+        this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
-            transitive_set: projection.transitive_set,
-            projection: projection.projection,
-            ordering: projection.ordering,
+            transitive_set: this.typed.transitive_set,
+            projection: this.typed.projection,
+            ordering: this.typed.ordering,
         }))
     }
 }

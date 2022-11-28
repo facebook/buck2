@@ -31,6 +31,7 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
@@ -233,24 +234,29 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
 
 #[starlark_module]
 fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
-    fn traverse<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let projection = TransitiveSetArgsProjection::from_value(this).context("Invalid this")?;
+    fn traverse<'v>(
+        this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
-            transitive_set: projection.transitive_set,
-            projection: projection.projection,
-            ordering: projection.ordering,
+            transitive_set: this.typed.transitive_set,
+            projection: this.typed.projection,
+            ordering: this.typed.ordering,
         }))
     }
 
     #[starlark(attribute)]
-    fn projection_name<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
-        let projection = TransitiveSetArgsProjection::from_value(this).context("Invalid this")?;
-        Ok(heap.alloc_str(projection.projection_name()?))
+    fn projection_name<'v>(
+        this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str(this.typed.projection_name()?))
     }
 
     #[starlark(attribute)]
-    fn transitive_set<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
-        let projection = TransitiveSetArgsProjection::from_value(this).context("Invalid this")?;
-        Ok(projection.transitive_set)
+    fn transitive_set<'v>(
+        this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
+    ) -> anyhow::Result<Value<'v>> {
+        Ok(this.typed.transitive_set)
     }
 }
