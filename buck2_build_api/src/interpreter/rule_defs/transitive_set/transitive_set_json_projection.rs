@@ -26,6 +26,7 @@ use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -124,5 +125,20 @@ fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
             projection: this.typed.projection,
             ordering: this.typed.ordering,
         }))
+    }
+
+    #[starlark(attribute)]
+    fn projection_name<'v>(
+        this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str(this.typed.projection_name()?))
+    }
+
+    #[starlark(attribute)]
+    fn transitive_set<'v>(
+        this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
+    ) -> anyhow::Result<Value<'v>> {
+        Ok(this.typed.transitive_set)
     }
 }

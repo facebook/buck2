@@ -719,7 +719,10 @@ fn test_accessors() -> anyhow::Result<()> {
         def project1(_value):
             return []
 
-        FooSet = transitive_set(args_projections = { "foo": project1 })
+        FooSet = transitive_set(
+            args_projections = { "foo": project1 },
+            json_projections = { "bar": project1 },
+        )
 
         def test():
             s = make_tset(FooSet)
@@ -729,6 +732,10 @@ fn test_accessors() -> anyhow::Result<()> {
             proj = s.project_as_args("foo")
             assert_eq(proj.transitive_set, s)
             assert_eq(proj.projection_name, "foo")
+
+            json = s.project_as_json("bar")
+            assert_eq(json.transitive_set, s)
+            assert_eq(json.projection_name, "bar")
 
             s2 = make_tset(FooSet, value = 1)
             assert_eq(s2.value,  1)
