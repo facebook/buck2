@@ -4,15 +4,19 @@ import os
 import subprocess
 
 
-def conan_install(conan, reference, options, install_folder, output_folder, user_home):
+def conan_install(conan, reference, lockfile, options, install_folder, output_folder, user_home):
     args = [conan, "install"]
+    args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
     args.extend(["--output-folder", output_folder])
-    for option in options:
-        args.extend(["--options", option])
+    # TODO options cannot be combined with lockfile.
+    #for option in options:
+    #    args.extend(["--options", option])
     args.append(reference + "@")
 
     env = dict(os.environ)
+    # Enable Conan revisions for reproducibility
+    env["CONAN_REVISIONS_ENABLED"] = "1"
     # Prevent over-allocation.
     env["CONAN_CPU_COUNT"] = "1"
     # Prevent interactive prompts.
@@ -44,7 +48,13 @@ def main():
             metavar="FILE",
             type=str,
             required=True,
-            help="Path to the Conan executable, relative to the build root.")
+            help="Path to the Conan executable.")
+    parser.add_argument(
+            "--lockfile",
+            metavar="FILE",
+            type=str,
+            required=True,
+            help="Path to the Conan lockfile.")
     parser.add_argument(
             "--reference",
             metavar="STRING",
@@ -91,6 +101,7 @@ def main():
     conan_install(
             conan,
             args.reference,
+            args.lockfile,
             args.option,
             args.install_folder,
             args.output_folder,
