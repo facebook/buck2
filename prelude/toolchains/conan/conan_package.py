@@ -10,7 +10,7 @@ def conan_install(conan, reference, options, install_folder, output_folder, user
     args.extend(["--output-folder", output_folder])
     for option in options:
         args.extend(["--options", option])
-    args.append(reference)
+    args.append(reference + "@")
 
     env = dict(os.environ)
     # Prevent over-allocation.
