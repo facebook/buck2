@@ -69,7 +69,7 @@ def parse_lockfile(lockfile):
 def generate_targets(pkgs, bzl_out):
     """Write Buck2 targets for the packages to bzl_out."""
     header = """\
-load("prelude//toolchains/conan:defs.bzl", "conan_package")
+load("@prelude//toolchains/conan:defs.bzl", "conan_package")
 
 def conan_packages():
 """
