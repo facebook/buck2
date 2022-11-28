@@ -61,7 +61,23 @@ conan_lock_update = rule(
 )
 
 def _conan_package_impl(ctx: "context") -> ["provider"]:
-    return [DefaultInfo()]
+    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+    conan_package = ctx.attrs._conan_package[RunInfo]
+
+    install_folder = ctx.actions.declare_output("install-folder")
+    output_folder = ctx.actions.declare_output("output-folder")
+    user_home = ctx.actions.declare_output("user-home")
+
+    cmd = cmd_args([conan_package])
+    cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--reference", ctx.attrs.reference])
+    cmd.add([cmd_args(ctx.attrs.options, prepend = "--option")])
+    cmd.add(["--install-folder", install_folder.as_output()])
+    cmd.add(["--output-folder", output_folder.as_output()])
+    cmd.add(["--user-home", user_home.as_output()])
+    ctx.actions.run(cmd, category = "conan_build")
+
+    return [DefaultInfo(default_outputs = [install_folder, output_folder, user_home])]
 
 conan_package = rule(
     impl = _conan_package_impl,
@@ -69,5 +85,7 @@ conan_package = rule(
         "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
         "options": attrs.list(attrs.string(doc = "Conan build options.")),
         "deps": attrs.list(attrs.dep(providers = [], doc = "Conan Package dependencies.")),
+        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+        "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
     },
 )

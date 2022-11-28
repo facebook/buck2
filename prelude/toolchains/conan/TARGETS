@@ -3,3 +3,9 @@ native.python_bootstrap_binary(
     main = "conan_update.py",
     visibility = ["PUBLIC"],
 )
+
+native.python_bootstrap_binary(
+    name = "conan_package",
+    main = "conan_package.py",
+    visibility = ["PUBLIC"],
+)
