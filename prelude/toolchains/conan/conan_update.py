@@ -102,7 +102,7 @@ def main():
             description = "Update the Conan lock-file and generate Buck2 package imporst.")
     parser.add_argument(
             "--conan",
-            metavar="File",
+            metavar="FILE",
             type=str,
             required=True,
             help="Path to the Conan executable, relative to the build root.")
