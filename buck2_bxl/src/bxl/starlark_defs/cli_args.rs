@@ -12,7 +12,6 @@
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -342,18 +341,6 @@ impl CliArgType {
         }
     }
 
-    async fn async_map_or<T, U, F, FUT>(me: Option<T>, default: U, f: F) -> U
-    where
-        U: Send,
-        F: FnOnce(T) -> FUT + Send,
-        FUT: Future<Output = U> + Send,
-    {
-        match me {
-            Some(t) => f(t).await,
-            None => default,
-        }
-    }
-
     pub fn parse_clap<'a>(
         &'a self,
         clap: ArgAccessor<'a>,
@@ -383,20 +370,19 @@ impl CliArgType {
                     clap.value_of().map(|s| CliArgValue::String(s.to_owned()))
                 }
                 CliArgType::List(inner) => {
-                    let r: anyhow::Result<_> =
-                        Self::async_map_or(clap.values_of(), Ok(None), async move |values| {
-                            futures::future::join_all(values.map(async move |v| try {
-                                inner
-                                    .parse_clap(ArgAccessor::Literal(v), ctx)
-                                    .await?
-                                    .expect("shouldn't be empty when parsing list items")
-                            }))
-                            .await
-                            .into_iter()
-                            .collect::<Result<_, anyhow::Error>>()
-                            .map(Some)
-                        })
-                        .await;
+                    let r: anyhow::Result<_> = match clap.values_of() {
+                        None => Ok(None),
+                        Some(values) => futures::future::join_all(values.map(async move |v| try {
+                            inner
+                                .parse_clap(ArgAccessor::Literal(v), ctx)
+                                .await?
+                                .expect("shouldn't be empty when parsing list items")
+                        }))
+                        .await
+                        .into_iter()
+                        .collect::<anyhow::Result<_>>()
+                        .map(Some),
+                    };
                     r?.map(CliArgValue::List)
                 }
                 CliArgType::Option(inner) => Some(if clap.value_of().is_some() {
