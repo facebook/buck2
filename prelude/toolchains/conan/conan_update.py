@@ -92,7 +92,7 @@ def conan_packages():
             f.write(package_template.format(
                 name = repr(name),
                 # TODO[AH] Remove that lockfile and generate a minimal one in the rule.
-                lockfile = repr(":" + os.path.relpath(lockfile, bzl_out)),
+                lockfile = repr(os.path.relpath(lockfile, os.path.dirname(bzl_out))),
                 reference = repr(reference),
                 options = repr(options),
                 deps = repr(deps)))
