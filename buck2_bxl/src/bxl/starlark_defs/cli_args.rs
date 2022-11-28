@@ -369,10 +369,10 @@ impl CliArgType {
                     // the validators should have already made sure the strings are only of the variants
                     clap.value_of().map(|s| CliArgValue::String(s.to_owned()))
                 }
-                CliArgType::List(inner) => {
-                    let r: anyhow::Result<_> = match clap.values_of() {
-                        None => Ok(None),
-                        Some(values) => futures::future::join_all(values.map(async move |v| try {
+                CliArgType::List(inner) => match clap.values_of() {
+                    None => None,
+                    Some(values) => Some(CliArgValue::List(
+                        futures::future::join_all(values.map(async move |v| try {
                             inner
                                 .parse_clap(ArgAccessor::Literal(v), ctx)
                                 .await?
@@ -380,11 +380,9 @@ impl CliArgType {
                         }))
                         .await
                         .into_iter()
-                        .collect::<anyhow::Result<_>>()
-                        .map(Some),
-                    };
-                    r?.map(CliArgValue::List)
-                }
+                        .collect::<anyhow::Result<_>>()?,
+                    )),
+                },
                 CliArgType::Option(inner) => Some(if clap.value_of().is_some() {
                     inner
                         .parse_clap(clap, ctx)
