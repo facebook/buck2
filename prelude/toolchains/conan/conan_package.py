@@ -85,7 +85,7 @@ def main():
     conan_install(
             conan,
             args.reference,
-            args.options,
+            args.option,
             args.install_folder,
             args.output_folder,
             args.user_home)
