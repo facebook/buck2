@@ -16,8 +16,9 @@ def conan_install(conan, reference, lockfile, options, install_folder, output_fo
     args.append(reference.split("#")[0] + "@")
 
     env = dict(os.environ)
+    # TODO[AH] Enable Conan revisions for reproducibility
     # Enable Conan revisions for reproducibility
-    env["CONAN_REVISIONS_ENABLED"] = "1"
+    #env["CONAN_REVISIONS_ENABLED"] = "1"
     # Prevent over-allocation.
     env["CONAN_CPU_COUNT"] = "1"
     # Prevent interactive prompts.
