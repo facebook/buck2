@@ -29,9 +29,10 @@ def _select_java_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbcode//, buck// or ovr_config//)
     return select(
         {
-            # TODO: add buck specific platform constraints
-            # use .buckconfig from buck cell by default
-            "DEFAULT": "buck//config/buck_2:java_bootstrap",
+            # by default use the fbsource toolchain
+            "DEFAULT": "fbsource//xplat/buck2/platform/java:java",
+            # use fbcode toolchain if building fbcode target on MacOS
+            "ovr_config//platform/macos/constraints:fbcode": "fbcode//buck2/platform:java_fbcode",
             # if target is meant to run on host but with an android environment then use .buckconfig from fbsource cell
             "ovr_config//runtime/constraints:android-host-test": "fbsource//xplat/buck2/platform/java:java-for-host-tests",
             # if target is with fbcode constraint then use .buckconfig from fbcode cell
