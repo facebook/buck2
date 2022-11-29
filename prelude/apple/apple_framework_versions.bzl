@@ -57,6 +57,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 8, 0),
     },
+    "ActivityKit": {"iphoneos": (16, 1, 0), "maccatalyst": (16, 1, 0)},
     "AdServices": {
         "iphoneos": (14, 3, 0),
         "maccatalyst": (14, 3, 0),
@@ -89,6 +90,8 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (14, 0, 0),
         "macosx": (11, 0, 0),
     },
+    "AppleScriptKit": {"macosx": (10, 0, 0)},
+    "AppleScriptObjC": {"macosx": (10, 6, 0)},
     "ApplicationServices": {"maccatalyst": (13, 0, 0), "macosx": (10, 0, 0)},
     "AssetsLibrary": {"iphoneos": (4, 0, 0), "maccatalyst": (14, 0, 0)},
     "AudioToolbox": {
@@ -103,6 +106,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 0, 0),
     },
+    "AudioVideoBridging": {"macosx": (10, 8, 0)},
     "AuthenticationServices": {
         "appletvos": (13, 0, 0),
         "iphoneos": (12, 0, 0),
@@ -133,6 +137,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 8, 0),
     },
+    "CalendarStore": {"macosx": (10, 5, 0)},
     "CallKit": {
         "iphoneos": (10, 0, 0),
         "maccatalyst": (13, 0, 0),
@@ -141,6 +146,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     },
     "CarKey": {"iphoneos": (16, 0, 0), "maccatalyst": (16, 0, 0)},
     "CarPlay": {"iphoneos": (12, 0, 0), "maccatalyst": (14, 0, 0)},
+    "Carbon": {"macosx": (10, 0, 0)},
     "Charts": {
         "appletvos": (16, 0, 0),
         "iphoneos": (16, 0, 0),
@@ -165,6 +171,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 10, 0),
         "watchos": (3, 0, 0),
     },
+    "Cocoa": {"macosx": (10, 0, 0)},
     "Collaboration": {"macosx": (10, 5, 0)},
     "ColorSync": {
         "appletvos": (16, 0, 0),
@@ -335,6 +342,11 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (15, 0, 0),
         "macosx": (10, 14, 0),
     },
+    "CreateMLComponents": {
+        "appletvos": (16, 0, 0),
+        "iphoneos": (16, 0, 0),
+        "macosx": (13, 0, 0),
+    },
     "CryptoKit": {
         "appletvos": (15, 0, 0),
         "iphoneos": (13, 0, 0),
@@ -349,6 +361,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 10, 0),
         "watchos": (8, 0, 0),
     },
+    "DVDPlayback": {"macosx": (10, 3, 0)},
     "DataDetection": {
         "appletvos": (15, 0, 0),
         "iphoneos": (15, 0, 0),
@@ -373,6 +386,9 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     },
     "DeviceDiscoveryExtension": {"iphoneos": (16, 0, 0)},
     "DeviceDiscoveryUI": {"appletvos": (16, 0, 0)},
+    "DirectoryService": {"macosx": (10, 0, 0)},
+    "DiscRecording": {"macosx": (10, 2, 0)},
+    "DiscRecordingUI": {"macosx": (10, 2, 0)},
     "DiskArbitration": {"maccatalyst": (13, 0, 0), "macosx": (10, 4, 0)},
     "DriverKit": {"iphoneos": (16, 0, 0), "macosx": (10, 15, 0)},
     "EventKit": {
@@ -430,6 +446,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "iphoneos": (5, 0, 0),
         "macosx": (10, 8, 0),
     },
+    "GLUT": {"macosx": (10, 0, 0)},
     "GSS": {
         "iphoneos": (5, 0, 0),
         "maccatalyst": (13, 0, 0),
@@ -479,6 +496,8 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "watchos": (2, 0, 0),
     },
     "Hypervisor": {"macosx": (10, 10, 0)},
+    "ICADevices": {"macosx": (10, 3, 0)},
+    "IMServicePlugIn": {"macosx": (10, 7, 0)},
     "IOBluetooth": {"maccatalyst": (13, 0, 0), "macosx": (10, 2, 0)},
     "IOBluetoothUI": {"maccatalyst": (14, 0, 0), "macosx": (10, 2, 0)},
     "IOKit": {
@@ -516,6 +535,8 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "watchos": (2, 0, 0),
     },
     "InputMethodKit": {"macosx": (10, 5, 0)},
+    "InstallerPlugins": {"macosx": (10, 4, 0)},
+    "InstantMessage": {"macosx": (10, 4, 0)},
     "Intents": {
         "appletvos": (14, 0, 0),
         "iphoneos": (10, 0, 0),
@@ -530,14 +551,18 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (12, 0, 0),
         "watchos": (3, 2, 0),
     },
+    "JavaNativeFoundation": {"macosx": (11, 0, 0)},
+    "JavaRuntimeSupport": {"macosx": (11, 0, 0)},
     "JavaScriptCore": {
         "appletvos": (9, 0, 0),
         "iphoneos": (7, 0, 0),
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 5, 0),
     },
+    "Kerberos": {"macosx": (10, 0, 0)},
     "Kernel": {"macosx": (10, 0, 0)},
     "KernelManagement": {"maccatalyst": (14, 2, 0), "macosx": (11, 0, 0)},
+    "LDAP": {"macosx": (10, 0, 0)},
     "LatentSemanticMapping": {"maccatalyst": (13, 0, 0), "macosx": (10, 5, 0)},
     "LinkPresentation": {
         "appletvos": (14, 0, 0),
@@ -563,6 +588,8 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (11, 0, 0),
     },
     "MailKit": {"macosx": (12, 0, 0)},
+    "ManagedSettings": {"iphoneos": (15, 0, 0)},
+    "ManagedSettingsUI": {"iphoneos": (15, 0, 0)},
     "MapKit": {
         "appletvos": (9, 2, 0),
         "iphoneos": (3, 0, 0),
@@ -577,16 +604,19 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (13, 0, 0),
         "watchos": (9, 0, 0),
     },
+    "MatterSupport": {"iphoneos": (16, 1, 0)},
     "MediaAccessibility": {
         "appletvos": (9, 0, 0),
         "iphoneos": (7, 0, 0),
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 9, 0),
     },
+    "MediaLibrary": {"maccatalyst": (13, 0, 0), "macosx": (10, 9, 0)},
     "MediaPlayer": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),
         "maccatalyst": (13, 0, 0),
+        "macosx": (13, 0, 0),
         "watchos": (5, 0, 0),
     },
     "MediaSetup": {"iphoneos": (14, 0, 0), "maccatalyst": (15, 4, 0)},
@@ -626,6 +656,11 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (12, 0, 0),
     },
+    "MobileCoreServices": {
+        "appletvos": (9, 0, 0),
+        "iphoneos": (2, 0, 0),
+        "watchos": (1, 0, 0),
+    },
     "ModelIO": {
         "appletvos": (9, 0, 0),
         "iphoneos": (9, 0, 0),
@@ -658,6 +693,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (11, 0, 0),
         "watchos": (8, 0, 0),
     },
+    "NetFS": {"macosx": (10, 6, 0)},
     "Network": {
         "appletvos": (12, 0, 0),
         "iphoneos": (12, 0, 0),
@@ -673,6 +709,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     },
     "NewsstandKit": {"iphoneos": (5, 0, 0)},
     "NotificationCenter": {"iphoneos": (8, 0, 0), "macosx": (10, 10, 0)},
+    "OSAKit": {"macosx": (10, 4, 0)},
     "OSLog": {
         "appletvos": (15, 0, 0),
         "iphoneos": (15, 0, 0),
@@ -680,7 +717,11 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 15, 0),
         "watchos": (8, 0, 0),
     },
+    "OpenCL": {"macosx": (10, 6, 0)},
     "OpenDirectory": {"maccatalyst": (13, 0, 0), "macosx": (10, 6, 0)},
+    "OpenGL": {"macosx": (10, 0, 0)},
+    "OpenGLES": {"appletvos": (9, 0, 0), "iphoneos": (2, 0, 0)},
+    "PCSC": {"macosx": (10, 0, 0)},
     "PDFKit": {"iphoneos": (11, 0, 0), "macosx": (10, 4, 0)},
     "PHASE": {
         "appletvos": (15, 0, 0),
@@ -756,6 +797,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (11, 0, 0),
     },
     "RoomPlan": {"iphoneos": (16, 0, 0), "maccatalyst": (16, 0, 0)},
+    "Ruby": {"macosx": (10, 5, 0)},
     "SafariServices": {
         "iphoneos": (7, 0, 0),
         "maccatalyst": (13, 0, 0),
@@ -854,6 +896,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 15, 0),
         "watchos": (6, 0, 0),
     },
+    "SyncServices": {"macosx": (10, 4, 0)},
     "System": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
@@ -871,6 +914,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "TVMLKit": {"appletvos": (9, 0, 0)},
     "TVServices": {"appletvos": (9, 0, 0)},
     "TVUIKit": {"appletvos": (12, 0, 0)},
+    "TWAIN": {"macosx": (10, 2, 0)},
     "TabularData": {
         "appletvos": (15, 0, 0),
         "iphoneos": (15, 0, 0),
@@ -878,11 +922,13 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (12, 0, 0),
         "watchos": (8, 0, 0),
     },
+    "Tcl": {"macosx": (10, 3, 0)},
     "ThreadNetwork": {
         "iphoneos": (15, 0, 0),
         "maccatalyst": (16, 1, 0),
         "macosx": (13, 0, 0),
     },
+    "Tk": {"macosx": (10, 4, 0)},
     "UIKit": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),
@@ -908,6 +954,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (14, 0, 0),
         "macosx": (11, 0, 0),
     },
+    "VideoDecodeAcceleration": {"macosx": (10, 7, 0)},
     "VideoSubscriberAccount": {
         "appletvos": (10, 0, 0),
         "iphoneos": (10, 0, 0),
@@ -956,6 +1003,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     },
     "iAd": {"iphoneos": (4, 0, 0), "maccatalyst": (13, 0, 0)},
     "iTunesLibrary": {"maccatalyst": (14, 0, 0), "macosx": (10, 13, 0)},
+    "vecLib": {"macosx": (10, 0, 0)},
     "vmnet": {"maccatalyst": (13, 0, 0), "macosx": (10, 10, 0)},
 }
 
