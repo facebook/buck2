@@ -4,11 +4,22 @@ import os
 import subprocess
 
 
-def conan_install(conan, reference, lockfile, options, install_folder, output_folder, user_home):
+def conan_install(
+        conan,
+        reference,
+        lockfile,
+        options,
+        install_folder,
+        output_folder,
+        user_home,
+        manifests,
+        install_info):
     args = [conan, "install"]
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
     args.extend(["--output-folder", output_folder])
+    args.extend(["--manifests", manifests])
+    args.extend(["--json", install_info])
     # TODO options cannot be combined with lockfile.
     #for option in options:
     #    args.extend(["--options", option])
@@ -88,6 +99,18 @@ def main():
             type=str,
             required=True,
             help="Path to the Conan base directory used for Conan's cache.")
+    parser.add_argument(
+            "--manifests",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Write dependency manifests into this directory.")
+    parser.add_argument(
+            "--install-info",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Write install information JSON file to this location.")
     # TODO Look into --manifests and --verify to enforce buck built deps.
     # TODO Look into --no-imports.
     # TODO Look into --build-require for exec deps.
@@ -103,6 +126,7 @@ def main():
     os.mkdir(args.install_folder)
     os.mkdir(args.output_folder)
     os.mkdir(args.user_home)
+    os.mkdir(args.manifests)
 
     conan = args.conan
     conan_install(
@@ -112,7 +136,9 @@ def main():
             args.option,
             args.install_folder,
             args.output_folder,
-            args.user_home)
+            args.user_home,
+            args.manifests,
+            args.install_info)
 
 
 if __name__ == "__main__":
