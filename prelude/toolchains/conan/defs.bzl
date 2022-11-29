@@ -67,6 +67,8 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     install_folder = ctx.actions.declare_output("install-folder")
     output_folder = ctx.actions.declare_output("output-folder")
     user_home = ctx.actions.declare_output("user-home")
+    manifests = ctx.actions.declare_output("manifests")
+    install_info = ctx.actions.declare_output("install-info.json")
 
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
@@ -76,9 +78,17 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--install-folder", install_folder.as_output()])
     cmd.add(["--output-folder", output_folder.as_output()])
     cmd.add(["--user-home", user_home.as_output()])
+    cmd.add(["--manifests", manifests.as_output()])
+    cmd.add(["--install-info", install_info.as_output()])
     ctx.actions.run(cmd, category = "conan_build")
 
-    return [DefaultInfo(default_outputs = [install_folder, output_folder, user_home])]
+    return [DefaultInfo(default_outputs = [
+        install_folder,
+        output_folder,
+        user_home,
+        manifests,
+        install_info,
+    ])]
 
 conan_package = rule(
     impl = _conan_package_impl,
