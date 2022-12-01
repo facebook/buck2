@@ -85,6 +85,7 @@ _CxxCompileCommand = record(
     # The argsfile of arguments from the rule and it's dependencies.
     argsfile = field(_CxxCompileArgsfile.type),
     headers_dep_files = field([_HeadersDepFiles.type, None]),
+    compiler_type = field(str.type),
 )
 
 # Information about how to compile a source file.
@@ -217,6 +218,7 @@ def create_compile_cmds(
                 base_compile_cmd = base_compile_cmd,
                 argsfile = argsfile_by_ext[ext.value],
                 headers_dep_files = headers_dep_files,
+                compiler_type = compiler_info.compiler_type,
             )
 
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
@@ -284,13 +286,19 @@ def compile_cxx(
 
         cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
 
+        compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
+        if compiler_type == "windows" or compiler_type == "windows_ml64":
+            cmd.add(cmd_args(object.as_output(), format = "/Fo{}"))
+        else:
+            cmd.add("-o", object.as_output())
+
         args = cmd_args()
         if pic:
             args.add("-fPIC")
         args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
         args.add(src_compile_cmd.args)
 
-        cmd.add(args, "-o", object.as_output())
+        cmd.add(args)
 
         action_dep_files = {}
 
@@ -378,7 +386,7 @@ def _get_compile_base(compiler_info: "_compiler_info") -> "cmd_args":
 
 def _supports_dep_files(ext: CxxExtension.type) -> bool.type:
     # Raw assembly doesn't make sense to capture dep files for.
-    if ext.value in (".s", ".S"):
+    if ext.value in (".s", ".S", ".asm"):
         return False
     elif ext.value == ".hip":
         # TODO (T118797886): HipCompilerInfo doesn't have dep files processor.
