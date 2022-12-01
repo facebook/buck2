@@ -41,6 +41,7 @@ use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionOutputRef;
 use crate::execute::request::CommandExecutionRequest;
+use crate::execute::request::OutputType;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::result::CommandExecutionTimingData;
 use crate::execute::target::CommandExecutionTarget;
@@ -131,7 +132,20 @@ impl CommandExecutor {
         let (action_paths, action) = match manager.stage(buck2_data::PrepareAction {}, || {
             let action_paths = self.preamble(request.inputs(), request.outputs())?;
             let input_digest = action_paths.inputs.fingerprint();
-            let outputs = action_paths.outputs.map(|x| x.0.as_str().to_owned());
+
+            let mut output_files = Vec::new();
+            let mut output_dirs = Vec::new();
+            for (output, output_type) in &action_paths.outputs {
+                match output_type {
+                    OutputType::FileOrDirectory => {
+                        output_files.push(output.as_str().to_owned());
+                        output_dirs.push(output.as_str().to_owned());
+                    }
+                    OutputType::File => output_files.push(output.as_str().to_owned()),
+                    OutputType::Directory => output_dirs.push(output.as_str().to_owned()),
+                }
+            }
+
             let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
                 CommandExecutionInput::Artifact(_) => None,
                 CommandExecutionInput::ActionMetadata(metadata) => {
@@ -140,8 +154,8 @@ impl CommandExecutor {
             });
             let action = re_create_action(
                 request.args().to_vec(),
-                outputs.clone(),
-                outputs,
+                output_files,
+                output_dirs,
                 request.working_directory().map(|p| p.as_str().to_owned()),
                 request.env(),
                 input_digest,
