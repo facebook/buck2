@@ -154,7 +154,7 @@ tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", 
 tokio-util = { version = "0.7.1", features = ["full"] }
 toml = "0.5.8"
 tonic = "0.8.2"
-tonic-build = { version = "0.8.2", features = ["prost"] }
+tonic-build = { version = "0.8.2", features = ["prost", "cleanup-markdown"] }
 tower = "0.4"
 tower-layer = "0.3.1"
 tower-service = "0.3.2"
