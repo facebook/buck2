@@ -363,9 +363,9 @@ fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
                 })
                 .collect::<HashSet<_>>();
 
-            for rdep in cached.read_meta().rdeps.rdeps().iter() {
+            for rdep in cached.read_meta().rdeps.rdeps().rdeps.iter() {
                 assert!(
-                    expected_deps.remove(&Arc::as_ptr(&rdep.node.upgrade().unwrap())),
+                    expected_deps.remove(&Arc::as_ptr(&rdep.0.0.upgrade().unwrap())),
                     "Extra rdeps"
                 )
             }

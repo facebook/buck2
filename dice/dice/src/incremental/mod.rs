@@ -199,22 +199,25 @@ where
     }
 
     fn invalidate_rdeps(version: VersionNumber, invalidated: GraphNode<K>) {
-        let mut queue = invalidated
-            .read_meta()
-            .rdeps
-            .rdeps()
-            .iter()
-            .duped()
-            .collect::<Vec<_>>();
+        let mut queue = {
+            let metadata = invalidated.read_meta();
+            let rdeps = metadata.rdeps.rdeps();
 
-        while let Some(rdep) = queue.pop() {
-            if let Some(node) = rdep.node.upgrade() {
+            rdeps
+                .rdeps
+                .iter()
+                .map(|(r, v)| (r.dupe(), *v))
+                .collect::<Vec<_>>()
+        };
+
+        while let Some((rdep, relevant_version)) = queue.pop() {
+            if let Some(node) = rdep.0.upgrade() {
                 let mut metadata = node.writable();
 
                 if metadata
                     .hist
                     .latest_dirtied()
-                    .map_or(true, |d| d < rdep.relevant_version)
+                    .map_or(true, |d| d < relevant_version)
                 {
                     // since dirty always occurs in increasing order, it must be the case that if
                     // the history was already dirtied, it was by a version number less than the
@@ -223,7 +226,15 @@ where
                     // the version it was dirtied at, it may no longer depend on the current node
                     // so we skip marking it as dirty, and rely on delayed propagation of dirty
                     if metadata.hist.mark_invalidated(version) {
-                        queue.extend(metadata.rdeps.rdeps().iter().duped())
+                        queue.extend({
+                            let rdeps = metadata.rdeps.rdeps();
+
+                            rdeps
+                                .rdeps
+                                .iter()
+                                .map(|(r, v)| (r.dupe(), *v))
+                                .collect::<Vec<_>>()
+                        })
                     }
                 }
             }
@@ -1225,9 +1236,9 @@ mod tests {
                     .into_dyn()
             )
         ];
-        for rdep in node.read_meta().rdeps.rdeps().iter() {
+        for rdep in node.read_meta().rdeps.rdeps().rdeps.iter() {
             assert!(
-                expected.remove(&Arc::as_ptr(&rdep.node.upgrade().unwrap())),
+                expected.remove(&Arc::as_ptr(&rdep.0.0.upgrade().unwrap())),
                 "Extra rdeps"
             );
         }

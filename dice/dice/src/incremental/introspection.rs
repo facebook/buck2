@@ -127,9 +127,10 @@ where
         ) -> BTreeMap<crate::introspection::graph::VersionNumber, Vec<NodeID>> {
             let mut res = BTreeMap::new();
 
-            for rdep in rdeps.rdeps().iter() {
-                if let Some(node) = rdep.node.upgrade() {
-                    res.entry(rdep.relevant_version.to_introspectable())
+            let rdeps = rdeps.rdeps();
+            for rdep in rdeps.rdeps.iter() {
+                if let Some(node) = rdep.0.0.upgrade() {
+                    res.entry(rdep.1.to_introspectable())
                         .or_insert_with(Vec::new)
                         .push(NodeID(node.id()));
                 }

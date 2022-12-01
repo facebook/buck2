@@ -9,7 +9,8 @@
 
 //! Represents the forward and backward dependencies of the computation graph
 
-use std::collections::HashSet;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -140,16 +141,12 @@ impl VersionedDependencies {
 /// Eq and Hash for an rdep is related to the address of the node it points to, since in a dice
 /// session, the node stored is always kept alive via an `Arc`, node equality is the ptr address
 #[derive(Clone, Dupe, Allocative)]
-pub(crate) struct Rdep {
-    /// the node that this rdep points to
-    pub(crate) node: Weak<dyn GraphNodeDyn>,
-    /// the version for which this rdep was recorded
-    pub(crate) relevant_version: VersionNumber,
-}
+#[repr(transparent)]
+pub(crate) struct Rdep(pub(crate) Weak<dyn GraphNodeDyn>);
 
 impl PartialEq for Rdep {
     fn eq(&self, other: &Self) -> bool {
-        self.relevant_version == other.relevant_version && Weak::ptr_eq(&self.node, &other.node)
+        Weak::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -157,22 +154,28 @@ impl Eq for Rdep {}
 
 impl Hash for Rdep {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.relevant_version.hash(state);
-        self.node.upgrade().map(|p| Arc::as_ptr(&p)).hash(state)
+        self.0.upgrade().map(|p| Arc::as_ptr(&p)).hash(state)
     }
 }
 
 // the set of reverse dependencies of a node
 #[derive(Clone, Dupe, Allocative)]
 pub(crate) struct VersionedRevDependencies {
+    data: Arc<RwLock<VersionedRevDependenciesData>>,
+}
+
+#[derive(Allocative)]
+pub(crate) struct VersionedRevDependenciesData {
     // TODO(bobyf) do we need something special for quick lookup per version or is this fine
-    rdeps: Arc<RwLock<HashSet<Rdep>>>,
+    pub(crate) rdeps: HashMap<Rdep, VersionNumber>,
 }
 
 impl VersionedRevDependencies {
     pub(crate) fn new() -> Self {
         Self {
-            rdeps: Arc::new(Default::default()),
+            data: Arc::new(RwLock::new(VersionedRevDependenciesData {
+                rdeps: Default::default(),
+            })),
         }
     }
 
@@ -181,13 +184,21 @@ impl VersionedRevDependencies {
         dependent: Weak<dyn GraphNodeDyn>,
         current_version: VersionNumber,
     ) {
-        self.rdeps.write().insert(Rdep {
-            node: dependent,
-            relevant_version: current_version,
-        });
+        let mut data = self.data.write();
+
+        match data.rdeps.entry(Rdep(dependent)) {
+            Entry::Occupied(entry) => {
+                if *entry.get() < current_version {
+                    entry.replace_entry(current_version);
+                }
+            }
+            Entry::Vacant(v) => {
+                v.insert(current_version);
+            }
+        }
     }
 
-    pub(crate) fn rdeps(&self) -> RwLockReadGuard<HashSet<Rdep>> {
-        self.rdeps.read()
+    pub(crate) fn rdeps(&self) -> RwLockReadGuard<VersionedRevDependenciesData> {
+        self.data.read()
     }
 }
