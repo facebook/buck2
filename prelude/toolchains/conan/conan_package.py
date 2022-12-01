@@ -110,7 +110,16 @@ def conan_install(
     subprocess.check_call(args, env=env)
 
 
+def copy_dependency_cache_dir(reference, user_home, cache_out):
+    """Copy the cache directory of a dependency into the store."""
+    name, version, user, channel, _ = parse_reference(reference)
+    src = cache_out
+    dst = os.path.join(user_home, store_dir(), reference_dir(name, version, user, channel))
+    shutil.copytree(src, dst)
+
+
 def copy_cache_dir(reference, user_home, cache_out):
+    """Copy the cache directory of the built package out of the store."""
     name, version, user, channel, _ = parse_reference(reference)
     src = os.path.join(user_home, store_dir(), reference_dir(name, version, user, channel))
     dst = cache_out
@@ -182,6 +191,22 @@ def main():
             type=str,
             required=True,
             help="Copy the package's cache directory to this path.")
+    parser.add_argument(
+            "--dep-reference",
+            metavar="STRING",
+            type=str,
+            required=False,
+            action="append",
+            default=[],
+            help="Conan package dependency reference. All --dep-* arguments must align.")
+    parser.add_argument(
+            "--dep-cache-out",
+            metavar="PATH",
+            type=str,
+            required=False,
+            action="append",
+            default=[],
+            help="Conan package dependency cache output directory. All --dep-* arguments must align.")
     # TODO Look into --manifests and --verify to enforce buck built deps.
     # TODO Look into --no-imports.
     # TODO Look into --build-require for exec deps.
@@ -193,10 +218,13 @@ def main():
     # TODO Look into --settings and the like to configure a Buck2 provided toolchain.
     args = parser.parse_args()
 
+    assert len(args.dep_reference) == len(args.dep_cache_out), "Mismatching dependency arguments."
+    for ref, cache_out in zip(args.dep_reference, args.dep_cache_out):
+        copy_dependency_cache_dir(ref, args.user_home, cache_out)
+
     # TODO Do we need to pre-create these?
     os.mkdir(args.install_folder)
     os.mkdir(args.output_folder)
-    os.mkdir(args.user_home)
     os.mkdir(args.manifests)
 
     conan = args.conan
