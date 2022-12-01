@@ -165,8 +165,9 @@ impl<'v> AnalysisRegistry<'v> {
     ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
-        if let Some(dest_str) = value.unpack_str() {
-            let artifact = self.declare_output(None, dest_str, output_type)?;
+        if let Some(path) = value.unpack_str() {
+            let (path, output_type) = output_type.parse_path(path)?;
+            let artifact = self.declare_output(None, path, output_type)?;
             Ok((
                 ArtifactDeclaration {
                     artifact: ArtifactDeclarationKind::DeclaredArtifact(artifact.dupe()),

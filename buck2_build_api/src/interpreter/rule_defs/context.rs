@@ -419,9 +419,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(filename) => (Some(prefix), filename),
         };
 
-        let artifact =
-            this.state()
-                .declare_output(prefix, filename, OutputType::FileOrDirectory)?;
+        let (filename, output_type) = OutputType::FileOrDirectory.parse_path(filename)?;
+        let artifact = this.state().declare_output(prefix, filename, output_type)?;
 
         Ok(StarlarkDeclaredArtifact::new(
             eval.call_stack_top_location(),
