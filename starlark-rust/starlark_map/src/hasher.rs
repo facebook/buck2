@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::hash::BuildHasher;
 use std::hash::Hasher;
 
 use fnv::FnvHasher;
@@ -53,5 +54,17 @@ impl Hasher for StarlarkHasher {
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
         self.0.write(bytes)
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct StarlarkHasherBuilder;
+
+impl BuildHasher for StarlarkHasherBuilder {
+    type Hasher = StarlarkHasher;
+
+    #[inline]
+    fn build_hasher(&self) -> StarlarkHasher {
+        StarlarkHasher::default()
     }
 }

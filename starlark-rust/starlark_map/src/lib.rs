@@ -40,3 +40,4 @@ pub use equivalent::Equivalent;
 pub use hash_value::StarlarkHashValue;
 pub use hashed::Hashed;
 pub use hasher::StarlarkHasher;
+pub use hasher::StarlarkHasherBuilder;
