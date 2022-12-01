@@ -1,12 +1,12 @@
-load("//prelude/rules.bzl", "cxx_python_extension")
+load("@prelude//rules.bzl", "cxx_python_extension")
 
-cxx_python_extension(
-    name = "cpprint",
-    srcs = ["print.cpp"],
-    base_module = "",
-    deps = [":python-3.10"],
-    visibility = ["PUBLIC"],
-)
+# cxx_python_extension(
+#     name = "cpprint",
+#     srcs = ["print.cpp"],
+#     base_module = "",
+#     deps = [":python-3.10"],
+#     visibility = ["PUBLIC"],
+# )
 
 cxx_library(
     name = "python-3.10",

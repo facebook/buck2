@@ -2,11 +2,14 @@
 name=BUILD
 
 [repositories]
-prelude = ./prelude
-toolchains = ./toolchains
 root = .
-platform = no
-buck = no
-fbcode = no
-fbsource = no
-ovr_config = no
+prelude = prelude
+ovr_config = prelude
+toolchains = toolchains
+fbcode = none
+fbcode_macros = none
+fbsource = none
+buck = none
+
+[parser]
+target_platform_detector_spec = target:root//...->ovr_config//platforms:default

@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-#include <iostream>
+#include "cpp/library/library.hpp"
 
 int main() {
-  std::cout << "Hello world" << std::endl;
+  print_hello();
 }

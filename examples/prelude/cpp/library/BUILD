@@ -1,4 +1,4 @@
-load("//prelude/rules.bzl", "cxx_library")
+load("@prelude//rules.bzl", "cxx_library")
 
 cxx_library(
     name = "print",

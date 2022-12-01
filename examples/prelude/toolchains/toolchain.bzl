@@ -42,7 +42,7 @@ def _cxx_toolchain(ctx):
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
-                linker = RunInfo(args = ["gcc"]),
+                linker = RunInfo(args = ["g++"]),
                 linker_flags = [
                     "-lstdc++",
                 ],
