@@ -1,0 +1,12 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_protoc_dev",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:tonic-build",
+    ],
+)

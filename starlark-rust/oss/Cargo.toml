@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "allocative/allocative",
+    "allocative/allocative_derive",
+    "gazebo/gazebo",
+    "gazebo/gazebo_derive",
+    "starlark",
+    "starlark_derive",
+]
+
+[workspace.dependencies]
+allocative = { version = "0.2", path = "allocative/allocative" }
+allocative_derive = { version = "0.2", path = "allocative/allocative_derive" }
+gazebo = { version = "0.8.1", path = "gazebo/gazebo" }
+gazebo_derive = { version = "0.8.1", path = "gazebo/gazebo_derive" }
+
+ctor = "0.1.26"
+proc-macro2 = "1.0"
+syn = "1.0"
+quote = "1.0.3"

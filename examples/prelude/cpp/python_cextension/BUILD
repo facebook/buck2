@@ -1,0 +1,21 @@
+load("//prelude/rules.bzl", "cxx_python_extension")
+
+cxx_python_extension(
+    name = "cpprint",
+    srcs = ["print.cpp"],
+    base_module = "",
+    deps = [":python-3.10"],
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "python-3.10",
+    exported_linker_flags = [
+        "-L{}".format("/usr/lib64"),
+        "-lpython{}".format("3.10"),
+    ],
+    exported_preprocessor_flags = [
+        "-isystem{}".format("/usr/include/python3.10"),
+    ],
+    visibility = ["PUBLIC"],
+)

@@ -1,0 +1,20 @@
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_protobuf_library(
+    name = "buck2_data",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    protos = ["data.proto"],
+    deps = [
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:serde",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
+)

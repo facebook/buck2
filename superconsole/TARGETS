@@ -1,0 +1,22 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "superconsole",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    crate_root = "src/lib.rs",
+    test_deps = ["fbsource//third-party/rust:derive_more"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:crossbeam-channel",
+        "fbsource//third-party/rust:crossterm",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:termwiz",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:unicode-segmentation",
+    ],
+)

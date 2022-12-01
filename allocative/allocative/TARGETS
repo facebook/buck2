@@ -1,0 +1,52 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "allocative",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    features = [
+        "anyhow",
+        "bumpalo",
+        "dashmap",
+        "futures",
+        "hashbrown",
+        "indexmap",
+        "num-bigint",
+        "once_cell",
+        "owning_ref",
+        "parking_lot",
+        "prost-types",
+        "relative-path",
+        "sequence_trie",
+        "smallvec",
+        "smartstring",
+        "sorted_vector_map",
+    ],
+    rustc_flags = [
+        "--cfg=rust_nightly",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:bumpalo",
+        "fbsource//third-party/rust:ctor",
+        "fbsource//third-party/rust:dashmap",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:hashbrown",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:num-bigint",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:owning_ref",
+        "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:relative-path",
+        "fbsource//third-party/rust:sequence_trie",
+        "fbsource//third-party/rust:smallvec",
+        "fbsource//third-party/rust:smartstring",
+        "//buck2/allocative/allocative_derive:allocative_derive",
+        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
+    ],
+)

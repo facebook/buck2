@@ -1,0 +1,139 @@
+{
+    "name": "starlark",
+    "description": "A Starlark language server",
+    "extensionKind": [
+        "workspace"
+    ],
+    "author": "Facebook",
+    "license": "Apache2",
+    "version": "1.0.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/facebookexperimental/starlark-rust"
+    },
+    "publisher": "facebook",
+    "categories": [],
+    "keywords": [
+        "multi-root ready"
+    ],
+    "engines": {
+        "vscode": "^1.43.0"
+    },
+    "activationEvents": [
+        "onLanguage:starlark"
+    ],
+    "main": "./client/out/extension",
+    "contributes": {
+        "languages": [
+            {
+                "id": "starlark",
+                "aliases": [
+                    "Starlark",
+                    "skylark",
+                    "Skylark"
+                ],
+                "extensions": [
+                    ".star",
+                    ".sky",
+                    ".bxl",
+                    ".bzl"
+                ],
+                "filenames": [
+                    "BUILD",
+                    "WORKSPACE",
+                    "BUCK",
+                    "BUILD_DEFS",
+                    "DEFS",
+                    "TARGETS",
+                    "TARGETS.v2"
+                ],
+                "configuration": "./syntaxes/starlark.configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "starlark",
+                "scopeName": "source.starlark",
+                "path": "./syntaxes/starlark.tmLanguage.json"
+            }
+        ],
+        "breakpoints": [
+            {
+                "language": "starlark"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "starlark",
+                "label": "Starlark Debug",
+                "program": "/usr/bin/env",
+                "args": [
+                    "starlark",
+                    "--dap"
+                ],
+                "languages": [
+                    "starlark"
+                ],
+                "configurationAttributes": {
+                    "launch": {
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "The program to debug.",
+                                "default": "${file}"
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "starlark",
+                        "request": "launch",
+                        "name": "Launch Program",
+                        "program": "${file}"
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "properties": {
+                "starlark.lspPath": {
+                    "type": "string",
+                    "default": "starlark",
+                    "description": "The path to the binary to invoke (possibly on the path) for the plugin to invoke that handles LSP over stdin/stdout"
+                },
+                "starlark.lspArguments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "--lsp"
+                    ],
+                    "description": "Additional arguments that should be passed to the binary at starlark.lspPath"
+                },
+                "starlark.enableGotoDefinition": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to ask the LSP server to enable Goto Definition functionality"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w"
+    },
+    "devDependencies": {
+        "@types/mocha": "^9.0.0",
+        "@types/node": "^16.10.2",
+        "@typescript-eslint/parser": "^4.32.0",
+        "eslint": "^7.32.0",
+        "mocha": "^9.0.0",
+        "typescript": "^4.4.3"
+    },
+    "dependencies": {
+        "vsce": "^2.9.2"
+    }
+}

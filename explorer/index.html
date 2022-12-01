@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+    <link rel="stylesheet" href="index.css" />
+    <title>Buck2 Explorer</title>
+  </head>
+  <body>
+    <button id="buckdir" title="Buck2 directory: XXX">...</button>
+    <input id="target" type="text" list="completions" value="fbcode//buck2:buck2" placeholder="cell//target:name" spellcheck="false" />
+    <datalist id="completions"></datalist>
+    <button id="backward" disabled="disabled">&larr;</button><button id="forward" disabled="disabled">&rarr;</button>
+    <select id="host">
+      <option>Linux</option>
+      <option selected="selected">MacOs</option>
+    </select>
+    <select id="mode">
+      <option>Opt</option>
+      <option selected="selected">Dev</option>
+    </select>
+    <div id="tabs">
+      <button id="status" class="active-tab">Status</button>
+      <button id="targets">Targets</button>
+      <button id="attributes">Attributes</button>
+      <button id="providers">Providers</button>
+    </div>
+    <div id="output">Welcome to Buck2 Explorer - enter a target and click a tab to see what <tt>buck2</tt> thinks.</div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>

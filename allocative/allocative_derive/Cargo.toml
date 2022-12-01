@@ -1,0 +1,17 @@
+[package]
+name = "allocative_derive"
+version = "0.2.0"
+edition = "2021"
+description = "Implementation of derive(Allocative) for allocative crate"
+license = "MIT OR Apache-2.0"
+authors = ["Meta"]
+repository = "https://github.com/facebookexperimental/allocative"
+documentation = "https://docs.rs/allocative"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+syn = { workspace = true }

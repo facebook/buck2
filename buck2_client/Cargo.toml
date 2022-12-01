@@ -1,0 +1,52 @@
+[package]
+description = "Some parts of Buck client"
+edition = "2021"
+name = "buck2_client"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-compression = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+crossterm = { workspace = true }
+futures = { workspace = true }
+humantime = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+libc = { workspace = true }
+lsp-server = { workspace = true }
+multimap = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shlex = { workspace = true }
+termwiz = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+httparse = { workspace = true }
+walkdir = { workspace = true }
+num_cpus = { workspace = true }
+threadpool = { workspace = true }
+dice = { path = "../dice/dice" }
+gazebo = { workspace = true }
+fbinit = { workspace = true }
+superconsole = { version = "0.1.0", path = "../superconsole" }
+
+# Please do not add dependency on `buck2_build_api`.
+buck2_client_ctx = { path = "../app/buck2_client_ctx" }
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../app/buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_execute = { path = "../buck2_execute"}
+buck2_events = { path = "../buck2_events" }
+cli_proto = { path = "../cli_proto" }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+tempfile = { workspace = true }

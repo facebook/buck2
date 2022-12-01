@@ -1,0 +1,65 @@
+[package]
+description = "Some parts of Buck2 server"
+edition = "2021"
+name = "buck2_server"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+bincode = { workspace = true }
+chrono = { workspace = true }
+constant_time_eq = { workspace = true }
+crossbeam-channel = { workspace = true }
+flate2 = { workspace = true }
+futures = { workspace = true }
+inferno = { workspace = true }
+itertools = { workspace = true }
+lsp-server = { workspace = true }
+lsp-types = { workspace = true }
+once_cell = { workspace = true }
+notify = { workspace = true }
+num_cpus = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shlex = { workspace = true }
+sync_wrapper = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+
+allocative = { workspace = true }
+fbinit = { workspace = true }
+gazebo = { workspace = true }
+dice = { path = "../dice/dice" }
+more_futures = { workspace = true }
+starlark = { workspace = true }
+watchman_client.version = "0.8.0"
+# @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
+
+buck2_build_api = { path = "../buck2_build_api" }
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../app/buck2_core" }
+buck2_data = { path = "../buck2_data" }
+buck2_execute = { path = "../buck2_execute" }
+buck2_execute_impl = { path = "../buck2_execute_impl" }
+buck2_forkserver = { path = "../app/buck2_forkserver" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_interpreter_for_build = { path = "../app/buck2_interpreter_for_build" }
+buck2_profile = { path = "../app/buck2_profile" }
+buck2_server_ctx = { path = "../buck2_server_ctx" }
+cli_proto = { path = "../cli_proto" }
+buck2_events = { path = "../buck2_events" }
+host_sharing = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+jemalloc-ctl = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+maplit = { workspace = true }
+tempfile = { workspace = true }

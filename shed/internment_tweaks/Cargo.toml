@@ -1,0 +1,18 @@
+[package]
+name = "internment_tweaks"
+version = "0.1.0"
+edition = "2021"
+description = "Similar to `internment` crate, but with interface and performance tweaks"
+
+[dependencies]
+hashbrown = { version = "0.12.3", features = ["raw"] }
+parking_lot = "0.11.2"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+gazebo.version = "0.8.1"
+# @oss-disable: gazebo.path = "../../gazebo/gazebo"
+allocative = { workspace = true }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

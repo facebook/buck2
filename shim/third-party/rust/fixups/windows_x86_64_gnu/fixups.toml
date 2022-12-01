@@ -1,0 +1,6 @@
+buildscript = []
+
+[[platform_fixup.'cfg(target_os = "windows")'.buildscript]]
+[platform_fixup.'cfg(target_os = "windows")'.buildscript.prebuilt_cxx_library]
+name = "libwindows.a"
+static_libs = ["lib/libwindows.a"]

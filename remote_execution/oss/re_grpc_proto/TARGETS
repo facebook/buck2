@@ -1,0 +1,15 @@
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+
+oncall("buck2")
+
+rust_protobuf_library(
+    name = "re_grpc_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    protos = glob(["proto/**/*.proto"]),
+    deps = [
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:tonic",
+    ],
+)

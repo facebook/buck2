@@ -1,0 +1,53 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_client",
+    srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:tempfile",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-compression",
+        "fbsource//third-party/rust:async-recursion",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:bytes",
+        "fbsource//third-party/rust:chrono",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:crossterm",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:httparse",
+        "fbsource//third-party/rust:humantime",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:lsp-server",
+        "fbsource//third-party/rust:multimap",
+        "fbsource//third-party/rust:num_cpus",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:shlex",
+        "fbsource//third-party/rust:termwiz",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:threadpool",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-stream",
+        "fbsource//third-party/rust:tokio-util",
+        "fbsource//third-party/rust:walkdir",
+        "//buck2/app/buck2_client_ctx:buck2_client_ctx",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_events:buck2_events",
+        "//buck2/buck2_execute:buck2_execute",
+        "//buck2/cli_proto:cli_proto",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/superconsole:superconsole",
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)

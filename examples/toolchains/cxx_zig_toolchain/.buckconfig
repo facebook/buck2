@@ -1,0 +1,18 @@
+[repositories]
+self = .
+ovr_config = prelude
+prelude = prelude
+toolchains = toolchains
+buck = no
+fbcode = no
+fbcode_macros = no
+fbsource = no
+
+[buildfile]
+name = BUILD
+
+[build]
+execution_platforms = ovr_config//platforms:default
+
+[parser]
+target_platform_detector_spec = target://...->ovr_config//platforms:default

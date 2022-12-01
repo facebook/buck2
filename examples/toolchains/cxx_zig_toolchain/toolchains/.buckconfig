@@ -1,0 +1,6 @@
+[repositories]
+toolchains = .
+prelude = ../prelude
+
+[buildfile]
+name = BUILD

@@ -1,0 +1,41 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(
+    "@prelude//python:python_binary.bzl",
+    "OmnibusMetadataInfo",
+)
+
+def _flatten(xss):
+    return [x for xs in xss for x in xs]
+
+def _implicit_root_via(root):
+    return root.annotation and root.annotation.dependent
+
+def _find_implicit_roots(ctx):
+    platform = (
+        "ovr_config//platform/linux:x86_64-fbcode-platform010-clang"
+    )
+
+    targets = ctx.cquery(platform).eval("kind('^python_(binary|test)', %s)", query_args = [ctx.cli_args.targets])
+    targets = _flatten(targets.values())
+    all_analysis = ctx.analysis([configured_sub_target(t.label, "omnibus") for t in targets])
+
+    implicit_roots = {}
+
+    for analysis in all_analysis.values():
+        metadata = analysis.providers()[OmnibusMetadataInfo]
+        implicit_roots.update({k: _implicit_root_via(v) for k, v in metadata.omnibus_libs.roots.items() if _implicit_root_via(v)})
+
+    ctx.output.print_json(implicit_roots)
+
+find_implicit_roots = bxl(
+    impl = _find_implicit_roots,
+    cli_args = {
+        "targets": cli_args.string(),
+    },
+)

@@ -1,0 +1,84 @@
+aliases:
+  - &is_main_branch
+      equal: [ main, << pipeline.git.branch >> ]
+
+version: 2.1
+orbs:
+  rust: circleci/rust@1.6.0
+  win: circleci/windows@2.2.0
+jobs:
+  linux-test-and-upload:
+    description: |
+      Run tests and upload buck2 binary for Linux
+    docker:
+      - image: cimg/rust:1.49.0
+    resource_class: xlarge
+    steps:
+      - run: sudo apt-get update
+      - run: sudo apt-get install libssl-dev cmake
+      - checkout
+      - rust/clippy:
+          with_cache: false
+      - rust/build:
+          with_cache: false
+      - rust/test:
+          with_cache: false
+      - when:
+          condition:
+            *is_main_branch
+          steps:
+            - run:
+                name: Build buck2 binary to upload
+                command: |
+                  mkdir /tmp/artifacts
+                  cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+            - store_artifacts:
+                path: /tmp/artifacts/buck2
+                destination: buck2-linux
+
+  macos-test:
+    description: |
+      Run tests for MacOS
+    macos:
+      xcode: 13.4.1
+    resource_class: large
+    steps:
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: brew install cmake
+      - checkout
+      - rust/clippy:
+          with_cache: false
+      - rust/test:
+          with_cache: false
+
+  macos-build-and-upload:
+    description: |
+      Build all and upload buck2 binary for MacOS
+    macos:
+      xcode: 13.4.1
+    resource_class: large
+    steps:
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: brew install cmake
+      - checkout
+      - rust/build:
+          with_cache: false
+      - when:
+          condition:
+            *is_main_branch
+          steps:
+            - run:
+                name: Build buck2 binary to upload
+                command: |
+                  mkdir /tmp/artifacts
+                  cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+            - store_artifacts:
+                path: /tmp/artifacts/buck2
+                destination: buck2-macos
+
+workflows:
+  test-and-upload:
+    jobs:
+      - linux-test-and-upload
+      - macos-test
+      - macos-build-and-upload

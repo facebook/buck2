@@ -1,0 +1,59 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_execute",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    named_deps = {
+        "edenfs": "//eden/fs/service:thrift-rust",
+    },
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:regex",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:chrono",
+        "fbsource//third-party/rust:crossbeam-channel",
+        "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:either",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:num_cpus",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:reqwest",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:sha-1",
+        "fbsource//third-party/rust:sha2",
+        "fbsource//third-party/rust:slog",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:toml",
+        "fbsource//third-party/rust:tracing",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_events:buck2_events",
+        "//buck2/buck2_interpreter:buck2_interpreter",
+        "//buck2/buck2_node:buck2_node",
+        "//buck2/dice/dice:dice",
+        "//buck2/facebook/test_env_allowlist:test_env_allowlist",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/host_sharing:host_sharing",
+        # @oss-disable: "//buck2/remote_execution/internal:remote_execution", 
+        "//buck2/remote_execution/oss/re_grpc:remote_execution", # @oss-enable
+        "//buck2/shed/more_futures:more_futures",
+        "//common/rust/shed/fbinit:fbinit",
+        "//buck2/allocative/allocative:allocative",
+    ],
+)

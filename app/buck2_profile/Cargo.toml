@@ -1,0 +1,15 @@
+[package]
+description = "common utitilies of buck2 profile"
+edition = "2021"
+name = "buck2_profile"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+inferno = { workspace = true }
+
+starlark = { workspace = true }
+
+buck2_core = { path = "../buck2_core" }
+buck2_interpreter = { path = "../../buck2_interpreter" }
+cli_proto = { path = "../../cli_proto" }

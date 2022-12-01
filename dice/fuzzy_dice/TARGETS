@@ -1,0 +1,32 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_binary(
+    name = "fuzzy_dice",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:crossbeam",
+        "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:quickcheck",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing-subscriber",
+        "fbsource//third-party/rust:uuid",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
+)

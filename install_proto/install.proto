@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+package install;
+
+service Installer {
+  rpc Install(InstallInfoRequest) returns (InstallResponse) {};
+  rpc FileReady(FileReadyRequest) returns (FileResponse) {};
+  rpc ShutdownServer(ShutdownRequest) returns (ShutdownResponse) {};
+}
+
+message InstallInfoRequest {
+  string install_id = 1;
+  map<string, string> files = 2;
+}
+
+message InstallResponse {
+  string install_id = 1;
+}
+
+message FileReadyRequest {
+  string install_id = 1;
+  string name = 2;
+  string sha1 = 3;
+  string path = 4;
+}
+
+message FileResponse {
+  string install_id = 1;
+  string name = 2;
+  string path = 3;
+  ErrorDetail error_detail = 4;
+}
+
+message ErrorDetail {
+  // Error message
+  string message = 1;
+}
+
+message ShutdownRequest {
+  reserved 1;
+}
+
+message ShutdownResponse {
+  reserved 1;
+}

@@ -1,0 +1,49 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_package",
+            "type": "shell",
+            "command": "cargo build",
+            "options": {
+                "cwd": "${fileDirname}",
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "panel": "new"
+            }
+        },
+        {
+            "label": "test_package",
+            "type": "shell",
+            "command": "cargo test",
+            "options": {
+                "cwd": "${fileDirname}",
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "panel": "new"
+            }
+        },
+        {
+            "label": "verify_all",
+            "type": "shell",
+            "command": "${workspaceFolder}/test.sh",
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "panel": "new"
+            }
+        },
+    ]
+}
