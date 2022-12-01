@@ -55,7 +55,12 @@ def _process_shared_dependencies(ctx: "context", artifact: "artifact", deps: ["d
     for name, shared_lib in traverse_shared_library_info(shlib_info).items():
         shared_libs[name] = shared_lib.lib
 
-    extra_link_args, runtime_files, _ = executable_shared_lib_arguments(ctx, artifact, shared_libs)
+    extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
+        ctx.actions,
+        ctx.attrs._cxx_toolchain[CxxToolchainInfo],
+        artifact,
+        shared_libs,
+    )
 
     return (runtime_files, extra_link_args)
 

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load(
     "@prelude//linking:link_info.bzl",
@@ -159,7 +160,8 @@ def shared_libs_symlink_tree_name(output: "artifact") -> str.type:
 # - list of files/directories that should be present for executable to be run successfully
 # - optional shared libs symlink tree symlinked_dir action
 def executable_shared_lib_arguments(
-        ctx: "context",
+        actions: "actions",
+        cxx_toolchain: CxxToolchainInfo.type,
         output: "artifact",
         shared_libs: {str.type: "LinkedObject"}) -> ([""], ["_arglike"], ["artifact", None]):
     extra_args = []
@@ -172,12 +174,12 @@ def executable_shared_lib_arguments(
         runtime_files.extend(shlib.external_debug_info)
 
     if len(shared_libs) > 0:
-        shared_libs_symlink_tree = ctx.actions.symlinked_dir(
+        shared_libs_symlink_tree = actions.symlinked_dir(
             shared_libs_symlink_tree_name(output),
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)
-        linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+        linker_type = cxx_toolchain.linker_info.type
         if linker_type == "gnu":
             rpath_reference = "$ORIGIN"
         elif linker_type == "darwin":

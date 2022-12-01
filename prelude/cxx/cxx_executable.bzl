@@ -400,7 +400,12 @@ def _link_into_executable(
         link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
     output = ctx.actions.declare_output("{}{}".format(get_cxx_excutable_product_name(ctx), "." + binary_extension if binary_extension else ""))
-    extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(ctx, output, shared_libs)
+    extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
+        ctx.actions,
+        get_cxx_toolchain_info(ctx),
+        output,
+        shared_libs,
+    )
     exe = cxx_link(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
