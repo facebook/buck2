@@ -162,6 +162,7 @@ impl StreamingCommand for RageCommand {
         _matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
+        buck2_core::facebook_only();
         let timeout = Duration::from_secs(3600); // arbitrary timeout
         let log_dir = ctx.paths.log_dir();
         let logs = get_local_logs(&log_dir)?
