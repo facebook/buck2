@@ -28,8 +28,9 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
     # that case incompatibility is transitive and they'll get it.
     fat_platform_compatible = True
     if name not in ("python_library", "python_binary", "python_test"):
-        if "_cxx_toolchain" in attributes or "_apple_toolchain" in attributes:
-            fat_platform_compatible = False
+        for toolchain_attr in ("_apple_toolchain", "_cxx_toolchain", "_go_toolchain"):
+            if toolchain_attr in attributes:
+                fat_platform_compatible = False
 
     # Fat platforms is an idea specific to our toolchains, so doesn't apply to
     # open source. Ideally this restriction would be done at the toolchain level.

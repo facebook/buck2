@@ -10,7 +10,6 @@ load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "executable_shared_lib_arguments",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -57,7 +56,7 @@ def _process_shared_dependencies(ctx: "context", artifact: "artifact", deps: ["d
 
     extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
         ctx.actions,
-        ctx.attrs._cxx_toolchain[CxxToolchainInfo],
+        ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
         artifact,
         shared_libs,
     )
@@ -107,7 +106,7 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
         # we can generate te platform-specific stuff once and re-use?
-        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+        cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,

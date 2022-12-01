@@ -13,6 +13,7 @@ GoToolchainInfo = provider(fields = [
     "compiler",
     "cover",
     "cover_srcs",
+    "cxx_toolchain_for_linking",
     "env_go_arch",
     "env_go_os",
     "env_go_root",
