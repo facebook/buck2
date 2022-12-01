@@ -271,6 +271,13 @@ impl DeclaredArtifact {
         }
     }
 
+    pub(crate) fn output_type(&self) -> OutputType {
+        match &*self.artifact.borrow() {
+            DeclaredArtifactKind::Bound(x) => x.output_type,
+            DeclaredArtifactKind::Unbound(x) => x.1,
+        }
+    }
+
     /// Ensure that the artifact is bound.
     ///
     /// This is called before we freeze the artifacts by the artifact registry.
@@ -378,6 +385,10 @@ impl OutputArtifact {
             artifact,
             projected_path: self.0.projected_path.dupe(),
         })
+    }
+
+    pub(crate) fn ensure_output_type(&self, output_type: OutputType) -> anyhow::Result<()> {
+        output_type.check_path(self, self.0.output_type())
     }
 }
 

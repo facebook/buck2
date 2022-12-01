@@ -177,6 +177,7 @@ impl<'v> AnalysisRegistry<'v> {
             ))
         } else if let Some(output) = StarlarkOutputArtifact::unpack_value(value) {
             let output_artifact = output.artifact();
+            output_artifact.ensure_output_type(output_type)?;
             Ok((
                 ArtifactDeclaration {
                     artifact: ArtifactDeclarationKind::DeclaredArtifact((*output_artifact).dupe()),
@@ -186,13 +187,15 @@ impl<'v> AnalysisRegistry<'v> {
                 output_artifact,
             ))
         } else if let Some(artifact) = value.as_artifact() {
+            let output_artifact = artifact.output_artifact()?;
+            output_artifact.ensure_output_type(output_type)?;
             Ok((
                 ArtifactDeclaration {
                     artifact: ArtifactDeclarationKind::Artifact(value, artifact),
                     declaration_location,
                     heap,
                 },
-                artifact.output_artifact()?,
+                output_artifact,
             ))
         } else {
             Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into())
