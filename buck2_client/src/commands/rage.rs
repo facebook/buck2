@@ -43,6 +43,8 @@ use chrono::offset::Local;
 use chrono::DateTime;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
+use futures::future::BoxFuture;
+use futures::future::FutureExt;
 use futures::TryStreamExt;
 use humantime::format_duration;
 use serde::Serialize;
@@ -91,26 +93,35 @@ enum CommandStatus {
 }
 
 impl RageSection {
-    async fn get<Fut>(title: String, timeout: Duration, command: impl FnOnce() -> Fut) -> Self
+    fn get<'a, Fut>(
+        title: String,
+        timeout: Duration,
+        command: impl FnOnce() -> Fut,
+    ) -> BoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<String>>,
+        Fut: Future<Output = anyhow::Result<String>> + Send + 'a,
     {
-        match tokio::time::timeout(timeout, command()).await {
-            Err(_) => RageSection {
-                title,
-                status: CommandStatus::Timeout,
-            },
-            Ok(Ok(output)) => RageSection {
-                title,
-                status: CommandStatus::Success { output },
-            },
-            Ok(Err(e)) => RageSection {
-                title,
-                status: CommandStatus::Failure {
-                    error: format!("Error: {:?}", e),
+        let fut = command();
+
+        async move {
+            match tokio::time::timeout(timeout, fut).await {
+                Err(_) => RageSection {
+                    title,
+                    status: CommandStatus::Timeout,
                 },
-            },
+                Ok(Ok(output)) => RageSection {
+                    title,
+                    status: CommandStatus::Success { output },
+                },
+                Ok(Err(e)) => RageSection {
+                    title,
+                    status: CommandStatus::Failure {
+                        error: format!("Error: {:?}", e),
+                    },
+                },
+            }
         }
+        .boxed()
     }
 
     fn pretty_print_section(
@@ -191,18 +202,18 @@ impl StreamingCommand for RageCommand {
             upload_dice_dump(buckd, &ctx, &new_trace_id, &old_trace_id).await?;
         }
 
-        let system_info = RageSection::get("System info".to_owned(), timeout, get_system_info);
-        let hg_snapshot = RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot);
-        let build_info = RageSection::get("Build info".to_owned(), timeout, || {
-            get_build_info(selected_log)
-        });
+        let sections = vec![
+            RageSection::get("System info".to_owned(), timeout, get_system_info),
+            RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
+            RageSection::get("Build info".to_owned(), timeout, || {
+                get_build_info(selected_log)
+            }),
+        ];
 
-        let (system_info, hg_snapshot, build_info) =
-            tokio::join!(system_info, hg_snapshot, build_info);
+        let sections = futures::future::join_all(sections).await;
+        let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
 
-        let output = format!("{}{}{}", system_info, hg_snapshot, build_info);
-
-        let paste = generate_paste("Buck2 Rage", &output).await?;
+        let paste = generate_paste("Buck2 Rage", &output.join("")).await?;
 
         buck2_client_ctx::eprintln!(
             "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
