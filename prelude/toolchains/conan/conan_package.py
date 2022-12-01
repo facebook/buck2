@@ -248,6 +248,10 @@ def main():
             args.manifests,
             args.install_info,
             args.trace_file)
+    # TODO Verify with the trace-log that only the current package was
+    #   downloaded or built and dependencies were all found in cache.
+    #   Alternatively, we could use the install-info.json and check that only
+    #   the current package has one of `"downloaded": true` or `"built": true`.
     copy_cache_dir(
             args.reference,
             args.user_home,
