@@ -31,6 +31,7 @@ use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
@@ -436,6 +437,28 @@ impl ActionExecutor for BuckActionExecutor {
                     exe.execute(&mut ctx).await?
                 }
             };
+
+            // Check that all the outputs are the right output_type
+            for x in outputs.iter() {
+                let wanted = x.output_type();
+                // FIXME: One day we should treat FileOrDirectory as a File, and soft_error if it is a directory
+                if wanted != OutputType::FileOrDirectory {
+                    if let Some(t) = result.0.outputs.get(x.get_path()) {
+                        let got = if t.is_dir() {
+                            OutputType::Directory
+                        } else {
+                            OutputType::File
+                        };
+                        if got != wanted {
+                            return Err(ExecuteError::WrongOutputType {
+                                path: self.command_executor.fs().resolve_build(x.get_path()),
+                                wanted,
+                                got,
+                            });
+                        }
+                    }
+                }
+            }
 
             // Check all the outputs were returned, and no additional outputs
             // TODO (T122966509): Check projections here as well

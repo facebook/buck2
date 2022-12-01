@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::fmt::Write;
 
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_execute::execute::request::OutputType;
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -21,6 +22,11 @@ pub enum ExecuteError {
     MismatchedOutputs {
         wanted: Vec<ProjectRelativePathBuf>,
         got: Vec<ProjectRelativePathBuf>,
+    },
+    WrongOutputType {
+        path: ProjectRelativePathBuf,
+        wanted: OutputType,
+        got: OutputType,
     },
     Error {
         error: anyhow::Error,
@@ -40,6 +46,12 @@ impl ExecuteError {
                     "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
                     error_items(wanted),
                     error_items(got)
+                ),
+            }
+            .into(),
+            ExecuteError::WrongOutputType {path, wanted, got} => buck2_data::CommandOutputsMissing {
+                message: format!(
+                    "Action didn't produce output of the right type.\nExpected {path} to be {wanted:?}\nGot {got:?}",
                 ),
             }
             .into(),
