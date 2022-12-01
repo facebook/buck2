@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 pub struct BuckSpawner;
 
 impl<T: HasEvents> Spawner<T> for BuckSpawner {
-    fn spawn(&self, ctx: &T, fut: BoxFuture<'static, Option<()>>) -> JoinHandle<Option<()>> {
+    fn spawn(&self, ctx: &T, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
         let dispatcher = ctx.get_dispatcher().dupe();
         let task = async move { with_dispatcher_async(dispatcher, fut).await };
         tokio::spawn(task)
@@ -93,7 +93,6 @@ mod tests {
 
         let task = async {
             span(start, || ((), end));
-            Some(())
         }
         .boxed();
 

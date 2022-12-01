@@ -13,14 +13,14 @@ use tokio::task::JoinHandle;
 /// A spawner that utilizes a generic context to decorate/wrap a future and spawn it.
 /// If a future needs to return a value, use a oneshot channel instead.
 pub trait Spawner<T>: Send + Sync {
-    fn spawn(&self, ctx: &T, fut: BoxFuture<'static, Option<()>>) -> JoinHandle<Option<()>>;
+    fn spawn(&self, ctx: &T, fut: BoxFuture<'static, ()>) -> JoinHandle<()>;
 }
 
 #[derive(Default)]
 pub struct TokioSpawner;
 
 impl<T> Spawner<T> for TokioSpawner {
-    fn spawn(&self, _ctx: &T, fut: BoxFuture<'static, Option<()>>) -> JoinHandle<Option<()>> {
+    fn spawn(&self, _ctx: &T, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
         tokio::spawn(fut)
     }
 }

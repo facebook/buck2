@@ -92,7 +92,7 @@ impl<T> Future for DropCancel<T>
 where
     T: 'static,
 {
-    type Output = Option<T>;
+    type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -118,7 +118,7 @@ where
 
         CURRENT_TASK_GUARD.with(|g| g.replace(old_guard));
 
-        res
+        res.map(|_| ())
     }
 }
 
