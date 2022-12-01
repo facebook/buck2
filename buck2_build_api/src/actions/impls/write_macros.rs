@@ -37,9 +37,9 @@ use crate::actions::IncrementalActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::attrs::resolve::attr_type::arg::ArgBuilder;
-use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
@@ -233,7 +233,7 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
         &mut self,
         gen: &dyn Fn(&dyn CommandLineContext) -> anyhow::Result<Option<RelativePathBuf>>,
     ) -> anyhow::Result<()> {
-        self.relative_to_path = gen(&BaseCommandLineBuilder::new(self.fs))?;
+        self.relative_to_path = gen(&DefaultCommandLineContext::new(self.fs))?;
         Ok(())
     }
 }

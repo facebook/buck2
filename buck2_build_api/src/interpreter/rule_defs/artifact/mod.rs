@@ -94,7 +94,7 @@ pub mod testing {
     use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
     use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
     use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-    use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+    use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
     use crate::interpreter::testing::cells;
 
     fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {
@@ -215,7 +215,7 @@ pub mod testing {
             );
             let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
             let mut cli = Vec::<String>::new();
-            let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
+            let mut ctx = DefaultCommandLineContext::new(&executor_fs);
             artifact
                 .as_artifact()
                 .unwrap()

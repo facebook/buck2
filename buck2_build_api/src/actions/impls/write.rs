@@ -37,7 +37,7 @@ use crate::actions::ActionExecutionCtx;
 use crate::actions::IncrementalActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
-use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 #[derive(Debug, Error)]
@@ -134,9 +134,9 @@ impl WriteAction {
         let mut cli = Vec::<String>::new();
 
         let mut ctx = if let Some(macro_files) = &self.macro_files {
-            BaseCommandLineBuilder::new_with_write_to_file_macros_support(fs, macro_files)
+            DefaultCommandLineContext::new_with_write_to_file_macros_support(fs, macro_files)
         } else {
-            BaseCommandLineBuilder::new(fs)
+            DefaultCommandLineContext::new(fs)
         };
 
         self.contents

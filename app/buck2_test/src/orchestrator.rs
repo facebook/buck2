@@ -19,11 +19,11 @@ use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
-use buck2_build_api::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
@@ -650,7 +650,7 @@ impl BuckTestOrchestrator {
             expanded = if test_info.use_project_relative_paths()
                 || opts.force_use_project_relative_paths
             {
-                expander.expand::<BaseCommandLineBuilder>()
+                expander.expand::<DefaultCommandLineContext>()
             } else {
                 supports_re = false;
                 expander.expand::<AbsCommandLineBuilder>()
@@ -835,7 +835,7 @@ trait CommandLineContextExt<'a>: CommandLineContext + 'a {
     fn new(fs: &'a ExecutorFs) -> Self;
 }
 
-impl<'a> CommandLineContextExt<'a> for BaseCommandLineBuilder<'a> {
+impl<'a> CommandLineContextExt<'a> for DefaultCommandLineContext<'a> {
     fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }

@@ -32,14 +32,14 @@ pub enum CommandLineBuilderErrors {
 }
 
 /// Builds up arguments needed to construct a command line
-pub struct BaseCommandLineBuilder<'v> {
+pub struct DefaultCommandLineContext<'v> {
     fs: &'v ExecutorFs<'v>,
     // First element is list of artifacts, each corresponding to a file with macro contents. Ordering is very important.
     // Second element is a current position in that list.
     maybe_macros_state: Option<(&'v IndexSet<Artifact>, usize)>,
 }
 
-impl<'v> BaseCommandLineBuilder<'v> {
+impl<'v> DefaultCommandLineContext<'v> {
     /// Create a new builder
     ///
     /// `fs`: The `ExecutorFs` that things like `Artifact` can use to generate strings
@@ -66,7 +66,7 @@ impl<'v> BaseCommandLineBuilder<'v> {
     }
 }
 
-impl CommandLineContext for BaseCommandLineBuilder<'_> {
+impl CommandLineContext for DefaultCommandLineContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
@@ -100,11 +100,11 @@ impl CommandLineContext for BaseCommandLineBuilder<'_> {
     }
 }
 
-pub struct AbsCommandLineBuilder<'v>(BaseCommandLineBuilder<'v>);
+pub struct AbsCommandLineBuilder<'v>(DefaultCommandLineContext<'v>);
 
 impl<'v> AbsCommandLineBuilder<'v> {
     pub fn new(executor_fs: &'v ExecutorFs) -> Self {
-        Self(BaseCommandLineBuilder::<'v>::new(executor_fs))
+        Self(DefaultCommandLineContext::<'v>::new(executor_fs))
     }
 }
 
@@ -147,7 +147,7 @@ mod tests {
     use buck2_execute::path::buck_out_path::BuckPathResolver;
 
     use super::*;
-    use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
+    use crate::interpreter::rule_defs::cmd_args::builder::DefaultCommandLineContext;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 
     #[test]
@@ -165,7 +165,7 @@ mod tests {
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
         let mut cli = Vec::<String>::new();
-        let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
+        let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
         "foo".add_to_command_line(&mut cli, &mut ctx)?;
         "bar".to_owned().add_to_command_line(&mut cli, &mut ctx)?;

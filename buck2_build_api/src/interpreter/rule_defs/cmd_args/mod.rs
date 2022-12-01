@@ -163,7 +163,7 @@ pub mod tester {
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 
-    use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
+    use crate::interpreter::rule_defs::cmd_args::builder::DefaultCommandLineContext;
     use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
     use crate::interpreter::testing::cells;
 
@@ -182,7 +182,7 @@ pub mod tester {
         let fs = artifact_fs();
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();
-        let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
+        let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
         match value.as_command_line() {
             Some(v) => v.add_to_command_line(&mut cli, &mut ctx),
@@ -203,7 +203,7 @@ pub mod tester {
             let fs = artifact_fs();
             let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
             let mut cli = Vec::<String>::new();
-            let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
+            let mut ctx = DefaultCommandLineContext::new(&executor_fs);
             value
                 .as_command_line_err()?
                 .add_to_command_line(&mut cli, &mut ctx)?;

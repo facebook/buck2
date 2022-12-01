@@ -53,9 +53,9 @@ use crate::actions::IncrementalActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
@@ -176,7 +176,7 @@ impl RunAction {
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<ExpandedCommandLine> {
         let mut cli_rendered = Vec::<String>::new();
-        let mut ctx = BaseCommandLineBuilder::new(fs);
+        let mut ctx = DefaultCommandLineContext::new(fs);
 
         let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
         cli.add_to_command_line(&mut cli_rendered, &mut ctx)?;
@@ -185,7 +185,7 @@ impl RunAction {
         let mut cli_env = HashMap::with_capacity(env.len());
         for (k, v) in env.into_iter() {
             let mut env = Vec::<String>::new(); // TODO (torozco): Use a String.
-            let mut ctx = BaseCommandLineBuilder::new(fs);
+            let mut ctx = DefaultCommandLineContext::new(fs);
             v.add_to_command_line(&mut env, &mut ctx)?;
             v.visit_artifacts(artifact_visitor)?;
             let var = env.join(" ");
@@ -257,7 +257,7 @@ impl Action for RunAction {
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> indexmap::IndexMap<String, String> {
         let mut cli_rendered = Vec::<String>::new();
-        let mut ctx = BaseCommandLineBuilder::new(fs);
+        let mut ctx = DefaultCommandLineContext::new(fs);
         let (cli, _env) = Self::unpack(&self.starlark_cli).unwrap();
         cli.add_to_command_line(&mut cli_rendered, &mut ctx)
             .unwrap();

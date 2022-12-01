@@ -64,11 +64,11 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
@@ -245,7 +245,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         // WriteJsonCommandLineArgGen assumes that any args/write-to-file macros are
                         // rejected here and needs to be updated if that changes.
                         let mut items = Vec::<String>::new();
-                        let mut ctx = BaseCommandLineBuilder::new(fs);
+                        let mut ctx = DefaultCommandLineContext::new(fs);
                         err(x.add_to_command_line(&mut items, &mut ctx))?;
                         // We change the type, based on the value - singleton = String, otherwise list.
                         // That's a little annoying (type based on value), but otherwise there would be
