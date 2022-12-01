@@ -41,6 +41,16 @@ def parse_reference(ref):
     return _none(name), _none(version), _none(user), _none(channel), _none(revision)
 
 
+def store_dir():
+    """Store folder under the Conen user home."""
+    return os.path.join(".conan", "data")
+
+
+def reference_dir(name, version, user, channel):
+    """Package base directory under the Conan store folder."""
+    return os.path.join(name or "_", version or "_", user or "_", channel or "_")
+
+
 def conan_install(
         conan,
         reference,
