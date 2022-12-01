@@ -1,0 +1,2 @@
+# Includes inline document files
+extra_srcs = ["README.md"]
