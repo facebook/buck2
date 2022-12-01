@@ -19,6 +19,7 @@ use std::hash::BuildHasher;
 use std::hash::Hasher;
 
 use fnv::FnvHasher;
+use gazebo::dupe::Dupe;
 
 use crate::hash_value::StarlarkHashValue;
 
@@ -57,7 +58,7 @@ impl Hasher for StarlarkHasher {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, Copy, Dupe)]
 pub struct StarlarkHasherBuilder;
 
 impl BuildHasher for StarlarkHasherBuilder {
