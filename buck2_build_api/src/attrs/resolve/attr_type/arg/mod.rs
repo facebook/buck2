@@ -64,6 +64,14 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
         }
         self.builder.push_str(&s);
     }
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext {
+        self as _
+    }
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+        self as _
+    }
 }
 
 pub(crate) trait ConfiguredStringWithMacrosExt {

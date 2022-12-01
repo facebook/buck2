@@ -337,7 +337,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
 
         impl Builder<'_> {
             fn push_path(&mut self) -> anyhow::Result<()> {
-                let next_path = self.cmdline_builder.next_macro_file_path()?;
+                let next_path = self.cmdline_builder.ctx_mut().next_macro_file_path()?;
                 self.push_str(next_path.as_str());
                 Ok(())
             }
@@ -348,15 +348,15 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
                 &self,
                 path: ProjectRelativePathBuf,
             ) -> anyhow::Result<CommandLineLocation> {
-                self.cmdline_builder.resolve_project_path(path)
+                self.cmdline_builder.ctx().resolve_project_path(path)
             }
 
             fn fs(&self) -> &ExecutorFs {
-                self.cmdline_builder.fs()
+                self.cmdline_builder.ctx().fs()
             }
 
             fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-                self.cmdline_builder.next_macro_file_path()
+                self.cmdline_builder.ctx_mut().next_macro_file_path()
             }
         }
 

@@ -79,6 +79,14 @@ impl CommandLineBuilder for BaseCommandLineBuilder<'_> {
     fn add_arg_string(&mut self, s: String) {
         self.command_line.push(s)
     }
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext {
+        self as _
+    }
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+        self as _
+    }
 }
 
 impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
@@ -154,6 +162,14 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
 impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
     fn add_arg_string(&mut self, s: String) {
         self.0.add_arg_string(s);
+    }
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext {
+        self as _
+    }
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+        self as _
     }
 }
 

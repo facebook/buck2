@@ -249,7 +249,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                     ..
                 } = self;
 
-                let resolved = cli.resolve_project_path(path)?;
+                let resolved = cli.ctx().resolve_project_path(path)?;
 
                 if opts.parent == 0
                     && opts.absolute_prefix.is_none()
@@ -286,11 +286,11 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
 
             fn fs(&self) -> &ExecutorFs {
-                self.cli.fs()
+                self.cli.ctx().fs()
             }
 
             fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-                let macro_path = self.cli.next_macro_file_path()?;
+                let macro_path = self.cli.ctx_mut().next_macro_file_path()?;
                 if let Some(relative_to_path) = &self.relative_to {
                     Ok(relative_to_path.relative(macro_path))
                 } else {
@@ -362,12 +362,20 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 }
                 self.add_arg(self.format(s))
             }
+
+            fn ctx(&self) -> &dyn CommandLineBuilderContext {
+                self as _
+            }
+
+            fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+                self as _
+            }
         }
 
         if !self.changes_builder() {
             f(builder)
         } else {
-            let relative_to = self.relative_to_path(builder)?;
+            let relative_to = self.relative_to_path(builder.ctx())?;
             let mut cli_extras = Extras {
                 cli: builder,
                 opts: self,

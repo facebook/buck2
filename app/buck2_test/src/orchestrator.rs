@@ -24,7 +24,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
@@ -36,7 +35,6 @@ use buck2_core::category::Category;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -788,7 +786,7 @@ impl<'a> Execute2RequestExpander<'a> {
                         .fs()
                         .buck_out_path_resolver()
                         .resolve_test(&test_path);
-                    let path = cli_builder.resolve_project_path(path)?.into_string();
+                    let path = cli_builder.ctx().resolve_project_path(path)?.into_string();
                     cli_builder.add_arg_string(path);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
                 }
@@ -862,23 +860,6 @@ struct CommandLineBuilderFormatWrapper<'a> {
     format: Option<String>,
 }
 
-impl<'a> CommandLineBuilderContext for CommandLineBuilderFormatWrapper<'a> {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<CommandLineLocation> {
-        self.inner.resolve_project_path(path)
-    }
-
-    fn fs(&self) -> &ExecutorFs {
-        self.inner.fs()
-    }
-
-    fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-        self.inner.next_macro_file_path()
-    }
-}
-
 impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
     fn add_arg_string(&mut self, s: String) {
         let s = if let Some(format) = &self.format {
@@ -888,6 +869,14 @@ impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
         };
 
         self.inner.add_arg_string(s);
+    }
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext {
+        self.inner.ctx()
+    }
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+        self.inner.ctx_mut()
     }
 }
 

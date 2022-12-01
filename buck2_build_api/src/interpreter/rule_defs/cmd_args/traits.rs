@@ -231,9 +231,13 @@ pub trait CommandLineBuilderContext {
     fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf>;
 }
 
-pub trait CommandLineBuilder: CommandLineBuilderContext {
+pub trait CommandLineBuilder {
     /// Add the string representation to the list of command line arguments.
     fn add_arg_string(&mut self, s: String);
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext;
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext;
 }
 
 pub trait FrozenCommandLineArgLike:

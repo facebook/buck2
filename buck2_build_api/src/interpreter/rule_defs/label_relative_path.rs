@@ -14,7 +14,8 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 
 impl CommandLineArgLike for LabelRelativePath {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string(cli.resolve_cell_path(&self.0)?.into_string());
+        let path = cli.ctx_mut().resolve_cell_path(&self.0)?.into_string();
+        cli.add_arg_string(path);
         Ok(())
     }
 
