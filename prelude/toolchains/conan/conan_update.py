@@ -25,14 +25,9 @@ def conan_lock(conan, conanfile, lockfile_out, lockfile=None):
     subprocess.check_call(args, env=env)
 
 
-def parse_reference(ref):
-    """Parse a Conan package reference of the form name/version#revision."""
-    # TODO[AH] Enable Conan revisions for reproducibility
-    #name, version_ref = ref.split("/")
-    #version, ref = version_ref.split("#")
-    #return name, version, ref
-    name, version = ref.split("/")
-    return name, version
+def get_name(ref):
+    """Extract the package name from its Conan reference."""
+    return ref.split("/")[0]
 
 
 def parse_lockfile(lockfile):
@@ -53,17 +48,13 @@ def parse_lockfile(lockfile):
             # Skip the root package, it just bundles all dependencies.
             continue
         ref = item["ref"]
-        # TODO[AH] Enable Conan revisions for reproducibility
-        #name, version, revision = parse_reference(ref)
-        name, version = parse_reference(ref)
+        name = get_name(ref)
         package_id = item["package_id"]
         options = item["options"]
         requires = item.get("requires", [])
         # context = item["context"]  # TODO[AH] Do we need this?
         pkgs[key] = {
             "name": name,
-            "version": version,
-            #"revision": revision,
             "reference": ref,
             "package_id": package_id,
             "options": options,
