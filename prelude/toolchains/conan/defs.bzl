@@ -12,7 +12,7 @@ manage and install third-party C/C++ dependencies.
 """
 
 ConanToolchainInfo = provider(fields = ["conan"])
-ConanPackageInfo = provider(fields = ["cache_out"])
+ConanPackageInfo = provider(fields = ["reference", "cache_out"])
 
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
     return [
@@ -83,10 +83,14 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--manifests", manifests.as_output()])
     cmd.add(["--install-info", install_info.as_output()])
     cmd.add(["--cache-out", cache_out.as_output()])
+    for dep in ctx.attrs.deps:
+        info = dep[ConanPackageInfo]
+        cmd.add(["--dep-reference", info.reference, "--dep-cache-out", info.cache_out])
     ctx.actions.run(cmd, category = "conan_build")
 
     return [
         ConanPackageInfo(
+            reference = ctx.attrs.reference,
             cache_out = cache_out,
         ),
         DefaultInfo(default_outputs = [
