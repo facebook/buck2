@@ -177,7 +177,7 @@ def rust_compile_multi(
         default_roots: [str.type],
         extra_link_args: [""] = [],
         predeclared_outputs: {Emit.type: "artifact"} = {},
-        extra_flags: [str.type] = [],
+        extra_flags: [[str.type, "resolved_macro"]] = [],
         is_binary: bool.type = False) -> [RustcOutput.type]:
     outputs = []
 
@@ -212,7 +212,7 @@ def rust_compile(
         default_roots: [str.type],
         extra_link_args: [""] = [],
         predeclared_outputs: {Emit.type: "artifact"} = {},
-        extra_flags: [str.type] = [],
+        extra_flags: [[str.type, "resolved_macro"]] = [],
         is_binary: bool.type = False) -> RustcOutput.type:
     toolchain_info = ctx_toolchain_info(ctx)
 
