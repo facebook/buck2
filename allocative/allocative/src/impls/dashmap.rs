@@ -9,6 +9,7 @@
 
 #![cfg(feature = "dashmap")]
 
+use std::hash::BuildHasher;
 use std::hash::Hash;
 use std::mem;
 
@@ -24,7 +25,9 @@ use crate::impls::common::UNUSED_CAPACITY_NAME;
 use crate::impls::common::VALUE_NAME;
 use crate::visitor::Visitor;
 
-impl<K: Allocative + Eq + Hash, V: Allocative> Allocative for DashMap<K, V> {
+impl<K: Allocative + Eq + Hash, V: Allocative, S: BuildHasher + Clone> Allocative
+    for DashMap<K, V, S>
+{
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         let mut visitor2 = visitor.enter_unique(PTR_NAME, mem::size_of::<*const ()>());
@@ -46,7 +49,7 @@ impl<K: Allocative + Eq + Hash, V: Allocative> Allocative for DashMap<K, V> {
     }
 }
 
-impl<T: Allocative + Eq + Hash> Allocative for DashSet<T> {
+impl<T: Allocative + Eq + Hash, S: BuildHasher + Clone> Allocative for DashSet<T, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         let mut visitor2 = visitor.enter_unique(PTR_NAME, mem::size_of::<*const ()>());
