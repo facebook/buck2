@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import shutil
 import subprocess
 
 
@@ -109,6 +110,13 @@ def conan_install(
     subprocess.check_call(args, env=env)
 
 
+def copy_cache_dir(reference, user_home, cache_out):
+    name, version, user, channel, _ = parse_reference(reference)
+    src = os.path.join(user_home, store_dir(), reference_dir(name, version, user, channel))
+    dst = cache_out
+    shutil.copytree(src, dst)
+
+
 def main():
     parser = argparse.ArgumentParser(
             prog = "conan_package",
@@ -168,6 +176,12 @@ def main():
             type=str,
             required=True,
             help="Write install information JSON file to this location.")
+    parser.add_argument(
+            "--cache-out",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Copy the package's cache directory to this path.")
     # TODO Look into --manifests and --verify to enforce buck built deps.
     # TODO Look into --no-imports.
     # TODO Look into --build-require for exec deps.
@@ -196,6 +210,10 @@ def main():
             args.user_home,
             args.manifests,
             args.install_info)
+    copy_cache_dir(
+            args.reference,
+            args.user_home,
+            args.cache_out)
 
 
 if __name__ == "__main__":
