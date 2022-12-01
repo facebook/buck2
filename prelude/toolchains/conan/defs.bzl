@@ -70,6 +70,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     user_home = ctx.actions.declare_output("user-home")
     manifests = ctx.actions.declare_output("manifests")
     install_info = ctx.actions.declare_output("install-info.json")
+    trace_log = ctx.actions.declare_output("trace.log")
     cache_out = ctx.actions.declare_output("cache-out")
 
     cmd = cmd_args([conan_package])
@@ -82,6 +83,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--user-home", user_home.as_output()])
     cmd.add(["--manifests", manifests.as_output()])
     cmd.add(["--install-info", install_info.as_output()])
+    cmd.add(["--trace-file", trace_log.as_output()])
     cmd.add(["--cache-out", cache_out.as_output()])
     for dep in ctx.attrs.deps:
         info = dep[ConanPackageInfo]
@@ -99,6 +101,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
             user_home,
             manifests,
             install_info,
+            trace_log,
             cache_out,
         ]),
     ]
