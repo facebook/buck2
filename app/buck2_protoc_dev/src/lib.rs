@@ -47,7 +47,7 @@ fn maybe_set_protoc(repo_root: &str) {
     let mut protoc = PathBuf::from(repo_root);
     protoc.push("third-party/protobuf/dotslash/protoc");
     if cfg!(windows) {
-        protoc.push(".exe");
+        protoc.set_extension("exe");
     }
     maybe_set_var("PROTOC", &protoc)
 }
