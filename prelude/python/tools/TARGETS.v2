@@ -18,6 +18,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_bootstrap_binary(
+    name = "make_source_db_no_deps",
+    main = "make_source_db_no_deps.py",
+    visibility = ["PUBLIC"],
+)
+
 prelude.export_file(
     name = "__test_main__.py",
     src = "__test_main__.py",
