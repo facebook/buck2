@@ -14,6 +14,7 @@ use dice::DiceTransaction;
 use crate::command_end::command_end_ext;
 use crate::ctx::ServerCommandContextTrait;
 use crate::ctx::ServerCommandDiceContext;
+use crate::logging::TracingLogFile;
 
 /// Typical server command with DICE and span.
 #[async_trait]
@@ -58,6 +59,10 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
         metadata: metadata.clone(),
         data: Some(command.start_event().into()),
     };
+
+    // refresh our tracing log per command
+    TracingLogFile::refresh()?;
+
     span_async(start_event, async {
         let result = server_ctx
             .with_dice_ctx(|server_ctx, ctx| command.command(&**server_ctx, ctx))

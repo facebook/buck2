@@ -79,6 +79,8 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
 }
 
+pub use buck2_server_ctx::logging::TracingLogFile;
+
 #[derive(Debug, clap::Parser)]
 pub(crate) struct CommonOptions {
     #[clap(

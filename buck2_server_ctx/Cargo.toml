@@ -12,6 +12,7 @@ itertools = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 allocative = { workspace = true }
 dice = { path = "../dice/dice" }

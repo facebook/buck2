@@ -14,7 +14,6 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 use std::fs;
-use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
@@ -23,6 +22,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use cli::exec;
 use cli::panic;
+use cli::TracingLogFile;
 use fbinit::FacebookInit;
 use tracing_subscriber::EnvFilter;
 
@@ -62,8 +62,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
 
             fs::create_dir_all(&path)?;
             let tracing_log = path.join("tracing_log");
-            let file = File::create(tracing_log)?;
-
+            let file = TracingLogFile::new(tracing_log)?;
             logger.with_writer(file).init();
         }
         _ => {
