@@ -15,7 +15,7 @@ jobs:
     resource_class: xlarge
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake
+      - run: sudo apt-get install libssl-dev cmake protobuf-compiler
       - checkout
       - rust/clippy:
           with_cache: false
@@ -44,7 +44,7 @@ jobs:
     resource_class: large
     steps:
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake
+      - run: brew install cmake protobuf
       - checkout
       - rust/clippy:
           with_cache: false
@@ -59,7 +59,7 @@ jobs:
     resource_class: large
     steps:
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake
+      - run: brew install cmake protobuf
       - checkout
       - rust/build:
           with_cache: false
