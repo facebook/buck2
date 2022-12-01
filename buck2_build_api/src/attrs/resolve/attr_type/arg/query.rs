@@ -25,7 +25,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 
 #[derive(Debug, PartialEq, Allocative)]
 pub enum ResolvedQueryMacro {
@@ -60,7 +60,7 @@ impl ResolvedQueryMacro {
     pub fn add_to_arg(
         &self,
         builder: &mut dyn ArgBuilder,
-        ctx: &mut dyn CommandLineBuilderContext,
+        ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         match self {
             Self::Outputs(list) => {

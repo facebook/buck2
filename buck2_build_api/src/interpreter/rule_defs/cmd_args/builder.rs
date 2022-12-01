@@ -16,7 +16,7 @@ use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 
 #[derive(Error, Debug)]
@@ -66,7 +66,7 @@ impl<'v> BaseCommandLineBuilder<'v> {
     }
 }
 
-impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
+impl CommandLineContext for BaseCommandLineBuilder<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
@@ -108,7 +108,7 @@ impl<'v> AbsCommandLineBuilder<'v> {
     }
 }
 
-impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
+impl CommandLineContext for AbsCommandLineBuilder<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,

@@ -65,7 +65,7 @@ pub trait WriteToFileMacroVisitor {
     /// Generator produces a 'RelativePathBuf' relative to the directory which owning command will run in.
     fn set_current_relative_to_path(
         &mut self,
-        gen: &dyn Fn(&dyn CommandLineBuilderContext) -> anyhow::Result<Option<RelativePathBuf>>,
+        gen: &dyn Fn(&dyn CommandLineContext) -> anyhow::Result<Option<RelativePathBuf>>,
     ) -> anyhow::Result<()>;
 }
 
@@ -76,7 +76,7 @@ pub trait CommandLineArgLike {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()>;
 
     fn visit_artifacts(&self, _visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
@@ -96,7 +96,7 @@ impl CommandLineArgLike for &str {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        _context: &mut dyn CommandLineBuilderContext,
+        _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.add_arg_string((*self).to_owned());
         Ok(())
@@ -118,7 +118,7 @@ impl CommandLineArgLike for StarlarkStr {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        _context: &mut dyn CommandLineBuilderContext,
+        _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.add_arg_string(self.as_str().to_owned());
         Ok(())
@@ -140,7 +140,7 @@ impl CommandLineArgLike for String {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        _context: &mut dyn CommandLineBuilderContext,
+        _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.add_arg_string(self.clone());
         Ok(())
@@ -160,7 +160,7 @@ impl CommandLineArgLike for String {
 
 /// CommandLineLocation represents the path to a resolved artifact. If the root is present, the
 /// path is udnerstood to be relative to the root. If no root is present, the path is relative to
-/// some contextual location that depends on the CommandLineBuilderContext that produced the
+/// some contextual location that depends on the CommandLineContext that produced the
 /// CommandLineLocation.
 #[derive(Debug, Clone)]
 pub struct CommandLineLocation<'a> {
@@ -224,7 +224,7 @@ impl<'a> CommandLineLocation<'a> {
     }
 }
 
-pub trait CommandLineBuilderContext {
+pub trait CommandLineContext {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,

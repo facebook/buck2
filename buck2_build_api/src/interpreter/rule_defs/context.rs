@@ -85,7 +85,7 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
@@ -492,7 +492,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 fn set_current_relative_to_path(
                     &mut self,
                     _gen: &dyn Fn(
-                        &dyn CommandLineBuilderContext,
+                        &dyn CommandLineContext,
                     ) -> anyhow::Result<Option<RelativePathBuf>>,
                 ) -> anyhow::Result<()> {
                     Ok(())

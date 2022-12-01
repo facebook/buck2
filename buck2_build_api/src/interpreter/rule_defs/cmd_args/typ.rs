@@ -54,7 +54,7 @@ use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
@@ -97,7 +97,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         self.visit_inner(|x| x.add_to_command_line(cli, context))
     }
@@ -255,7 +255,7 @@ impl Display for FrozenStarlarkCommandLine {
 impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
     fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
     where
-        C: CommandLineBuilderContext + ?Sized,
+        C: CommandLineContext + ?Sized,
     {
         match &self.options {
             None => Ok(None),
@@ -288,7 +288,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         match &self.options {
             None => {
@@ -343,7 +343,7 @@ impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         self.0.borrow().add_to_command_line(cli, context)
     }
@@ -368,7 +368,7 @@ impl CommandLineArgLike for FrozenStarlarkCommandLine {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         self.0.add_to_command_line(cli, context)
     }

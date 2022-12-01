@@ -37,7 +37,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
@@ -75,7 +75,7 @@ impl Display for ResolvedMacro {
 
 pub fn add_output_to_arg(
     builder: &mut dyn ArgBuilder,
-    ctx: &mut dyn CommandLineBuilderContext,
+    ctx: &mut dyn CommandLineContext,
     artifact: &StarlarkArtifact,
 ) -> anyhow::Result<()> {
     let path = ctx
@@ -87,7 +87,7 @@ pub fn add_output_to_arg(
 
 fn add_outputs_to_arg(
     builder: &mut dyn ArgBuilder,
-    ctx: &mut dyn CommandLineBuilderContext,
+    ctx: &mut dyn CommandLineContext,
     outputs_list: &[FrozenRef<'static, StarlarkArtifact>],
 ) -> anyhow::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
@@ -204,7 +204,7 @@ impl ResolvedMacro {
     pub(crate) fn add_to_arg(
         &self,
         builder: &mut dyn ArgBuilder,
-        ctx: &mut dyn CommandLineBuilderContext,
+        ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         match self {
             Self::Location(info) => {
@@ -331,14 +331,14 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
     fn add_to_command_line(
         &self,
         cmdline_builder: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineBuilderContext,
+        ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         struct Builder {
             arg: String,
         }
 
         impl Builder {
-            fn push_path(&mut self, ctx: &mut dyn CommandLineBuilderContext) -> anyhow::Result<()> {
+            fn push_path(&mut self, ctx: &mut dyn CommandLineContext) -> anyhow::Result<()> {
                 let next_path = ctx.next_macro_file_path()?;
                 self.push_str(next_path.as_str());
                 Ok(())

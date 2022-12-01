@@ -38,7 +38,7 @@ use crate::actions::UnregisteredAction;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::attrs::resolve::attr_type::arg::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
@@ -231,7 +231,7 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
 
     fn set_current_relative_to_path(
         &mut self,
-        gen: &dyn Fn(&dyn CommandLineBuilderContext) -> anyhow::Result<Option<RelativePathBuf>>,
+        gen: &dyn Fn(&dyn CommandLineContext) -> anyhow::Result<Option<RelativePathBuf>>,
     ) -> anyhow::Result<()> {
         self.relative_to_path = gen(&BaseCommandLineBuilder::new(self.fs))?;
         Ok(())
@@ -260,7 +260,7 @@ impl<'a> MacroContext<'a> {
     }
 }
 
-impl CommandLineBuilderContext for MacroContext<'_> {
+impl CommandLineContext for MacroContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,

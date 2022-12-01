@@ -38,7 +38,7 @@ use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
@@ -101,7 +101,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             fn add_to_command_line(
                 &self,
                 cli: &mut dyn CommandLineBuilder,
-                context: &mut dyn CommandLineBuilderContext,
+                context: &mut dyn CommandLineContext,
             ) -> anyhow::Result<()> {
                 match self {
                     Impl::Item(v) => v.add_to_command_line(cli, context),
@@ -193,7 +193,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
     fn add_to_command_line(
         &self,
         builder: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;

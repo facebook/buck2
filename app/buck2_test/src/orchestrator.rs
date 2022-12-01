@@ -23,7 +23,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
@@ -733,7 +733,7 @@ impl<'a> Execute2RequestExpander<'a> {
         IndexSet<ArtifactGroup>,
     )>
     where
-        B: CommandLineBuilderContextExt<'a>,
+        B: CommandLineContextExt<'a>,
     {
         let cli_args_for_interpolation = self
             .test_info
@@ -747,7 +747,7 @@ impl<'a> Execute2RequestExpander<'a> {
         let env_for_interpolation = self.test_info.env().collect::<HashMap<_, _>>();
 
         let expand_arg_value = |cli: &mut Vec<String>,
-                                ctx: &mut dyn CommandLineBuilderContext,
+                                ctx: &mut dyn CommandLineContext,
                                 artifact_visitor: &mut dyn CommandLineArtifactVisitor,
                                 declared_outputs: &mut IndexMap<
             BuckOutTestPath,
@@ -831,17 +831,17 @@ impl<'a> Execute2RequestExpander<'a> {
     }
 }
 
-trait CommandLineBuilderContextExt<'a>: CommandLineBuilderContext + 'a {
+trait CommandLineContextExt<'a>: CommandLineContext + 'a {
     fn new(fs: &'a ExecutorFs) -> Self;
 }
 
-impl<'a> CommandLineBuilderContextExt<'a> for BaseCommandLineBuilder<'a> {
+impl<'a> CommandLineContextExt<'a> for BaseCommandLineBuilder<'a> {
     fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }
 }
 
-impl<'a> CommandLineBuilderContextExt<'a> for AbsCommandLineBuilder<'a> {
+impl<'a> CommandLineContextExt<'a> for AbsCommandLineBuilder<'a> {
     fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }

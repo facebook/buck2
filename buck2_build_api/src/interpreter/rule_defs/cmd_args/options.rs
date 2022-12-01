@@ -31,7 +31,7 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::util::commas;
@@ -186,7 +186,7 @@ impl<'v> RelativeOrigin<'v> {
 
     pub(crate) fn resolve<C>(&self, ctx: &C) -> anyhow::Result<RelativePathBuf>
     where
-        C: CommandLineBuilderContext + ?Sized,
+        C: CommandLineContext + ?Sized,
     {
         let loc = match self {
             Self::Artifact(artifact) => {
@@ -225,10 +225,10 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
     pub(crate) fn wrap_builder<'a, R>(
         &self,
         builder: &'a mut dyn CommandLineBuilder,
-        ctx: &'a mut dyn CommandLineBuilderContext,
+        ctx: &'a mut dyn CommandLineContext,
         f: impl for<'b> FnOnce(
             &'b mut dyn CommandLineBuilder,
-            &'b mut dyn CommandLineBuilderContext,
+            &'b mut dyn CommandLineContext,
         ) -> anyhow::Result<R>,
     ) -> anyhow::Result<R> {
         struct ExtrasBuilder<'a, 'v, V: ValueLike<'v>> {
@@ -241,12 +241,12 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
         }
 
         struct ExtrasContext<'a, 'v, V: ValueLike<'v>> {
-            ctx: &'a mut dyn CommandLineBuilderContext,
+            ctx: &'a mut dyn CommandLineContext,
             opts: &'a CommandLineOptions<'v, V>,
             relative_to: Option<RelativePathBuf>,
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilderContext for ExtrasContext<'a, 'v, V> {
+        impl<'a, 'v, V: ValueLike<'v>> CommandLineContext for ExtrasContext<'a, 'v, V> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
@@ -401,7 +401,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
 
     pub(crate) fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
     where
-        C: CommandLineBuilderContext + ?Sized,
+        C: CommandLineContext + ?Sized,
     {
         let (value, parent) = match self.relative_to {
             Some(vp) => vp,

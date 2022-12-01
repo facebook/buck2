@@ -24,7 +24,7 @@ use starlark::values::ValueLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
@@ -58,7 +58,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineBuilderContext,
+        context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         self.args
             .to_value()

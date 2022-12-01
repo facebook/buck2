@@ -35,7 +35,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// Thin wrapper around `OutputArtifact`.
@@ -108,7 +108,7 @@ impl CommandLineArgLike for StarlarkOutputArtifact {
     fn add_to_command_line(
         &self,
         _cli: &mut dyn CommandLineBuilder,
-        _ctx: &mut dyn CommandLineBuilderContext,
+        _ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         // TODO: proper error message
         Err(anyhow::anyhow!(
@@ -166,7 +166,7 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineBuilderContext,
+        ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.add_arg_string(ctx.resolve_artifact(&self.artifact())?.into_string());
         Ok(())
