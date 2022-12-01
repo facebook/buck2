@@ -100,15 +100,15 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
     }
 }
 
-pub struct AbsCommandLineBuilder<'v>(DefaultCommandLineContext<'v>);
+pub struct AbsCommandLineContext<'v>(DefaultCommandLineContext<'v>);
 
-impl<'v> AbsCommandLineBuilder<'v> {
+impl<'v> AbsCommandLineContext<'v> {
     pub fn new(executor_fs: &'v ExecutorFs) -> Self {
         Self(DefaultCommandLineContext::<'v>::new(executor_fs))
     }
 }
 
-impl CommandLineContext for AbsCommandLineBuilder<'_> {
+impl CommandLineContext for AbsCommandLineContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,

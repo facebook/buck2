@@ -35,7 +35,7 @@ use crate::actions::artifact::BaseArtifactKind;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::calculation::Calculation;
-use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
@@ -126,7 +126,7 @@ pub async fn build_configured_label(
                 };
                 let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
                 let mut cli = Vec::<String>::new();
-                let mut ctx = AbsCommandLineBuilder::new(&executor_fs);
+                let mut ctx = AbsCommandLineContext::new(&executor_fs);
                 runinfo.add_to_command_line(&mut cli, &mut ctx)?;
                 run_args = Some(cli);
             }

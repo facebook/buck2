@@ -18,7 +18,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -653,7 +653,7 @@ impl BuckTestOrchestrator {
                 expander.expand::<DefaultCommandLineContext>()
             } else {
                 supports_re = false;
-                expander.expand::<AbsCommandLineBuilder>()
+                expander.expand::<AbsCommandLineContext>()
             }?;
         };
 
@@ -841,7 +841,7 @@ impl<'a> CommandLineContextExt<'a> for DefaultCommandLineContext<'a> {
     }
 }
 
-impl<'a> CommandLineContextExt<'a> for AbsCommandLineBuilder<'a> {
+impl<'a> CommandLineContextExt<'a> for AbsCommandLineContext<'a> {
     fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }

@@ -25,7 +25,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::context::HasBuildContextData;
-use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::InstallInfoCallable;
@@ -450,7 +450,7 @@ async fn build_launch_installer<'a>(
             };
             let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
             let mut run_args = Vec::<String>::new();
-            let mut ctx = AbsCommandLineBuilder::new(&executor_fs);
+            let mut ctx = AbsCommandLineContext::new(&executor_fs);
             installer_run_info.add_to_command_line(&mut run_args, &mut ctx)?;
             (artifact_visitor.inputs, run_args)
         };
