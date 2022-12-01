@@ -98,7 +98,7 @@ impl CommandLineArgLike for &str {
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        cli.add_arg_string((*self).to_owned());
+        cli.push_arg((*self).to_owned());
         Ok(())
     }
 
@@ -120,7 +120,7 @@ impl CommandLineArgLike for StarlarkStr {
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        cli.add_arg_string(self.as_str().to_owned());
+        cli.push_arg(self.as_str().to_owned());
         Ok(())
     }
 
@@ -142,7 +142,7 @@ impl CommandLineArgLike for String {
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        cli.add_arg_string(self.clone());
+        cli.push_arg(self.clone());
         Ok(())
     }
 
@@ -247,13 +247,16 @@ pub trait CommandLineContext {
     fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf>;
 }
 
+/// CommandLineBuilder accumulates elements into some form of list (which might be an actual Vec, a
+/// space-separated list, etc.). An API is provided to add individual elements. Lower-level APIs
+/// are exposed to allow access to a buffer and control end-of-element.
 pub trait CommandLineBuilder {
-    /// Add the string representation to the list of command line arguments.
-    fn add_arg_string(&mut self, s: String);
+    /// Add a standalone element to this command line builder. This element
+    fn push_arg(&mut self, s: String);
 }
 
 impl CommandLineBuilder for Vec<String> {
-    fn add_arg_string(&mut self, s: String) {
+    fn push_arg(&mut self, s: String) {
         self.push(s)
     }
 }

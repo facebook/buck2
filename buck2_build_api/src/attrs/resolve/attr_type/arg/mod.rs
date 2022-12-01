@@ -34,7 +34,7 @@ impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
 }
 
 impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
-    fn add_arg_string(&mut self, s: String) {
+    fn push_arg(&mut self, s: String) {
         if self.first {
             self.first = false;
         } else {
@@ -84,24 +84,24 @@ mod tests {
 
         {
             let mut builder = SpaceSeparatedCommandLineBuilder::wrap(&mut base);
-            builder.add_arg_string("hello".to_owned());
+            builder.push_arg("hello".to_owned());
         }
         assert_eq!("hello", &base.val);
 
         base.val = String::new();
         {
             let mut builder = SpaceSeparatedCommandLineBuilder::wrap(&mut base);
-            builder.add_arg_string("hello".to_owned());
-            builder.add_arg_string("world!".to_owned());
+            builder.push_arg("hello".to_owned());
+            builder.push_arg("world!".to_owned());
         }
         assert_eq!("hello world!", &base.val);
 
         {
             let mut builder = SpaceSeparatedCommandLineBuilder::wrap(&mut base);
-            builder.add_arg_string("hello".to_owned());
-            builder.add_arg_string("again!".to_owned());
-            builder.add_arg_string("and".to_owned());
-            builder.add_arg_string("again!".to_owned());
+            builder.push_arg("hello".to_owned());
+            builder.push_arg("again!".to_owned());
+            builder.push_arg("and".to_owned());
+            builder.push_arg("again!".to_owned());
         }
         assert_eq!("hello world!hello again! and again!", &base.val);
 

@@ -20,7 +20,7 @@ impl CommandLineArgLike for LabelRelativePath {
         ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         let path = ctx.resolve_cell_path(&self.0)?.into_string();
-        cli.add_arg_string(path);
+        cli.push_arg(path);
         Ok(())
     }
 

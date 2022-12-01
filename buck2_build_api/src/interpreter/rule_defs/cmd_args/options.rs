@@ -312,7 +312,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             /// do it here
             fn finalize_args(mut self) -> Self {
                 if let Some((concatted_items, _)) = self.concatenation_context.take() {
-                    self.builder.add_arg_string(concatted_items);
+                    self.builder.push_arg(concatted_items);
                 }
                 self
             }
@@ -332,7 +332,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 if let Some((concatted_items, _)) = self.concatenation_context.as_mut() {
                     concatted_items.push_str(&arg)
                 } else {
-                    self.builder.add_arg_string(arg)
+                    self.builder.push_arg(arg)
                 }
             }
 
@@ -361,7 +361,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
         }
 
         impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilder for ExtrasBuilder<'a, 'v, V> {
-            fn add_arg_string(&mut self, s: String) {
+            fn push_arg(&mut self, s: String) {
                 // We apply options impacting formatting in the order:
                 //   format, quote, (prepend + delimiter)
                 self.add_delimiter();

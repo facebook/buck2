@@ -196,7 +196,7 @@ impl CommandLineArgLike for StarlarkArtifact {
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        cli.add_arg_string(ctx.resolve_artifact(&self.artifact)?.into_string());
+        cli.push_arg(ctx.resolve_artifact(&self.artifact)?.into_string());
         Ok(())
     }
 

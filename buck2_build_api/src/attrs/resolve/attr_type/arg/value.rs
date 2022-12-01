@@ -371,7 +371,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
         }
 
         let Builder { arg } = builder;
-        cmdline_builder.add_arg_string(arg);
+        cmdline_builder.push_arg(arg);
         Ok(())
     }
 

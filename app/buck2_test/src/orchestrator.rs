@@ -785,7 +785,7 @@ impl<'a> Execute2RequestExpander<'a> {
                         .buck_out_path_resolver()
                         .resolve_test(&test_path);
                     let path = ctx.resolve_project_path(path)?.into_string();
-                    cli.add_arg_string(path);
+                    cli.push_arg(path);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
                 }
             };
@@ -853,14 +853,14 @@ struct CommandLineBuilderFormatWrapper<'a> {
 }
 
 impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
-    fn add_arg_string(&mut self, s: String) {
+    fn push_arg(&mut self, s: String) {
         let s = if let Some(format) = &self.format {
             format.replace("{}", &s)
         } else {
             s
         };
 
-        self.inner.add_arg_string(s);
+        self.inner.push_arg(s);
     }
 }
 
