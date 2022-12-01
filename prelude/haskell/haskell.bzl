@@ -470,7 +470,7 @@ def _make_package(
         "exposed: False",
         "exposed-modules: " + ", ".join(modules),
         "import-dirs: \"${pkgroot}/hi-" + link_style.value + "\"",
-        "library-dirs: \"${pkgroot}\"",
+        "library-dirs: \"${pkgroot}/lib-" + link_style.value + "\"",
         "extra-libraries: " + libname,
         "depends: " + ", ".join(uniq_hlis),
     ]
@@ -554,13 +554,14 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
             libfile = "lib" + libstem + ".so"
         else:
             libfile = "lib" + libstem + ".a"
+        lib_short_path = paths.join("lib-{}".format(link_style.value), libfile)
 
         uniq_infos = dedupe(flatten([x.info[link_style] for x in hlis]))
 
         objfiles = _srcs_to_objfiles(ctx, compiled.objects, osuf)
 
         if link_style == LinkStyle("shared"):
-            lib = ctx.actions.declare_output(libfile)
+            lib = ctx.actions.declare_output(lib_short_path)
             link = cmd_args(haskell_toolchain.linker)
             link.add(haskell_toolchain.linker_flags)
             link.add(ctx.attrs.linker_flags)
@@ -590,7 +591,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         else:  # static flavours
             # TODO: avoid making an archive for a single object, like cxx does
             # (but would that work with Template Haskell?)
-            archive = make_archive(ctx, libfile, [compiled.objects], objfiles)
+            archive = make_archive(ctx, lib_short_path, [compiled.objects], objfiles)
             lib = archive.artifact
             libs = [lib] + archive.external_objects
             link_infos[link_style] = LinkInfos(
