@@ -11,10 +11,15 @@ use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 
 impl CommandLineArgLike for LabelRelativePath {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        let path = cli.ctx_mut().resolve_cell_path(&self.0)?.into_string();
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        ctx: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
+        let path = ctx.resolve_cell_path(&self.0)?.into_string();
         cli.add_arg_string(path);
         Ok(())
     }

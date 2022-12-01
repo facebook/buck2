@@ -94,8 +94,12 @@ impl<'v, V: ValueLike<'v>> CommandLineArgGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.add_to_command_line(cli))
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
+        self.visit_inner(|x| x.add_to_command_line(cli, context))
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
@@ -281,17 +285,21 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v, V> {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         match &self.options {
             None => {
                 for item in &self.items {
-                    item.add_to_command_line(cli)?;
+                    item.add_to_command_line(cli, context)?;
                 }
                 Ok(())
             }
-            Some(options) => options.wrap_builder(cli, |cli| {
+            Some(options) => options.wrap_builder(cli, context, |cli, context| {
                 for item in &self.items {
-                    item.add_to_command_line(cli)?;
+                    item.add_to_command_line(cli, context)?;
                 }
                 Ok(())
             }),
@@ -332,8 +340,12 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
 }
 
 impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        self.0.borrow().add_to_command_line(cli)
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
+        self.0.borrow().add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
@@ -353,8 +365,12 @@ impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
 }
 
 impl CommandLineArgLike for FrozenStarlarkCommandLine {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        self.0.add_to_command_line(cli)
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
+        self.0.add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {

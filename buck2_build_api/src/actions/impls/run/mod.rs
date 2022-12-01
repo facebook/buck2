@@ -175,23 +175,25 @@ impl RunAction {
         fs: &ExecutorFs,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<ExpandedCommandLine> {
-        let mut cli_builder = BaseCommandLineBuilder::new(fs);
+        let mut cli_rendered = Vec::<String>::new();
+        let mut ctx = BaseCommandLineBuilder::new(fs);
 
         let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
-        cli.add_to_command_line(&mut cli_builder)?;
+        cli.add_to_command_line(&mut cli_rendered, &mut ctx)?;
         cli.visit_artifacts(artifact_visitor)?;
 
         let mut cli_env = HashMap::with_capacity(env.len());
         for (k, v) in env.into_iter() {
-            let mut var_builder = BaseCommandLineBuilder::new(fs);
-            v.add_to_command_line(&mut var_builder)?;
+            let mut env = Vec::<String>::new(); // TODO (torozco): Use a String.
+            let mut ctx = BaseCommandLineBuilder::new(fs);
+            v.add_to_command_line(&mut env, &mut ctx)?;
             v.visit_artifacts(artifact_visitor)?;
-            let var = var_builder.build().join(" ");
+            let var = env.join(" ");
             cli_env.insert(k.to_owned(), var);
         }
 
         Ok(ExpandedCommandLine {
-            cli: cli_builder.build(),
+            cli: cli_rendered,
             env: cli_env,
         })
     }
@@ -254,10 +256,12 @@ impl Action for RunAction {
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> indexmap::IndexMap<String, String> {
-        let mut cli_builder = BaseCommandLineBuilder::new(fs);
+        let mut cli_rendered = Vec::<String>::new();
+        let mut ctx = BaseCommandLineBuilder::new(fs);
         let (cli, _env) = Self::unpack(&self.starlark_cli).unwrap();
-        cli.add_to_command_line(&mut cli_builder).unwrap();
-        let cmd = format!("[{}]", cli_builder.build().iter().join(", "));
+        cli.add_to_command_line(&mut cli_rendered, &mut ctx)
+            .unwrap();
+        let cmd = format!("[{}]", cli_rendered.iter().join(", "));
         indexmap! {
             "cmd".to_owned() => cmd,
             "executor_preference".to_owned() => self.inner.executor_preference.to_string(),

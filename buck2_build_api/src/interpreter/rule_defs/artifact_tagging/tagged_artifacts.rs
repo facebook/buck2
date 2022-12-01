@@ -25,6 +25,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
@@ -77,11 +78,15 @@ where
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         self.inner
             .to_value()
             .as_command_line_err()?
-            .add_to_command_line(cli)
+            .add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {

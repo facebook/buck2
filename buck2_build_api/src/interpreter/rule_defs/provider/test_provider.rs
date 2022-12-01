@@ -17,7 +17,6 @@ use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use itertools::Itertools;
 
-use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
@@ -34,16 +33,6 @@ pub trait TestProvider {
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
     ) -> BoxFuture<'exec, anyhow::Result<()>>;
-
-    fn create_command<'b>(
-        &self,
-        builder: &dyn Fn() -> AbsCommandLineBuilder<'b>,
-    ) -> anyhow::Result<AbsCommandLineBuilder<'b>>;
-
-    fn create_env<'b>(
-        &self,
-        builder: &dyn Fn() -> AbsCommandLineBuilder<'b>,
-    ) -> anyhow::Result<Vec<(String, AbsCommandLineBuilder<'b>)>>;
 }
 
 impl TestProvider for FrozenExternalRunnerTestInfo {
@@ -98,32 +87,6 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
         };
 
         async move { executor.external_runner_spec(spec).await }.boxed()
-    }
-
-    fn create_command<'b>(
-        &self,
-        builder: &dyn Fn() -> AbsCommandLineBuilder<'b>,
-    ) -> anyhow::Result<AbsCommandLineBuilder<'b>> {
-        let mut ret = builder();
-        for member in self.command() {
-            member.add_to_command_line(&mut ret)?;
-        }
-        Ok(ret)
-    }
-
-    fn create_env<'b>(
-        &self,
-        builder: &dyn Fn() -> AbsCommandLineBuilder<'b>,
-    ) -> anyhow::Result<Vec<(String, AbsCommandLineBuilder<'b>)>> {
-        self.env()
-            .map(|(k, v)| {
-                Ok((k.to_owned(), {
-                    let mut ret = builder();
-                    v.add_to_command_line(&mut ret)?;
-                    ret
-                }))
-            })
-            .collect()
     }
 }
 

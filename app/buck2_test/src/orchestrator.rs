@@ -733,7 +733,7 @@ impl<'a> Execute2RequestExpander<'a> {
         IndexSet<ArtifactGroup>,
     )>
     where
-        B: CommandLineBuilderExt<'a>,
+        B: CommandLineBuilderContextExt<'a>,
     {
         let cli_args_for_interpolation = self
             .test_info
@@ -746,7 +746,8 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let env_for_interpolation = self.test_info.env().collect::<HashMap<_, _>>();
 
-        let expand_arg_value = |cli_builder: &mut dyn CommandLineBuilder,
+        let expand_arg_value = |cli: &mut Vec<String>,
+                                ctx: &mut dyn CommandLineBuilderContext,
                                 artifact_visitor: &mut dyn CommandLineArtifactVisitor,
                                 declared_outputs: &mut IndexMap<
             BuckOutTestPath,
@@ -755,14 +756,11 @@ impl<'a> Execute2RequestExpander<'a> {
                                 value: ArgValue| {
             let ArgValue { content, format } = value;
 
-            let mut cli_builder = CommandLineBuilderFormatWrapper {
-                inner: cli_builder,
-                format,
-            };
+            let mut cli = CommandLineBuilderFormatWrapper { inner: cli, format };
 
             match content {
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(v)) => {
-                    v.add_to_command_line(&mut cli_builder)?;
+                    v.add_to_command_line(&mut cli, ctx)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                     let arg = cli_args_for_interpolation
@@ -770,14 +768,14 @@ impl<'a> Execute2RequestExpander<'a> {
                         .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
 
                     arg.visit_artifacts(artifact_visitor)?;
-                    arg.add_to_command_line(&mut cli_builder)?;
+                    arg.add_to_command_line(&mut cli, ctx)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                     let arg = env_for_interpolation
                         .get(h.0.as_str())
                         .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
                     arg.visit_artifacts(artifact_visitor)?;
-                    arg.add_to_command_line(&mut cli_builder)?;
+                    arg.add_to_command_line(&mut cli, ctx)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {
                     let test_path = BuckOutTestPath::new(self.output_root.to_owned(), output.name);
@@ -786,8 +784,8 @@ impl<'a> Execute2RequestExpander<'a> {
                         .fs()
                         .buck_out_path_resolver()
                         .resolve_test(&test_path);
-                    let path = cli_builder.ctx().resolve_project_path(path)?.into_string();
-                    cli_builder.add_arg_string(path);
+                    let path = ctx.resolve_project_path(path)?.into_string();
+                    cli.add_arg_string(path);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
                 }
             };
@@ -797,30 +795,33 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
 
-        let mut builder = B::new(self.fs);
+        let mut expanded_cmd = Vec::<String>::new();
+        let mut ctx = B::new(self.fs);
         for var in self.cmd {
             expand_arg_value(
-                &mut builder,
+                &mut expanded_cmd,
+                &mut ctx,
                 &mut artifact_visitor,
                 self.declared_outputs,
                 var,
             )?;
         }
 
-        let expanded_cmd = builder.build();
-
         let expanded_env = self
             .env
             .into_iter()
             .map(|(k, v)| {
-                let mut builder = B::new(self.fs);
+                let mut env = Vec::<String>::new();
+                let mut ctx = B::new(self.fs);
                 expand_arg_value(
-                    &mut builder,
+                    &mut env,
+                    &mut ctx,
                     &mut artifact_visitor,
                     self.declared_outputs,
                     v,
                 )?;
-                anyhow::Ok((k, builder.build().join(" ")))
+                // TODO (torozco): Just use a String directly
+                anyhow::Ok((k, env.join(" ")))
             })
             .collect::<Result<HashMap<_, _>, _>>()?;
 
@@ -830,28 +831,19 @@ impl<'a> Execute2RequestExpander<'a> {
     }
 }
 
-trait CommandLineBuilderExt<'a>: CommandLineBuilder + 'a {
+trait CommandLineBuilderContextExt<'a>: CommandLineBuilderContext + 'a {
     fn new(fs: &'a ExecutorFs) -> Self;
-    fn build(self) -> Vec<String>;
 }
 
-impl<'a> CommandLineBuilderExt<'a> for BaseCommandLineBuilder<'a> {
+impl<'a> CommandLineBuilderContextExt<'a> for BaseCommandLineBuilder<'a> {
     fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }
-
-    fn build(self) -> Vec<String> {
-        Self::build(self)
-    }
 }
 
-impl<'a> CommandLineBuilderExt<'a> for AbsCommandLineBuilder<'a> {
+impl<'a> CommandLineBuilderContextExt<'a> for AbsCommandLineBuilder<'a> {
     fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
-    }
-
-    fn build(self) -> Vec<String> {
-        Self::build(self)
     }
 }
 
@@ -869,14 +861,6 @@ impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
         };
 
         self.inner.add_arg_string(s);
-    }
-
-    fn ctx(&self) -> &dyn CommandLineBuilderContext {
-        self.inner.ctx()
-    }
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-        self.inner.ctx_mut()
     }
 }
 

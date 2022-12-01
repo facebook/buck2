@@ -821,12 +821,13 @@ fn test_user_placeholders() -> anyhow::Result<()> {
             );
             let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
-            let mut builder = BaseCommandLineBuilder::new(&executor_fs);
+            let mut cli = Vec::<String>::new();
+            let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
             v.as_command_line()
                 .unwrap()
-                .add_to_command_line(&mut builder)
+                .add_to_command_line(&mut cli, &mut ctx)
                 .unwrap();
-            builder.build().join(" ")
+            cli.join(" ")
         })
     };
 

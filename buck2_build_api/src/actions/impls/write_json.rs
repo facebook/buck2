@@ -68,6 +68,7 @@ use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
@@ -243,9 +244,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     Some(fs) => {
                         // WriteJsonCommandLineArgGen assumes that any args/write-to-file macros are
                         // rejected here and needs to be updated if that changes.
-                        let mut cli_builder = BaseCommandLineBuilder::new(fs);
-                        err(x.add_to_command_line(&mut cli_builder))?;
-                        let items = cli_builder.build();
+                        let mut items = Vec::<String>::new();
+                        let mut ctx = BaseCommandLineBuilder::new(fs);
+                        err(x.add_to_command_line(&mut items, &mut ctx))?;
                         // We change the type, based on the value - singleton = String, otherwise list.
                         // That's a little annoying (type based on value), but otherwise there would be
                         // no way to produce a cmd_args as a single string.
@@ -534,11 +535,15 @@ pub(crate) fn visit_json_artifacts(
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> {
-    fn add_to_command_line(&self, builder: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        builder: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         self.artifact
             .to_value()
             .as_command_line_err()?
-            .add_to_command_line(builder)
+            .add_to_command_line(builder, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {

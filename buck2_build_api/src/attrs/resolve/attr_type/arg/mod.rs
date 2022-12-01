@@ -13,7 +13,6 @@ use value::ResolvedStringWithMacros;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 
 pub mod query;
 pub mod value;
@@ -43,14 +42,6 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
         }
         self.builder.push_str(&s);
     }
-
-    fn ctx(&self) -> &dyn CommandLineBuilderContext {
-        self.builder.ctx()
-    }
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-        self.builder.ctx_mut()
-    }
 }
 
 pub(crate) trait ConfiguredStringWithMacrosExt {
@@ -68,10 +59,6 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
 pub trait ArgBuilder {
     /// Add the string representation to the list of command line arguments.
     fn push_str(&mut self, s: &str);
-
-    fn ctx(&self) -> &dyn CommandLineBuilderContext;
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext;
 }
 
 #[cfg(test)]
@@ -79,7 +66,6 @@ mod tests {
     use crate::attrs::resolve::attr_type::arg::ArgBuilder;
     use crate::attrs::resolve::attr_type::arg::SpaceSeparatedCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-    use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 
     #[test]
     fn cmdline_builder() -> anyhow::Result<()> {
@@ -89,14 +75,6 @@ mod tests {
         impl ArgBuilder for Base {
             fn push_str(&mut self, v: &str) {
                 self.val.push_str(v);
-            }
-
-            fn ctx(&self) -> &dyn CommandLineBuilderContext {
-                unimplemented!()
-            }
-
-            fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-                unimplemented!()
             }
         }
 

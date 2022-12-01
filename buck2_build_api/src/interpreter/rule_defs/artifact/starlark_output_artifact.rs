@@ -35,6 +35,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// Thin wrapper around `OutputArtifact`.
@@ -104,7 +105,11 @@ impl<'v> AllocValue<'v> for StarlarkOutputArtifact {
 }
 
 impl CommandLineArgLike for StarlarkOutputArtifact {
-    fn add_to_command_line(&self, _cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        _cli: &mut dyn CommandLineBuilder,
+        _ctx: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         // TODO: proper error message
         Err(anyhow::anyhow!(
             "proper error here; we should not be adding mutable starlark objects to clis"
@@ -158,8 +163,12 @@ impl FrozenStarlarkOutputArtifact {
 }
 
 impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string(cli.ctx().resolve_artifact(&self.artifact())?.into_string());
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        ctx: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
+        cli.add_arg_string(ctx.resolve_artifact(&self.artifact())?.into_string());
         Ok(())
     }
 

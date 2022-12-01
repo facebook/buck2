@@ -181,15 +181,16 @@ pub mod tester {
     fn get_command_line(value: Value) -> anyhow::Result<Vec<String>> {
         let fs = artifact_fs();
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
-        let mut builder = BaseCommandLineBuilder::new(&executor_fs);
+        let mut cli = Vec::<String>::new();
+        let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
 
         match value.as_command_line() {
-            Some(v) => v.add_to_command_line(&mut builder),
+            Some(v) => v.add_to_command_line(&mut cli, &mut ctx),
             None => value
                 .as_command_line_err()?
-                .add_to_command_line(&mut builder),
+                .add_to_command_line(&mut cli, &mut ctx),
         }?;
-        Ok(builder.build())
+        Ok(cli)
     }
 
     #[starlark_module]
@@ -201,11 +202,11 @@ pub mod tester {
         fn stringify_cli_arg<'v>(value: Value<'v>) -> anyhow::Result<String> {
             let fs = artifact_fs();
             let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
-            let mut builder = BaseCommandLineBuilder::new(&executor_fs);
+            let mut cli = Vec::<String>::new();
+            let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
             value
                 .as_command_line_err()?
-                .add_to_command_line(&mut builder)?;
-            let cli = builder.build();
+                .add_to_command_line(&mut cli, &mut ctx)?;
             assert_eq!(1, cli.len());
             Ok(cli.get(0).unwrap().clone())
         }

@@ -46,6 +46,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// A wrapper for an `Artifact` that is guaranteed to be bound, such as outputs
@@ -190,8 +191,12 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 }
 
 impl CommandLineArgLike for StarlarkArtifact {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string(cli.ctx().resolve_artifact(&self.artifact)?.into_string());
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        ctx: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
+        cli.add_arg_string(ctx.resolve_artifact(&self.artifact)?.into_string());
         Ok(())
     }
 

@@ -214,14 +214,14 @@ pub mod testing {
                 project_fs,
             );
             let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
-            let mut builder = BaseCommandLineBuilder::new(&executor_fs);
+            let mut cli = Vec::<String>::new();
+            let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
             artifact
                 .as_artifact()
                 .unwrap()
                 .as_command_line_like()
-                .add_to_command_line(&mut builder)
+                .add_to_command_line(&mut cli, &mut ctx)
                 .unwrap();
-            let cli = builder.build();
             assert_eq!(1, cli.len());
             Ok(cli.get(0).unwrap().to_owned())
         }

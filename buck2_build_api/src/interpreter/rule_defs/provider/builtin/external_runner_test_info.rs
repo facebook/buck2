@@ -34,6 +34,7 @@ use crate::attrs::resolve::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::command_executor_config::FrozenStarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
@@ -170,10 +171,14 @@ pub enum TestCommandMember<'v> {
 }
 
 impl<'v> TestCommandMember<'v> {
-    pub fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    pub fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         match self {
-            Self::Literal(literal) => literal.add_to_command_line(cli),
-            Self::Arglike(arglike) => arglike.add_to_command_line(cli),
+            Self::Literal(literal) => literal.add_to_command_line(cli, context),
+            Self::Arglike(arglike) => arglike.add_to_command_line(cli, context),
         }
     }
 }

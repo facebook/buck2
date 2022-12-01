@@ -38,6 +38,7 @@ use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
@@ -97,12 +98,18 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             List(&'v [Value<'v>]),
         }
         impl<'v> CommandLineArgLike for Impl<'v> {
-            fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+            fn add_to_command_line(
+                &self,
+                cli: &mut dyn CommandLineBuilder,
+                context: &mut dyn CommandLineBuilderContext,
+            ) -> anyhow::Result<()> {
                 match self {
-                    Impl::Item(v) => v.add_to_command_line(cli),
+                    Impl::Item(v) => v.add_to_command_line(cli, context),
                     Impl::List(items) => {
                         for v in *items {
-                            v.as_command_line().unwrap().add_to_command_line(cli)?;
+                            v.as_command_line()
+                                .unwrap()
+                                .add_to_command_line(cli, context)?;
                         }
                         Ok(())
                     }
@@ -183,7 +190,11 @@ where
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen<V> {
-    fn add_to_command_line(&self, builder: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        builder: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
             .context("Invalid transitive_set")?;
 
@@ -194,7 +205,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
                 .context("Invalid projection id")?;
 
             TransitiveSetArgsProjection::as_command_line(*projection)?
-                .add_to_command_line(builder)?;
+                .add_to_command_line(builder, context)?;
         }
 
         Ok(())

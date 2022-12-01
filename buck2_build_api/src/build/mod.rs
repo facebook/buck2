@@ -125,9 +125,10 @@ pub async fn build_configured_label(
                     PathSeparatorKind::Unix
                 };
                 let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
-                let mut cli = AbsCommandLineBuilder::new(&executor_fs);
-                runinfo.add_to_command_line(&mut cli)?;
-                run_args = Some(cli.build());
+                let mut cli = Vec::<String>::new();
+                let mut ctx = AbsCommandLineBuilder::new(&executor_fs);
+                runinfo.add_to_command_line(&mut cli, &mut ctx)?;
+                run_args = Some(cli);
             }
         }
         if providers_to_build.tests {

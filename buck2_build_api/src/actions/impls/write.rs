@@ -131,7 +131,9 @@ impl WriteAction {
     }
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<String> {
-        let mut cli_builder = if let Some(macro_files) = &self.macro_files {
+        let mut cli = Vec::<String>::new();
+
+        let mut ctx = if let Some(macro_files) = &self.macro_files {
             BaseCommandLineBuilder::new_with_write_to_file_macros_support(fs, macro_files)
         } else {
             BaseCommandLineBuilder::new(fs)
@@ -141,9 +143,9 @@ impl WriteAction {
             .value()
             .as_command_line()
             .unwrap()
-            .add_to_command_line(&mut cli_builder)?;
+            .add_to_command_line(&mut cli, &mut ctx)?;
 
-        Ok(cli_builder.build().join("\n"))
+        Ok(cli.join("\n"))
     }
 }
 

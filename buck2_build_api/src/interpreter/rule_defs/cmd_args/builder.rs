@@ -16,7 +16,6 @@ use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 
@@ -35,7 +34,6 @@ pub enum CommandLineBuilderErrors {
 /// Builds up arguments needed to construct a command line
 pub struct BaseCommandLineBuilder<'v> {
     fs: &'v ExecutorFs<'v>,
-    command_line: Vec<String>,
     // First element is list of artifacts, each corresponding to a file with macro contents. Ordering is very important.
     // Second element is a current position in that list.
     maybe_macros_state: Option<(&'v IndexSet<Artifact>, usize)>,
@@ -48,7 +46,6 @@ impl<'v> BaseCommandLineBuilder<'v> {
     pub fn new(fs: &'v ExecutorFs) -> Self {
         Self {
             fs,
-            command_line: Vec::new(),
             maybe_macros_state: None,
         }
     }
@@ -59,7 +56,6 @@ impl<'v> BaseCommandLineBuilder<'v> {
     ) -> Self {
         Self {
             fs,
-            command_line: Vec::new(),
             maybe_macros_state: Some((macro_files, 0)),
         }
     }
@@ -67,25 +63,6 @@ impl<'v> BaseCommandLineBuilder<'v> {
     /// The `ArtifactFilesystem` to resolve `Artifact`s
     pub fn fs(&self) -> &ExecutorFs {
         self.fs
-    }
-
-    /// Obtain the arguments that the command line describes.
-    pub fn build(self) -> Vec<String> {
-        self.command_line
-    }
-}
-
-impl CommandLineBuilder for BaseCommandLineBuilder<'_> {
-    fn add_arg_string(&mut self, s: String) {
-        self.command_line.push(s)
-    }
-
-    fn ctx(&self) -> &dyn CommandLineBuilderContext {
-        self as _
-    }
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-        self as _
     }
 }
 
@@ -129,10 +106,6 @@ impl<'v> AbsCommandLineBuilder<'v> {
     pub fn new(executor_fs: &'v ExecutorFs) -> Self {
         Self(BaseCommandLineBuilder::<'v>::new(executor_fs))
     }
-
-    pub fn build(self) -> Vec<String> {
-        self.0.build()
-    }
 }
 
 impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
@@ -156,20 +129,6 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
         let mut path = executor_fs.fs().fs().root().to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
         RelativePathBuf::from_path(path).map_err(|e| anyhow::anyhow!(e))
-    }
-}
-
-impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
-    fn add_arg_string(&mut self, s: String) {
-        self.0.add_arg_string(s);
-    }
-
-    fn ctx(&self) -> &dyn CommandLineBuilderContext {
-        self as _
-    }
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-        self as _
     }
 }
 
@@ -205,15 +164,13 @@ mod tests {
         );
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
-        let mut builder = BaseCommandLineBuilder::new(&executor_fs);
+        let mut cli = Vec::<String>::new();
+        let mut ctx = BaseCommandLineBuilder::new(&executor_fs);
 
-        "foo".add_to_command_line(&mut builder)?;
-        "bar".to_owned().add_to_command_line(&mut builder)?;
+        "foo".add_to_command_line(&mut cli, &mut ctx)?;
+        "bar".to_owned().add_to_command_line(&mut cli, &mut ctx)?;
 
-        assert_eq!(
-            &["foo".to_owned(), "bar".to_owned()],
-            builder.build().as_slice()
-        );
+        assert_eq!(&["foo".to_owned(), "bar".to_owned()], cli.as_slice());
         Ok(())
     }
 

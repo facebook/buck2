@@ -449,9 +449,9 @@ async fn build_launch_installer<'a>(
                 PathSeparatorKind::Unix
             };
             let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
-            let mut cli = AbsCommandLineBuilder::new(&executor_fs);
-            installer_run_info.add_to_command_line(&mut cli)?;
-            let run_args = cli.build();
+            let mut run_args = Vec::<String>::new();
+            let mut ctx = AbsCommandLineBuilder::new(&executor_fs);
+            installer_run_info.add_to_command_line(&mut run_args, &mut ctx)?;
             (artifact_visitor.inputs, run_args)
         };
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;

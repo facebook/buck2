@@ -73,7 +73,11 @@ pub trait WriteToFileMacroVisitor {
 ///
 /// Certain operations on `CommandLineBuilder` can fail, so propagate those upward
 pub trait CommandLineArgLike {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()>;
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()>;
 
     fn visit_artifacts(&self, _visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         Ok(())
@@ -89,7 +93,11 @@ pub trait CommandLineArgLike {
 }
 
 impl CommandLineArgLike for &str {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        _context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         cli.add_arg_string((*self).to_owned());
         Ok(())
     }
@@ -107,7 +115,11 @@ impl CommandLineArgLike for &str {
 }
 
 impl CommandLineArgLike for StarlarkStr {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        _context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         cli.add_arg_string(self.as_str().to_owned());
         Ok(())
     }
@@ -125,7 +137,11 @@ impl CommandLineArgLike for StarlarkStr {
 }
 
 impl CommandLineArgLike for String {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        _context: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         cli.add_arg_string(self.clone());
         Ok(())
     }
@@ -234,10 +250,12 @@ pub trait CommandLineBuilderContext {
 pub trait CommandLineBuilder {
     /// Add the string representation to the list of command line arguments.
     fn add_arg_string(&mut self, s: String);
+}
 
-    fn ctx(&self) -> &dyn CommandLineBuilderContext;
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext;
+impl CommandLineBuilder for Vec<String> {
+    fn add_arg_string(&mut self, s: String) {
+        self.push(s)
+    }
 }
 
 pub trait FrozenCommandLineArgLike:

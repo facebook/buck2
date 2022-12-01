@@ -75,10 +75,10 @@ impl Display for ResolvedMacro {
 
 pub fn add_output_to_arg(
     builder: &mut dyn ArgBuilder,
+    ctx: &mut dyn CommandLineBuilderContext,
     artifact: &StarlarkArtifact,
 ) -> anyhow::Result<()> {
-    let path = builder
-        .ctx()
+    let path = ctx
         .resolve_artifact(&artifact.get_bound_artifact()?)?
         .into_string();
     builder.push_str(&path);
@@ -87,13 +87,14 @@ pub fn add_output_to_arg(
 
 fn add_outputs_to_arg(
     builder: &mut dyn ArgBuilder,
+    ctx: &mut dyn CommandLineBuilderContext,
     outputs_list: &[FrozenRef<'static, StarlarkArtifact>],
 ) -> anyhow::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
         if i != 0 {
             builder.push_str(" ");
         }
-        add_output_to_arg(builder, value)?;
+        add_output_to_arg(builder, ctx, value)?;
     }
     Ok(())
 }
@@ -200,18 +201,22 @@ impl ResolvedMacro {
         }
     }
 
-    pub(crate) fn add_to_arg(&self, builder: &mut dyn ArgBuilder) -> anyhow::Result<()> {
+    pub(crate) fn add_to_arg(
+        &self,
+        builder: &mut dyn ArgBuilder,
+        ctx: &mut dyn CommandLineBuilderContext,
+    ) -> anyhow::Result<()> {
         match self {
             Self::Location(info) => {
                 let outputs = &info.default_outputs();
 
-                add_outputs_to_arg(builder, outputs)?;
+                add_outputs_to_arg(builder, ctx, outputs)?;
             }
             Self::ArgLike(command_line_like) => {
                 let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(builder);
-                command_line_like.add_to_command_line(&mut cli_builder)?;
+                command_line_like.add_to_command_line(&mut cli_builder, ctx)?;
             }
-            Self::Query(value) => value.add_to_arg(builder)?,
+            Self::Query(value) => value.add_to_arg(builder, ctx)?,
         };
 
         Ok(())
@@ -326,39 +331,28 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
     fn add_to_command_line(
         &self,
         cmdline_builder: &mut dyn CommandLineBuilder,
+        ctx: &mut dyn CommandLineBuilderContext,
     ) -> anyhow::Result<()> {
-        struct Builder<'a> {
-            cmdline_builder: &'a mut dyn CommandLineBuilder,
+        struct Builder {
             arg: String,
         }
 
-        impl Builder<'_> {
-            fn push_path(&mut self) -> anyhow::Result<()> {
-                let next_path = self.cmdline_builder.ctx_mut().next_macro_file_path()?;
+        impl Builder {
+            fn push_path(&mut self, ctx: &mut dyn CommandLineBuilderContext) -> anyhow::Result<()> {
+                let next_path = ctx.next_macro_file_path()?;
                 self.push_str(next_path.as_str());
                 Ok(())
             }
         }
 
-        impl ArgBuilder for Builder<'_> {
+        impl ArgBuilder for Builder {
             /// Add the string representation to the list of command line arguments.
             fn push_str(&mut self, s: &str) {
                 self.arg.push_str(s)
             }
-
-            fn ctx(&self) -> &dyn CommandLineBuilderContext {
-                self.cmdline_builder.ctx()
-            }
-
-            fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-                self.cmdline_builder.ctx_mut()
-            }
         }
 
-        let mut builder = Builder {
-            cmdline_builder,
-            arg: String::new(),
-        };
+        let mut builder = Builder { arg: String::new() };
 
         for part in &*self.parts {
             match part {
@@ -368,18 +362,15 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
                 ResolvedStringWithMacrosPart::Macro(write_to_file, val) => {
                     if *write_to_file {
                         builder.push_str("@");
-                        builder.push_path()?;
+                        builder.push_path(ctx)?;
                     } else {
-                        val.add_to_arg(&mut builder)?;
+                        val.add_to_arg(&mut builder, ctx)?;
                     }
                 }
             }
         }
 
-        let Builder {
-            cmdline_builder,
-            arg,
-        } = builder;
+        let Builder { arg } = builder;
         cmdline_builder.add_arg_string(arg);
         Ok(())
     }

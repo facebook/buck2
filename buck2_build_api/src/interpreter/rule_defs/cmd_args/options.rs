@@ -225,31 +225,39 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
     pub(crate) fn wrap_builder<'a, R>(
         &self,
         builder: &'a mut dyn CommandLineBuilder,
-        f: impl for<'b> FnOnce(&'b mut dyn CommandLineBuilder) -> anyhow::Result<R>,
+        ctx: &'a mut dyn CommandLineBuilderContext,
+        f: impl for<'b> FnOnce(
+            &'b mut dyn CommandLineBuilder,
+            &'b mut dyn CommandLineBuilderContext,
+        ) -> anyhow::Result<R>,
     ) -> anyhow::Result<R> {
-        struct Extras<'a, 'v, V: ValueLike<'v>> {
-            cli: &'a mut dyn CommandLineBuilder,
+        struct ExtrasBuilder<'a, 'v, V: ValueLike<'v>> {
+            builder: &'a mut dyn CommandLineBuilder,
             opts: &'a CommandLineOptions<'v, V>,
-            relative_to: Option<RelativePathBuf>,
             // Auxiliary field to store concatenation result (when arguments are concatenated) and
             // a flag stating that the result is not yet started to be computated (i.e. the first
             // argument to be concatenated is not yet processed).
             concatenation_context: Option<(String, bool)>,
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilderContext for Extras<'a, 'v, V> {
+        struct ExtrasContext<'a, 'v, V: ValueLike<'v>> {
+            ctx: &'a mut dyn CommandLineBuilderContext,
+            opts: &'a CommandLineOptions<'v, V>,
+            relative_to: Option<RelativePathBuf>,
+        }
+
+        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilderContext for ExtrasContext<'a, 'v, V> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
             ) -> anyhow::Result<CommandLineLocation> {
                 let Self {
-                    cli,
+                    ctx,
                     relative_to,
                     opts,
-                    ..
                 } = self;
 
-                let resolved = cli.ctx().resolve_project_path(path)?;
+                let resolved = ctx.resolve_project_path(path)?;
 
                 if opts.parent == 0
                     && opts.absolute_prefix.is_none()
@@ -286,11 +294,11 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
 
             fn fs(&self) -> &ExecutorFs {
-                self.cli.ctx().fs()
+                self.ctx.fs()
             }
 
             fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-                let macro_path = self.cli.ctx_mut().next_macro_file_path()?;
+                let macro_path = self.ctx.next_macro_file_path()?;
                 if let Some(relative_to_path) = &self.relative_to {
                     Ok(relative_to_path.relative(macro_path))
                 } else {
@@ -299,12 +307,12 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> Extras<'a, 'v, V> {
+        impl<'a, 'v, V: ValueLike<'v>> ExtrasBuilder<'a, 'v, V> {
             /// If any items need to be concatted/formatted and added to the original CLI,
             /// do it here
             fn finalize_args(mut self) -> Self {
                 if let Some((concatted_items, _)) = self.concatenation_context.take() {
-                    self.cli.add_arg_string(concatted_items);
+                    self.builder.add_arg_string(concatted_items);
                 }
                 self
             }
@@ -324,7 +332,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 if let Some((concatted_items, _)) = self.concatenation_context.as_mut() {
                     concatted_items.push_str(&arg)
                 } else {
-                    self.cli.add_arg_string(arg)
+                    self.builder.add_arg_string(arg)
                 }
             }
 
@@ -352,7 +360,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilder for Extras<'a, 'v, V> {
+        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilder for ExtrasBuilder<'a, 'v, V> {
             fn add_arg_string(&mut self, s: String) {
                 // We apply options impacting formatting in the order:
                 //   format, quote, (prepend + delimiter)
@@ -362,32 +370,31 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 }
                 self.add_arg(self.format(s))
             }
-
-            fn ctx(&self) -> &dyn CommandLineBuilderContext {
-                self as _
-            }
-
-            fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-                self as _
-            }
         }
 
         if !self.changes_builder() {
-            f(builder)
+            f(builder, ctx)
         } else {
-            let relative_to = self.relative_to_path(builder.ctx())?;
-            let mut cli_extras = Extras {
-                cli: builder,
+            let relative_to = self.relative_to_path(ctx)?;
+
+            let mut extras_builder = ExtrasBuilder {
+                builder,
                 opts: self,
-                relative_to,
                 concatenation_context: if self.delimiter.is_some() {
                     Some((String::new(), true))
                 } else {
                     None
                 },
             };
-            let res = f(&mut cli_extras)?;
-            cli_extras.finalize_args();
+
+            let mut extras_ctx = ExtrasContext {
+                ctx,
+                opts: self,
+                relative_to,
+            };
+
+            let res = f(&mut extras_builder, &mut extras_ctx)?;
+            extras_builder.finalize_args();
             Ok(res)
         }
     }

@@ -217,8 +217,11 @@ impl<'a> MacroToFileWriter<'a> {
 impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
     fn visit_write_to_file_macro(&mut self, resolved_macro: &ResolvedMacro) -> anyhow::Result<()> {
         let content = {
-            let mut builder = MacroContentBuilder::new(self.fs, &self.relative_to_path);
-            resolved_macro.add_to_arg(&mut builder)?;
+            let mut builder = MacroOutput {
+                result: String::new(),
+            };
+            let mut ctx = MacroContext::new(self.fs, &self.relative_to_path);
+            resolved_macro.add_to_arg(&mut builder, &mut ctx)?;
             builder.result
         };
 
@@ -235,18 +238,16 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
     }
 }
 
-struct MacroContentBuilder<'a> {
+struct MacroContext<'a> {
     fs: &'a ExecutorFs<'a>,
     maybe_relative_to_path: &'a Option<RelativePathBuf>,
-    result: String,
 }
 
-impl<'a> MacroContentBuilder<'a> {
+impl<'a> MacroContext<'a> {
     fn new(fs: &'a ExecutorFs, maybe_relative_to_path: &'a Option<RelativePathBuf>) -> Self {
         Self {
             fs,
             maybe_relative_to_path,
-            result: String::new(),
         }
     }
 
@@ -259,7 +260,7 @@ impl<'a> MacroContentBuilder<'a> {
     }
 }
 
-impl CommandLineBuilderContext for MacroContentBuilder<'_> {
+impl CommandLineBuilderContext for MacroContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
@@ -279,16 +280,13 @@ impl CommandLineBuilderContext for MacroContentBuilder<'_> {
     }
 }
 
-impl ArgBuilder for MacroContentBuilder<'_> {
+// TODO(torozco): Just remove this, and ArgBuilder
+struct MacroOutput {
+    result: String,
+}
+
+impl ArgBuilder for MacroOutput {
     fn push_str(&mut self, s: &str) {
         self.result.push_str(s)
-    }
-
-    fn ctx(&self) -> &dyn CommandLineBuilderContext {
-        self as _
-    }
-
-    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-        self as _
     }
 }
