@@ -1,6 +1,5 @@
 // @generated
 // Copied from https://github.com/googleapis/googleapis/blob/master/google/api/http.proto at 23 Nov 2022
-// Changed to add ```ignore
 
 // Copyright 2015 Google LLC
 //
@@ -70,7 +69,6 @@ message Http {
 //
 // Example:
 //
-// ```ignore
 //     service Messaging {
 //       rpc GetMessage(GetMessageRequest) returns (Message) {
 //         option (google.api.http) = {
@@ -84,7 +82,6 @@ message Http {
 //     message Message {
 //       string text = 1; // The resource content.
 //     }
-// ```
 //
 // This enables an HTTP REST to gRPC mapping as below:
 //
@@ -96,7 +93,6 @@ message Http {
 // automatically become HTTP query parameters if there is no HTTP request body.
 // For example:
 //
-// ```ignore
 //     service Messaging {
 //       rpc GetMessage(GetMessageRequest) returns (Message) {
 //         option (google.api.http) = {
@@ -112,7 +108,6 @@ message Http {
 //       int64 revision = 2;    // Mapped to URL query parameter `revision`.
 //       SubMessage sub = 3;    // Mapped to URL query parameter `sub.subfield`.
 //     }
-// ```
 //
 // This enables a HTTP JSON to RPC mapping as below:
 //
@@ -133,7 +128,6 @@ message Http {
 // specifies the mapping. Consider a REST update method on the
 // message resource collection:
 //
-// ```ignore
 //     service Messaging {
 //       rpc UpdateMessage(UpdateMessageRequest) returns (Message) {
 //         option (google.api.http) = {
@@ -146,7 +140,6 @@ message Http {
 //       string message_id = 1; // mapped to the URL
 //       Message message = 2;   // mapped to the body
 //     }
-// ```
 //
 // The following HTTP JSON to RPC mapping is enabled, where the
 // representation of the JSON in the request body is determined by
@@ -162,7 +155,6 @@ message Http {
 // request body.  This enables the following alternative definition of
 // the update method:
 //
-// ```ignore
 //     service Messaging {
 //       rpc UpdateMessage(Message) returns (Message) {
 //         option (google.api.http) = {
@@ -175,7 +167,6 @@ message Http {
 //       string message_id = 1;
 //       string text = 2;
 //     }
-// ```
 //
 //
 // The following HTTP JSON to RPC mapping is enabled:
@@ -194,7 +185,6 @@ message Http {
 // It is possible to define multiple HTTP methods for one RPC by using
 // the `additional_bindings` option. Example:
 //
-// ```ignore
 //     service Messaging {
 //       rpc GetMessage(GetMessageRequest) returns (Message) {
 //         option (google.api.http) = {
@@ -209,7 +199,6 @@ message Http {
 //       string message_id = 1;
 //       string user_id = 2;
 //     }
-// ```
 //
 // This enables the following two alternative HTTP JSON to RPC mappings:
 //
@@ -237,14 +226,12 @@ message Http {
 //
 // ### Path template syntax
 //
-// ```ignore
 //     Template = "/" Segments [ Verb ] ;
 //     Segments = Segment { "/" Segment } ;
 //     Segment  = "*" | "**" | LITERAL | Variable ;
 //     Variable = "{" FieldPath [ "=" Segments ] "}" ;
 //     FieldPath = IDENT { "." IDENT } ;
 //     Verb     = ":" LITERAL ;
-// ```
 //
 // The syntax `*` matches a single URL path segment. The syntax `**` matches
 // zero or more URL path segments, which must be the last part of the URL path
@@ -293,13 +280,11 @@ message Http {
 //
 // Example:
 //
-// ```ignore
 //     http:
 //       rules:
 //         # Selects a gRPC method and applies HttpRule to it.
 //         - selector: example.v1.Messaging.GetMessage
 //           get: /v1/messages/{message_id}/{sub.subfield}
-// ```
 //
 // ## Special notes
 //
