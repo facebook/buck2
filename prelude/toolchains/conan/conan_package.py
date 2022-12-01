@@ -43,6 +43,16 @@ def conan_install(
     # TODO Enable if needed with a hermetic short path.
     env["CONAN_USER_HOME_SHORT"] = "None"
 
+    # TODO The build places downloads, metadata, and artifacts under a path of the form:
+    #     user-home/.conan/data/<name>/<version>/<user>/<channel>/
+    #   where missing fields are replaced by '_', for example:
+    #     user-home/.conan/data/openssl/3.0.7/_/_
+    #   the build artifacts are placed under:
+    #     user-home/.conan/data/<name>/<version>/<user>/<channel>/package/<package-id>
+    #   for example:
+    #     user-home/.conan/data/openssl/3.0.7/_/_/package/304480252b01879c8641f79a653b593b8f26cf9f
+    #   place the output directories of dependencies from previous build actions into the current build directory.
+
     # Workaround gcc/clang ABI compatibility warning.
     # TODO Solve this through the proper toolchain configuration.
     subprocess.check_call("conan profile new default".split(), env=env)
