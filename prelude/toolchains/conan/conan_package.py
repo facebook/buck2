@@ -61,7 +61,8 @@ def conan_install(
         output_folder,
         user_home,
         manifests,
-        install_info):
+        install_info,
+        trace_log):
     args = [conan, "install"]
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
@@ -90,6 +91,8 @@ def conan_install(
     # Disable the short paths feature on Windows.
     # TODO Enable if needed with a hermetic short path.
     env["CONAN_USER_HOME_SHORT"] = "None"
+    # Enable Conan debug trace.
+    env["CONAN_TRACE_FILE"] = os.path.abspath(trace_log)
 
     # TODO The build places downloads, metadata, and artifacts under a path of the form:
     #     user-home/.conan/data/<name>/<version>/<user>/<channel>/
@@ -186,6 +189,12 @@ def main():
             required=True,
             help="Write install information JSON file to this location.")
     parser.add_argument(
+            "--trace-file",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Write Conan trace log to this file.")
+    parser.add_argument(
             "--cache-out",
             metavar="PATH",
             type=str,
@@ -237,7 +246,8 @@ def main():
             args.output_folder,
             args.user_home,
             args.manifests,
-            args.install_info)
+            args.install_info,
+            args.trace_file)
     copy_cache_dir(
             args.reference,
             args.user_home,
