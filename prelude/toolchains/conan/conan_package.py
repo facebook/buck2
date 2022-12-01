@@ -4,6 +4,43 @@ import os
 import subprocess
 
 
+def _none(s):
+    if not s or s == "_":
+        return None
+    else:
+        return s
+
+
+def parse_reference(ref):
+    """Parse a Conan package reference.
+
+    These take the shape `name/version@channel/name#revision`.
+    Omitted values or `_` are read as `None`.
+    """
+    name = None
+    version = None
+    user = None
+    channel = None
+    revision = None
+
+    if "#" in ref:
+        ref, revision = ref.split("#", 1)
+
+    if "@" in ref:
+        ref, user_channel = ref.split("@", 1)
+        if "/" in user_channel:
+            user, channel = user_channel.split("/", 1)
+        else:
+            user = user_channel
+
+    if "/" in ref:
+        name, version = ref.split("/", 1)
+    else:
+        name = ref
+
+    return _none(name), _none(version), _none(user), _none(channel), _none(revision)
+
+
 def conan_install(
         conan,
         reference,
