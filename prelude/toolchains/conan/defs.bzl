@@ -12,6 +12,7 @@ manage and install third-party C/C++ dependencies.
 """
 
 ConanToolchainInfo = provider(fields = ["conan"])
+ConanPackageInfo = provider(fields = ["cache_out"])
 
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
     return [
@@ -84,14 +85,19 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--cache-out", cache_out.as_output()])
     ctx.actions.run(cmd, category = "conan_build")
 
-    return [DefaultInfo(default_outputs = [
-        install_folder,
-        output_folder,
-        user_home,
-        manifests,
-        install_info,
-        cache_out,
-    ])]
+    return [
+        ConanPackageInfo(
+            cache_out = cache_out,
+        ),
+        DefaultInfo(default_outputs = [
+            install_folder,
+            output_folder,
+            user_home,
+            manifests,
+            install_info,
+            cache_out,
+        ]),
+    ]
 
 conan_package = rule(
     impl = _conan_package_impl,
@@ -99,7 +105,7 @@ conan_package = rule(
         "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
         "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
         "options": attrs.list(attrs.string(doc = "Conan build options.")),
-        "deps": attrs.list(attrs.dep(providers = [], doc = "Conan Package dependencies.")),
+        "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan Package dependencies.")),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
     },
