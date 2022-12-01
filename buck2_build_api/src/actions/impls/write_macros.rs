@@ -283,4 +283,12 @@ impl ArgBuilder for MacroContentBuilder<'_> {
     fn push_str(&mut self, s: &str) {
         self.result.push_str(s)
     }
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext {
+        self as _
+    }
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+        self as _
+    }
 }

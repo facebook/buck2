@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use starlark::values::Value;
 use value::ResolvedStringWithMacros;
@@ -17,7 +14,6 @@ use value::ResolvedStringWithMacros;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
 pub mod query;
 pub mod value;
@@ -38,23 +34,6 @@ impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
     }
 }
 
-impl CommandLineBuilderContext for SpaceSeparatedCommandLineBuilder<'_> {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<CommandLineLocation> {
-        self.builder.resolve_project_path(path)
-    }
-
-    fn fs(&self) -> &ExecutorFs {
-        self.builder.fs()
-    }
-
-    fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-        self.builder.next_macro_file_path()
-    }
-}
-
 impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
     fn add_arg_string(&mut self, s: String) {
         if self.first {
@@ -66,11 +45,11 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
     }
 
     fn ctx(&self) -> &dyn CommandLineBuilderContext {
-        self as _
+        self.builder.ctx()
     }
 
     fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
-        self as _
+        self.builder.ctx_mut()
     }
 }
 
@@ -86,47 +65,38 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
 
 /// An ArgBuilder is almost exactly a CommandLineBuilder. The difference is that while a commandline
 /// builder is building a list of strings, argbuilder is appending the values to a single string.
-pub trait ArgBuilder: CommandLineBuilderContext {
+pub trait ArgBuilder {
     /// Add the string representation to the list of command line arguments.
     fn push_str(&mut self, s: &str);
+
+    fn ctx(&self) -> &dyn CommandLineBuilderContext;
+
+    fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext;
 }
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::fs::paths::RelativePathBuf;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
-    use buck2_execute::artifact::fs::ExecutorFs;
-
     use crate::attrs::resolve::attr_type::arg::ArgBuilder;
     use crate::attrs::resolve::attr_type::arg::SpaceSeparatedCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
-    use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
     #[test]
     fn cmdline_builder() -> anyhow::Result<()> {
         struct Base {
             val: String,
         }
-        impl CommandLineBuilderContext for Base {
-            fn resolve_project_path(
-                &self,
-                _path: ProjectRelativePathBuf,
-            ) -> anyhow::Result<CommandLineLocation> {
-                unimplemented!()
-            }
-
-            fn fs(&self) -> &ExecutorFs {
-                unimplemented!()
-            }
-
-            fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-                unimplemented!()
-            }
-        }
         impl ArgBuilder for Base {
             fn push_str(&mut self, v: &str) {
                 self.val.push_str(v);
+            }
+
+            fn ctx(&self) -> &dyn CommandLineBuilderContext {
+                unimplemented!()
+            }
+
+            fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+                unimplemented!()
             }
         }
 

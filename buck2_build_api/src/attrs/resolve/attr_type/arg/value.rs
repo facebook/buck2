@@ -15,10 +15,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
@@ -41,7 +38,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
@@ -82,6 +78,7 @@ pub fn add_output_to_arg(
     artifact: &StarlarkArtifact,
 ) -> anyhow::Result<()> {
     let path = builder
+        .ctx()
         .resolve_artifact(&artifact.get_bound_artifact()?)?
         .into_string();
     builder.push_str(&path);
@@ -343,27 +340,18 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
             }
         }
 
-        impl CommandLineBuilderContext for Builder<'_> {
-            fn resolve_project_path(
-                &self,
-                path: ProjectRelativePathBuf,
-            ) -> anyhow::Result<CommandLineLocation> {
-                self.cmdline_builder.ctx().resolve_project_path(path)
-            }
-
-            fn fs(&self) -> &ExecutorFs {
-                self.cmdline_builder.ctx().fs()
-            }
-
-            fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-                self.cmdline_builder.ctx_mut().next_macro_file_path()
-            }
-        }
-
         impl ArgBuilder for Builder<'_> {
             /// Add the string representation to the list of command line arguments.
             fn push_str(&mut self, s: &str) {
                 self.arg.push_str(s)
+            }
+
+            fn ctx(&self) -> &dyn CommandLineBuilderContext {
+                self.cmdline_builder.ctx()
+            }
+
+            fn ctx_mut(&mut self) -> &mut dyn CommandLineBuilderContext {
+                self.cmdline_builder.ctx_mut()
             }
         }
 
