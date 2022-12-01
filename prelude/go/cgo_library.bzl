@@ -37,6 +37,7 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
+    "expect",
     "map_idx",
 )
 load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
@@ -70,6 +71,8 @@ def _cgo(
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    expect(go_toolchain.cgo != None)
+    expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
     cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)

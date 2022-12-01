@@ -36,6 +36,7 @@ def get_toolchain_cmd_args(toolchain: "GoToolchainInfo", go_root = True) -> "cmd
     # CGO is enabled by default for native compilation, but we need to set it
     # explicitly for cross-builds:
     # https://go-review.googlesource.com/c/go/+/12603/2/src/cmd/cgo/doc.go
-    cmd.add("CGO_ENABLED=1")
+    if toolchain.cgo != None:
+        cmd.add("CGO_ENABLED=1")
 
     return cmd
