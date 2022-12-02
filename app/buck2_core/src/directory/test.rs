@@ -348,6 +348,27 @@ fn test_find_prefix() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_find_mut() -> anyhow::Result<()> {
+    // Fewer tests than test_find since under the hood it's the exact same implementation.
+    let mut a = TestDirectoryBuilder::empty();
+    a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
+
+    assert_matches!(
+        find_mut(&mut a, path("a/b/c")),
+        Ok(Some(DirectoryEntry::Leaf(..)))
+    );
+
+    assert_matches!(
+        find_prefix_mut(&mut a, path("a/b/c/d")),
+        Ok(Some((DirectoryEntry::Leaf(..), Some(rest)))) => {
+            assert_eq!(rest, path("d"));
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_search() -> anyhow::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;

@@ -11,6 +11,7 @@ use thiserror::Error;
 
 use super::Directory;
 use super::DirectoryEntry;
+use super::DirectoryMut;
 use super::FingerprintedDirectory;
 use super::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
@@ -27,21 +28,17 @@ pub enum DirectoryFindError {
     CannotTraverseLeaf { path: PathAccumulator },
 }
 
-trait FindConflict<'a, L> {
-    fn new<'b>(
-        path: &'b FileName,
-        remaining: impl Iterator<Item = &'b FileName>,
-        leaf: &'a L,
-    ) -> Self;
+trait FindConflict<T> {
+    fn new<'b>(path: &'b FileName, remaining: impl Iterator<Item = &'b FileName>, leaf: T) -> Self;
 
     fn with<'b>(self, path: &'b FileName) -> Self;
 }
 
-impl<'a, L> FindConflict<'a, L> for PathAccumulator {
+impl<T> FindConflict<T> for PathAccumulator {
     fn new<'b>(
         path: &'b FileName,
         _remaining: impl Iterator<Item = &'b FileName>,
-        _leaf: &'a L,
+        _leaf: T,
     ) -> Self {
         PathAccumulator::new(path)
     }
@@ -51,17 +48,13 @@ impl<'a, L> FindConflict<'a, L> for PathAccumulator {
     }
 }
 
-struct PrefixLookupContainer<'a, L> {
-    leaf: &'a L,
+struct PrefixLookupContainer<T> {
+    leaf: T,
     path: ForwardRelativePathBuf,
 }
 
-impl<'a, L> FindConflict<'a, L> for PrefixLookupContainer<'a, L> {
-    fn new<'b>(
-        path: &'b FileName,
-        remaining: impl Iterator<Item = &'b FileName>,
-        leaf: &'a L,
-    ) -> Self {
+impl<T> FindConflict<T> for PrefixLookupContainer<T> {
+    fn new<'b>(path: &'b FileName, remaining: impl Iterator<Item = &'b FileName>, leaf: T) -> Self {
         Self {
             leaf,
             path: std::iter::once(path)
@@ -79,17 +72,19 @@ impl<'a, L> FindConflict<'a, L> for PrefixLookupContainer<'a, L> {
 macro_rules! impl_find {
     (
         $dir_ty: ident,
+        $getter: ident,
         $find_name: ident,
         $find_prefix_name: ident,
         $mod: ident,
+        $( $mutability:tt, )*
     ) => {
         mod $mod {
             use super::*;
 
             pub fn $find_name<'a, 'b, L, H, D: $dir_ty<L, H>>(
-                dir: &'a D,
+                dir: &'a $($mutability)* D,
                 path: impl IntoIterator<Item = &'b FileName>,
-            ) -> Result<Option<DirectoryEntry<&'a dyn $dir_ty<L, H>, &'a L>>, DirectoryFindError>
+            ) -> Result<Option<DirectoryEntry<&'a $($mutability)* dyn $dir_ty<L, H>, &'a $($mutability)* L>>, DirectoryFindError>
             {
                 let mut path = path.into_iter();
 
@@ -103,11 +98,11 @@ macro_rules! impl_find {
             }
 
             pub fn $find_prefix_name<'a, 'b, L, H, D: $dir_ty<L, H>>(
-                dir: &'a D,
+                dir: &'a $($mutability)* D,
                 path: impl IntoIterator<Item = &'b FileName>,
             ) -> Result<
                 Option<(
-                    DirectoryEntry<&'a dyn $dir_ty<L, H>, &'a L>,
+                    DirectoryEntry<&'a $($mutability)* dyn $dir_ty<L, H>, &'a $($mutability)* L>,
                     Option<ForwardRelativePathBuf>,
                 )>,
                 DirectoryFindError,
@@ -119,7 +114,7 @@ macro_rules! impl_find {
                     None => return Err(DirectoryFindError::EmptyPath),
                 };
 
-                match find_inner::<_, _, PrefixLookupContainer<L>>(dir, path_needle, path) {
+                match find_inner::<_, _, PrefixLookupContainer<&'a $($mutability)* L>>(dir, path_needle, path) {
                     Ok(maybe_leaf) => Ok((maybe_leaf.map(|l| (l, None)))),
                     Err(PrefixLookupContainer { leaf, path }) => {
                         Ok(Some((DirectoryEntry::Leaf(leaf), Some(path))))
@@ -128,14 +123,14 @@ macro_rules! impl_find {
             }
 
             fn find_inner<'a, 'b, L, H, A>(
-                dir: &'a dyn $dir_ty<L, H>,
+                dir: &'a $($mutability)* dyn $dir_ty<L, H>,
                 path_needle: &'b FileName,
                 mut path_rest: impl Iterator<Item = &'b FileName>,
-            ) -> Result<Option<DirectoryEntry<&'a dyn $dir_ty<L, H>, &'a L>>, A>
+            ) -> Result<Option<DirectoryEntry<&'a $($mutability)* dyn $dir_ty<L, H>, &'a $($mutability)* L>>, A>
             where
-                A: FindConflict<'a, L>,
+                A: FindConflict<&'a $($mutability)* L>,
             {
-                let entry = match dir.get(path_needle) {
+                let entry = match dir.$getter(path_needle) {
                     Some(entry) => entry,
                     None => return Ok(None),
                 };
@@ -162,8 +157,17 @@ macro_rules! impl_find {
 
 impl_find!(
     FingerprintedDirectory,
+    get,
     find_fingerprinted,
     find_prefix_fingerprinted,
     impl_find_fingerprinted,
 );
-impl_find!(Directory, find, find_prefix, impl_find,);
+impl_find!(Directory, get, find, find_prefix, impl_find,);
+impl_find!(
+    DirectoryMut,
+    get_mut,
+    find_mut,
+    find_prefix_mut,
+    impl_find_mut,
+    mut,
+);

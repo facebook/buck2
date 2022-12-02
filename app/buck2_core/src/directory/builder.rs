@@ -20,6 +20,7 @@ use super::DirectoryData;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
+use super::DirectoryMut;
 use super::ExclusiveDirectory;
 use super::FingerprintedDirectory;
 use super::HasDirectoryDigest;
@@ -276,6 +277,21 @@ where
         L: Clone,
     {
         self.clone()
+    }
+}
+
+impl<L, H> DirectoryMut<L, H> for DirectoryBuilder<L, H>
+where
+    H: HasDirectoryDigest,
+    L: Clone,
+{
+    fn get_mut<'a>(
+        &'a mut self,
+        needle: &'_ FileName,
+    ) -> Option<DirectoryEntry<&'a mut dyn DirectoryMut<L, H>, &'a mut L>> {
+        self.as_mut()
+            .get_mut(needle)
+            .map(|v| v.as_mut().map_dir(|d| d as &mut dyn DirectoryMut<L, H>))
     }
 }
 
