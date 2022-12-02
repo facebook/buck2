@@ -512,8 +512,8 @@ message UnstableAllocatorStatsResponse {
 message UnstableDiceDumpRequest {
   enum DiceDumpFormat {
     TSV = 0;
-    SERDE = 1;
-    SERDE_PRETTY = 2;
+    BINCODE = 1;
+    JSON_PRETTY = 2;
   }
   // The path to write the DICE dump to. If this path is relative, it is made
   // absolute relative to the working directory of the daemon.

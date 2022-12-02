@@ -44,9 +44,9 @@ impl StreamingCommand for DiceDumpCommand {
         _ctx: ClientCommandContext,
     ) -> ExitResult {
         let format = if self.serde {
-            DiceDumpFormat::Serde
+            DiceDumpFormat::Bincode
         } else if self.serde_pretty {
-            DiceDumpFormat::SerdePretty
+            DiceDumpFormat::JsonPretty
         } else {
             DiceDumpFormat::Tsv
         };

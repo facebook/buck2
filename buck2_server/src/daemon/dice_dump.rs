@@ -41,8 +41,8 @@ pub(crate) fn dice_dump(
 ) -> anyhow::Result<()> {
     match format {
         DiceDumpFormat::Tsv => dice_dump_tsv(dice, path),
-        DiceDumpFormat::Serde => dice_dump_bincode(dice, path),
-        DiceDumpFormat::SerdePretty => dice_dump_json_pretty(dice, path),
+        DiceDumpFormat::Bincode => dice_dump_bincode(dice, path),
+        DiceDumpFormat::JsonPretty => dice_dump_json_pretty(dice, path),
     }
 }
 
