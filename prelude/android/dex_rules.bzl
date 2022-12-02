@@ -134,13 +134,14 @@ def get_multi_dex(
         "secondary dex exopackage can only be enabled on pre-dexed builds!",
     )
     primary_dex_file = ctx.actions.declare_output("classes.dex")
+    primary_dex_class_names = ctx.actions.declare_output("primary_dex_class_names.txt")
     root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir")
     secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir")
 
     # dynamic actions are not valid with no input, but it's easier to use the same code regardless,
     # so just create an empty input.
     inputs = [apk_module_graph_file] if apk_module_graph_file else [ctx.actions.write("empty_artifact_for_multi_dex_dynamic_action", [])]
-    outputs = [primary_dex_file, root_module_secondary_dex_output_dir, secondary_dex_dir]
+    outputs = [primary_dex_file, primary_dex_class_names, root_module_secondary_dex_output_dir, secondary_dex_dir]
 
     def do_multi_dex(ctx: "context", artifacts, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
@@ -157,6 +158,7 @@ def get_multi_dex(
             if is_root_module(module):
                 multi_dex_cmd.add("--primary-dex", outputs[primary_dex_file].as_output())
                 multi_dex_cmd.add("--primary-dex-patterns-path", ctx.actions.write("primary_dex_patterns", primary_dex_patterns))
+                multi_dex_cmd.add("--primary-dex-class-names", outputs[primary_dex_class_names].as_output())
                 multi_dex_cmd.add("--secondary-dex-output-dir", outputs[root_module_secondary_dex_output_dir].as_output())
             else:
                 secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dex_output_dir_for_module_{}".format(module))
@@ -196,7 +198,7 @@ def get_multi_dex(
         secondary_dex_dirs = [root_module_secondary_dex_output_dir, secondary_dex_dir],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
-        primary_dex_class_names = None,
+        primary_dex_class_names = primary_dex_class_names,
     )
 
 def merge_to_single_dex(
