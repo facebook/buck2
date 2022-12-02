@@ -11,7 +11,7 @@ jobs:
     description: |
       Run tests and upload buck2 binary for Linux
     docker:
-      - image: cimg/rust:1.49.0
+      - image: cimg/rust:1.65.0
     resource_class: xlarge
     steps:
       - run: sudo apt-get update
