@@ -370,9 +370,7 @@ impl BaseDeferredKey {
                     base.as_str(),
                     "/",
                     prefix.as_str(),
-                    "/",
-                    "__bxl__",
-                    "/",
+                    "-bxl/",
                     label.bxl_path.cell().as_str(),
                     "/",
                     output_hash.as_str(),
@@ -404,11 +402,10 @@ impl BaseDeferredKey {
                     base.as_str(),
                     "/",
                     prefix.as_str(),
-                    "/",
+                    "-anon/",
                     target.name().pkg().cell_name().as_str(),
                     "/",
                     target.exec_cfg().output_hash(),
-                    "/__anon__",
                     cell_relative_path,
                     if cell_relative_path.is_empty() {
                         ""
