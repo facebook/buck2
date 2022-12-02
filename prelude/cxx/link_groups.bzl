@@ -30,6 +30,10 @@ load(
     "breadth_first_traversal_by",
 )
 load(
+    "@prelude//utils:utils.bzl",
+    "expect",
+)
+load(
     ":groups.bzl",
     "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
@@ -188,10 +192,36 @@ def get_filtered_labels_to_links_map(
 
     linkable_map = {}
 
+    # Keep track of whether we've already added a link group to the link line
+    # already.  This avoids use adding the same link group lib multiple times,
+    # for each of the possible multiple nodes that maps to it.
+    link_group_added = {}
+
     def add_link(target: "label", link_style: LinkStyle.type):
         linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info(linkable_graph_node_map[target], link_style, prefer_stripped),
             link_style = link_style,
+        )  # buildifier: disable=uninitialized
+
+    def add_link_group(target: "label", target_group: str.type):
+        # If we've already added this link group to the link line, we're done.
+        if target_group in link_group_added:
+            return
+
+        # In some flows, we may not have access to the actual link group lib
+        # in our dep tree (e.g. https://fburl.com/code/pddmkptb), so just bail
+        # in this case.
+        # NOTE(agallagher): This case seems broken, as we're not going to set
+        # DT_NEEDED tag correctly, or detect missing syms at link time.
+        link_group_lib = link_group_libs.get(target_group)
+        if link_group_lib == None:
+            return
+
+        expect(target_group != link_group)
+        link_group_added[target_group] = None
+        linkable_map[target] = LinkGroupLinkInfo(
+            link_info = _get_link_info(link_group_lib.shared_link_infos),
+            link_style = LinkStyle("shared"),
         )  # buildifier: disable=uninitialized
 
     for target in linkables:
@@ -205,10 +235,7 @@ def get_filtered_labels_to_links_map(
             # 2) use the provided link info in lieu of what's in the grph.
             target_link_group = link_group_roots.get(target)
             if target_link_group != None and target_link_group != link_group:
-                linkable_map[target] = LinkGroupLinkInfo(
-                    link_info = _get_link_info(link_group_libs[target_link_group].shared_link_infos),
-                    link_style = LinkStyle("shared"),
-                )  # buildifier: disable=uninitialized
+                add_link_group(target, target_link_group)
             else:
                 add_link(target, LinkStyle("shared"))
 
@@ -229,6 +256,8 @@ def get_filtered_labels_to_links_map(
             elif target_link_group == MATCH_ALL_LABEL or target_link_group == link_group:
                 # If this belongs to the match all link group or the group currently being evaluated
                 add_link(target, actual_link_style)
+            elif target_link_group not in (None, NO_MATCH_LABEL, MATCH_ALL_LABEL):
+                add_link_group(target, target_link_group)
 
     return linkable_map
 
