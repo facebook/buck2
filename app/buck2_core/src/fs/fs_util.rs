@@ -368,7 +368,7 @@ impl Write for FileGuard {
 pub fn create_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileGuard> {
     let guard = IoCounterKey::Write.guard();
     let file = File::create(path.as_ref())
-        .with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))?;
+        .with_context(|| format!("create_file({})", P::as_ref(&path).display()))?;
     Ok(FileGuard {
         file,
         _guard: guard,
