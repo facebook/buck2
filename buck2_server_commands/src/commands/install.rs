@@ -87,7 +87,7 @@ pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, thiserror::Error)]
 pub enum InstallError {
-    #[error("Not install type `{0}` from package `{1}`")]
+    #[error("Target {1}:{0} cannot be installed as it does not expose an InstallInfo provider")]
     NoInstallProvider(TargetName, Package),
 
     #[error("Installer target `{0}` doesn't expose RunInfo provider")]
