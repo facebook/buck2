@@ -20,6 +20,9 @@ If you `cd examples/prelude` and type `buck2 build ...` that will build a number
 
 To build Buck2 using Buck2:
 
+* Install [protobuf](https://github.com/protocolbuffers/protobuf#protocol-compiler-installation):
+  * On Ubuntu Linux: `apt-get install protobuf-compiler`
+  * On Mac: `brew install protobuf`
 * Install [`reindeer`](https://github.com/facebookincubator/reindeer), which is used to make Buck targets for Rust libraries.
 * Run `reindeer --third-party-dir shim/third-party/rust vendor`
 * Run `reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUCK_OSS`
