@@ -39,6 +39,7 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use futures::future;
 use futures::Future;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
@@ -318,9 +319,12 @@ impl<'v> AnonTargetsRegistry<'v> {
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
-        for (promise, target) in self.entries {
-            // FIXME: All these steps could be run in parallel with a join
-            let val = target.resolve(dice).await?;
+        // Resolve all the targets in parallel
+        let values =
+            future::try_join_all(self.entries.iter().map(|(_, target)| target.resolve(dice)))
+                .await?;
+        // But must bind the promises sequentially
+        for ((promise, _), val) in self.entries.iter().zip(values) {
             let val = val
                 .provider_collection
                 .value()
