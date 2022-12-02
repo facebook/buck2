@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -14,6 +15,7 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
@@ -22,7 +24,7 @@ use cli_proto::UnstableDiceDumpRequest;
 pub struct DiceDumpCommand {
     /// The path to write the heap dump to.
     #[clap(short, long, value_name = "PATH")]
-    path: String,
+    path: PathArg,
     #[clap(long, group = "dice_dump_format")]
     serde: bool,
     #[clap(long, group = "dice_dump_format")]
@@ -41,7 +43,7 @@ impl StreamingCommand for DiceDumpCommand {
         self,
         mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        ctx: ClientCommandContext,
     ) -> ExitResult {
         let format = if self.serde {
             DiceDumpFormat::Bincode
@@ -53,7 +55,12 @@ impl StreamingCommand for DiceDumpCommand {
         buckd
             .with_flushing()
             .unstable_dice_dump(UnstableDiceDumpRequest {
-                destination_path: self.path,
+                destination_path: self
+                    .path
+                    .resolve(&ctx.working_dir)
+                    .to_str()
+                    .context("path is not UTF-8")?
+                    .to_owned(),
                 format: format.into(),
             })
             .await?;
