@@ -118,14 +118,13 @@ def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "r
             fail("Invalid group mapping filter: {}\nFilter must begin with `label:` or `pattern:`.".format(entry))
     return filter_type, label_regex, build_target_pattern
 
-def compute_mappings(groups: [Group.type], graph_map_func) -> {"label": str.type}:
+def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"label": str.type}:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
     if not groups:
         return {}
 
-    graph_map = graph_map_func()
     target_to_group_map = {}
     node_traversed_targets = {}
 

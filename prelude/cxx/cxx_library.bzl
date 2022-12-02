@@ -313,12 +313,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         ctx,
         deps = linkable_graph_deps,
     )
-    linkable_graph_node_map_func = get_linkable_graph_node_map_func(deps_linkable_graph)
 
     frameworks_linkable = create_frameworks_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(
         ctx,
-        linkable_graph_node_map_func,
+        get_linkable_graph_node_map_func(deps_linkable_graph),
         link_group,
         link_group_mappings,
         link_group_preferred_linkage,
@@ -825,7 +824,7 @@ def _get_shared_library_links(
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
     link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
-        linkable_graph_node_map_func,
+        linkable_graph_node_map_func(),
         link_group,
         link_group_mappings,
         link_group_preferred_linkage,

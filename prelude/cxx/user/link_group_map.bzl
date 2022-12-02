@@ -36,8 +36,8 @@ def _impl(ctx: "context") -> ["provider"]:
         ctx,
         deps = link_group_deps,
     )
-    linkable_graph_node_map_func = get_linkable_graph_node_map_func(linkable_graph)
-    mappings = compute_mappings(groups = link_groups, graph_map_func = linkable_graph_node_map_func)
+    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
     return [
         DefaultInfo(),
         LinkGroupInfo(groups = link_groups, groups_hash = hash(str(link_groups)), mappings = mappings),

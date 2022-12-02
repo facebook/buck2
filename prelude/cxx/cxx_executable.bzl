@@ -190,8 +190,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # scenarios for which we need to propagate up link info and simplify this logic. For now
     # base which links to use based on whether link groups are defined.
     if link_group_mappings:
+        linkable_graph_node_map = linkable_graph_node_map_func()
+
         filtered_labels_to_links_map = get_filtered_labels_to_links_map(
-            linkable_graph_node_map_func,
+            linkable_graph_node_map,
             link_group,
             link_group_mappings,
             link_group_preferred_linkage,
@@ -215,7 +217,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
             # from the root again to ensure we link in gtest deps
             rest_labels_to_links_map = get_filtered_labels_to_links_map(
-                linkable_graph_node_map_func,
+                linkable_graph_node_map,
                 None,
                 link_group_mappings,
                 link_group_preferred_linkage,
