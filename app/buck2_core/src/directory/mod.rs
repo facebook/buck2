@@ -59,6 +59,8 @@ pub use entry::DirectoryEntry;
 pub use exclusive_directory::ExclusiveDirectory;
 pub use find::find;
 pub use find::find_fingerprinted;
+pub use find::find_prefix;
+pub use find::find_prefix_fingerprinted;
 pub use find::DirectoryFindError;
 pub use fingerprinted_directory::FingerprintedDirectory;
 pub use fingerprinted_directory::FingerprintedDirectoryEntries;
