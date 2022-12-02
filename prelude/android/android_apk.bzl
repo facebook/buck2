@@ -122,6 +122,9 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     if resources_info.string_source_map:
         sub_targets["generate_string_resources"] = [DefaultInfo(default_outputs = [resources_info.string_source_map])]
 
+    if dex_files_info.primary_dex_class_names:
+        sub_targets["primary_dex_class_names"] = [DefaultInfo(default_outputs = [dex_files_info.primary_dex_class_names])]
+
     keystore = ctx.attrs.keystore[KeystoreInfo]
     output_apk = build_apk(
         label = ctx.label,

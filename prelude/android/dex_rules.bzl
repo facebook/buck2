@@ -117,6 +117,7 @@ def get_single_primary_dex(
         secondary_dex_dirs = [],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
+        primary_dex_class_names = None,
     )
 
 def get_multi_dex(
@@ -195,6 +196,7 @@ def get_multi_dex(
         secondary_dex_dirs = [root_module_secondary_dex_output_dir, secondary_dex_dir],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
+        primary_dex_class_names = None,
     )
 
 def merge_to_single_dex(
@@ -215,6 +217,7 @@ def merge_to_single_dex(
         secondary_dex_dirs = [],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
+        primary_dex_class_names = None,
     )
 
 DexInputWithSpecifiedClasses = record(
@@ -352,12 +355,13 @@ def merge_to_split_dex(
     ] for input in pre_dexed_lib_with_class_names_files]) + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
+    primary_dex_class_names_list = ctx.actions.declare_output("primary_dex_class_names_list.txt")
     root_module_secondary_dexes_dir = ctx.actions.declare_output("root_module_secondary_dexes_dir")
     root_module_secondary_dexes_subdir = root_module_secondary_dexes_dir.project(_get_secondary_dex_subdir(ROOT_MODULE))
     root_module_secondary_dexes_metadata = root_module_secondary_dexes_dir.project(paths.join(_get_secondary_dex_subdir(ROOT_MODULE), "metadata.txt"))
     non_root_module_secondary_dexes_dir = ctx.actions.declare_output("non_root_module_secondary_dexes_dir")
 
-    outputs = [primary_dex_output, primary_dex_artifact_list, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
+    outputs = [primary_dex_output, primary_dex_artifact_list, primary_dex_class_names_list, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context", artifacts, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
@@ -383,8 +387,8 @@ def merge_to_split_dex(
             pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
             if pre_dexed_artifacts:
                 expect(is_root_module(module), "module {} should not have a primary dex!".format(module))
-                primary_dex_class_list = ctx.actions.write(
-                    "class_list_for_primary_dex.txt",
+                ctx.actions.write(
+                    outputs[primary_dex_class_names_list].as_output(),
                     flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
                 )
 
@@ -394,7 +398,7 @@ def merge_to_split_dex(
                     outputs[primary_dex_output],
                     pre_dexed_artifacts,
                     outputs[primary_dex_artifact_list],
-                    class_names_to_include = primary_dex_class_list,
+                    class_names_to_include = primary_dex_class_names_list,
                 )
             else:
                 expect(
@@ -505,6 +509,7 @@ def merge_to_split_dex(
         secondary_dex_dirs = secondary_dex_dirs,
         secondary_dex_exopackage_info = secondary_dex_exopackage_info,
         proguard_text_files_path = None,
+        primary_dex_class_names = primary_dex_class_names_list,
     )
 
 def _merge_dexes(
