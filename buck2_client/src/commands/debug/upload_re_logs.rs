@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::ffi::OsString;
 use std::process::Stdio;
 
 use anyhow::Context;
@@ -44,45 +43,35 @@ impl UploadReLogsCommand {
         })
     }
 
-    async fn upload_file<'a, R>(self, reader: &'a mut R) -> anyhow::Result<ExitResult>
+    async fn upload_file<'a, R>(&self, reader: &'a mut R) -> anyhow::Result<ExitResult>
     where
         R: AsyncRead + Unpin + ?Sized,
     {
-        // we use manifold CLI as it works cross-platform
-        let manifold_cli_path = manifold::get_cli_path();
-        match manifold_cli_path {
-            None => Ok(ExitResult::bail("Manifold CLI not found")), // TODO iguridi: implement curl fallback
-            Some(cli_path) => self.upload_file_impl(reader, cli_path).await,
-        }
-    }
+        let bucket_path = &format!("flat/{}.log.zst", self.session_id);
 
-    async fn upload_file_impl<'a, R>(
-        &self,
-        reader: &'a mut R,
-        cli_path: OsString,
-    ) -> anyhow::Result<ExitResult>
-    where
-        R: AsyncRead + Unpin + ?Sized,
-    {
-        let bucket_path = &format!("buck2_re_logs/flat/{}.log.zst", self.session_id);
+        let upload = manifold::upload_command("buck2_re_logs", bucket_path, "buck2_re_logs-key")?;
 
-        let mut upload = manifold::cli_upload_command(cli_path, bucket_path, "buck2_re_logs-key");
-        upload.arg("--ignoreExisting");
-        upload.stdin(Stdio::piped());
+        // Do nothing if upload command could not be found
+        match upload {
+            None => Ok(ExitResult::success()),
+            Some(mut upload) => {
+                upload.stdin(Stdio::piped());
 
-        // write compressed file to stdin
-        let mut child = upload.spawn().context("Error spawning command")?;
-        let mut stdin = child.stdin.take().expect("Stdin was piped");
-        tokio::io::copy(reader, &mut stdin)
-            .await
-            .context("Error writing to stdin")?;
+                // write compressed file to stdin
+                let mut child = upload.spawn().context("Error spawning command")?;
+                let mut stdin = child.stdin.take().expect("Stdin was piped");
+                tokio::io::copy(reader, &mut stdin)
+                    .await
+                    .context("Error writing to stdin")?;
 
-        drop(stdin); // This tells the child process that there is no more data
+                drop(stdin); // This tells the child process that there is no more data
 
-        let exit_code = child.wait().await?.code();
-        match exit_code {
-            None => Err(anyhow::anyhow!("No exit code returned")),
-            Some(code) => Ok(ExitResult::status_extended(code)),
+                let exit_code = child.wait().await?.code();
+                match exit_code {
+                    None => Err(anyhow::anyhow!("No exit code returned")),
+                    Some(code) => Ok(ExitResult::status_extended(code)),
+                }
+            }
         }
     }
 }
