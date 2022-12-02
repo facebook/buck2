@@ -17,6 +17,7 @@ use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
+use buck2_core::truncate::truncate;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -198,7 +199,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         } else {
             None
         }
-        .ok_or_else(|| TargetExprError::NotATarget(value.to_repr()))?;
+        .ok_or_else(|| TargetExprError::NotAListOfTargets(value.to_repr()))?;
 
         let mut resolved = vec![];
 
@@ -213,7 +214,13 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                 }
                 .for_each(|t| resolved.push(Either::Left(t))),
-                _ => return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))),
+                _ => {
+                    return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
+                        .context(format!(
+                            "when resolving list `{}`",
+                            truncate(&value.to_repr(), 150)
+                        )));
+                }
             }
         }
 
@@ -302,7 +309,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
         } else {
             None
         }
-        .ok_or_else(|| TargetExprError::NotATarget(value.to_repr()))?;
+        .ok_or_else(|| TargetExprError::NotAListOfTargets(value.to_repr()))?;
 
         let mut resolved = vec![];
 
@@ -317,7 +324,13 @@ impl<'v> TargetExpr<'v, TargetNode> {
                     Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                 }
                 .for_each(|t| resolved.push(Either::Left(t))),
-                _ => return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))),
+                _ => {
+                    return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
+                        .context(format!(
+                            "when resolving list `{}`",
+                            truncate(&value.to_repr(), 150)
+                        )));
+                }
             }
         }
 
