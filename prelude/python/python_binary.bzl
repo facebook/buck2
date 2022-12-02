@@ -66,7 +66,7 @@ load(
     "py_resources",
     "qualify_srcs",
 )
-load(":source_db.bzl", "create_source_db_deps", "create_source_db_no_deps")
+load(":source_db.bzl", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 
 OmnibusMetadataInfo = provider(fields = ["omnibus_libs", "omnibus_graph"])
@@ -160,7 +160,7 @@ def python_executable(
         shared_libraries = shared_deps,
     )
 
-    source_db = create_source_db_deps(ctx, src_manifest, python_deps)
+    source_db = create_source_db(ctx, src_manifest, python_deps)
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
     output, runtime_files, extra = convert_python_library_to_executable(

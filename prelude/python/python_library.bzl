@@ -310,13 +310,12 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 
     # Source DBs.
-    deps = flatten(raw_deps)
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, deps)]
     sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types)]
-
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
+    deps = flatten(raw_deps)
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(

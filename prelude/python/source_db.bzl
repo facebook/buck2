@@ -9,10 +9,10 @@ load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
 )
-load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifestsTSet")
+load(":python.bzl", "PythonLibraryManifestsTSet")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
-def create_source_db_deps(
+def create_source_db(
         ctx: "context",
         srcs: [ManifestInfo.type, None],
         python_deps: ["PythonLibraryInfo"]) -> DefaultInfo.type:
@@ -41,13 +41,6 @@ def create_source_db_deps(
     ctx.actions.run(cmd, category = "py_source_db")
 
     return DefaultInfo(default_outputs = [output], other_outputs = artifacts)
-
-def create_source_db(
-        ctx: "context",
-        srcs: [ManifestInfo.type, None],
-        deps: ["dependency"]) -> DefaultInfo.type:
-    python_deps = filter(None, [d.get(PythonLibraryInfo) for d in deps])
-    return create_source_db_deps(ctx, srcs, python_deps)
 
 def create_source_db_no_deps(
         ctx: "context",
