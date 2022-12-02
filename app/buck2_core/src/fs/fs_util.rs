@@ -96,18 +96,20 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
         }
     };
 
-    // If target doesn't exist yet, default to file symlink.
     let target_metadata = target_abspath.metadata();
-    if target_metadata.is_ok_and(|m| m.is_dir()) {
-        std::os::windows::fs::symlink_dir(target_path.as_ref(), link)?;
-    } else if target_metadata.is_ok()
-        || target_metadata.is_err_and(|e| e.kind() == ErrorKind::NotFound)
-    {
-        std::os::windows::fs::symlink_file(target_path.as_ref(), link)?;
-    } else {
-        return Err(target_metadata.err().unwrap().into());
-    };
-    Ok(())
+
+    match target_metadata {
+        Ok(meta) if meta.is_dir() => {
+            std::os::windows::fs::symlink_dir(target_path.as_ref(), link)?;
+            Ok(())
+        }
+        Err(e) if e.kind() != ErrorKind::NotFound => Err(e.into()),
+        _ => {
+            // Either file or not existent. Default to file.
+            std::os::windows::fs::symlink_file(target_path.as_ref(), link)?;
+            Ok(())
+        }
+    }
 }
 
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
