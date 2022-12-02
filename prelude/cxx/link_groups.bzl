@@ -8,14 +8,21 @@
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",  # @unused Used as a type
+    "LinkInfos",  # @unused Used as a type
     "LinkStyle",
     "Linkage",
+    "LinkedObject",  # @unused Used as a type
     "get_actual_link_style",
+    _get_link_info = "get_link_info",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
     "get_link_info",
     "linkable_deps",
+)
+load(
+    "@prelude//utils:dicts.bzl",
+    "merge_x",
 )
 load(
     "@prelude//utils:graph_utils.bzl",
@@ -41,6 +48,63 @@ LinkGroupLinkInfo = record(
     link_info = field(LinkInfo.type),
     link_style = field(LinkStyle.type),
 )
+
+# Information about a linkable node which explicitly sets `link_group`.
+LinkGroupLib = record(
+    # The label of the owning target (if any).
+    label = field(["label", None], None),
+    # The shared libs to package for this link group.
+    shared_libs = field({str.type: LinkedObject.type}),
+    # The link info to link against this link group.
+    shared_link_infos = field(LinkInfos.type),
+)
+
+# Provider propagating info about transitive link group libs.
+_LinkGroupLibInfo = provider(fields = [
+    # A map of link group names to their shared libraries.
+    "libs",  # {str.type: _LinkGroupLib.type}
+])
+
+def gather_link_group_libs(
+        libs: {str.type: LinkGroupLib.type} = {},
+        deps: ["dependency"] = []) -> {str.type: LinkGroupLib.type}:
+    """
+    Return all link groups libs deps and top-level libs.
+    """
+    libs = dict(libs)
+    for dep in deps:
+        dep_info = dep.get(_LinkGroupLibInfo)
+        if dep_info != None:
+            merge_x(
+                libs,
+                dep_info.libs,
+                fmt = "conflicting link group roots for \"{0}\": {1} != {2}",
+            )
+    return libs
+
+def merge_link_group_lib_info(
+        label: "label",
+        name: [str.type, None] = None,
+        shared_libs: [{str.type: LinkedObject.type}, None] = None,
+        shared_link_infos: [LinkInfos.type, None] = None,
+        deps: ["dependency"] = []) -> _LinkGroupLibInfo.type:
+    """
+    Merge and return link group info libs from deps and the current rule wrapped
+    in a provider.
+    """
+    libs = {}
+    if name != None:
+        libs[name] = LinkGroupLib(
+            label = label,
+            shared_libs = shared_libs,
+            shared_link_infos = shared_link_infos,
+        )
+    return _LinkGroupLibInfo(
+        libs = gather_link_group_libs(
+            libs = libs,
+            deps = deps,
+        ),
+    )
 
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
@@ -74,7 +138,8 @@ def get_filtered_labels_to_links_map(
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
-        non_exported_deps: ["dependency"],
+        deps: ["dependency"],
+        link_group_libs: {str.type: LinkGroupLib.type} = {},
         prefer_stripped: bool.type = False,
         is_executable_link: bool.type = False) -> {"label": LinkGroupLinkInfo.type}:
     """
@@ -86,7 +151,7 @@ def get_filtered_labels_to_links_map(
 
     linkable_graph_node_map = linkable_graph_node_map_func()
 
-    deps = linkable_deps(non_exported_deps)
+    deps = linkable_deps(deps)
 
     def get_traversed_deps(node: "label") -> ["label"]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
@@ -114,6 +179,14 @@ def get_filtered_labels_to_links_map(
         get_traversed_deps,
     )
 
+    # An index of target to link group names, for all link group library nodes.
+    # Provides fast lookup of a link group root lib via it's label.
+    link_group_roots = {
+        lib.label: name
+        for name, lib in link_group_libs.items()
+        if lib.label != None
+    }
+
     linkable_map = {}
 
     def add_link(target: "label", link_style: LinkStyle.type):
@@ -128,12 +201,23 @@ def get_filtered_labels_to_links_map(
 
         # Always link any shared dependencies
         if actual_link_style == LinkStyle("shared"):
-            add_link(target, LinkStyle("shared"))
+            # If this target is a link group root library, we
+            # 1) don't propagate shared linkage down the tree, and
+            # 2) use the provided link info in lieu of what's in the grph.
+            target_link_group = link_group_roots.get(target)
+            if target_link_group != None and target_link_group != link_group:
+                linkable_map[target] = LinkGroupLinkInfo(
+                    link_info = _get_link_info(link_group_libs[target_link_group].shared_link_infos),
+                    link_style = LinkStyle("shared"),
+                )  # buildifier: disable=uninitialized
+            else:
+                add_link(target, LinkStyle("shared"))
 
-            for exported_dep in node.exported_deps:
-                exported_node = linkable_graph_node_map[exported_dep]
-                if exported_node.preferred_linkage == Linkage("any"):
-                    link_group_preferred_linkage[exported_dep] = Linkage("shared")
+                # Mark transitive deps as shared.
+                for exported_dep in node.exported_deps:
+                    exported_node = linkable_graph_node_map[exported_dep]
+                    if exported_node.preferred_linkage == Linkage("any"):
+                        link_group_preferred_linkage[exported_dep] = Linkage("shared")
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 

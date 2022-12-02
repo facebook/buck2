@@ -110,6 +110,8 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupLib",  # @unused Used as a type
+    "gather_link_group_libs",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -117,6 +119,7 @@ load(
     "get_link_group_info",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
+    "merge_link_group_lib_info",
 )
 load(
     ":linker.bzl",
@@ -293,11 +296,15 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
         link_group_deps = [mapping.target for group in link_group_info.groups for mapping in group.mappings]
+        link_group_libs = gather_link_group_libs(
+            deps = non_exported_deps + exported_deps,
+        )
         providers.append(link_group_info)
     else:
         link_groups = []
         link_group_mappings = {}
         link_group_deps = []
+        link_group_libs = {}
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
@@ -315,6 +322,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         link_group,
         link_group_mappings,
         link_group_preferred_linkage,
+        link_group_libs,
         exported_deps,
         non_exported_deps,
         impl_params.force_link_group_linking,
@@ -572,6 +580,19 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             sub_targets = sub_targets,
         ))
 
+    # Propagate all transitive link group lib roots up the tree, so that the
+    # final executable can use them.
+    if impl_params.generate_providers.merged_native_link_info:
+        providers.append(
+            merge_link_group_lib_info(
+                label = ctx.label,
+                name = link_group,
+                shared_libs = library_outputs.solibs,
+                shared_link_infos = library_outputs.libraries.get(LinkStyle("shared")),
+                deps = exported_deps + non_exported_deps,
+            ),
+        )
+
     # Propagated_exported_preprocessor_info is used for pcm compilation, which isn't possible for non-modular targets.
     propagated_exported_preprocessor_info = propagated_preprocessor if impl_params.rule_type == "apple_library" and ctx.attrs.modular else None
 
@@ -762,6 +783,7 @@ def _get_shared_library_links(
         link_group: [str.type, None],
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
+        link_group_libs: {str.type: LinkGroupLib.type},
         exported_deps: ["dependency"],
         non_exported_deps: ["dependency"],
         force_link_group_linking,
@@ -802,7 +824,16 @@ def _get_shared_library_links(
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
     link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
-    filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph_node_map_func, link_group, link_group_mappings, link_group_preferred_linkage, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
+    filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+        linkable_graph_node_map_func,
+        link_group,
+        link_group_mappings,
+        link_group_preferred_linkage,
+        link_group_libs = link_group_libs,
+        link_style = link_style,
+        deps = non_exported_deps + exported_deps,
+        prefer_stripped = prefer_stripped,
+    )
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
     filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
 

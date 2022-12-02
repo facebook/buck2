@@ -47,6 +47,7 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
+    "expect",
     "flatten_dict",
 )
 load(
@@ -87,6 +88,7 @@ load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupLinkInfo",  # @unused Used as a type
+    "gather_link_group_libs",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -157,10 +159,14 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
         link_group_deps = [mapping.target for group in link_group_info.groups for mapping in group.mappings]
+        link_group_libs = gather_link_group_libs(
+            deps = first_order_deps + impl_params.extra_link_deps,
+        )
     else:
         link_groups = []
         link_group_mappings = {}
         link_group_deps = []
+        link_group_libs = {}
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     # Create the linkable graph with the binary's deps and any link group deps.
@@ -189,8 +195,9 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             link_group,
             link_group_mappings,
             link_group_preferred_linkage,
-            link_style,
-            first_order_deps + impl_params.extra_link_deps,
+            link_group_libs = link_group_libs,
+            link_style = link_style,
+            deps = first_order_deps + impl_params.extra_link_deps,
             is_executable_link = True,
             prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
@@ -247,6 +254,15 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             label = shared_lib.label
             if not use_link_groups or is_link_group_shlib(label, filtered_labels_to_links_map) or is_link_group_shlib(label, rest_labels_to_links_map):
                 shared_libs[name] = shared_lib.lib
+
+    # All explicit link group libs (i.e. libraries that set `link_group`).
+    if cxx_use_link_groups(ctx):
+        link_group_names = {n: None for n in link_group_mappings.values()}
+        for name, link_group_lib in link_group_libs.items():
+            # Is it possible to find a link group lib in our graph without it
+            # having a mapping setup?
+            expect(name in link_group_names)
+            shared_libs.update(link_group_lib.shared_libs)
 
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
