@@ -40,6 +40,7 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
 use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -101,6 +102,8 @@ enum AnonTargetsError {
     UnknownAttribute(String),
     #[error("Internal attribute `{0}` not allowed as argument to `anon_targets`")]
     InternalAttribute(String),
+    #[error("Missing attribute `{0}`")]
+    MissingAttribute(String),
 }
 
 #[repr(transparent)]
@@ -121,8 +124,7 @@ impl AnonTargetKey {
 
         let entries = attributes.collect_entries();
         let attrs_spec = rule.attributes();
-        // The capacity might be over by one, if `name` is an entry, but small over is not a big deal
-        let mut attrs = OrderedMap::with_capacity(entries.len());
+        let mut attrs = OrderedMap::with_capacity(attrs_spec.attributes.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
@@ -139,6 +141,16 @@ impl AnonTargetKey {
                 );
             }
         }
+        for (k, _, a) in attrs_spec.attr_specs() {
+            if !attrs.contains_key(k) && !internal_attrs.contains_key(k) {
+                if let Some(x) = &a.default {
+                    attrs.insert(k.to_owned(), Self::configure_attr(x)?);
+                } else {
+                    return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
+                }
+            }
+        }
+
         // We need to ensure there is a "name" attribute which corresponds to something we can turn in to a label.
         // If there isn't a good one, make something up
         let name = match name {
@@ -199,6 +211,10 @@ impl AnonTargetKey {
             .0
             .coerce_item(AttrIsConfigurable::No, &ctx, x)?;
         a.configure(&ctx)
+    }
+
+    fn configure_attr(x: &CoercedAttr) -> anyhow::Result<ConfiguredAttr> {
+        x.configure(&AnonAttrCtx::new())
     }
 
     async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
