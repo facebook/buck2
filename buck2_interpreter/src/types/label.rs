@@ -77,6 +77,10 @@ impl Label {
     pub fn new(label: ConfiguredProvidersLabel) -> Self {
         Label { label }
     }
+
+    pub fn inner(&self) -> &ConfiguredProvidersLabel {
+        &self.label
+    }
 }
 
 impl<'v> StarlarkValue<'v> for Label

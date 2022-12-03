@@ -16,6 +16,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellName;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -31,6 +32,7 @@ use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
@@ -40,18 +42,25 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
 use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::attr_type::dep::DepAttr;
+use buck2_node::attrs::attr_type::dep::DepAttrTransition;
+use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use futures::future;
+use futures::stream::FuturesUnordered;
 use futures::Future;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
@@ -66,6 +75,7 @@ use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::analysis::calculation::get_rule_impl;
+use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::analysis::AnalysisResult;
 use crate::analysis::RuleAnalysisAttrResolutionContext;
@@ -75,7 +85,9 @@ use crate::deferred::types::DeferredTable;
 use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
+use crate::interpreter::rule_defs::provider::dependency::Dependency;
 use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
+use crate::keep_going;
 use crate::nodes::calculation::find_execution_platform_by_configuration;
 
 #[derive(Debug, Trace, Allocative)]
@@ -104,6 +116,8 @@ enum AnonTargetsError {
     InternalAttribute(String),
     #[error("Missing attribute `{0}`")]
     MissingAttribute(String),
+    #[error("Invalid `attr.dep` value, expected `dependency`, got `{0}`")]
+    InvalidDep(String),
 }
 
 #[repr(transparent)]
@@ -205,11 +219,31 @@ impl AnonTargetKey {
     }
 
     fn coerce_attr(attr: &Attribute, x: Value) -> anyhow::Result<ConfiguredAttr> {
+        fn unpack_dep(x: &AttrTypeInner) -> Option<DepAttrType> {
+            match x {
+                AttrTypeInner::Dep(d) => Some(d.dupe()),
+                AttrTypeInner::ConfiguredDep(d) => Some(DepAttrType {
+                    required_providers: d.required_providers.dupe(),
+                    transition: DepAttrTransition::Identity,
+                }),
+                _ => None,
+            }
+        }
+
         let ctx = AnonAttrCtx::new();
-        let a = attr
-            .coercer
-            .0
-            .coerce_item(AttrIsConfigurable::No, &ctx, x)?;
+        let a = match unpack_dep(&attr.coercer.0) {
+            Some(attr_type) => match Dependency::from_value(x) {
+                Some(dep) => AttrLiteral::ConfiguredDep(box DepAttr::new(
+                    attr_type,
+                    dep.label().inner().clone(),
+                )),
+                _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
+            },
+            _ => attr
+                .coercer
+                .0
+                .coerce_item(AttrIsConfigurable::No, &ctx, x)?,
+        };
         a.configure(&ctx)
     }
 
@@ -242,15 +276,46 @@ impl AnonTargetKey {
         unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
     }
 
+    fn deps(&self) -> anyhow::Result<Vec<&ConfiguredTargetLabel>> {
+        struct Traversal<'a>(Vec<&'a ConfiguredTargetLabel>);
+
+        impl<'a> ConfiguredAttrTraversal<'a> for Traversal<'a> {
+            fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+                self.0.push(dep.target());
+                Ok(())
+            }
+        }
+
+        let mut traversal = Traversal(Vec::new());
+        for x in self.0.attrs().values() {
+            x.traverse(&mut traversal)?;
+        }
+        Ok(traversal.0)
+    }
+
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
         let rule_impl = get_rule_impl(dice, self.0.rule_type()).await?;
         let env = Module::new();
         let mut eval = Evaluator::new(&env);
 
+        let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
+            self.deps()?
+                .into_iter()
+                .map(async move |dep| {
+                    let res = dice
+                        .get_analysis_result(dep)
+                        .await
+                        .and_then(|v| v.require_compatible().shared_error());
+                    res.map(|x| (dep, x.providers().dupe()))
+                })
+                .collect::<FuturesUnordered<_>>(),
+        )
+        .await?;
+
         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: &env,
-            dep_analysis_results: HashMap::new(),
+            dep_analysis_results,
             query_results: HashMap::new(),
         };
 

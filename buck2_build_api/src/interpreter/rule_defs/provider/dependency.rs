@@ -69,6 +69,10 @@ impl<'v> Dependency<'v> {
         }
     }
 
+    pub fn label(&self) -> &Label {
+        Label::from_value(self.label).unwrap()
+    }
+
     fn provider_collection(&self) -> anyhow::Result<&ProviderCollection<'v>> {
         ProviderCollection::from_value(self.providers_collection)
             .ok_or_else(|| anyhow::anyhow!("internal error: not a ProviderCollection"))
