@@ -17,6 +17,7 @@
 
 use std::alloc;
 use std::alloc::Layout;
+use std::alloc::LayoutError;
 use std::cmp;
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -41,21 +42,30 @@ struct Vec2Layout<K, V> {
 
 impl<K, V> Vec2Layout<K, V> {
     fn new(cap: usize) -> Vec2Layout<K, V> {
+        Self::new_checked(cap).unwrap_or_else(|err| {
+            panic!(
+                "Vec2Layout failed with {:?} when allocating capacity of {}",
+                err, cap
+            )
+        })
+    }
+
+    fn new_checked(cap: usize) -> Result<Vec2Layout<K, V>, LayoutError> {
         debug_assert!(cap != 0);
-        let k = Layout::array::<K>(cap).unwrap();
-        let v = Layout::array::<V>(cap).unwrap();
-        let (layout, offset_of_values) = k.extend(v).unwrap();
+        let k = Layout::array::<K>(cap)?;
+        let v = Layout::array::<V>(cap)?;
+        let (layout, offset_of_values) = k.extend(v)?;
 
         debug_assert!(offset_of_values <= layout.size());
         debug_assert!(layout.align() >= k.align());
         debug_assert!(layout.align() >= v.align());
         debug_assert!(offset_of_values % k.align() == 0);
 
-        Vec2Layout {
+        Ok(Vec2Layout {
             layout,
             offset_of_values,
             _marker: PhantomData,
-        }
+        })
     }
 
     unsafe fn alloc(&self) -> NonNull<V> {
