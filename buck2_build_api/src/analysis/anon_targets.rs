@@ -26,6 +26,7 @@ use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_execute::anon_target::AnonTarget;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
@@ -78,8 +79,6 @@ pub(crate) struct AnonTargetsRegistry<'v> {
 enum AnonTargetsError {
     #[error("Not allowed to call `anon_targets` in this context")]
     AssertNoPromisesFailed,
-    #[error("No name field in the attributes, required for `anon_targets`")]
-    NoNameAttribute,
     #[error(
         "Invalid `name` attribute, must be a label or a string, got `{value}` of type `{typ}`"
     )]
@@ -109,7 +108,8 @@ impl AnonTargetKey {
 
         let entries = attributes.collect_entries();
         let attrs_spec = rule.attributes();
-        let mut attrs = OrderedMap::with_capacity(entries.len() - 1); // One must be `name`
+        // The capacity might be over by one, if `name` is an entry, but small over is not a big deal
+        let mut attrs = OrderedMap::with_capacity(entries.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
@@ -124,12 +124,13 @@ impl AnonTargetKey {
                 );
             }
         }
+        // We need to ensure there is a "name" attribute which corresponds to something we can turn in to a label.
+        // If there isn't a good one, make something up
         let name = match name {
-            None => return Err(AnonTargetsError::NoNameAttribute.into()),
+            None => Self::create_name(&rule.rule_type().name)?,
             Some(name) => name,
         };
 
-        // We need to ensure there is a "name" attribute which corresponds to something we can turn in to a label
         Ok(Self(Arc::new(AnonTarget::new(
             rule.rule_type().dupe(),
             name,
@@ -152,6 +153,14 @@ impl AnonTargetKey {
             )),
             _ => Err(err().into()),
         }
+    }
+
+    fn create_name(rule_name: &str) -> anyhow::Result<TargetLabel> {
+        let pkg = Package::new(
+            &CellName::unchecked_new("anon".to_owned()),
+            CellRelativePath::empty(),
+        );
+        Ok(TargetLabel::new(pkg, TargetName::new(rule_name)?))
     }
 
     fn coerce_name(x: Value) -> anyhow::Result<TargetLabel> {
