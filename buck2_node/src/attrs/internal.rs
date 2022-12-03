@@ -109,28 +109,31 @@ fn tests_attribute() -> Attribute {
     )
 }
 
-pub fn internal_attrs() -> Vec<(&'static str, Attribute)> {
-    vec![
-        (NAME_ATTRIBUTE_FIELD, name_attribute()),
-        (
-            DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
-            default_target_platform_attribute(),
-        ),
-        (
-            TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            target_compatible_with_attribute(),
-        ),
-        (
-            LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            target_compatible_with_attribute(),
-        ),
-        (
-            EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            exec_compatible_with_attribute(),
-        ),
-        (VISIBILITY_ATTRIBUTE_FIELD, visibility_attribute()),
-        (TESTS_ATTRIBUTE_FIELD, tests_attribute()),
-    ]
+pub fn internal_attrs() -> &'static Vec<(&'static str, Attribute)> {
+    static ATTRS: Lazy<Vec<(&'static str, Attribute)>> = Lazy::new(|| {
+        vec![
+            (NAME_ATTRIBUTE_FIELD, name_attribute()),
+            (
+                DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
+                default_target_platform_attribute(),
+            ),
+            (
+                TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+                target_compatible_with_attribute(),
+            ),
+            (
+                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+                target_compatible_with_attribute(),
+            ),
+            (
+                EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+                exec_compatible_with_attribute(),
+            ),
+            (VISIBILITY_ATTRIBUTE_FIELD, visibility_attribute()),
+            (TESTS_ATTRIBUTE_FIELD, tests_attribute()),
+        ]
+    });
+    &ATTRS
 }
 
 pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {

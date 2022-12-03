@@ -53,10 +53,10 @@ impl AttributeSpec {
         let mut internal_attr_names = HashSet::new();
         for (name, instance) in internal_attrs {
             let index_in_attribute_spec = indices.len();
-            internal_attr_names.insert(name);
+            internal_attr_names.insert(*name);
             if indices
                 .insert(
-                    name.to_owned(),
+                    (*name).to_owned(),
                     AttributeId {
                         index_in_attribute_spec,
                     },
@@ -65,7 +65,7 @@ impl AttributeSpec {
             {
                 unreachable!("duplicate internal attr: '{}'", name);
             }
-            instances.push(instance);
+            instances.push(instance.clone());
         }
 
         for (name, instance) in attributes.into_iter() {
