@@ -19,11 +19,17 @@ use buck2_common::result::SharedResult;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellName;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::transition::applied::TransitionApplied;
+use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::Package;
 use buck2_core::pattern::lex_target_pattern;
+use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternData;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
@@ -32,9 +38,12 @@ use buck2_execute::anon_target::AnonTarget;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
+use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
 use buck2_node::attrs::attr::Attribute;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::AttrTypeInner;
+use buck2_node::attrs::coerced_path::CoercedPath;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derive_more::Display;
@@ -85,8 +94,8 @@ enum AnonTargetsError {
     InvalidNameType { typ: String, value: String },
     #[error("`name` attribute must be a valid target label, got `{0}`")]
     NotTargetLabel(String),
-    #[error("can't coerce as attribute `{0}`")]
-    CantCoerceAttr(String),
+    #[error("can't parse strings during `anon_targets` coercion, got `{0}`")]
+    CantParseDuringCoerce(String),
     #[error("Unknown attribute `{0}`")]
     UnknownAttribute(String),
 }
@@ -178,15 +187,12 @@ impl AnonTargetKey {
     }
 
     fn coerce_attr(attr: &Attribute, x: Value) -> anyhow::Result<ConfiguredAttr> {
-        match &*attr.coercer.0 {
-            AttrTypeInner::String(_) => {
-                if let Some(x) = x.unpack_str() {
-                    return Ok(ConfiguredAttr(AttrLiteral::String(x.to_owned())));
-                }
-            }
-            _ => (),
-        }
-        Err(AnonTargetsError::CantCoerceAttr(x.to_string()).into())
+        let ctx = AnonAttrCtx::new();
+        let a = attr
+            .coercer
+            .0
+            .coerce_item(AttrIsConfigurable::No, &ctx, x)?;
+        a.configure(&ctx)
     }
 
     async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
@@ -281,6 +287,66 @@ impl AnonTargetKey {
         // this could look nicer if we had the entire analysis be a deferred
         let deferred = DeferredTable::new(deferreds.take_result()?);
         Ok(AnalysisResult::new(provider_collection, deferred, None))
+    }
+}
+
+/// Several attribute functions need a context, make one that is mostly useless.
+struct AnonAttrCtx {
+    cfg: Configuration,
+    transitions: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+}
+
+impl AnonAttrCtx {
+    fn new() -> Self {
+        Self {
+            cfg: Configuration::unspecified(),
+            transitions: OrderedMap::new(),
+        }
+    }
+}
+
+impl AttrCoercionContext for AnonAttrCtx {
+    fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+        Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
+    }
+
+    fn coerce_path(&self, value: &str, _allow_directory: bool) -> anyhow::Result<CoercedPath> {
+        Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
+    }
+
+    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {
+        Err(AnonTargetsError::CantParseDuringCoerce(pattern.to_owned()).into())
+    }
+
+    fn visit_query_function_literals(
+        &self,
+        _visitor: &mut dyn buck2_query::query::syntax::simple::functions::QueryLiteralVisitor,
+        _expr: &buck2_query_parser::spanned::Spanned<buck2_query_parser::Expr>,
+        query: &str,
+    ) -> anyhow::Result<()> {
+        Err(AnonTargetsError::CantParseDuringCoerce(query.to_owned()).into())
+    }
+}
+
+impl AttrConfigurationContext for AnonAttrCtx {
+    fn matches<'a>(&'a self, _label: &TargetLabel) -> Option<&'a ConfigurationData> {
+        None
+    }
+
+    fn cfg(&self) -> &Configuration {
+        &self.cfg
+    }
+
+    fn exec_cfg(&self) -> &Configuration {
+        &self.cfg
+    }
+
+    fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<&Configuration> {
+        Ok(&self.cfg)
+    }
+
+    fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        &self.transitions
     }
 }
 

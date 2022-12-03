@@ -260,10 +260,7 @@ impl AttrLiteral<ConfiguredAttr> {
 }
 
 impl AttrLiteral<CoercedAttr> {
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr(match self {
             AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
