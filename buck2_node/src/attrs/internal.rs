@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::id::ProviderId;
 use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -109,9 +110,9 @@ fn tests_attribute() -> Attribute {
     )
 }
 
-pub fn internal_attrs() -> &'static Vec<(&'static str, Attribute)> {
-    static ATTRS: Lazy<Vec<(&'static str, Attribute)>> = Lazy::new(|| {
-        vec![
+pub fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
+    static ATTRS: Lazy<OrderedMap<&'static str, Attribute>> = Lazy::new(|| {
+        OrderedMap::from_iter([
             (NAME_ATTRIBUTE_FIELD, name_attribute()),
             (
                 DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
@@ -131,7 +132,7 @@ pub fn internal_attrs() -> &'static Vec<(&'static str, Attribute)> {
             ),
             (VISIBILITY_ATTRIBUTE_FIELD, visibility_attribute()),
             (TESTS_ATTRIBUTE_FIELD, tests_attribute()),
-        ]
+        ])
     });
     &ATTRS
 }
