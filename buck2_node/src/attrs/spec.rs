@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashSet;
-
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
 use starlark_map::small_map;
@@ -50,10 +48,8 @@ impl AttributeSpec {
 
         let mut indices = OrderedMap::with_capacity(attributes.len() + internal_attrs.len());
         let mut instances = Vec::with_capacity(attributes.len());
-        let mut internal_attr_names = HashSet::new();
         for (name, instance) in internal_attrs {
             let index_in_attribute_spec = indices.len();
-            internal_attr_names.insert(*name);
             if indices
                 .insert(
                     (*name).to_owned(),
@@ -78,7 +74,7 @@ impl AttributeSpec {
                 }
                 small_map::Entry::Occupied(e) => {
                     let name = e.key();
-                    if internal_attr_names.contains(name.as_str()) {
+                    if internal_attrs.contains_key(name.as_str()) {
                         return Err(anyhow::anyhow!(
                             AttributeSpecError::InternalAttributeRedefined(name.to_owned())
                         ));
