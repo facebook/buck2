@@ -45,6 +45,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -98,6 +99,8 @@ enum AnonTargetsError {
     CantParseDuringCoerce(String),
     #[error("Unknown attribute `{0}`")]
     UnknownAttribute(String),
+    #[error("Internal attribute `{0}` not allowed as argument to `anon_targets`")]
+    InternalAttribute(String),
 }
 
 #[repr(transparent)]
@@ -114,6 +117,7 @@ impl AnonTargetKey {
         attributes: DictOf<'v, &'v str, Value<'v>>,
     ) -> anyhow::Result<Self> {
         let mut name = None;
+        let internal_attrs = internal_attrs();
 
         let entries = attributes.collect_entries();
         let attrs_spec = rule.attributes();
@@ -122,6 +126,8 @@ impl AnonTargetKey {
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
+            } else if internal_attrs.contains_key(k) {
+                return Err(AnonTargetsError::InternalAttribute(k.to_owned()).into());
             } else {
                 let attr = attrs_spec
                     .attribute(k)
