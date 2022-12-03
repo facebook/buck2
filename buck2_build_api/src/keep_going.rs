@@ -10,6 +10,7 @@
 //! Evaluates a series of futures, continuing past the first error if appropriate.
 //! Use the environment variable BUCK2_KEEP_GOING to control this behaviour.
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::fs::File;
@@ -143,6 +144,20 @@ where
     fn push(&mut self, item: (K, V)) {
         let (k, v) = item;
         IndexMap::insert(self, k, v);
+    }
+}
+
+impl<K, V> KeepGoingCollectable<(K, V)> for HashMap<K, V>
+where
+    K: PartialEq + Eq + Hash,
+{
+    fn with_capacity(cap: usize) -> Self {
+        HashMap::with_capacity(cap)
+    }
+
+    fn push(&mut self, item: (K, V)) {
+        let (k, v) = item;
+        HashMap::insert(self, k, v);
     }
 }
 
