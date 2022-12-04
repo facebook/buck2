@@ -37,7 +37,6 @@ use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::analysis::registry::AnalysisRegistry;
-use crate::attrs::resolve::attr_type::dep::ResolutionError;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::deferred::types::DeferredAny;
@@ -69,6 +68,8 @@ pub enum AnalysisError {
         "Analysis context was missing a query result, this shouldn't be possible. Query was `{0}`"
     )]
     MissingQuery(String),
+    #[error("required dependency `{0}` was not found")]
+    MissingDep(ConfiguredProvidersLabel),
 }
 
 #[derive(Debug, Clone, Dupe, Allocative)]
@@ -152,7 +153,7 @@ pub fn get_dep<'v>(
     module: &'v Module,
 ) -> anyhow::Result<FrozenProviderCollectionValue> {
     match dep_analysis_results.get(target.target()) {
-        None => Err(ResolutionError::MissingDep(target.clone()).into()),
+        None => Err(AnalysisError::MissingDep(target.clone()).into()),
         Some(x) => {
             let x = x.lookup_inner(target)?;
             // IMPORTANT: Anything given back to the user must be kept alive

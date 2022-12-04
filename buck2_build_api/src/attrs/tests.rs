@@ -463,7 +463,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     assert_eq!(
         true,
         err.to_string()
-            .contains("required provider BarInfo was not found")
+            .contains("required provider `BarInfo` was not found")
     );
 
     let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");

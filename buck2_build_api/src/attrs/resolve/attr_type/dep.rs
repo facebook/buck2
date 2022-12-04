@@ -18,17 +18,16 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use starlark::environment::Module;
 use starlark::values::Value;
+use thiserror::Error;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::dependency::Dependency;
 
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum ResolutionError {
-    #[error("required dependency {0} was not found")]
-    MissingDep(ConfiguredProvidersLabel),
-    #[error("required provider {0} was not found on {1}. Found these providers: {}", .2.join(", "))]
+#[derive(Error, Debug)]
+enum ResolutionError {
+    #[error("required provider `{0}` was not found on `{1}`. Found these providers: {}", .2.join(", "))]
     MissingRequiredProvider(String, ConfiguredProvidersLabel, Vec<String>),
 }
 
@@ -65,11 +64,12 @@ impl DepAttrTypeExt for DepAttrType {
     ) -> anyhow::Result<()> {
         for provider_id in required_providers {
             if !providers.contains_provider(provider_id) {
-                return Err(anyhow::anyhow!(ResolutionError::MissingRequiredProvider(
+                return Err(ResolutionError::MissingRequiredProvider(
                     provider_id.name().to_owned(),
                     target.clone(),
-                    providers.provider_names()
-                )));
+                    providers.provider_names(),
+                )
+                .into());
             }
         }
         Ok(())
