@@ -63,6 +63,11 @@ load(
     "CxxRuleConstructorParams",
 )
 load(
+    ":groups.bzl",
+    "MATCH_ALL_LABEL",
+    "NO_MATCH_LABEL",
+)
+load(
     ":headers.bzl",
     "CPrecompiledHeaderInfo",
     "cxx_get_regular_cxx_headers_layout",
@@ -70,6 +75,11 @@ load(
 load(
     ":link.bzl",
     _cxx_link_into_shared_library = "cxx_link_into_shared_library",
+)
+load(
+    ":link_groups.bzl",
+    "LinkGroupLibSpec",
+    "get_link_group_info",
 )
 load(
     ":linker.bzl",
@@ -152,11 +162,27 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
     output = cxx_library_parameterized(ctx, params)
     return output.providers
 
+def get_cxx_auto_link_group_specs(ctx: "context") -> [[LinkGroupLibSpec.type], None]:
+    link_group_info = get_link_group_info(ctx)
+    if link_group_info == None or not ctx.attrs.auto_link_groups:
+        return None
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    return [
+        LinkGroupLibSpec(
+            name = get_shared_library_name(linker_info, group.name),
+            is_shared_lib = True,
+            group = group,
+        )
+        for group in link_group_info.groups
+        if group.name not in (MATCH_ALL_LABEL, NO_MATCH_LABEL)
+    ]
+
 def cxx_binary_impl(ctx: "context") -> ["provider"]:
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
+        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params)
 
@@ -483,6 +509,7 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         rule_type = "cxx_test",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
+        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params, is_cxx_test = True)
 

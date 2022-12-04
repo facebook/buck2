@@ -30,9 +30,11 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
+    "LinkInfos",
     "LinkStyle",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
+    "SharedLibLinkable",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -87,7 +89,9 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupLib",
     "LinkGroupLinkInfo",  # @unused Used as a type
+    "create_link_group",
     "gather_link_group_libs",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
@@ -114,6 +118,8 @@ _CxxExecutableOutput = record(
     # External components needed to debug the executable.
     external_debug_info = ["_arglike"],
     shared_libs = {str.type: LinkedObject.type},
+    # All link group links that were generated in the executable.
+    auto_link_groups = field({str.type: LinkedObject.type}, {}),
 )
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
@@ -159,14 +165,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
         link_group_deps = [mapping.target for group in link_group_info.groups for mapping in group.mappings]
-        link_group_libs = gather_link_group_libs(
-            deps = first_order_deps + impl_params.extra_link_deps,
-        )
     else:
         link_groups = []
         link_group_mappings = {}
         link_group_deps = []
-        link_group_libs = {}
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     # Create the linkable graph with the binary's deps and any link group deps.
@@ -174,11 +176,58 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ctx,
         deps = first_order_deps + link_group_deps + impl_params.extra_link_deps,
     )
-    linkable_graph_node_map_func = get_linkable_graph_node_map_func(linkable_graph)
+
+    # Instantiate linkable graph nodes, needed for link groups.
+    linkable_graph_node_map = {}
+    if link_group_mappings:
+        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
     # Gather link inputs.
     own_link_flags = cxx_attr_linker_flags(ctx)
     inherited_link = cxx_inherited_link_info(ctx, first_order_deps + impl_params.extra_link_deps)
+
+    # Link group libs.
+    link_group_libs = {}
+    auto_link_groups = {}
+    if link_group_mappings:
+        # If we're using auto-link-groups, where we generate the link group links
+        # in the prelude, the link group map will give use the link group libs.
+        # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
+        if impl_params.auto_link_group_specs != None:
+            for link_group_spec in impl_params.auto_link_group_specs:
+                # NOTE(agallagher): It might make sense to move this down to be
+                # done when we generated the links for the executable, so we can
+                # handle the case when a link group can depend on the executable.
+                link_group_lib = create_link_group(
+                    ctx = ctx,
+                    spec = link_group_spec,
+                    linkable_graph_node_map = linkable_graph_node_map,
+                    linker_flags = own_link_flags,
+                    link_group_mappings = link_group_mappings,
+                    link_group_preferred_linkage = {},
+                    #link_style = LinkStyle("static_pic"),
+                    # TODO(agallagher): We should generate link groups via post-order
+                    # traversal to get inter-group deps correct.
+                    #link_group_libs = {},
+                    prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+                    category_suffix = "link_group",
+                )
+                auto_link_groups[link_group_spec.group.name] = link_group_lib
+                if link_group_spec.is_shared_lib:
+                    link_group_libs[link_group_spec.group.name] = LinkGroupLib(
+                        shared_libs = {link_group_spec.name: link_group_lib},
+                        shared_link_infos = LinkInfos(
+                            default = LinkInfo(
+                                linkables = [
+                                    SharedLibLinkable(lib = link_group_lib.output),
+                                ],
+                            ),
+                        ),
+                    )
+        else:
+            link_group_libs = gather_link_group_libs(
+                deps = first_order_deps + impl_params.extra_link_deps,
+            )
 
     filtered_labels_to_links_map = {}
     rest_labels_to_links_map = {}
@@ -190,8 +239,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # scenarios for which we need to propagate up link info and simplify this logic. For now
     # base which links to use based on whether link groups are defined.
     if link_group_mappings:
-        linkable_graph_node_map = linkable_graph_node_map_func()
-
         filtered_labels_to_links_map = get_filtered_labels_to_links_map(
             linkable_graph_node_map,
             link_group,
@@ -404,6 +451,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         link_args = links,
         external_debug_info = binary.external_debug_info,
         shared_libs = shared_libs,
+        auto_link_groups = auto_link_groups,
     ), comp_db_info, xcode_data_info
 
 # Returns a tuple of:

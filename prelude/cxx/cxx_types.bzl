@@ -18,6 +18,10 @@ load(
     "CxxHeadersLayout",
 )
 load(
+    ":link_groups.bzl",
+    "LinkGroupLibSpec",  # @unused Used as a type
+)
+load(
     ":linker.bzl",
     "SharedLibraryFlagOverrides",
 )
@@ -146,4 +150,5 @@ CxxRuleConstructorParams = record(
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool.type, True),
     extra_link_deps = field(["dependency"], []),
+    auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
 )

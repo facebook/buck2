@@ -7,13 +7,14 @@
 
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkArgs",
     "LinkInfo",  # @unused Used as a type
     "LinkInfos",  # @unused Used as a type
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "get_actual_link_style",
-    _get_link_info = "get_link_info",
+    get_link_info_from_link_infos = "get_link_info",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -38,6 +39,10 @@ load(
     "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
+)
+load(
+    ":link.bzl",
+    "cxx_link_shared_library",
 )
 
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
@@ -69,6 +74,17 @@ _LinkGroupLibInfo = provider(fields = [
     # A map of link group names to their shared libraries.
     "libs",  # {str.type: _LinkGroupLib.type}
 ])
+
+LinkGroupLibSpec = record(
+    # The output name given to the linked shared object.
+    name = field(str.type),
+    # Used to differentiate normal native shared libs from e.g. Python native
+    # extensions (which are techncially shared libs, but don't set a SONAME
+    # and aren't managed by `SharedLibraryInfo`s).
+    is_shared_lib = field(bool.type, True),
+    # The link group to link.
+    group = field(Group.type),
+)
 
 def gather_link_group_libs(
         libs: {str.type: LinkGroupLib.type} = {},
@@ -126,6 +142,23 @@ def get_link_group_info(ctx: "context") -> [LinkGroupInfo.type, None]:
 
     if type(link_group_map) == "dependency":
         return link_group_map[LinkGroupInfo]
+
+    fail("Link group maps must be provided as a link_group_map rule dependency.")
+
+def get_auto_link_group_libs(ctx: "context") -> [{str.type: LinkGroupLib.type}, None]:
+    """
+    Return link group libs created by the link group map rule.
+    """
+    link_group_map = ctx.attrs.link_group_map
+
+    if not link_group_map:
+        return None
+
+    if type(link_group_map) == "dependency":
+        info = link_group_map.get(_LinkGroupLibInfo)
+        if info == None:
+            return None
+        return info.libs
 
     fail("Link group maps must be provided as a link_group_map rule dependency.")
 
@@ -220,7 +253,7 @@ def get_filtered_labels_to_links_map(
         expect(target_group != link_group)
         link_group_added[target_group] = None
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = _get_link_info(link_group_lib.shared_link_infos),
+            link_info = get_link_info_from_link_infos(link_group_lib.shared_link_infos),
             link_style = LinkStyle("shared"),
         )  # buildifier: disable=uninitialized
 
@@ -270,3 +303,51 @@ def get_filtered_targets(labels_to_links_map: {"label": LinkGroupLinkInfo.type})
 def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_FILE_NAME, sorted(targets))
     return DefaultInfo(default_outputs = [json_map])
+
+def create_link_group(
+        ctx: "context",
+        spec: LinkGroupLibSpec.type,
+        linkable_graph_node_map: {"label": LinkableNode.type} = {},
+        linker_flags: [""] = [],
+        link_group_mappings: {"label": str.type} = {},
+        link_group_preferred_linkage: {"label": Linkage.type} = {},
+        link_style: LinkStyle.type = LinkStyle("static_pic"),
+        link_group_libs: {str.type: LinkGroupLib.type} = {},
+        prefer_stripped_objects: bool.type = False,
+        prefer_local: bool.type = False,
+        category_suffix: [str.type, None] = None) -> LinkedObject.type:
+    """
+    Link a link group library, described by a `LinkGroupLibSpec`.  This is
+    intended to handle regular shared libs and e.g. Python extensions.
+    """
+
+    inputs = []
+
+    # Add extra linker flags.
+    if linker_flags:
+        inputs.append(LinkInfo(pre_flags = linker_flags))
+
+    # Add roots...
+    filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+        linkable_graph_node_map,
+        spec.group.name,
+        link_group_mappings,
+        link_group_preferred_linkage,
+        link_group_libs = link_group_libs,
+        link_style = link_style,
+        deps = [mapping.target for mapping in spec.group.mappings],
+        is_executable_link = False,
+        prefer_stripped = prefer_stripped_objects,
+    )
+    inputs.extend(get_filtered_links(filtered_labels_to_links_map))
+
+    # link the rule
+    return cxx_link_shared_library(
+        ctx,
+        ctx.actions.declare_output(spec.name),
+        name = spec.name if spec.is_shared_lib else None,
+        links = [LinkArgs(infos = inputs)],
+        category_suffix = category_suffix,
+        identifier = spec.name,
+        prefer_local = prefer_local,
+    )

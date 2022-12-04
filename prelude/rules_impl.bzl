@@ -232,6 +232,7 @@ def _python_test_attrs():
 def _cxx_binary_and_test_attrs():
     return {
         "allow_huge_dwp": attrs.bool(default = False),
+        "auto_link_groups": attrs.bool(default = False),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
@@ -262,6 +263,7 @@ def _python_binary_attrs():
     # allow non-default value for the args below
     updated_attrs.update({
         "allow_huge_dwp": attrs.bool(default = False),
+        "auto_link_groups": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
         "cxx_main": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),

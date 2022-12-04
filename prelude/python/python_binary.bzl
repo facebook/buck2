@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
+load("@prelude//cxx:cxx.bzl", "get_cxx_auto_link_group_specs")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
@@ -318,6 +319,7 @@ def convert_python_library_to_executable(
             extra_link_deps = extension_info.link_deps + executable_deps,
             exe_shared_libs_link_tree = False,
             force_full_hybrid_if_capable = True,
+            auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
