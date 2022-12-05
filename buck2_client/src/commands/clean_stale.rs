@@ -18,6 +18,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use chrono::DateTime;
 use chrono::Duration;
+use chrono::TimeZone;
 use chrono::Utc;
 use cli_proto::CleanStaleRequest;
 use cli_proto::CleanStaleResponse;
@@ -32,8 +33,31 @@ pub struct CleanStaleCommand {
     pub console_opts: CommonConsoleOptions,
     pub config_opts: CommonBuildConfigurationOptions,
     pub event_log_opts: CommonDaemonCommandOptions,
-    pub stale: Option<humantime::Duration>,
+    pub keep_since_arg: KeepSinceArg,
     pub dry_run: bool,
+}
+
+/// Specifies the maximum age of artifacts to keep
+pub enum KeepSinceArg {
+    Duration(Duration),
+    Time(i64),
+}
+
+pub fn parse_clean_stale_args(
+    stale: Option<Option<humantime::Duration>>,
+    keep_since_time: Option<i64>,
+) -> anyhow::Result<Option<KeepSinceArg>> {
+    let arg = match (stale, keep_since_time) {
+        (Some(Some(human_duration)), None) => {
+            let duration = chrono::Duration::from_std(human_duration.into())?;
+            Some(KeepSinceArg::Duration(duration))
+        }
+        (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(7))),
+        (None, Some(time)) => Some(KeepSinceArg::Time(time)),
+        (Some(_), Some(_)) => unreachable!("keep-since-time conflicts_with stale"),
+        (None, None) => None,
+    };
+    Ok(arg)
 }
 
 #[async_trait]
@@ -46,18 +70,25 @@ impl StreamingCommand for CleanStaleCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let duration: Duration = self
-            .stale
-            .map_or(Ok(Duration::weeks(7)), |dur| Duration::from_std(dur.into()))
-            .context("Error converting duration")?;
+        let keep_since_time = match self.keep_since_arg {
+            KeepSinceArg::Duration(duration) => {
+                let keep_since_time: DateTime<Utc> = Utc::now()
+                    .checked_sub_signed(duration)
+                    .context("Duration underflow")?;
 
-        let keep_since_time: DateTime<Utc> = Utc::now()
-            .checked_sub_signed(duration)
-            .context("Duration underflow")?;
-        buck2_client_ctx::eprintln!(
-            "Cleaning artifacts more than {} old",
-            humantime::format_duration(duration.to_std().context("Error converting duration")?),
-        )?;
+                buck2_client_ctx::eprintln!(
+                    "Cleaning artifacts more than {} old",
+                    humantime::format_duration(
+                        duration.to_std().context("Error converting duration")?
+                    ),
+                )?;
+                keep_since_time
+            }
+            KeepSinceArg::Time(timestamp) => Utc
+                .timestamp_opt(timestamp, 0)
+                .single()
+                .context("Invalid timestamp")?,
+        };
 
         let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
         let response: CleanStaleResponse = buckd

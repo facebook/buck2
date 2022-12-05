@@ -29,6 +29,7 @@ use humantime;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
+use crate::commands::clean_stale::parse_clean_stale_args;
 use crate::commands::clean_stale::CleanStaleCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -56,16 +57,20 @@ the specified duration, without killing the daemon",
         value_name = "DURATION"
     )]
     stale: Option<Option<humantime::Duration>>,
+
+    // Like stale but since a specific timestamp, for testing
+    #[clap(long = "keep-since-time", conflicts_with = "stale", hidden = true)]
+    keep_since_time: Option<i64>,
 }
 
 impl CleanCommand {
     pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
-        if self.stale.is_some() {
+        if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
                 console_opts: self.console_opts,
                 config_opts: self.config_opts,
                 event_log_opts: self.event_log_opts,
-                stale: self.stale.unwrap(),
+                keep_since_arg,
                 dry_run: self.dry_run,
             };
             cmd.exec(matches, ctx);
