@@ -253,18 +253,9 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         this: &OutputStream<'v>,
         artifact: Value<'v>,
     ) -> anyhow::Result<EnsuredArtifactGen<Value<'v>>> {
-        artifact.as_artifact().ok_or_else(|| {
-            ValueError::IncorrectParameterTypeWithExpected(
-                "artifact-like".to_owned(),
-                artifact.get_type().to_owned(),
-            )
-        })?;
+        validate_artifact_like(artifact)?;
 
-        this.artifacts_to_ensure
-            .borrow_mut()
-            .as_mut()
-            .expect("should not have been taken")
-            .insert_hashed(artifact.get_hashed()?);
+        populate_ensured_artifacts(this, artifact)?;
 
         EnsuredArtifactGen::new(artifact)
     }
@@ -279,18 +270,8 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             Ok(vec![])
         } else if let Some(list) = <&ListRef>::unpack_value(artifacts) {
             list.content().try_map(|artifact| {
-                artifact.as_artifact().ok_or_else(|| {
-                    ValueError::IncorrectParameterTypeWithExpected(
-                        "artifact-like".to_owned(),
-                        artifact.get_type().to_owned(),
-                    )
-                })?;
-
-                this.artifacts_to_ensure
-                    .borrow_mut()
-                    .as_mut()
-                    .expect("should not have been taken")
-                    .insert_hashed(artifact.get_hashed()?);
+                validate_artifact_like(*artifact)?;
+                populate_ensured_artifacts(this, *artifact)?;
 
                 EnsuredArtifactGen::new(*artifact)
             })
@@ -325,4 +306,27 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             ))
         }
     }
+}
+
+fn validate_artifact_like(artifact: Value) -> anyhow::Result<()> {
+    artifact.as_artifact().ok_or_else(|| {
+        ValueError::IncorrectParameterTypeWithExpected(
+            "artifact-like".to_owned(),
+            artifact.get_type().to_owned(),
+        )
+    })?;
+    Ok(())
+}
+
+fn populate_ensured_artifacts<'v>(
+    output_stream: &OutputStream<'v>,
+    artifact: Value<'v>,
+) -> anyhow::Result<()> {
+    output_stream
+        .artifacts_to_ensure
+        .borrow_mut()
+        .as_mut()
+        .expect("should not have been taken")
+        .insert_hashed(artifact.get_hashed()?);
+    Ok(())
 }
