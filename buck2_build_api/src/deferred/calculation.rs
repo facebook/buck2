@@ -43,6 +43,7 @@ use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredKey;
+use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::DeferredResult;
 use crate::deferred::types::DeferredValueAny;
@@ -101,11 +102,13 @@ async fn lookup_deferred(
         DeferredKey::Base(target, id) => {
             let deferred_or_analysis = lookup_deferred_inner(target, dice).await?;
 
-            BoxRef::new(box deferred_or_analysis).try_map(|a| a.lookup_deferred(*id))
+            BoxRef::new(box deferred_or_analysis)
+                .try_map(|a| anyhow::Ok(a.lookup_deferred(*id)?.as_complex()))
         }
         DeferredKey::Deferred(key, id) => {
             let deferred = compute_deferred(dice, key).await?;
-            BoxRef::new(box DeferredHolder::Deferred(deferred)).try_map(|a| a.lookup_deferred(*id))
+            BoxRef::new(box DeferredHolder::Deferred(deferred))
+                .try_map(|a| anyhow::Ok(a.lookup_deferred(*id)?.as_complex()))
         }
     }?)
 }
@@ -290,7 +293,7 @@ enum DeferredHolder {
 }
 
 impl DeferredHolder {
-    fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
+    fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self {
             DeferredHolder::Analysis(result) => result.lookup_deferred(id),
             DeferredHolder::Deferred(result) => result.lookup_deferred(id),

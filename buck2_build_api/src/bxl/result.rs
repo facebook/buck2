@@ -13,8 +13,8 @@ use indexmap::IndexSet;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::build_result::BxlBuildResult;
-use crate::deferred::types::DeferredAny;
 use crate::deferred::types::DeferredId;
+use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredTable;
 
 /// The result of evaluating a bxl function
@@ -50,7 +50,7 @@ impl BxlResult {
     }
 
     /// looks up an 'Deferred' given the id
-    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
+    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self {
             BxlResult::None { .. } => Err(anyhow::anyhow!("Bxl never attempted to build anything")),
             BxlResult::BuildsArtifacts { deferred, .. } => deferred.lookup_deferred(id),

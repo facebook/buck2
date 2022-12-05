@@ -39,8 +39,8 @@ use thiserror::Error;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::deferred::types::DeferredAny;
 use crate::deferred::types::DeferredId;
+use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredTable;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::context::AnalysisContext;
@@ -106,7 +106,7 @@ impl AnalysisResult {
         self.provider_collection.lookup_inner(label)
     }
 
-    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
+    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         self.deferred.lookup_deferred(id)
     }
 }

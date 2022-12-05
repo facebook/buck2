@@ -32,6 +32,7 @@ use gazebo::variants::VariantName;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use owning_ref::ArcRef;
 use thiserror::Error;
 
@@ -317,8 +318,44 @@ impl BaseKey {
 }
 
 #[derive(Allocative)]
+pub struct TrivialDeferredValue(Arc<dyn AnyValue>);
+
+impl DeferredAny for TrivialDeferredValue {
+    fn inputs(&self) -> &IndexSet<DeferredInput> {
+        static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
+        &INPUTS
+    }
+
+    fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+        Ok(DeferredValueAny::Ready(self.0.dupe()))
+    }
+}
+
+#[derive(Allocative)]
+pub enum DeferredTableEntry {
+    Trivial(TrivialDeferredValue),
+    Complex(Box<dyn DeferredAny>),
+}
+
+impl DeferredAny for DeferredTableEntry {
+    fn inputs(&self) -> &IndexSet<DeferredInput> {
+        match self {
+            Self::Trivial(v) => v.inputs(),
+            Self::Complex(v) => v.inputs(),
+        }
+    }
+
+    fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+        match self {
+            Self::Trivial(v) => v.execute(ctx),
+            Self::Complex(v) => v.execute(ctx),
+        }
+    }
+}
+
+#[derive(Allocative)]
 enum DeferredRegistryEntry {
-    Set(Box<dyn DeferredAny>),
+    Set(DeferredTableEntry),
     Pending,
 }
 
@@ -346,6 +383,23 @@ where
     }
 }
 
+#[derive(Allocative)]
+#[allocative(bound = "")]
+pub struct ReservedTrivialDeferredData<T>(DeferredData<T>);
+
+impl<'a, T> ReservedTrivialDeferredData<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn new(id: DeferredData<T>) -> Self {
+        Self(id)
+    }
+
+    pub fn data(&'a self) -> &'a DeferredData<T> {
+        &self.0
+    }
+}
+
 impl DeferredRegistry {
     pub fn new(base_key: BaseKey) -> Self {
         Self {
@@ -356,13 +410,30 @@ impl DeferredRegistry {
 
     /// Reserves a 'DeferredData', with it's underlying key, on the promise that it should be bound
     /// to a 'Deferred' before 'take_result' is called.
-    pub fn reserve<T>(&mut self) -> ReservedDeferredData<T>
+    pub fn reserve<D>(&mut self) -> ReservedDeferredData<D>
     where
-        T: Clone + Send + Sync + 'static,
+        D: Clone + Send + Sync + 'static,
     {
-        let id = DeferredId(self.registry.len());
+        let id = DeferredId {
+            id: self.registry.len(),
+            trivial: false,
+        };
         self.registry.push(DeferredRegistryEntry::Pending);
         ReservedDeferredData::new(DeferredData::new(self.base_key.make_key(id)))
+    }
+
+    /// Reserves a 'DeferredData', with it's underlying key, on the promise that it should be bound
+    /// to a 'Deferred' before 'take_result' is called.
+    pub fn reserve_trivial<D>(&mut self) -> ReservedTrivialDeferredData<D>
+    where
+        D: Clone + Send + Sync + 'static,
+    {
+        let id = DeferredId {
+            id: self.registry.len(),
+            trivial: true,
+        };
+        self.registry.push(DeferredRegistryEntry::Pending);
+        ReservedTrivialDeferredData::new(DeferredData::new(self.base_key.make_key(id)))
     }
 
     /// binds a reserved 'ReservedDeferredData' to a 'Deferred'
@@ -375,9 +446,33 @@ impl DeferredRegistry {
 
         match self.registry.get_mut(id) {
             Some(entry @ DeferredRegistryEntry::Pending) => {
-                *entry = DeferredRegistryEntry::Set(box d);
+                *entry = DeferredRegistryEntry::Set(DeferredTableEntry::Complex(box d));
             }
+            _ => {
+                panic!("the reserved should always be in pending");
+            }
+        }
 
+        reserved.0
+    }
+
+    /// binds a reserved 'ReservedDeferredData' to a 'Deferred'
+    pub fn bind_trivial<D>(
+        &mut self,
+        reserved: ReservedTrivialDeferredData<D>,
+        d: D,
+    ) -> DeferredData<D>
+    where
+        D: AnyValue + Allocative + Clone + Debug + Send + Sync + 'static,
+    {
+        let id = reserved.0.key.id().as_usize();
+
+        match self.registry.get_mut(id) {
+            Some(entry @ DeferredRegistryEntry::Pending) => {
+                *entry = DeferredRegistryEntry::Set(DeferredTableEntry::Trivial(
+                    TrivialDeferredValue(Arc::new(d) as _),
+                ));
+            }
             _ => {
                 panic!("the reserved should always be in pending");
             }
@@ -394,8 +489,30 @@ impl DeferredRegistry {
         &mut self,
         d: D,
     ) -> DeferredData<T> {
-        let id = DeferredId(self.registry.len());
-        self.registry.push(DeferredRegistryEntry::Set(box d));
+        let id = DeferredId {
+            id: self.registry.len(),
+            trivial: false,
+        };
+        self.registry
+            .push(DeferredRegistryEntry::Set(DeferredTableEntry::Complex(
+                box d,
+            )));
+        DeferredData::new(self.base_key.make_key(id))
+    }
+
+    /// creates a new 'DeferredData'
+    pub fn defer_trivial<D>(&mut self, d: D) -> DeferredData<D>
+    where
+        D: AnyValue + Allocative + Clone + Debug + Send + Sync + 'static,
+    {
+        let id = DeferredId {
+            id: self.registry.len(),
+            trivial: true,
+        };
+        self.registry
+            .push(DeferredRegistryEntry::Set(DeferredTableEntry::Trivial(
+                TrivialDeferredValue(Arc::new(d) as _),
+            )));
         DeferredData::new(self.base_key.make_key(id))
     }
 
@@ -452,14 +569,14 @@ impl DeferredRegistry {
         })
     }
 
-    pub fn take_result(self) -> anyhow::Result<Vec<Box<dyn DeferredAny>>> {
+    pub fn take_result(self) -> anyhow::Result<Vec<DeferredTableEntry>> {
         self.registry
             .into_iter()
             .enumerate()
             .map(|(i, e)| match e {
                 DeferredRegistryEntry::Set(e) => anyhow::Ok(e),
                 DeferredRegistryEntry::Pending => {
-                    Err(DeferredErrors::UnboundReservedDeferred(DeferredId(i)).into())
+                    Err(DeferredErrors::UnboundReservedDeferred(i).into())
                 }
             })
             .collect()
@@ -471,7 +588,28 @@ pub enum DeferredErrors {
     #[error("no deferred found for deferred id `{0}`")]
     DeferredNotFound(usize),
     #[error("reserved deferred id of `{0:?}` was never bound")]
-    UnboundReservedDeferred(DeferredId),
+    UnboundReservedDeferred(usize),
+}
+
+pub enum DeferredLookup<'a> {
+    Trivial(&'a TrivialDeferredValue),
+    Complex(&'a (dyn DeferredAny + 'static)),
+}
+
+impl<'a> DeferredLookup<'a> {
+    pub fn as_complex(&self) -> &'a (dyn DeferredAny + 'static) {
+        match self {
+            Self::Trivial(v) => *v as _,
+            Self::Complex(v) => *v,
+        }
+    }
+
+    pub fn as_trivial(&self) -> Option<&'a Arc<dyn AnyValue>> {
+        match self {
+            Self::Trivial(v) => Some(&v.0),
+            Self::Complex(..) => None,
+        }
+    }
 }
 
 /// Contains all the deferreds generated by analyzing a particular rule implementation
@@ -480,12 +618,12 @@ pub struct DeferredResult(Arc<DeferredResultData>);
 
 #[derive(Allocative)]
 struct DeferredResultData {
-    deferreds: Vec<Box<dyn DeferredAny>>,
+    deferreds: Vec<DeferredTableEntry>,
     value: DeferredValueAny,
 }
 
 #[derive(Clone, Dupe, Allocative)]
-pub struct DeferredTable(Arc<Vec<Box<dyn DeferredAny>>>);
+pub struct DeferredTable(Arc<Vec<DeferredTableEntry>>);
 
 impl Debug for DeferredResultData {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -505,29 +643,31 @@ impl Debug for DeferredTable {
 }
 
 impl DeferredTable {
-    pub fn new(deferreds: Vec<Box<dyn DeferredAny>>) -> Self {
+    pub fn new(deferreds: Vec<DeferredTableEntry>) -> Self {
         Self(Arc::new(deferreds))
     }
 
     /// looks up an 'Deferred' given the id
-    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
+    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self.0.get(id.as_usize()) {
-            Some(deferred) => Ok(&**deferred),
-            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.0))),
+            Some(DeferredTableEntry::Complex(deferred)) => Ok(DeferredLookup::Complex(&**deferred)),
+            Some(DeferredTableEntry::Trivial(value)) => Ok(DeferredLookup::Trivial(value)),
+            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.id))),
         }
     }
 }
 
 impl DeferredResult {
-    pub fn new(value: DeferredValueAny, deferreds: Vec<Box<dyn DeferredAny>>) -> Self {
+    pub fn new(value: DeferredValueAny, deferreds: Vec<DeferredTableEntry>) -> Self {
         Self(Arc::new(DeferredResultData { deferreds, value }))
     }
 
     /// looks up an 'Deferred' given the id
-    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
+    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self.0.deferreds.get(id.as_usize()) {
-            Some(deferred) => Ok(&**deferred),
-            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.0))),
+            Some(DeferredTableEntry::Complex(deferred)) => Ok(DeferredLookup::Complex(&**deferred)),
+            Some(DeferredTableEntry::Trivial(value)) => Ok(DeferredLookup::Trivial(value)),
+            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.id))),
         }
     }
 
@@ -608,12 +748,16 @@ pub trait DeferredAny: Allocative + Send + Sync {
 #[derive(Clone, Copy, Debug, Dupe, Display, Allocative)]
 // comment because linters and fmt don't agree
 #[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct DeferredId(usize);
+#[display(fmt = "{}", id)]
+pub struct DeferredId {
+    id: usize,
+    trivial: bool,
+}
 
 impl DeferredId {
     /// Gets the underlying ID for this DeferredId. This should be used for logging only.
     pub(crate) fn as_usize(self) -> usize {
-        self.0
+        self.id
     }
 }
 
@@ -640,12 +784,12 @@ pub mod testing {
     use gazebo::variants::VariantName;
 
     use crate::deferred::types::AnyValue;
-    use crate::deferred::types::DeferredAny;
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;
     use crate::deferred::types::DeferredResult;
     use crate::deferred::types::DeferredTable;
+    use crate::deferred::types::DeferredTableEntry;
     use crate::deferred::types::DeferredValueAny;
 
     pub trait DeferredDataExt<T> {
@@ -664,7 +808,7 @@ pub mod testing {
 
     impl DeferredIdExt for DeferredId {
         fn testing_new(id: usize) -> DeferredId {
-            DeferredId(id)
+            DeferredId { id, trivial: false }
         }
     }
 
@@ -706,17 +850,17 @@ pub mod testing {
     }
 
     pub trait DeferredAnalysisResultExt {
-        fn get_registered(&self) -> &Vec<Box<dyn DeferredAny>>;
+        fn get_registered(&self) -> &Vec<DeferredTableEntry>;
     }
 
     impl DeferredAnalysisResultExt for DeferredResult {
-        fn get_registered(&self) -> &Vec<Box<dyn DeferredAny>> {
+        fn get_registered(&self) -> &Vec<DeferredTableEntry> {
             &self.0.deferreds
         }
     }
 
     impl DeferredAnalysisResultExt for DeferredTable {
-        fn get_registered(&self) -> &Vec<Box<dyn DeferredAny>> {
+        fn get_registered(&self) -> &Vec<DeferredTableEntry> {
             &self.0
         }
     }
@@ -747,12 +891,14 @@ mod tests {
     use crate::deferred::types::AnyValue;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
+    use crate::deferred::types::DeferredAny;
     use crate::deferred::types::DeferredCtx;
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredInput;
     use crate::deferred::types::DeferredKey;
     use crate::deferred::types::DeferredRegistry;
+    use crate::deferred::types::DeferredTable;
     use crate::deferred::types::DeferredValue;
     use crate::deferred::types::DeferredValueAny;
     use crate::deferred::types::ResolveDeferredCtx;
@@ -985,7 +1131,10 @@ mod tests {
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         );
-        let id = DeferredId(1);
+        let id = DeferredId {
+            id: 1,
+            trivial: false,
+        };
 
         let base = DeferredKey::Base(BaseDeferredKey::TargetLabel(target.dupe()), id);
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(base)));
@@ -1028,7 +1177,13 @@ mod tests {
 
         assert_eq!(
             deferred_key,
-            DeferredKey::Deferred(Arc::new(deferring_deferred_data.key), DeferredId(0))
+            DeferredKey::Deferred(
+                Arc::new(deferring_deferred_data.key),
+                DeferredId {
+                    id: 0,
+                    trivial: false
+                }
+            )
         );
 
         let result = registry.take_result()?;
@@ -1120,5 +1275,45 @@ mod tests {
         let _reserved1 = registry.reserve::<FakeDeferred<()>>();
 
         assert_eq!(registry.take_result().is_err(), true);
+    }
+
+    #[test]
+    fn trivial_deferred() -> anyhow::Result<()> {
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
+            Package::testing_new("cell", "pkg"),
+            TargetName::unchecked_new("foo"),
+            Configuration::testing_new(),
+        ));
+        let mut registry = DeferredRegistry::new(BaseKey::Base(base));
+
+        let deferred_data0 = registry.defer_trivial(123);
+        let deferred_data1 = registry.reserve_trivial();
+        let deferred_data1 = registry.bind_trivial(deferred_data1, 456);
+
+        let result = DeferredTable::new(registry.take_result()?);
+
+        assert_eq!(
+            *deferred_data0.resolve(
+                result
+                    .lookup_deferred(deferred_data0.deferred_key().id())?
+                    .as_trivial()
+                    .unwrap()
+                    .dupe()
+            )?,
+            123
+        );
+
+        assert_eq!(
+            *deferred_data1.resolve(
+                result
+                    .lookup_deferred(deferred_data1.deferred_key().id())?
+                    .as_trivial()
+                    .unwrap()
+                    .dupe()
+            )?,
+            456
+        );
+
+        Ok(())
     }
 }
