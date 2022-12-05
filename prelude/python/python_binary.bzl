@@ -173,7 +173,7 @@ def python_executable(
     )
 
     extra["source-db"] = [source_db]
-    extra["source-db-no-deps"] = [source_db_no_deps]
+    extra["source-db-no-deps"] = [source_db_no_deps, library_info]
 
     return (output, runtime_files, extra)
 
