@@ -125,7 +125,7 @@ def generate_rustdoc(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         toolchain_info.rustdoc,
-        toolchain_info.rustdoc_flags,
+        toolchain_info.rustdoc_flags or [],
         ctx.attrs.rustdoc_flags,
         common_args.args,
         # FIXME: fbcode/common/rust/rustdoc/compress/main.rs expects
@@ -403,7 +403,8 @@ def _dependency_args(
 
     return (args, crate_targets)
 
-def _lintify(flag: str.type, clippy: bool.type, lints: ["resolved_macro"]) -> "cmd_args":
+def _lintify(flag: str.type, clippy: bool.type, lints: [["resolved_macro"], None]) -> "cmd_args":
+    lints = lints or []
     return cmd_args(
         [lint for lint in lints if str(lint).startswith("\"clippy::") == clippy],
         format = "-{}{{}}".format(flag),
@@ -486,8 +487,8 @@ def _compute_common_args(
         "--json=diagnostic-rendered-ansi",
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
-        toolchain_info.rustc_flags,
-        toolchain_info.rustc_check_flags if is_check else [],
+        toolchain_info.rustc_flags or [],
+        (toolchain_info.rustc_check_flags or []) if is_check else [],
         ctx.attrs.rustc_flags,
         cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
         dependency_args,

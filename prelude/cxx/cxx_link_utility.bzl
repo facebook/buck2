@@ -197,5 +197,5 @@ def executable_shared_lib_arguments(
 def cxx_link_cmd(ctx: "context") -> "cmd_args":
     toolchain = get_cxx_toolchain_info(ctx)
     command = cmd_args(toolchain.linker_info.linker)
-    command.add(toolchain.linker_info.linker_flags)
+    command.add(toolchain.linker_info.linker_flags or [])
     return command

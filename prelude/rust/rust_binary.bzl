@@ -107,7 +107,7 @@ def _rust_binary_common(
             shared_libs,
         )
 
-        extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
+        extra_flags = (toolchain_info.rustc_binary_flags or []) + (extra_flags or [])
 
         # Compile rust binary.
         link, meta = rust_compile_multi(

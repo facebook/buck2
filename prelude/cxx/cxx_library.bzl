@@ -525,14 +525,14 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         # and unless they get quoted, they break shell syntax.
         cxx_preprocessor_flags = cmd_args()
         cxx_compiler_info = get_cxx_toolchain_info(ctx).cxx_compiler_info
-        cxx_preprocessor_flags.add(cmd_args(cxx_compiler_info.preprocessor_flags, quote = "shell"))
+        cxx_preprocessor_flags.add(cmd_args(cxx_compiler_info.preprocessor_flags or [], quote = "shell"))
         cxx_preprocessor_flags.add(cmd_args(propagated_preprocessor.set.project_as_args("args"), quote = "shell"))
         cxx_preprocessor_flags.add(propagated_preprocessor.set.project_as_args("include_dirs"))
         templ_vars["cxxppflags"] = cxx_preprocessor_flags
 
         c_preprocessor_flags = cmd_args()
         c_compiler_info = get_cxx_toolchain_info(ctx).c_compiler_info
-        c_preprocessor_flags.add(cmd_args(c_compiler_info.preprocessor_flags, quote = "shell"))
+        c_preprocessor_flags.add(cmd_args(c_compiler_info.preprocessor_flags or [], quote = "shell"))
         c_preprocessor_flags.add(cmd_args(propagated_preprocessor.set.project_as_args("args"), quote = "shell"))
         c_preprocessor_flags.add(propagated_preprocessor.set.project_as_args("include_dirs"))
         templ_vars["cppflags"] = c_preprocessor_flags
@@ -542,7 +542,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             name = "ldflags-" + link_style.value.replace("_", "-")
             args = cmd_args()
             linker_info = get_cxx_toolchain_info(ctx).linker_info
-            args.add(linker_info.linker_flags)
+            args.add(linker_info.linker_flags or [])
             args.add(unpack_link_args(
                 get_link_args(
                     merged_native_link_info,  # buildifier: disable=uninitialized Initialized if impl_params.generate_providers.template_placeholders is True
@@ -896,9 +896,9 @@ def _static_library(
     post_flags = []
 
     if pic:
-        post_flags.extend(linker_info.static_pic_dep_runtime_ld_flags)
+        post_flags.extend(linker_info.static_pic_dep_runtime_ld_flags or [])
     else:
-        post_flags.extend(linker_info.static_dep_runtime_ld_flags)
+        post_flags.extend(linker_info.static_dep_runtime_ld_flags or [])
 
     all_external_debug_info = []
     all_external_debug_info.extend(external_debug_info)
@@ -970,7 +970,7 @@ def _shared_library(
             impl_params.extra_exported_link_flags +
             impl_params.extra_link_flags +
             _attr_post_linker_flags(ctx) +
-            linker_info.shared_dep_runtime_ld_flags
+            (linker_info.shared_dep_runtime_ld_flags or [])
         ),
         external_debug_info = external_debug_info,
     )
@@ -998,9 +998,9 @@ def _shared_library(
             pre_flags = link_info.pre_flags,
             linkables = link_info.linkables,
             post_flags = (
-                link_info.post_flags +
+                (link_info.post_flags or []) +
                 get_ignore_undefined_symbols_flags(linker_info.type) +
-                linker_info.independent_shlib_interface_linker_flags
+                (linker_info.independent_shlib_interface_linker_flags or [])
             ),
             external_debug_info = link_info.external_debug_info,
         )

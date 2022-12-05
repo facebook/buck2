@@ -48,16 +48,11 @@ def _cxx_toolchain(ctx):
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
                 linker = RunInfo(args = ["gcc"]),
-                linker_flags = [],
                 archiver = RunInfo(args = ["ar", "rcs"]),
                 type = "gnu",
                 link_binaries_locally = True,
                 archive_objects_locally = True,
                 use_archiver_flags = False,
-                static_dep_runtime_ld_flags = [],
-                static_pic_dep_runtime_ld_flags = [],
-                shared_dep_runtime_ld_flags = [],
-                independent_shlib_interface_linker_flags = [],
                 mk_shlib_intf = ctx.attrs.make_shlib_intf,
                 link_style = LinkStyle(ctx.attrs.link_style),
                 link_weight = 1,
@@ -79,26 +74,18 @@ def _cxx_toolchain(ctx):
             ),
             cxx_compiler_info = CxxCompilerInfo(
                 compiler = RunInfo(args = ["clang++"]),
-                preprocessor_flags = [],
-                compiler_flags = [],
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = ["clang"]),
-                preprocessor_flags = [],
-                compiler_flags = [],
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             as_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = ["clang"]),
-                preprocessor_flags = [],
-                compiler_flags = [],
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             asm_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = ["clang"]),
-                preprocessor_flags = [],
-                compiler_flags = [],
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             header_mode = HeaderMode("symlink_tree_only"),
@@ -168,25 +155,18 @@ def _rust_toolchain(ctx):
     return [
         DefaultInfo(),
         RustToolchainInfo(
-            allow_lints = [],
             clippy_driver = "clippy-driver",
             compiler = "rustc",
-            deny_lints = [],
             extern_html_root_url_prefix = "",
             failure_filter = False,
             failure_filter_action = None,
             pipelined = False,
             report_unused_deps = False,
             rustc_action = ctx.attrs.rustc_action[RunInfo],
-            rustc_binary_flags = [],
-            rustc_check_flags = [],
-            rustc_flags = [],
             default_edition = "2021",
             rustc_target_triple = "x86_64-pc-windows-gnu" if host_info().os.is_windows else "x86_64-unknown-linux-gnu",
             rustc_test_flags = "",
             rustdoc = "rustdoc",
-            rustdoc_flags = [],
-            warn_lints = [],
         ),
         RustPlatformInfo(
             name = "x86_64",

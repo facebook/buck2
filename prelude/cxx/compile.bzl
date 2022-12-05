@@ -395,8 +395,8 @@ def _supports_dep_files(ext: CxxExtension.type) -> bool.type:
     return True
 
 def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.type, cmd: "cmd_args"):
-    cmd.add(compiler_info.preprocessor_flags)
-    cmd.add(compiler_info.compiler_flags)
+    cmd.add(compiler_info.preprocessor_flags or [])
+    cmd.add(compiler_info.compiler_flags or [])
     cmd.add(get_flags_for_reproducible_build(compiler_info.compiler_type))
 
     if ext.value not in (".asm", ".asmpp"):
