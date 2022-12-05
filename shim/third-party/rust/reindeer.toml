@@ -138,7 +138,7 @@ versioned_dirs = true
 # Configuration for generated BUCK file
 [buck]
 # Name of the generated file
-file_name = "BUCK" # default
+file_name = "BUCK_OSS"
 # targets_name = "RUST_TARGETS.bzl" # emit a set of all Rust targets (not reall useful)
 
 
