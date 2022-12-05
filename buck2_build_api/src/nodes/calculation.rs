@@ -601,15 +601,13 @@ async fn compute_configured_target_node_no_transition(
     }
 
     // Check transitive target compatibility.
-    let dep_futures: Vec<_> = deps
+    let dep_futures = deps
         .iter()
-        .map(|v| ctx.get_configured_target_node(v.target()))
-        .collect();
+        .map(|v| ctx.get_configured_target_node(v.target()));
 
-    let exec_dep_futures: Vec<_> = exec_deps
+    let exec_dep_futures = exec_deps
         .iter()
-        .map(|v| ctx.get_configured_target_node(v.target()))
-        .collect();
+        .map(|v| ctx.get_configured_target_node(v.target()));
 
     let (dep_results, exec_dep_results): (Vec<_>, Vec<_>) = futures::future::join(
         futures::future::join_all(dep_futures),
