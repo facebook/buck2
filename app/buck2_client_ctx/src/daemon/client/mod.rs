@@ -561,6 +561,7 @@ impl<'a> FlushingBuckdClient<'a> {
     stream_method!(install, InstallRequest, InstallResponse);
     stream_method!(audit, GenericRequest, GenericResponse);
     stream_method!(materialize, MaterializeRequest, MaterializeResponse);
+    stream_method!(clean_stale, CleanStaleRequest, CleanStaleResponse);
     stream_method!(unstable_docs, UnstableDocsRequest, UnstableDocsResponse);
     stream_method!(profile, profile2, ProfileRequest, ProfileResponse);
     stream_method!(allocative, AllocativeRequest, AllocativeResponse);

@@ -31,6 +31,7 @@ use tokio::sync::oneshot::Sender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
 use crate::materializers::deferred::create_ttl_refresh;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
@@ -43,7 +44,7 @@ use crate::materializers::deferred::WithPathsIterator;
 pub(super) trait ExtensionCommand: Debug + Sync + Send + 'static {
     fn execute(
         self: Box<Self>,
-        tree: &ArtifactTree,
+        tree: &mut ArtifactTree,
         processor: &DeferredMaterializerCommandProcessor,
     );
 }
@@ -71,7 +72,7 @@ struct Iterate {
 impl ExtensionCommand for Iterate {
     fn execute(
         self: Box<Self>,
-        tree: &ArtifactTree,
+        tree: &mut ArtifactTree,
         _processor: &DeferredMaterializerCommandProcessor,
     ) {
         for (path, data) in tree.iter().with_paths() {
@@ -109,7 +110,7 @@ struct RefreshTtls {
 impl ExtensionCommand for RefreshTtls {
     fn execute(
         self: Box<Self>,
-        tree: &ArtifactTree,
+        tree: &mut ArtifactTree,
         processor: &DeferredMaterializerCommandProcessor,
     ) {
         let task = create_ttl_refresh(
@@ -148,5 +149,20 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
             None => {}
         };
         Ok(())
+    }
+
+    async fn clean_stale_artifacts(
+        &self,
+        keep_since_time: DateTime<Utc>,
+        dry_run: bool,
+    ) -> anyhow::Result<String> {
+        let (sender, recv) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::Extension(box CleanStaleArtifacts {
+                keep_since_time,
+                dry_run,
+                sender,
+            }))?;
+        recv.await?.await
     }
 }

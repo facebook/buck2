@@ -459,6 +459,7 @@ message CommandResult {
     BxlResponse bxl_response = 17;
     LspResponse lsp_response = 18;
     AllocativeResponse allocative_response = 19;
+    CleanStaleResponse clean_stale_response = 20;
     GenericResponse generic_response = 100;
   }
 }
@@ -597,6 +598,16 @@ message MaterializeRequest {
 
 message MaterializeResponse {}
 
+message CleanStaleRequest {
+  ClientContext context = 1;
+  int64 keep_since_time = 2;
+  bool dry_run = 3;
+}
+
+message CleanStaleResponse {
+  string response = 1;
+}
+
 message FlushDepFilesRequest {}
 
 // Note: When adding new request or response types, some of the declarations in
@@ -620,6 +631,7 @@ service DaemonApi {
   rpc UnstableDocs(UnstableDocsRequest) returns (stream CommandProgress);
   rpc Install(InstallRequest) returns (stream CommandProgress);
   rpc Materialize(MaterializeRequest) returns (stream CommandProgress);
+  rpc CleanStale(CleanStaleRequest) returns (stream CommandProgress);
   rpc Profile2(ProfileRequest) returns (stream CommandProgress);
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's

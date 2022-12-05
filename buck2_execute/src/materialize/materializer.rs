@@ -18,6 +18,8 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use chrono::DateTime;
+use chrono::Utc;
 use derive_more::Display;
 use dice::UserComputationData;
 use futures::stream::BoxStream;
@@ -559,4 +561,10 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
     >;
 
     async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()>;
+
+    async fn clean_stale_artifacts(
+        &self,
+        keep_since_time: DateTime<Utc>,
+        dry_run: bool,
+    ) -> anyhow::Result<String>;
 }

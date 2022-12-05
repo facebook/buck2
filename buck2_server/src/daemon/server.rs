@@ -70,6 +70,7 @@ use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
 
+use crate::clean_stale::clean_stale_command;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
@@ -997,6 +998,17 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| {
             materialize_command(context, req)
+        })
+        .await
+    }
+
+    type CleanStaleStream = ResponseStream;
+    async fn clean_stale(
+        &self,
+        req: Request<CleanStaleRequest>,
+    ) -> Result<Response<ResponseStream>, Status> {
+        self.run_streaming(req, DefaultCommandOptions, |context, req| {
+            clean_stale_command(context, req)
         })
         .await
     }

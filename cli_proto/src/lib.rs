@@ -249,6 +249,7 @@ result_convert!(UnstableDocsResponse);
 result_convert!(ProfileResponse);
 result_convert!(InstallResponse);
 result_convert!(MaterializeResponse);
+result_convert!(CleanStaleResponse);
 result_convert!(LspResponse);
 result_convert!(AllocativeResponse);
 
@@ -268,5 +269,6 @@ define_request!(UnstableDocsRequest, has(context));
 define_request!(ProfileRequest, has(context));
 define_request!(MaterializeRequest, has(context));
 define_request!(AllocativeRequest, has(context));
+define_request!(CleanStaleRequest, has(context));
 
 define_request!(InstallRequest, has(context, build_options));

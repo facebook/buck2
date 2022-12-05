@@ -19,13 +19,18 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::final_console::FinalConsole;
+use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use gazebo::prelude::SliceExt;
 use gazebo::prelude::*;
+use humantime;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
+
+use crate::commands::clean_stale::CleanStaleCommand;
+
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Delete generated files and caches")]
 pub struct CleanCommand {
@@ -43,14 +48,30 @@ pub struct CleanCommand {
         help = "Performs a dry-run and prints the paths that would be removed."
     )]
     dry_run: bool,
+
+    #[clap(
+        long = "stale",
+        help = "Delete artifacts from buck-out older than 1 week or older than
+the specified duration, without killing the daemon",
+        value_name = "DURATION"
+    )]
+    stale: Option<Option<humantime::Duration>>,
 }
 
 impl CleanCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
-    ) -> anyhow::Result<()> {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
+        if self.stale.is_some() {
+            let cmd = CleanStaleCommand {
+                console_opts: self.console_opts,
+                config_opts: self.config_opts,
+                event_log_opts: self.event_log_opts,
+                stale: self.stale.unwrap(),
+                dry_run: self.dry_run,
+            };
+            cmd.exec(matches, ctx);
+            return Ok(());
+        }
+
         ctx.with_runtime(async move |ctx| {
             let buck_out_dir = ctx.paths.buck_out_path();
             let daemon_dir = ctx.paths.daemon_dir()?;

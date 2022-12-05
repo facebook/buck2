@@ -11,6 +11,7 @@ pub mod aquery;
 pub mod build;
 pub mod bxl;
 pub mod clean;
+pub mod clean_stale;
 pub mod cquery;
 pub mod debug;
 pub mod init;

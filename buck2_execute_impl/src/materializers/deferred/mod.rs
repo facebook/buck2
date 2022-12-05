@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+mod clean_stale;
 mod extension;
 mod file_tree;
 
@@ -307,7 +308,7 @@ impl std::fmt::Debug for MaterializerCommand {
 /// materialize them.
 type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
-struct ArtifactMaterializationData {
+pub(crate) struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     deps: Option<ActionSharedDirectory>,
     stage: ArtifactMaterializationStage,
@@ -360,6 +361,10 @@ enum ArtifactMaterializationStage {
         metadata: ArtifactMetadata,
         /// Used to clean older artifacts from buck-out.
         last_access_time: DateTime<Utc>,
+        /// Artifact declared by running daemon.
+        /// Should not be deleted without invalidating DICE nodes, which currently
+        /// means killing the daemon.
+        active: bool,
     },
 }
 
@@ -664,6 +669,7 @@ impl DeferredMaterializer {
                         stage: ArtifactMaterializationStage::Materialized {
                             metadata,
                             last_access_time,
+                            active: false,
                         },
                         version: 0u64, // Any state restored from disk always gets set to version 0
                         processing_fut: None,
@@ -813,7 +819,7 @@ impl DeferredMaterializerCommandProcessor {
                         );
                         next_version += 1;
                     }
-                    MaterializerCommand::Extension(ext) => ext.execute(&tree, &self),
+                    MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self),
                 },
                 Op::RefreshTtls => {
                     // It'd be neat to just implement this in the refresh_stream itself and simply
@@ -900,6 +906,7 @@ impl DeferredMaterializerCommandProcessor {
                 stage: ArtifactMaterializationStage::Materialized {
                     metadata: value.entry().dupe().into(),
                     last_access_time: Utc::now(),
+                    active: true,
                 },
                 version,
                 processing_fut: None,
@@ -921,6 +928,7 @@ impl DeferredMaterializerCommandProcessor {
                 ArtifactMaterializationStage::Materialized {
                     metadata,
                     last_access_time,
+                    ..
                 } => {
                     // For checking if artifact is already materialized, we just
                     // need to check that the entry matches. If the deps are different
@@ -938,6 +946,7 @@ impl DeferredMaterializerCommandProcessor {
                         data.stage = ArtifactMaterializationStage::Materialized {
                             metadata: metadata.dupe(),
                             last_access_time: *last_access_time,
+                            active: true,
                         };
                         data.deps = deps;
 
@@ -1123,6 +1132,7 @@ impl DeferredMaterializerCommandProcessor {
             }
             ArtifactMaterializationStage::Materialized {
                 ref mut last_access_time,
+                ref active,
                 ..
             } => match check_deps {
                 true => None,
@@ -1130,6 +1140,9 @@ impl DeferredMaterializerCommandProcessor {
                     tracing::debug!(path = %path, "nothing to materialize, updating access time");
                     let timestamp = Utc::now();
                     *last_access_time = timestamp;
+                    if !active {
+                        tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
+                    }
                     return self.update_sqlite_access_time(path, cleaning_fut, timestamp, data);
                 }
             },
@@ -1582,6 +1595,7 @@ impl ArtifactTree {
                     info.stage = ArtifactMaterializationStage::Materialized {
                         metadata,
                         last_access_time: timestamp,
+                        active: true,
                     };
                 }
             }

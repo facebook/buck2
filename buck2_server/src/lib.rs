@@ -12,6 +12,7 @@
 #![feature(try_blocks)]
 
 pub mod active_commands;
+pub mod clean_stale;
 pub mod configs;
 pub mod ctx;
 pub mod daemon;
