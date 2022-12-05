@@ -179,9 +179,11 @@ def process_genrule(
 
     # For backwards compatibility with Buck1.
     if is_windows:
-        cmd.replace_regex("\\$OUT\\b", "%OUT%")
-        cmd.replace_regex("\\$SRCDIR\\b", "%SRCDIR%")
-        cmd.replace_regex("\\$SRCS\\b", "%SRCS%")
+        # Replace $OUT and ${OUT}
+        cmd.replace_regex("\\$(OUT\\b|\\{OUT\\})", "%OUT%")
+        cmd.replace_regex("\\$(SRCSDIR\\b|\\{SRCDIR\\})", "%SRCDIR%")
+        cmd.replace_regex("\\$(SRCS\\b|\\{SRCS\\})", "%SRCS%")
+        cmd.replace_regex("\\$(TMP\\b|\\{TMP\\})", "%TMP%")
 
     if _ignore_artifacts(ctx):
         cmd = cmd.ignore_artifacts()
