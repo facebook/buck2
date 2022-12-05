@@ -8,9 +8,10 @@
 
 import argparse
 import sys
+from typing import List
 
 
-def main(argv):
+def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("--extension", action="append", default=[])

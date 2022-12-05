@@ -47,8 +47,6 @@ baz/tp_foo.py
 baz/tp_bar.py
 """
 
-# pyre-unsafe
-
 import argparse
 import errno
 import json
@@ -160,7 +158,7 @@ def add_path_mapping(
     collisions (and erroring in that case)
     """
 
-    def format_src(src, origin):
+    def format_src(src: str, origin: str) -> str:
         out = "`{}`".format(src)
         if origin is not None:
             out += " (from {})".format(origin)
