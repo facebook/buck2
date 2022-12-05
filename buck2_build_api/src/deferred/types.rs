@@ -415,7 +415,7 @@ impl DeferredRegistry {
         D: Clone + Send + Sync + 'static,
     {
         let id = DeferredId {
-            id: self.registry.len(),
+            id: self.registry.len().try_into().unwrap(),
             trivial: false,
         };
         self.registry.push(DeferredRegistryEntry::Pending);
@@ -429,7 +429,7 @@ impl DeferredRegistry {
         D: Clone + Send + Sync + 'static,
     {
         let id = DeferredId {
-            id: self.registry.len(),
+            id: self.registry.len().try_into().unwrap(),
             trivial: true,
         };
         self.registry.push(DeferredRegistryEntry::Pending);
@@ -490,7 +490,7 @@ impl DeferredRegistry {
         d: D,
     ) -> DeferredData<T> {
         let id = DeferredId {
-            id: self.registry.len(),
+            id: self.registry.len().try_into().unwrap(),
             trivial: false,
         };
         self.registry
@@ -506,7 +506,7 @@ impl DeferredRegistry {
         D: AnyValue + Allocative + Clone + Debug + Send + Sync + 'static,
     {
         let id = DeferredId {
-            id: self.registry.len(),
+            id: self.registry.len().try_into().unwrap(),
             trivial: true,
         };
         self.registry
@@ -586,7 +586,7 @@ impl DeferredRegistry {
 #[derive(Debug, Error)]
 pub enum DeferredErrors {
     #[error("no deferred found for deferred id `{0}`")]
-    DeferredNotFound(usize),
+    DeferredNotFound(u32),
     #[error("reserved deferred id of `{0:?}` was never bound")]
     UnboundReservedDeferred(usize),
 }
@@ -750,14 +750,14 @@ pub trait DeferredAny: Allocative + Send + Sync {
 #[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[display(fmt = "{}", id)]
 pub struct DeferredId {
-    id: usize,
+    id: u32,
     trivial: bool,
 }
 
 impl DeferredId {
     /// Gets the underlying ID for this DeferredId. This should be used for logging only.
     pub(crate) fn as_usize(self) -> usize {
-        self.id
+        self.id as _
     }
 
     pub(crate) fn is_trivial(self) -> bool {
@@ -807,11 +807,11 @@ pub mod testing {
     }
 
     pub trait DeferredIdExt {
-        fn testing_new(id: usize) -> DeferredId;
+        fn testing_new(id: u32) -> DeferredId;
     }
 
     impl DeferredIdExt for DeferredId {
-        fn testing_new(id: usize) -> DeferredId {
+        fn testing_new(id: u32) -> DeferredId {
             DeferredId { id, trivial: false }
         }
     }

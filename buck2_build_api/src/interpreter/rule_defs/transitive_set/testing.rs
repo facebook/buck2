@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
@@ -43,7 +43,7 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<TransitiveSet<'v>> {
-        static LAST_ID: AtomicUsize = AtomicUsize::new(0);
+        static LAST_ID: AtomicU32 = AtomicU32::new(0);
 
         let target = ConfiguredTargetLabel::testing_new(
             Package::testing_new("cell", "path"),
