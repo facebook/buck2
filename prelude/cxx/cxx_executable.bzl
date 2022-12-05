@@ -72,7 +72,7 @@ load(
     "cxx_attr_linker_flags",
     "cxx_attr_resources",
     "cxx_inherited_link_info",
-    "cxx_use_link_groups",
+    "cxx_is_gnu",
 )
 load(
     ":cxx_link_utility.bzl",
@@ -177,19 +177,27 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         deps = first_order_deps + link_group_deps + impl_params.extra_link_deps,
     )
 
-    # Instantiate linkable graph nodes, needed for link groups.
-    linkable_graph_node_map = {}
-    if link_group_mappings:
-        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
-
     # Gather link inputs.
     own_link_flags = cxx_attr_linker_flags(ctx)
     inherited_link = cxx_inherited_link_info(ctx, first_order_deps + impl_params.extra_link_deps)
+    frameworks_linkable = create_frameworks_linkable(ctx)
 
     # Link group libs.
     link_group_libs = {}
     auto_link_groups = {}
-    if link_group_mappings:
+    labels_to_links_map = {}
+
+    if not link_group_mappings:
+        dep_links = build_link_args_with_deduped_framework_flags(
+            ctx,
+            inherited_link,
+            frameworks_linkable,
+            link_style,
+            prefer_stripped = ctx.attrs.prefer_stripped_objects,
+        )
+    else:
+        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+
         # If we're using auto-link-groups, where we generate the link group links
         # in the prelude, the link group map will give use the link group libs.
         # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
@@ -229,17 +237,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 deps = first_order_deps + impl_params.extra_link_deps,
             )
 
-    filtered_labels_to_links_map = {}
-    rest_labels_to_links_map = {}
-    shared_libs = {}
-
-    frameworks_linkable = create_frameworks_linkable(ctx)
-
-    # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
-    # scenarios for which we need to propagate up link info and simplify this logic. For now
-    # base which links to use based on whether link groups are defined.
-    if link_group_mappings:
-        filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+        # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
+        # scenarios for which we need to propagate up link info and simplify this logic. For now
+        # base which links to use based on whether link groups are defined.
+        labels_to_links_map = get_filtered_labels_to_links_map(
             linkable_graph_node_map,
             link_group,
             link_group_mappings,
@@ -250,20 +251,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             is_executable_link = True,
             prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
-        filtered_links = get_filtered_links(filtered_labels_to_links_map)
-        filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
-
-        # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
-        # for the resolved nodes in the graph.
-        # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-        frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable)
-        if frameworks_link_info:
-            filtered_links.append(frameworks_link_info)
 
         if is_cxx_test and link_group != None:
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
             # from the root again to ensure we link in gtest deps
-            rest_labels_to_links_map = get_filtered_labels_to_links_map(
+            labels_to_links_map = labels_to_links_map | get_filtered_labels_to_links_map(
                 linkable_graph_node_map,
                 None,
                 link_group_mappings,
@@ -273,29 +265,32 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 is_executable_link = True,
                 prefer_stripped = ctx.attrs.prefer_stripped_objects,
             )
-            filtered_links.extend(get_filtered_links(rest_labels_to_links_map))
-            filtered_targets.extend(get_filtered_targets(rest_labels_to_links_map))
+
+        filtered_links = get_filtered_links(labels_to_links_map)
+        filtered_targets = get_filtered_targets(labels_to_links_map)
+
+        # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
+        # for the resolved nodes in the graph.
+        # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
+        frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable)
+        if frameworks_link_info:
+            filtered_links.append(frameworks_link_info)
 
         dep_links = LinkArgs(infos = filtered_links)
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
-    else:
-        dep_links = build_link_args_with_deduped_framework_flags(
-            ctx,
-            inherited_link,
-            frameworks_linkable,
-            link_style,
-            prefer_stripped = ctx.attrs.prefer_stripped_objects,
-        )
+
+    # Set up shared libraries symlink tree only when needed
+    shared_libs = {}
 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
-    use_link_groups = cxx_use_link_groups(ctx)
-    if link_style == LinkStyle("shared") or use_link_groups:
+    gnu_use_link_groups = cxx_is_gnu(ctx) and link_group_mappings
+    if link_style == LinkStyle("shared") or gnu_use_link_groups:
         shlib_info = merge_shared_libraries(
             ctx.actions,
             deps = filter(None, [x.get(SharedLibraryInfo) for x in first_order_deps + impl_params.extra_link_deps]),
         )
 
-        def is_link_group_shlib(label: "label", labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
+        def is_link_group_shlib(label: "label"):
             # If this maps to a link group which we have a `LinkGroupLibInfo` for,
             # then we'll handlet his below.
             # buildifier: disable=uninitialized
@@ -307,11 +302,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
         for name, shared_lib in traverse_shared_library_info(shlib_info).items():
             label = shared_lib.label
-            if not use_link_groups or is_link_group_shlib(label, filtered_labels_to_links_map) or is_link_group_shlib(label, rest_labels_to_links_map):
+            if not gnu_use_link_groups or is_link_group_shlib(label):
                 shared_libs[name] = shared_lib.lib
 
-    # All explicit link group libs (i.e. libraries that set `link_group`).
-    if cxx_use_link_groups(ctx):
+    if gnu_use_link_groups:
+        # All explicit link group libs (i.e. libraries that set `link_group`).
         link_group_names = {n: None for n in link_group_mappings.values()}
         for name, link_group_lib in link_group_libs.items():
             # Is it possible to find a link group lib in our graph without it
