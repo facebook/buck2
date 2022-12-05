@@ -759,6 +759,10 @@ impl DeferredId {
     pub(crate) fn as_usize(self) -> usize {
         self.id
     }
+
+    pub(crate) fn is_trivial(self) -> bool {
+        self.trivial
+    }
 }
 
 impl<D, T> DeferredAny for D

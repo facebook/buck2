@@ -64,6 +64,19 @@ impl DeferredCalculation for DiceComputations {
         &self,
         data: &DeferredData<T>,
     ) -> SharedResult<ArcRef<dyn AnyValue, T>> {
+        if data.deferred_key().id().is_trivial() {
+            let (table, id) = match data.deferred_key() {
+                DeferredKey::Base(target, id) => (lookup_deferred_inner(target, self).await?, id),
+                DeferredKey::Deferred(key, id) => (
+                    DeferredHolder::Deferred(compute_deferred(self, key).await?),
+                    id,
+                ),
+            };
+
+            let deferred = table.lookup_deferred(*id)?;
+            return Ok(data.resolve(deferred.as_trivial().context("Invalid deferred")?.dupe())?);
+        }
+
         let deferred = resolve_deferred(self, data.deferred_key()).await?;
         Ok(data.resolve(deferred)?)
     }
