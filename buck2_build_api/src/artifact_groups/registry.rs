@@ -15,16 +15,15 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::analysis::registry::AnalysisValueFetcher;
-use crate::artifact_groups::deferred::DeferredTransitiveSet;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::ReservedDeferredData;
+use crate::deferred::types::ReservedTrivialDeferredData;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Allocative)]
 pub struct ArtifactGroupRegistry {
-    pending: Vec<ReservedDeferredData<DeferredTransitiveSetData>>,
+    pending: Vec<ReservedTrivialDeferredData<DeferredTransitiveSetData>>,
 }
 
 impl ArtifactGroupRegistry {
@@ -42,7 +41,7 @@ impl ArtifactGroupRegistry {
         deferred: &mut DeferredRegistry,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<TransitiveSet<'v>> {
-        let reserved = deferred.reserve::<DeferredTransitiveSetData>();
+        let reserved = deferred.reserve_trivial::<DeferredTransitiveSetData>();
         let set = TransitiveSet::new_from_values(
             reserved.data().dupe(),
             definition,
@@ -67,7 +66,7 @@ impl ArtifactGroupRegistry {
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
 
             if set.value().downcast_ref::<FrozenTransitiveSet>().is_some() {
-                registry.bind(key, DeferredTransitiveSet(DeferredTransitiveSetData(set)));
+                registry.bind_trivial(key, DeferredTransitiveSetData(set));
                 continue;
             }
 
