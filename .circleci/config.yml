@@ -2,6 +2,44 @@ aliases:
   - &is_main_branch
       equal: [ main, << pipeline.git.branch >> ]
 
+commands:
+  print_versions:
+    description: Version Info
+    steps:
+      - run:
+          name: Version Info
+          command: |
+            rustup show
+            rustc --version
+            cargo --version
+            rustup --version
+
+  setup_linux_env:
+    description: Setup env for Linux
+    steps:
+      - run: sudo apt-get update
+      - run: sudo apt-get install libssl-dev cmake protobuf-compiler
+      - print_versions
+
+  setup_macos_env:
+    description: Setup env for MacOS
+    steps:
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: brew install cmake protobuf
+      - print_versions
+
+  setup_windows_env:
+    description: Setup env for Windows
+    steps:
+      - run:
+          name: Install Rust
+          command: |
+            choco install rustup.install
+            write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config
+            type $Env:USERPROFILE/.cargo/config
+      - run: choco install protoc
+      - print_versions
+
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
@@ -14,9 +52,8 @@ jobs:
       - image: cimg/rust:1.65.0
     resource_class: xlarge
     steps:
-      - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake protobuf-compiler
       - checkout
+      - setup_linux_env
       - rust/clippy:
           with_cache: false
       - rust/build:
@@ -43,9 +80,8 @@ jobs:
       xcode: 13.4.1
     resource_class: large
     steps:
-      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake protobuf
       - checkout
+      - setup_macos_env
       - rust/clippy:
           with_cache: false
       - rust/test:
@@ -58,9 +94,8 @@ jobs:
       xcode: 13.4.1
     resource_class: large
     steps:
-      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake protobuf
       - checkout
+      - setup_macos_env
       - rust/build:
           with_cache: false
       - when:
@@ -76,9 +111,39 @@ jobs:
                 path: /tmp/artifacts/buck2
                 destination: buck2-macos
 
+  windows-build-and-upload:
+    description: |
+      Build all and upload buck2 binary for Windows
+    executor:
+      name: win/default
+      size: "xlarge"
+      shell: powershell.exe
+    steps:
+      - checkout
+      - setup_windows_env
+      - rust/clippy:
+          with_cache: false
+      - rust/test:
+          with_cache: false
+      - rust/build:
+          with_cache: false
+      - when:
+          condition:
+            *is_main_branch
+          steps:
+          - run:
+              name: Build buck2 binary to upload
+              command: |
+                mkdir C:/tmp/artifacts
+                cargo build --bin=buck2 --release -Z unstable-options --out-dir=C:/tmp/artifacts
+          - store_artifacts:
+              path: C:/tmp/artifacts/buck2.exe
+              destination: buck2-windows
+
 workflows:
   test-and-upload:
     jobs:
       - linux-test-and-upload
       - macos-test
       - macos-build-and-upload
+      - windows-build-and-upload
