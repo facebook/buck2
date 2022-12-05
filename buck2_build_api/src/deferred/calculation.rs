@@ -27,7 +27,6 @@ use futures::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use owning_ref::ArcRef;
-use owning_ref::BoxRef;
 
 use crate::analysis::anon_targets::eval_anon_target;
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -38,7 +37,6 @@ use crate::bxl::result::BxlResult;
 use crate::deferred::calculation::keys::DeferredResolve;
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::BaseKey;
-use crate::deferred::types::DeferredAny;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredInput;
@@ -65,16 +63,13 @@ impl DeferredCalculation for DiceComputations {
         data: &DeferredData<T>,
     ) -> SharedResult<ArcRef<dyn AnyValue, T>> {
         if data.deferred_key().id().is_trivial() {
-            let (table, id) = match data.deferred_key() {
-                DeferredKey::Base(target, id) => (lookup_deferred_inner(target, self).await?, id),
-                DeferredKey::Deferred(key, id) => (
-                    DeferredHolder::Deferred(compute_deferred(self, key).await?),
-                    id,
-                ),
-            };
-
-            let deferred = table.lookup_deferred(*id)?;
-            return Ok(data.resolve(deferred.as_trivial().context("Invalid deferred")?.dupe())?);
+            let deferred = lookup_deferred(self, data.deferred_key()).await?;
+            let deferred = deferred
+                .get()?
+                .as_trivial()
+                .context("Invalid deferred")?
+                .dupe();
+            return Ok(data.resolve(deferred)?);
         }
 
         let deferred = resolve_deferred(self, data.deferred_key()).await?;
@@ -106,24 +101,35 @@ async fn lookup_deferred_inner(
     }
 }
 
+struct PartialLookup {
+    holder: DeferredHolder,
+    id: DeferredId,
+}
+
+impl PartialLookup {
+    fn get(&self) -> anyhow::Result<DeferredLookup<'_>> {
+        self.holder.lookup_deferred(self.id)
+    }
+}
+
 /// looks up an deferred
 async fn lookup_deferred(
     dice: &DiceComputations,
     key: &DeferredKey,
-) -> SharedResult<BoxRef<DeferredHolder, dyn DeferredAny>> {
+) -> SharedResult<PartialLookup> {
     Ok(match key {
         DeferredKey::Base(target, id) => {
-            let deferred_or_analysis = lookup_deferred_inner(target, dice).await?;
-
-            BoxRef::new(box deferred_or_analysis)
-                .try_map(|a| anyhow::Ok(a.lookup_deferred(*id)?.as_complex()))
+            let holder = lookup_deferred_inner(target, dice).await?;
+            PartialLookup { holder, id: *id }
         }
         DeferredKey::Deferred(key, id) => {
             let deferred = compute_deferred(dice, key).await?;
-            BoxRef::new(box DeferredHolder::Deferred(deferred))
-                .try_map(|a| anyhow::Ok(a.lookup_deferred(*id)?.as_complex()))
+            PartialLookup {
+                holder: DeferredHolder::Deferred(deferred),
+                id: *id,
+            }
         }
-    }?)
+    })
 }
 
 /// Fully resolve the deferred, including any deferreds it might have return when attempting
@@ -169,6 +175,7 @@ async fn compute_deferred(
 
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             let deferred = lookup_deferred(ctx, &self.0).await?;
+            let deferred = deferred.get()?.as_complex();
 
             let target_node_futs = FuturesUnordered::new();
             let providers_futs = FuturesUnordered::new();
