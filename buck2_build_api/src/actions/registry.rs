@@ -473,7 +473,14 @@ mod tests {
 
         assert_eq!(
             registered_deferreds
-                .get(&declared.testing_action_key().unwrap().deferred_key().id())
+                .get(
+                    declared
+                        .testing_action_key()
+                        .unwrap()
+                        .deferred_key()
+                        .id()
+                        .as_usize()
+                )
                 .is_some(),
             true
         );

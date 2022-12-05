@@ -8,7 +8,6 @@
  */
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 
 use anyhow::Context;
 use buck2_build_api::bxl::result::BxlResult;
@@ -175,7 +174,7 @@ pub async fn eval(
                         BxlResult::new(
                             output_stream,
                             ensured_artifacts,
-                            DeferredTable::new(HashMap::new()),
+                            DeferredTable::new(Vec::new()),
                         ),
                     )
                 }
