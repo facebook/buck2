@@ -1124,6 +1124,7 @@ mod tests {
     use futures::FutureExt;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
+    use indexmap::indexset;
     use maplit::hashset;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
@@ -1173,6 +1174,7 @@ mod tests {
     use crate::incremental::TransactionCtx;
     use crate::incremental::VersionedGraphResultMismatch;
     use crate::introspection::graph::AnyKey;
+    use crate::DiceError;
     use crate::DiceResult;
     use crate::StorageProperties;
     use crate::StorageType;
@@ -1544,6 +1546,76 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
             !IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+                &eval_ctx,
+                &ComputationData::testing_new(),
+                &VersionedGraphResultMismatch {
+                    entry: GraphNode::occupied(entry),
+                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    VersionNumber::new(1),
+                    VersionNumber::new(2)
+                )]),
+                }
+
+            )
+            .await
+            .is_changed(),
+        );
+
+        // Now we also check that when deps have cycles, we ignore it since its possible the cycle
+        // is no longer valid
+        #[derive(Clone, Dupe, Debug, Display, Allocative, PartialEq, Hash)]
+        #[display(fmt = "FakeCycleDep")]
+        struct FakeCycleDep;
+
+        #[async_trait]
+        impl Dependency for FakeCycleDep {
+            async fn recompute(
+                &self,
+                _transaction_ctx: &Arc<TransactionCtx>,
+                _: &ComputationData,
+            ) -> DiceResult<(Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>)> {
+                Err(DiceError::cycle(Arc::new(2123), indexset![]))
+            }
+
+            fn lookup_node(
+                &self,
+                _v: VersionNumber,
+                _mv: MinorVersion,
+            ) -> Option<Arc<dyn GraphNodeDyn>> {
+                None
+            }
+
+            fn dirty(&self, _v: VersionNumber) {}
+
+            fn get_key_equality(&self) -> PartialEqAny {
+                PartialEqAny::new(self)
+            }
+
+            fn hash(&self, mut state: &mut dyn Hasher) {
+                Hash::hash(self, &mut state)
+            }
+
+            fn introspect<'a>(&'a self) -> AnyKey {
+                AnyKey::new(2123)
+            }
+        }
+
+        let dep = FakeCycleDep;
+
+        // with an entry that has been verified at the previous dep calculated version
+        let entry = Arc::new(OccupiedGraphNode::new(
+            1338,
+            1,
+            CellHistory::verified(VersionNumber::new(1)),
+        ));
+        entry
+            .writable()
+            .deps
+            .add_deps(VersionNumber::new(1), Arc::new(vec![box dep.dupe() as _]));
+        // new version to trigger re-evaluation of dep
+        let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
+        assert!(
+            IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
