@@ -376,9 +376,6 @@ def convert_python_library_to_executable(
         ) if extensions else None,
     )
 
-    has_hidden_resources = library.has_hidden_resources()
-    hidden_resources = library.hidden_resources()
-
     # Create the map of native libraries to their artifacts and whether they
     # need to be preloaded.  Note that we merge preload deps into regular deps
     # above, before gathering up all native libraries, so we're guaranteed to
@@ -387,21 +384,13 @@ def convert_python_library_to_executable(
     for name, lib in native_libs.items():
         shared_libraries[name] = lib, name in preload_names
 
-    # If we're building an inplace binary, create a symlink tree and record all
-    # inputs as runtime files.
-    symlink_tree_path = None
     runtime_files = []
-    if package_style != PackageStyle("standalone"):
-        if not ctx.attrs.bundled_runtime:
-            # TODO(nmj): Not quite the right name, deal with legacy_output_path if necessary
-            symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name))
-            runtime_files.append(symlink_tree_path)
+    if library.has_hidden_resources():
+        hidden_resources = library.hidden_resources()
+        if package_style == PackageStyle("standalone"):
+            error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
+            fail(error_msg)
         runtime_files.extend(hidden_resources)
-
-        # Standalone PEXs don't know how to handle hidden/extra manifest outputs.
-    elif has_hidden_resources:
-        error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
-        fail(error_msg)
 
     # Build the PEX.
     hidden = make_pex(
@@ -414,7 +403,6 @@ def convert_python_library_to_executable(
         shared_libraries,
         main_module,
         output,
-        symlink_tree_path,
     )
 
     runtime_files.extend(hidden)

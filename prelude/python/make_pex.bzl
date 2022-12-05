@@ -49,8 +49,7 @@ def make_pex(
         pex_modules: PexModules.type,
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
         main_module: str.type,
-        output: "artifact",
-        symlink_tree_path: [None, "artifact"]) -> ["_arglike"]:
+        output: "artifact") -> ["_arglike"]:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
     "executable".
@@ -71,6 +70,17 @@ def make_pex(
           standalone.
     """
 
+    if bundled_runtime or package_style == PackageStyle("standalone"):
+        standalone = True
+    elif package_style == PackageStyle("inplace") or package_style == PackageStyle("inplace_lite"):
+        standalone = False
+    else:
+        fail("unsupported package style: {}".format(package_style))
+
+    symlink_tree_path = None
+    if not standalone:
+        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name))
+
     modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
 
     bootstrap_args = _pex_bootstrap_args(
@@ -86,9 +96,7 @@ def make_pex(
     )
     bootstrap_args.add(build_args)
 
-    if package_style == PackageStyle("standalone") or bundled_runtime:
-        if symlink_tree_path != None:
-            fail("Cannot have a symlink_tree_path for standalone packaging")
+    if standalone:
         if python_toolchain.make_pex_standalone == None:
             fail("Python toolchain does not provide make_pex_standalone")
 
@@ -101,10 +109,8 @@ def make_pex(
         cmd.add(bootstrap_args)
         ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone")
 
-    elif package_style == PackageStyle("inplace") or package_style == PackageStyle("inplace_lite"):
-        if symlink_tree_path == None:
-            fail("Must have a symlink_tree_path for inplace packaging")
-
+    else:
+        hidden.append(symlink_tree_path)
         modules = cmd_args(python_toolchain.make_pex_modules)
         modules.add(modules_args)
         ctx.actions.run(modules, category = "par", identifier = "modules")
@@ -112,9 +118,6 @@ def make_pex(
         bootstrap = cmd_args(python_toolchain.make_pex_inplace)
         bootstrap.add(bootstrap_args)
         ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
-
-    else:
-        fail("unsupported package style: {}".format(package_style))
 
     return hidden
 
