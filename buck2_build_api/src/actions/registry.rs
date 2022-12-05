@@ -35,13 +35,12 @@ use crate::actions::key::ActionKey;
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
 use crate::actions::RegisteredAction;
-use crate::actions::RegisteredActionData;
 use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::ReservedDeferredData;
+use crate::deferred::types::ReservedTrivialDeferredData;
 
 /// The actions registry for a particular analysis of a rule implementation
 #[derive(Allocative)]
@@ -50,7 +49,7 @@ pub struct ActionsRegistry {
     action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
     pending: Vec<(
-        ReservedDeferredData<Arc<RegisteredAction>>,
+        ReservedTrivialDeferredData<Arc<RegisteredAction>>,
         ActionToBeRegistered,
     )>,
     execution_platform: ExecutionPlatformResolution,
@@ -173,7 +172,7 @@ impl ActionsRegistry {
         outputs: IndexSet<OutputArtifact>,
         action: A,
     ) -> anyhow::Result<DeferredId> {
-        let reserved = registry.reserve::<Arc<RegisteredAction>>();
+        let reserved = registry.reserve_trivial::<Arc<RegisteredAction>>();
 
         let mut bound_outputs = IndexSet::with_capacity(outputs.len());
         for output in outputs {
@@ -237,13 +236,13 @@ impl ActionsRegistry {
                 }
             }
 
-            registry.bind(
+            registry.bind_trivial(
                 key,
-                RegisteredActionData(Arc::new(RegisteredAction::new(
+                Arc::new(RegisteredAction::new(
                     action_key,
                     action,
                     self.execution_platform.executor_config()?.clone(),
-                ))),
+                )),
             );
         }
 

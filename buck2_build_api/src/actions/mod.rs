@@ -34,7 +34,6 @@ pub(crate) mod registry;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -54,13 +53,11 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
 use impls::run::knobs::RunActionKnobs;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use key::ActionKey;
-use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
 use thiserror::Error;
@@ -70,10 +67,6 @@ use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::deferred::types::Deferred;
-use crate::deferred::types::DeferredCtx;
-use crate::deferred::types::DeferredInput;
-use crate::deferred::types::DeferredValue;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
@@ -294,22 +287,6 @@ impl Deref for RegisteredAction {
 
     fn deref(&self) -> &Self::Target {
         self.action.as_ref()
-    }
-}
-
-#[derive(Clone, Dupe, Allocative)]
-struct RegisteredActionData(Arc<RegisteredAction>);
-
-impl Deferred for RegisteredActionData {
-    type Output = Arc<RegisteredAction>;
-
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
-        static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
-        &INPUTS
-    }
-
-    fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>> {
-        Ok(DeferredValue::Ready(self.0.dupe()))
     }
 }
 
