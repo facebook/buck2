@@ -63,6 +63,7 @@ def _cxx_toolchain(ctx):
                 shared_library_name_format = "lib{}.so",
                 shared_library_versioned_name_format = "lib{}.so.{}",
                 static_library_extension = "a",
+                force_full_hybrid_if_capable = False,
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(

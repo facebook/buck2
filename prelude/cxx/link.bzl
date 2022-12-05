@@ -142,6 +142,9 @@ def cxx_link(
     if prefer_local and force_full_hybrid_if_capable:
         fail("cannot use `force_full_hybrid_if_capable` when `prefer_local` is enabled")
 
+    if local_only and force_full_hybrid_if_capable:
+        fail("cannot use `force_full_hybrid_if_capable` when `local_only` is enabled")
+
     ctx.actions.run(
         command,
         prefer_local = prefer_local,
@@ -229,7 +232,7 @@ def cxx_link_shared_library(
         extra_args.extend(get_shared_library_name_linker_flags(linker_type, name, shared_library_flags))
 
     prefer_local_value = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False))
-    force_full_hybrid_if_capable = value_or(force_full_hybrid_if_capable, False)
+
     return cxx_link(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
@@ -244,7 +247,7 @@ def cxx_link_shared_library(
         strip = strip,
         strip_args_factory = strip_args_factory,
         link_postprocessor = link_postprocessor,
-        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
+        force_full_hybrid_if_capable = value_or(force_full_hybrid_if_capable, False),
     )
 
 def cxx_link_into_shared_library(

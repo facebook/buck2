@@ -51,6 +51,7 @@ LinkerInfo = provider(fields = [
     "independent_shlib_interface_linker_flags",
     "type",  # of "LinkerType" type
     "use_archiver_flags",
+    "force_full_hybrid_if_capable",
 ])
 
 BinaryUtilitiesInfo = provider(fields = [
