@@ -11,6 +11,7 @@
 
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -18,6 +19,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -95,6 +97,12 @@ where
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_methods)
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+        self.artifact.write_hash(hasher)?;
+        self.abs.hash(hasher);
+        Ok(())
     }
 }
 
