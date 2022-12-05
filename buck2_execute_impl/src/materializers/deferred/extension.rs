@@ -15,7 +15,6 @@ use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
-use buck2_execute::re::manager::ReConnectionManager;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -37,11 +36,16 @@ use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::DeferredMaterializer;
+use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::WithPathsIterator;
 
 pub(super) trait ExtensionCommand: Debug + Sync + Send + 'static {
-    fn execute(self: Box<Self>, tree: &ArtifactTree, re_manager: &Arc<ReConnectionManager>);
+    fn execute(
+        self: Box<Self>,
+        tree: &ArtifactTree,
+        processor: &DeferredMaterializerCommandProcessor,
+    );
 }
 
 #[derive(Debug, Display)]
@@ -65,7 +69,11 @@ struct Iterate {
 }
 
 impl ExtensionCommand for Iterate {
-    fn execute(self: Box<Self>, tree: &ArtifactTree, _re_manager: &Arc<ReConnectionManager>) {
+    fn execute(
+        self: Box<Self>,
+        tree: &ArtifactTree,
+        _processor: &DeferredMaterializerCommandProcessor,
+    ) {
         for (path, data) in tree.iter().with_paths() {
             let path_data = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
@@ -99,9 +107,17 @@ struct RefreshTtls {
 }
 
 impl ExtensionCommand for RefreshTtls {
-    fn execute(self: Box<Self>, tree: &ArtifactTree, re_manager: &Arc<ReConnectionManager>) {
-        let task = create_ttl_refresh(tree, re_manager, Duration::seconds(self.min_ttl))
-            .map(tokio::task::spawn);
+    fn execute(
+        self: Box<Self>,
+        tree: &ArtifactTree,
+        processor: &DeferredMaterializerCommandProcessor,
+    ) {
+        let task = create_ttl_refresh(
+            tree,
+            &processor.re_client_manager,
+            Duration::seconds(self.min_ttl),
+        )
+        .map(tokio::task::spawn);
         let _ignored = self.sender.send(task);
     }
 }

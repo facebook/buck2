@@ -813,9 +813,7 @@ impl DeferredMaterializerCommandProcessor {
                         );
                         next_version += 1;
                     }
-                    MaterializerCommand::Extension(ext) => {
-                        ext.execute(&tree, &self.re_client_manager)
-                    }
+                    MaterializerCommand::Extension(ext) => ext.execute(&tree, &self),
                 },
                 Op::RefreshTtls => {
                     // It'd be neat to just implement this in the refresh_stream itself and simply
