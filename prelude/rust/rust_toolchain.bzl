@@ -8,7 +8,7 @@
 # @unsorted-dict-items
 _rust_toolchain_attrs = {
     # Report unused dependencies
-    "report_unused_deps": None,
+    "report_unused_deps": False,
     # Rustc target triple to use
     # https://doc.rust-lang.org/rustc/platform-support.html
     "rustc_target_triple": None,
@@ -26,7 +26,7 @@ _rust_toolchain_attrs = {
     # linking on rlib crates. The hope is that rmeta builds
     # are quick and this increases effective parallelism.
     # Currently blocked by https://github.com/rust-lang/rust/issues/85401
-    "pipelined": None,
+    "pipelined": False,
     # Filter out failures when we just need diagnostics. That is,
     # a rule which fails with a compilation failure will report
     # success as an RE action, but a "failure filter" action will
@@ -34,7 +34,7 @@ _rust_toolchain_attrs = {
     # artifacts. If all you need is diagnostics, then it will report
     # success. This doubles the number of actions, so it should only
     # be explicitly enabled when needed.
-    "failure_filter": None,
+    "failure_filter": False,
     # The Rust compiler (rustc)
     "compiler": None,
     # Rust documentation extractor (rustdoc)
@@ -53,7 +53,7 @@ _rust_toolchain_attrs = {
     "warn_lints": [],
     # Prefix (/intern/rustdoc in our case) where fbcode crates' docs are hosted.
     # Used for linking types in signatures to their definition in another crate.
-    "extern_html_root_url_prefix": None,
+    "extern_html_root_url_prefix": "",
 }
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs.keys())
