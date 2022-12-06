@@ -124,16 +124,15 @@ def generate_rustdoc(
         toolchain_info.rustc_action,
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        cmd_args(str(ctx.label.raw_target()), format = "--env=RUSTDOC_BUCK_TARGET={}"),
         toolchain_info.rustdoc,
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
         # FIXME: fbcode/common/rust/rustdoc/compress/main.rs expects
-        # `-o` and `--buck-target` in this form.
+        # `-o` in this form.
         "-o",
         output.as_output(),
-        "--buck-target",
-        str(ctx.label.raw_target()),
     )
 
     if document_private_items:
