@@ -129,10 +129,7 @@ def generate_rustdoc(
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
-        # FIXME: fbcode/common/rust/rustdoc/compress/main.rs expects
-        # `-o` in this form.
-        "-o",
-        output.as_output(),
+        cmd_args(output.as_output(), format = "--out-dir={}"),
     )
 
     if document_private_items:
