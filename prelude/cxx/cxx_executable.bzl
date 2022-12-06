@@ -177,7 +177,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     )
 
     # Gather link inputs.
-    own_link_flags = cxx_attr_linker_flags(ctx)
+    own_link_flags = cxx_attr_linker_flags(ctx) + impl_params.extra_link_flags + impl_params.extra_exported_link_flags
+    own_binary_link_flags = ctx.attrs.binary_linker_flags + own_link_flags
     inherited_link = cxx_inherited_link_info(ctx, first_order_deps + impl_params.extra_link_deps)
     frameworks_linkable = create_frameworks_linkable(ctx)
 
@@ -318,7 +319,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     links = [
         LinkArgs(infos = [
             LinkInfo(
-                pre_flags = own_link_flags + impl_params.extra_link_flags + impl_params.extra_exported_link_flags,
+                pre_flags = own_binary_link_flags,
                 linkables = [ObjectsLinkable(
                     objects = [out.object for out in cxx_outs],
                     linker_type = linker_info.type,

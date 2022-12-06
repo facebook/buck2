@@ -56,6 +56,7 @@ extra_attributes = {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     "apple_binary": {
+        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_group_map": link_group_map_attr(),

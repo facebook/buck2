@@ -233,6 +233,10 @@ def _cxx_binary_and_test_attrs():
     return {
         "allow_huge_dwp": attrs.bool(default = False),
         "auto_link_groups": attrs.bool(default = False),
+        # Linker flags that only apply to the executable link, used for link
+        # strategies (e.g. link groups) which may link shared libraries from
+        # top-level binary context.
+        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
