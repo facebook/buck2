@@ -30,11 +30,15 @@ import json
 import sys
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _load(path):
     with open(path) as f:
         return json.load(f)
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def main(argv):
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
