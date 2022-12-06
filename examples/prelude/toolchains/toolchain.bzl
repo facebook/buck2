@@ -27,6 +27,11 @@ load(
     "PythonPlatformInfo",
     "PythonToolchainInfo",
 )
+load(
+    "@prelude//ocaml/providers.bzl",
+    "OCamlToolchainInfo",
+    "OCamlPlatformInfo",
+)
 
 DEFAULT_MAKE_COMP_DB = "@prelude//cxx/tools:make_comp_db"
 DEFAULT_MAKE_PEX_INPLACE = "@prelude//python/tools:make_pex_inplace"
@@ -86,7 +91,10 @@ def _cxx_toolchain(ctx):
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             c_compiler_info = CCompilerInfo(
+                compiler = RunInfo(args = ["clang"]),
                 preprocessor_flags = [],
+                compiler_flags = [],
+                compiler_type = "clang",  # one of CxxToolProviderType
             ),
             header_mode = HeaderMode("symlink_tree_only"),
         ),
@@ -129,6 +137,52 @@ python_toolchain = rule(
         "make_pex_inplace": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_INPLACE),
         "make_pex_modules": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_MODULES),
         "make_source_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
+    },
+    is_toolchain_rule = True,
+)
+
+def _ocaml_toolchain(ctx):
+    """
+    A very simple toolchain that is hardcoded to the current environment.
+    """
+
+    return [
+        DefaultInfo(
+        ),
+        OCamlToolchainInfo(
+            ocaml_compiler = RunInfo(args=["ocamlopt.opt"]),
+
+            # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to
+            # `ld -r -o`. If not `None`, this is the `ld` that will be invoked;
+            # the default is to use whatever `ld` is in the environment. See
+            # [Note: What is `binutils_ld`?] in `providers.bzl`.
+            binutils_ld = None,
+
+            # This one was introduced in D37700753. The diff talks about
+            # cross-compilation IIUC.
+            binutils_as = None,
+
+            dep_tool = RunInfo(args=["ocamldep.opt"]),
+            yacc_compiler = RunInfo(args=["ocamlyacc"]),
+            menhir_compiler = RunInfo(args=["menir"]),
+            lex_compiler = RunInfo(args=["lex.compiler"]),
+
+            # These are choices for CircleCI ubuntu. The right values vary from
+            # platform to platform.
+            interop_includes = "/usr/lib/ocaml",
+            libasmrun = "/usr/lib/ocaml/libasmrun.a",
+
+            ocaml_bytecode_compiler = RunInfo(args=["ocamlc.opt"]),
+            debug = RunInfo(args=["ocamldebug"]),
+            warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
+            ocaml_compiler_flags = [] # e.g. "-opaque"
+        ),
+        OCamlPlatformInfo(name = "x86_64"),
+    ]
+
+ocaml_toolchain = rule(
+    impl = _ocaml_toolchain,
+    attrs = {
     },
     is_toolchain_rule = True,
 )

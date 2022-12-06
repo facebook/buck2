@@ -19,6 +19,12 @@ commands:
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install libssl-dev cmake protobuf-compiler clang
+      - run: sudo apt-get install opam && opam init --shell-setup --disable-sandboxing -y
+      - run: eval $(opam env --switch=default)
+      - run: opam config list
+      - run: which ocamlopt.opt && ocamlopt.opt --version
+      - run: pwd && ls -lasp examples/prelude/toolchains/toolchain.bzl
+      - run: (cd examples/prelude && cat toolchains/toolchain.bzl)
       - print_versions
 
   setup_macos_env:
@@ -26,6 +32,13 @@ commands:
     steps:
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run: brew install cmake protobuf coreutils
+      - run: brew install opam && opam init -a -y && eval $(opam env --switch=default)
+      - run: eval $(opam env --switch=default)
+      - run: opam config list
+      - run: which ocamlopt.opt && ocamlopt.opt --version
+      - run: pwd && ls -lasp examples/prelude/toolchains/toolchain.bzl
+      - run: (cd examples/prelude && sed -i ' ' 's/\/usr\/lib/\/Users\/distiller\/.opam\/default\/lib/g' toolchains/toolchain.bzl)
+      - run: (cd examples/prelude && cat toolchains/toolchain.bzl)
       - print_versions
 
   setup_windows_env:
