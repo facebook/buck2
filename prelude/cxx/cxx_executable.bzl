@@ -90,7 +90,6 @@ load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupLib",
-    "LinkGroupLinkInfo",  # @unused Used as a type
     "create_link_group",
     "gather_link_group_libs",
     "get_filtered_labels_to_links_map",
