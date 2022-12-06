@@ -614,6 +614,10 @@ async fn compute_configured_target_node_no_transition(
         futures::future::join_all(exec_dep_futures),
     )
     .await;
+
+    let mut deps = OrderedSet::with_capacity(deps.len());
+    let mut exec_deps = OrderedSet::with_capacity(exec_deps.len());
+
     let unpack_dep = |
         result: SharedResult<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
     {
@@ -641,15 +645,12 @@ async fn compute_configured_target_node_no_transition(
         }
     };
 
-    let mut deps = OrderedSet::new();
     for dep in dep_results {
         match unpack_dep(dep) {
             ControlFlow::Continue(dep) => deps.insert(dep),
             ControlFlow::Break(r) => return r,
         };
     }
-
-    let mut exec_deps = OrderedSet::new();
     for dep in exec_dep_results {
         match unpack_dep(dep) {
             ControlFlow::Continue(dep) => exec_deps.insert(dep),
