@@ -312,8 +312,8 @@ impl ProjectRoot {
         use std::os::unix::fs::PermissionsExt;
         // Unix permission bits
         let mut perms = fs_util::metadata(path.resolve(self).as_ref())?.permissions();
-        // Add u+x
-        perms.set_mode(perms.mode() | 0o100);
+        // Add ugo+x
+        perms.set_mode(perms.mode() | 0o111);
         fs_util::set_permissions(path.resolve(self).as_ref(), perms)?;
         Ok(())
     }
@@ -1451,6 +1451,28 @@ mod tests {
                 actual.as_path().to_string_lossy()
             );
         }
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_set_executable() -> anyhow::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let fs = ProjectRootTemp::new()?;
+
+        // We can delete a read-only file
+        let file = ProjectRelativePath::new("foo/bar/file")?;
+        let real_file = fs.path.resolve(file);
+
+        fs.path.write_file(file, "Hello", false)?;
+        let perm = fs_util::metadata(&real_file)?.permissions();
+        assert_eq!(perm.mode() & 0o111, 0);
+
+        fs.path.set_executable(file)?;
+        let perm = fs_util::metadata(&real_file)?.permissions();
+        assert_eq!(perm.mode() & 0o111, 0o111);
 
         Ok(())
     }
