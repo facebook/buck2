@@ -18,14 +18,14 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake protobuf-compiler
+      - run: sudo apt-get install libssl-dev cmake protobuf-compiler clang
       - print_versions
 
   setup_macos_env:
     description: Setup env for MacOS
     steps:
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake protobuf
+      - run: brew install cmake protobuf coreutils
       - print_versions
 
   setup_windows_env:
@@ -60,15 +60,21 @@ jobs:
           with_cache: false
       - rust/test:
           with_cache: false
+      - run:
+          name: Build buck2 binary
+          command: |
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+      - run:
+          name: Setup and build example/prelude directory
+          command: |
+            cd examples/prelude
+            ln -s $(realpath ../../prelude) prelude
+            /tmp/artifacts/buck2 build //...
       - when:
           condition:
             *is_main_branch
           steps:
-            - run:
-                name: Build buck2 binary to upload
-                command: |
-                  mkdir /tmp/artifacts
-                  cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
             - store_artifacts:
                 path: /tmp/artifacts/buck2
                 destination: buck2-linux
@@ -98,15 +104,21 @@ jobs:
       - setup_macos_env
       - rust/build:
           with_cache: false
+      - run:
+          name: Build buck2 binary
+          command: |
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+      - run:
+          name: Setup and build example/prelude directory
+          command: |
+            cd examples/prelude
+            ln -s $(realpath ../../prelude) prelude
+            /tmp/artifacts/buck2 build //...
       - when:
           condition:
             *is_main_branch
           steps:
-            - run:
-                name: Build buck2 binary to upload
-                command: |
-                  mkdir /tmp/artifacts
-                  cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
             - store_artifacts:
                 path: /tmp/artifacts/buck2
                 destination: buck2-macos
@@ -138,7 +150,7 @@ jobs:
                 cargo build --bin=buck2 --release -Z unstable-options --out-dir=C:/tmp/artifacts
           - store_artifacts:
               path: C:/tmp/artifacts/buck2.exe
-              destination: buck2-windows
+              destination: buck2-windows.exe
 
 workflows:
   test-and-upload:
