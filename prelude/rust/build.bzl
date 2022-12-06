@@ -474,12 +474,15 @@ def _compute_common_args(
         ))
 
     toolchain_info = ctx_toolchain_info(ctx)
+    edition = ctx.attrs.edition or toolchain_info.default_edition or \
+              fail("missing 'edition' attribute, and there is no 'default_edition' set by the toolchain")
+
     args = cmd_args(
         cmd_args(compile_ctx.symlinked_srcs, "/", crate_root, delimiter = ""),
         "--crate-name={}".format(crate),
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
-        "--edition={}".format(ctx.attrs.edition or toolchain_info.default_edition),
+        "--edition={}".format(edition),
         "-Cmetadata={}".format(_metadata(ctx.label)[0]),
         # Make diagnostics json with the option to extract rendered text
         "--error-format=json",
