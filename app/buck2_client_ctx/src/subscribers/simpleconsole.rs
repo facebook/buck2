@@ -117,7 +117,12 @@ fn eprint_command_details(
         }
         Some(Command::RemoteCommand(remote_command)) => {
             echo!(
-                "Remote action, reproduce with: `frecli cas download-action {}`",
+                "Remote action{}, reproduce with: `frecli cas download-action {}`",
+                if remote_command.cache_hit {
+                    " cache hit"
+                } else {
+                    ""
+                },
                 remote_command.action_digest
             )?;
         }
