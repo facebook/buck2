@@ -26,8 +26,7 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
     resources = {_derive_link(src): src for src in resources}
     resources[main_link] = main
 
-    resources_dir = actions.declare_output("resources")
-    actions.symlinked_dir(resources_dir, resources)
+    resources_dir = actions.symlinked_dir("resources/", resources)
 
     script_name = name + (".bat" if is_windows else "")
     script = actions.declare_output(script_name)
