@@ -216,3 +216,9 @@ def get_no_as_needed_shared_libs_flags(linker_type: str.type) -> [str.type]:
         fail("Linker type {} not supported".format(linker_type))
 
     return args
+
+def get_output_flags(linker_type: str.type, output: "artifact") -> [""]:
+    if linker_type == "windows":
+        return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
+    else:
+        return ["-o", output.as_output()]
