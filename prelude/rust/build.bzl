@@ -228,8 +228,6 @@ def rust_compile(
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", ctx.label.package, delimiter = ""),
         compile_ctx.linker_args,
-        # Normalize working directory
-        "-Zremap-cwd-prefix=",
         # Report unused --extern crates in the notification stream
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         extra_flags,
@@ -690,6 +688,7 @@ def _rustc_invoke(
     compile_cmd = cmd_args(
         cmd_args(json_diag.as_output(), format = "--diag-json={}"),
         cmd_args(txt_diag.as_output(), format = "--diag-txt={}"),
+        "--remap-cwd-prefix=",
         "--buck-target={}".format(ctx.label.raw_target()),
     )
 

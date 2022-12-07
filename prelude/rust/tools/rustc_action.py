@@ -42,6 +42,7 @@ class Args(NamedTuple):
     diag_txt: Optional[IO[str]]
     env: Optional[List[Tuple[str, str]]]
     path_env: Optional[List[Tuple[str, str]]]
+    remap_cwd_prefix: Optional[str]
     crate_map: Optional[List[Tuple[str, str]]]
     buck_target: Optional[str]
     failure_filter: Optional[IO[str]]
@@ -76,6 +77,10 @@ def arg_parse() -> Args:
         type=key_value_arg,
         metavar="NAME=PATH",
         help="Set path environment (to be made absolute)",
+    )
+    parser.add_argument(
+        "--remap-cwd-prefix",
+        help="Remap paths under the current working directory to this path prefix",
     )
     parser.add_argument(
         "--crate-map",
@@ -225,6 +230,11 @@ async def main() -> int:
         rustc_cmd = ["arch", "-x86_64"] + args.rustc
     else:
         rustc_cmd = args.rustc
+
+    if args.remap_cwd_prefix is not None:
+        rustc_cmd.append(
+            "--remap-path-prefix={}={}".format(os.getcwd(), args.remap_cwd_prefix)
+        )
 
     # Kick off the action
     proc = await asyncio.create_subprocess_exec(
