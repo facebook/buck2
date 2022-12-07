@@ -158,8 +158,8 @@ def _mk_env(ctx: "context"):
     # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to `ld -r
     # -o`. This is the `ld` that will be invoked. See [Note: What is
     # `binutils_ld`?] in `providers.bzl`.
-    binutils_ld = ocaml_toolchain.binutils_ld[DefaultInfo].default_outputs[0]
-    binutils_as = ocaml_toolchain.binutils_as[DefaultInfo].default_outputs[0]
+    binutils_ld = ocaml_toolchain.binutils_ld
+    binutils_as = ocaml_toolchain.binutils_as
 
     # A local bin directory. Soft link `ld`.
     bin = ctx.actions.symlinked_dir("bin", {
