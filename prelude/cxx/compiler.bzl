@@ -42,3 +42,9 @@ def get_headers_dep_files_flags_factory(compiler_type: str.type) -> ["function",
         return cc_dep_files
 
     return None
+
+def get_pic_flags(compiler_type: str.type) -> [str.type]:
+    if compiler_type in ["clang", "gcc"]:
+        return ["-fPIC"]
+    else:
+        return []

@@ -17,6 +17,7 @@ load(
     "get_flags_for_colorful_output",
     "get_flags_for_reproducible_build",
     "get_headers_dep_files_flags_factory",
+    "get_pic_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":debug.bzl", "SplitDebugMode")
@@ -293,8 +294,10 @@ def compile_cxx(
             cmd.add("-o", object.as_output())
 
         args = cmd_args()
+
         if pic:
-            args.add("-fPIC")
+            args.add(get_pic_flags(compiler_type))
+
         args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
         args.add(src_compile_cmd.args)
 
