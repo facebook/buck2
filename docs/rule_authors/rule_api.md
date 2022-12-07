@@ -21,6 +21,8 @@ The starting type, usually bound as `ctx`.
 
 ## Type `actions`
 
+For actions declaring directories, the "filename" should end with a trailing slash, e.g. `ctx.actions.symlinked_dir("out/", ...)` or `ctx.actions.declare_output("my_directory/")`. Most output filenames can either be artifacts created with `declare_output` or strings which are implicitly converted to output artifacts.
+
 * `ctx.actions.declare_output([prefix], filename)` returns an `artifact` with the name `filename`, which when asked for its name, will return `filename` (which may include a directory portion). The optional parameter `prefix` provides a silent part of the filename, which can be used to disambiguate, but whose presence will not be visible to anyone using the `artifact`. The main use for `declare_output` is to produce an unbound artifact for passing to `ctx.actions.run`.
 
 * `ctx.actions.write(filename, content, is_executable : bool.type = false, allow_args : bool.type = false)` returns an `artifact` whose contents are `content`. The `filename` can either be a string, or an existing artifact created with `declare_output`. The optional parameter `is_executable` says whether the resulting file should be marked with executable permissions. The optional parameter `allow_args` must be set to `True` if you want to write parameter arguments to the file, in particular macros which write to file and if it is true, the result will be a pair of the `artifact` containing `content` and a list of `artifact` values that were written by macros, and should be used in hidden fields or similar.
