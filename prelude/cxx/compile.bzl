@@ -288,7 +288,7 @@ def compile_cxx(
         cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
 
         compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-        if compiler_type == "windows" or compiler_type == "windows_ml64":
+        if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
             cmd.add(cmd_args(object.as_output(), format = "/Fo{}"))
         else:
             cmd.add("-o", object.as_output())
