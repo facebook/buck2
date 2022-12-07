@@ -61,6 +61,7 @@ const manualSidebar = [
       'rule_authors/configurations',
       'rule_authors/configuration_transitions',
       'rule_authors/dynamic_dependencies',
+      'rule_authors/anon_targets',
       'rule_authors/test_execution',
       'rule_authors/optimization',
       isInternal() ? 'rule_authors/rule_writing_tips' : [],
