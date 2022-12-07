@@ -924,11 +924,11 @@ impl RemoteExecutionClientImpl {
         }
 
         // This shouldn't happen, but we can't just assume the CAS won't ever break
-        assert_eq!(
-            blobs.len(),
-            expected_blobs,
-            "CAS client returned fewer blobs than expected."
-        );
+        if blobs.len() != expected_blobs {
+            return Err(anyhow::anyhow!(
+                "CAS client returned fewer blobs than expected."
+            ));
+        }
 
         Ok(blobs)
     }
