@@ -149,10 +149,10 @@ def _mk_script(ctx: "context", file: str.type, args: [""], env: {str.type: ""}) 
         is_executable = True,
         allow_args = True,
     )
-    return cmd_args(script).hidden(args)
+    return cmd_args(script).hidden(args, env.values())
 
 # An environment in which a custom `bin` is at the head of `$PATH`.
-def _mk_env(ctx: "context"):
+def _mk_env(ctx: "context") -> {str.type: "cmd_args"}:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to `ld -r
@@ -161,17 +161,20 @@ def _mk_env(ctx: "context"):
     binutils_ld = ocaml_toolchain.binutils_ld
     binutils_as = ocaml_toolchain.binutils_as
 
-    # A local bin directory. Soft link `ld`.
-    bin = ctx.actions.symlinked_dir("bin/", {
-        "as": binutils_as,
-        "ld": binutils_ld,
-    })
+    links = {}
+    if binutils_as != None:
+        links["as"] = binutils_as
+    if binutils_ld != None:
+        links["ld"] = binutils_ld
 
-    # An environment in which `bin` is at the head of `$PATH`.
-    env = {
-        "PATH": cmd_args(bin, format = "{}:\"$PATH\""),
-    }
-    return (bin, env)
+    if links:
+        # A local `bin` dir of soft links.
+        bin = ctx.actions.symlinked_dir("bin", links)
+
+        # An environment in which `bin` is at the head of `$PATH`.
+        return {"PATH": cmd_args(bin, format = "{}:\"$PATH\"")}
+    else:
+        return {}
 
 # Pass '-cc cc.sh' to ocamlopt to use 'cc.sh' as the C compiler.
 def _mk_cc(ctx: "context", cc_args: [""], cc_sh_filename: "") -> "cmd_args":
@@ -191,12 +194,12 @@ def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> "cmd_args":
 # `bytecode_or_native`. It produces a script that forwards arguments to the
 # ocaml compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the
 # value of `bytecode_or_native`) in the environment of a local 'bin' directory.
-def _mk_ocaml_compiler(ctx: "context", bin: "artifact", env: {str.type: ""}, bytecode_or_native: BuildMode.type) -> "cmd_args":
+def _mk_ocaml_compiler(ctx: "context", env: {str.type: ""}, bytecode_or_native: BuildMode.type) -> "cmd_args":
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     compiler = ocaml_toolchain.ocaml_compiler if bytecode_or_native.value == "native" else ocaml_toolchain.ocaml_bytecode_compiler
     script_name = "ocamlopt" + bytecode_or_native.value + ".sh"
     script_args = _mk_script(ctx, script_name, [compiler], env)
-    return script_args.hidden(bin)
+    return script_args
 
 # A command initialized with flags common to all compiler commands.
 def _compiler_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_args":
@@ -557,9 +560,9 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     opaque_enabled = "-opaque" in ocaml_toolchain.ocaml_compiler_flags
 
-    bin, env = _mk_env(ctx)
-    ocamlopt = _mk_ocaml_compiler(ctx, bin, env, BuildMode("native"))
-    ocamlc = _mk_ocaml_compiler(ctx, bin, env, BuildMode("bytecode"))
+    env = _mk_env(ctx)
+    ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
+    ocamlc = _mk_ocaml_compiler(ctx, env, BuildMode("bytecode"))
 
     ld_nat = _mk_ld(ctx, [], "ld_native.sh")
     ld_byt = _mk_ld(ctx, [], "ld_bytecode.sh")
@@ -664,9 +667,9 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
 def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
-    bin, env = _mk_env(ctx)
-    ocamlopt = _mk_ocaml_compiler(ctx, bin, env, BuildMode("native"))
-    ocamlc = _mk_ocaml_compiler(ctx, bin, env, BuildMode("bytecode"))
+    env = _mk_env(ctx)
+    ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
+    ocamlc = _mk_ocaml_compiler(ctx, env, BuildMode("bytecode"))
 
     link_infos = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
     link_info = get_link_args(link_infos, LinkStyle("static"))
@@ -740,8 +743,8 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
 def ocaml_object_impl(ctx: "context") -> ["provider"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
-    bin, env = _mk_env(ctx)
-    ocamlopt = _mk_ocaml_compiler(ctx, bin, env, BuildMode("native"))
+    env = _mk_env(ctx)
+    ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
     deps_link_info = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
     ld_args = unpack_link_args(get_link_args(deps_link_info, LinkStyle("static")))
     ld = _mk_ld(ctx, [ld_args], "ld.sh")
