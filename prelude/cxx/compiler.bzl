@@ -25,7 +25,7 @@ def get_flags_for_colorful_output(compiler_type: str.type) -> [str.type]:
     Return flags for enabling colorful diagnostic output.
     """
     flags = []
-    if compiler_type == "clang":
+    if compiler_type in ["clang", "clang_windows", "clang_cl"]:
         # https://clang.llvm.org/docs/UsersManual.html
         flags.append("-fcolor-diagnostics")
     elif compiler_type == "gcc":
