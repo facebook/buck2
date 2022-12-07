@@ -112,7 +112,7 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 /// ```
 #[internal_provider(default_info_creator)]
 #[derive(Clone, Debug, Freeze, Trace, Coerce, ProvidesStaticType, Allocative)]
-#[freeze(validator = check_max_one_list, bounds = "V: ValueLike<'freeze>")]
+#[freeze(validator = validate_default_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct DefaultInfoGen<V> {
     /// A mapping of names to `ProviderCollection`s. The keys are used when
@@ -134,10 +134,8 @@ pub struct DefaultInfoGen<V> {
     other_outputs: V,
 }
 
-fn check_max_one_list<'v, V>(info: &DefaultInfoGen<V>) -> anyhow::Result<()>
-where
-    V: ValueLike<'v>,
-{
+fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
+    // Check length of default outputs
     let default_output_list = List::from_value(info.default_outputs.to_value())
         .expect("should be a list from constructor");
     if default_output_list.len() > 1 {
@@ -149,56 +147,95 @@ where
         // ));
     }
 
+    // Check mutable data hasn't been modified.
+    for output in info.default_outputs_impl()? {
+        output?;
+    }
+    for sub_target in info.sub_targets_impl()? {
+        sub_target?;
+    }
+
     Ok(())
 }
 
 impl FrozenDefaultInfo {
+    fn get_sub_target_providers_impl(
+        &self,
+        name: &str,
+    ) -> anyhow::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
+        FrozenDict::from_frozen_value(&self.sub_targets)
+            .context("sub_targets should be a dict-like object")?
+            .get_str(name)
+            .map(|v| {
+                FrozenValueTyped::new(v).context(
+                    "Values inside of a frozen provider should be frozen provider collection",
+                )
+            })
+            .transpose()
+    }
+
     pub fn get_sub_target_providers(
         &self,
         name: &str,
     ) -> Option<FrozenValueTyped<'static, FrozenProviderCollection>> {
-        FrozenDict::from_frozen_value(&self.sub_targets)
-            .expect("sub_targets should be a dict-like object")
-            .get_str(name)
-            .map(|v| {
-                FrozenValueTyped::new(v).expect(
-                    "Values inside of a frozen provider should be frozen provider collection",
-                )
-            })
+        self.get_sub_target_providers_impl(name).unwrap()
+    }
+
+    fn default_outputs_impl(
+        &self,
+    ) -> anyhow::Result<
+        impl Iterator<Item = anyhow::Result<FrozenRef<'static, StarlarkArtifact>>> + '_,
+    > {
+        let list = FrozenList::from_frozen_value(&self.default_outputs)
+            .context("Should be list of artifacts")?;
+
+        Ok(list.iter().map(|v| {
+            anyhow::Ok(
+                v.unpack_frozen()
+                    .context("should be frozen")?
+                    .downcast_frozen_ref::<StarlarkArtifact>()
+                    .context("Should be list of artifacts")?,
+            )
+        }))
     }
 
     pub fn default_outputs<'a>(&'a self) -> Vec<FrozenRef<'static, StarlarkArtifact>> {
-        FrozenList::from_frozen_value(&self.default_outputs)
-            .expect("Should be list of artifacts")
-            .iter()
-            .map(|v| {
-                v.unpack_frozen()
-                    .expect("should be frozen")
-                    .downcast_frozen_ref::<StarlarkArtifact>()
-                    .expect("Should be list of artifacts")
-            })
-            .collect()
+        self.default_outputs_impl()
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
     }
 
     pub fn default_outputs_raw(&self) -> FrozenValue {
         self.default_outputs
     }
 
-    pub fn sub_targets(&self) -> SmallMap<&str, FrozenRef<'static, FrozenProviderCollection>> {
-        FrozenDict::from_frozen_value(&self.sub_targets)
-            .expect("sub_targets should be a dict-like object")
-            .iter()
-            .map(|(k, v)| {
-                (
-                    k.to_value()
-                        .unpack_str()
-                        .expect("sub_targets should have string keys"),
-                    v.downcast_frozen_ref::<FrozenProviderCollection>().expect(
+    fn sub_targets_impl(
+        &self,
+    ) -> anyhow::Result<
+        impl Iterator<Item = anyhow::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>> + '_,
+    > {
+        let sub_targets = FrozenDict::from_frozen_value(&self.sub_targets)
+            .context("sub_targets should be a dict-like object")?;
+
+        Ok(sub_targets.iter().map(|(k, v)| {
+            anyhow::Ok((
+                k.to_value()
+                    .unpack_str()
+                    .context("sub_targets should have string keys")?,
+                v.downcast_frozen_ref::<FrozenProviderCollection>()
+                    .context(
                         "Values inside of a frozen provider should be frozen provider collection",
-                    ),
-                )
-            })
-            .collect()
+                    )?,
+            ))
+        }))
+    }
+
+    pub fn sub_targets(&self) -> SmallMap<&str, FrozenRef<'static, FrozenProviderCollection>> {
+        self.sub_targets_impl()
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
     }
 
     pub fn sub_targets_raw(&self) -> FrozenValue {
