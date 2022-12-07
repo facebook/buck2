@@ -28,6 +28,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
+use prost::Message;
 use remote_execution as RE;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
@@ -379,15 +380,15 @@ impl ManagedRemoteExecutionClient {
             .await
     }
 
-    pub async fn download_trees(
+    pub async fn download_typed_blobs<T: Message + Default>(
         &self,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Vec<RE::Tree>> {
+    ) -> anyhow::Result<Vec<T>> {
         self.lock()?
             .get()
             .await?
-            .download_trees(digests, use_case)
+            .download_typed_blobs(digests, use_case)
             .await
     }
 

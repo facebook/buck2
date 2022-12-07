@@ -394,17 +394,17 @@ impl RemoteExecutionClient {
             .await
     }
 
-    pub async fn download_trees(
+    pub async fn download_typed_blobs<T: Message + Default>(
         &self,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Vec<RE::Tree>> {
+    ) -> anyhow::Result<Vec<T>> {
         self.data
             .downloads
             .op(self
                 .data
                 .client
-                .download_trees(digests, use_case)
+                .download_typed_blobs(digests, use_case)
                 .map_err(|e| self.decorate_error(e)))
             .await
     }
@@ -893,15 +893,15 @@ impl RemoteExecutionClientImpl {
 
     /// Fetches a list of digests from the CAS and casts them to Tree objects.
     /// If fetching or decoding fails for one or more digests, returns an Err.
-    async fn download_trees(
+    async fn download_typed_blobs<T: Message + Default>(
         &self,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Vec<RE::Tree>> {
+    ) -> anyhow::Result<Vec<T>> {
         if digests.is_empty() {
             return Ok(Vec::new());
         }
-        let expected_trees = digests.len();
+        let expected_blobs = digests.len();
         let response = self
             .client()
             .get_cas_client()
@@ -914,10 +914,10 @@ impl RemoteExecutionClientImpl {
             )
             .await?;
 
-        let mut trees: Vec<RE::Tree> = Vec::with_capacity(expected_trees);
+        let mut blobs: Vec<T> = Vec::with_capacity(expected_blobs);
         if let Some(ds) = response.inlined_blobs {
             for d in ds {
-                trees.push(Message::decode(d.blob.as_slice()).with_context(|| {
+                blobs.push(Message::decode(d.blob.as_slice()).with_context(|| {
                     format!("Failed to Protobuf decode tree at `{}`", d.digest)
                 })?);
             }
@@ -925,12 +925,12 @@ impl RemoteExecutionClientImpl {
 
         // This shouldn't happen, but we can't just assume the CAS won't ever break
         assert_eq!(
-            trees.len(),
-            expected_trees,
-            "CAS client returned fewer trees than expected."
+            blobs.len(),
+            expected_blobs,
+            "CAS client returned fewer blobs than expected."
         );
 
-        Ok(trees)
+        Ok(blobs)
     }
 
     pub async fn download_blob(

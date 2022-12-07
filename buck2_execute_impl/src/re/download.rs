@@ -44,6 +44,7 @@ use chrono::Utc;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
+use remote_execution as RE;
 use thiserror::Error;
 
 pub async fn download_action_results<'a>(
@@ -181,7 +182,7 @@ impl CasDownloader<'_> {
         // This requires traversing the trees to find symlinks that point outside such trees
         let trees = self
             .re_client
-            .download_trees(
+            .download_typed_blobs::<RE::Tree>(
                 output_spec
                     .output_directories()
                     .map(|x| x.tree_digest.clone()),

@@ -32,6 +32,7 @@ use gazebo::prelude::*;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
+use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
@@ -182,7 +183,10 @@ impl IncrementalActionExecutable for CasArtifactAction {
         let value = if self.inner.tree {
             let tree = ctx
                 .re_client()
-                .download_trees(vec![self.inner.digest.to_re()], self.inner.re_use_case)
+                .download_typed_blobs::<RE::Tree>(
+                    vec![self.inner.digest.to_re()],
+                    self.inner.re_use_case,
+                )
                 .await
                 .map_err(anyhow::Error::from)
                 .and_then(|trees| trees.into_iter().next().context("RE response was empty"))
