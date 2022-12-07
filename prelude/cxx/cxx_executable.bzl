@@ -40,6 +40,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
     "get_linkable_graph_node_map_func",
+    "linkable_deps",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -247,7 +248,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             link_group_preferred_linkage,
             link_group_libs = link_group_libs,
             link_style = link_style,
-            deps = first_order_deps + impl_params.extra_link_deps,
+            deps = linkable_deps(first_order_deps + impl_params.extra_link_deps),
             is_executable_link = True,
             prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
@@ -261,7 +262,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
-                first_order_deps + impl_params.extra_link_deps,
+                linkable_deps(first_order_deps + impl_params.extra_link_deps),
                 is_executable_link = True,
                 prefer_stripped = ctx.attrs.prefer_stripped_objects,
             )

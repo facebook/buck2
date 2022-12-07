@@ -20,7 +20,6 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableNode",  # @unused Used as a type
     "get_link_info",
-    "linkable_deps",
 )
 load(
     "@prelude//utils:dicts.bzl",
@@ -176,7 +175,7 @@ def get_filtered_labels_to_links_map(
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
-        deps: ["dependency"],
+        deps: ["label"],
         link_group_libs: {str.type: LinkGroupLib.type} = {},
         prefer_stripped: bool.type = False,
         is_executable_link: bool.type = False) -> {"label": LinkGroupLinkInfo.type}:
@@ -186,8 +185,6 @@ def get_filtered_labels_to_links_map(
     identifies which link infos and targets belong the in the provided link group.
     If no link group is provided, all unmatched link infos are returned.
     """
-
-    deps = linkable_deps(deps)
 
     def get_traversed_deps(node: "label") -> ["label"]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
@@ -335,7 +332,7 @@ def create_link_group(
         link_group_preferred_linkage,
         link_group_libs = link_group_libs,
         link_style = link_style,
-        deps = [mapping.target for mapping in spec.group.mappings],
+        deps = [mapping.target.label for mapping in spec.group.mappings],
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )

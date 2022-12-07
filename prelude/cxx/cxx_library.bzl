@@ -57,6 +57,7 @@ load(
     "create_linkable_graph_node",
     "create_linkable_node",
     "get_linkable_graph_node_map_func",
+    "linkable_deps",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
@@ -830,7 +831,7 @@ def _get_shared_library_links(
         link_group_preferred_linkage,
         link_group_libs = link_group_libs,
         link_style = link_style,
-        deps = non_exported_deps + exported_deps,
+        deps = linkable_deps(non_exported_deps + exported_deps),
         prefer_stripped = prefer_stripped,
     )
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
