@@ -178,6 +178,7 @@ def _rust_binary_common(
         )),
         ("expand", expand.outputs[Emit("expand")]),
         ("save-analysis", save_analysis.outputs[Emit("save-analysis")]),
+        ("sources", compile_ctx.symlinked_srcs),
     ]
     sub_targets = {k: [DefaultInfo(default_outputs = [v])] for k, v in extra_targets}
     for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files)) in styles.items():

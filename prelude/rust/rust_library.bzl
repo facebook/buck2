@@ -213,6 +213,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         check_artifacts = check_artifacts,
         expand = expand.outputs[Emit("expand")],
         save_analysis = save_analysis.outputs[Emit("save-analysis")],
+        sources = compile_ctx.symlinked_srcs,
     )
     providers += _rust_providers(
         ctx = ctx,
@@ -351,7 +352,8 @@ def _default_providers(
         rustdoc: "artifact",
         check_artifacts: {str.type: "artifact"},
         expand: "artifact",
-        save_analysis: "artifact") -> ["provider"]:
+        save_analysis: "artifact",
+        sources: "artifact") -> ["provider"]:
     # Outputs indexed by LinkStyle
     style_info = {
         link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
@@ -362,6 +364,7 @@ def _default_providers(
     targets = {k.value: v.rlib for (k, v) in style_info.items()}
     targets.update(check_artifacts)
     targets["doc"] = rustdoc
+    targets["sources"] = sources
     targets["expand"] = expand
     targets["save-analysis"] = save_analysis
 
