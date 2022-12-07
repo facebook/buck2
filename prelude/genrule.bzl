@@ -98,7 +98,7 @@ def genrule_impl(ctx: "context") -> ["provider"]:
 
 def _declare_output(ctx: "context", path: str.type) -> "artifact":
     if path == ".":
-        return ctx.actions.declare_output("out")
+        return ctx.actions.declare_output("out/")
     else:
         return ctx.actions.declare_output("out", path)
 

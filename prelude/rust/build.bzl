@@ -653,7 +653,7 @@ def _rustc_emits(
 
     if emit not in (Emit("expand"), Emit("save-analysis")):
         extra_dir = subdir + "/extras/" + output_filename(crate, emit, params)
-        extra_out = ctx.actions.declare_output(extra_dir)
+        extra_out = ctx.actions.declare_output(extra_dir + "/")
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
         if ctx.attrs.incremental_enabled:
