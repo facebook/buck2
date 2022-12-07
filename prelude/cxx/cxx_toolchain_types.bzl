@@ -14,6 +14,7 @@ LinkerType = ["gnu", "darwin", "windows"]
 LinkerInfo = provider(fields = [
     "archiver",
     "archiver_supports_argfiles",
+    "archiver_type",
     "archive_contents",
     "archive_objects_locally",
     # "archiver_platform",

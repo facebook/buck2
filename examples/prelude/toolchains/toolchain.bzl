@@ -36,11 +36,13 @@ def _cxx_toolchain(ctx):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
+    archiver_type = "gnu"
     linker_type = "gnu"
     if host_info().os.is_macos:
         linker_type = "darwin"
     elif host_info().os.is_windows:
         linker_type = "windows"
+        archiver_type = "windows"
     return [
         DefaultInfo(),
         CxxToolchainInfo(
@@ -51,6 +53,7 @@ def _cxx_toolchain(ctx):
                     "-lstdc++",
                 ],
                 archiver = RunInfo(args = ["ar", "rcs"]),
+                archiver_type = archiver_type,
                 type = linker_type,
                 link_binaries_locally = True,
                 archive_objects_locally = True,

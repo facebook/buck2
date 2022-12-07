@@ -314,6 +314,7 @@ def _cxx_zig_toolchain_impl(ctx: "context") -> ["provider"]:
         ),
         linker_info = LinkerInfo(
             archiver = RunInfo(args = cmd_args([zig, "ar"])),
+            archiver_type = "gnu",
             archiver_supports_argfiles = True,
             #archive_contents = None,
             archive_objects_locally = False,

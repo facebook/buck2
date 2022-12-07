@@ -9,10 +9,20 @@ load("@prelude//linking:link_info.bzl", "Archive")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def _archive_flags(linker_type: str.type, use_archiver_flags: bool.type, thin: bool.type) -> [str.type]:
+def _archive_flags(
+        archiver_type: str.type,
+        linker_type: str.type,
+        use_archiver_flags: bool.type,
+        thin: bool.type) -> [str.type]:
     if not use_archiver_flags:
         return []
 
+    if archiver_type == "windows":
+        if thin:
+            fail("'windows' archiver doesn't support thin archives")
+        return ["/Brepro", "/d2threads1"]
+    elif archiver_type == "windows_clang":
+        return ["/llvmlibthin"] if thin else []
     flags = ""
 
     # Operate in quick append mode, so that objects with identical basenames
@@ -40,8 +50,17 @@ def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, 
     archive_output = ctx.actions.declare_output(name)
     toolchain = get_cxx_toolchain_info(ctx)
     command = cmd_args(toolchain.linker_info.archiver)
-    command.add(_archive_flags(toolchain.linker_info.type, toolchain.linker_info.use_archiver_flags, thin))
-    command.add([archive_output.as_output()])
+    archiver_type = toolchain.linker_info.archiver_type
+    command.add(_archive_flags(
+        archiver_type,
+        toolchain.linker_info.type,
+        toolchain.linker_info.use_archiver_flags,
+        thin,
+    ))
+    if archiver_type == "windows" or archiver_type == "windows_clang":
+        command.add([cmd_args(archive_output.as_output(), format = "/OUT:{}")])
+    else:
+        command.add([archive_output.as_output()])
 
     if toolchain.linker_info.archiver_supports_argfiles:
         shell_quoted_args = cmd_args(args, quote = "shell")
