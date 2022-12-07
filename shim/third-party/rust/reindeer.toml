@@ -1,26 +1,27 @@
 ##
 ## Reindeer Config
 ##
-## This file sets all of Reindeer's basic configuration. This file also marks the
-## top of the reindeer-managed directory, as all other paths are relative to this one
-## (both paths mentioned in this file, and implicit).
+## This file sets all of Reindeer's basic configuration. This file also marks
+## the top of the reindeer-managed directory, as all other paths are relative to
+## this one (both paths mentioned in this file, and implicit).
 ##
-## Reindeer is under active development, and the layout and options in this file may change.
+## Reindeer is under active development, and the layout and options in this file
+## may change.
 
 # Default rustc flags added to all rules
 rustc_flags = [
   "--cap-lints=allow", # we don't want 3rd-party builds breaking just because of some lint
 ]
 
-# Parse Rust code to work out the precise set of source files for each crate
-# This uses `srcfiles` which only works on Rust 2018 and without some macro constructions.
-# It works in almost all cases, but you may need to have a fixups.toml adding extra srcs if
-# it fails.
+# Parse Rust code to work out the precise set of source files for each crate.
+# This uses `srcfiles` which only works on Rust 2018 and without some macro
+# constructions. It works in almost all cases, but you may need to have a
+# fixups.toml adding extra srcs if it fails.
 precise_srcs = true
 
 # Possible patterns for license files - lots of packages have them without
-# registering them in the Cargo metadata, or have more than the single file
-# it allows. Just look in the top-level dir for now.
+# registering them in the Cargo metadata, or have more than the single file it
+# allows. Just look in the top-level dir for now.
 license_patterns = [
   "LICENSE*", "COPYING*", "UNLICENSE*",
 ]
@@ -28,58 +29,61 @@ license_patterns = [
 # Path to the Buck cell root (relative to this file)
 buck_cell_root = "../../.."
 
-# Path to buildifier (relative to this file). This is just used clean up the generated
-# BUCK file formatting, but shouldn't be necessary for correctness.
+# Path to buildifier (relative to this file). This is just used to clean up the
+# generated BUCK file formatting, but shouldn't be necessary for correctness.
 # buildifier_path = "path/to/buildifier"
 
-# If a fixups.toml file is needed (eg, the package has a build.rs), then generate a template
-# fixups.toml to be edited.
+# If a fixups.toml file is needed (eg, the package has a build.rs), then
+# generate a template fixups.toml to be edited.
 fixup_templates = true
 
 # Emit Cargo pkg metadata into rules (experimental, not used)
 #emit_metadata = false
 
-# Include an explicit public top-level target which depends on all other library targets,
-# so that you can to a test/check build.
+# Include an explicit public top-level target which depends on all other library
+# targets, so that you can to a test/check build.
 include_top_level = true
 
-# Include targets for binary and cdylib-only packages (that is packages which can't directly
-# be depended-on by Rust)
+# Include targets for binary and cdylib-only packages (that is packages which
+# can't directly be depended-on by Rust)
 extra_top_levels = true
 
 # Configuration for vendoring
 [vendor]
 # Exclude files listed in the .gitignore in this directory
 gitignore_checksum_exclude = [".gitignore"]
-# Additional globs to ignore (prefer .gitignore for consistentcy with source control)
+# Additional globs to ignore (prefer .gitignore for consistentcy with source
+# control)
 checksum_exclude = [
 ]
 
 # Configuration for rustsec auditing
 [audit]
-# Name of a package which is expected to always have an advisory to make sure the
-# mechanism is working.
+# Name of a package which is expected to always have an advisory to make sure
+# the mechanism is working.
 never_autofix = [
   "rustsec-example-crate", # never fix because this is a canary
 ]
 
 # Platforms we want to support.
 #
-# A Reindeer platform is a collection of predicates, which are closely related to
-# rustc/cargo's notion of a platform. If a conditional dependency matches against a
-# platform's predicates, then it is included in the platform-specific dependencies
-# in the rule.
+# A Reindeer platform is a collection of predicates, which are closely related
+# to rustc/cargo's notion of a platform. If a conditional dependency matches
+# against a platform's predicates, then it is included in the platform-specific
+# dependencies in the rule.
 #
-# These same platforms and predicates are used in fixups.toml files, for platform-specific
-# fixups (such as additional dependencies, extra sources, options, etc).
+# These same platforms and predicates are used in fixups.toml files, for
+# platform-specific fixups (such as additional dependencies, extra sources,
+# options, etc).
 #
-# Listed properties are a set of values, any of which can match a predicate. These
-# match specific configurations of rustc, as shown with `rustc --target <TARGET> --print cfg`.
-# Unlisted properties are "don't care" or "match anything"
+# Listed properties are a set of values, any of which can match a predicate.
+# These match specific configurations of rustc, as shown with `rustc --target
+# <TARGET> --print cfg`. Unlisted properties are "don't care" or "match
+# anything"
 #
-# The platform key sets the name of the platform in `platform_deps`/`named_platform_deps`.
-# If it is "DEFAULT" then the platform's dependencies are put into the normal
-# `deps`/`named_deps`.
+# The platform key sets the name of the platform in `platform_deps` /
+# `named_platform_deps`. If it is "DEFAULT" then the platform's dependencies are
+# put into the normal `deps` / `named_deps`.
 
 # x86_64-unknown-linux-gnu
 [platform.linux-x86_64]
@@ -126,13 +130,14 @@ target_arch = ["x86_64"]
 
 # Configuration for cargo (used both for vendoring and resolving dependencies)
 [cargo]
-# Path to cargo, relative to this file. Can also be specified on the command-line.  Defaults to plain "cargo"
+# Path to cargo, relative to this file. Can also be specified on the
+# command-line. Defaults to plain "cargo".
 # cargo = "path/to/cargo"
 
-# Directories for vendored directories always have version numbers (by default they
-# only have versions if there's a name collision, such as multiple versions of the
-# same package). This option can speed up `cargo vendor` when there are lots
-# packages being managed.
+# Directories for vendored directories always have version numbers (by default
+# they only have versions if there's a name collision, such as multiple versions
+# of the same package). This option can speed up `cargo vendor` when there are
+# lots packages being managed.
 versioned_dirs = true
 
 # Configuration for generated BUCK file
@@ -140,11 +145,11 @@ versioned_dirs = true
 # Name of the generated file
 file_name = "BUCK_OSS"
 
-# Rules used for various kinds of targets
-# These rules don't directly correspond with BUCK rules - they have extra attributes
-# such as per-platform settings. The intent is that you provide a set of macro definitions
-# which resolve them to appropriate underlying rules suitable for your environment.
-# (This may also work for Buck-like build systems such as Bazel.)
+# Rules used for various kinds of targets. These rules don't directly correspond
+# with BUCK rules - they have extra attributes such as per-platform settings.
+# The intent is that you provide a set of macro definitions which resolve them
+# to appropriate underlying rules suitable for your environment. (This may also
+# work for Buck-like build systems such as Bazel.)
 rust_library = "third_party_rust_library"       # A plain Rust library
 rust_binary = "third_party_rust_binary"         # A Rust executable
 cxx_library = "third_party_rust_cxx_library"    # A C++ library (mostly for Rust -> C dependencies)
