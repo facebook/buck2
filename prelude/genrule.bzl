@@ -202,7 +202,7 @@ def process_genrule(
                     fail(msg)
     else:
         symlinks = ctx.attrs.srcs
-    srcs_artifact = ctx.actions.symlinked_dir("srcs" if not identifier else "{}-srcs".format(identifier), symlinks)
+    srcs_artifact = ctx.actions.symlinked_dir("srcs/" if not identifier else "{}-srcs/".format(identifier), symlinks)
 
     # Setup environment variables.
     srcs = cmd_args()
@@ -295,7 +295,7 @@ def process_genrule(
     )
 
     if handle_whole_out_dir_is_output:
-        default_outputs = [ctx.actions.symlinked_dir("out_dir" if not identifier else "{}-outdir", default_out_map)]
+        default_outputs = [ctx.actions.symlinked_dir("out_dir/" if not identifier else "{}-outdir/", default_out_map)]
 
     providers = [DefaultInfo(
         default_outputs = default_outputs,

@@ -36,7 +36,7 @@ def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool.type = Fal
     # pragmas.
     filtered_srcs = ctx.actions.declare_output("__filtered_srcs__.txt")
     srcs_dir = ctx.actions.symlinked_dir(
-        "__srcs__",
+        "__srcs__/",
         {src.short_path: src for src in srcs},
     )
     filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
@@ -101,7 +101,7 @@ def _compile_cmd(
     all_pkgs = merge_pkgs([pkgs, get_inherited_compile_pkgs(deps)])
     if all_pkgs:
         pkg_dir = ctx.actions.symlinked_dir(
-            "__{}_compile_pkgs__".format(paths.basename(pkg_name)),
+            "__{}_compile_pkgs__/".format(paths.basename(pkg_name)),
             {name + path.extension: path for name, path in all_pkgs.items()},
         )
         cmd.add("-I", pkg_dir)

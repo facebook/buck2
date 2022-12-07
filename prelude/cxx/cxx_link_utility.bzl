@@ -175,7 +175,7 @@ def executable_shared_lib_arguments(
 
     if len(shared_libs) > 0:
         shared_libs_symlink_tree = actions.symlinked_dir(
-            shared_libs_symlink_tree_name(output),
+            shared_libs_symlink_tree_name(output) + "/",
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)

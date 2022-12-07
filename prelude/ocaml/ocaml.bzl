@@ -162,7 +162,7 @@ def _mk_env(ctx: "context"):
     binutils_as = ocaml_toolchain.binutils_as
 
     # A local bin directory. Soft link `ld`.
-    bin = ctx.actions.symlinked_dir("bin", {
+    bin = ctx.actions.symlinked_dir("bin/", {
         "as": binutils_as,
         "ld": binutils_ld,
     })

@@ -84,7 +84,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             sub_targets["proguard_text_output"] = [
                 DefaultInfo(
                     default_outputs = [ctx.actions.symlinked_dir(
-                        "proguard_text_output",
+                        "proguard_text_output/",
                         {artifact.basename: artifact for artifact in proguard_output.proguard_artifacts},
                     )],
                 ),

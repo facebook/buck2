@@ -38,7 +38,7 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "tar
     if not output_jars:
         return {}
 
-    input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
+    input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir/", input_srcs)
     output_dir = cmd_args(output_jars.keys()[0].as_output()).parent()
 
     env = {

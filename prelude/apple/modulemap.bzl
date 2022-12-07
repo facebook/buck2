@@ -37,7 +37,7 @@ def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CH
         header_map[swift_header_name] = swift_header
 
     # Create a symlink dir for the headers to import
-    symlink_tree = ctx.actions.symlinked_dir(name + "_symlink_tree", header_map)
+    symlink_tree = ctx.actions.symlinked_dir(name + "_symlink_tree/", header_map)
 
     # Create a modulemap at the root of that tree
     output = ctx.actions.declare_output(name + ".modulemap")

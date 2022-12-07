@@ -24,7 +24,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs.robolectric_runtime_dependency:
         runtime_dependencies_dir = ctx.attrs.robolectric_runtime_dependency
     else:
-        runtime_dependencies_dir = ctx.actions.symlinked_dir("runtime_dependencies", {
+        runtime_dependencies_dir = ctx.actions.symlinked_dir("runtime_dependencies/", {
             runtime_dep.basename: runtime_dep
             for runtime_dep in ctx.attrs.robolectric_runtime_dependencies
         })
@@ -51,7 +51,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     )
 
     # Robolectric looks for a file named /com/android/tools/test_config.properties on the classpath
-    test_config_symlinked_dir = ctx.actions.symlinked_dir("test_config_symlinked_dir", {"com/android/tools/test_config.properties": test_config_properties_file})
+    test_config_symlinked_dir = ctx.actions.symlinked_dir("test_config_symlinked_dir/", {"com/android/tools/test_config.properties": test_config_properties_file})
     test_config_properties_jar = ctx.actions.declare_output("test_config_properties.jar")
     jar_cmd = cmd_args([
         ctx.attrs._java_toolchain[JavaToolchainInfo].jar,

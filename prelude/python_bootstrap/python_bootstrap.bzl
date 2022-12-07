@@ -39,7 +39,7 @@ def python_bootstrap_binary_impl(ctx: "context") -> ["provider"]:
             run_tree_inputs[src.short_path] = src
             run_tree_recorded_deps[src.short_path] = dep
 
-    run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
+    run_tree = ctx.actions.symlinked_dir("__%s__/" % ctx.attrs.name, run_tree_inputs)
     output = ctx.actions.copy_file(ctx.attrs.main.short_path, ctx.attrs.main)
 
     is_windows = ctx.attrs._target_os_type == "windows"

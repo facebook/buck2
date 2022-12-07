@@ -757,7 +757,7 @@ def haskell_binary_impl(ctx: "context") -> ["provider"]:
 
     if link_style == LinkStyle("shared"):
         link.add("-optl", "-Wl,-rpath", "-optl", "-Wl,$ORIGIN/sos")
-        symlink_dir = ctx.actions.symlinked_dir("sos", sos)
+        symlink_dir = ctx.actions.symlinked_dir("sos/", sos)
         run.hidden(symlink_dir)
 
     providers = [
