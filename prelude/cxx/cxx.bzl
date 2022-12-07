@@ -64,6 +64,7 @@ load(
 )
 load(
     ":groups.bzl",
+    "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
 )
@@ -162,20 +163,38 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
     output = cxx_library_parameterized(ctx, params)
     return output.providers
 
+def _only_shared_mappings(group: Group.type) -> bool.type:
+    """
+    Return whether this group only has explicit "shared" linkage mappings,
+    which indicates a group that re-uses pre-linked libs.
+    """
+    for mapping in group.mappings:
+        if mapping.preferred_linkage != Linkage("shared"):
+            return False
+    return True
+
 def get_cxx_auto_link_group_specs(ctx: "context") -> [[LinkGroupLibSpec.type], None]:
     link_group_info = get_link_group_info(ctx)
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
+    specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    return [
-        LinkGroupLibSpec(
-            name = get_shared_library_name(linker_info, group.name),
-            is_shared_lib = True,
-            group = group,
+    for group in link_group_info.groups:
+        if group.name in (MATCH_ALL_LABEL, NO_MATCH_LABEL):
+            continue
+
+        # TODO(agallagher): We should probably add proper handling for "provided"
+        # system handling to avoid needing this special case.
+        if _only_shared_mappings(group):
+            continue
+        specs.append(
+            LinkGroupLibSpec(
+                name = get_shared_library_name(linker_info, group.name),
+                is_shared_lib = True,
+                group = group,
+            ),
         )
-        for group in link_group_info.groups
-        if group.name not in (MATCH_ALL_LABEL, NO_MATCH_LABEL)
-    ]
+    return specs
 
 def cxx_binary_impl(ctx: "context") -> ["provider"]:
     params = CxxRuleConstructorParams(
