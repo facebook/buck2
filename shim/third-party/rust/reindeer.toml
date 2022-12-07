@@ -29,9 +29,14 @@ license_patterns = [
 # Path to the Buck cell root (relative to this file)
 buck_cell_root = "../../.."
 
-# Path to buildifier (relative to this file). This is just used to clean up the
-# generated BUCK file formatting, but shouldn't be necessary for correctness.
-# buildifier_path = "path/to/buildifier"
+# Enable running buildifier on the generated BUCK file. This just makes the
+# formatting more aesthetic, and isn't necessary for correctness.
+#
+# Valid values are `false` which means do not run buildifier, `true` which means
+# run whatever "buildifier" is on the PATH, and "path/to/buildifier" which
+# specified a path at which to find buildifier (relative to this file).
+buildifier = false
+# buildifier = "path/to/buildifier"
 
 # If a fixups.toml file is needed (eg, the package has a build.rs), then
 # generate a template fixups.toml to be edited.
