@@ -37,9 +37,15 @@ def get_flags_for_colorful_output(compiler_type: str.type) -> [str.type]:
 def cc_dep_files(output: "_arglike") -> cmd_args.type:
     return cmd_args(["-MD", "-MF", output])
 
+def windows_cc_dep_files(_output: "_arglike") -> cmd_args.type:
+    return cmd_args(["/showIncludes"])
+
 def get_headers_dep_files_flags_factory(compiler_type: str.type) -> ["function", None]:
-    if compiler_type == "clang" or compiler_type == "gcc":
+    if compiler_type in ["clang", "gcc", "clang_windows"]:
         return cc_dep_files
+
+    if compiler_type in ["windows", "clang_cl"]:
+        return windows_cc_dep_files
 
     return None
 
