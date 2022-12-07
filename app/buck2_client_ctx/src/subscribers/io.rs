@@ -99,6 +99,12 @@ impl IoState {
             if let Some(cpu) = self.two_snapshots.cpu_percents() {
                 parts.push(format!("CPU = {}%", cpu));
             }
+            if snapshot.blocking_executor_io_queue_size > 0 {
+                parts.push(format!(
+                    "IO Queue = {}",
+                    snapshot.blocking_executor_io_queue_size
+                ));
+            }
             lines.push(Line::from_iter([superconsole::Span::new_unstyled(
                 parts.join("  "),
             )?]));
