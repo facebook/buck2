@@ -9,3 +9,9 @@ native.python_bootstrap_binary(
     main = "conan_package.py",
     visibility = ["PUBLIC"],
 )
+
+native.export_file(
+    name = "buckler",
+    src = "buckler/conanfile.py",
+    visibility = ["PUBLIC"],
+)
