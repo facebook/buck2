@@ -139,8 +139,6 @@ versioned_dirs = true
 [buck]
 # Name of the generated file
 file_name = "BUCK_OSS"
-# targets_name = "RUST_TARGETS.bzl" # emit a set of all Rust targets (not reall useful)
-
 
 # Rules used for various kinds of targets
 # These rules don't directly correspond with BUCK rules - they have extra attributes
