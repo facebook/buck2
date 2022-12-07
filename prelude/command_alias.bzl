@@ -19,7 +19,7 @@ def command_alias_impl(ctx):
 
     if len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
         trampoline_args = cmd_args()
-        trampoline_args.add("#!/bin/sh")
+        trampoline_args.add("#!/bin/bash")
         trampoline_args.add("set -euo pipefail")
         trampoline_args.add('BUCK_COMMAND_ALIAS_ABSOLUTE=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)')
 
