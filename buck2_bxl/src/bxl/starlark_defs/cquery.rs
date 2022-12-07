@@ -16,8 +16,6 @@ use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::target::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -32,7 +30,6 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
-use starlark::values::dict::Dict;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -48,6 +45,7 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
+use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -472,43 +470,15 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             )
             .await
             {
-                Ok(evaluator) => Ok(
-                    match evaluator
+                Ok(evaluator) => parse_query_evaluation_result::<CqueryEnvironment>(
+                    evaluator
                         .eval_query(
                             query,
                             &query_args,
                             target_universe.into_option().as_ref().map(|v| &v[..]),
                         )
-                        .await?
-                    {
-                        QueryEvaluationResult::Single(result) => match result {
-                            QueryEvaluationValue::TargetSet(targets) => {
-                                eval.heap().alloc(StarlarkTargetSet::from(targets))
-                            }
-                            QueryEvaluationValue::FileSet(files) => {
-                                eval.heap().alloc(StarlarkFileSet::from(files))
-                            }
-                        },
-                        QueryEvaluationResult::Multiple(multi) => eval.heap().alloc(Dict::new(
-                            multi
-                                .0
-                                .into_iter()
-                                .map(|(q, res)| {
-                                    Ok((
-                                        eval.heap().alloc(q).get_hashed()?,
-                                        match res? {
-                                            QueryEvaluationValue::TargetSet(targets) => {
-                                                eval.heap().alloc(StarlarkTargetSet::from(targets))
-                                            }
-                                            QueryEvaluationValue::FileSet(files) => {
-                                                eval.heap().alloc(StarlarkFileSet::from(files))
-                                            }
-                                        },
-                                    ))
-                                })
-                                .collect::<anyhow::Result<_>>()?,
-                        )),
-                    },
+                        .await?,
+                    eval,
                 ),
                 Err(e) => Err(e),
             }

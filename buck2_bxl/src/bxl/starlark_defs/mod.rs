@@ -63,6 +63,7 @@ pub mod file_set;
 pub mod functions;
 pub mod nodes;
 pub mod providers_expr;
+mod query_util;
 pub mod target_expr;
 pub mod targetset;
 pub mod time;
