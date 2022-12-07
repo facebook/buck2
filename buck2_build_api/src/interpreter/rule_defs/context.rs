@@ -63,6 +63,8 @@ use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 use crate::actions::artifact::OutputArtifact;
+use crate::actions::impls::cas_artifact::ArtifactKind;
+use crate::actions::impls::cas_artifact::DirectoryKind;
 use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
 use crate::actions::impls::copy::CopyMode;
 use crate::actions::impls::copy::UnregisteredCopyAction;
@@ -112,6 +114,8 @@ enum DynamicOutputError {
 enum CasArtifactError {
     #[error("Not a valid RE digest: `{0}`")]
     InvalidDigest(String),
+    #[error("is_tree and is_directory are mutually exclusive")]
+    TreeAndDirectory,
 }
 
 /// Functions to allow users to interact with the Actions registry.
@@ -862,6 +866,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] expires_after_timestamp: i64,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_tree: bool,
+        #[starlark(require = named, default = false)] is_directory: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
@@ -873,10 +878,16 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
         let expires_after_timestamp = Utc.timestamp(expires_after_timestamp, 0);
 
-        let output_type = if is_tree {
-            OutputType::Directory
-        } else {
-            OutputType::File
+        let kind = match (is_tree, is_directory) {
+            (true, true) => return Err(CasArtifactError::TreeAndDirectory.into()),
+            (false, true) => ArtifactKind::Directory(DirectoryKind::Directory),
+            (true, false) => ArtifactKind::Directory(DirectoryKind::Tree),
+            (false, false) => ArtifactKind::File,
+        };
+
+        let output_type = match kind {
+            ArtifactKind::Directory(_) => OutputType::Directory,
+            ArtifactKind::File => OutputType::File,
         };
         let (output_value, output_artifact) =
             this.get_or_declare_output(eval, output, "output", output_type)?;
@@ -889,7 +900,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 re_use_case: use_case,
                 expires_after: expires_after_timestamp,
                 executable: is_executable,
-                tree: is_tree,
+                kind,
             },
             None,
         )?;

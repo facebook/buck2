@@ -20,6 +20,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
+use buck2_execute::directory::re_directory_to_re_tree;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::INTERNER;
@@ -70,6 +71,18 @@ enum CasArtifactActionExecutionError {
     },
 }
 
+#[derive(Debug, Allocative, Clone, Copy)]
+pub enum DirectoryKind {
+    Directory,
+    Tree,
+}
+
+#[derive(Debug, Allocative)]
+pub enum ArtifactKind {
+    Directory(DirectoryKind),
+    File,
+}
+
 /// This is an action that lets you reference a CAS artifact. Notionally it's a bit like
 /// download_file. When the action executes it'll just verify that the content exists. You have to
 /// provide an minimum expiration timestamp when you add this to force users to think about the TTL
@@ -84,7 +97,7 @@ pub struct UnregisteredCasArtifactAction {
     #[allocative(skip)]
     pub expires_after: DateTime<Utc>,
     pub executable: bool,
-    pub tree: bool,
+    pub kind: ArtifactKind,
 }
 
 impl UnregisteredAction for UnregisteredCasArtifactAction {
@@ -180,35 +193,60 @@ impl IncrementalActionExecutable for CasArtifactAction {
             .into());
         }
 
-        let value = if self.inner.tree {
-            let tree = ctx
-                .re_client()
-                .download_typed_blobs::<RE::Tree>(
-                    vec![self.inner.digest.to_re()],
-                    self.inner.re_use_case,
+        let value = match self.inner.kind {
+            ArtifactKind::Directory(directory_kind) => {
+                let tree = match directory_kind {
+                    DirectoryKind::Tree => ctx
+                        .re_client()
+                        .download_typed_blobs::<RE::Tree>(
+                            vec![self.inner.digest.to_re()],
+                            self.inner.re_use_case,
+                        )
+                        .await
+                        .map_err(anyhow::Error::from)
+                        .and_then(|trees| trees.into_iter().next().context("RE response was empty"))
+                        .with_context(|| {
+                            format!("Error downloading tree: {}", self.inner.digest)
+                        })?,
+                    DirectoryKind::Directory => {
+                        let re_client = ctx.re_client();
+                        let root_directory = re_client
+                            .download_typed_blobs::<RE::Directory>(
+                                vec![self.inner.digest.to_re()],
+                                self.inner.re_use_case,
+                            )
+                            .await
+                            .map_err(anyhow::Error::from)
+                            .and_then(|dirs| {
+                                dirs.into_iter().next().context("RE response was empty")
+                            })
+                            .with_context(|| {
+                                format!("Error downloading dir: {}", self.inner.digest)
+                            })?;
+                        re_directory_to_re_tree(root_directory, &re_client, self.inner.re_use_case)
+                            .await?
+                    }
+                };
+
+                // NOTE: We assign a zero timestamp here because we didn't check the nodes in the tree,
+                // just the tree itself. Perhaps we should, but some of the prospective users for this
+                // have very large trees so that might not be wise.
+                let dir = re_tree_to_directory(&tree, &Utc.timestamp(0, 0))
+                    .context("Invalid directory")?;
+
+                ArtifactValue::new(
+                    ActionDirectoryEntry::Dir(dir.fingerprint().shared(&*INTERNER)),
+                    None,
                 )
-                .await
-                .map_err(anyhow::Error::from)
-                .and_then(|trees| trees.into_iter().next().context("RE response was empty"))
-                .with_context(|| format!("Error downloading tree: {}", self.inner.digest))?;
-
-            // NOTE: We assign a zero timestamp here because we didn't check the nodes in the tree,
-            // just the tree itself. Perhaps we should, but some of the prospective users for this
-            // have very large trees so that might not be wise.
-            let dir =
-                re_tree_to_directory(&tree, &Utc.timestamp(0, 0)).context("Invalid directory")?;
-
-            ArtifactValue::new(
-                ActionDirectoryEntry::Dir(dir.fingerprint().shared(&*INTERNER)),
-                None,
-            )
-        } else {
-            let digest = TrackedFileDigest::new_expires(self.inner.digest.dupe(), expiration);
-            let metadata = FileMetadata {
-                digest,
-                is_executable: self.inner.executable,
-            };
-            ArtifactValue::file(metadata)
+            }
+            ArtifactKind::File => {
+                let digest = TrackedFileDigest::new_expires(self.inner.digest.dupe(), expiration);
+                let metadata = FileMetadata {
+                    digest,
+                    is_executable: self.inner.executable,
+                };
+                ArtifactValue::file(metadata)
+            }
         };
 
         let path = ctx.fs().resolve_build(self.output.get_path());

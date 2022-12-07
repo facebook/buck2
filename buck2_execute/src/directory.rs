@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -51,6 +52,7 @@ use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
 use crate::digest::FileDigestFromProtoExt;
+use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[allocative::root]
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
@@ -244,6 +246,38 @@ pub fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE
         root: Some(root),
         children,
     }
+}
+
+pub async fn re_directory_to_re_tree(
+    directory: RE::Directory,
+    client: &ManagedRemoteExecutionClient,
+    use_case: RemoteExecutorUseCase,
+) -> anyhow::Result<RE::Tree> {
+    let mut children: Vec<RE::Directory> = vec![];
+    let mut frontier = directory.directories.clone();
+    while !frontier.is_empty() {
+        let digests: Vec<remote_execution::TDigest> = frontier
+            .into_iter()
+            .filter_map(|d| d.digest)
+            .map(|digest| remote_execution::TDigest {
+                hash: digest.hash.clone(),
+                size_in_bytes: digest.size_bytes,
+                ..Default::default()
+            })
+            .collect();
+        let mut retrieved = client
+            .download_typed_blobs::<RE::Directory>(digests, use_case)
+            .await?;
+        frontier = retrieved
+            .iter()
+            .flat_map(|d| d.directories.clone())
+            .collect();
+        children.append(&mut retrieved);
+    }
+    Ok(RE::Tree {
+        root: Some(directory),
+        children,
+    })
 }
 
 /// Constructs a `Directory` from an `RE::Tree`. As long as the
