@@ -42,9 +42,19 @@ def parse_reference(ref):
     return _none(name), _none(version), _none(user), _none(channel), _none(revision)
 
 
+def conan_dir():
+    """Conan folder under the Conen user home."""
+    return ".conan"
+
+
+def generators_dir():
+    """Custom generators folder under the Conen user home."""
+    return os.path.join(conan_dir(), "generators")
+
+
 def store_dir():
     """Store folder under the Conen user home."""
-    return os.path.join(".conan", "data")
+    return os.path.join(conan_dir(), "data")
 
 
 def reference_dir(name, version, user, channel):
@@ -64,6 +74,7 @@ def conan_install(
         install_info,
         trace_log):
     args = [conan, "install"]
+    args.extend(["--generator", "BucklerGenerator"])
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
     args.extend(["--output-folder", output_folder])
@@ -113,6 +124,15 @@ def conan_install(
     subprocess.check_call(args, env=env)
 
 
+def install_generator(user_home, name, generator_file):
+    """Copy the given custom generator into the generators path."""
+    src = generator_file
+    dstdir = os.path.join(user_home, generators_dir())
+    dst = os.path.join(dstdir, "conanfile.py")
+    os.makedirs(dstdir, exist_ok=True)
+    shutil.copyfile(src, dst)
+
+
 def copy_dependency_cache_dir(reference, user_home, cache_out):
     """Copy the cache directory of a dependency into the store."""
     name, version, user, channel, _ = parse_reference(reference)
@@ -139,6 +159,12 @@ def main():
             type=str,
             required=True,
             help="Path to the Conan executable.")
+    parser.add_argument(
+            "--buckler",
+            metavar="FILE",
+            type=str,
+            required=True,
+            help="Path to the Buckler generator.")
     parser.add_argument(
             "--lockfile",
             metavar="FILE",
@@ -227,6 +253,7 @@ def main():
     # TODO Look into --settings and the like to configure a Buck2 provided toolchain.
     args = parser.parse_args()
 
+    install_generator(args.user_home, "buckler", args.buckler)
     assert len(args.dep_reference) == len(args.dep_cache_out), "Mismatching dependency arguments."
     for ref, cache_out in zip(args.dep_reference, args.dep_cache_out):
         copy_dependency_cache_dir(ref, args.user_home, cache_out)

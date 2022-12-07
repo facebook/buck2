@@ -75,6 +75,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--buckler", ctx.attrs._buckler])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
     cmd.add([cmd_args(ctx.attrs.options, prepend = "--option")])
@@ -115,5 +116,6 @@ conan_package = rule(
         "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan Package dependencies.")),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
+        "_buckler": attrs.source(default = "prelude//toolchains/conan:buckler"),
     },
 )
