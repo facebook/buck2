@@ -17,6 +17,7 @@ load(
     "get_flags_for_colorful_output",
     "get_flags_for_reproducible_build",
     "get_headers_dep_files_flags_factory",
+    "get_output_flags",
     "get_pic_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -288,10 +289,7 @@ def compile_cxx(
         cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
 
         compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-        if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
-            cmd.add(cmd_args(object.as_output(), format = "/Fo{}"))
-        else:
-            cmd.add("-o", object.as_output())
+        cmd.add(get_output_flags(compiler_type, object))
 
         args = cmd_args()
 

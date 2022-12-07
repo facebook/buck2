@@ -54,3 +54,9 @@ def get_pic_flags(compiler_type: str.type) -> [str.type]:
         return ["-fPIC"]
     else:
         return []
+
+def get_output_flags(compiler_type: str.type, output: "artifact") -> [""]:
+    if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
+        return [cmd_args(output.as_output(), format = "/Fo{}")]
+    else:
+        return ["-o", output.as_output()]
