@@ -9,12 +9,25 @@ class BucklerGenerator(Generator):
 
     @property
     def content(self):
+        def public_dir(o):
+            return list(filter(lambda s: not s.startswith("_"), dir(o)))
         return """\
 # @generated
 # Update with TODO
 
 # TODO
-"""
+
+# DEBUG
+{DEBUG}
+""".format(
+            DEBUG = "\n".join("# " + l for l in [
+                "self {}".format(public_dir(self)),
+                "deps_build_info {}".format(public_dir(self.deps_build_info)),
+                "deps_cpp_info {}".format(public_dir(self.conanfile.deps_cpp_info)),
+                "deps_env_info {}".format(public_dir(self.conanfile.deps_env_info)),
+                "deps_user_info {}".format(public_dir(self.conanfile.deps_user_info)),
+                "env {}".format(str(self.conanfile.env)),
+            ]))
 
 
 class Buckler(ConanFile):
