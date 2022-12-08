@@ -139,17 +139,18 @@ impl Drop for DeferredMaterializer {
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub defer_write_actions: bool,
-    pub ttl_refresh_frequency: std::time::Duration,
-    pub ttl_refresh_min_ttl: Duration,
-    pub ttl_refresh_enabled: bool,
+    pub ttl_refresh: TtlRefreshConfiguration,
+}
+
+pub struct TtlRefreshConfiguration {
+    pub frequency: std::time::Duration,
+    pub min_ttl: Duration,
+    pub enabled: bool,
 }
 
 struct DeferredMaterializerCommandProcessor<T> {
     io: Arc<T>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
-    ttl_refresh_frequency: std::time::Duration,
-    ttl_refresh_min_ttl: Duration,
-    ttl_refresh_enabled: bool,
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
     /// used by the rest of Buck.
     rt: Handle,
@@ -634,9 +635,6 @@ impl DeferredMaterializer {
                 io_executor: io_executor.dupe(),
             }),
             sqlite_db,
-            ttl_refresh_frequency: configs.ttl_refresh_frequency,
-            ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
-            ttl_refresh_enabled: configs.ttl_refresh_enabled,
             rt: Handle::current(),
         };
 
@@ -669,7 +667,12 @@ impl DeferredMaterializer {
                         .build()
                         .unwrap();
 
-                    rt.block_on(command_processor.run(command_recv, command_sender, tree));
+                    rt.block_on(command_processor.run(
+                        command_recv,
+                        command_sender,
+                        tree,
+                        configs.ttl_refresh,
+                    ));
                 }
             })
             .context("Cannot start materializer thread")?;
@@ -694,6 +697,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         commands: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
         command_sender: mpsc::UnboundedSender<MaterializerCommand<T>>,
         mut tree: ArtifactTree,
+        ttl_refresh: TtlRefreshConfiguration,
     ) {
         enum Op<T> {
             Command(MaterializerCommand<T>),
@@ -706,10 +710,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // 1 with because any disk state restored will start with version 0.
         let mut next_version = 1u64;
 
-        let refresh_stream = if self.ttl_refresh_enabled {
+        let refresh_stream = if ttl_refresh.enabled {
             IntervalStream::new(tokio::time::interval_at(
-                tokio::time::Instant::now() + self.ttl_refresh_frequency,
-                self.ttl_refresh_frequency,
+                tokio::time::Instant::now() + ttl_refresh.frequency,
+                ttl_refresh.frequency,
             ))
             .left_stream()
         } else {
@@ -835,7 +839,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         Some(task) => Some(task),
                         None => self
                             .io
-                            .create_ttl_refresh(&tree, self.ttl_refresh_min_ttl)
+                            .create_ttl_refresh(&tree, ttl_refresh.min_ttl)
                             .map(|fut| {
                                 self.rt.spawn(async move {
                                     match fut.await {

@@ -42,6 +42,7 @@ use buck2_execute::re::client::RemoteExecutionStaticMetadata;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
+use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
@@ -358,9 +359,11 @@ impl DaemonState {
                         MaterializationMethod::Deferred
                     ),
                     defer_write_actions,
-                    ttl_refresh_frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
-                    ttl_refresh_min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
-                    ttl_refresh_enabled,
+                    ttl_refresh: TtlRefreshConfiguration {
+                        frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
+                        min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
+                        enabled: ttl_refresh_enabled,
+                    },
                 };
 
                 Ok(Arc::new(DeferredMaterializer::new(
