@@ -10,11 +10,8 @@ PythonBootstrapSources = provider(fields = ["srcs"])
 PythonBootstrapToolchainInfo = provider(fields = ["interpreter"])
 
 def python_bootstrap_library_impl(ctx: "context") -> ["provider"]:
-    src_dir = ctx.actions.declare_output("__%s__", ctx.attrs.name)
-    tree = {}
-    for src in ctx.attrs.srcs:
-        tree[src.short_path] = src
-    output = ctx.actions.symlinked_dir(src_dir, tree)
+    tree = {src.short_path: src for src in ctx.attrs.srcs}
+    output = ctx.actions.symlinked_dir("__{}__/".format(ctx.attrs.name), tree)
     return [
         DefaultInfo(default_outputs = [output]),
         PythonBootstrapSources(srcs = ctx.attrs.srcs),
