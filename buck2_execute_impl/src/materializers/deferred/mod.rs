@@ -146,8 +146,6 @@ pub struct DeferredMaterializerConfigs {
 
 struct DeferredMaterializerCommandProcessor<T> {
     io: Arc<T>,
-    /// Used to emit MaterializationFinished to the command thread
-    command_sender: mpsc::UnboundedSender<MaterializerCommand<T>>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     ttl_refresh_frequency: std::time::Duration,
     ttl_refresh_min_ttl: Duration,
@@ -639,7 +637,6 @@ impl DeferredMaterializer {
             ttl_refresh_frequency: configs.ttl_refresh_frequency,
             ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
             ttl_refresh_enabled: configs.ttl_refresh_enabled,
-            command_sender: command_sender.clone(),
             rt: Handle::current(),
         };
 
@@ -664,19 +661,22 @@ impl DeferredMaterializer {
 
         let command_thread = std::thread::Builder::new()
             .name("buck-dm".to_owned())
-            .spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap();
+            .spawn({
+                let command_sender = command_sender.clone();
+                move || {
+                    let rt = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .unwrap();
 
-                rt.block_on(command_processor.run(command_recv, tree));
+                    rt.block_on(command_processor.run(command_recv, command_sender, tree));
+                }
             })
             .context("Cannot start materializer thread")?;
 
         Ok(Self {
-            command_sender,
             command_thread,
+            command_sender,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
             fs,
@@ -692,6 +692,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     async fn run(
         mut self,
         commands: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
+        command_sender: mpsc::UnboundedSender<MaterializerCommand<T>>,
         mut tree: ArtifactTree,
     ) {
         enum Op<T> {
@@ -739,7 +740,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         }
                         // Entry point for `declare_{copy|cas}` calls
                         MaterializerCommand::Declare(path, value, method) => {
-                            self.declare(&mut tree, path, value, method, next_version);
+                            self.declare(
+                                &mut tree,
+                                path,
+                                value,
+                                method,
+                                next_version,
+                                &command_sender,
+                            );
                             next_version += 1;
                         }
                         MaterializerCommand::MatchArtifacts(paths, sender) => {
@@ -777,6 +785,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                     &mut tree,
                                     paths,
                                     event_dispatcher,
+                                    &command_sender,
                                 ))
                                 .ok();
                         }
@@ -850,9 +859,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: &mut ArtifactTree,
         paths: Vec<ProjectRelativePathBuf>,
         event_dispatcher: EventDispatcher,
+        command_sender: &mpsc::UnboundedSender<MaterializerCommand<T>>,
     ) -> BoxStream<'static, Result<(), MaterializationError>> {
         let tasks = paths.into_iter().filter_map(|path| {
-            self.materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe())
+            self.materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe(), command_sender)
                 .map(move |fut| {
                     fut.map_err(move |e| match e {
                         SharedMaterializingError::Error(source) => MaterializationError::Error {
@@ -909,6 +919,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
         version: u64,
+        command_sender: &mpsc::UnboundedSender<MaterializerCommand<T>>,
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
         if let Some(data) = tree.prefix_get_mut(&mut path.iter()) {
@@ -979,12 +990,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         if existing_futs.is_empty() && value.deps().is_none() {
             match &*method {
                 ArtifactMaterializationMethod::Write(write) => {
-                    let materialize = self.io.write(
-                        path.clone(),
-                        write.dupe(),
-                        version,
-                        self.command_sender.clone(),
-                    );
+                    let materialize =
+                        self.io
+                            .write(path.clone(), write.dupe(), version, command_sender.clone());
 
                     processing_fut = Some(ProcessingFuture::Materializing(materialize.shared()));
                 }
@@ -1073,6 +1081,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
+        command_sender: &mpsc::UnboundedSender<MaterializerCommand<T>>,
     ) -> Option<MaterializingFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
@@ -1157,7 +1166,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => copied_artifacts
                     .iter()
                     .filter_map(|a| {
-                        self.materialize_artifact(tree, a.src.as_ref(), event_dispatcher.dupe())
+                        self.materialize_artifact(
+                            tree,
+                            a.src.as_ref(),
+                            event_dispatcher.dupe(),
+                            command_sender,
+                        )
                     })
                     .collect::<Vec<_>>(),
             },
@@ -1172,7 +1186,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .find_artifacts(deps)
                 .into_iter()
                 .filter_map(|p| {
-                    self.materialize_artifact(tree, p.as_ref(), event_dispatcher.dupe())
+                    self.materialize_artifact(
+                        tree,
+                        p.as_ref(),
+                        event_dispatcher.dupe(),
+                        command_sender,
+                    )
                 })
                 .collect::<Vec<_>>(),
         };
@@ -1181,7 +1200,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let io = self.io.dupe();
-        let command_sender = self.command_sender.clone();
+        let command_sender = command_sender.clone();
         let task = self
             .rt
             .spawn(async move {
