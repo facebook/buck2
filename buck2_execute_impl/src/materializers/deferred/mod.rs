@@ -934,7 +934,18 @@ impl DeferredMaterializerCommandProcessor {
                     // need to check that the entry matches. If the deps are different
                     // we can just update them but keep the artifact as materialized.
                     let new_metadata: ArtifactMetadata = value.entry().dupe().into();
-                    if metadata == &new_metadata {
+
+                    // NOTE: This is for testing performance when hitting mismatches with disk
+                    // state. Unwrapping isn't ideal, but we can't report errors here.
+                    static FORCE_DECLARE_MISMATCH: EnvHelper<bool> =
+                        EnvHelper::new("BUCK2_TEST_FORCE_DECLARE_MISMATCH");
+                    let force_mismatch = FORCE_DECLARE_MISMATCH
+                        .get()
+                        .unwrap()
+                        .copied()
+                        .unwrap_or_default();
+
+                    if metadata == &new_metadata && !force_mismatch {
                         // In this case, the entry declared matches the already materialized
                         // entry on disk, so just update the deps field but leave
                         // the artifact as materialized.
