@@ -118,7 +118,7 @@ fn gather_clean_futures_for_stale_artifacts(
             let existing_futs =
                 tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_mut());
 
-            cleaning_futs.push(clean_output_paths(&io.io_executor, path, existing_futs, rt));
+            cleaning_futs.push(clean_output_paths(io, path, existing_futs, rt));
         }
     }
 

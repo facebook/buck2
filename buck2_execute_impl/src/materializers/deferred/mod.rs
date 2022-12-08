@@ -818,7 +818,7 @@ impl DeferredMaterializerCommandProcessor {
                                 timestamp,
                                 version,
                                 result,
-                                &self.io.io_executor,
+                                &self.io,
                                 // materialization_finished transitions the entry to Declared stage on errors,
                                 // in which case the version of the newly declared artifact should be bumped.
                                 // Let materialization_finished always consume a version in case the entry
@@ -1022,7 +1022,7 @@ impl DeferredMaterializerCommandProcessor {
 
         let processing_fut = processing_fut.unwrap_or_else(|| {
             ProcessingFuture::Cleaning(clean_output_paths(
-                &self.io.io_executor,
+                &self.io,
                 path.clone(),
                 existing_futs,
                 &self.rt,
@@ -1542,14 +1542,14 @@ impl ArtifactTree {
         }
     }
 
-    #[instrument(level = "debug", skip(self, result, io_executor, sqlite_db), fields(path = %artifact_path, version = %version))]
+    #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path, version = %version))]
     async fn materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
         version: u64,
         result: Result<(), SharedMaterializingError>,
-        io_executor: &Arc<dyn BlockingExecutor>,
+        io: &Arc<DeferredMaterializerIoHandler>,
         next_version: u64,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
         rt: &Handle,
@@ -1574,7 +1574,7 @@ impl ArtifactTree {
                     // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
                     // add a test case to ensure this behavior.
                     info.processing_fut = Some(ProcessingFuture::Cleaning(clean_output_paths(
-                        io_executor,
+                        io,
                         artifact_path.clone(),
                         Vec::new(),
                         rt,
@@ -1817,14 +1817,14 @@ async fn join_all_existing_futs(
 /// Spawns a future to clean output paths while waiting for any
 /// pending future to finish.
 fn clean_output_paths(
-    io_executor: &Arc<dyn BlockingExecutor>,
+    io: &Arc<DeferredMaterializerIoHandler>,
     path: ProjectRelativePathBuf,
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
     rt: &Handle,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
-        return io_executor
-            .dupe()
+        return io
+            .io_executor
             .execute_io(box CleanOutputPaths { paths: vec![path] })
             .map(|r| r.shared_error())
             .boxed()
@@ -1832,12 +1832,11 @@ fn clean_output_paths(
     }
 
     rt.spawn({
-        let io_executor = io_executor.dupe();
+        let io_executor = io.io_executor.dupe();
         async move {
             join_all_existing_futs(existing_futs).await?;
 
             io_executor
-                .dupe()
                 .execute_io(box CleanOutputPaths { paths: vec![path] })
                 .await
                 .shared_error()
