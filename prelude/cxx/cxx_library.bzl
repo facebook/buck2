@@ -691,7 +691,7 @@ def _form_library_outputs(
         return wrap_link_info(
             inner = inner,
             pre_flags = cxx_attr_exported_linker_flags(ctx),
-            post_flags = cxx_attr_exported_linker_flags(ctx),
+            post_flags = cxx_attr_exported_post_linker_flags(ctx),
         )
 
     # We don't know which outputs consumers may want, so we must define them all.
