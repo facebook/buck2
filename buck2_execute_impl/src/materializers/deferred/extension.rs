@@ -115,7 +115,7 @@ impl ExtensionCommand for RefreshTtls {
     ) {
         let task = create_ttl_refresh(
             tree,
-            &processor.re_client_manager,
+            &processor.io.re_client_manager,
             Duration::seconds(self.min_ttl),
         )
         .map(tokio::task::spawn);

@@ -13,7 +13,6 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
@@ -28,6 +27,7 @@ use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::CleaningFuture;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
+use crate::materializers::deferred::DeferredMaterializerIoHandler;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 #[derive(Derivative)]
@@ -50,7 +50,7 @@ impl ExtensionCommand for CleanStaleArtifacts {
             self.keep_since_time,
             self.dry_run,
             processor.sqlite_db.dupe(),
-            &processor.io_executor,
+            &processor.io,
         );
         let fut = async move {
             let (cleaning_futs, output) = res?;
@@ -65,12 +65,12 @@ impl ExtensionCommand for CleanStaleArtifacts {
     }
 }
 
-pub(crate) fn gather_clean_futures_for_stale_artifacts(
+fn gather_clean_futures_for_stale_artifacts(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
     sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
-    io_executor: &Arc<dyn BlockingExecutor>,
+    io: &Arc<DeferredMaterializerIoHandler>,
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
     let mut output = String::new();
     let mut stale_count = 0;
@@ -116,7 +116,7 @@ pub(crate) fn gather_clean_futures_for_stale_artifacts(
             let existing_futs =
                 tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref());
 
-            cleaning_futs.push(clean_output_paths(io_executor, path, existing_futs));
+            cleaning_futs.push(clean_output_paths(&io.io_executor, path, existing_futs));
         }
     }
 

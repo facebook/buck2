@@ -154,13 +154,17 @@ pub struct DeferredMaterializerConfigs {
     pub ttl_refresh_enabled: bool,
 }
 
-struct DeferredMaterializerCommandProcessor {
+struct DeferredMaterializerIoHandler {
     fs: ProjectRoot,
     re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
     io_executor: Arc<dyn BlockingExecutor>,
     /// Used to emit MaterializationFinished to the command thread
     command_sender: mpsc::UnboundedSender<MaterializerCommand>,
+}
+
+struct DeferredMaterializerCommandProcessor {
+    io: Arc<DeferredMaterializerIoHandler>,
     sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
     ttl_refresh_frequency: std::time::Duration,
     ttl_refresh_min_ttl: Duration,
@@ -649,16 +653,18 @@ impl DeferredMaterializer {
     ) -> Self {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
-        let command_processor = Arc::new(DeferredMaterializerCommandProcessor {
-            fs: fs.dupe(),
-            re_client_manager,
-            io_executor: io_executor.dupe(),
-            command_sender: command_sender.clone(),
+        let command_processor = DeferredMaterializerCommandProcessor {
+            io: Arc::new(DeferredMaterializerIoHandler {
+                fs: fs.dupe(),
+                re_client_manager,
+                io_executor: io_executor.dupe(),
+                command_sender: command_sender.clone(),
+            }),
             sqlite_db: sqlite_db.map(Arc::new),
             ttl_refresh_frequency: configs.ttl_refresh_frequency,
             ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
             ttl_refresh_enabled: configs.ttl_refresh_enabled,
-        });
+        };
 
         let mut tree = ArtifactTree::new();
         if let Some(sqlite_state) = sqlite_state {
@@ -698,7 +704,7 @@ impl DeferredMaterializerCommandProcessor {
     ///
     /// It takes commands via the `Materializer` trait methods.
     async fn run(
-        self: Arc<Self>,
+        self,
         commands: mpsc::UnboundedReceiver<MaterializerCommand>,
         mut tree: ArtifactTree,
     ) {
@@ -781,7 +787,7 @@ impl DeferredMaterializerCommandProcessor {
                         // Entry point for `ensure_materialized` calls
                         MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
                             fut_sender
-                                .send(self.dupe().materialize_many_artifacts(
+                                .send(self.materialize_many_artifacts(
                                     &mut tree,
                                     paths,
                                     event_dispatcher,
@@ -800,7 +806,7 @@ impl DeferredMaterializerCommandProcessor {
                                 timestamp,
                                 version,
                                 result,
-                                &self.io_executor,
+                                &self.io.io_executor,
                                 // materialization_finished transitions the entry to Declared stage on errors,
                                 // in which case the version of the newly declared artifact should be bumped.
                                 // Let materialization_finished always consume a version in case the entry
@@ -833,7 +839,7 @@ impl DeferredMaterializerCommandProcessor {
                         Some(task) => Some(task),
                         None => create_ttl_refresh(
                             &tree,
-                            &self.re_client_manager,
+                            &self.io.re_client_manager,
                             self.ttl_refresh_min_ttl,
                         )
                         .map(|fut| {
@@ -855,14 +861,13 @@ impl DeferredMaterializerCommandProcessor {
     }
 
     fn materialize_many_artifacts(
-        self: Arc<Self>,
+        &self,
         tree: &mut ArtifactTree,
         paths: Vec<ProjectRelativePathBuf>,
         event_dispatcher: EventDispatcher,
     ) -> BoxStream<'static, Result<(), MaterializationError>> {
         let tasks = paths.into_iter().filter_map(|path| {
-            self.dupe()
-                .materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe())
+            self.materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe())
                 .map(move |fut| {
                     fut.map_err(move |e| match e {
                         SharedMaterializingError::Error(source) => MaterializationError::Error {
@@ -984,7 +989,7 @@ impl DeferredMaterializerCommandProcessor {
             },
             version,
             processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
-                &self.io_executor,
+                &self.io.io_executor,
                 path.clone(),
                 existing_futs,
             ))),
@@ -1048,7 +1053,7 @@ impl DeferredMaterializerCommandProcessor {
 
     #[instrument(level = "debug", skip(self, tree), fields(path = %path))]
     fn materialize_artifact(
-        self: Arc<Self>,
+        &self,
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
@@ -1164,7 +1169,7 @@ impl DeferredMaterializerCommandProcessor {
         // Create a task to await deps and materialize ourselves
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
-        let command_sender = self.command_sender.clone();
+        let io = self.io.dupe();
         let task = tokio::task::spawn(async move {
             // Materialize the deps and this entry. This *must* happen in a try block because we
             // need to notity the materializer regardless of whether this succeeds or fails.
@@ -1191,14 +1196,13 @@ impl DeferredMaterializerCommandProcessor {
 
                 if let Some((entry, method)) = entry_and_method {
                     // All potential deps are materialized. Now materialize the entry.
-                    self.dupe()
-                        .materialize_entry(
-                            path_buf.clone(),
-                            method,
-                            entry.dupe(),
-                            event_dispatcher.dupe(),
-                        )
-                        .await?;
+                    io.materialize_entry(
+                        path_buf.clone(),
+                        method,
+                        entry.dupe(),
+                        event_dispatcher.dupe(),
+                    )
+                    .await?;
                 };
 
                 // Wait for the deps (targets) of the entry's symlinks to be materialized
@@ -1208,12 +1212,14 @@ impl DeferredMaterializerCommandProcessor {
             };
 
             // Materialization finished, notify the command thread
-            let _ignored = command_sender.send(MaterializerCommand::MaterializationFinished {
-                path: path_buf_dup,
-                timestamp,
-                version,
-                result: res.dupe(),
-            });
+            let _ignored = io
+                .command_sender
+                .send(MaterializerCommand::MaterializationFinished {
+                    path: path_buf_dup,
+                    timestamp,
+                    version,
+                    result: res.dupe(),
+                });
 
             res
         })
@@ -1229,11 +1235,13 @@ impl DeferredMaterializerCommandProcessor {
 
         Some(task)
     }
+}
 
+impl DeferredMaterializerIoHandler {
     /// Materializes an `entry` at `path`, using the materialization `method`
     #[instrument(level = "debug", skip(self, stat), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry_span(
-        self: Arc<Self>,
+        &self,
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
@@ -1371,7 +1379,7 @@ impl DeferredMaterializerCommandProcessor {
     /// Materializes an `entry` at `path`, using the materialization `method`
     #[instrument(level = "debug", skip(self), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry(
-        self: Arc<Self>,
+        &self,
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
