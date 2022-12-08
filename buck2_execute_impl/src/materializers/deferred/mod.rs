@@ -990,7 +990,7 @@ impl DeferredMaterializerCommandProcessor {
             processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
                 self.io_executor.dupe(),
                 path.clone(),
-                Some(existing_futs),
+                existing_futs,
             ))),
         };
         tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -1565,7 +1565,7 @@ impl ArtifactTree {
                     info.processing_fut = Some(ProcessingFuture::Cleaning(clean_output_paths(
                         io_executor,
                         artifact_path.clone(),
-                        None,
+                        Vec::new(),
                     )));
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
@@ -1808,12 +1808,10 @@ async fn join_all_existing_futs(
 fn clean_output_paths(
     io_executor: Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
-    existing_futs: Option<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>,
+    existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
 ) -> CleaningFuture {
     tokio::task::spawn(async move {
-        if let Some(existing_futs) = existing_futs {
-            join_all_existing_futs(existing_futs).await?;
-        }
+        join_all_existing_futs(existing_futs).await?;
 
         io_executor
             .dupe()

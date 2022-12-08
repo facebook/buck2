@@ -120,11 +120,7 @@ pub(crate) async fn gather_clean_futures_for_stale_artifacts(
                 .invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref())
                 .await;
 
-            cleaning_futs.push(clean_output_paths(
-                io_executor.dupe(),
-                path,
-                Some(existing_futs),
-            ));
+            cleaning_futs.push(clean_output_paths(io_executor.dupe(), path, existing_futs));
         }
     }
 
