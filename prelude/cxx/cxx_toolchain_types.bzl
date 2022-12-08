@@ -135,6 +135,8 @@ CxxToolchainInfo = provider(fields = [
 # Stores "platform"/flavor name used to resolve *platform_* arguments
 CxxPlatformInfo = provider(fields = [
     "name",
+    # List of aliases used to resolve platform_deps
+    "deps_aliases",
 ])
 
 def _validate_linker_info(info: LinkerInfo.type):
@@ -164,7 +166,8 @@ def cxx_toolchain_infos(
         strip_flags_info = None,
         dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
         split_debug_mode = SplitDebugMode("none"),
-        bolt_enabled = False):
+        bolt_enabled = False,
+        platform_deps_aliases = []):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -231,7 +234,7 @@ def cxx_toolchain_infos(
         unkeyed_variables["cuda"] = cuda_compiler_info.compiler
         unkeyed_variables["cudaflags"] = _shell_quote(cuda_compiler_info.compiler_flags)
     placeholders_info = TemplatePlaceholderInfo(unkeyed_variables = unkeyed_variables)
-    return [toolchain_info, placeholders_info, CxxPlatformInfo(name = platform_name)]
+    return [toolchain_info, placeholders_info, CxxPlatformInfo(name = platform_name, deps_aliases = platform_deps_aliases)]
 
 def _shell_quote(xs):
     return cmd_args(xs, quote = "shell")

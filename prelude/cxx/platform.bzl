@@ -10,4 +10,7 @@ load(":cxx_context.bzl", "get_cxx_platform_info")
 
 def cxx_by_platform(ctx: "context", xs: [(str.type, "_a")]) -> ["_a"]:
     cxx_platform_info = get_cxx_platform_info(ctx)
-    return by_platform([cxx_platform_info.name], xs)
+    platform_flavors = [cxx_platform_info.name]
+    if cxx_platform_info.deps_aliases:
+        platform_flavors.extend(cxx_platform_info.deps_aliases)
+    return by_platform(platform_flavors, xs)
