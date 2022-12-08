@@ -188,7 +188,6 @@ struct MaterializationStat {
 enum SharedMaterializingError {
     Error(SharedError),
     NotFound { info: Arc<CasDownloadInfo> },
-    SqliteDbError(SharedError),
 }
 
 #[derive(Error, Debug)]
@@ -887,12 +886,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         },
                         SharedMaterializingError::NotFound { info } => {
                             MaterializationError::NotFound { path, info }
-                        }
-                        SharedMaterializingError::SqliteDbError(source) => {
-                            MaterializationError::SqliteDbError {
-                                path,
-                                source: source.into(),
-                            }
                         }
                     })
                 })
