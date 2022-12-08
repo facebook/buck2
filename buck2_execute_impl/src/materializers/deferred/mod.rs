@@ -47,6 +47,8 @@ use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::blocking::IoRequest;
+use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
@@ -388,11 +390,7 @@ enum ArtifactMaterializationMethod {
     LocalCopy(FileTree<ProjectRelativePathBuf>, Vec<CopiedArtifact>),
 
     #[display(fmt = "write")]
-    Write {
-        compressed_data: Box<[u8]>,
-        decompressed_size: usize,
-        is_executable: bool,
-    },
+    Write(Arc<WriteFile>),
 
     /// The files must be fetched from the CAS.
     #[display(fmt = "cas download (action: {})", .info)]
@@ -540,11 +538,11 @@ impl Materializer for DeferredMaterializer {
 
             paths.push(path);
             values.push(ArtifactValue::file(meta));
-            methods.push(ArtifactMaterializationMethod::Write {
+            methods.push(ArtifactMaterializationMethod::Write(Arc::new(WriteFile {
                 compressed_data,
                 decompressed_size: content.len(),
                 is_executable,
-            });
+            })));
         }
 
         for (path, (value, method)) in std::iter::zip(
@@ -981,18 +979,48 @@ impl DeferredMaterializerCommandProcessor {
         let existing_futs =
             tree.invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_mut());
 
+        let method = Arc::from(method);
+
+        let mut processing_fut = None;
+
+        // Dispatch Write actions eagerly if possible.
+        if existing_futs.is_empty() && value.deps().is_none() {
+            match &*method {
+                ArtifactMaterializationMethod::Write(write) => {
+                    let materialize = self.io.io_executor.execute_io(box WriteIoRequest {
+                        path: path.clone(),
+                        write: write.dupe(),
+                        version,
+                        io: self.io.dupe(),
+                    });
+
+                    processing_fut = Some(ProcessingFuture::Materializing(
+                        materialize
+                            .map_err(|e| SharedMaterializingError::Error(e.into()))
+                            .boxed()
+                            .shared(),
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        let processing_fut = processing_fut.unwrap_or_else(|| {
+            ProcessingFuture::Cleaning(clean_output_paths(
+                &self.io.io_executor,
+                path.clone(),
+                existing_futs,
+            ))
+        });
+
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
             stage: ArtifactMaterializationStage::Declared {
                 entry: value.entry().dupe(),
-                method: Arc::new(*method),
+                method,
             },
             version,
-            processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
-                &self.io.io_executor,
-                path.clone(),
-                existing_futs,
-            ))),
+            processing_fut: Some(processing_fut),
         };
         tree.insert(path.iter().map(|f| f.to_owned()), data);
     }
@@ -1351,19 +1379,15 @@ impl DeferredMaterializerIoHandler {
                     })
                     .await?;
             }
-            ArtifactMaterializationMethod::Write {
-                compressed_data,
-                decompressed_size,
-                is_executable,
-                ..
-            } => {
+            ArtifactMaterializationMethod::Write(write) => {
                 stat.file_count = 1;
                 self.io_executor
                     .execute_io_inline(|| {
-                        let data = zstd::bulk::decompress(compressed_data, *decompressed_size)
-                            .context("Error decompressing data")?;
-                        stat.total_bytes = *decompressed_size as u64;
-                        self.fs.write_file(&path, &data, *is_executable)
+                        let data =
+                            zstd::bulk::decompress(&write.compressed_data, write.decompressed_size)
+                                .context("Error decompressing data")?;
+                        stat.total_bytes = write.decompressed_size as u64;
+                        self.fs.write_file(&path, &data, write.is_executable)
                     })
                     .await?;
             }
@@ -1875,6 +1899,52 @@ fn create_ttl_refresh(
             // Currently we don't propagate errors back here.
             Ok(())
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct WriteFile {
+    compressed_data: Box<[u8]>,
+    decompressed_size: usize,
+    is_executable: bool,
+}
+
+struct WriteIoRequest {
+    path: ProjectRelativePathBuf,
+    write: Arc<WriteFile>,
+    version: u64,
+    io: Arc<DeferredMaterializerIoHandler>,
+}
+
+impl WriteIoRequest {
+    fn execute_inner(&self, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+        cleanup_path(project_fs, &self.path)?;
+        let data =
+            zstd::bulk::decompress(&self.write.compressed_data, self.write.decompressed_size)
+                .context("Error decompressing data")?;
+        project_fs.write_file(&self.path, &data, self.write.is_executable)?;
+        Ok(())
+    }
+}
+
+impl IoRequest for WriteIoRequest {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+        // NOTE: No spans here! We should perhaps add one, but this needs to be considered
+        // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
+        let res = self.execute_inner(project_fs).shared_error();
+
+        // If the materializer has shut down, we ignore this.
+        let _ignored = self
+            .io
+            .command_sender
+            .send(MaterializerCommand::MaterializationFinished {
+                path: self.path,
+                timestamp: Utc::now(),
+                version: self.version,
+                result: res.dupe().map_err(SharedMaterializingError::Error),
+            });
+
+        Ok(res?)
     }
 }
 
