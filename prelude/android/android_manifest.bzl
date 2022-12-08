@@ -40,7 +40,7 @@ def generate_android_manifest(
         module_name,
     ])
 
-    manifests = manifests_tset.project_as_args("artifacts") if manifests_tset else []
+    manifests = manifests_tset.project_as_args("artifacts", ordering = "bfs") if manifests_tset else []
     library_manifest_paths_file = ctx.actions.write("library_manifest_paths_file", manifests)
 
     generate_manifest_cmd.add(["--library-manifests-list", library_manifest_paths_file])
