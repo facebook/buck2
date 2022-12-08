@@ -32,19 +32,35 @@ load(
     "get_roots",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
-    "LinkInfosTSet",
     "LinkStyle",
+    "Linkage",
+    "create_merged_link_info",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
     "AnnotatedLinkableRoot",
     "create_linkable_graph",
     "create_linkable_graph_node",
+    "create_linkable_node",
 )
-load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet", "SharedLibraryInfo")
+load(
+    "@prelude//linking:linkables.bzl",
+    "LinkableProviders",
+    "linkables",
+)
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrariesTSet",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+)
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
@@ -114,20 +130,19 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     name = module_name + ".so"
     cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
 
-    static_output = None
+    linkable_providers = None
     shared_libraries = []
-    link_infos = []
+    extension_artifacts = {}
     python_module_names = {}
-    link_deps = []
-    if ctx.attrs.allow_embedding:
-        static_output = libraries.outputs[LinkStyle("static")]
 
     # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
     # when linking into the main binary
+    static_output = None
+    if ctx.attrs.allow_embedding:
+        static_output = libraries.outputs[LinkStyle("static")]
     if static_output != None:
         qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module)
         static_info = libraries.libraries[LinkStyle("static")].default
-        extension_artifacts = {}
         if not ctx.attrs.allow_suffixing:
             static_link_info = static_info
             pyinit_symbol = "PyInit_{}".format(module_name)
@@ -152,19 +167,47 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         if qualified_name != "":
             lines = ["# auto generated stub\n"]
             stub_name = module_name + ".empty_stub"
-            extension_artifacts = qualify_srcs(ctx.label, ctx.attrs.base_module, {stub_name: ctx.actions.write(stub_name, lines)})
+            extension_artifacts.update(qualify_srcs(ctx.label, ctx.attrs.base_module, {stub_name: ctx.actions.write(stub_name, lines)}))
 
         python_module_names[qualified_name.replace("/", ".") + module_name] = pyinit_symbol
-
-        link_deps = cxx_deps
 
         # We need to dynamically export the modules PyInit function so that we
         # can find and import it with dlsym. TODO (T129253406) Remove this when
         # we statically register symbols
-        link_infos.append(ctx.actions.tset(
-            LinkInfosTSet,
-            value = LinkInfos(default = static_link_info),
-        ))
+
+        link_deps = linkables(cxx_deps)
+        link_infos = {
+            # TODO(agallagher): Support stripped.
+            LinkStyle("static"): LinkInfos(default = static_link_info),
+            LinkStyle("static_pic"): LinkInfos(default = static_link_info),
+        }
+        linkable_providers = LinkableProviders(
+            link_group_lib_info = merge_link_group_lib_info(deps = cxx_deps),
+            linkable_graph = create_linkable_graph(
+                ctx = ctx,
+                node = create_linkable_graph_node(
+                    ctx = ctx,
+                    linkable_node = create_linkable_node(
+                        ctx = ctx,
+                        deps = cxx_deps,
+                        preferred_linkage = Linkage("static"),
+                        link_infos = link_infos,
+                    ),
+                ),
+                children = [d.linkable_graph for d in link_deps],
+            ),
+            merged_link_info = create_merged_link_info(
+                ctx = ctx,
+                link_infos = link_infos,
+                preferred_linkage = Linkage("static"),
+                deps = [d.merged_link_info for d in link_deps],
+            ),
+            shared_library_info = merge_shared_libraries(
+                actions = ctx.actions,
+                deps = [d.shared_library_info for d in link_deps],
+            ),
+            #linkable_root_info = field([LinkableRootInfo.type, None], None),
+        )
 
     else:
         # If we cannot link this extension statically we need to include it's shared libraries
@@ -176,16 +219,15 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 [dep.set for dep in shared_library_infos],
             ),
         ))
-        extension_artifacts = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension.output})
+        extension_artifacts.update(qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension.output}))
 
     providers.append(merge_cxx_extension_info(
-        ctx.actions,
-        cxx_deps,
-        link_infos = link_infos,
+        actions = ctx.actions,
+        deps = cxx_deps,
+        linkable_providers = linkable_providers,
         shared_libraries = shared_libraries,
         artifacts = extension_artifacts,
         python_module_names = python_module_names,
-        link_deps = link_deps,
     ))
     providers.extend(cxx_library_info.providers)
 

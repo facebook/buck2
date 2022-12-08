@@ -29,10 +29,6 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkArgs",
-    "LinkInfo",
-    "LinkInfos",
-    "LinkInfosTSet",
     "Linkage",
 )
 load(
@@ -282,15 +278,6 @@ def convert_python_library_to_executable(
         executable_deps = ctx.attrs.executable_deps
         extension_info = merge_cxx_extension_info(ctx.actions, deps + executable_deps)
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
-        link_info = ctx.actions.tset(
-            LinkInfosTSet,
-            value = LinkInfos(
-                default = LinkInfo(
-                    pre_flags = ctx.attrs.linker_flags,
-                ),
-            ),
-            children = [extension_info.link_infos],
-        )
 
         # Generate an additional C file as input
         static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp")
@@ -311,16 +298,20 @@ def convert_python_library_to_executable(
         if ctx.attrs.par_style == "native":
             extra_preprocessors.append(CPreprocessor(args = ["-DNATIVE_PAR_STYLE=1"]))
 
+        # All deps inolved in the link.
+        link_deps = (
+            linkables(executable_deps) +
+            list(extension_info.linkable_providers.traverse())
+        )
+
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = cxx_executable_srcs,
-            extra_link_args = [
-                LinkArgs(tset = (link_info, ctx.attrs.prefer_stripped_native_objects)),
-            ],
+            extra_link_flags = ctx.attrs.linker_flags,
             extra_preprocessors = extra_preprocessors,
             extra_preprocessors_info = inherited_preprocessor_info,
-            extra_link_deps = linkables(extension_info.link_deps + executable_deps),
+            extra_link_deps = link_deps,
             exe_shared_libs_link_tree = False,
             force_full_hybrid_if_capable = True,
             auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),

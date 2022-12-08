@@ -7,52 +7,54 @@
 
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkInfosTSet",
-    "MergedLinkInfo",
     "ObjectsLinkable",
 )
+load(
+    "@prelude//linking:linkables.bzl",
+    "LinkableProviders",  # @unused Used as type
+)
 load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet")
+
+LinkableProvidersTSet = transitive_set()
 
 # Info required to link cxx_python_extensions into native python binaries
 CxxExtensionLinkInfo = provider(
     fields = [
-        "link_infos",  # LinkInfosTSet.type
+        "linkable_providers",  # LinkableProvidersTSet.type
         "shared_libraries",  # SharedLibrariesTSet.type
-        "artifacts",  # {str.type: _a}
-        "python_module_names",  # {str.type: bool.type}
-        # Root deps needed to perform the final executable deps.
-        "link_deps",  # ["dependency"]
+        "artifacts",  # {str.type: "_a"}
+        "python_module_names",  # {str.type: str.type}
     ],
 )
 
 def merge_cxx_extension_info(
         actions: "actions",
         deps: ["dependency"],
-        link_infos: [LinkInfosTSet.type] = [],
+        linkable_providers: [LinkableProviders.type, None] = None,
         shared_libraries: [SharedLibrariesTSet.type] = [],
         artifacts: {str.type: "_a"} = {},
-        python_module_names: {str.type: str.type} = {},
-        link_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
-    link_infos = list(link_infos)
+        python_module_names: {str.type: str.type} = {}) -> CxxExtensionLinkInfo.type:
+    linkable_provider_children = []
     shared_libraries = list(shared_libraries)
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
-    link_deps = [d for d in link_deps if MergedLinkInfo in d]
     for dep in deps:
         cxx_extension_info = dep.get(CxxExtensionLinkInfo)
         if cxx_extension_info == None:
             continue
-        link_infos.append(cxx_extension_info.link_infos)
+        linkable_provider_children.append(cxx_extension_info.linkable_providers)
         shared_libraries.append(cxx_extension_info.shared_libraries)
         artifacts.update(cxx_extension_info.artifacts)
         python_module_names.update(cxx_extension_info.python_module_names)
-        link_deps.extend(cxx_extension_info.link_deps)
+    linkable_providers_kwargs = {}
+    if linkable_providers != None:
+        linkable_providers_kwargs["value"] = linkable_providers
+    linkable_providers_kwargs["children"] = linkable_provider_children
     return CxxExtensionLinkInfo(
-        link_infos = actions.tset(LinkInfosTSet, children = link_infos),
+        linkable_providers = actions.tset(LinkableProvidersTSet, **linkable_providers_kwargs),
         shared_libraries = actions.tset(SharedLibrariesTSet, children = shared_libraries),
         artifacts = artifacts,
         python_module_names = python_module_names,
-        link_deps = dedupe(link_deps),
     )
 
 def suffix_symbols(
