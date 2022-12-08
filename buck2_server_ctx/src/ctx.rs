@@ -18,6 +18,8 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
+use buck2_data::DiceCriticalSectionEnd;
+use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -81,30 +83,43 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
     {
         let dice_accessor = self.dice_accessor(PrivateStruct(())).await?;
 
-        dice_accessor
-            .dice_handler
-            .enter(
-                self.events().trace_id().dupe(),
-                dice_accessor.data,
-                &*dice_accessor.setup,
-                |dice| async move {
-                    let events = self.events().dupe();
+        let events = self.events().dupe();
+        events
+            .span_async(DiceCriticalSectionStart {}, async move {
+                (
+                    dice_accessor
+                        .dice_handler
+                        .enter(
+                            self.events().dupe(),
+                            dice_accessor.data,
+                            &*dice_accessor.setup,
+                            |dice| async move {
+                                let events = self.events().dupe();
 
-                    let metadata = self.config_metadata(&dice).await?;
+                                let metadata = self.config_metadata(&dice).await?;
 
-                    events
-                        .span_async(
-                            CommandCriticalStart {
-                                metadata: metadata.clone(),
-                                dice_version: dice.version(),
+                                events
+                                    .span_async(
+                                        CommandCriticalStart {
+                                            metadata: metadata.clone(),
+                                            dice_version: dice.version(),
+                                        },
+                                        async move {
+                                            (
+                                                exec(self, dice).await,
+                                                CommandCriticalEnd { metadata },
+                                            )
+                                        },
+                                    )
+                                    .await
                             },
-                            async move { (exec(self, dice).await, CommandCriticalEnd { metadata }) },
+                            dice_accessor.is_nested_invocation,
+                            dice_accessor.sanitized_argv,
                         )
-                        .await
-                },
-                dice_accessor.is_nested_invocation,
-                dice_accessor.sanitized_argv,
-            )
+                        .await,
+                    DiceCriticalSectionEnd {},
+                )
+            })
             .await?
     }
 }

@@ -248,6 +248,8 @@ pub(crate) fn display_event(
             )),
             Data::DiceStateUpdate(..) => Ok("Syncing changes to graph".to_owned()),
             Data::Materialization(..) => Ok("materializing".to_owned()),
+            Data::DiceCriticalSection(..) => Err(ParseEventError::UnexpectedEvent.into()),
+            Data::DiceBlockConcurrentCommand(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

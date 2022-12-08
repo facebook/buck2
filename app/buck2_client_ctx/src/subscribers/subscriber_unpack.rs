@@ -128,6 +128,13 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::span_start_event::Data::Materialization(materialization) => {
                 self.handle_materialization_start(materialization, event)
             }
+            buck2_data::span_start_event::Data::DiceCriticalSection(dice_critical_section) => {
+                self.handle_dice_critical_section_start(dice_critical_section, event)
+            }
+            buck2_data::span_start_event::Data::DiceBlockConcurrentCommand(
+                dice_block_concurrent_command,
+            ) => self
+                .handle_dice_block_concurrent_command_start(dice_block_concurrent_command, event),
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -200,6 +207,14 @@ pub trait UnpackingEventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::Materialization(materialization) => {
                 self.handle_materialization_end(materialization, event)
+            }
+            buck2_data::span_end_event::Data::DiceCriticalSection(dice_critical_section) => {
+                self.handle_dice_critical_section_end(dice_critical_section, event)
+            }
+            buck2_data::span_end_event::Data::DiceBlockConcurrentCommand(
+                dice_block_concurrent_command,
+            ) => {
+                self.handle_dice_block_concurrent_command_end(dice_block_concurrent_command, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -579,6 +594,34 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_materialization_start(
         &mut self,
         _materialization: &buck2_data::MaterializationStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_critical_section_start(
+        &mut self,
+        _dice_critical_section: &buck2_data::DiceCriticalSectionStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_critical_section_end(
+        &mut self,
+        _dice_critical_section: &buck2_data::DiceCriticalSectionEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_block_concurrent_command_start(
+        &mut self,
+        _dice_block_concurrent_command: &buck2_data::DiceBlockConcurrentCommandStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_block_concurrent_command_end(
+        &mut self,
+        _dice_block_concurrent_command: &buck2_data::DiceBlockConcurrentCommandEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

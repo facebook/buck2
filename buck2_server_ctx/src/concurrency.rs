@@ -25,6 +25,9 @@ use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_core::soft_error;
 use buck2_core::truncate::truncate_container;
+use buck2_data::DiceBlockConcurrentCommandEnd;
+use buck2_data::DiceBlockConcurrentCommandStart;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
 use dice::Dice;
 use dice::DiceComputations;
@@ -179,7 +182,7 @@ impl ConcurrencyHandler {
     /// and runs the given `exec` function in the critical section.
     pub async fn enter<F, Fut, R>(
         &self,
-        trace: TraceId,
+        event_dispatcher: EventDispatcher,
         data: Box<dyn DiceDataProvider>,
         updates: &dyn DiceUpdater,
         exec: F,
@@ -191,7 +194,13 @@ impl ConcurrencyHandler {
         Fut: Future<Output = R> + Send,
     {
         let (_guard, transaction) = self
-            .wait_for_others(data, updates, trace, is_nested_invocation, sanitized_argv)
+            .wait_for_others(
+                data,
+                updates,
+                event_dispatcher,
+                is_nested_invocation,
+                sanitized_argv,
+            )
             .await?;
 
         Ok(exec(transaction).await)
@@ -206,10 +215,11 @@ impl ConcurrencyHandler {
         &self,
         user_data: Box<dyn DiceDataProvider>,
         updates: &dyn DiceUpdater,
-        trace: TraceId,
+        event_dispatcher: EventDispatcher,
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
+        let trace = event_dispatcher.trace_id().dupe();
         let mut data = self.data.lock();
 
         let mut transaction = self
@@ -249,18 +259,34 @@ impl ConcurrencyHandler {
                         break;
                     }
                     BypassSemaphore::Block => {
+                        let active_trace = data.active_trace.as_ref().unwrap().to_string();
+
                         tracing::warn!(
                             "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCli args: [{:?}] \nExecuting trace ID: {} \nCLI args: [{:?}]",
                             &trace,
                             truncate_container(sanitized_argv.map(|e| &**e), 500),
-                            &data.active_trace.as_ref().unwrap().to_string(),
+                            active_trace,
                             truncate_container(
                                 data.active_trace_argv.as_ref().unwrap().map(|e| &**e),
                                 500
                             ),
                         );
 
-                        data = self.cond.wait(data).await;
+                        data = event_dispatcher
+                            .span_async(
+                                DiceBlockConcurrentCommandStart {
+                                    current_active_trace_id: active_trace.clone(),
+                                },
+                                async {
+                                    (
+                                        self.cond.wait(data).await,
+                                        DiceBlockConcurrentCommandEnd {
+                                            ending_active_trace_id: active_trace,
+                                        },
+                                    )
+                                },
+                            )
+                            .await;
                     }
                 }
             } else {
@@ -421,6 +447,7 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_events::dispatch::EventDispatcher;
     use buck2_events::trace::TraceId;
     use derive_more::Display;
     use dice::cycles::DetectCycles;
@@ -491,7 +518,7 @@ mod tests {
         let barrier = Arc::new(Barrier::new(3));
 
         let fut1 = concurrency.enter(
-            traces1,
+            EventDispatcher::null_sink_with_trace(traces1),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -504,7 +531,7 @@ mod tests {
             Vec::new(),
         );
         let fut2 = concurrency.enter(
-            traces2,
+            EventDispatcher::null_sink_with_trace(traces2),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -517,7 +544,7 @@ mod tests {
             Vec::new(),
         );
         let fut3 = concurrency.enter(
-            traces3,
+            EventDispatcher::null_sink_with_trace(traces3),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -554,7 +581,7 @@ mod tests {
         };
 
         let fut1 = concurrency.enter(
-            traces1,
+            EventDispatcher::null_sink_with_trace(traces1),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -568,7 +595,7 @@ mod tests {
         );
 
         let fut2 = concurrency.enter(
-            traces2,
+            EventDispatcher::null_sink_with_trace(traces2),
             box TestDiceDataProvider,
             &ctx_different,
             |_| {
@@ -603,7 +630,7 @@ mod tests {
         let barrier = Arc::new(Barrier::new(3));
 
         let fut1 = concurrency.enter(
-            traces1,
+            EventDispatcher::null_sink_with_trace(traces1),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -616,7 +643,7 @@ mod tests {
             Vec::new(),
         );
         let fut2 = concurrency.enter(
-            traces2,
+            EventDispatcher::null_sink_with_trace(traces2),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -629,7 +656,7 @@ mod tests {
             Vec::new(),
         );
         let fut3 = concurrency.enter(
-            traces3,
+            EventDispatcher::null_sink_with_trace(traces3),
             box TestDiceDataProvider,
             &no_changes,
             |_| {
@@ -686,7 +713,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        traces1,
+                        EventDispatcher::null_sink_with_trace(traces1),
                         box TestDiceDataProvider,
                         &no_changes,
                         |_| async move {
@@ -708,7 +735,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        traces2,
+                        EventDispatcher::null_sink_with_trace(traces2),
                         box TestDiceDataProvider,
                         &no_changes,
                         |_| async move {
@@ -733,7 +760,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        traces_different,
+                        EventDispatcher::null_sink_with_trace(traces_different),
                         box TestDiceDataProvider,
                         &ctx_different,
                         |_| async move {
@@ -790,7 +817,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        traces1,
+                        EventDispatcher::null_sink_with_trace(traces1),
                         box TestDiceDataProvider,
                         &no_changes,
                         |_| async move {
@@ -810,7 +837,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        traces2,
+                        EventDispatcher::null_sink_with_trace(traces2),
                         box TestDiceDataProvider,
                         &no_changes,
                         |_| async move {
@@ -830,7 +857,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        traces_different,
+                        EventDispatcher::null_sink_with_trace(traces_different),
                         box TestDiceDataProvider,
                         &ctx_different,
                         |_| async move {

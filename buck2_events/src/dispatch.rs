@@ -69,6 +69,14 @@ impl EventDispatcher {
         }
     }
 
+    /// Creates a new null Event Dispatcher with trace ID that accepts events but does not write them anywhere.
+    pub fn null_sink_with_trace(trace_id: TraceId) -> EventDispatcher {
+        EventDispatcher {
+            trace_id,
+            sink: Arc::new(NullEventSink::new()),
+        }
+    }
+
     /// Emits an event annotated with the current trace ID.
     pub fn event<E: Into<buck_event::Data>>(&self, data: E) {
         self.event_with_span_id(data, None, current_span());

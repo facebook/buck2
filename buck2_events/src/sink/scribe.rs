@@ -237,6 +237,8 @@ mod fbcode {
                     Some(Data::InstallEventInfo(..)) => false,
                     Some(Data::DiceStateUpdate(_)) => false,
                     Some(Data::Materialization(..)) => false,
+                    Some(Data::DiceCriticalSection(_)) => false,
+                    Some(Data::DiceBlockConcurrentCommand(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -265,6 +267,8 @@ mod fbcode {
                     Some(Data::InstallEventInfo(..)) => false,
                     Some(Data::DiceStateUpdate(_)) => false,
                     Some(Data::Materialization(..)) => true, // used in MaterializationProcessor
+                    Some(Data::DiceCriticalSection(_)) => false,
+                    Some(Data::DiceBlockConcurrentCommand(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }

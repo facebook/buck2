@@ -408,7 +408,9 @@ impl SpanTrackable for Arc<BuckEvent> {
                 | Data::ExecutorStage(..)
                 | Data::MatchDepFiles(..)
                 | Data::CacheUpload(..)
-                | Data::Materialization(..),
+                | Data::Materialization(..)
+                | Data::DiceCriticalSection(..)
+                | Data::DiceBlockConcurrentCommand(..),
             ) => false,
             Some(
                 Data::ActionExecution(..)
