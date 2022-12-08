@@ -71,7 +71,7 @@ enum CasArtifactActionExecutionError {
     },
 }
 
-#[derive(Debug, Allocative, Clone, Copy)]
+#[derive(Debug, Allocative, Clone, Dupe, Copy)]
 pub enum DirectoryKind {
     Directory,
     Tree,
