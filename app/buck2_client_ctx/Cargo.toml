@@ -46,6 +46,7 @@ fbinit = { workspace = true }
 which = "4.2.4"
 
 dice = { path = "../../dice/dice" }
+# @oss-disable: build_info = { path = "../../../common/rust/build_info" }
 # @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
 superconsole = { version = "0.1.0", path = "../../superconsole" }
 

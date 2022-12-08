@@ -10,9 +10,7 @@
 use std::fs::File;
 
 use object::Object;
-use object::ObjectSection;
 use once_cell::sync::OnceCell;
-use serde_json::Value;
 
 /// Provides information about this buck version.
 pub struct BuckVersion {
@@ -34,22 +32,18 @@ impl BuckVersion {
         Self::get().version()
     }
 
-    fn extract_revision(file: &object::File) -> Option<String> {
-        if let Some(section) = file.section_by_name("fb_build_info") {
-            if let Ok(data) = section.data() {
-                let str_utf8_result = match std::str::from_utf8(data) {
-                    Ok(section) => section.trim_matches(char::from(0)),
-                    Err(err) => panic!("Failed to parse buck2 file for fb_build_info {:?}", err),
-                };
-                let json: Value = serde_json::from_str(str_utf8_result).unwrap();
-                let revision = json["revision"].to_string().trim_matches('"').to_owned();
-                if revision == String::new() {
-                    return None;
-                } else {
-                    return Some(revision);
-                }
-            }
+    #[cfg(any(fbcode_build, cargo_internal_build))]
+    fn compute_revision() -> Option<&'static str> {
+        let revision = build_info::BuildInfo::get_revision();
+        if revision.is_empty() {
+            None
+        } else {
+            Some(revision)
         }
+    }
+
+    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    fn compute_revision() -> Option<&'static str> {
         None
     }
 
@@ -109,8 +103,8 @@ impl BuckVersion {
             Self::hash_binary(&mut file)
         };
 
-        let version = if let Some(version) = Self::extract_revision(&file_object) {
-            version
+        let version = if let Some(version) = Self::compute_revision() {
+            version.to_owned()
         } else {
             format!("{} <local>", internal_exe_hash)
         };

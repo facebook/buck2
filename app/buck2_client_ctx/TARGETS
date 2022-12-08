@@ -78,6 +78,7 @@ rust_library(
         "//buck2/facebook/find_certs:find_certs",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/superconsole:superconsole",
+        # @oss-disable: "//common/rust/build_info:build_info", 
         "//common/rust/shed/fbinit:fbinit",
         # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
     ],
