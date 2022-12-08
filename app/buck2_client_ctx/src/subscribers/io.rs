@@ -100,6 +100,12 @@ impl IoState {
         if let Some(cpu) = self.two_snapshots.cpu_percents() {
             parts.push(format!("CPU = {}%", cpu));
         }
+        if snapshot.deferred_materializer_queue_size > 0 {
+            parts.push(format!(
+                "DM Queue = {}",
+                snapshot.deferred_materializer_queue_size
+            ));
+        }
         if snapshot.blocking_executor_io_queue_size > 0 {
             parts.push(format!(
                 "IO Queue = {}",
