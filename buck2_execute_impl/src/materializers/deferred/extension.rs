@@ -32,7 +32,7 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
-use crate::materializers::deferred::create_ttl_refresh;
+use crate::materializers::deferred::io_handler::create_ttl_refresh;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
