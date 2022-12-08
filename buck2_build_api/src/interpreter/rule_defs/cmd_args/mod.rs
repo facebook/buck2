@@ -10,6 +10,7 @@
 use std::fmt::Debug;
 
 use buck2_interpreter::types::label_relative_path::LabelRelativePath;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FrozenRef;
@@ -92,6 +93,7 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
         check!(TaggedArtifacts);
         check!(FrozenWriteJsonCommandLineArg);
         check!(WriteJsonCommandLineArg);
+        check!(StarlarkTargetLabel);
         None
     }
 
