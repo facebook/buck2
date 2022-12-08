@@ -1,4 +1,4 @@
-load(":toolchain.bzl", "cxx_toolchain", "python_toolchain")
+load(":toolchain.bzl", "cxx_toolchain", "ocaml_toolchain", "python_toolchain")
 load("@prelude//toolchains/python/bootstrap:defs.bzl", "python_bootstrap_toolchain")
 
 cxx_toolchain(
@@ -8,6 +8,11 @@ cxx_toolchain(
 
 python_toolchain(
     name="python",
+    visibility=["PUBLIC"],
+)
+
+ocaml_toolchain(
+    name="ocaml",
     visibility=["PUBLIC"],
 )
 
