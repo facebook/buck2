@@ -17,6 +17,10 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
@@ -30,6 +34,12 @@ load(
     "create_linkable_graph_node",
     "create_linkable_node",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+)
+load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_frameworks.bzl", "to_framework_name")
 
@@ -89,5 +99,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
     # The default output is the provided framework.
     providers.append(DefaultInfo(default_outputs = [framework_directory_artifact]))
     providers.append(AppleBundleInfo(bundle = framework_directory_artifact, is_watchos = None))
+    providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
+    providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))
 
     return providers

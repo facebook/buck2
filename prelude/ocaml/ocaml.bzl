@@ -63,6 +63,10 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
@@ -79,12 +83,17 @@ load(
     "create_linkable_graph",
 )
 load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+)
+load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
 load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "topo_sort")
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
-load("@prelude//utils:utils.bzl", "flatten")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 load(":makefile.bzl", "parse_makefile")
 load(":providers.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 
@@ -657,6 +666,8 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(default_outputs = [cmxa], sub_targets = sub_targets),
         merge_ocaml_link_infos(infos),
         merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
+        merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
+        merge_link_group_lib_info(deps = _attr_deps(ctx)),
         other_outputs_info,
         create_linkable_graph(
             ctx,
@@ -786,6 +797,8 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(default_outputs = [obj]),
         obj_link_info,
+        merge_link_group_lib_info(deps = _attr_deps(ctx)),
+        merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
         create_linkable_graph(
             ctx,
             deps = ctx.attrs.deps,
@@ -853,6 +866,8 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(),
         merge_ocaml_link_infos(ocaml_infos + [OCamlLinkInfo(info = [info])]),
         merge_link_infos(ctx, native_infos),
+        merge_link_group_lib_info(deps = ctx.attrs.deps),
+        merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)),
         create_linkable_graph(
             ctx,
             deps = ctx.attrs.deps,

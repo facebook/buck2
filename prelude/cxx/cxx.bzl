@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
@@ -509,6 +513,12 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     )
 
     providers.append(linkable_graph)
+
+    providers.append(
+        merge_link_group_lib_info(
+            deps = first_order_deps + exported_first_order_deps,
+        ),
+    )
 
     return providers
 

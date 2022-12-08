@@ -12,6 +12,10 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkInfos",
@@ -266,5 +270,7 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
         deps = deps + exported_deps,
     )
     providers.append(linkable_graph)
+
+    providers.append(merge_link_group_lib_info(deps = deps + exported_deps))
 
     return providers

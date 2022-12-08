@@ -66,7 +66,7 @@ def filter_idx(key: "_a", vals: ["_b"]) -> ["_b"]:
     return [x for x in vals if x[key]]
 
 def filter_and_map_idx(key: "_a", vals: ["_b"]) -> ["_c"]:
-    return [x[key] for x in vals if x[key]]
+    return [x[key] for x in vals if key in x]
 
 def idx(x: ["_a", None], key: "_b") -> ["_c", None]:
     return x[key] if x != None else None

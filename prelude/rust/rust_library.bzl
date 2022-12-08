@@ -18,6 +18,10 @@ load(
     "is_known_omnibus_root",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
@@ -142,6 +146,8 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
         deps = ctx.attrs.deps,
     )
     providers.append(linkable_graph)
+
+    providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
 
     return providers
 
@@ -534,6 +540,8 @@ def _native_providers(
     )
 
     providers.append(linkable_graph)
+
+    providers.append(merge_link_group_lib_info(deps = inherited_non_rust_link_deps))
 
     return providers
 

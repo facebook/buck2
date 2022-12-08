@@ -21,6 +21,10 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
@@ -277,6 +281,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
             create_shared_libraries(ctx, solibs),
             shared_library_infos,
         ),
+        merge_link_group_lib_info(deps = ctx.attrs.deps),
         merge_haskell_link_infos(haskell_infos + [haskell_link_infos]),
         merged_link_info,
         create_linkable_graph(
@@ -680,6 +685,8 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     templ_vars["ldflags-shared"] = templ_vars["ldflags-static-pic"]
 
     providers.append(TemplatePlaceholderInfo(keyed_variables = templ_vars))
+
+    providers.append(merge_link_group_lib_info(deps = _attr_deps(ctx)))
 
     return providers
 
