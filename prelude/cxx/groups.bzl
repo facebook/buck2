@@ -43,10 +43,16 @@ MATCH_ALL_LABEL = "MATCH_ALL"
 # against the final binary
 NO_MATCH_LABEL = "NO_MATCH"
 
+GroupRoot = record(
+    label = "label",
+    # Data provided by the group (e.g. linkable graph and shared libs).
+    node = "_a",
+)
+
 # Representation of a parsed group mapping
 GroupMapping = record(
-    # The target to which to apply this mapping.
-    target = "dependency",
+    # The root to apply this mapping to.
+    root = field(GroupRoot.type),
     # The type of traversal to use.
     traversal = field(Traversal.type, Traversal("tree")),
     # Optional filter type to apply to the traversal. If present,
@@ -75,14 +81,24 @@ GroupsMappings = record(
     mappings = {"label": str.type},
 )
 
-def parse_groups_definitions(map: list.type) -> [Group.type]:
+def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d: d) -> [Group.type]:
     groups = []
     for name, mappings in map:
         parsed_mappings = []
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             filter_type, label_regex, build_target_pattern = _parse_filter_from_mapping(entry[2])
-            mapping = GroupMapping(target = entry[0], traversal = traversal, filter_type = filter_type, label_regex = label_regex, build_target_pattern = build_target_pattern, preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None)
+            mapping = GroupMapping(
+                root = GroupRoot(
+                    label = entry[0].label,
+                    node = dep_to_node(entry[0]),
+                ),
+                traversal = traversal,
+                filter_type = filter_type,
+                label_regex = label_regex,
+                build_target_pattern = build_target_pattern,
+                preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None,
+            )
             parsed_mappings.append(mapping)
 
         group = Group(name = name, mappings = parsed_mappings)
@@ -144,7 +160,9 @@ def _find_targets_in_mapping(
         mapping: GroupMapping.type) -> ["label"]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if mapping.filter_type == None:
-        return [mapping.target.label]
+        if mapping.root == None:
+            fail("no filter or explicit root given: {}", mapping)
+        return [mapping.root.label]
 
     # Else find all dependencies that match the filter.
     matching_targets = {}
@@ -172,7 +190,11 @@ def _find_targets_in_mapping(
                 return []
         return graph_node.deps + graph_node.exported_deps
 
-    breadth_first_traversal_by(graph_map, [mapping.target.label], find_matching_targets)
+    if mapping.root == None:
+        for node in graph_map:
+            find_matching_targets(node)
+    else:
+        breadth_first_traversal_by(graph_map, [mapping.root.label], find_matching_targets)
 
     return matching_targets.keys()
 

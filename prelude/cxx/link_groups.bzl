@@ -26,6 +26,10 @@ load(
     "get_link_info",
 )
 load(
+    "@prelude//linking:linkables.bzl",
+    "linkable",
+)
+load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
@@ -38,6 +42,7 @@ load(
     "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
+    "parse_groups_definitions",
 )
 load(
     ":link.bzl",
@@ -68,6 +73,9 @@ LinkGroupLibSpec = record(
     # The link group to link.
     group = field(Group.type),
 )
+
+def parse_link_group_definitions(mappings: list.type) -> [Group.type]:
+    return parse_groups_definitions(mappings, linkable)
 
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
@@ -106,7 +114,7 @@ def get_auto_link_group_libs(ctx: "context") -> [{str.type: LinkGroupLib.type}, 
 
 def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Linkage.type}:
     return {
-        mapping.target.label: mapping.preferred_linkage
+        mapping.root.label: mapping.preferred_linkage
         for group in link_groups
         for mapping in group.mappings
         if mapping.preferred_linkage != None
@@ -275,7 +283,7 @@ def create_link_group(
         link_group_preferred_linkage,
         link_group_libs = link_group_libs,
         link_style = link_style,
-        deps = [mapping.target.label for mapping in spec.group.mappings],
+        deps = [mapping.root.label for mapping in spec.group.mappings],
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )

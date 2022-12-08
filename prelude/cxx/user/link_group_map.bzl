@@ -9,11 +9,11 @@ load("@prelude//:attributes.bzl", "Linkage", "Traversal")
 load(
     "@prelude//cxx:groups.bzl",
     "compute_mappings",
-    "parse_groups_definitions",
 )
 load(
     "@prelude//cxx:link_groups.bzl",
     "LinkGroupInfo",
+    "parse_link_group_definitions",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -30,11 +30,14 @@ def link_group_map_attr():
     return attrs.option(attrs.one_of(v2_attrs, _v1_attrs()), default = None)
 
 def _impl(ctx: "context") -> ["provider"]:
-    link_groups = parse_groups_definitions(ctx.attrs.map)
-    link_group_deps = [mapping.target for group in link_groups for mapping in group.mappings]
+    link_groups = parse_link_group_definitions(ctx.attrs.map)
     linkable_graph = create_linkable_graph(
         ctx,
-        deps = link_group_deps,
+        children = [
+            mapping.root.node.linkable_graph
+            for group in link_groups
+            for mapping in group.mappings
+        ],
     )
     linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
     mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)

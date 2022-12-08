@@ -171,7 +171,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
-        link_group_deps = [mapping.target for group in link_group_info.groups for mapping in group.mappings]
+        link_group_deps = [mapping.root.node.linkable_graph for group in link_group_info.groups for mapping in group.mappings]
     else:
         link_groups = []
         link_group_mappings = {}
@@ -181,8 +181,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_linkable_graph(
         ctx,
-        deps = link_group_deps,
-        children = [d.linkable_graph for d in link_deps],
+        children = [d.linkable_graph for d in link_deps] + link_group_deps,
     )
 
     # Gather link inputs.

@@ -299,7 +299,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
-        link_group_deps = [mapping.target for group in link_group_info.groups for mapping in group.mappings]
+        link_group_deps = [mapping.root.node.linkable_graph for group in link_group_info.groups for mapping in group.mappings]
         link_group_libs = gather_link_group_libs(
             deps = non_exported_deps + exported_deps,
         )
@@ -312,10 +312,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
-    linkable_graph_deps = non_exported_deps + exported_deps + link_group_deps
+    linkable_graph_deps = non_exported_deps + exported_deps
     deps_linkable_graph = create_linkable_graph(
         ctx,
         deps = linkable_graph_deps,
+        children = link_group_deps,
     )
 
     frameworks_linkable = create_frameworks_linkable(ctx)
