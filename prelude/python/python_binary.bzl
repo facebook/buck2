@@ -40,6 +40,10 @@ load(
     "create_linkable_graph",
 )
 load(
+    "@prelude//linking:linkables.bzl",
+    "linkables",
+)
+load(
     "@prelude//utils:types.bzl",
     "unchecked",  # @unused Used as a type
 )
@@ -316,7 +320,7 @@ def convert_python_library_to_executable(
             ],
             extra_preprocessors = extra_preprocessors,
             extra_preprocessors_info = inherited_preprocessor_info,
-            extra_link_deps = extension_info.link_deps + executable_deps,
+            extra_link_deps = linkables(extension_info.link_deps + executable_deps),
             exe_shared_libs_link_tree = False,
             force_full_hybrid_if_capable = True,
             auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),

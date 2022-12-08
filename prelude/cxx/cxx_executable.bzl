@@ -40,16 +40,19 @@ load(
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "SharedLibLinkable",
+    "merge_link_infos",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
     "get_linkable_graph_node_map_func",
-    "linkable_deps",
+)
+load(
+    "@prelude//linking:linkables.bzl",
+    "linkables",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibraryInfo",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -77,7 +80,6 @@ load(
     "cxx_attr_link_style",
     "cxx_attr_linker_flags",
     "cxx_attr_resources",
-    "cxx_inherited_link_info",
     "cxx_is_gnu",
 )
 load(
@@ -127,18 +129,17 @@ _CxxExecutableOutput = record(
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type, "XcodeDataInfo"):
-    first_order_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
-
     # Gather preprocessor inputs.
+    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
-        non_exported_deps = first_order_deps,
+        non_exported_deps = preprocessor_deps,
         is_test = is_cxx_test,
     )
-    inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(first_order_deps) + impl_params.extra_preprocessors_info
+    inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(preprocessor_deps) + impl_params.extra_preprocessors_info
 
     # The link style to use.
     link_style = cxx_attr_link_style(ctx)
@@ -160,6 +161,9 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     sub_targets["compilation-database"] = [comp_db]
     comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_commands.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
 
+    # Link deps
+    link_deps = linkables(cxx_attr_deps(ctx)) + impl_params.extra_link_deps
+
     # Link Groups
     link_group = get_link_group(ctx)
     link_group_info = get_link_group_info(ctx)
@@ -177,13 +181,14 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_linkable_graph(
         ctx,
-        deps = first_order_deps + link_group_deps + impl_params.extra_link_deps,
+        deps = link_group_deps,
+        children = [d.linkable_graph for d in link_deps],
     )
 
     # Gather link inputs.
     own_link_flags = cxx_attr_linker_flags(ctx) + impl_params.extra_link_flags + impl_params.extra_exported_link_flags
     own_binary_link_flags = ctx.attrs.binary_linker_flags + own_link_flags
-    inherited_link = cxx_inherited_link_info(ctx, first_order_deps + impl_params.extra_link_deps)
+    inherited_link = merge_link_infos(ctx, [d.merged_link_info for d in link_deps])
     frameworks_linkable = create_frameworks_linkable(ctx)
 
     # Link group libs.
@@ -238,7 +243,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                     )
         else:
             link_group_libs = gather_link_group_libs(
-                deps = first_order_deps + impl_params.extra_link_deps,
+                children = [d.link_group_lib_info for d in link_deps],
             )
 
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
@@ -251,7 +256,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             link_group_preferred_linkage,
             link_group_libs = link_group_libs,
             link_style = link_style,
-            deps = linkable_deps(first_order_deps + impl_params.extra_link_deps),
+            deps = [d.linkable_graph.nodes.value.label for d in link_deps],
             is_executable_link = True,
             prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
@@ -265,7 +270,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
-                linkable_deps(first_order_deps + impl_params.extra_link_deps),
+                deps = [d.linkable_graph.nodes.value.label for d in link_deps],
                 is_executable_link = True,
                 prefer_stripped = ctx.attrs.prefer_stripped_objects,
             )
@@ -291,7 +296,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_style == LinkStyle("shared") or gnu_use_link_groups:
         shlib_info = merge_shared_libraries(
             ctx.actions,
-            deps = filter(None, [x.get(SharedLibraryInfo) for x in first_order_deps + impl_params.extra_link_deps]),
+            deps = [d.shared_library_info for d in link_deps],
         )
 
         def is_link_group_shlib(label: "label"):

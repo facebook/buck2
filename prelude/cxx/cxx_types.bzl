@@ -10,6 +10,10 @@ load(
     "LinkArgs",
 )
 load(
+    "@prelude//linking:linkables.bzl",
+    "LinkableProviders",
+)
+load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -149,6 +153,6 @@ CxxRuleConstructorParams = record(
     force_full_hybrid_if_capable = field(bool.type, False),
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool.type, True),
-    extra_link_deps = field(["dependency"], []),
+    extra_link_deps = field([LinkableProviders.type], []),
     auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
 )
