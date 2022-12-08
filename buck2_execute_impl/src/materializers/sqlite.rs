@@ -425,7 +425,13 @@ pub struct MaterializerStateSqliteDb {
 impl MaterializerStateSqliteDb {
     /// Given path to sqlite DB, opens and returns a new connection to the DB.
     pub fn open(path: &AbsNormPath) -> anyhow::Result<Self> {
-        let connection = Arc::new(Mutex::new(Connection::open(path)?));
+        let connection = Connection::open(path)?;
+        // TODO: make this work on Windows too
+        if cfg!(unix) {
+            connection.pragma_update(None, "journal_mode", "WAL")?;
+        }
+
+        let connection = Arc::new(Mutex::new(connection));
         let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
         let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
         let metadata_table = KeyValueSqliteTable::new("metadata".to_owned(), connection);
