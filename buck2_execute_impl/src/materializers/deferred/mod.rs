@@ -1060,30 +1060,25 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let method = Arc::from(method);
 
-        let mut processing_fut = None;
+        // Dispatch Write actions eagerly if possible. We can do this if no cleanup is required. We
+        // also check that there are no deps, though for writes there should never be deps.
 
-        // Dispatch Write actions eagerly if possible.
-        if existing_futs.is_empty() && value.deps().is_none() {
-            match &*method {
-                ArtifactMaterializationMethod::Write(write) => {
-                    let materialize =
-                        self.io
-                            .write(path.clone(), write.dupe(), version, *command_sender);
+        let can_use_write_fast_path = existing_futs.is_empty() && value.deps().is_none();
 
-                    processing_fut = Some(ProcessingFuture::Materializing(materialize.shared()));
-                }
-                _ => {}
+        let processing_fut = match &*method {
+            ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {
+                let materialize =
+                    self.io
+                        .write(path.clone(), write.dupe(), version, *command_sender);
+                ProcessingFuture::Materializing(materialize.shared())
             }
-        }
-
-        let processing_fut = processing_fut.unwrap_or_else(|| {
-            ProcessingFuture::Cleaning(clean_output_paths(
+            _ => ProcessingFuture::Cleaning(clean_output_paths(
                 &self.io,
                 path.clone(),
                 existing_futs,
                 &self.rt,
-            ))
-        });
+            )),
+        };
 
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
