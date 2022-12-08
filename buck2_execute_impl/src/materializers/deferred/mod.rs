@@ -125,7 +125,7 @@ use crate::materializers::sqlite::MaterializerStateSqliteDb;
 pub struct DeferredMaterializer {
     /// Sender to emit commands to the command loop. See `MaterializerCommand`.
     #[allocative(skip)]
-    command_sender: mpsc::UnboundedSender<MaterializerCommand>,
+    command_sender: mpsc::UnboundedSender<MaterializerCommand<DefaultIoHandler>>,
     /// Handle of the command loop thread. Aborted on Drop.
     /// This thread serves as a queue for declare/ensure requests, making
     /// sure only one executes at a time and in the order they came in.
@@ -157,17 +157,17 @@ pub struct DeferredMaterializerConfigs {
     pub ttl_refresh_enabled: bool,
 }
 
-struct DeferredMaterializerIoHandler {
+struct DefaultIoHandler {
     fs: ProjectRoot,
     re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
     io_executor: Arc<dyn BlockingExecutor>,
-    /// Used to emit MaterializationFinished to the command thread
-    command_sender: mpsc::UnboundedSender<MaterializerCommand>,
 }
 
-struct DeferredMaterializerCommandProcessor {
-    io: Arc<DeferredMaterializerIoHandler>,
+struct DeferredMaterializerCommandProcessor<T> {
+    io: Arc<T>,
+    /// Used to emit MaterializationFinished to the command thread
+    command_sender: mpsc::UnboundedSender<MaterializerCommand<T>>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     ttl_refresh_frequency: std::time::Duration,
     ttl_refresh_min_ttl: Duration,
@@ -222,7 +222,7 @@ enum ProcessingFuture {
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
-enum MaterializerCommand {
+enum MaterializerCommand<T: ?Sized> {
     // [Materializer trait methods -> Command thread]
     /// Takes a list of file paths, computes the materialized file paths of all
     /// of them, and sends the result through the oneshot.
@@ -275,10 +275,10 @@ enum MaterializerCommand {
         result: Result<(), SharedMaterializingError>,
     },
 
-    Extension(Box<dyn ExtensionCommand>),
+    Extension(Box<dyn ExtensionCommand<T>>),
 }
 
-impl std::fmt::Debug for MaterializerCommand {
+impl<T> std::fmt::Debug for MaterializerCommand<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MaterializerCommand::GetMaterializedFilePaths(paths, _) => {
@@ -656,16 +656,16 @@ impl DeferredMaterializer {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
         let command_processor = DeferredMaterializerCommandProcessor {
-            io: Arc::new(DeferredMaterializerIoHandler {
+            io: Arc::new(DefaultIoHandler {
                 fs: fs.dupe(),
                 re_client_manager,
                 io_executor: io_executor.dupe(),
-                command_sender: command_sender.clone(),
             }),
             sqlite_db,
             ttl_refresh_frequency: configs.ttl_refresh_frequency,
             ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
             ttl_refresh_enabled: configs.ttl_refresh_enabled,
+            command_sender: command_sender.clone(),
             rt: Handle::current(),
         };
 
@@ -711,17 +711,17 @@ impl DeferredMaterializer {
     }
 }
 
-impl DeferredMaterializerCommandProcessor {
+impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     /// Loop that runs for as long as the materializer is alive.
     ///
     /// It takes commands via the `Materializer` trait methods.
     async fn run(
         mut self,
-        commands: mpsc::UnboundedReceiver<MaterializerCommand>,
+        commands: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
         mut tree: ArtifactTree,
     ) {
-        enum Op {
-            Command(MaterializerCommand),
+        enum Op<T> {
+            Command(MaterializerCommand<T>),
             RefreshTtls,
         }
 
@@ -850,23 +850,21 @@ impl DeferredMaterializerCommandProcessor {
 
                     current_ttl_refresh = match curr {
                         Some(task) => Some(task),
-                        None => create_ttl_refresh(
-                            &tree,
-                            &self.io.re_client_manager,
-                            self.ttl_refresh_min_ttl,
-                        )
-                        .map(|fut| {
-                            self.rt.spawn(async move {
-                                match fut.await {
-                                    Ok(()) => {
-                                        tracing::info!("Scheduled TTL refresh succeeded");
+                        None => self
+                            .io
+                            .create_ttl_refresh(&tree, self.ttl_refresh_min_ttl)
+                            .map(|fut| {
+                                self.rt.spawn(async move {
+                                    match fut.await {
+                                        Ok(()) => {
+                                            tracing::info!("Scheduled TTL refresh succeeded");
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!("Scheduled TTL refresh failed: {:#}", e);
+                                        }
                                     }
-                                    Err(e) => {
-                                        tracing::warn!("Scheduled TTL refresh failed: {:#}", e);
-                                    }
-                                }
-                            })
-                        }),
+                                })
+                            }),
                     };
                 }
             }
@@ -1002,19 +1000,14 @@ impl DeferredMaterializerCommandProcessor {
         if existing_futs.is_empty() && value.deps().is_none() {
             match &*method {
                 ArtifactMaterializationMethod::Write(write) => {
-                    let materialize = self.io.io_executor.execute_io(box WriteIoRequest {
-                        path: path.clone(),
-                        write: write.dupe(),
+                    let materialize = self.io.write(
+                        path.clone(),
+                        write.dupe(),
                         version,
-                        io: self.io.dupe(),
-                    });
+                        self.command_sender.clone(),
+                    );
 
-                    processing_fut = Some(ProcessingFuture::Materializing(
-                        materialize
-                            .map_err(|e| SharedMaterializingError::Error(e.into()))
-                            .boxed()
-                            .shared(),
-                    ));
+                    processing_fut = Some(ProcessingFuture::Materializing(materialize.shared()));
                 }
                 _ => {}
             }
@@ -1209,6 +1202,7 @@ impl DeferredMaterializerCommandProcessor {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let io = self.io.dupe();
+        let command_sender = self.command_sender.clone();
         let task = self
             .rt
             .spawn(async move {
@@ -1253,14 +1247,12 @@ impl DeferredMaterializerCommandProcessor {
                 };
 
                 // Materialization finished, notify the command thread
-                let _ignored =
-                    io.command_sender
-                        .send(MaterializerCommand::MaterializationFinished {
-                            path: path_buf_dup,
-                            timestamp,
-                            version,
-                            result: res.dupe(),
-                        });
+                let _ignored = command_sender.send(MaterializerCommand::MaterializationFinished {
+                    path: path_buf_dup,
+                    timestamp,
+                    version,
+                    result: res.dupe(),
+                });
 
                 res
             })
@@ -1278,7 +1270,37 @@ impl DeferredMaterializerCommandProcessor {
     }
 }
 
-impl DeferredMaterializerIoHandler {
+#[async_trait]
+trait IoHandler: Sync + Send + 'static {
+    fn write(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        write: Arc<WriteFile>,
+        version: u64,
+        command_sender: mpsc::UnboundedSender<MaterializerCommand<Self>>,
+    ) -> BoxFuture<'static, Result<(), SharedMaterializingError>>;
+
+    fn clean_output_paths(
+        self: &Arc<Self>,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> BoxFuture<'static, Result<(), SharedError>>;
+
+    async fn materialize_entry(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        method: Arc<ArtifactMaterializationMethod>,
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        event_dispatcher: EventDispatcher,
+    ) -> Result<(), MaterializeEntryError>;
+
+    fn create_ttl_refresh(
+        self: &Arc<Self>,
+        tree: &ArtifactTree,
+        min_ttl: Duration,
+    ) -> Option<BoxFuture<'static, anyhow::Result<()>>>;
+}
+
+impl DefaultIoHandler {
     /// Materializes an `entry` at `path`, using the materialization `method`
     #[instrument(level = "debug", skip(self, stat), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry_span(
@@ -1412,11 +1434,42 @@ impl DeferredMaterializerIoHandler {
         };
         Ok(())
     }
+}
+
+#[async_trait]
+impl IoHandler for DefaultIoHandler {
+    fn write(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        write: Arc<WriteFile>,
+        version: u64,
+        command_sender: mpsc::UnboundedSender<MaterializerCommand<Self>>,
+    ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
+        self.io_executor
+            .execute_io(box WriteIoRequest {
+                path,
+                write,
+                version,
+                command_sender,
+            })
+            .map_err(|e| SharedMaterializingError::Error(e.into()))
+            .boxed()
+    }
+
+    fn clean_output_paths(
+        self: &Arc<Self>,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> BoxFuture<'static, Result<(), SharedError>> {
+        self.io_executor
+            .execute_io(box CleanOutputPaths { paths })
+            .map(|r| r.shared_error())
+            .boxed()
+    }
 
     /// Materializes an `entry` at `path`, using the materialization `method`
     #[instrument(level = "debug", skip(self), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry(
-        &self,
+        self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
@@ -1457,6 +1510,14 @@ impl DeferredMaterializerIoHandler {
             })
             .await?;
         Ok(())
+    }
+
+    fn create_ttl_refresh(
+        self: &Arc<Self>,
+        tree: &ArtifactTree,
+        min_ttl: Duration,
+    ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
+        create_ttl_refresh(tree, &self.re_client_manager, min_ttl).map(|f| f.boxed())
     }
 }
 
@@ -1543,13 +1604,13 @@ impl ArtifactTree {
     }
 
     #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path, version = %version))]
-    async fn materialization_finished(
+    async fn materialization_finished<T: IoHandler>(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
         version: u64,
         result: Result<(), SharedMaterializingError>,
-        io: &Arc<DeferredMaterializerIoHandler>,
+        io: &Arc<T>,
         next_version: u64,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
         rt: &Handle,
@@ -1816,30 +1877,21 @@ async fn join_all_existing_futs(
 
 /// Spawns a future to clean output paths while waiting for any
 /// pending future to finish.
-fn clean_output_paths(
-    io: &Arc<DeferredMaterializerIoHandler>,
+fn clean_output_paths<T: IoHandler>(
+    io: &Arc<T>,
     path: ProjectRelativePathBuf,
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
     rt: &Handle,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
-        return io
-            .io_executor
-            .execute_io(box CleanOutputPaths { paths: vec![path] })
-            .map(|r| r.shared_error())
-            .boxed()
-            .shared();
+        return io.clean_output_paths(vec![path]).shared();
     }
 
     rt.spawn({
-        let io_executor = io.io_executor.dupe();
+        let io = io.dupe();
         async move {
             join_all_existing_futs(existing_futs).await?;
-
-            io_executor
-                .execute_io(box CleanOutputPaths { paths: vec![path] })
-                .await
-                .shared_error()
+            io.clean_output_paths(vec![path]).await
         }
     })
     .map(|r| match r {
@@ -1933,7 +1985,7 @@ struct WriteIoRequest {
     path: ProjectRelativePathBuf,
     write: Arc<WriteFile>,
     version: u64,
-    io: Arc<DeferredMaterializerIoHandler>,
+    command_sender: mpsc::UnboundedSender<MaterializerCommand<DefaultIoHandler>>,
 }
 
 impl WriteIoRequest {
@@ -1955,7 +2007,6 @@ impl IoRequest for WriteIoRequest {
 
         // If the materializer has shut down, we ignore this.
         let _ignored = self
-            .io
             .command_sender
             .send(MaterializerCommand::MaterializationFinished {
                 path: self.path,

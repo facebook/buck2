@@ -36,16 +36,17 @@ use crate::materializers::deferred::create_ttl_refresh;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
+use crate::materializers::deferred::DefaultIoHandler;
 use crate::materializers::deferred::DeferredMaterializer;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::WithPathsIterator;
 
-pub(super) trait ExtensionCommand: Debug + Sync + Send + 'static {
+pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        processor: &mut DeferredMaterializerCommandProcessor,
+        processor: &mut DeferredMaterializerCommandProcessor<T>,
     );
 }
 
@@ -69,11 +70,11 @@ struct Iterate {
     sender: UnboundedSender<(ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
 }
 
-impl ExtensionCommand for Iterate {
+impl ExtensionCommand<DefaultIoHandler> for Iterate {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        _processor: &mut DeferredMaterializerCommandProcessor,
+        _processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         for (path, data) in tree.iter().with_paths() {
             let path_data = match &data.stage {
@@ -107,11 +108,11 @@ struct RefreshTtls {
     min_ttl: i64,
 }
 
-impl ExtensionCommand for RefreshTtls {
+impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        processor: &mut DeferredMaterializerCommandProcessor,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         let task = create_ttl_refresh(
             tree,

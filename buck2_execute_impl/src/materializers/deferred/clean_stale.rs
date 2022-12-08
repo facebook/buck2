@@ -26,8 +26,8 @@ use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::CleaningFuture;
+use crate::materializers::deferred::DefaultIoHandler;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
-use crate::materializers::deferred::DeferredMaterializerIoHandler;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 #[derive(Derivative)]
@@ -39,11 +39,11 @@ pub struct CleanStaleArtifacts {
     pub sender: Sender<BoxFuture<'static, anyhow::Result<String>>>,
 }
 
-impl ExtensionCommand for CleanStaleArtifacts {
+impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        processor: &mut DeferredMaterializerCommandProcessor,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         let res = gather_clean_futures_for_stale_artifacts(
             tree,
@@ -71,7 +71,7 @@ fn gather_clean_futures_for_stale_artifacts(
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
     sqlite_db: &mut Option<MaterializerStateSqliteDb>,
-    io: &Arc<DeferredMaterializerIoHandler>,
+    io: &Arc<DefaultIoHandler>,
     rt: &Handle,
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
     let mut output = String::new();
