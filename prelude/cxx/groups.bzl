@@ -52,7 +52,7 @@ GroupRoot = record(
 # Representation of a parsed group mapping
 GroupMapping = record(
     # The root to apply this mapping to.
-    root = field(GroupRoot.type),
+    root = field([GroupRoot.type, None], None),
     # The type of traversal to use.
     traversal = field(Traversal.type, Traversal("tree")),
     # Optional filter type to apply to the traversal. If present,
@@ -88,11 +88,14 @@ def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d:
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             filter_type, label_regex, build_target_pattern = _parse_filter_from_mapping(entry[2])
-            mapping = GroupMapping(
+            root = None
+            if entry[0] != None:
                 root = GroupRoot(
                     label = entry[0].label,
                     node = dep_to_node(entry[0]),
-                ),
+                )
+            mapping = GroupMapping(
+                root = root,
                 traversal = traversal,
                 filter_type = filter_type,
                 label_regex = label_regex,

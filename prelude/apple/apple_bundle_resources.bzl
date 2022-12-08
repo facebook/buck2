@@ -118,7 +118,7 @@ def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
 def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type])):
     resource_group_info = get_resource_group_info(ctx)
     if resource_group_info:
-        resource_groups_deps = [mapping.root.node for group in resource_group_info.groups for mapping in group.mappings]
+        resource_groups_deps = [mapping.root.node for group in resource_group_info.groups for mapping in group.mappings if mapping.root != None]
         resource_group_mappings = resource_group_info.mappings
     else:
         resource_groups_deps = []

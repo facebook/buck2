@@ -117,7 +117,7 @@ def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Lin
         mapping.root.label: mapping.preferred_linkage
         for group in link_groups
         for mapping in group.mappings
-        if mapping.preferred_linkage != None
+        if mapping.root != None and mapping.preferred_linkage != None
     }
 
 def get_filtered_labels_to_links_map(
@@ -255,6 +255,8 @@ def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> Defaul
 def create_link_group(
         ctx: "context",
         spec: LinkGroupLibSpec.type,
+        # The deps of the top-level executable.
+        executable_deps: ["label"] = [],
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         linker_flags: [""] = [],
         link_group_mappings: {"label": str.type} = {},
@@ -275,6 +277,16 @@ def create_link_group(
     if linker_flags:
         inputs.append(LinkInfo(pre_flags = linker_flags))
 
+    # Get roots to begin the linkable search.
+    # TODO(agallagher): We should use the groups "public" nodes as the roots.
+    roots = []
+    for mapping in spec.group.mappings:
+        # If there's no explicit root, this means use the executable deps.
+        if mapping.root == None:
+            roots.extend(executable_deps)
+        else:
+            roots.append(mapping.root.label)
+
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map,
@@ -283,7 +295,7 @@ def create_link_group(
         link_group_preferred_linkage,
         link_group_libs = link_group_libs,
         link_style = link_style,
-        deps = [mapping.root.label for mapping in spec.group.mappings],
+        deps = roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )

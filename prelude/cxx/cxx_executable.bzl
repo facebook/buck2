@@ -171,7 +171,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
-        link_group_deps = [mapping.root.node.linkable_graph for group in link_group_info.groups for mapping in group.mappings]
+        link_group_deps = [mapping.root.node.linkable_graph for group in link_group_info.groups for mapping in group.mappings if mapping.root != None]
     else:
         link_groups = []
         link_group_mappings = {}
@@ -217,6 +217,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_lib = create_link_group(
                     ctx = ctx,
                     spec = link_group_spec,
+                    executable_deps = [
+                        dep.linkable_graph.nodes.value.label
+                        for dep in link_deps
+                    ],
                     linkable_graph_node_map = linkable_graph_node_map,
                     linker_flags = own_link_flags,
                     link_group_mappings = link_group_mappings,
