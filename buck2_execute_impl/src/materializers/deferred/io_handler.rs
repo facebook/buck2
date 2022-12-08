@@ -235,6 +235,8 @@ impl DefaultIoHandler {
                     })
                     .await?;
             }
+            #[cfg(test)]
+            ArtifactMaterializationMethod::Test => unimplemented!(),
         };
         Ok(())
     }

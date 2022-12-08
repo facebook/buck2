@@ -84,3 +84,124 @@ fn test_remove_path() {
     assert_eq!(removed_subtree.get("a/b/c/d"), Some(&"a/b/c/d".to_owned()));
     assert_eq!(removed_subtree.get("a/b/c/e"), Some(&"a/b/c/e".to_owned()));
 }
+
+mod state_machine {
+    use parking_lot::Mutex;
+
+    use super::*;
+
+    #[derive(Debug, Eq, PartialEq)]
+    enum Op {
+        Clean,
+        Materialize,
+    }
+
+    #[derive(Default)]
+    struct StubIoHandler {
+        log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
+    }
+
+    impl StubIoHandler {
+        fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
+            std::mem::take(&mut *self.log.lock())
+        }
+    }
+
+    #[async_trait]
+    impl IoHandler for StubIoHandler {
+        fn write(
+            self: &Arc<Self>,
+            path: ProjectRelativePathBuf,
+            _write: Arc<WriteFile>,
+            _version: u64,
+            _command_sender: mpsc::UnboundedSender<MaterializerCommand<Self>>,
+        ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
+            self.log.lock().push((Op::Materialize, path));
+            futures::future::ready(Ok(())).boxed()
+        }
+
+        fn clean_output_paths(
+            self: &Arc<Self>,
+            paths: Vec<ProjectRelativePathBuf>,
+        ) -> BoxFuture<'static, Result<(), SharedError>> {
+            for path in paths {
+                self.log.lock().push((Op::Clean, path));
+            }
+            futures::future::ready(Ok(())).boxed()
+        }
+
+        async fn materialize_entry(
+            self: &Arc<Self>,
+            path: ProjectRelativePathBuf,
+            _method: Arc<ArtifactMaterializationMethod>,
+            _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+            _event_dispatcher: EventDispatcher,
+        ) -> Result<(), MaterializeEntryError> {
+            self.log.lock().push((Op::Materialize, path));
+            Ok(())
+        }
+
+        fn create_ttl_refresh(
+            self: &Arc<Self>,
+            _tree: &ArtifactTree,
+            _min_ttl: Duration,
+        ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
+            None
+        }
+    }
+
+    /// A stub command sender. We are calling materializer methods directly so that's all we need.
+    fn command_sender() -> mpsc::UnboundedSender<MaterializerCommand<StubIoHandler>> {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        tx
+    }
+
+    fn make_path(p: &str) -> ProjectRelativePathBuf {
+        ProjectRelativePath::new(p).unwrap().to_owned()
+    }
+
+    #[tokio::test]
+    async fn test_declare_reuse() -> anyhow::Result<()> {
+        let mut dm = DeferredMaterializerCommandProcessor {
+            io: Arc::new(StubIoHandler::default()),
+            sqlite_db: None,
+            rt: Handle::current(),
+        };
+
+        let mut tree = ArtifactTree::new();
+        let path = make_path("foo/bar");
+        let value = ArtifactValue::empty_file();
+        let method = ArtifactMaterializationMethod::Test;
+
+        dm.declare(
+            &mut tree,
+            path.clone(),
+            value,
+            box method,
+            0,
+            &command_sender(),
+        );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
+
+        let res = dm
+            .materialize_artifact(&mut tree, &path, EventDispatcher::null(), &command_sender())
+            .context("Expected a future")?
+            .await;
+        assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
+
+        // This API is a bit odd -_-
+        tree.materialization_finished(
+            path.clone(),
+            Utc::now(),
+            0,
+            res,
+            &dm.io,
+            1,
+            dm.sqlite_db.as_mut(),
+            &dm.rt,
+        );
+        assert_eq!(dm.io.take_log(), &[]);
+
+        Ok(())
+    }
+}

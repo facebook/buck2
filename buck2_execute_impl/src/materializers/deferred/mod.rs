@@ -379,6 +379,9 @@ enum ArtifactMaterializationMethod {
     /// The file must be fetched over HTTP.
     #[display(fmt = "http download ({})", info)]
     HttpDownload { info: HttpDownloadInfo },
+
+    #[cfg(test)]
+    Test,
 }
 
 trait MaterializationMethodToProto {
@@ -398,6 +401,8 @@ impl MaterializationMethodToProto for ArtifactMaterializationMethod {
             ArtifactMaterializationMethod::HttpDownload { .. } => {
                 buck2_data::MaterializationMethod::HttpDownload
             }
+            #[cfg(test)]
+            ArtifactMaterializationMethod::Test => unimplemented!(),
         }
     }
 }
@@ -813,8 +818,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 next_version,
                                 self.sqlite_db.as_mut(),
                                 &self.rt,
-                            )
-                            .await;
+                            );
                             next_version += 1;
                         }
                         MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
@@ -1178,6 +1182,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         )
                     })
                     .collect::<Vec<_>>(),
+                #[cfg(test)]
+                ArtifactMaterializationMethod::Test => Vec::new(),
             },
             _ => Vec::new(),
         };
@@ -1351,11 +1357,13 @@ impl ArtifactTree {
                     },
                 }
             }
+            #[cfg(test)]
+            ArtifactMaterializationMethod::Test => unimplemented!(),
         }
     }
 
     #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path, version = %version))]
-    async fn materialization_finished<T: IoHandler>(
+    fn materialization_finished<T: IoHandler>(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
