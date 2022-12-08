@@ -48,7 +48,6 @@ use remote_execution::NamedDigestWithPermissions;
 use remote_execution::REClientError;
 use remote_execution::TCode;
 use remote_execution::TDigest;
-use tokio::sync::mpsc;
 use tracing::instrument;
 
 use crate::materializers::deferred::ArtifactMaterializationMethod;
@@ -57,6 +56,7 @@ use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::MaterializationMethodToProto;
 use crate::materializers::deferred::MaterializeEntryError;
 use crate::materializers::deferred::MaterializerCommand;
+use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
 use crate::materializers::io::materialize_files;
@@ -81,7 +81,7 @@ pub(super) trait IoHandler: Sync + Send + 'static {
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
         version: u64,
-        command_sender: mpsc::UnboundedSender<MaterializerCommand<Self>>,
+        command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>>;
 
     fn clean_output_paths(
@@ -249,7 +249,7 @@ impl IoHandler for DefaultIoHandler {
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
         version: u64,
-        command_sender: mpsc::UnboundedSender<MaterializerCommand<Self>>,
+        command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
         self.io_executor
             .execute_io(box WriteIoRequest {
@@ -432,7 +432,7 @@ struct WriteIoRequest {
     path: ProjectRelativePathBuf,
     write: Arc<WriteFile>,
     version: u64,
-    command_sender: mpsc::UnboundedSender<MaterializerCommand<DefaultIoHandler>>,
+    command_sender: MaterializerSender<DefaultIoHandler>,
 }
 
 impl WriteIoRequest {

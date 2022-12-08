@@ -16,6 +16,8 @@ mod io_handler;
 mod tests;
 
 use std::collections::VecDeque;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -112,7 +114,7 @@ use crate::materializers::sqlite::MaterializerStateSqliteDb;
 pub struct DeferredMaterializer {
     /// Sender to emit commands to the command loop. See `MaterializerCommand`.
     #[allocative(skip)]
-    command_sender: mpsc::UnboundedSender<MaterializerCommand<DefaultIoHandler>>,
+    command_sender: MaterializerSender<DefaultIoHandler>,
     /// Handle of the command loop thread. Aborted on Drop.
     /// This thread serves as a queue for declare/ensure requests, making
     /// sure only one executes at a time and in the order they came in.
@@ -146,6 +148,51 @@ pub struct TtlRefreshConfiguration {
     pub frequency: std::time::Duration,
     pub min_ttl: Duration,
     pub enabled: bool,
+}
+
+#[derive(Copy, Dupe, Clone)]
+struct MaterializerCounters {
+    sent: &'static AtomicUsize,
+    received: &'static AtomicUsize,
+}
+
+impl MaterializerCounters {
+    /// New counters. Note that this leaks the underlying data. See comments on MaterializerSender.
+    fn leak_new() -> Self {
+        Self {
+            sent: Box::leak(box AtomicUsize::new(0)),
+            received: Box::leak(box AtomicUsize::new(0)),
+        }
+    }
+
+    fn ack_received(&self) {
+        self.received.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+// NOTE: When constructing a MaterializerSender, we just leak the underlying channel. We do this
+// because the materializer lives for the lifetime of the process anyway, so there's no value in
+// refcounting any of this (though we make many copies of it).
+#[derive(Copy_, Dupe_, Clone_)]
+struct MaterializerSender<T: ?Sized + 'static> {
+    sender: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
+    counters: MaterializerCounters,
+}
+
+impl<T> MaterializerSender<T> {
+    fn send(
+        &self,
+        command: MaterializerCommand<T>,
+    ) -> Result<(), mpsc::error::SendError<MaterializerCommand<T>>> {
+        let res = self.sender.send(command);
+        self.counters.sent.fetch_add(1, Ordering::Relaxed);
+        res
+    }
+}
+
+struct MaterializerReceiver<T> {
+    receiver: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
+    counters: MaterializerCounters,
 }
 
 struct DeferredMaterializerCommandProcessor<T> {
@@ -631,7 +678,19 @@ impl DeferredMaterializer {
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
     ) -> anyhow::Result<Self> {
-        let (command_sender, command_recv) = mpsc::unbounded_channel();
+        let (command_sender, command_receiver) = mpsc::unbounded_channel();
+
+        let counters = MaterializerCounters::leak_new();
+
+        let command_sender = MaterializerSender {
+            sender: Box::leak(box command_sender),
+            counters,
+        };
+
+        let command_receiver = MaterializerReceiver {
+            receiver: command_receiver,
+            counters,
+        };
 
         let command_processor = DeferredMaterializerCommandProcessor {
             io: Arc::new(DefaultIoHandler {
@@ -665,7 +724,6 @@ impl DeferredMaterializer {
         let command_thread = std::thread::Builder::new()
             .name("buck-dm".to_owned())
             .spawn({
-                let command_sender = command_sender.clone();
                 move || {
                     let rt = tokio::runtime::Builder::new_current_thread()
                         .enable_all()
@@ -673,7 +731,7 @@ impl DeferredMaterializer {
                         .unwrap();
 
                     rt.block_on(command_processor.run(
-                        command_recv,
+                        command_receiver,
                         command_sender,
                         tree,
                         configs.ttl_refresh,
@@ -699,8 +757,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     /// It takes commands via the `Materializer` trait methods.
     async fn run(
         mut self,
-        commands: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
-        command_sender: mpsc::UnboundedSender<MaterializerCommand<T>>,
+        commands: MaterializerReceiver<T>,
+        command_sender: MaterializerSender<T>,
         mut tree: ArtifactTree,
         ttl_refresh: TtlRefreshConfiguration,
     ) {
@@ -708,6 +766,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Command(MaterializerCommand<T>),
             RefreshTtls,
         }
+
+        let MaterializerReceiver { receiver, counters } = commands;
 
         // Each Declare bumps the version, so that if an artifact is declared
         // a second time mid materialization of its previous version, we don't
@@ -726,7 +786,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         };
 
         let mut stream = futures::stream::select(
-            UnboundedReceiverStream::new(commands).map(Op::Command),
+            UnboundedReceiverStream::new(receiver).map(Op::Command),
             refresh_stream.map(|_instant| Op::RefreshTtls),
         );
 
@@ -823,6 +883,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         }
                         MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
                     }
+
+                    counters.ack_received();
                 }
                 Op::RefreshTtls => {
                     // It'd be neat to just implement this in the refresh_stream itself and simply
@@ -867,7 +929,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: &mut ArtifactTree,
         paths: Vec<ProjectRelativePathBuf>,
         event_dispatcher: EventDispatcher,
-        command_sender: &mpsc::UnboundedSender<MaterializerCommand<T>>,
+        command_sender: &MaterializerSender<T>,
     ) -> BoxStream<'static, Result<(), MaterializationError>> {
         let tasks = paths.into_iter().filter_map(|path| {
             self.materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe(), command_sender)
@@ -927,7 +989,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
         version: u64,
-        command_sender: &mpsc::UnboundedSender<MaterializerCommand<T>>,
+        command_sender: &MaterializerSender<T>,
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
         if let Some(data) = tree.prefix_get_mut(&mut path.iter()) {
@@ -1000,7 +1062,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 ArtifactMaterializationMethod::Write(write) => {
                     let materialize =
                         self.io
-                            .write(path.clone(), write.dupe(), version, command_sender.clone());
+                            .write(path.clone(), write.dupe(), version, *command_sender);
 
                     processing_fut = Some(ProcessingFuture::Materializing(materialize.shared()));
                 }
@@ -1083,13 +1145,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         is_match
     }
 
-    #[instrument(level = "debug", skip(self, tree), fields(path = %path))]
+    #[instrument(level = "debug", skip(self, tree, command_sender), fields(path = %path))]
     fn materialize_artifact(
         &mut self,
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
-        command_sender: &mpsc::UnboundedSender<MaterializerCommand<T>>,
+        command_sender: &MaterializerSender<T>,
     ) -> Option<MaterializingFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
@@ -1210,7 +1272,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let io = self.io.dupe();
-        let command_sender = command_sender.clone();
+        let command_sender = *command_sender;
         let task = self
             .rt
             .spawn(async move {

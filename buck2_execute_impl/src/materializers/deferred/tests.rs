@@ -86,6 +86,7 @@ fn test_remove_path() {
 }
 
 mod state_machine {
+    use once_cell::sync::Lazy;
     use parking_lot::Mutex;
 
     use super::*;
@@ -114,7 +115,7 @@ mod state_machine {
             path: ProjectRelativePathBuf,
             _write: Arc<WriteFile>,
             _version: u64,
-            _command_sender: mpsc::UnboundedSender<MaterializerCommand<Self>>,
+            _command_sender: MaterializerSender<Self>,
         ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
             self.log.lock().push((Op::Materialize, path));
             futures::future::ready(Ok(())).boxed()
@@ -151,9 +152,16 @@ mod state_machine {
     }
 
     /// A stub command sender. We are calling materializer methods directly so that's all we need.
-    fn command_sender() -> mpsc::UnboundedSender<MaterializerCommand<StubIoHandler>> {
-        let (tx, _rx) = mpsc::unbounded_channel();
-        tx
+    fn command_sender() -> MaterializerSender<StubIoHandler> {
+        static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| {
+            let (tx, _rx) = mpsc::unbounded_channel();
+            MaterializerSender {
+                sender: Box::leak(box tx),
+                counters: MaterializerCounters::leak_new(),
+            }
+        });
+
+        *SENDER
     }
 
     fn make_path(p: &str) -> ProjectRelativePathBuf {
