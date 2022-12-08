@@ -143,6 +143,13 @@ message InstantEvent {
 
     // Sent when the target pattern gets resolved to update the invocation info
     ResolvedTargetPatterns target_patterns = 15;
+
+    // Check DICE equality in critical section
+    DiceEqualityCheck dice_equality_check = 16;
+
+    // When we can execute DICE ops immediately since there was no active
+    // state
+    NoActiveDiceState no_active_dice_state = 17;
   }
 
   reserved 12; // Log
@@ -1318,3 +1325,9 @@ message DiceBlockConcurrentCommandStart {
 message DiceBlockConcurrentCommandEnd {
   string ending_active_trace_id = 1;
 }
+
+message DiceEqualityCheck {
+  bool is_equal = 1;
+}
+
+message NoActiveDiceState {}

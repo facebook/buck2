@@ -265,6 +265,12 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::TargetPatterns(tag) => {
                 self.handle_resolved_target_patterns(tag)
             }
+            buck2_data::instant_event::Data::DiceEqualityCheck(equality_check) => {
+                self.handle_dice_equality_check(equality_check)
+            }
+            buck2_data::instant_event::Data::NoActiveDiceState(no_active_dice_state) => {
+                self.handle_no_active_dice_state(no_active_dice_state)
+            }
         }
         .await
     }
@@ -650,6 +656,18 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_dice_snapshot(
         &mut self,
         _update: &buck2_data::DiceStateSnapshot,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_equality_check(
+        &mut self,
+        _dice_equality_check: &buck2_data::DiceEqualityCheck,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_no_active_dice_state(
+        &mut self,
+        _no_active_dice_state: &buck2_data::NoActiveDiceState,
     ) -> anyhow::Result<()> {
         Ok(())
     }

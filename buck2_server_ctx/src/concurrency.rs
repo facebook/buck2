@@ -27,6 +27,8 @@ use buck2_core::soft_error;
 use buck2_core::truncate::truncate_container;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
+use buck2_data::DiceEqualityCheck;
+use buck2_data::NoActiveDiceState;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
 use dice::Dice;
@@ -236,6 +238,10 @@ impl ConcurrencyHandler {
             if let Some(active_dice) = &data.active_dice {
                 let is_same_state = active_dice.equivalent(&transaction);
 
+                event_dispatcher.instant_event(DiceEqualityCheck {
+                    is_equal: is_same_state,
+                });
+
                 let bypass_semaphore =
                     self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
 
@@ -290,6 +296,8 @@ impl ConcurrencyHandler {
                     }
                 }
             } else {
+                event_dispatcher.instant_event(NoActiveDiceState {});
+
                 data.active_dice = Some(transaction.dupe());
 
                 break;
