@@ -803,7 +803,7 @@ impl DeferredMaterializerCommandProcessor {
                                 timestamp,
                                 version,
                                 result,
-                                self.io_executor.dupe(),
+                                &self.io_executor,
                                 // materialization_finished transitions the entry to Declared stage on errors,
                                 // in which case the version of the newly declared artifact should be bumped.
                                 // Let materialization_finished always consume a version in case the entry
@@ -988,7 +988,7 @@ impl DeferredMaterializerCommandProcessor {
             },
             version,
             processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
-                self.io_executor.dupe(),
+                &self.io_executor,
                 path.clone(),
                 existing_futs,
             ))),
@@ -1539,7 +1539,7 @@ impl ArtifactTree {
         timestamp: DateTime<Utc>,
         version: u64,
         result: Result<(), SharedMaterializingError>,
-        io_executor: Arc<dyn BlockingExecutor>,
+        io_executor: &Arc<dyn BlockingExecutor>,
         next_version: u64,
         sqlite_db: Option<&Arc<MaterializerStateSqliteDb>>,
     ) {
@@ -1806,18 +1806,30 @@ async fn join_all_existing_futs(
 /// Spawns a future to clean output paths while waiting for any
 /// pending future to finish.
 fn clean_output_paths(
-    io_executor: Arc<dyn BlockingExecutor>,
+    io_executor: &Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
 ) -> CleaningFuture {
-    tokio::task::spawn(async move {
-        join_all_existing_futs(existing_futs).await?;
-
-        io_executor
+    if existing_futs.is_empty() {
+        return io_executor
             .dupe()
             .execute_io(box CleanOutputPaths { paths: vec![path] })
-            .await
-            .shared_error()
+            .map(|r| r.shared_error())
+            .boxed()
+            .shared();
+    }
+
+    tokio::task::spawn({
+        let io_executor = io_executor.dupe();
+        async move {
+            join_all_existing_futs(existing_futs).await?;
+
+            io_executor
+                .dupe()
+                .execute_io(box CleanOutputPaths { paths: vec![path] })
+                .await
+                .shared_error()
+        }
     })
     .map(|r| match r {
         Ok(r) => r,

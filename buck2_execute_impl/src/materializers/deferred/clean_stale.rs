@@ -52,7 +52,7 @@ impl ExtensionCommand for CleanStaleArtifacts {
             self.keep_since_time,
             self.dry_run,
             processor.sqlite_db.dupe(),
-            processor.io_executor.dupe(),
+            &processor.io_executor,
         )
         .await;
         let fut = async move {
@@ -73,7 +73,7 @@ pub(crate) async fn gather_clean_futures_for_stale_artifacts(
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
     sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
-    io_executor: Arc<dyn BlockingExecutor>,
+    io_executor: &Arc<dyn BlockingExecutor>,
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
     let mut output = String::new();
     let mut stale_count = 0;
@@ -120,7 +120,7 @@ pub(crate) async fn gather_clean_futures_for_stale_artifacts(
                 .invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref())
                 .await;
 
-            cleaning_futs.push(clean_output_paths(io_executor.dupe(), path, existing_futs));
+            cleaning_futs.push(clean_output_paths(io_executor, path, existing_futs));
         }
     }
 
