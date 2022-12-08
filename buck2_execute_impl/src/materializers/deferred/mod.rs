@@ -762,18 +762,13 @@ impl DeferredMaterializerCommandProcessor {
                                 paths = ?paths,
                                 "invalidate paths",
                             );
-                            let (invalidated_paths, existing_futs) =
-                                tree.invalidate_paths_and_collect_futures(paths);
 
-                            if let Some(sqlite_db) = self.sqlite_db.as_ref() {
-                                if let Err(e) = sqlite_db
-                                    .materializer_state_table()
-                                    .delete(invalidated_paths)
-                                    .await
-                                {
-                                    soft_error!("materializer_error", e).unwrap();
-                                }
-                            }
+                            let existing_futs = tree
+                                .invalidate_paths_and_collect_futures(
+                                    paths,
+                                    self.sqlite_db.as_ref(),
+                                )
+                                .await;
 
                             // TODO: This proably shouldn't return a CleanFuture
                             sender
@@ -977,24 +972,13 @@ impl DeferredMaterializerCommandProcessor {
             version = version,
             "declare artifact",
         );
+
         // Always invalidate materializer state before actual deleting from filesystem
         // so there will never be a moment where artifact is deleted but materializer
         // thinks it still exists.
-        let (invalidated_paths, existing_futs) =
-            tree.invalidate_paths_and_collect_futures(vec![path.clone()]);
-
-        // NOTE: We can invalidate the paths here even if materializations are currently running on
-        // the underlying nodes, because when materialization finishes we'll check the version
-        // number.
-        if let Some(sqlite_db) = self.sqlite_db.as_ref() {
-            if let Err(e) = sqlite_db
-                .materializer_state_table()
-                .delete(invalidated_paths)
-                .await
-            {
-                soft_error!("materializer_error", e).unwrap();
-            }
-        }
+        let existing_futs = tree
+            .invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_ref())
+            .await;
 
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
@@ -1629,15 +1613,14 @@ impl ArtifactTree {
     /// Removes paths from tree and returns a pair of two vecs.
     /// First vec is a list of paths removed. Second vec is a list of
     /// pairs of removed paths to futures that haven't finished.
-    fn invalidate_paths_and_collect_futures(
+    async fn invalidate_paths_and_collect_futures(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
-    ) -> (
-        Vec<ProjectRelativePathBuf>,
-        Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
-    ) {
+        sqlite_db: Option<&Arc<MaterializerStateSqliteDb>>,
+    ) -> Vec<(ProjectRelativePathBuf, ProcessingFuture)> {
         let mut invalidated_paths = Vec::new();
         let mut futs = Vec::new();
+
         for path in paths {
             for (path, data) in self.remove_path(&path) {
                 if let Some(processing_fut) = data.processing_fut {
@@ -1646,7 +1629,21 @@ impl ArtifactTree {
                 invalidated_paths.push(path);
             }
         }
-        (invalidated_paths, futs)
+
+        // We can invalidate the paths here even if materializations are currently running on
+        // the underlying nodes, because when materialization finishes we'll check the version
+        // number.
+        if let Some(sqlite_db) = sqlite_db {
+            if let Err(e) = sqlite_db
+                .materializer_state_table()
+                .delete(invalidated_paths)
+                .await
+            {
+                soft_error!("materializer_error", e).unwrap();
+            }
+        }
+
+        futs
     }
 }
 

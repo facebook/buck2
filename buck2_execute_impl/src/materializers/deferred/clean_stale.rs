@@ -14,7 +14,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_core::soft_error;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
 use chrono::Utc;
@@ -117,18 +116,9 @@ pub(crate) async fn gather_clean_futures_for_stale_artifacts(
         writeln!(output, "Cleaning {} artifacts.", paths_to_clean.len())?;
 
         for path in paths_to_clean {
-            let (invalidated_paths, existing_futs) =
-                tree.invalidate_paths_and_collect_futures(vec![path.clone()]);
-
-            if let Some(sqlite_db) = sqlite_db.as_ref() {
-                if let Err(e) = sqlite_db
-                    .materializer_state_table()
-                    .delete(invalidated_paths)
-                    .await
-                {
-                    soft_error!("materializer_error", e).unwrap();
-                }
-            }
+            let existing_futs = tree
+                .invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref())
+                .await;
 
             cleaning_futs.push(clean_output_paths(
                 io_executor.dupe(),
