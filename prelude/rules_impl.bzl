@@ -226,6 +226,7 @@ def _python_test_attrs():
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_python_toolchain": _python_toolchain(),
+        "_target_os_type": _target_os_type(),
         "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
     }
 

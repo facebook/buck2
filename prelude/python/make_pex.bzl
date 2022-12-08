@@ -18,7 +18,7 @@ load(
 load("@prelude//utils:utils.bzl", "flatten")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
-load(":toolchain.bzl", "PackageStyle")
+load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
 
 # This represents the input to the creation of a Pex. Manifests provide source
 # files, extensions are native extensions, and compile indicates whether we
@@ -28,6 +28,15 @@ PexModules = record(
     extensions = field([ManifestInfo.type, None], None),
     extra_manifests = field([ManifestInfo.type, None], None),
     compile = field(bool.type, False),
+)
+
+# The output of pex creation. It's everything needed to make the DefaultInfo and RunInfo
+# providers.
+PexProviders = record(
+    default_outputs = ["artifact"],
+    other_outputs = ["artifact", "_arglike"],
+    sub_targets = {str.type: ["provider"]},
+    run_cmd = cmd_args.type,
 )
 
 def _srcs(srcs: [""], format = "{}") -> "cmd_args":
@@ -49,7 +58,7 @@ def make_pex(
         pex_modules: PexModules.type,
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
         main_module: str.type,
-        output: "artifact") -> ["_arglike"]:
+        hidden_resources: [None, "_arglike"]) -> PexProviders.type:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
     "executable".
@@ -64,17 +73,28 @@ def make_pex(
           artifact and whether they should be preloaded.
         - main_module: the name of the module to execute when running the
           resulting binary.
-        - output: the artifact to write the resulting binary to.
-        - symlink_tree_path: a location where to write the symlink tree. This
-          is necessary when using in-place packaging, and forbidden when using
-          standalone.
+        - hidden_resources: extra resources the binary depends on.
     """
 
-    if bundled_runtime or package_style == PackageStyle("standalone"):
+    output = ctx.actions.declare_output("{}{}".format(ctx.attrs.name, python_toolchain.pex_extension))
+
+    standalone = package_style == PackageStyle("standalone")
+
+    runtime_files = []
+    if standalone and hidden_resources != None:
+        error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
+        fail(error_msg)
+    if hidden_resources != None:
+        runtime_files.extend(hidden_resources)
+
+    # HACK: runtime bundling is only implemented in make_par (via
+    # python_toolchain.make_pex_standalone), so pretend we're doing a standalone build
+    if bundled_runtime:
         standalone = True
-    elif package_style == PackageStyle("inplace") or package_style == PackageStyle("inplace_lite"):
-        standalone = False
-    else:
+
+    if not (standalone or
+            package_style == PackageStyle("inplace") or
+            package_style == PackageStyle("inplace_lite")):
         fail("unsupported package style: {}".format(package_style))
 
     symlink_tree_path = None
@@ -119,7 +139,21 @@ def make_pex(
         bootstrap.add(bootstrap_args)
         ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
 
-    return hidden
+    runtime_files.extend(hidden)
+
+    run_args = []
+
+    # Windows can't run PAR directly.
+    if ctx.attrs._target_os_type == "windows":
+        run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
+    run_args.append(output)
+
+    return PexProviders(
+        default_outputs = [output],
+        other_outputs = runtime_files,
+        sub_targets = {},
+        run_cmd = cmd_args(run_args).hidden(runtime_files),
+    )
 
 def _pex_bootstrap_args(
         ctx: "context",
@@ -255,3 +289,35 @@ def _pex_modules_args(
         hidden = []
 
     return (cmd, hidden)
+
+def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str.type:
+    """
+    Friendlier error message about putting non-python resources into standalone bins
+    """
+    owner_to_artifacts = {}
+
+    for resource_set in hidden_resources:
+        for resources in resource_set.traverse():
+            for r in resources:
+                if r.is_source:
+                    # Source files; do a string repr so that we get the
+                    # package path in there too
+                    owner_to_artifacts.setdefault("", []).append(str(r))
+                else:
+                    owner_to_artifacts.setdefault(r.owner, []).append(r.short_path)
+
+    msg = (
+        "Cannot package hidden srcs/resources in a standalone python_binary. " +
+        'Eliminate resources in non-Python dependencies of this python binary, use `package_style = "inplace"`, ' +
+        'use `strip_mode="full"` or turn off Split DWARF `-c fbcode.split-dwarf=false` on C++ binary resources.\n'
+    )
+
+    for (rule, resources) in owner_to_artifacts.items():
+        if rule != "":
+            msg += "Hidden srcs/resources for {}\n".format(rule)
+        else:
+            msg += "Source files:\n"
+            msg += "Find the reason this file was included with `buck2 cquery 'allpaths({}, owner(%s))' <file paths>`\n".format(current_target.raw_target())
+        for resource in sorted(resources):
+            msg += "  {}\n".format(resource)
+    return msg

@@ -51,7 +51,7 @@ load(
     ":interface.bzl",
     "PythonLibraryInterface",  # @unused Used as a type
 )
-load(":make_pex.bzl", "PexModules", "make_pex")
+load(":make_pex.bzl", "PexModules", "PexProviders", "make_pex")
 load(
     ":manifest.bzl",
     "create_manifest_for_extensions",
@@ -115,7 +115,7 @@ def python_executable(
         main_module: str.type,
         srcs: {str.type: "artifact"},
         resources: {str.type: ("artifact", ["_arglike"])},
-        compile: bool.type = False) -> ("artifact", ["_arglike"], {str.type: ["provider"]}):
+        compile: bool.type = False) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -164,38 +164,30 @@ def python_executable(
     source_db = create_source_db(ctx, src_manifest, python_deps)
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
-    output, runtime_files, extra = convert_python_library_to_executable(
+    exe = convert_python_library_to_executable(
         ctx,
         main_module,
         info_to_interface(library_info),
         flatten(raw_deps),
         compile,
     )
+    exe.sub_targets.update({
+        "source-db": [source_db],
+        "source-db-no-deps": [source_db_no_deps, library_info],
+    })
 
-    extra["source-db"] = [source_db]
-    extra["source-db-no-deps"] = [source_db_no_deps, library_info]
+    return exe
 
-    return (output, runtime_files, extra)
-
-# Note that this is used by rules outside of prelude (e.g., aienv_layer).
-# aienv_layer potentially uses all of this except omnibus linking.
 def convert_python_library_to_executable(
         ctx: "context",
         main_module: "string",
         library: PythonLibraryInterface.type,
         deps: ["dependency"],
-        compile: bool.type = False):
+        compile: bool.type = False) -> PexProviders.type:
     extra = {}
 
-    # Returns a three tuple: the Python binary, all its potential runtime files,
-    # and subtarget providers.
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     package_style = _package_style(ctx)
-
-    # TODO(nmj): base_module / main should probably just not be supported
-    #                 they were deprecated before, so leave it at that.
-
-    output = ctx.actions.declare_output("{}{}".format(ctx.attrs.name, python_toolchain.pex_extension))
 
     # Convert preloaded deps to a set of their names to be loaded by.
     preload_labels = {d.label: None for d in ctx.attrs.preload_deps}
@@ -379,16 +371,10 @@ def convert_python_library_to_executable(
     for name, lib in native_libs.items():
         shared_libraries[name] = lib, name in preload_names
 
-    runtime_files = []
-    if library.has_hidden_resources():
-        hidden_resources = library.hidden_resources()
-        if package_style == PackageStyle("standalone"):
-            error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
-            fail(error_msg)
-        runtime_files.extend(hidden_resources)
+    hidden_resources = library.hidden_resources() if library.has_hidden_resources() else None
 
     # Build the PEX.
-    hidden = make_pex(
+    pex = make_pex(
         ctx,
         python_toolchain,
         ctx.attrs.bundled_runtime,
@@ -397,12 +383,12 @@ def convert_python_library_to_executable(
         pex_modules,
         shared_libraries,
         main_module,
-        output,
+        hidden_resources,
     )
 
-    runtime_files.extend(hidden)
+    pex.sub_targets.update(extra)
 
-    return output, runtime_files, extra
+    return pex
 
 def python_binary_impl(ctx: "context") -> ["provider"]:
     main_module = ctx.attrs.main_module
@@ -423,58 +409,18 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
         srcs[ctx.attrs.main.short_path] = ctx.attrs.main
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
 
-    output, runtime_files, extra = python_executable(
+    pex = python_executable(
         ctx,
         main_module,
         srcs,
         {},
         compile = value_or(ctx.attrs.compile, False),
     )
-
-    run_args = []
-
-    # Windows can't run PAR directly.
-    if ctx.attrs._target_os_type == "windows":
-        run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
-    run_args.append(output)
-
     return [
         DefaultInfo(
-            default_outputs = [output],
-            other_outputs = runtime_files,
-            sub_targets = extra,
+            default_outputs = pex.default_outputs,
+            other_outputs = pex.other_outputs,
+            sub_targets = pex.sub_targets,
         ),
-        RunInfo(cmd_args(run_args).hidden(runtime_files)),
+        RunInfo(pex.run_cmd),
     ]
-
-def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str.type:
-    """
-    Friendlier error message about putting non-python resources into standalone bins
-    """
-    owner_to_artifacts = {}
-
-    for resource_set in hidden_resources:
-        for resources in resource_set.traverse():
-            for r in resources:
-                if r.is_source:
-                    # Source files; do a string repr so that we get the
-                    # package path in there too
-                    owner_to_artifacts.setdefault("", []).append(str(r))
-                else:
-                    owner_to_artifacts.setdefault(r.owner, []).append(r.short_path)
-
-    msg = (
-        "Cannot package hidden srcs/resources in a standalone python_binary. " +
-        'Eliminate resources in non-Python dependencies of this python binary, use `package_style = "inplace"`, ' +
-        'use `strip_mode="full"` or turn off Split DWARF `-c fbcode.split-dwarf=false` on C++ binary resources.\n'
-    )
-
-    for (rule, resources) in owner_to_artifacts.items():
-        if rule != "":
-            msg += "Hidden srcs/resources for {}\n".format(rule)
-        else:
-            msg += "Source files:\n"
-            msg += "Find the reason this file was included with `buck2 cquery 'allpaths({}, owner(%s))' <file paths>`\n".format(current_target.raw_target())
-        for resource in sorted(resources):
-            msg += "  {}\n".format(resource)
-    return msg
