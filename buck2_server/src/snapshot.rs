@@ -160,9 +160,7 @@ fn add_system_metrics(snapshot: &mut buck2_data::Snapshot, daemon_start_time: In
         snapshot.buck2_user_cpu_us = stats.user_cpu_us;
         snapshot.buck2_system_cpu_us = stats.system_cpu_us;
         snapshot.daemon_uptime_s = daemon_start_time.elapsed().as_secs();
-        if let Some(rss_bytes) = stats.rss_bytes {
-            snapshot.buck2_rss = rss_bytes;
-        }
+        snapshot.buck2_rss = stats.rss_bytes;
     }
     let allocator_stats = get_allocator_stats().ok();
     if let Some(alloc_stats) = allocator_stats {

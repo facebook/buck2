@@ -264,7 +264,7 @@ message RageInvoked {
 message Snapshot {
   // Resident set size in bytes of the buck2 daemon.
   // Does not include subprocesses (e.g. local actions).
-  uint64 buck2_rss = 11;
+  optional uint64 buck2_rss = 11;
   // Maximum resident set size in bytes of the buck2 daemon.
   // Does not include subprocesses (e.g. local actions).
   uint64 buck2_max_rss = 1;

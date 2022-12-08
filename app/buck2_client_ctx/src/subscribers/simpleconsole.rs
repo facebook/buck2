@@ -328,8 +328,8 @@ impl SimpleConsole {
         {
             let mut parts = Vec::with_capacity(2);
             if let Some((_, snapshot)) = &self.two_snapshots.last {
-                if snapshot.buck2_rss != 0 {
-                    parts.push(format!("RSS: {}", HumanizedBytes::new(snapshot.buck2_rss)));
+                if let Some(buck2_rss) = snapshot.buck2_rss {
+                    parts.push(format!("RSS: {}", HumanizedBytes::new(buck2_rss)));
                 }
             }
             if let Some(cpu) = self.two_snapshots.cpu_percents() {

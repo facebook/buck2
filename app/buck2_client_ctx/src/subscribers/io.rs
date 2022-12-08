@@ -94,8 +94,8 @@ impl IoState {
     ) -> anyhow::Result<Vec<Line>> {
         let mut lines = Vec::new();
         let mut parts = Vec::new();
-        if snapshot.buck2_rss != 0 {
-            parts.push(format!("RSS = {}", HumanizedBytes::new(snapshot.buck2_rss)));
+        if let Some(buck2_rss) = snapshot.buck2_rss {
+            parts.push(format!("RSS = {}", HumanizedBytes::new(buck2_rss)));
         }
         if let Some(cpu) = self.two_snapshots.cpu_percents() {
             parts.push(format!("CPU = {}%", cpu));
