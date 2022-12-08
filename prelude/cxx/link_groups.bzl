@@ -6,10 +6,14 @@
 # of this source tree.
 
 load(
+    "@prelude//linking:link_groups.bzl",
+    "LinkGroupLib",  # @unused Used as a type
+    "LinkGroupLibInfo",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",  # @unused Used as a type
-    "LinkInfos",  # @unused Used as a type
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
@@ -20,10 +24,6 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableNode",  # @unused Used as a type
     "get_link_info",
-)
-load(
-    "@prelude//utils:dicts.bzl",
-    "merge_x",
 )
 load(
     "@prelude//utils:graph_utils.bzl",
@@ -58,22 +58,6 @@ LinkGroupLinkInfo = record(
     link_style = field(LinkStyle.type),
 )
 
-# Information about a linkable node which explicitly sets `link_group`.
-LinkGroupLib = record(
-    # The label of the owning target (if any).
-    label = field(["label", None], None),
-    # The shared libs to package for this link group.
-    shared_libs = field({str.type: LinkedObject.type}),
-    # The link info to link against this link group.
-    shared_link_infos = field(LinkInfos.type),
-)
-
-# Provider propagating info about transitive link group libs.
-_LinkGroupLibInfo = provider(fields = [
-    # A map of link group names to their shared libraries.
-    "libs",  # {str.type: _LinkGroupLib.type}
-])
-
 LinkGroupLibSpec = record(
     # The output name given to the linked shared object.
     name = field(str.type),
@@ -84,47 +68,6 @@ LinkGroupLibSpec = record(
     # The link group to link.
     group = field(Group.type),
 )
-
-def gather_link_group_libs(
-        libs: {str.type: LinkGroupLib.type} = {},
-        deps: ["dependency"] = []) -> {str.type: LinkGroupLib.type}:
-    """
-    Return all link groups libs deps and top-level libs.
-    """
-    libs = dict(libs)
-    for dep in deps:
-        dep_info = dep.get(_LinkGroupLibInfo)
-        if dep_info != None:
-            merge_x(
-                libs,
-                dep_info.libs,
-                fmt = "conflicting link group roots for \"{0}\": {1} != {2}",
-            )
-    return libs
-
-def merge_link_group_lib_info(
-        label: "label",
-        name: [str.type, None] = None,
-        shared_libs: [{str.type: LinkedObject.type}, None] = None,
-        shared_link_infos: [LinkInfos.type, None] = None,
-        deps: ["dependency"] = []) -> _LinkGroupLibInfo.type:
-    """
-    Merge and return link group info libs from deps and the current rule wrapped
-    in a provider.
-    """
-    libs = {}
-    if name != None:
-        libs[name] = LinkGroupLib(
-            label = label,
-            shared_libs = shared_libs,
-            shared_link_infos = shared_link_infos,
-        )
-    return _LinkGroupLibInfo(
-        libs = gather_link_group_libs(
-            libs = libs,
-            deps = deps,
-        ),
-    )
 
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
@@ -154,7 +97,7 @@ def get_auto_link_group_libs(ctx: "context") -> [{str.type: LinkGroupLib.type}, 
         return None
 
     if type(link_group_map) == "dependency":
-        info = link_group_map.get(_LinkGroupLibInfo)
+        info = link_group_map.get(LinkGroupLibInfo)
         if info == None:
             return None
         return info.libs

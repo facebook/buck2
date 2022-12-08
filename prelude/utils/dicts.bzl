@@ -20,7 +20,7 @@ def merge_x(dst: {"_a": "_b"}, src: {"_a": "_b"}, fmt = _DEFAULT_FMT):
     for k, v in src.items():
         update_x(dst, k, v, fmt = fmt)
 
-def flatten_x(*ds: {"_a": "_b"}, fmt = _DEFAULT_FMT) -> {"_a": "_b"}:
+def flatten_x(ds: [{"_a": "_b"}], fmt = _DEFAULT_FMT) -> {"_a": "_b"}:
     out = {}
     for d in ds:
         merge_x(out, d, fmt = fmt)

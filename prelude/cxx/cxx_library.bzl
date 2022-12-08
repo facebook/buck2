@@ -32,6 +32,12 @@ load(
     "get_java_packaging_info",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "LinkGroupLib",  # @unused Used as a type
+    "gather_link_group_libs",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
     "LinkArgs",
@@ -111,8 +117,6 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
-    "LinkGroupLib",  # @unused Used as a type
-    "gather_link_group_libs",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -120,7 +124,6 @@ load(
     "get_link_group_info",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
-    "merge_link_group_lib_info",
 )
 load(
     ":linker.bzl",

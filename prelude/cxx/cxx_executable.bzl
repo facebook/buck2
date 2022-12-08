@@ -27,6 +27,11 @@ load(
     "generate_xcode_data",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "LinkGroupLib",
+    "gather_link_group_libs",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
@@ -90,9 +95,7 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
-    "LinkGroupLib",
     "create_link_group",
-    "gather_link_group_libs",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
