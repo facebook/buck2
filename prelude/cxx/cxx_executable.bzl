@@ -102,7 +102,6 @@ load(
     "get_filtered_links",
     "get_filtered_targets",
     "get_link_group",
-    "get_link_group_info",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
 )
@@ -166,7 +165,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     # Link Groups
     link_group = get_link_group(ctx)
-    link_group_info = get_link_group_info(ctx)
+    link_group_info = impl_params.link_group_info
 
     if link_group_info:
         link_groups = link_group_info.groups

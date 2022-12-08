@@ -16,18 +16,51 @@ load(
     "parse_link_group_definitions",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "LinkGroupLibInfo",
+)
+load(
+    "@prelude//linking:link_info.bzl",
+    "MergedLinkInfo",
+)
+load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
     "create_linkable_graph",
     "get_linkable_graph_node_map_func",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+)
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _v1_attrs():
-    return attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()), attrs.option(attrs.enum(Linkage))))))
+def _v1_attrs(optional_root: bool.type = False):
+    attrs_root = attrs.dep(providers = [
+        LinkGroupLibInfo,
+        LinkableGraph,
+        MergedLinkInfo,
+        SharedLibraryInfo,
+    ])
+    if optional_root:
+        attrs_root = attrs.option(attrs_root)
+    return attrs.list(
+        attrs.tuple(
+            attrs.string(),
+            attrs.list(
+                attrs.tuple(
+                    attrs_root,
+                    attrs.enum(Traversal),
+                    attrs.option(attrs.string()),
+                    attrs.option(attrs.enum(Linkage)),
+                ),
+            ),
+        ),
+    )
 
 def link_group_map_attr():
     v2_attrs = attrs.dep(providers = [LinkGroupInfo])
-    return attrs.option(attrs.one_of(v2_attrs, _v1_attrs()), default = None)
+    return attrs.option(attrs.one_of(v2_attrs, _v1_attrs(optional_root = True)), default = None)
 
 def _impl(ctx: "context") -> ["provider"]:
     link_groups = parse_link_group_definitions(ctx.attrs.map)

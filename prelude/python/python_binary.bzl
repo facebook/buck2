@@ -14,6 +14,7 @@ load(
     "CxxRuleConstructorParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
+load("@prelude//cxx:link_groups.bzl", "get_link_group_info")
 load(
     "@prelude//cxx:omnibus.bzl",
     "all_deps",
@@ -296,6 +297,7 @@ def convert_python_library_to_executable(
             list(extension_info.linkable_providers.traverse())
         )
 
+        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
@@ -306,7 +308,8 @@ def convert_python_library_to_executable(
             extra_link_deps = link_deps,
             exe_shared_libs_link_tree = False,
             force_full_hybrid_if_capable = True,
-            auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),
+            link_group_info = link_group_info,
+            auto_link_group_specs = get_cxx_auto_link_group_specs(ctx, link_group_info),
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)

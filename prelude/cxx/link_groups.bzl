@@ -22,8 +22,11 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",  # @unused Used as a type
     "LinkableNode",  # @unused Used as a type
+    "create_linkable_graph",
     "get_link_info",
+    "get_linkable_graph_node_map_func",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -42,6 +45,7 @@ load(
     "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
+    "compute_mappings",
     "parse_groups_definitions",
 )
 load(
@@ -80,7 +84,9 @@ def parse_link_group_definitions(mappings: list.type) -> [Group.type]:
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
 
-def get_link_group_info(ctx: "context") -> [LinkGroupInfo.type, None]:
+def get_link_group_info(
+        ctx: "context",
+        executable_deps: [[LinkableGraph.type], None] = None) -> [LinkGroupInfo.type, None]:
     """
     Parses the currently analyzed context for any link group definitions
     and returns a list of all link groups with their mappings.
@@ -90,10 +96,24 @@ def get_link_group_info(ctx: "context") -> [LinkGroupInfo.type, None]:
     if not link_group_map:
         return None
 
+    # If specified as a dep that provides the `LinkGroupInfo`, use that.
     if type(link_group_map) == "dependency":
         return link_group_map[LinkGroupInfo]
 
-    fail("Link group maps must be provided as a link_group_map rule dependency.")
+    # Otherwise build one from our graph.
+    expect(executable_deps != None)
+    link_groups = parse_link_group_definitions(link_group_map)
+    linkable_graph = create_linkable_graph(
+        ctx,
+        children = executable_deps,
+    )
+    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
+    return LinkGroupInfo(
+        groups = link_groups,
+        groups_hash = hash(str(link_groups)),
+        mappings = mappings,
+    )
 
 def get_auto_link_group_libs(ctx: "context") -> [{str.type: LinkGroupLib.type}, None]:
     """

@@ -23,6 +23,7 @@ load(
 )
 load(
     ":link_groups.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLibSpec",  # @unused Used as a type
 )
 load(
@@ -155,4 +156,5 @@ CxxRuleConstructorParams = record(
     exe_shared_libs_link_tree = field(bool.type, True),
     extra_link_deps = field([LinkableProviders.type], []),
     auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
+    link_group_info = field([LinkGroupInfo.type, None], None),
 )

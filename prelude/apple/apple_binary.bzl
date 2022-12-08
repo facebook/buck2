@@ -11,6 +11,10 @@ load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
 load(
+    "@prelude//cxx:link_groups.bzl",
+    "get_link_group_info",
+)
+load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
 )
@@ -39,6 +43,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         strip_args_factory = apple_strip_args,
         cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
         link_postprocessor = get_apple_link_postprocessor(ctx),
+        link_group_info = get_link_group_info(ctx),
     )
     (cxx_output, _comp_db_info, xcode_data_info) = cxx_executable(ctx, constructor_params)
 

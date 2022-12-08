@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//cxx:link_groups.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
 )
@@ -28,6 +32,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "AnnotatedLinkableRoot",
+    "LinkableGraph",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -40,6 +45,7 @@ load(
 load(
     "@prelude//utils:utils.bzl",
     "expect",
+    "filter_and_map_idx",
     "flatten",
     "value_or",
 )
@@ -53,6 +59,7 @@ load(":cxx_executable.bzl", "cxx_executable")
 load(":cxx_library.bzl", "cxx_library_parameterized")
 load(
     ":cxx_library_utility.bzl",
+    "cxx_attr_deps",
     "cxx_attr_exported_deps",
     "cxx_attr_exported_linker_flags",
     "cxx_attr_exported_post_linker_flags",
@@ -177,8 +184,7 @@ def _only_shared_mappings(group: Group.type) -> bool.type:
             return False
     return True
 
-def get_cxx_auto_link_group_specs(ctx: "context") -> [[LinkGroupLibSpec.type], None]:
-    link_group_info = get_link_group_info(ctx)
+def get_cxx_auto_link_group_specs(ctx: "context", link_group_info: [LinkGroupInfo.type, None]) -> [[LinkGroupLibSpec.type], None]:
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
     specs = []
@@ -201,11 +207,13 @@ def get_cxx_auto_link_group_specs(ctx: "context") -> [[LinkGroupLibSpec.type], N
     return specs
 
 def cxx_binary_impl(ctx: "context") -> ["provider"]:
+    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
-        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),
+        link_group_info = link_group_info,
+        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx, link_group_info),
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params)
 
@@ -533,12 +541,15 @@ def cxx_precompiled_header_impl(ctx: "context") -> ["provider"]:
     ]
 
 def cxx_test_impl(ctx: "context") -> ["provider"]:
+    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
+
     # TODO(T110378115): have the runinfo contain the correct test running args
     params = CxxRuleConstructorParams(
         rule_type = "cxx_test",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
-        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx),
+        link_group_info = link_group_info,
+        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx, link_group_info),
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params, is_cxx_test = True)
 
