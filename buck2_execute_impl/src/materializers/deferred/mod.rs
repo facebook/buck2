@@ -895,18 +895,20 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn declare_existing<'a>(
-        &self,
+        &mut self,
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         version: u64,
     ) {
+        let metadata = ArtifactMetadata::from(value.entry().dupe());
+
         tree.insert(
             path.iter().map(|f| f.to_owned()),
             box ArtifactMaterializationData {
                 deps: value.deps().duped(),
                 stage: ArtifactMaterializationStage::Materialized {
-                    metadata: value.entry().dupe().into(),
+                    metadata: metadata.dupe(),
                     last_access_time: Utc::now(),
                     active: true,
                 },
@@ -914,6 +916,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 processing_fut: None,
             },
         );
+
+        if let Some(sqlite_db) = self.sqlite_db.as_mut() {
+            if let Err(e) = sqlite_db
+                .materializer_state_table()
+                .insert(path, metadata, Utc::now())
+            {
+                soft_error!("materializer_error", e).unwrap();
+            }
+        }
     }
 
     fn declare<'a>(
