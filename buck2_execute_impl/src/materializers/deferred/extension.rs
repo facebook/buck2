@@ -41,8 +41,9 @@ use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::WithPathsIterator;
 
+#[async_trait]
 pub(super) trait ExtensionCommand: Debug + Sync + Send + 'static {
-    fn execute(
+    async fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
         processor: &DeferredMaterializerCommandProcessor,
@@ -69,8 +70,9 @@ struct Iterate {
     sender: UnboundedSender<(ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
 }
 
+#[async_trait]
 impl ExtensionCommand for Iterate {
-    fn execute(
+    async fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
         _processor: &DeferredMaterializerCommandProcessor,
@@ -107,8 +109,9 @@ struct RefreshTtls {
     min_ttl: i64,
 }
 
+#[async_trait]
 impl ExtensionCommand for RefreshTtls {
-    fn execute(
+    async fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
         processor: &DeferredMaterializerCommandProcessor,

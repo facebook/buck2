@@ -732,97 +732,96 @@ impl DeferredMaterializerCommandProcessor {
 
         while let Some(op) = stream.next().await {
             match op {
-                Op::Command(command) => match command {
-                    // Entry point for `get_materialized_file_paths` calls
-                    MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
-                        let result = paths.into_map(|p| tree.file_contents_path(p));
-                        result_sender.send(result).ok();
-                    }
-                    MaterializerCommand::DeclareExisting(artifacts) => {
-                        for (path, artifact) in artifacts {
-                            self.declare_existing(&mut tree, path, artifact, next_version);
+                Op::Command(command) => {
+                    match command {
+                        // Entry point for `get_materialized_file_paths` calls
+                        MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
+                            let result = paths.into_map(|p| tree.file_contents_path(p));
+                            result_sender.send(result).ok();
+                        }
+                        MaterializerCommand::DeclareExisting(artifacts) => {
+                            for (path, artifact) in artifacts {
+                                self.declare_existing(&mut tree, path, artifact, next_version);
+                                next_version += 1;
+                            }
+                        }
+                        // Entry point for `declare_{copy|cas}` calls
+                        MaterializerCommand::Declare(path, value, method) => {
+                            self.declare(&mut tree, path, value, method, next_version)
+                                .await;
                             next_version += 1;
                         }
-                    }
-                    // Entry point for `declare_{copy|cas}` calls
-                    MaterializerCommand::Declare(path, value, method) => {
-                        self.declare(&mut tree, path, value, method, next_version);
-                        next_version += 1;
-                    }
-                    MaterializerCommand::MatchArtifacts(paths, sender) => {
-                        let all_matches = paths
-                            .into_iter()
-                            .all(|(path, value)| self.match_artifact(&mut tree, path, value));
-                        sender.send(all_matches).ok();
-                    }
-                    MaterializerCommand::InvalidateFilePaths(paths, sender) => {
-                        tracing::trace!(
-                            paths = ?paths,
-                            "invalidate paths",
-                        );
-                        let (invalidated_paths, existing_futs) =
-                            tree.invalidate_paths_and_collect_futures(paths);
-                        let sqlite_db = self.sqlite_db.dupe();
-                        let invalidation_fut = tokio::task::spawn(async move {
-                            join_all_existing_futs(existing_futs).await?;
+                        MaterializerCommand::MatchArtifacts(paths, sender) => {
+                            let all_matches = paths
+                                .into_iter()
+                                .all(|(path, value)| self.match_artifact(&mut tree, path, value));
+                            sender.send(all_matches).ok();
+                        }
+                        MaterializerCommand::InvalidateFilePaths(paths, sender) => {
+                            tracing::trace!(
+                                paths = ?paths,
+                                "invalidate paths",
+                            );
+                            let (invalidated_paths, existing_futs) =
+                                tree.invalidate_paths_and_collect_futures(paths);
 
-                            // The existing futures can be in-flight materializations for
-                            // the paths we are about to invalidate. The last thing those
-                            // futures will do is insert into the SQLite DB, so we need to
-                            // wait until they finish before we delete said rows.
-                            // TODO(scottcao): add a unit test to test this behavior
-                            if let Some(sqlite_db) = sqlite_db {
-                                sqlite_db
+                            if let Some(sqlite_db) = self.sqlite_db.as_ref() {
+                                if let Err(e) = sqlite_db
                                     .materializer_state_table()
                                     .delete(invalidated_paths)
-                                    .await?;
+                                    .await
+                                {
+                                    soft_error!("materializer_error", e).unwrap();
+                                }
                             }
 
-                            Ok(())
-                        })
-                        .map(|r| match r {
-                            Ok(r) => r,
-                            Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
-                        })
-                        .boxed()
-                        .shared();
-                        sender.send(invalidation_fut).ok();
-                    }
-                    // Entry point for `ensure_materialized` calls
-                    MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
-                        fut_sender
-                            .send(self.dupe().materialize_many_artifacts(
-                                &mut tree,
-                                paths,
-                                event_dispatcher,
-                            ))
-                            .ok();
-                    }
-                    // Materialization of artifact succeeded
-                    MaterializerCommand::MaterializationFinished {
-                        path,
-                        timestamp,
-                        version,
-                        result,
-                    } => {
-                        tree.materialization_finished(
+                            // TODO: This proably shouldn't return a CleanFuture
+                            sender
+                                .send(
+                                    async move {
+                                        join_all_existing_futs(existing_futs).await.shared_error()
+                                    }
+                                    .boxed()
+                                    .shared(),
+                                )
+                                .ok();
+                        }
+                        // Entry point for `ensure_materialized` calls
+                        MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
+                            fut_sender
+                                .send(self.dupe().materialize_many_artifacts(
+                                    &mut tree,
+                                    paths,
+                                    event_dispatcher,
+                                ))
+                                .ok();
+                        }
+                        // Materialization of artifact succeeded
+                        MaterializerCommand::MaterializationFinished {
                             path,
                             timestamp,
                             version,
                             result,
-                            self.io_executor.dupe(),
-                            // materialization_finished transitions the entry to Declared stage on errors,
-                            // in which case the version of the newly declared artifact should be bumped.
-                            // Let materialization_finished always consume a version in case the entry
-                            // gets redeclared.
-                            next_version,
-                            self.sqlite_db.as_ref(),
-                        )
-                        .await;
-                        next_version += 1;
+                        } => {
+                            tree.materialization_finished(
+                                path,
+                                timestamp,
+                                version,
+                                result,
+                                self.io_executor.dupe(),
+                                // materialization_finished transitions the entry to Declared stage on errors,
+                                // in which case the version of the newly declared artifact should be bumped.
+                                // Let materialization_finished always consume a version in case the entry
+                                // gets redeclared.
+                                next_version,
+                                self.sqlite_db.as_ref(),
+                            )
+                            .await;
+                            next_version += 1;
+                        }
+                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self).await,
                     }
-                    MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self),
-                },
+                }
                 Op::RefreshTtls => {
                     // It'd be neat to just implement this in the refresh_stream itself and simply
                     // have this loop implicitly drive it, but we can't do that as the stream's
@@ -916,7 +915,7 @@ impl DeferredMaterializerCommandProcessor {
         );
     }
 
-    fn declare<'a>(
+    async fn declare<'a>(
         &self,
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
@@ -983,6 +982,20 @@ impl DeferredMaterializerCommandProcessor {
         // thinks it still exists.
         let (invalidated_paths, existing_futs) =
             tree.invalidate_paths_and_collect_futures(vec![path.clone()]);
+
+        // NOTE: We can invalidate the paths here even if materializations are currently running on
+        // the underlying nodes, because when materialization finishes we'll check the version
+        // number.
+        if let Some(sqlite_db) = self.sqlite_db.as_ref() {
+            if let Err(e) = sqlite_db
+                .materializer_state_table()
+                .delete(invalidated_paths)
+                .await
+            {
+                soft_error!("materializer_error", e).unwrap();
+            }
+        }
+
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
             stage: ArtifactMaterializationStage::Declared {
@@ -993,14 +1006,7 @@ impl DeferredMaterializerCommandProcessor {
             processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
                 self.io_executor.dupe(),
                 path.clone(),
-                // In order to make sure we don't have any race conditions when deleting,
-                // we need to wait for all existing I/O futures to finish before
-                // running out own cleaning future. In the case `invalidate_paths_and_collect_futures`
-                // removed an entire sub-trie, we need to wait for all futures from that
-                // sub-trie to finish first.
                 Some(existing_futs),
-                self.sqlite_db.dupe(),
-                invalidated_paths,
             ))),
         };
         tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -1576,10 +1582,6 @@ impl ArtifactTree {
                         io_executor,
                         artifact_path.clone(),
                         None,
-                        // It may be possible that sqlite insertion failed but still inserted
-                        // an entry in the db, in which case we should delete it.
-                        sqlite_db.duped(),
-                        vec![artifact_path],
                     )));
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
@@ -1595,6 +1597,8 @@ impl ArtifactTree {
                     };
                     let metadata = ArtifactMetadata::from(entry);
 
+                    // NOTE: We only insert this artifact if there isn't an in-progress cleanup
+                    // future on this path.
                     if let Some(sqlite_db) = sqlite_db {
                         if let Err(e) = sqlite_db
                             .materializer_state_table()
@@ -1616,6 +1620,7 @@ impl ArtifactTree {
                 }
             }
             None => {
+                // NOTE: This can happen if a path got invalidted while it was being materialized.
                 tracing::debug!("materialization_finished but path is vacant!")
             }
         }
@@ -1807,23 +1812,10 @@ fn clean_output_paths(
     io_executor: Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
     existing_futs: Option<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>,
-    sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
-    invalidated_paths: Vec<ProjectRelativePathBuf>,
 ) -> CleaningFuture {
     tokio::task::spawn(async move {
         if let Some(existing_futs) = existing_futs {
             join_all_existing_futs(existing_futs).await?;
-        }
-
-        // See comment block below the previous call site of `join_all_existing_futs`
-        // in the `MaterializerCommand::InvalidateFilePaths` arm of the match statement
-        // to see why we need to do the sqlite deletion after all existing futures are
-        // finished.
-        if let Some(sqlite_db) = sqlite_db {
-            sqlite_db
-                .materializer_state_table()
-                .delete(invalidated_paths)
-                .await?;
         }
 
         io_executor
