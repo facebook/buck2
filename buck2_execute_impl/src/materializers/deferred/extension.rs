@@ -166,4 +166,8 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
             }))?;
         recv.await?.await
     }
+
+    fn queue_size(&self) -> usize {
+        self.command_sender.counters.queue_size()
+    }
 }

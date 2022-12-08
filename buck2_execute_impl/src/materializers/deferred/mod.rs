@@ -168,6 +168,12 @@ impl MaterializerCounters {
     fn ack_received(&self) {
         self.received.fetch_add(1, Ordering::Relaxed);
     }
+
+    fn queue_size(&self) -> usize {
+        self.sent
+            .load(Ordering::Relaxed)
+            .saturating_sub(self.received.load(Ordering::Relaxed))
+    }
 }
 
 // NOTE: When constructing a MaterializerSender, we just leak the underlying channel. We do this

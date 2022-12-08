@@ -333,6 +333,8 @@ message Snapshot {
   uint64 dice_currently_running_key_count = 102;
   uint32 dice_active_transaction_count = 103;
 
+  uint64 deferred_materializer_queue_size = 104;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received

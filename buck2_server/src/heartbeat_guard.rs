@@ -35,6 +35,7 @@ impl HeartbeatGuard {
             ctx.blocking_executor.dupe(),
             ctx.daemon_start_time,
             ctx.dice_manager.unsafe_dice().dupe(),
+            ctx.materializer.dupe(),
         );
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the

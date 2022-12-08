@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use buck2_common::process_stats::process_stats;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
 use dice::Dice;
 use gazebo::prelude::*;
@@ -27,6 +28,7 @@ pub struct SnapshotCollector {
     blocking_executor: Arc<dyn BlockingExecutor>,
     daemon_start_time: Instant,
     dice: Arc<Dice>,
+    materializer: Arc<dyn Materializer>,
 }
 
 impl SnapshotCollector {
@@ -35,12 +37,14 @@ impl SnapshotCollector {
         blocking_executor: Arc<dyn BlockingExecutor>,
         daemon_start_time: Instant,
         dice: Arc<Dice>,
+        materializer: Arc<dyn Materializer>,
     ) -> SnapshotCollector {
         SnapshotCollector {
             re_client_manager,
             blocking_executor,
             daemon_start_time,
             dice,
+            materializer,
         }
     }
 
@@ -60,6 +64,7 @@ impl SnapshotCollector {
         self.add_re_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
         self.add_dice_metrics(&mut snapshot);
+        self.add_materializer_metrics(&mut snapshot);
         snapshot
     }
 
@@ -151,6 +156,12 @@ impl SnapshotCollector {
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_currently_running_key_count = metrics.currently_running_key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
+    }
+
+    fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        if let Some(dm) = self.materializer.as_deferred_materializer_extension() {
+            snapshot.deferred_materializer_queue_size = dm.queue_size() as _;
+        }
     }
 }
 

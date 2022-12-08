@@ -110,7 +110,7 @@ pub struct DaemonStateData {
     /// needs access to the `ReConnectionManager` to download from RE. It must
     /// live for the entire lifetime of the daemon, in order to allow deferred
     /// materializations to work properly between distinct build commands.
-    materializer: Arc<dyn Materializer>,
+    pub(crate) materializer: Arc<dyn Materializer>,
 
     forkserver: Option<ForkserverClient>,
 

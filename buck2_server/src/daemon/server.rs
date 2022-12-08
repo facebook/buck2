@@ -695,6 +695,7 @@ impl DaemonApi for BuckdServer {
                         data.blocking_executor.dupe(),
                         data.start_time,
                         data.dice_manager.unsafe_dice().dupe(),
+                        data.materializer.dupe(),
                     )
                     .create_snapshot(),
                 )
