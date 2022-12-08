@@ -32,6 +32,8 @@ use chrono::TimeZone;
 use chrono::Utc;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use parking_lot::Mutex;
+use rusqlite::Connection;
 use thiserror::Error;
 
 use crate::materializers::deferred::ArtifactMetadata;
@@ -246,19 +248,18 @@ impl TryFrom<ArtifactMetadataSqliteEntry> for ArtifactMetadata {
     }
 }
 
-#[derive(Clone)]
 pub(crate) struct MaterializerStateSqliteTable {
-    connection: Arc<tokio_rusqlite::Connection>,
+    connection: Arc<Mutex<Connection>>,
 }
 
 impl MaterializerStateSqliteTable {
     const TABLE_NAME: &'static str = "materializer_state";
 
-    pub fn new(connection: Arc<tokio_rusqlite::Connection>) -> Self {
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
     }
 
-    pub(crate) async fn create_table(&self) -> anyhow::Result<()> {
+    pub(crate) fn create_table(&self) -> anyhow::Result<()> {
         let sql = format!(
             "CREATE TABLE {} (
                 path                    TEXT NOT NULL PRIMARY KEY,
@@ -273,13 +274,13 @@ impl MaterializerStateSqliteTable {
         );
         tracing::trace!(sql = %sql, "creating table");
         self.connection
-            .call(move |connection| connection.execute(&sql, []))
-            .await
+            .lock()
+            .execute(&sql, [])
             .with_context(|| format!("creating sqlite table {}", Self::TABLE_NAME))?;
         Ok(())
     }
 
-    pub(crate) async fn insert(
+    pub(crate) fn insert(
         &self,
         path: ProjectRelativePathBuf,
         metadata: ArtifactMetadata,
@@ -292,26 +293,24 @@ impl MaterializerStateSqliteTable {
         );
         tracing::trace!(sql = %sql, entry = ?entry, "inserting into table");
         self.connection
-            .call(move |connection| {
-                connection.execute(
-                    &sql,
-                    rusqlite::params![
-                        path.as_str(),
-                        entry.artifact_type,
-                        entry.digest_size,
-                        entry.digest_sha1,
-                        entry.file_is_executable,
-                        entry.symlink_target,
-                        timestamp.timestamp(),
-                    ],
-                )
-            })
-            .await
+            .lock()
+            .execute(
+                &sql,
+                rusqlite::params![
+                    path.as_str(),
+                    entry.artifact_type,
+                    entry.digest_size,
+                    entry.digest_sha1,
+                    entry.file_is_executable,
+                    entry.symlink_target,
+                    timestamp.timestamp(),
+                ],
+            )
             .with_context(|| format!("inserting into sqlite table {}", Self::TABLE_NAME))?;
         Ok(())
     }
 
-    pub(crate) async fn update_access_time(
+    pub(crate) fn update_access_time(
         &self,
         path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
@@ -322,50 +321,44 @@ impl MaterializerStateSqliteTable {
         );
         tracing::trace!(sql = %sql, now = %timestamp, "updating last_access_time");
         self.connection
-            .call(move |connection| {
-                connection.execute(
-                    &sql,
-                    rusqlite::params![timestamp.timestamp(), path.as_str()],
-                )
-            })
-            .await
+            .lock()
+            .execute(
+                &sql,
+                rusqlite::params![timestamp.timestamp(), path.as_str()],
+            )
             .with_context(|| format!("updating sqlite table {}", Self::TABLE_NAME))?;
         Ok(())
     }
 
-    pub(crate) async fn read_all(&self) -> anyhow::Result<MaterializerState> {
+    pub(crate) fn read_all(&self) -> anyhow::Result<MaterializerState> {
         let sql = format!(
             "SELECT path, artifact_type, digest_size, digest_sha1, file_is_executable, symlink_target, last_access_time FROM {}",
             Self::TABLE_NAME,
         );
         tracing::trace!(sql = %sql, "reading all from table");
-        let state = self
-            .connection
-            .call(move |connection| {
-                let mut stmt = connection.prepare(&sql)?;
-                let result: rusqlite::Result<Vec<(String, ArtifactMetadataSqliteEntry, i64)>> =
-                    stmt.query_map(
-                        [],
-                        |row| -> rusqlite::Result<(String, ArtifactMetadataSqliteEntry, i64)> {
-                            Ok((
-                                row.get(0)?,
-                                ArtifactMetadataSqliteEntry::new(
-                                    row.get(1)?,
-                                    row.get(2)?,
-                                    row.get(3)?,
-                                    row.get(4)?,
-                                    row.get(5)?,
-                                ),
-                                row.get(6)?,
-                            ))
-                        },
-                    )?
-                    .collect();
-                result
-            })
-            .await
+        let connection = self.connection.lock();
+        let mut stmt = connection.prepare(&sql)?;
+        let result = stmt
+            .query_map(
+                [],
+                |row| -> rusqlite::Result<(String, ArtifactMetadataSqliteEntry, i64)> {
+                    Ok((
+                        row.get(0)?,
+                        ArtifactMetadataSqliteEntry::new(
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                        ),
+                        row.get(6)?,
+                    ))
+                },
+            )?
+            .collect::<Result<Vec<_>, _>>()
             .with_context(|| format!("reading from sqlite table {}", Self::TABLE_NAME))?;
-        state
+
+        result
             .into_try_map(
                 |(path, entry, last_access_time)| -> anyhow::Result<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))> {
                     let path = ProjectRelativePathBuf::unchecked_new(path);
@@ -377,7 +370,7 @@ impl MaterializerStateSqliteTable {
             .with_context(|| format!("error reading row of sqlite table {}", Self::TABLE_NAME))
     }
 
-    pub(crate) async fn delete(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<usize> {
+    pub(crate) fn delete(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<usize> {
         if paths.is_empty() {
             return Ok(0);
         }
@@ -390,13 +383,11 @@ impl MaterializerStateSqliteTable {
         );
         let rows_deleted = self
             .connection
-            .call(move |connection| {
-                connection.execute(
-                    &sql,
-                    rusqlite::params_from_iter(paths.iter().map(|p| p.as_str())),
-                )
-            })
-            .await
+            .lock()
+            .execute(
+                &sql,
+                rusqlite::params_from_iter(paths.iter().map(|p| p.as_str())),
+            )
             .with_context(|| format!("deleting from sqlite table {}", Self::TABLE_NAME))?;
         Ok(rows_deleted)
     }
@@ -433,8 +424,8 @@ pub struct MaterializerStateSqliteDb {
 
 impl MaterializerStateSqliteDb {
     /// Given path to sqlite DB, opens and returns a new connection to the DB.
-    pub async fn open(path: &AbsNormPath) -> anyhow::Result<Self> {
-        let connection = Arc::new(tokio_rusqlite::Connection::open(path).await?);
+    pub fn open(path: &AbsNormPath) -> anyhow::Result<Self> {
+        let connection = Arc::new(Mutex::new(Connection::open(path)?));
         let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
         let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
         let metadata_table = KeyValueSqliteTable::new("metadata".to_owned(), connection);
@@ -464,6 +455,15 @@ impl MaterializerStateSqliteDb {
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
+        io_executor
+            .execute_io_inline(|| Self::load_or_initialize_impl(materializer_state_dir, versions))
+            .await
+    }
+
+    pub fn load_or_initialize_impl(
+        materializer_state_dir: AbsNormPathBuf,
+        versions: HashMap<String, Option<String>>,
+    ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
 
         let result: anyhow::Result<(Self, MaterializerState)> = try {
@@ -474,19 +474,19 @@ impl MaterializerStateSqliteDb {
                 ))?
             }
 
-            let db = Self::open(&db_path).await?;
+            let db = Self::open(&db_path)?;
 
             // First check that versions match
-            let read_versions = db.versions_table.read_all().await?;
+            let read_versions = db.versions_table.read_all()?;
             if read_versions != versions {
                 Err(MaterializerStateSqliteDbError::VersionMismatch {
                     expected: versions.clone(),
-                    found: read_versions.clone(),
+                    found: read_versions,
                     path: db_path.clone(),
                 })?;
             }
 
-            let state = db.materializer_state_table().read_all().await?;
+            let state = db.materializer_state_table().read_all()?;
             (db, state)
         };
         match result {
@@ -497,20 +497,16 @@ impl MaterializerStateSqliteDb {
                 // Delete the existing materializer_state directory and create a new one.
                 // We delete the entire directory and not just the db file because sqlite
                 // can leave behind other files.
-                io_executor
-                    .execute_io_inline(|| {
-                        if materializer_state_dir.exists() {
-                            fs_util::remove_dir_all(&materializer_state_dir)?;
-                        }
-                        fs_util::create_dir_all(&materializer_state_dir)
-                    })
-                    .await?;
+                if materializer_state_dir.exists() {
+                    fs_util::remove_dir_all(&materializer_state_dir)?;
+                }
+                fs_util::create_dir_all(&materializer_state_dir)?;
 
                 // Initialize a new db
-                let db = Self::open(&db_path).await?;
-                db.create_all_tables().await?;
+                let db = Self::open(&db_path)?;
+                db.create_all_tables()?;
                 for (key, value) in versions.into_iter() {
-                    db.versions_table.insert(key, value).await?;
+                    db.versions_table.insert(key, value)?;
                 }
 
                 Ok((db, Err(e)))
@@ -522,12 +518,10 @@ impl MaterializerStateSqliteDb {
         &self.materializer_state_table
     }
 
-    pub(crate) async fn create_all_tables(&self) -> anyhow::Result<()> {
-        // We can do these awaits in serial because writes through the same `Connection`
-        // get serialized anyways.
-        self.materializer_state_table.create_table().await?;
-        self.versions_table.create_table().await?;
-        self.metadata_table.create_table().await?;
+    pub(crate) fn create_all_tables(&self) -> anyhow::Result<()> {
+        self.materializer_state_table.create_table()?;
+        self.versions_table.create_table()?;
+        self.metadata_table.create_table()?;
         Ok(())
     }
 }
@@ -546,7 +540,6 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::directory::new_symlink;
     use buck2_execute::directory::ActionDirectoryMember;
-    use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
 
     use super::*;
 
@@ -607,18 +600,17 @@ mod tests {
             .unwrap()
     }
 
-    #[tokio::test]
-    async fn test_materializer_state_sqlite_table() {
+    #[test]
+    fn test_materializer_state_sqlite_table() {
         let fs = ProjectRootTemp::new().unwrap();
-        let connection = tokio_rusqlite::Connection::open(
+        let connection = Connection::open(
             fs.path()
                 .resolve(ProjectRelativePath::unchecked_new("test.db")),
         )
-        .await
         .unwrap();
-        let table = MaterializerStateSqliteTable::new(Arc::new(connection));
+        let table = MaterializerStateSqliteTable::new(Arc::new(Mutex::new(connection)));
 
-        table.create_table().await.unwrap();
+        table.create_table().unwrap();
 
         let dir_fingerprint = TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"directory"));
         let file = ActionDirectoryMember::File(FileMetadata {
@@ -669,43 +661,40 @@ mod tests {
         for (path, metadata) in artifacts.iter() {
             table
                 .insert(path.to_owned(), metadata.0.clone(), metadata.1)
-                .await
                 .unwrap();
         }
 
-        let state = table.read_all().await.unwrap();
+        let state = table.read_all().unwrap();
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
 
         let paths_to_remove = vec![
             ProjectRelativePath::unchecked_new("d").to_owned(),
             ProjectRelativePath::unchecked_new("doesnt/exist").to_owned(),
         ];
-        let rows_deleted = table.delete(paths_to_remove.clone()).await.unwrap();
+        let rows_deleted = table.delete(paths_to_remove.clone()).unwrap();
         assert_eq!(rows_deleted, 1);
 
         for path in paths_to_remove.iter() {
             artifacts.remove(path);
         }
-        let state = table.read_all().await.unwrap();
+        let state = table.read_all().unwrap();
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
     }
 
-    async fn testing_materializer_state_sqlite_db(
+    fn testing_materializer_state_sqlite_db(
         fs: &ProjectRoot,
         versions: HashMap<String, Option<String>>,
     ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
-        MaterializerStateSqliteDb::load_or_initialize(
+        MaterializerStateSqliteDb::load_or_initialize_impl(
             fs.resolve(ProjectRelativePath::unchecked_new(
                 "buck-out/v2/cache/materializer_state",
             )),
             versions,
-            Arc::new(DummyBlockingExecutor { fs: fs.clone() }),
         )
-        .await
     }
 
-    #[tokio::test]
-    async fn test_load_or_initialize_sqlite_db() -> anyhow::Result<()> {
+    #[test]
+    fn test_load_or_initialize_sqlite_db() -> anyhow::Result<()> {
         let fs = ProjectRootTemp::new()?;
 
         let path = ProjectRelativePath::unchecked_new("foo").to_owned();
@@ -718,7 +707,6 @@ mod tests {
                 fs.path(),
                 HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
             )
-            .await
             .unwrap();
             assert_matches!(
                 loaded_state,
@@ -731,7 +719,6 @@ mod tests {
 
             db.materializer_state_table()
                 .insert(path.clone(), artifact_metadata.clone(), timestamp)
-                .await
                 .unwrap();
         }
 
@@ -740,7 +727,6 @@ mod tests {
                 fs.path(),
                 HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
             )
-            .await
             .unwrap();
             assert_matches!(
                 loaded_state,
@@ -755,7 +741,6 @@ mod tests {
                 fs.path(),
                 HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
             )
-            .await
             .unwrap();
             assert_matches!(
                 loaded_state,
@@ -772,7 +757,6 @@ mod tests {
 
             db.materializer_state_table()
                 .insert(path.clone(), artifact_metadata.clone(), timestamp)
-                .await
                 .unwrap();
         }
 
@@ -781,7 +765,6 @@ mod tests {
                 fs.path(),
                 HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
             )
-            .await
             .unwrap();
             assert_matches!(
                 loaded_state,

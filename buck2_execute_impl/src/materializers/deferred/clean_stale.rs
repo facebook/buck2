@@ -11,7 +11,6 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
-use async_trait::async_trait;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -40,9 +39,8 @@ pub struct CleanStaleArtifacts {
     pub sender: Sender<BoxFuture<'static, anyhow::Result<String>>>,
 }
 
-#[async_trait]
 impl ExtensionCommand for CleanStaleArtifacts {
-    async fn execute(
+    fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
         processor: &DeferredMaterializerCommandProcessor,
@@ -53,8 +51,7 @@ impl ExtensionCommand for CleanStaleArtifacts {
             self.dry_run,
             processor.sqlite_db.dupe(),
             &processor.io_executor,
-        )
-        .await;
+        );
         let fut = async move {
             let (cleaning_futs, output) = res?;
             for t in cleaning_futs {
@@ -68,7 +65,7 @@ impl ExtensionCommand for CleanStaleArtifacts {
     }
 }
 
-pub(crate) async fn gather_clean_futures_for_stale_artifacts(
+pub(crate) fn gather_clean_futures_for_stale_artifacts(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
@@ -116,9 +113,8 @@ pub(crate) async fn gather_clean_futures_for_stale_artifacts(
         writeln!(output, "Cleaning {} artifacts.", paths_to_clean.len())?;
 
         for path in paths_to_clean {
-            let existing_futs = tree
-                .invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref())
-                .await;
+            let existing_futs =
+                tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref());
 
             cleaning_futs.push(clean_output_paths(io_executor, path, existing_futs));
         }

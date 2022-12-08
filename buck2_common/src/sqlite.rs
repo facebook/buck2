@@ -11,23 +11,24 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
+use parking_lot::Mutex;
+use rusqlite::Connection;
 
 /// A generic sqlite table for storing string key-value pairs.
-#[derive(Clone)]
 pub struct KeyValueSqliteTable {
     table_name: String,
-    connection: Arc<tokio_rusqlite::Connection>,
+    connection: Arc<Mutex<Connection>>,
 }
 
 impl KeyValueSqliteTable {
-    pub fn new(table_name: String, connection: Arc<tokio_rusqlite::Connection>) -> Self {
+    pub fn new(table_name: String, connection: Arc<Mutex<Connection>>) -> Self {
         Self {
             table_name,
             connection,
         }
     }
 
-    pub async fn create_table(&self) -> anyhow::Result<()> {
+    pub fn create_table(&self) -> anyhow::Result<()> {
         let sql = format!(
             "CREATE TABLE {} (
                 key     TEXT PRIMARY KEY NOT NULL,
@@ -37,13 +38,13 @@ impl KeyValueSqliteTable {
         );
         tracing::trace!(sql = %sql, "creating table");
         self.connection
-            .call(move |connection| connection.execute(&sql, []))
-            .await
+            .lock()
+            .execute(&sql, [])
             .with_context(|| format!("creating sqlite table {}", self.table_name))?;
         Ok(())
     }
 
-    pub async fn insert(&self, key: String, value: Option<String>) -> anyhow::Result<()> {
+    pub fn insert(&self, key: String, value: Option<String>) -> anyhow::Result<()> {
         // TODO(scottcao): Make this an `insert_all` for batch inserts.
         let sql = format!(
             "INSERT INTO {} (key, value) VALUES (?1, ?2)",
@@ -51,25 +52,20 @@ impl KeyValueSqliteTable {
         );
         tracing::trace!(sql = %sql, key = %key, value = ?value, "inserting into table");
         self.connection
-            .call(move |connection| connection.execute(&sql, rusqlite::params![key, value]))
-            .await
+            .lock()
+            .execute(&sql, rusqlite::params![key, value])
             .with_context(|| format!("inserting into sqlite table {}", self.table_name))?;
         Ok(())
     }
 
-    pub async fn read_all(&self) -> anyhow::Result<HashMap<String, Option<String>>> {
+    pub fn read_all(&self) -> anyhow::Result<HashMap<String, Option<String>>> {
         let sql = format!("SELECT key, value FROM {}", self.table_name);
         tracing::trace!(sql = %sql, "read all from table");
-        let map = self
-            .connection
-            .call(move |connection| {
-                let mut stmt = connection.prepare(&sql)?;
-                let result: rusqlite::Result<HashMap<String, Option<String>>> = stmt
-                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-                    .collect();
-                result
-            })
-            .await
+        let connection = self.connection.lock();
+        let mut stmt = connection.prepare(&sql)?;
+        let map = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<HashMap<String, Option<String>>, _>>()
             .with_context(|| format!("reading from sqlite table {}", self.table_name))?;
         Ok(map)
     }
@@ -84,25 +80,24 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_key_value_sqlite_table() {
+    #[test]
+    fn test_key_value_sqlite_table() {
         let fs = ProjectRootTemp::new().unwrap();
-        let connection = tokio_rusqlite::Connection::open(
+        let connection = Connection::open(
             fs.path()
                 .resolve(ProjectRelativePath::unchecked_new("test.db")),
         )
-        .await
         .unwrap();
-        let table = KeyValueSqliteTable::new("metadata".to_owned(), Arc::new(connection));
+        let table =
+            KeyValueSqliteTable::new("metadata".to_owned(), Arc::new(Mutex::new(connection)));
 
-        table.create_table().await.unwrap();
+        table.create_table().unwrap();
 
         table
             .insert("foo".to_owned(), Some("bar".to_owned()))
-            .await
             .unwrap();
 
-        let map = table.read_all().await.unwrap();
+        let map = table.read_all().unwrap();
         assert_eq!(
             map,
             HashMap::from([("foo".to_owned(), Some("bar".to_owned()))])

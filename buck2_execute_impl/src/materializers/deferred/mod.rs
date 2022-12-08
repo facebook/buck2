@@ -747,8 +747,7 @@ impl DeferredMaterializerCommandProcessor {
                         }
                         // Entry point for `declare_{copy|cas}` calls
                         MaterializerCommand::Declare(path, value, method) => {
-                            self.declare(&mut tree, path, value, method, next_version)
-                                .await;
+                            self.declare(&mut tree, path, value, method, next_version);
                             next_version += 1;
                         }
                         MaterializerCommand::MatchArtifacts(paths, sender) => {
@@ -763,12 +762,10 @@ impl DeferredMaterializerCommandProcessor {
                                 "invalidate paths",
                             );
 
-                            let existing_futs = tree
-                                .invalidate_paths_and_collect_futures(
-                                    paths,
-                                    self.sqlite_db.as_ref(),
-                                )
-                                .await;
+                            let existing_futs = tree.invalidate_paths_and_collect_futures(
+                                paths,
+                                self.sqlite_db.as_ref(),
+                            );
 
                             // TODO: This proably shouldn't return a CleanFuture
                             sender
@@ -814,7 +811,7 @@ impl DeferredMaterializerCommandProcessor {
                             .await;
                             next_version += 1;
                         }
-                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self).await,
+                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self),
                     }
                 }
                 Op::RefreshTtls => {
@@ -910,7 +907,7 @@ impl DeferredMaterializerCommandProcessor {
         );
     }
 
-    async fn declare<'a>(
+    fn declare<'a>(
         &self,
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
@@ -976,9 +973,8 @@ impl DeferredMaterializerCommandProcessor {
         // Always invalidate materializer state before actual deleting from filesystem
         // so there will never be a moment where artifact is deleted but materializer
         // thinks it still exists.
-        let existing_futs = tree
-            .invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_ref())
-            .await;
+        let existing_futs =
+            tree.invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_ref());
 
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
@@ -1107,24 +1103,12 @@ impl DeferredMaterializerCommandProcessor {
                     }
 
                     if let Some(sqlite_db) = self.sqlite_db.as_ref() {
-                        let sqlite_db = sqlite_db.dupe();
-                        let path = path.to_buf();
-
-                        return Some(
-                            async move {
-                                if let Err(e) = sqlite_db
-                                    .materializer_state_table()
-                                    .update_access_time(path, timestamp)
-                                    .await
-                                {
-                                    soft_error!("materializer_error", e).unwrap();
-                                }
-
-                                Ok(())
-                            }
-                            .boxed()
-                            .shared(),
-                        );
+                        if let Err(e) = sqlite_db
+                            .materializer_state_table()
+                            .update_access_time(path.to_buf(), timestamp)
+                        {
+                            soft_error!("materializer_error", e).unwrap();
+                        }
                     }
 
                     return None;
@@ -1565,11 +1549,11 @@ impl ArtifactTree {
                     // NOTE: We only insert this artifact if there isn't an in-progress cleanup
                     // future on this path.
                     if let Some(sqlite_db) = sqlite_db {
-                        if let Err(e) = sqlite_db
-                            .materializer_state_table()
-                            .insert(artifact_path, metadata.dupe(), timestamp)
-                            .await
-                        {
+                        if let Err(e) = sqlite_db.materializer_state_table().insert(
+                            artifact_path,
+                            metadata.dupe(),
+                            timestamp,
+                        ) {
                             // TODO (torozco): Soft-erroring here is not appropriate. We should
                             // exit the process at this point. Let's check we don't unexpectedly hit
                             // this first.
@@ -1594,7 +1578,7 @@ impl ArtifactTree {
     /// Removes paths from tree and returns a pair of two vecs.
     /// First vec is a list of paths removed. Second vec is a list of
     /// pairs of removed paths to futures that haven't finished.
-    async fn invalidate_paths_and_collect_futures(
+    fn invalidate_paths_and_collect_futures(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
         sqlite_db: Option<&Arc<MaterializerStateSqliteDb>>,
@@ -1618,7 +1602,6 @@ impl ArtifactTree {
             if let Err(e) = sqlite_db
                 .materializer_state_table()
                 .delete(invalidated_paths)
-                .await
             {
                 soft_error!("materializer_error", e).unwrap();
             }

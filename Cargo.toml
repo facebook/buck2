@@ -178,7 +178,6 @@ textwrap = "0.15"
 thiserror = "1.0.36"
 threadpool = "1.8.1"
 tokio = { version = "1.5", features = ["full"] }
-tokio-rusqlite = "0.3.0"
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tokio-util = { version = "0.7.1", features = ["full"] }
 toml = "0.5.8"
