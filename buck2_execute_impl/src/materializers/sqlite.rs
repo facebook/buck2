@@ -431,6 +431,26 @@ impl MaterializerStateSqliteDb {
             connection.pragma_update(None, "journal_mode", "WAL")?;
         }
 
+        // Setting synchronous to anything but OFF prevents data corruption in case of power loss,
+        // but for the deferred materializer state, we are rather happy to run the risk of data
+        // corruption (which we recover from by just dropping the state and pretending we have
+        // none), rather than running a `fsync` at any point during a build, which tends to be
+        // *very* slow, because if we do a `fsync` from the deferred materializer, that will tend
+        // to occur after a lot of writes have been done, which means a lot of data needs syncing!
+        //
+        // Note that upon power loss there isn't really a guarantee of ordering of things written
+        // across different files anyway, so we always run some risk of having our state be
+        // incorrect if that happens, unless we fsync after every single write, but, that's
+        // definitely not an option.
+        //
+        // This problem notably manifests itself when routing writes through the deferred
+        // materializer on a benchmark build. This causes the set of operations done by the
+        // deferred materializer to exceed the WAL max size (which is 1000 pages that are 4KB each,
+        // so about 4MB of data), which causes SQLite to write the WAL to the database file, which
+        // is the only circumstance under which SQLite does a `fsync` when WAL is enabled, and then
+        // we completely stall I/O for a little while.
+        connection.pragma_update(None, "synchronous", "OFF")?;
+
         let connection = Arc::new(Mutex::new(connection));
         let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
         let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
