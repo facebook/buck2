@@ -36,6 +36,7 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::soft_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -815,8 +816,9 @@ impl DeferredMaterializerCommandProcessor {
                             // Let materialization_finished always consume a version in case the entry
                             // gets redeclared.
                             next_version,
-                            self.sqlite_db.dupe(),
-                        );
+                            self.sqlite_db.as_ref(),
+                        )
+                        .await;
                         next_version += 1;
                     }
                     MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self),
@@ -1208,7 +1210,6 @@ impl DeferredMaterializerCommandProcessor {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let command_sender = self.command_sender.clone();
-        let sqlite_db = self.sqlite_db.dupe();
         let task = tokio::task::spawn(async move {
             // Materialize the deps and this entry. This *must* happen in a try block because we
             // need to notity the materializer regardless of whether this succeeds or fails.
@@ -1243,16 +1244,6 @@ impl DeferredMaterializerCommandProcessor {
                             event_dispatcher.dupe(),
                         )
                         .await?;
-
-                    // Record in sqlite that this artifact is now materialized
-                    if let Some(sqlite_db) = sqlite_db {
-                        sqlite_db
-                            .materializer_state_table()
-                            .insert(path_buf.clone(), entry.into(), timestamp)
-                            .await
-                            .shared_error()
-                            .map_err(SharedMaterializingError::SqliteDbError)?;
-                    }
                 };
 
                 // Wait for the deps (targets) of the entry's symlinks to be materialized
@@ -1552,7 +1543,7 @@ impl ArtifactTree {
     }
 
     #[instrument(level = "debug", skip(self, result, io_executor, sqlite_db), fields(path = %artifact_path, version = %version))]
-    fn materialization_finished(
+    async fn materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
@@ -1560,7 +1551,7 @@ impl ArtifactTree {
         result: Result<(), SharedMaterializingError>,
         io_executor: Arc<dyn BlockingExecutor>,
         next_version: u64,
-        sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
+        sqlite_db: Option<&Arc<MaterializerStateSqliteDb>>,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
@@ -1587,7 +1578,7 @@ impl ArtifactTree {
                         None,
                         // It may be possible that sqlite insertion failed but still inserted
                         // an entry in the db, in which case we should delete it.
-                        sqlite_db,
+                        sqlite_db.duped(),
                         vec![artifact_path],
                     )));
                 } else {
@@ -1602,7 +1593,21 @@ impl ArtifactTree {
                             method: _method,
                         } => entry.dupe(),
                     };
-                    let metadata = entry.into();
+                    let metadata = ArtifactMetadata::from(entry);
+
+                    if let Some(sqlite_db) = sqlite_db {
+                        if let Err(e) = sqlite_db
+                            .materializer_state_table()
+                            .insert(artifact_path, metadata.dupe(), timestamp)
+                            .await
+                        {
+                            // TODO (torozco): Soft-erroring here is not appropriate. We should
+                            // exit the process at this point. Let's check we don't unexpectedly hit
+                            // this first.
+                            soft_error!("materializer_error", e).unwrap();
+                        }
+                    }
+
                     info.stage = ArtifactMaterializationStage::Materialized {
                         metadata,
                         last_access_time: timestamp,
