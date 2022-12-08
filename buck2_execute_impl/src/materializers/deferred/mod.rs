@@ -165,7 +165,7 @@ struct DeferredMaterializerIoHandler {
 
 struct DeferredMaterializerCommandProcessor {
     io: Arc<DeferredMaterializerIoHandler>,
-    sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
+    sqlite_db: Option<MaterializerStateSqliteDb>,
     ttl_refresh_frequency: std::time::Duration,
     ttl_refresh_min_ttl: Duration,
     ttl_refresh_enabled: bool,
@@ -660,7 +660,7 @@ impl DeferredMaterializer {
                 io_executor: io_executor.dupe(),
                 command_sender: command_sender.clone(),
             }),
-            sqlite_db: sqlite_db.map(Arc::new),
+            sqlite_db,
             ttl_refresh_frequency: configs.ttl_refresh_frequency,
             ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
             ttl_refresh_enabled: configs.ttl_refresh_enabled,
@@ -704,7 +704,7 @@ impl DeferredMaterializerCommandProcessor {
     ///
     /// It takes commands via the `Materializer` trait methods.
     async fn run(
-        self,
+        mut self,
         commands: mpsc::UnboundedReceiver<MaterializerCommand>,
         mut tree: ArtifactTree,
     ) {
@@ -770,7 +770,7 @@ impl DeferredMaterializerCommandProcessor {
 
                             let existing_futs = tree.invalidate_paths_and_collect_futures(
                                 paths,
-                                self.sqlite_db.as_ref(),
+                                self.sqlite_db.as_mut(),
                             );
 
                             // TODO: This proably shouldn't return a CleanFuture
@@ -812,12 +812,12 @@ impl DeferredMaterializerCommandProcessor {
                                 // Let materialization_finished always consume a version in case the entry
                                 // gets redeclared.
                                 next_version,
-                                self.sqlite_db.as_ref(),
+                                self.sqlite_db.as_mut(),
                             )
                             .await;
                             next_version += 1;
                         }
-                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &self),
+                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
                     }
                 }
                 Op::RefreshTtls => {
@@ -861,7 +861,7 @@ impl DeferredMaterializerCommandProcessor {
     }
 
     fn materialize_many_artifacts(
-        &self,
+        &mut self,
         tree: &mut ArtifactTree,
         paths: Vec<ProjectRelativePathBuf>,
         event_dispatcher: EventDispatcher,
@@ -913,7 +913,7 @@ impl DeferredMaterializerCommandProcessor {
     }
 
     fn declare<'a>(
-        &self,
+        &mut self,
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
@@ -979,7 +979,7 @@ impl DeferredMaterializerCommandProcessor {
         // so there will never be a moment where artifact is deleted but materializer
         // thinks it still exists.
         let existing_futs =
-            tree.invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_ref());
+            tree.invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_mut());
 
         let data = box ArtifactMaterializationData {
             deps: value.deps().duped(),
@@ -1053,7 +1053,7 @@ impl DeferredMaterializerCommandProcessor {
 
     #[instrument(level = "debug", skip(self, tree), fields(path = %path))]
     fn materialize_artifact(
-        &self,
+        &mut self,
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
@@ -1107,7 +1107,7 @@ impl DeferredMaterializerCommandProcessor {
                         tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
                     }
 
-                    if let Some(sqlite_db) = self.sqlite_db.as_ref() {
+                    if let Some(sqlite_db) = self.sqlite_db.as_mut() {
                         if let Err(e) = sqlite_db
                             .materializer_state_table()
                             .update_access_time(path.to_buf(), timestamp)
@@ -1141,11 +1141,7 @@ impl DeferredMaterializerCommandProcessor {
                 ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => copied_artifacts
                     .iter()
                     .filter_map(|a| {
-                        self.dupe().materialize_artifact(
-                            tree,
-                            a.src.as_ref(),
-                            event_dispatcher.dupe(),
-                        )
+                        self.materialize_artifact(tree, a.src.as_ref(), event_dispatcher.dupe())
                     })
                     .collect::<Vec<_>>(),
             },
@@ -1160,8 +1156,7 @@ impl DeferredMaterializerCommandProcessor {
                 .find_artifacts(deps)
                 .into_iter()
                 .filter_map(|p| {
-                    self.dupe()
-                        .materialize_artifact(tree, p.as_ref(), event_dispatcher.dupe())
+                    self.materialize_artifact(tree, p.as_ref(), event_dispatcher.dupe())
                 })
                 .collect::<Vec<_>>(),
         };
@@ -1514,7 +1509,7 @@ impl ArtifactTree {
         result: Result<(), SharedMaterializingError>,
         io_executor: &Arc<dyn BlockingExecutor>,
         next_version: u64,
-        sqlite_db: Option<&Arc<MaterializerStateSqliteDb>>,
+        sqlite_db: Option<&mut MaterializerStateSqliteDb>,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
@@ -1589,7 +1584,7 @@ impl ArtifactTree {
     fn invalidate_paths_and_collect_futures(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
-        sqlite_db: Option<&Arc<MaterializerStateSqliteDb>>,
+        sqlite_db: Option<&mut MaterializerStateSqliteDb>,
     ) -> Vec<(ProjectRelativePathBuf, ProcessingFuture)> {
         let mut invalidated_paths = Vec::new();
         let mut futs = Vec::new();

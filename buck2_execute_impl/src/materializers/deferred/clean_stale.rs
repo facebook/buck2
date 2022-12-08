@@ -18,7 +18,6 @@ use chrono::Utc;
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use gazebo::dupe::Dupe;
 use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::clean_output_paths;
@@ -43,13 +42,13 @@ impl ExtensionCommand for CleanStaleArtifacts {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        processor: &DeferredMaterializerCommandProcessor,
+        processor: &mut DeferredMaterializerCommandProcessor,
     ) {
         let res = gather_clean_futures_for_stale_artifacts(
             tree,
             self.keep_since_time,
             self.dry_run,
-            processor.sqlite_db.dupe(),
+            &mut processor.sqlite_db,
             &processor.io,
         );
         let fut = async move {
@@ -69,7 +68,7 @@ fn gather_clean_futures_for_stale_artifacts(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
-    sqlite_db: Option<Arc<MaterializerStateSqliteDb>>,
+    sqlite_db: &mut Option<MaterializerStateSqliteDb>,
     io: &Arc<DeferredMaterializerIoHandler>,
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
     let mut output = String::new();
@@ -114,7 +113,7 @@ fn gather_clean_futures_for_stale_artifacts(
 
         for path in paths_to_clean {
             let existing_futs =
-                tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_ref());
+                tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_mut());
 
             cleaning_futs.push(clean_output_paths(&io.io_executor, path, existing_futs));
         }

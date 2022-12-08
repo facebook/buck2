@@ -474,7 +474,7 @@ impl MaterializerStateSqliteDb {
                 ))?
             }
 
-            let db = Self::open(&db_path)?;
+            let mut db = Self::open(&db_path)?;
 
             // First check that versions match
             let read_versions = db.versions_table.read_all()?;
@@ -514,7 +514,7 @@ impl MaterializerStateSqliteDb {
         }
     }
 
-    pub(crate) fn materializer_state_table(&self) -> &MaterializerStateSqliteTable {
+    pub(crate) fn materializer_state_table(&mut self) -> &MaterializerStateSqliteTable {
         &self.materializer_state_table
     }
 
@@ -703,7 +703,7 @@ mod tests {
         )));
         let timestamp = now_seconds();
         {
-            let (db, loaded_state) = testing_materializer_state_sqlite_db(
+            let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
                 HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
             )
@@ -737,7 +737,7 @@ mod tests {
         }
 
         {
-            let (db, loaded_state) = testing_materializer_state_sqlite_db(
+            let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
                 HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
             )

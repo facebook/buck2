@@ -45,7 +45,7 @@ pub(super) trait ExtensionCommand: Debug + Sync + Send + 'static {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        processor: &DeferredMaterializerCommandProcessor,
+        processor: &mut DeferredMaterializerCommandProcessor,
     );
 }
 
@@ -73,7 +73,7 @@ impl ExtensionCommand for Iterate {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        _processor: &DeferredMaterializerCommandProcessor,
+        _processor: &mut DeferredMaterializerCommandProcessor,
     ) {
         for (path, data) in tree.iter().with_paths() {
             let path_data = match &data.stage {
@@ -111,7 +111,7 @@ impl ExtensionCommand for RefreshTtls {
     fn execute(
         self: Box<Self>,
         tree: &mut ArtifactTree,
-        processor: &DeferredMaterializerCommandProcessor,
+        processor: &mut DeferredMaterializerCommandProcessor,
     ) {
         let task = create_ttl_refresh(
             tree,
