@@ -93,18 +93,20 @@ impl IoState {
         width: usize,
     ) -> anyhow::Result<Vec<Line>> {
         let mut lines = Vec::new();
+        let mut parts = Vec::new();
         if snapshot.buck2_rss != 0 {
-            let mut parts = Vec::new();
             parts.push(format!("RSS = {}", HumanizedBytes::new(snapshot.buck2_rss)));
-            if let Some(cpu) = self.two_snapshots.cpu_percents() {
-                parts.push(format!("CPU = {}%", cpu));
-            }
-            if snapshot.blocking_executor_io_queue_size > 0 {
-                parts.push(format!(
-                    "IO Queue = {}",
-                    snapshot.blocking_executor_io_queue_size
-                ));
-            }
+        }
+        if let Some(cpu) = self.two_snapshots.cpu_percents() {
+            parts.push(format!("CPU = {}%", cpu));
+        }
+        if snapshot.blocking_executor_io_queue_size > 0 {
+            parts.push(format!(
+                "IO Queue = {}",
+                snapshot.blocking_executor_io_queue_size
+            ));
+        }
+        if !parts.is_empty() {
             lines.push(Line::from_iter([superconsole::Span::new_unstyled(
                 parts.join("  "),
             )?]));
