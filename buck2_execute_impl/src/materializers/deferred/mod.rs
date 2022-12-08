@@ -1050,49 +1050,6 @@ impl DeferredMaterializerCommandProcessor {
         is_match
     }
 
-    /// Update access time in sql for already materialized artifact.
-    fn update_sqlite_access_time(
-        self: Arc<Self>,
-        path: &ProjectRelativePath,
-        cleaning_fut: Option<CleaningFuture>,
-        timestamp: DateTime<Utc>,
-        data: &mut ArtifactMaterializationData,
-    ) -> Option<MaterializingFuture> {
-        let db = self.sqlite_db.clone();
-        if let Some(sqlite_db) = db {
-            let path_buf = path.to_buf();
-            let task = tokio::task::spawn(async move {
-                if let Some(cleaning_fut) = cleaning_fut {
-                    cleaning_fut
-                        .await
-                        .with_context(|| format!(
-                            "Error waiting for a previous future to finish cleaning output path {}",
-                            &path_buf
-                        ))
-                        .map_err(|e| SharedMaterializingError::Error(e.into()))?;
-                };
-                sqlite_db
-                    .materializer_state_table()
-                    .update_access_time(path_buf, timestamp)
-                    .await
-                    .shared_error()
-                    .map_err(SharedMaterializingError::SqliteDbError)?;
-
-                Ok(())
-            })
-            .map(|r| match r {
-                Ok(r) => r,
-                Err(e) => Err(SharedMaterializingError::Error(e.into())),
-            })
-            .boxed()
-            .shared();
-
-            data.processing_fut = Some(ProcessingFuture::Materializing(task.clone()));
-            return Some(task);
-        }
-        None
-    }
-
     #[instrument(level = "debug", skip(self, tree), fields(path = %path))]
     fn materialize_artifact(
         self: Arc<Self>,
@@ -1140,13 +1097,37 @@ impl DeferredMaterializerCommandProcessor {
             } => match check_deps {
                 true => None,
                 false => {
+                    // TODO (torozco): Why is it legal for something to be Materialized + Cleaning?
                     tracing::debug!(path = %path, "nothing to materialize, updating access time");
                     let timestamp = Utc::now();
                     *last_access_time = timestamp;
+
                     if !active {
                         tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
                     }
-                    return self.update_sqlite_access_time(path, cleaning_fut, timestamp, data);
+
+                    if let Some(sqlite_db) = self.sqlite_db.as_ref() {
+                        let sqlite_db = sqlite_db.dupe();
+                        let path = path.to_buf();
+
+                        return Some(
+                            async move {
+                                if let Err(e) = sqlite_db
+                                    .materializer_state_table()
+                                    .update_access_time(path, timestamp)
+                                    .await
+                                {
+                                    soft_error!("materializer_error", e).unwrap();
+                                }
+
+                                Ok(())
+                            }
+                            .boxed()
+                            .shared(),
+                        );
+                    }
+
+                    return None;
                 }
             },
         };
