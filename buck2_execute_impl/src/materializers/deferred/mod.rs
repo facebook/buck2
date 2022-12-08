@@ -83,6 +83,7 @@ use remote_execution::REClientError;
 use remote_execution::TCode;
 use remote_execution::TDigest;
 use thiserror::Error;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
@@ -130,7 +131,7 @@ pub struct DeferredMaterializer {
     /// sure only one executes at a time and in the order they came in.
     /// TODO(rafaelc): aim to replace it with a simple mutex.
     #[allocative(skip)]
-    command_thread: JoinHandle<()>,
+    command_thread: std::thread::JoinHandle<()>,
     /// Determines what to do on `try_materialize_final_artifact`: if true,
     /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
@@ -143,8 +144,8 @@ pub struct DeferredMaterializer {
 
 impl Drop for DeferredMaterializer {
     fn drop(&mut self) {
-        // TODO(rafaelc): abort ongoing materialization futures?
-        self.command_thread.abort();
+        // We don't try to stop the underlying thread, since in practice when we drop the
+        // DeferredMaterializer we are about to just terminate the process.
     }
 }
 
@@ -171,6 +172,9 @@ struct DeferredMaterializerCommandProcessor {
     ttl_refresh_frequency: std::time::Duration,
     ttl_refresh_min_ttl: Duration,
     ttl_refresh_enabled: bool,
+    /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
+    /// used by the rest of Buck.
+    rt: Handle,
 }
 
 struct MaterializationStat {
@@ -648,7 +652,7 @@ impl DeferredMaterializer {
         configs: DeferredMaterializerConfigs,
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
         let command_processor = DeferredMaterializerCommandProcessor {
@@ -662,6 +666,7 @@ impl DeferredMaterializer {
             ttl_refresh_frequency: configs.ttl_refresh_frequency,
             ttl_refresh_min_ttl: configs.ttl_refresh_min_ttl,
             ttl_refresh_enabled: configs.ttl_refresh_enabled,
+            rt: Handle::current(),
         };
 
         let mut tree = ArtifactTree::new();
@@ -683,17 +688,26 @@ impl DeferredMaterializer {
             }
         }
 
-        let command_thread =
-            tokio::spawn(async move { command_processor.run(command_recv, tree).await });
+        let command_thread = std::thread::Builder::new()
+            .name("buck-dm".to_owned())
+            .spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
 
-        Self {
+                rt.block_on(command_processor.run(command_recv, tree));
+            })
+            .context("Cannot start materializer thread")?;
+
+        Ok(Self {
             command_sender,
             command_thread,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
             fs,
             io_executor,
-        }
+        })
     }
 }
 
@@ -811,6 +825,7 @@ impl DeferredMaterializerCommandProcessor {
                                 // gets redeclared.
                                 next_version,
                                 self.sqlite_db.as_mut(),
+                                &self.rt,
                             )
                             .await;
                             next_version += 1;
@@ -841,7 +856,7 @@ impl DeferredMaterializerCommandProcessor {
                             self.ttl_refresh_min_ttl,
                         )
                         .map(|fut| {
-                            tokio::task::spawn(async move {
+                            self.rt.spawn(async move {
                                 match fut.await {
                                     Ok(()) => {
                                         tracing::info!("Scheduled TTL refresh succeeded");
@@ -1010,6 +1025,7 @@ impl DeferredMaterializerCommandProcessor {
                 &self.io.io_executor,
                 path.clone(),
                 existing_futs,
+                &self.rt,
             ))
         });
 
@@ -1193,65 +1209,67 @@ impl DeferredMaterializerCommandProcessor {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let io = self.io.dupe();
-        let task = tokio::task::spawn(async move {
-            // Materialize the deps and this entry. This *must* happen in a try block because we
-            // need to notity the materializer regardless of whether this succeeds or fails.
+        let task = self
+            .rt
+            .spawn(async move {
+                // Materialize the deps and this entry. This *must* happen in a try block because we
+                // need to notity the materializer regardless of whether this succeeds or fails.
 
-            let timestamp = Utc::now();
-            let res: Result<(), SharedMaterializingError> = try {
-                // If there is an existing future trying to delete conflicting paths, we must wait for it
-                // to finish before we can start materialization.
-                if let Some(cleaning_fut) = cleaning_fut {
-                    cleaning_fut
+                let timestamp = Utc::now();
+                let res: Result<(), SharedMaterializingError> = try {
+                    // If there is an existing future trying to delete conflicting paths, we must wait for it
+                    // to finish before we can start materialization.
+                    if let Some(cleaning_fut) = cleaning_fut {
+                        cleaning_fut
                         .await
                         .with_context(|| format!(
                             "Error waiting for a previous future to finish cleaning output path {}",
                             &path_buf
                         ))
                         .map_err(|e| SharedMaterializingError::Error(e.into()))?;
+                    };
+
+                    // In case this is a local copy, we first need to materialize the
+                    // artifacts we are copying from, before we can copy them.
+                    for t in deps_tasks {
+                        t.await?;
+                    }
+
+                    if let Some((entry, method)) = entry_and_method {
+                        // All potential deps are materialized. Now materialize the entry.
+                        io.materialize_entry(
+                            path_buf.clone(),
+                            method,
+                            entry.dupe(),
+                            event_dispatcher.dupe(),
+                        )
+                        .await?;
+                    };
+
+                    // Wait for the deps (targets) of the entry's symlinks to be materialized
+                    for t in link_deps_tasks {
+                        t.await?;
+                    }
                 };
 
-                // In case this is a local copy, we first need to materialize the
-                // artifacts we are copying from, before we can copy them.
-                for t in deps_tasks {
-                    t.await?;
-                }
+                // Materialization finished, notify the command thread
+                let _ignored =
+                    io.command_sender
+                        .send(MaterializerCommand::MaterializationFinished {
+                            path: path_buf_dup,
+                            timestamp,
+                            version,
+                            result: res.dupe(),
+                        });
 
-                if let Some((entry, method)) = entry_and_method {
-                    // All potential deps are materialized. Now materialize the entry.
-                    io.materialize_entry(
-                        path_buf.clone(),
-                        method,
-                        entry.dupe(),
-                        event_dispatcher.dupe(),
-                    )
-                    .await?;
-                };
-
-                // Wait for the deps (targets) of the entry's symlinks to be materialized
-                for t in link_deps_tasks {
-                    t.await?;
-                }
-            };
-
-            // Materialization finished, notify the command thread
-            let _ignored = io
-                .command_sender
-                .send(MaterializerCommand::MaterializationFinished {
-                    path: path_buf_dup,
-                    timestamp,
-                    version,
-                    result: res.dupe(),
-                });
-
-            res
-        })
-        .map(|r| match r {
-            Ok(r) => r,
-            Err(e) => Err(SharedMaterializingError::Error(e.into())), // Turn the JoinError into a SharedError.
-        })
-        .boxed()
-        .shared();
+                res
+            })
+            .map(|r| match r {
+                Ok(r) => r,
+                Err(e) => Err(SharedMaterializingError::Error(e.into())), // Turn the JoinError into a SharedError.
+            })
+            .boxed()
+            .shared();
 
         let data = tree.prefix_get_mut(&mut path.iter()).unwrap();
         data.processing_fut = Some(ProcessingFuture::Materializing(task.clone()));
@@ -1534,6 +1552,7 @@ impl ArtifactTree {
         io_executor: &Arc<dyn BlockingExecutor>,
         next_version: u64,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
+        rt: &Handle,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
@@ -1558,6 +1577,7 @@ impl ArtifactTree {
                         io_executor,
                         artifact_path.clone(),
                         Vec::new(),
+                        rt,
                     )));
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
@@ -1800,6 +1820,7 @@ fn clean_output_paths(
     io_executor: &Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
+    rt: &Handle,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
         return io_executor
@@ -1810,7 +1831,7 @@ fn clean_output_paths(
             .shared();
     }
 
-    tokio::task::spawn({
+    rt.spawn({
         let io_executor = io_executor.dupe();
         async move {
             join_all_existing_futs(existing_futs).await?;

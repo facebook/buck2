@@ -118,7 +118,7 @@ impl ExtensionCommand for RefreshTtls {
             &processor.io.re_client_manager,
             Duration::seconds(self.min_ttl),
         )
-        .map(tokio::task::spawn);
+        .map(|f| processor.rt.spawn(f));
         let _ignored = self.sender.send(task);
     }
 }

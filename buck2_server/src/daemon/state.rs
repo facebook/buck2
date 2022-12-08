@@ -370,7 +370,7 @@ impl DaemonState {
                     config,
                     materializer_db,
                     materializer_state,
-                )))
+                )?))
             }
             MaterializationMethod::Eden => {
                 #[cfg(any(fbcode_build, cargo_internal_build))]

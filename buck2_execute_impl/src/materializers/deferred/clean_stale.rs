@@ -18,6 +18,7 @@ use chrono::Utc;
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use tokio::runtime::Handle;
 use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::clean_output_paths;
@@ -50,6 +51,7 @@ impl ExtensionCommand for CleanStaleArtifacts {
             self.dry_run,
             &mut processor.sqlite_db,
             &processor.io,
+            &processor.rt,
         );
         let fut = async move {
             let (cleaning_futs, output) = res?;
@@ -70,6 +72,7 @@ fn gather_clean_futures_for_stale_artifacts(
     dry_run: bool,
     sqlite_db: &mut Option<MaterializerStateSqliteDb>,
     io: &Arc<DeferredMaterializerIoHandler>,
+    rt: &Handle,
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
     let mut output = String::new();
     let mut stale_count = 0;
@@ -115,7 +118,7 @@ fn gather_clean_futures_for_stale_artifacts(
             let existing_futs =
                 tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_mut());
 
-            cleaning_futs.push(clean_output_paths(&io.io_executor, path, existing_futs));
+            cleaning_futs.push(clean_output_paths(&io.io_executor, path, existing_futs, rt));
         }
     }
 
