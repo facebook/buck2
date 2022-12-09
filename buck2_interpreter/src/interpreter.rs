@@ -739,6 +739,7 @@ mod tests {
     use buck2_core::cells::CellName;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRoot;
     use indoc::indoc;
     use serde_json::json;
@@ -803,7 +804,7 @@ mod tests {
                 // Just rely on the root's aliases being available everywhere for all the others.
             ])?,
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
         Ok((
             cell_resolver

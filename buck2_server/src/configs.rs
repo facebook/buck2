@@ -12,7 +12,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use cli_proto::config_override::ConfigType;
 use cli_proto::ConfigOverride;
@@ -46,7 +46,7 @@ fn get_legacy_config_args<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
 /// Read the configs, returning the cell resolver and the legacy configs
 pub fn parse_legacy_cells<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
-    cwd: &AbsNormPath,
+    cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
 ) -> anyhow::Result<(CellResolver, LegacyBuckConfigs)> {
     let config_values = get_legacy_config_args(config_overrides)?;

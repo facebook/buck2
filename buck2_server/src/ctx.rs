@@ -419,7 +419,7 @@ impl CellConfigLoader {
                         );
                     }
                 }
-                parse_legacy_cells(self.config_overrides.iter(), &self.project_root.resolve(&self.working_dir), &self.project_root)
+                parse_legacy_cells(self.config_overrides.iter(), &self.working_dir, &self.project_root)
                     .shared_error()
             })
             .await

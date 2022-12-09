@@ -19,6 +19,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use once_cell::unsync::OnceCell;
@@ -74,7 +75,7 @@ impl BuckConfigBasedCells {
             project_fs,
             file_ops,
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
             opts,
         )?;
         Ok(cells.cell_resolver)
@@ -85,14 +86,14 @@ impl BuckConfigBasedCells {
             project_fs,
             &DefaultConfigParserFileOps {},
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )
     }
 
     pub fn parse_with_config_args(
         project_fs: &ProjectRoot,
         config_args: &[LegacyConfigCmdArg],
-        cwd: &AbsNormPath,
+        cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(project_fs, &DefaultConfigParserFileOps {}, config_args, cwd)
     }
@@ -101,7 +102,7 @@ impl BuckConfigBasedCells {
         project_fs: &ProjectRoot,
         file_ops: &dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
-        cwd: &AbsNormPath,
+        cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
         let opts = BuckConfigParseOptions {
             follow_includes: true,
@@ -114,7 +115,7 @@ impl BuckConfigBasedCells {
         project_fs: &ProjectRoot,
         file_ops: &dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
-        cwd: &AbsNormPath,
+        cwd: &ProjectRelativePath,
         options: BuckConfigParseOptions,
     ) -> anyhow::Result<Self> {
         let mut buckconfigs = HashMap::new();
@@ -129,7 +130,7 @@ impl BuckConfigBasedCells {
         let cell_resolution = CellResolutionState {
             project_filesystem: project_fs,
             cell_resolver: OnceCell::new(),
-            cwd,
+            cwd: &project_fs.resolve(cwd),
         };
         // NOTE: This will _not_ perform IO unless it needs to.
         let processed_config_args =
@@ -329,6 +330,7 @@ mod tests {
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellName;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRoot;
     use gazebo::prelude::*;
     use indoc::indoc;
@@ -393,7 +395,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
 
         let resolver = &cells.cell_resolver;
@@ -495,7 +497,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[LegacyConfigCmdArg::UnresolvedFile(file_arg)],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -545,7 +547,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -612,7 +614,7 @@ mod tests {
                 LegacyConfigCmdArg::UnresolvedFile("other//app-conf".to_owned()),
                 LegacyConfigCmdArg::UnresolvedFile("//global-conf".to_owned()),
             ],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -660,7 +662,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
 
         let configs = &cells.configs_by_name;
@@ -739,7 +741,7 @@ mod tests {
             &project_fs,
             &file_ops,
             &[],
-            project_fs.root(),
+            ProjectRelativePath::empty(),
         )?;
 
         let configs = &cells.configs_by_name;
