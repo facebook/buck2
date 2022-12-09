@@ -397,8 +397,6 @@ impl CellConfigLoader {
     ) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
         self.loaded_cell_configs
             .get_or_init(async move {
-                let fs = &self.project_root;
-                let cwd = &self.working_dir;
                 if self.reuse_current_config {
                     // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
                     if dice_ctx.is_cell_resolver_key_set().await?
@@ -421,7 +419,7 @@ impl CellConfigLoader {
                         );
                     }
                 }
-                parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), fs)
+                parse_legacy_cells(self.config_overrides.iter(), &self.project_root.resolve(&self.working_dir), &self.project_root)
                     .shared_error()
             })
             .await
