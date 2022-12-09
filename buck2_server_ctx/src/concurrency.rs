@@ -232,8 +232,12 @@ impl ConcurrencyHandler {
             // we rerun the updates in case that files on disk have changed between commands.
             // this might cause some churn, but concurrent commands don't happen much and
             // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
-            transaction = updates.update(transaction).await?;
-            transaction = transaction.commit();
+            transaction = event_dispatcher
+                .span_async(buck2_data::DiceStateUpdateStart {}, async move {
+                    let transaction = updates.update(transaction).await.map(|t| t.commit());
+                    (transaction, buck2_data::DiceStateUpdateEnd {})
+                })
+                .await?;
 
             if let Some(active_dice) = &data.active_dice {
                 let is_same_state = active_dice.equivalent(&transaction);
