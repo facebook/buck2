@@ -728,7 +728,7 @@ impl DeferredMaterializer {
         }
 
         let command_thread = std::thread::Builder::new()
-            .name("buck-dm".to_owned())
+            .name("buck2-dm".to_owned())
             .spawn({
                 move || {
                     let rt = tokio::runtime::Builder::new_current_thread()
