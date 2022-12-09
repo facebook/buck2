@@ -4,62 +4,7 @@ import os
 import shutil
 import subprocess
 
-
-def _none(s):
-    if not s or s == "_":
-        return None
-    else:
-        return s
-
-
-def parse_reference(ref):
-    """Parse a Conan package reference.
-
-    These take the shape `name/version@channel/name#revision`.
-    Omitted values or `_` are read as `None`.
-    """
-    name = None
-    version = None
-    user = None
-    channel = None
-    revision = None
-
-    if "#" in ref:
-        ref, revision = ref.split("#", 1)
-
-    if "@" in ref:
-        ref, user_channel = ref.split("@", 1)
-        if "/" in user_channel:
-            user, channel = user_channel.split("/", 1)
-        else:
-            user = user_channel
-
-    if "/" in ref:
-        name, version = ref.split("/", 1)
-    else:
-        name = ref
-
-    return _none(name), _none(version), _none(user), _none(channel), _none(revision)
-
-
-def conan_dir():
-    """Conan folder under the Conen user home."""
-    return ".conan"
-
-
-def generators_dir():
-    """Custom generators folder under the Conen user home."""
-    return os.path.join(conan_dir(), "generators")
-
-
-def store_dir():
-    """Store folder under the Conen user home."""
-    return os.path.join(conan_dir(), "data")
-
-
-def reference_dir(name, version, user, channel):
-    """Package base directory under the Conan store folder."""
-    return os.path.join(name or "_", version or "_", user or "_", channel or "_")
+import conan_common
 
 
 def conan_install(
@@ -73,7 +18,11 @@ def conan_install(
         manifests,
         install_info,
         trace_log):
-    args = [conan, "install"]
+    env = conan_common.conan_env(
+            user_home=user_home,
+            trace_log=trace_log)
+
+    args = ["install"]
     args.extend(["--generator", "BucklerGenerator"])
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
@@ -83,51 +32,22 @@ def conan_install(
     # TODO options cannot be combined with lockfile.
     #for option in options:
     #    args.extend(["--options", option])
-    # TODO remove revision, it's not supported on the command line.
     args.append(reference.split("#")[0] + "@")
 
-    env = dict(os.environ)
-    # TODO[AH] Enable Conan revisions for reproducibility
-    # Enable Conan revisions for reproducibility
-    #env["CONAN_REVISIONS_ENABLED"] = "1"
-    # Prevent over-allocation.
-    env["CONAN_CPU_COUNT"] = "1"
-    # Prevent interactive prompts.
-    env["CONAN_NON_INTERACTIVE"] = "1"
-    # Print every `self.run` invokation.
-    # TODO Remove this debug output.
-    env["CONAN_PRINT_RUN_COMMANDS"] = "1"
-    # Set the Conan base directory.
-    env["CONAN_USER_HOME"] = os.path.abspath(user_home)
-    # Disable the short paths feature on Windows.
-    # TODO Enable if needed with a hermetic short path.
-    env["CONAN_USER_HOME_SHORT"] = "None"
-    # Enable Conan debug trace.
-    env["CONAN_TRACE_FILE"] = os.path.abspath(trace_log)
-
-    # TODO The build places downloads, metadata, and artifacts under a path of the form:
-    #     user-home/.conan/data/<name>/<version>/<user>/<channel>/
-    #   where missing fields are replaced by '_', for example:
-    #     user-home/.conan/data/openssl/3.0.7/_/_
-    #   the build artifacts are placed under:
-    #     user-home/.conan/data/<name>/<version>/<user>/<channel>/package/<package-id>
-    #   for example:
-    #     user-home/.conan/data/openssl/3.0.7/_/_/package/304480252b01879c8641f79a653b593b8f26cf9f
-    #   place the output directories of dependencies from previous build actions into the current build directory.
-
     # Workaround gcc/clang ABI compatibility warning.
-    # TODO Solve this through the proper toolchain configuration.
+    # TODO[AH] Copy conan_init generated user-home into place.
     subprocess.check_call("conan profile new default".split(), env=env)
     subprocess.check_call("conan profile update settings.compiler=gcc default".split(), env=env)
     subprocess.check_call("conan profile update settings.compiler.version=11 default".split(), env=env)
     subprocess.check_call("conan profile update settings.compiler.libcxx=libstdc++11 default".split(), env=env)
-    subprocess.check_call(args, env=env)
+
+    conan_common.run_conan(conan, *args, env=env)
 
 
 def install_generator(user_home, name, generator_file):
     """Copy the given custom generator into the generators path."""
     src = generator_file
-    dstdir = os.path.join(user_home, generators_dir())
+    dstdir = conan_common.generators_dir(user_home)
     dst = os.path.join(dstdir, "conanfile.py")
     os.makedirs(dstdir, exist_ok=True)
     shutil.copyfile(src, dst)
@@ -135,16 +55,16 @@ def install_generator(user_home, name, generator_file):
 
 def copy_dependency_cache_dir(reference, user_home, cache_out):
     """Copy the cache directory of a dependency into the store."""
-    name, version, user, channel, _ = parse_reference(reference)
+    name, version, user, channel, _ = conan_common.parse_reference(reference)
     src = cache_out
-    dst = os.path.join(user_home, store_dir(), reference_dir(name, version, user, channel))
+    dst = conan_common.reference_dir(user_home, name, version, user, channel)
     shutil.copytree(src, dst)
 
 
 def copy_cache_dir(reference, user_home, cache_out):
     """Copy the cache directory of the built package out of the store."""
-    name, version, user, channel, _ = parse_reference(reference)
-    src = os.path.join(user_home, store_dir(), reference_dir(name, version, user, channel))
+    name, version, user, channel, _ = conan_common.parse_reference(reference)
+    src = conan_common.reference_dir(user_home, name, version, user, channel)
     dst = cache_out
     shutil.copytree(src, dst)
 
