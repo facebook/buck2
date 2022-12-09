@@ -1,4 +1,3 @@
-#!/usr/bin/env fbpython
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under both the MIT license found in the
@@ -7,6 +6,7 @@
 # of this source tree.
 
 import argparse
+import sys
 import zipfile
 
 
@@ -25,8 +25,8 @@ def do_unzip(src, dst):
 
 def main():
     args = _parse_args()
-    print("Source zip is: {}".format(args.src))
-    print("Output destination is: {}".format(args.dst))
+    print("Source zip is: {}".format(args.src), file=sys.stderr)
+    print("Output destination is: {}".format(args.dst), file=sys.stderr)
     do_unzip(args.src, args.dst)
 
 
