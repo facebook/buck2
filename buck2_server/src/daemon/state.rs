@@ -23,7 +23,6 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
-use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -76,7 +75,7 @@ pub struct DaemonState {
     pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
-    data: AsyncOnceCell<SharedResult<Arc<DaemonStateData>>>,
+    data: SharedResult<Arc<DaemonStateData>>,
 
     dice_constructor: Box<dyn DaemonStateDiceConstructor>,
 }
@@ -162,17 +161,26 @@ pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
 }
 
 impl DaemonState {
-    pub fn new(
+    pub async fn new(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         dice_constructor: Box<dyn DaemonStateDiceConstructor>,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        let data = Self::init_data(fb, &paths, &*dice_constructor)
+            .await
+            .context("Error initializing DaemonStateData");
+        if let Ok(data) = &data {
+            crate::daemon::panic::initialize(data.dupe());
+        }
+
+        let data = data.shared_error();
+
+        DaemonState {
             fb,
             paths,
-            data: AsyncOnceCell::new(),
+            data,
             dice_constructor,
-        })
+        }
     }
 
     // Creates the initial DaemonStateData.
@@ -427,7 +435,7 @@ impl DaemonState {
         // facebook only: logging events to Scribe.
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
-        let data = self.data().await?;
+        let data = self.data()?;
         let dispatcher = if let Some(scribe_sink) =
             scribe::new_thrift_scribe_sink_if_enabled(self.fb, data.event_logging_data.buffer_size)?
         {
@@ -450,7 +458,7 @@ impl DaemonState {
     ) -> SharedResult<BaseServerCommandContext> {
         check_working_dir::check_working_dir()?;
 
-        let data = self.data().await?;
+        let data = self.data()?;
 
         let tags = vec![
             format!(
@@ -488,19 +496,7 @@ impl DaemonState {
         })
     }
 
-    /// Initializes and returns the DaemonStateData, if it hasn't already been initialized already.
-    pub async fn data(&self) -> SharedResult<Arc<DaemonStateData>> {
-        self.data
-            .get_or_init(async move {
-                let result = Self::init_data(self.fb, &self.paths, &*self.dice_constructor)
-                    .await
-                    .context("Error initializing DaemonStateData");
-                if let Ok(ref data) = result {
-                    crate::daemon::panic::initialize(data.dupe());
-                }
-                result.shared_error()
-            })
-            .await
-            .dupe()
+    pub fn data(&self) -> anyhow::Result<Arc<DaemonStateData>> {
+        Ok(self.data.dupe()?)
     }
 }

@@ -284,14 +284,17 @@ impl BuckdServer {
                 delegate,
                 shutdown_channel,
             }),
-            daemon_state: Arc::new(DaemonState::new(
-                fb,
-                paths,
-                box DaemonStateDiceConstructorImpl {
-                    detect_cycles,
-                    bxl_calculations: callbacks.bxl_calculation(),
-                },
-            )?),
+            daemon_state: Arc::new(
+                DaemonState::new(
+                    fb,
+                    paths,
+                    box DaemonStateDiceConstructorImpl {
+                        detect_cycles,
+                        bxl_calculations: callbacks.bxl_calculation(),
+                    },
+                )
+                .await,
+            ),
             command_channel,
             callbacks,
         }));
@@ -372,7 +375,7 @@ impl BuckdServer {
         let daemon_state = self.0.daemon_state.dupe();
         let trace_id = req.get_ref().client_context()?.trace_id.parse()?;
         let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
-        let data = daemon_state.data().await?;
+        let data = daemon_state.data()?;
 
         dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot(
             data.start_time,
@@ -688,7 +691,7 @@ impl DaemonApi for BuckdServer {
 
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
-                let data = daemon_state.data().await?;
+                let data = daemon_state.data()?;
                 Some(
                     snapshot::SnapshotCollector::new(
                         data.re_client_manager.dupe(),
@@ -905,8 +908,7 @@ impl DaemonApi for BuckdServer {
 
             self.0
                 .daemon_state
-                .data()
-                .await?
+                .data()?
                 .spawn_dice_dump(path, format_proto)
                 .await
                 .with_context(|| format!("Failed to perform dice dump to {}", path.display()))?;
