@@ -19,6 +19,7 @@ native.python_bootstrap_binary(
 native.python_bootstrap_binary(
     name = "conan_package",
     main = "conan_package.py",
+    deps = [":conan_common"],
     visibility = ["PUBLIC"],
 )
 
