@@ -21,7 +21,7 @@ Buck is available as a bottle on [Homebrew](http://brew.sh/).
 ### Prerequisites
 
 * [Command Line Tools](https://developer.apple.com/xcode/features/)
-* [Java Runtime Environment version 8](https://java.com/en/download/) (support for future versions is in the works)
+* [Java Runtime Environment version 11](https://java.com/en/download/) (support for future versions is in the works)
     If you have multiple installations of Java on your development computer, you might get warnings from Buck that you are using an unsupported version of Java. To resolve this issue, set the `JAVA_HOME` environment variable to the directory for **version 8** of the Java Development Kit (JDK). Note that the directory that `JAVA_HOME` points to should contain a `bin` subdirectory which in turn contains binaries for the Java compiler (`javac`) and Java runtime (`java`).
 
 ```
