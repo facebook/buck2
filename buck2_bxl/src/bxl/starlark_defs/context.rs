@@ -359,7 +359,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         let delegate = this.sync_dice_query_delegate(None)?;
-        StarlarkUQueryCtx::new(Arc::new(delegate))
+        StarlarkUQueryCtx::new(this, Arc::new(delegate))
     }
 
     /// Returns the [`StarlarkCQueryCtx`] that holds all the cquery functions.

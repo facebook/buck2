@@ -12,6 +12,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_build_api::query::dice::DiceQueryDelegate;
 use buck2_build_api::query::uquery::environment::UqueryEnvironment;
+use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -20,6 +23,7 @@ use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -33,6 +37,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 
 #[derive(
     ProvidesStaticType,
@@ -44,12 +49,18 @@ use crate::bxl::starlark_defs::context::BxlContext;
 )]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
-pub struct StarlarkUQueryCtx<'v>(
+#[allocative(skip)]
+pub struct StarlarkUQueryCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    UqueryEnvironment<'v>,
-);
+    ctx: &'v BxlContext<'v>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    functions: DefaultQueryFunctions<UqueryEnvironment<'v>>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    env: UqueryEnvironment<'v>,
+}
 
 impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
     starlark_type!("uqueryctx");
@@ -90,11 +101,45 @@ impl<'v> UnpackValue<'v> for &'v StarlarkUQueryCtx<'v> {
 }
 
 impl<'v> StarlarkUQueryCtx<'v> {
-    pub fn new(cquery_delegate: Arc<DiceQueryDelegate<'v>>) -> anyhow::Result<Self> {
+    pub fn new(
+        ctx: &'v BxlContext<'v>,
+        cquery_delegate: Arc<DiceQueryDelegate<'v>>,
+    ) -> anyhow::Result<Self> {
         let env = UqueryEnvironment::new(cquery_delegate.dupe(), cquery_delegate);
-        Ok(Self(env))
+        Ok(Self {
+            ctx,
+            functions: DefaultQueryFunctions::new(),
+            env,
+        })
     }
 }
 
 #[starlark_module]
-fn register_uquery(builder: &mut MethodsBuilder) {}
+fn register_uquery(builder: &mut MethodsBuilder) {
+    /// Evaluates some general query string
+    fn eval<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        query: &'v str,
+        #[starlark(default = Vec::new())] query_args: Vec<String>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        this.ctx.async_ctx.via_dice(|ctx| async {
+            match get_uquery_evaluator(
+                ctx,
+                ctx.get_cell_resolver()
+                    .await?
+                    .get(this.ctx.current_bxl.label().bxl_path.cell())?
+                    .path(),
+                None,
+            )
+            .await
+            {
+                Ok(evaluator) => parse_query_evaluation_result::<UqueryEnvironment>(
+                    evaluator.eval_query(query, &query_args).await?,
+                    eval,
+                ),
+                Err(e) => Err(e),
+            }
+        })
+    }
+}
