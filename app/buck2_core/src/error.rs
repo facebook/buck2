@@ -44,6 +44,8 @@ macro_rules! soft_error(
     } }
 );
 
+// Hidden because an implementation detail of `soft_error!`.
+#[doc(hidden)]
 pub fn handle_soft_error(
     category: &'static str,
     err: anyhow::Error,
