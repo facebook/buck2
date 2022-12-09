@@ -89,6 +89,7 @@ mod imp {
         time_to_command_critical_section: Option<Duration>,
         time_to_first_analysis: Option<Duration>,
         time_to_load_first_build_file: Option<Duration>,
+        time_to_first_command_execution_start: Option<Duration>,
     }
 
     impl InvocationRecorder {
@@ -142,6 +143,7 @@ mod imp {
                 time_to_command_critical_section: None,
                 time_to_first_analysis: None,
                 time_to_load_first_build_file: None,
+                time_to_first_command_execution_start: None,
             }
         }
 
@@ -218,6 +220,9 @@ mod imp {
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
                     time_to_load_first_build_file_ms: self
                         .time_to_load_first_build_file
+                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                    time_to_first_command_execution_start_ms: self
+                        .time_to_first_command_execution_start
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
                 };
                 let event = BuckEvent::new(
@@ -393,6 +398,35 @@ mod imp {
         ) -> anyhow::Result<()> {
             self.time_to_load_first_build_file
                 .get_or_insert_with(|| self.start_time.elapsed());
+            Ok(())
+        }
+
+        async fn handle_executor_stage_start(
+            &mut self,
+            executor_stage: &buck2_data::ExecutorStageStart,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            match &executor_stage.stage {
+                Some(buck2_data::executor_stage_start::Stage::Re(re_stage)) => {
+                    match &re_stage.stage {
+                        Some(buck2_data::re_stage::Stage::Execute(_)) => {
+                            self.time_to_first_command_execution_start
+                                .get_or_insert_with(|| self.start_time.elapsed());
+                        }
+                        _ => {}
+                    }
+                }
+                Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
+                    match &local_stage.stage {
+                        Some(buck2_data::local_stage::Stage::Execute(_)) => {
+                            self.time_to_first_command_execution_start
+                                .get_or_insert_with(|| self.start_time.elapsed());
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
             Ok(())
         }
 

@@ -1237,6 +1237,8 @@ message InvocationRecord {
   optional uint64 time_to_first_analysis_ms = 43;
   // Time elapsed from build start until first build file is loaded.
   optional uint64 time_to_load_first_build_file_ms = 44;
+  // Time elapsed from a build's start until first command begins execution.
+  optional uint64 time_to_first_command_execution_start_ms = 45;
 }
 
 message CacheUploadStart {
