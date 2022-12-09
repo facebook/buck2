@@ -11,12 +11,12 @@ pub fn create_listener() -> anyhow::Result<(
     buck2_common::buckd_connection::ConnectionType,
     std::net::TcpListener,
 )> {
+    use std::net::Ipv4Addr;
     use std::net::SocketAddr;
 
     use buck2_common::buckd_connection::ConnectionType;
-    use buck2_common::client_utils::SOCKET_ADDR;
 
-    let addr: SocketAddr = format!("{}:0", SOCKET_ADDR).parse()?;
+    let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 0);
     let tcp_listener = std::net::TcpListener::bind(addr)?;
     tcp_listener.set_nonblocking(true)?;
     let local_addr = tcp_listener.local_addr()?;

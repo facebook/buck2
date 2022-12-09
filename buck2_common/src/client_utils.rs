@@ -8,6 +8,7 @@
  */
 
 use std::cmp;
+use std::net::Ipv4Addr;
 use std::path::Path;
 use std::time::Duration;
 
@@ -18,7 +19,6 @@ use tonic::transport::Channel;
 use tonic::transport::Endpoint;
 
 pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
-pub static SOCKET_ADDR: &str = "127.0.0.1";
 
 #[cfg(unix)]
 pub async fn get_channel_uds(
@@ -90,7 +90,7 @@ pub async fn get_channel_uds(_unix_filename: &Path, _chg_dir: bool) -> anyhow::R
     ))
 }
 
-pub async fn get_channel_tcp(socket_addr: &str, port: u16) -> anyhow::Result<Channel> {
+pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> anyhow::Result<Channel> {
     Endpoint::try_from(format!("http://{}:{}", socket_addr, port))?
         .connect()
         .await

@@ -11,6 +11,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -82,8 +83,6 @@ use tokio::sync::mpsc;
 use tonic::transport::Channel;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
-
-pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, thiserror::Error)]
 pub enum InstallError {
@@ -582,7 +581,7 @@ async fn connect_to_installer(
                 err, tcp_port
             );
             retrying(initial_delay, max_delay, timeout, async || {
-                get_channel_tcp(DEFAULT_SOCKET_ADDR, tcp_port).await
+                get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
             })
             .await
             .context("Failed to connect to with TCP and UDS")?
@@ -598,7 +597,7 @@ async fn connect_to_installer(
 ) -> anyhow::Result<InstallerClient<Channel>> {
     println!("Trying to connect using TCP port: {}", tcp_port);
 
-    let channel = get_channel_tcp(DEFAULT_SOCKET_ADDR, tcp_port).await?;
+    let channel = get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await?;
 
     Ok(InstallerClient::new(channel))
 }

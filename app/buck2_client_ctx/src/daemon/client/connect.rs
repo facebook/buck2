@@ -10,6 +10,7 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
+use std::net::Ipv4Addr;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -18,7 +19,6 @@ use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
-use buck2_common::client_utils::SOCKET_ADDR;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
@@ -57,7 +57,7 @@ async fn get_channel(
         ConnectionType::Uds { unix_socket } => {
             get_channel_uds(&unix_socket, change_to_parent_dir).await
         }
-        ConnectionType::Tcp { port } => get_channel_tcp(SOCKET_ADDR, port).await,
+        ConnectionType::Tcp { port } => get_channel_tcp(Ipv4Addr::LOCALHOST, port).await,
     }
 }
 
