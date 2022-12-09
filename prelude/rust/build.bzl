@@ -420,6 +420,16 @@ def _lint_flags(ctx: "context") -> ("cmd_args", "cmd_args"):
 
     return (plain, clippy)
 
+def _rustc_flags(flags: [[str.type, "resolved_macro"]]) -> [[str.type, "resolved_macro"]]:
+    # Rustc's "-g" flag is documented as being exactly equivalent to
+    # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
+    # "-g" shorthand for it.
+    for i, flag in enumerate(flags):
+        if str(flag) == '"-g"':
+            flags[i] = "-Cdebuginfo=2"
+
+    return flags
+
 # Compute which are common to both rustc and rustdoc
 def _compute_common_args(
         ctx: "context",
@@ -483,9 +493,9 @@ def _compute_common_args(
         "--json=diagnostic-rendered-ansi",
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
-        toolchain_info.rustc_flags,
-        toolchain_info.rustc_check_flags if is_check else [],
-        ctx.attrs.rustc_flags,
+        _rustc_flags(toolchain_info.rustc_flags),
+        _rustc_flags(toolchain_info.rustc_check_flags) if is_check else [],
+        _rustc_flags(ctx.attrs.rustc_flags),
         cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
         dependency_args,
     )
