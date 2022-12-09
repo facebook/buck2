@@ -18,7 +18,7 @@ def rewrite_dep_file(src_path, dst_path):
     Convert a makefile to a depfile suitable for use by Buck2. The files we
     rewrite look like P488268797.
     """
-    here = os.getcwd() + "/"
+    here = os.getcwd().replace("\\", "/") + "/"
 
     with open(src_path) as f:
         body = f.read()
@@ -85,7 +85,7 @@ def rewrite_dep_file(src_path, dst_path):
     for dep in deps:
         # The paths we get sometimes include "../" components, so get rid
         # of those because we want ForwardRelativePath here.
-        dep = os.path.normpath(dep)
+        dep = os.path.normpath(dep).replace("\\", "/")
 
         if os.path.isabs(dep):
             if dep.startswith(here):
