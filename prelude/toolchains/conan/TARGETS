@@ -1,4 +1,10 @@
 native.python_bootstrap_binary(
+    name = "conan_init",
+    main = "conan_init.py",
+    visibility = ["PUBLIC"],
+)
+
+native.python_bootstrap_binary(
     name = "conan_update",
     main = "conan_update.py",
     visibility = ["PUBLIC"],
