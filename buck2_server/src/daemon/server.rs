@@ -296,7 +296,7 @@ impl BuckdServer {
             callbacks,
         }));
 
-        let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver).await?;
+        let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver)?;
         let server = Server::builder()
             .layer(interceptor(BuckCheckAuthTokenInterceptor { auth_token }))
             .add_service(DaemonApiServer::new(api_server))
@@ -1047,7 +1047,7 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
     }
 }
 
-async fn server_shutdown_signal(
+fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
     mut shutdown_receiver: UnboundedReceiver<()>,
 ) -> anyhow::Result<impl Future<Output = ()>> {
