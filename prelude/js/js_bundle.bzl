@@ -9,7 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_an
 load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
-load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "fixup_command_args", "get_bundle_name", "get_flavors", "run_worker_command")
+load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name", "get_flavors", "run_worker_command")
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 def _build_dependencies_file(
@@ -45,7 +45,7 @@ def _build_dependencies_file(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = fixup_command_args(ctx, command_args_file) if ctx.attrs.extra_json else command_args_file,
+        command_args_file = command_args_file,
         identifier = transform_profile,
         category = "dependencies",
         hidden_artifacts = cmd_args([
@@ -106,10 +106,7 @@ def _build_js_bundle(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = fixup_command_args(
-            ctx,
-            command_args_file,
-        ) if ctx.attrs.extra_json else command_args_file,
+        command_args_file = command_args_file,
         identifier = base_dir,
         category = job_args["command"],
         hidden_artifacts = cmd_args([

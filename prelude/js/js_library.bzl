@@ -7,7 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//js:js_providers.bzl", "JsLibraryInfo", "get_transitive_outputs")
-load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "fixup_command_args", "get_canonical_src_name", "get_flavors", "run_worker_command")
+load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_command")
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
@@ -77,10 +77,7 @@ def _build_js_file(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = fixup_command_args(
-            ctx,
-            command_args_file,
-        ) if ctx.attrs.extra_json else command_args_file,
+        command_args_file = command_args_file,
         identifier = identifier,
         category = "transform",
         hidden_artifacts = cmd_args([
@@ -147,10 +144,7 @@ def _build_js_library(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = fixup_command_args(
-            ctx,
-            command_args_file,
-        ) if ctx.attrs.extra_json else command_args_file,
+        command_args_file = command_args_file,
         identifier = transform_profile,
         category = "library_dependencies",
         hidden_artifacts = cmd_args([

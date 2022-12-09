@@ -7,7 +7,6 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:worker_tool.bzl", "WorkerToolInfo")
-load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
 RAM_BUNDLE_TYPES = {
@@ -121,39 +120,10 @@ def run_worker_command(
     worker_command = worker_tool_info.command.copy()
     worker_command.add("--command-args-file", command_args_file)
     worker_command.hidden(hidden_artifacts)
+    worker_command.add("--command-args-file-extra-data-fixup-hack=true")
 
     ctx.actions.run(
         worker_command,
         category = category.replace("-", "_"),
         identifier = identifier,
     )
-
-def fixup_command_args(ctx: "context", args_file: "artifact") -> "artifact":
-    """
-    Context: D36482836 + T120448845
-
-    Before the existence of ctx.actions.write_json() we were manually creating
-    JSON objects via cmd_args, and it was causing heavy regressions to
-    heap allocations in iOS/Android Apps.
-
-    Unfortunately, when we migrated to ctx.actions.write_json() it didn't support
-    encoding JSON strings as a JSON object. Eventually, T120448845
-    was filed because JS bundling in Facebook for Android broke.
-
-    In D36482836 you can see the many different attempts to fix this problem,
-    but the most sure-fire route was building a script which takes in a JSON
-    file, fixes it, and outputs the JSON file to a new artifact.
-
-    T121096376: Tracks the long-term solution for this 'hack'.
-    """
-    output = ctx.actions.declare_output("fixup_{}".format(args_file.short_path))
-    ctx.actions.run(
-        cmd_args([
-            ctx.attrs._js_toolchain[JsToolchainInfo].command_args_fixup[RunInfo],
-            args_file,
-            output.as_output(),
-        ]),
-        category = "fixup_command_args",
-        identifier = "{}.{}".format(args_file.short_path, ctx.attrs.name),
-    )
-    return output
