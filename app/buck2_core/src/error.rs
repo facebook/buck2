@@ -40,7 +40,18 @@ macro_rules! soft_error(
     ($category:expr, $err:expr) => { {
         static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         static ONCE: std::sync::Once = std::sync::Once::new();
-        $crate::error::handle_soft_error($category, $err, &COUNT, &ONCE, (file!(), line!(), column!()))
+        $crate::error::handle_soft_error($category, $err, &COUNT, &ONCE, (file!(), line!(), column!()), false)
+    } }
+);
+
+/// Like [`soft_error!`] but don't print to the console. Used to turn on the soft error quietly for
+/// a few days to tackle the most significant issues before informing users.
+#[macro_export]
+macro_rules! quiet_soft_error(
+    ($category:expr, $err:expr) => { {
+        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        $crate::error::handle_soft_error($category, $err, &COUNT, &ONCE, (file!(), line!(), column!()), true)
     } }
 );
 
@@ -52,6 +63,7 @@ pub fn handle_soft_error(
     count: &'static AtomicUsize,
     once: &std::sync::Once,
     loc: (&'static str, u32, u32),
+    quiet: bool,
 ) -> anyhow::Result<()> {
     once.call_once(|| {
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
@@ -61,7 +73,9 @@ pub fn handle_soft_error(
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
-        tracing::warn!("Important warning at {}:{}:{} {}", loc.0, loc.1, loc.2, err);
+        if !quiet {
+            tracing::warn!("Important warning at {}:{}:{} {}", loc.0, loc.1, loc.2, err);
+        }
         if let Some(handler) = HANDLER.get() {
             handler(category, &err, loc);
         }
