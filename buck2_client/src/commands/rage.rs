@@ -15,16 +15,11 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
-use async_trait::async_trait;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonBuildConfigurationOptions;
-use buck2_client_ctx::common::CommonConsoleOptions;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
-use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
@@ -41,8 +36,8 @@ use chrono::offset::Local;
 use chrono::DateTime;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
-use futures::future::BoxFuture;
 use futures::future::FutureExt;
+use futures::future::LocalBoxFuture;
 use futures::TryStreamExt;
 use humantime::format_duration;
 use serde::Serialize;
@@ -97,9 +92,9 @@ impl RageSection {
         title: String,
         timeout: Duration,
         command: impl FnOnce() -> Fut,
-    ) -> BoxFuture<'a, Self>
+    ) -> LocalBoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<String>> + Send + 'a,
+        Fut: Future<Output = anyhow::Result<String>> + 'a,
     {
         let fut = command();
 
@@ -121,7 +116,7 @@ impl RageSection {
                 },
             }
         }
-        .boxed()
+        .boxed_local()
     }
 
     fn pretty_print_section(
@@ -159,80 +154,58 @@ pub struct RageCommand {
     dice_dump: bool,
 }
 
-#[async_trait]
-impl StreamingCommand for RageCommand {
-    const COMMAND_NAME: &'static str = "rage";
-
-    fn existing_only() -> bool {
-        true
-    }
-
-    async fn exec_impl(
-        self,
-        buckd: BuckdClientConnector,
-        _matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
-    ) -> ExitResult {
+impl RageCommand {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         buck2_core::facebook_only();
-        let timeout = Duration::from_secs(3600); // arbitrary timeout
-        let log_dir = ctx.paths.log_dir();
-        let logs = get_local_logs(&log_dir)?
-            .into_iter()
-            .rev() // newest first
-            .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
-            .collect::<anyhow::Result<Vec<_>>>()?;
 
-        if logs.is_empty() {
-            buck2_client_ctx::eprintln!("No recent buck invocation to report")?;
-            return ExitResult::failure();
-        }
+        ctx.with_runtime(async move |mut ctx| {
+            let timeout = Duration::from_secs(3600); // arbitrary timeout
+            let log_dir = ctx.paths.log_dir();
+            let logs = get_local_logs(&log_dir)?
+                .into_iter()
+                .rev() // newest first
+                .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
+                .collect::<anyhow::Result<Vec<_>>>()?;
 
-        let selected_log = {
-            let mut stdin = BufReader::new(ctx.stdin());
-            user_prompt_select_log(&mut stdin, &logs).await?
-        };
+            if logs.is_empty() {
+                buck2_client_ctx::eprintln!("No recent buck invocation to report")?;
+                return ExitResult::failure();
+            }
 
-        let log_summary = selected_log.get_summary().await?;
-        let old_trace_id = log_summary.trace_id;
-        let new_trace_id = TraceId::new();
+            let selected_log = {
+                let mut stdin = BufReader::new(ctx.stdin());
+                user_prompt_select_log(&mut stdin, &logs).await?
+            };
 
-        dispatch_event_to_scribe(&ctx, &new_trace_id, &old_trace_id)?;
+            let log_summary = selected_log.get_summary().await?;
+            let old_trace_id = log_summary.trace_id;
+            let new_trace_id = TraceId::new();
 
-        if self.dice_dump {
-            upload_dice_dump(buckd, &ctx, &new_trace_id, &old_trace_id).await?;
-        }
+            dispatch_event_to_scribe(&ctx, &new_trace_id, &old_trace_id)?;
+            if self.dice_dump {
+                upload_dice_dump(&ctx, &new_trace_id, &old_trace_id).await?;
+            }
 
-        let sections = vec![
-            RageSection::get("System info".to_owned(), timeout, get_system_info),
-            RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
-            RageSection::get("Build info".to_owned(), timeout, || {
-                get_build_info(selected_log)
-            }),
-        ];
+            let sections = vec![
+                RageSection::get("System info".to_owned(), timeout, get_system_info),
+                RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
+                RageSection::get("Build info".to_owned(), timeout, || {
+                    get_build_info(selected_log)
+                }),
+            ];
 
-        let sections = futures::future::join_all(sections).await;
-        let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
+            let sections = futures::future::join_all(sections).await;
+            let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
 
-        let paste = generate_paste("Buck2 Rage", &output.join("")).await?;
+            let paste = generate_paste("Buck2 Rage", &output.join("")).await?;
 
-        buck2_client_ctx::eprintln!(
-            "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
-            paste
-        )?;
+            buck2_client_ctx::eprintln!(
+                "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
+                paste
+            )?;
 
-        ExitResult::success()
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        CommonConsoleOptions::simple_ref()
-    }
-
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        CommonDaemonCommandOptions::default_ref()
-    }
-
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        CommonBuildConfigurationOptions::default_ref()
+            ExitResult::success()
+        })
     }
 }
 
@@ -370,12 +343,14 @@ fn dispatch_event_to_scribe(
 }
 
 async fn upload_dice_dump(
-    mut buckd: BuckdClientConnector,
     ctx: &ClientCommandContext,
     new_trace_id: &TraceId,
     old_trace_id: &TraceId,
 ) -> anyhow::Result<()> {
     let dice_dump_folder_name = format!("{:?}", chrono::Utc::now());
+    let mut buckd = ctx
+        .connect_buckd(BuckdConnectOptions::existing_only_no_console())
+        .await?;
     let dice_dump_folder = ctx.paths.dice_dump_dir();
 
     create_dir_all(&dice_dump_folder).with_context(|| {
