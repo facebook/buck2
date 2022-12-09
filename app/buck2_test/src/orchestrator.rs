@@ -229,9 +229,23 @@ impl TestOrchestrator for BuckTestOrchestrator {
             )
             .await?;
 
+        // We'd love to use the `metadata` field to generate a unique identifier,
+        // but Tpx might run the same test repeatedly, so it is not unique.
+        let identifier = self.new_identifier(test_target.target());
+        let owner = BaseDeferredKey::TargetLabel(test_target.target().dupe());
+        let action_key = TestActionKey {
+            target: test_target.target(),
+        };
+        let command_execution_target = CommandExecutionTarget {
+            owner: &owner,
+            category: &TEST_CATEGORY,
+            identifier: Some(&identifier),
+            action_key: &action_key as _,
+        };
+
         let (stdout, stderr, status, timing, outputs) = self
             .execute_shared(
-                test_target,
+                command_execution_target,
                 metadata,
                 Some(host_sharing_requirements),
                 timeout,
@@ -385,9 +399,9 @@ impl TestOrchestrator for BuckTestOrchestrator {
 }
 
 impl BuckTestOrchestrator {
-    async fn execute_shared(
+    async fn execute_shared<'a>(
         &self,
-        test_target: ConfiguredProvidersLabel,
+        command_execution_target: CommandExecutionTarget<'a>,
         metadata: DisplayMetadata,
         host_sharing_requirements: Option<HostSharingRequirements>,
         timeout: Duration,
@@ -428,24 +442,7 @@ impl BuckTestOrchestrator {
             self.liveliness_manager.dupe(),
         );
 
-        // We'd love to use the `metadata` field to generate a unique identifier,
-        // but Tpx might run the same test repeatedly, so it is not unique.
-        let identifier = self.new_identifier(test_target.target());
-        let owner = BaseDeferredKey::TargetLabel(test_target.target().dupe());
-        let action_key = TestActionKey {
-            target: test_target.target(),
-        };
-
-        let command = executor.exec_cmd(
-            CommandExecutionTarget {
-                owner: &owner,
-                category: &TEST_CATEGORY,
-                identifier: Some(&identifier),
-                action_key: &action_key as _,
-            },
-            &request,
-            manager,
-        );
+        let command = executor.exec_cmd(command_execution_target, &request, manager);
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
