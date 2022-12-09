@@ -334,6 +334,11 @@ pub fn remove_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     r
 }
 
+pub fn read<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<u8>> {
+    let _guard = IoCounterKey::Read.guard();
+    fs::read(&path).with_context(|| format!("read({})", P::as_ref(&path).display()))
+}
+
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     let _guard = IoCounterKey::Read.guard();
     fs::read_to_string(&path)
