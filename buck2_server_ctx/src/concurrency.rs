@@ -474,18 +474,23 @@ mod tests {
     use crate::concurrency::NestedInvocation;
     use crate::concurrency::ParallelInvocation;
 
+    struct NoChanges;
+
     #[async_trait]
-    impl<F> DiceUpdater for F
-    where
-        F: Fn(DiceTransaction) -> anyhow::Result<DiceTransaction> + Send + Sync,
-    {
+    impl DiceUpdater for NoChanges {
         async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
-            self(ctx)
+            Ok(ctx)
         }
     }
 
-    fn no_changes(ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
-        Ok(ctx)
+    struct CtxDifferent;
+
+    #[async_trait]
+    impl DiceUpdater for CtxDifferent {
+        async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+            ctx.changed(vec![K])?;
+            Ok(ctx)
+        }
     }
 
     #[derive(Clone, Dupe, Display, Debug, Hash, Eq, PartialEq, Allocative)]
@@ -528,7 +533,7 @@ mod tests {
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -541,7 +546,7 @@ mod tests {
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -554,7 +559,7 @@ mod tests {
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -583,15 +588,10 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(2));
 
-        let ctx_different = |ctx: DiceTransaction| {
-            ctx.changed(vec![K])?;
-            Ok(ctx)
-        };
-
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -605,7 +605,7 @@ mod tests {
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
             box TestDiceDataProvider,
-            &ctx_different,
+            &CtxDifferent,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -640,7 +640,7 @@ mod tests {
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -653,7 +653,7 @@ mod tests {
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -666,7 +666,7 @@ mod tests {
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
             box TestDiceDataProvider,
-            &no_changes,
+            &NoChanges,
             |_| {
                 let b = barrier.dupe();
                 async move {
@@ -697,11 +697,6 @@ mod tests {
         let traces2 = traces1.dupe();
         let traces_different = TraceId::new();
 
-        let ctx_different = |ctx: DiceTransaction| {
-            ctx.changed(vec![K])?;
-            Ok(ctx)
-        };
-
         let block1 = Arc::new(RwLock::new(()));
         let blocked1 = block1.write().await;
 
@@ -723,7 +718,7 @@ mod tests {
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
                         box TestDiceDataProvider,
-                        &no_changes,
+                        &NoChanges,
                         |_| async move {
                             barrier.wait().await;
                             let _g = b.read().await;
@@ -745,7 +740,7 @@ mod tests {
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
                         box TestDiceDataProvider,
-                        &no_changes,
+                        &NoChanges,
                         |_| async move {
                             barrier.wait().await;
                             let _g = b.read().await;
@@ -770,7 +765,7 @@ mod tests {
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
                         box TestDiceDataProvider,
-                        &ctx_different,
+                        &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
                         },
@@ -811,11 +806,6 @@ mod tests {
         let traces2 = traces1.dupe();
         let traces_different = TraceId::new();
 
-        let ctx_different = |ctx: DiceTransaction| {
-            ctx.changed(vec![K])?;
-            Ok(ctx)
-        };
-
         let barrier = Arc::new(Barrier::new(3));
 
         let fut1 = tokio::spawn({
@@ -827,7 +817,7 @@ mod tests {
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
                         box TestDiceDataProvider,
-                        &no_changes,
+                        &NoChanges,
                         |_| async move {
                             barrier.wait().await;
                         },
@@ -847,7 +837,7 @@ mod tests {
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
                         box TestDiceDataProvider,
-                        &no_changes,
+                        &NoChanges,
                         |_| async move {
                             barrier.wait().await;
                         },
@@ -867,7 +857,7 @@ mod tests {
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
                         box TestDiceDataProvider,
-                        &ctx_different,
+                        &CtxDifferent,
                         |_| async move {
                             barrier.wait().await;
                         },
