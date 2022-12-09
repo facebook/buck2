@@ -34,3 +34,11 @@ dist_lto_tools(
     copy = ":dist_lto_copy",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_test(
+    name = "test_dist_lto_opt",
+    srcs = [
+        "tests/test_dist_lto_opt.py",
+        "dist_lto_opt.py",
+    ],
+)

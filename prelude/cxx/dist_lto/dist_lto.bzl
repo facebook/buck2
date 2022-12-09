@@ -408,69 +408,13 @@ def cxx_dist_link(
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
     def prepare_opt_flags(link_infos: ["LinkInfo"]) -> "cmd_args":
-        # Linker flags/prefix we're going to detect and manipulate
-        LINKER_PLUGIN_OPT_PREFIX = "-Wl,-plugin-opt,"
-        LINKER_MLLVM_PREFIX = "-Wl,-mllvm,"
-        LINKER_PROFILE_FLAG_PREFIX = "sample-profile="
-
-        # Respectively flags valid for opt phase
-        OPT_PHASE_LLVM_PREFIX = "-mllvm"
-        OPT_PHASE_FUNCTION_SECTION_FLAG = "-ffunction-sections"
-        OPT_PHASE_DATA_SECTION_FLAG = "-fdata-sections"
-        OPT_PHASE_DEFAULT_PASS_MANAGER = "-fexperimental-new-pass-manager"
-
-        # -O2 is the default optimization flag for the link-time optimizer
-        # this setting matches current llvm implementation:
-        # https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/LTO/Config.h#L57
-        OPT_PHASE_DEFAULT_OPTIMIZATION_LEVEL = "-O2"
-
-        # Conservatively, we only translate llvms flags in our known list
-        KNOWN_LLVM_SHARED_LIBRARY_FLAGS = ["-shared"]
-        KNOWN_LLVM_FLAGS = ["-generate-type-units"]
-        KNOWN_LLVM_FLAG_PREFIXS = ["-enable-lto-ir-verification=", "-profile-guided-section-prefix="]
-
-        def is_mllvm_flags(flag: str.type) -> bool.type:
-            if flag in KNOWN_LLVM_FLAGS:
-                return True
-            for prefix in KNOWN_LLVM_FLAG_PREFIXS:
-                if flag.startswith(prefix):
-                    return True
-            return False
-
         opt_args = cmd_args()
-
-        opt_args.add(OPT_PHASE_DEFAULT_OPTIMIZATION_LEVEL)
-        opt_args.add(OPT_PHASE_DEFAULT_PASS_MANAGER)
-        opt_args.add(OPT_PHASE_FUNCTION_SECTION_FLAG)
-        opt_args.add(OPT_PHASE_DATA_SECTION_FLAG)
+        opt_args.add(cxx_link_cmd(ctx))
 
         # buildifier: disable=uninitialized
         for link in link_infos:
             for raw_flag in link.pre_flags + link.post_flags:
-                # Translate clang driver flags to opt phase flags.
-                # Mostly care about -Wl,-plugin-opt and -Wl,-mllvm parameters.
-                flag_str = str(raw_flag).replace('\"', "")
-                if flag_str.startswith(LINKER_PLUGIN_OPT_PREFIX):
-                    f = flag_str.removeprefix(LINKER_PLUGIN_OPT_PREFIX)
-                    if f.startswith(LINKER_PROFILE_FLAG_PREFIX):
-                        # the 'raw_flag' is a buck2 type 'resolved_macro' which support
-                        # dynamic location reference like "$(location ...)" which We can't edit it in UDR.
-                        # Cast it to str would invalid the dynamic reference so here we pass the raw_flag
-                        # Please note "sample-profile=" needs to be transformed to
-                        # "-fprofile-sample-use=" but it will happen in dist_lto_opt.py
-                        opt_args.add(raw_flag)
-                    elif is_mllvm_flags(f):
-                        # for flags need adding -mllvm prefix
-                        opt_args.add(OPT_PHASE_LLVM_PREFIX, f)
-                elif flag_str in KNOWN_LLVM_SHARED_LIBRARY_FLAGS:
-                    # the target is a shared library, `-fPIC` is needed in opt phase to correctly generate PIC ELF.
-                    opt_args.add("-fPIC")
-                elif flag_str.startswith(LINKER_MLLVM_PREFIX):
-                    # translate args like "-Wl,-mllvm,-profile-summary-cutoff-hot=999990"
-                    # to "-mllvm -profile-summary-cutoff-hot=999990"
-                    f = flag_str.removeprefix(LINKER_MLLVM_PREFIX)
-                    opt_args.add(OPT_PHASE_LLVM_PREFIX, f)
-
+                opt_args.add(raw_flag)
         return opt_args
 
     opt_common_flags = prepare_opt_flags(link_infos)
@@ -493,14 +437,8 @@ def cxx_dist_link(
 
             opt_cmd = cmd_args(lto_opt)
             opt_cmd.add("--out", outputs[opt_object].as_output())
-            opt_cmd.add("--")
-            opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
-            opt_cmd.add(opt_common_flags)
-
-            opt_cmd.add("-o", outputs[opt_object].as_output())
-            opt_cmd.add("-x", "ir", initial_object)
-            opt_cmd.add("-c")
-            opt_cmd.add(cmd_args(bc_file, format = "-fthinlto-index={}"))
+            opt_cmd.add("--input", initial_object)
+            opt_cmd.add("--index", bc_file)
 
             # When invoking opt and llc via clang, clang will not respect IR metadata to generate
             # dwo files unless -gsplit-dwarf is explicitly passed in. In other words, even if
@@ -511,7 +449,16 @@ def cxx_dist_link(
             # want to keep all dwo debug info in the object file to reduce the number of files to
             # materialize.
             if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
-                opt_cmd.add("-gsplit-dwarf=single")
+                opt_cmd.add("--split_dwarf=single")
+
+            # Create an argsfile and dump all the flags to be processed later.
+            opt_argsfile = ctx.actions.declare_output(outputs[opt_object].basename + ".opt.argsfile")
+            ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
+            opt_cmd.hidden(opt_common_flags)
+            opt_cmd.add("--args", opt_argsfile)
+
+            opt_cmd.add("--")
+            opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
             imports = [index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
             archives = [index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
@@ -556,17 +503,18 @@ def cxx_dist_link(
                 output_dir[source_path] = opt_object
                 opt_cmd = cmd_args(lto_opt)
                 opt_cmd.add("--out", opt_object.as_output())
-                opt_cmd.add("--")
-                opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
-                opt_cmd.add(opt_common_flags)
-
-                opt_cmd.add("-o", opt_object.as_output())
-                opt_cmd.add("-x", "ir", entry["path"])
-                opt_cmd.add("-c")
-                opt_cmd.add(cmd_args(entry["bitcode_file"], format = "-fthinlto-index={}"))
+                opt_cmd.add("--input", entry["path"])
+                opt_cmd.add("--index", entry["bitcode_file"])
 
                 if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
-                    opt_cmd.add("-gsplit-dwarf=single")
+                    opt_cmd.add("--split-dwarf=single")
+
+                opt_argsfile = ctx.actions.declare_output(opt_object.basename + ".opt.argsfile")
+                ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
+                opt_cmd.add("--args", opt_argsfile)
+
+                opt_cmd.add("--")
+                opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
                 imports = [index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
                 archives = [index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
