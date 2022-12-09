@@ -1,6 +1,12 @@
+native.python_bootstrap_library(
+    name = "conan_common",
+    srcs = ["conan_common.py"],
+)
+
 native.python_bootstrap_binary(
     name = "conan_init",
     main = "conan_init.py",
+    deps = [":conan_common"],
     visibility = ["PUBLIC"],
 )
 
