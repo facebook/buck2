@@ -356,7 +356,7 @@ async fn upload_dice_dump(
     let mut buckd = ctx
         .connect_buckd(BuckdConnectOptions::existing_only_no_console())
         .await?;
-    let dice_dump_folder_name = format!("{:?}", chrono::Utc::now());
+    let dice_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     let dice_dump_folder = ctx.paths.dice_dump_dir();
 
     create_dir_all(&dice_dump_folder).with_context(|| {
