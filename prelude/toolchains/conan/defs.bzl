@@ -12,6 +12,7 @@ manage and install third-party C/C++ dependencies.
 """
 
 ConanToolchainInfo = provider(fields = ["conan"])
+ConanHomeInfo = provider(fields = ["user_home"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
 
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
@@ -29,6 +30,37 @@ system_conan_toolchain = rule(
     },
     is_toolchain_rule = True,
     doc = "Uses a globally installed Conan executable.",
+)
+
+def _conan_init_impl(ctx: "context") -> ["provider"]:
+    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+    conan_init = ctx.attrs._conan_init[RunInfo]
+
+    user_home = ctx.actions.declare_output("user-home")
+    trace_log = ctx.actions.declare_output("trace.log")
+
+    cmd = cmd_args([conan_init])
+    cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--user-home", user_home.as_output()])
+    cmd.add(["--trace-file", trace_log.as_output()])
+    ctx.actions.run(cmd, category = "conan_init")
+
+    return [
+        ConanHomeInfo(
+            user_home = user_home,
+        ),
+        DefaultInfo(default_outputs = [
+            user_home,
+            trace_log,
+        ]),
+    ]
+
+conan_init = rule(
+    impl = _conan_init_impl,
+    attrs = {
+        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+        "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
+    },
 )
 
 def _conan_lock_update_impl(ctx: "context") -> ["provider"]:
