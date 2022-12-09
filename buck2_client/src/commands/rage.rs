@@ -186,13 +186,19 @@ impl RageCommand {
                 upload_dice_dump(&ctx, &new_trace_id, &old_trace_id).await?;
             }
 
-            let sections = vec![
+            let mut sections = vec![
                 RageSection::get("System info".to_owned(), timeout, get_system_info),
                 RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
                 RageSection::get("Build info".to_owned(), timeout, || {
                     get_build_info(selected_log)
                 }),
             ];
+
+            if self.dice_dump {
+                sections.push(RageSection::get("Dice Dump".to_owned(), timeout, || {
+                    upload_dice_dump(&ctx, &new_trace_id, &old_trace_id)
+                }));
+            }
 
             let sections = futures::future::join_all(sections).await;
             let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
@@ -346,11 +352,11 @@ async fn upload_dice_dump(
     ctx: &ClientCommandContext,
     new_trace_id: &TraceId,
     old_trace_id: &TraceId,
-) -> anyhow::Result<()> {
-    let dice_dump_folder_name = format!("{:?}", chrono::Utc::now());
+) -> anyhow::Result<String> {
     let mut buckd = ctx
         .connect_buckd(BuckdConnectOptions::existing_only_no_console())
         .await?;
+    let dice_dump_folder_name = format!("{:?}", chrono::Utc::now());
     let dice_dump_folder = ctx.paths.dice_dump_dir();
 
     create_dir_all(&dice_dump_folder).with_context(|| {
@@ -396,7 +402,7 @@ async fn upload_dice_dump(
             this_dice_dump_folder
         )
     })?;
-    Ok(())
+    Ok(format!("buck2_dice_dump/flat/{}", filename))
 }
 
 #[allow(unused_variables)] // Conditional compilation
