@@ -22,7 +22,7 @@ To build Buck2 using Buck2:
 
 * Install [protobuf](https://github.com/protocolbuffers/protobuf#protocol-compiler-installation):
   * On Ubuntu Linux 20.04: Install protoc from [this link](https://github.com/protocolbuffers/protobuf/releases/download/v21.10/protoc-21.10-linux-x86_64.zip)
-  * On Ubuntu Linux 22.04: `apt-get install protobuf-compiler` (check `protoc --version` is 3.12 or higher)
+  * On Ubuntu Linux 22.04: `apt-get install protobuf-compiler` (check `protoc --version` is 3.21 or higher)
   * On Mac: `brew install protobuf`
 * Install [`reindeer`](https://github.com/facebookincubator/reindeer), which is used to make Buck targets for Rust libraries.
 * Run `reindeer --third-party-dir shim/third-party/rust vendor`
