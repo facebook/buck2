@@ -22,8 +22,7 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::find_certs::find_tls_cert;
-use buck2_client_ctx::manifold::log_upload_url;
+use buck2_client_ctx::manifold;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
@@ -31,7 +30,6 @@ use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_dir_all;
-use buck2_core::process::async_background_command;
 use buck2_core::process::background_command;
 use buck2_data::RageInvoked;
 use buck2_events::dispatch::EventDispatcher;
@@ -77,6 +75,8 @@ enum RageError {
     SnapshotCommandError(i32, String),
     #[error("Failed to read event log")]
     EventLogReadError,
+    #[error("Failed to find suitable Manifold upload command")]
+    ManifoldUploadCommandNotFound,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -441,12 +441,6 @@ async fn upload_to_manifold(
 ) -> anyhow::Result<()> {
     if !cfg!(target_os = "windows") {
         buck2_core::facebook_only();
-        let manifold_url = match log_upload_url() {
-            None => return Ok(()),
-            Some(x) => x,
-        };
-
-        let cert = find_tls_cert()?;
 
         let tar_gzip = background_command("tar")
             .arg("-c")
@@ -456,17 +450,9 @@ async fn upload_to_manifold(
             .stderr(std::process::Stdio::null())
             .spawn()?;
 
-        let mut upload = async_background_command("curl");
-        upload.args([
-                "--fail",
-                "-X",
-                "PUT",
-                "--data-binary",
-                "@-",
-                &format!("{}/v0/write/flat/{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=300000", manifold_url, filename),
-                "-E",
-        ]);
-        upload.arg(cert);
+        let mut upload =
+            manifold::upload_command("buck2_dice_dump", filename, "buck2_dice_dump-key")?
+                .context(RageError::ManifoldUploadCommandNotFound)?;
         upload.stdin(tar_gzip.stdout.unwrap());
         let exit_code_result = upload.spawn()?.wait().await?.code();
 
