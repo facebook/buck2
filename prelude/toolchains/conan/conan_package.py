@@ -44,31 +44,6 @@ def conan_install(
     conan_common.run_conan(conan, *args, env=env)
 
 
-def install_generator(user_home, name, generator_file):
-    """Copy the given custom generator into the generators path."""
-    src = generator_file
-    dstdir = conan_common.generators_dir(user_home)
-    dst = os.path.join(dstdir, "conanfile.py")
-    os.makedirs(dstdir, exist_ok=True)
-    shutil.copyfile(src, dst)
-
-
-def copy_dependency_cache_dir(reference, user_home, cache_out):
-    """Copy the cache directory of a dependency into the store."""
-    name, version, user, channel, _ = conan_common.parse_reference(reference)
-    src = cache_out
-    dst = conan_common.reference_dir(user_home, name, version, user, channel)
-    shutil.copytree(src, dst)
-
-
-def copy_cache_dir(reference, user_home, cache_out):
-    """Copy the cache directory of the built package out of the store."""
-    name, version, user, channel, _ = conan_common.parse_reference(reference)
-    src = conan_common.reference_dir(user_home, name, version, user, channel)
-    dst = cache_out
-    shutil.copytree(src, dst)
-
-
 def main():
     parser = argparse.ArgumentParser(
             prog = "conan_package",
@@ -173,10 +148,10 @@ def main():
     # TODO Look into --settings and the like to configure a Buck2 provided toolchain.
     args = parser.parse_args()
 
-    install_generator(args.user_home, "buckler", args.buckler)
+    conan_common.install_generator(args.user_home, args.buckler)
     assert len(args.dep_reference) == len(args.dep_cache_out), "Mismatching dependency arguments."
     for ref, cache_out in zip(args.dep_reference, args.dep_cache_out):
-        copy_dependency_cache_dir(ref, args.user_home, cache_out)
+        conan_common.install_reference(args.user_home, ref, cache_out)
 
     # TODO Do we need to pre-create these?
     os.mkdir(args.install_folder)
@@ -199,9 +174,9 @@ def main():
     #   downloaded or built and dependencies were all found in cache.
     #   Alternatively, we could use the install-info.json and check that only
     #   the current package has one of `"downloaded": true` or `"built": true`.
-    copy_cache_dir(
-            args.reference,
+    conan_common.extract_reference(
             args.user_home,
+            args.reference,
             args.cache_out)
 
 

@@ -71,6 +71,34 @@ def reference_dir(user_home, name, version, user, channel):
     return os.path.join(store_dir(user_home), reference_subtree(name, version, user, channel))
 
 
+def install_generator(user_home, generator_file):
+    """Copy the given custom generator into the generators path.
+
+    Note, this will overwrite any pre-existing generators.
+    """
+    src = generator_file
+    dstdir = generators_dir(user_home)
+    dst = os.path.join(dstdir, "conanfile.py")
+    os.makedirs(dstdir, exist_ok=True)
+    shutil.copyfile(src, dst)
+
+
+def install_reference(user_home, reference, path):
+    """Copy the cache directory of a given package reference into the store."""
+    name, version, user, channel, _ = parse_reference(reference)
+    src = path
+    dst = reference_dir(user_home, name, version, user, channel)
+    shutil.copytree(src, dst)
+
+
+def extract_reference(user_home, reference, output):
+    """Copy the cache directory of the given package reference out of the store."""
+    name, version, user, channel, _ = parse_reference(reference)
+    src = reference_dir(user_home, name, version, user, channel)
+    dst = output
+    shutil.copytree(src, dst)
+
+
 def conan_env(
         user_home=None,
         trace_log=None):
