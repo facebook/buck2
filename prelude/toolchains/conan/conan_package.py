@@ -34,13 +34,6 @@ def conan_install(
     #    args.extend(["--options", option])
     args.append(reference.split("#")[0] + "@")
 
-    # Workaround gcc/clang ABI compatibility warning.
-    # TODO[AH] Copy conan_init generated user-home into place.
-    subprocess.check_call("conan profile new default".split(), env=env)
-    subprocess.check_call("conan profile update settings.compiler=gcc default".split(), env=env)
-    subprocess.check_call("conan profile update settings.compiler.version=11 default".split(), env=env)
-    subprocess.check_call("conan profile update settings.compiler.libcxx=libstdc++11 default".split(), env=env)
-
     conan_common.run_conan(conan, *args, env=env)
 
 
@@ -54,6 +47,12 @@ def main():
             type=str,
             required=True,
             help="Path to the Conan executable.")
+    parser.add_argument(
+            "--conan-init",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Path to the base Conan user-home.")
     parser.add_argument(
             "--buckler",
             metavar="FILE",
@@ -148,6 +147,7 @@ def main():
     # TODO Look into --settings and the like to configure a Buck2 provided toolchain.
     args = parser.parse_args()
 
+    conan_common.install_user_home(args.user_home, args.conan_init)
     conan_common.install_generator(args.user_home, args.buckler)
     assert len(args.dep_reference) == len(args.dep_cache_out), "Mismatching dependency arguments."
     for ref, cache_out in zip(args.dep_reference, args.dep_cache_out):

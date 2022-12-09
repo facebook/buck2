@@ -12,7 +12,7 @@ manage and install third-party C/C++ dependencies.
 """
 
 ConanToolchainInfo = provider(fields = ["conan"])
-ConanHomeInfo = provider(fields = ["user_home"])
+ConanInitInfo = provider(fields = ["user_home"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
 
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
@@ -46,7 +46,7 @@ def _conan_init_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd, category = "conan_init")
 
     return [
-        ConanHomeInfo(
+        ConanInitInfo(
             user_home = user_home,
         ),
         DefaultInfo(default_outputs = [
@@ -95,6 +95,7 @@ conan_lock_update = rule(
 
 def _conan_package_impl(ctx: "context") -> ["provider"]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+    conan_init = ctx.attrs._conan_init[ConanInitInfo]
     conan_package = ctx.attrs._conan_package[RunInfo]
 
     install_folder = ctx.actions.declare_output("install-folder")
@@ -107,6 +108,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--conan-init", conan_init.user_home])
     cmd.add(["--buckler", ctx.attrs._buckler])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
@@ -147,6 +149,7 @@ conan_package = rule(
         "options": attrs.list(attrs.string(doc = "Conan build options.")),
         "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan Package dependencies.")),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+        "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
         "_buckler": attrs.source(default = "prelude//toolchains/conan:buckler"),
     },

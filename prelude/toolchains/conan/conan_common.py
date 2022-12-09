@@ -71,6 +71,13 @@ def reference_dir(user_home, name, version, user, channel):
     return os.path.join(store_dir(user_home), reference_subtree(name, version, user, channel))
 
 
+def install_user_home(user_home, base_user_home):
+    """Copy the given base user-home to the current user-home."""
+    src = base_user_home
+    dst = user_home
+    shutil.copytree(src, dst)
+
+
 def install_generator(user_home, generator_file):
     """Copy the given custom generator into the generators path.
 
