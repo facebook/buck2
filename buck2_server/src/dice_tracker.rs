@@ -17,7 +17,7 @@ use buck2_data::*;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceEvent;
-use dice::DiceTracker;
+use dice::DiceEventListener;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
@@ -97,7 +97,7 @@ impl BuckDiceTracker {
     }
 }
 
-impl DiceTracker for BuckDiceTracker {
+impl DiceEventListener for BuckDiceTracker {
     fn event(&self, event: DiceEvent) {
         let _ = self.event_forwarder.unbounded_send(event);
     }

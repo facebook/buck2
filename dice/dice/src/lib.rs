@@ -245,7 +245,7 @@ use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
 pub use crate::ctx::DiceComputations;
 pub use crate::ctx::DiceEvent;
-pub use crate::ctx::DiceTracker;
+pub use crate::ctx::DiceEventListener;
 pub use crate::ctx::DiceTransaction;
 pub use crate::ctx::UserComputationData;
 use crate::cycles::DetectCycles;

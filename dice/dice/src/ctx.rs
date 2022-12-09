@@ -50,7 +50,7 @@ pub struct UserComputationData {
     /// This can contain arbitrary data from users that will not be part of the dice graph.
     /// As an example, users may want to inject some form of event dispatcher to send events from their computations.
     pub data: DiceData,
-    pub tracker: Arc<dyn DiceTracker>,
+    pub tracker: Arc<dyn DiceEventListener>,
     #[allocative(skip)]
     pub spawner: Arc<dyn Spawner<Self>>,
 
@@ -93,14 +93,14 @@ pub enum DiceEvent {
     Finished { key_type: &'static str },
 }
 
-pub trait DiceTracker: Allocative + Send + Sync + 'static {
+pub trait DiceEventListener: Allocative + Send + Sync + 'static {
     fn event(&self, ev: DiceEvent);
 }
 
 #[derive(Allocative)]
 struct NoOpTracker;
 
-impl DiceTracker for NoOpTracker {
+impl DiceEventListener for NoOpTracker {
     fn event(&self, _ev: DiceEvent) {}
 }
 
