@@ -372,21 +372,20 @@ impl DaemonCommand {
 
         rt.block_on(async move {
             // Once any item is received on the hard_shutdown_receiver, the daemon process will exit immediately.
-            let (hard_shutdown_sender, mut hard_shutdown_receiver): (UnboundedSender<()>, _) =
-                mpsc::unbounded();
+            let (hard_shutdown_sender, mut hard_shutdown_receiver) = mpsc::unbounded();
 
             #[derive(Allocative)]
             struct Delegate {
                 #[allocative(skip)]
-                hard_shutdown_sender: UnboundedSender<()>,
+                hard_shutdown_sender: UnboundedSender<String>,
             }
 
             impl BuckdServerDelegate for Delegate {
-                fn force_shutdown_with_timeout(&self, timeout: Duration) {
+                fn force_shutdown_with_timeout(&self, reason: String, timeout: Duration) {
                     let sender = self.hard_shutdown_sender.clone();
                     tokio::spawn(async move {
                         tokio::time::sleep(timeout).await;
-                        sender.unbounded_send(()).expect("Shouldn't happen.");
+                        sender.unbounded_send(reason).expect("Shouldn't happen.");
                     });
                 }
             }
@@ -435,8 +434,9 @@ impl DaemonCommand {
                     _ = buckd_server => {
                         buck2_client_ctx::eprintln!("server shutdown")?;
                     }
-                    _ = shutdown_future => {
-                        buck2_client_ctx::eprintln!("server forced shutdown")?;
+                    reason = shutdown_future => {
+                        let reason = reason.as_deref().unwrap_or("no reason available");
+                        buck2_client_ctx::eprintln!("server forced shutdown: {}", reason)?;
                     },
                 };
             }
@@ -455,7 +455,7 @@ impl DaemonCommand {
     fn check_daemon_dir_thread(
         checker_interval_seconds: u64,
         daemon_dir: DaemonDir,
-        hard_shutdown_sender: UnboundedSender<()>,
+        hard_shutdown_sender: UnboundedSender<String>,
     ) {
         let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
 
@@ -471,7 +471,9 @@ impl DaemonCommand {
                             "daemon verification failed, forcing shutdown: {:#}",
                             e
                         );
-                        hard_shutdown_sender.unbounded_send(()).unwrap();
+                        hard_shutdown_sender
+                            .unbounded_send("Daemon verfication failed".to_owned())
+                            .unwrap();
                     }
                 };
             }
@@ -599,7 +601,7 @@ mod tests {
         struct Delegate;
 
         impl BuckdServerDelegate for Delegate {
-            fn force_shutdown_with_timeout(&self, _timeout: Duration) {}
+            fn force_shutdown_with_timeout(&self, _reason: String, _timeout: Duration) {}
         }
 
         let process_info = DaemonProcessInfo {

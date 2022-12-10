@@ -87,7 +87,7 @@ static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
 static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
 
 pub trait BuckdServerDelegate: Allocative + Send + Sync {
-    fn force_shutdown_with_timeout(&self, timeout: Duration);
+    fn force_shutdown_with_timeout(&self, reason: String, timeout: Duration);
 }
 
 #[derive(Allocative)]
@@ -107,12 +107,12 @@ impl DaemonShutdown {
     ///
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
-    fn start_shutdown(&self, timeout: Option<Duration>) {
+    fn start_shutdown(&self, reason: String, timeout: Option<Duration>) {
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
 
         // Ignore errrors on shutdown_channel as that would mean we've already started shutdown;
         let _ = self.shutdown_channel.unbounded_send(());
-        self.delegate.force_shutdown_with_timeout(timeout);
+        self.delegate.force_shutdown_with_timeout(reason, timeout);
     }
 }
 
@@ -663,7 +663,7 @@ impl DaemonApi for BuckdServer {
                 .map(convert_positive_duration)
                 .transpose()?;
 
-            self.0.daemon_shutdown.start_shutdown(timeout);
+            self.0.daemon_shutdown.start_shutdown(req.reason, timeout);
             Ok(KillResponse {})
         })
         .await
