@@ -8,14 +8,20 @@
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
 
+RDotJavaSourceCode = record(
+    r_dot_java_source_code_dir = "artifact",
+    strings_source_code_dir = ["artifact", None],
+    ids_source_code_dir = ["artifact", None],
+)
+
 def get_dummy_r_dot_java(
         ctx: "context",
         merge_android_resources_tool: RunInfo.type,
         java_toolchain: "JavaToolchainInfo",
         android_resources: ["AndroidResourceInfo"],
         union_package: [str.type, None]) -> "JavaLibraryInfo":
-    r_dot_java_source_code_dir, _, _ = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
-    library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code_dir, java_toolchain, "dummy_r_dot_java")
+    r_dot_java_source_code = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
+    library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.r_dot_java_source_code_dir, java_toolchain, "dummy_r_dot_java")
     return JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
         library_output = library_output,
@@ -33,7 +39,7 @@ def generate_r_dot_javas(
         duplicate_resources_allowlist: ["artifact", None],
         union_package: [str.type, None],
         referenced_resources_lists: ["artifact"]) -> ["JavaLibraryInfo"]:
-    r_dot_java_source_code_dir, strings_source_code_dir, ids_source_code_dir = _generate_r_dot_java_source_code(
+    r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,
         android_resources,
@@ -48,9 +54,9 @@ def generate_r_dot_javas(
         referenced_resources_lists = referenced_resources_lists,
     )
 
-    main_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code_dir, java_toolchain, "main_r_dot_java")
-    strings_library_output = _generate_and_compile_r_dot_java(ctx, strings_source_code_dir, java_toolchain, "strings_r_dot_java", remove_classes = [".R$"])
-    ids_library_output = _generate_and_compile_r_dot_java(ctx, ids_source_code_dir, java_toolchain, "ids_r_dot_java", remove_classes = [".R$"])
+    main_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.r_dot_java_source_code_dir, java_toolchain, "main_r_dot_java")
+    strings_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.strings_source_code_dir, java_toolchain, "strings_r_dot_java", remove_classes = [".R$"])
+    ids_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.ids_source_code_dir, java_toolchain, "ids_r_dot_java", remove_classes = [".R$"])
 
     return [JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
@@ -70,7 +76,7 @@ def _generate_r_dot_java_source_code(
         override_symbols_paths: ["artifact"] = [],
         duplicate_resources_allowlist: ["artifact", None] = None,
         union_package: [str.type, None] = None,
-        referenced_resources_lists: ["artifact"] = []) -> ("artifact", ["artifact", None], ["artifact", None]):
+        referenced_resources_lists: ["artifact"] = []) -> RDotJavaSourceCode.type:
     merge_resources_cmd = cmd_args(merge_android_resources_tool)
 
     r_dot_txt_info = cmd_args()
@@ -124,7 +130,11 @@ def _generate_r_dot_java_source_code(
 
     ctx.actions.run(merge_resources_cmd, category = "r_dot_java_merge_resources", identifier = identifier)
 
-    return output_dir, strings_output_dir, ids_output_dir
+    return RDotJavaSourceCode(
+        r_dot_java_source_code_dir = output_dir,
+        strings_source_code_dir = strings_output_dir,
+        ids_source_code_dir = ids_output_dir,
+    )
 
 def _generate_and_compile_r_dot_java(
         ctx: "context",
