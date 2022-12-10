@@ -26,6 +26,12 @@ use futures::pin_mut;
 use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
+use sysinfo::Pid;
+use sysinfo::PidExt;
+use sysinfo::ProcessExt;
+use sysinfo::ProcessRefreshKind;
+use sysinfo::System;
+use sysinfo::SystemExt;
 use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
 use tonic::Request;
@@ -263,6 +269,7 @@ impl BuckdClient {
             .kill(Request::new(KillRequest {
                 reason: reason.to_owned(),
                 timeout: Some(GRACEFUL_SHUTDOWN_TIMEOUT.try_into()?),
+                caller: get_caller_for_kill(),
             }));
         let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
         let time_req_sent = Instant::now();
@@ -608,6 +615,31 @@ fn create_client_stream<
         request: Some(streaming_request::Request::Context(context)),
     };
     stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
+}
+
+fn get_caller_for_kill() -> Option<String> {
+    /// Add a proess to our parts, and return its parent PID.
+    fn push_process(pid: Pid, system: &mut System, process_tree: &mut Vec<String>) -> Option<Pid> {
+        system.refresh_process_specifics(pid, ProcessRefreshKind::new());
+        let proc = system.process(pid)?;
+        let title = format!("({})", shlex::join(proc.cmd().iter().map(|s| s.as_str())));
+        process_tree.push(title);
+        proc.parent()
+    }
+
+    let mut system = System::new();
+    let mut process_tree = Vec::new();
+
+    let mut pid = Some(Pid::from_u32(std::process::id()));
+    while let Some(p) = pid {
+        pid = push_process(p, &mut system, &mut process_tree);
+    }
+
+    if process_tree.is_empty() {
+        return None;
+    }
+
+    Some(itertools::join(process_tree.iter().rev(), " -> "))
 }
 
 #[cfg(test)]

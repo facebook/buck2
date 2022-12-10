@@ -109,7 +109,12 @@ def _sanitize_env(kwargs):
         for k, v in env.items():
             env[k] = v.replace("\n", "")
 
-def third_party_rust_library(name, platform = {}, **kwargs):
+def third_party_rust_library(
+        name, platform = {}, 
+        dlopen_enable = None,
+        linkable_alias = None,
+        **kwargs):
+    _unused = (dlopen_enable, linkable_alias)  # @unused
     _adjust_mapped_srcs(kwargs)
     _sanitize_env(kwargs)
     native.rust_library(name = name, **platform_attrs(_get_plat(), platform, kwargs))

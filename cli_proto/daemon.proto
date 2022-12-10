@@ -25,6 +25,7 @@ message DaemonProcessInfo {
 message KillRequest {
   string reason = 1;
   google.protobuf.Duration timeout = 2;
+  optional string caller = 3;
 }
 
 message KillResponse {}

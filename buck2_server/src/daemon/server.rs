@@ -663,7 +663,13 @@ impl DaemonApi for BuckdServer {
                 .map(convert_positive_duration)
                 .transpose()?;
 
-            self.0.daemon_shutdown.start_shutdown(req.reason, timeout);
+            let message = format!(
+                "{}, caller: {}",
+                req.reason,
+                req.caller.as_deref().unwrap_or("not known")
+            );
+
+            self.0.daemon_shutdown.start_shutdown(message, timeout);
             Ok(KillResponse {})
         })
         .await
