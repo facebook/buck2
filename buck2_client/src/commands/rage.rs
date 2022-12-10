@@ -182,9 +182,6 @@ impl RageCommand {
             let new_trace_id = TraceId::new();
 
             dispatch_event_to_scribe(&ctx, &new_trace_id, &old_trace_id)?;
-            if self.dice_dump {
-                upload_dice_dump(&ctx, &new_trace_id, &old_trace_id).await?;
-            }
 
             let mut sections = vec![
                 RageSection::get("System info".to_owned(), timeout, get_system_info),
