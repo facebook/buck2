@@ -449,7 +449,7 @@ def cxx_dist_link(
             # want to keep all dwo debug info in the object file to reduce the number of files to
             # materialize.
             if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
-                opt_cmd.add("--split_dwarf=single")
+                opt_cmd.add("--split-dwarf=single")
 
             # Create an argsfile and dump all the flags to be processed later.
             opt_argsfile = ctx.actions.declare_output(outputs[opt_object].basename + ".opt.argsfile")
