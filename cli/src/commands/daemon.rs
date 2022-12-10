@@ -382,11 +382,6 @@ impl DaemonCommand {
             }
 
             impl BuckdServerDelegate for Delegate {
-                fn force_shutdown(&self) -> anyhow::Result<()> {
-                    self.hard_shutdown_sender.unbounded_send(())?;
-                    Ok(())
-                }
-
                 fn force_shutdown_with_timeout(&self, timeout: Duration) {
                     let sender = self.hard_shutdown_sender.clone();
                     tokio::spawn(async move {
@@ -604,10 +599,6 @@ mod tests {
         struct Delegate;
 
         impl BuckdServerDelegate for Delegate {
-            fn force_shutdown(&self) -> anyhow::Result<()> {
-                Ok(())
-            }
-
             fn force_shutdown_with_timeout(&self, _timeout: Duration) {}
         }
 

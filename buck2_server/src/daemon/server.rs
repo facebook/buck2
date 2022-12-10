@@ -87,8 +87,6 @@ static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
 static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
 
 pub trait BuckdServerDelegate: Allocative + Send + Sync {
-    fn force_shutdown(&self) -> anyhow::Result<()>;
-
     fn force_shutdown_with_timeout(&self, timeout: Duration);
 }
 
