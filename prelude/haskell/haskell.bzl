@@ -401,7 +401,11 @@ def _compile(
     # base is special and gets exposed by default
     compile.add("-expose-package", "base")
 
-    # TODO: missing -optP flags (see compile argsfile below)
+    # Add args from preprocess-able inputs.
+    inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
+    pre = cxx_merge_cpreprocessors(ctx, [], inherited_pre)
+    pre_args = pre.set.project_as_args("args")
+    compile.add(cmd_args(pre_args, format = "-optP={}"))
 
     compile.add(extra_args)
 
