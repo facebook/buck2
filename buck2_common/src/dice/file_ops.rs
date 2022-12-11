@@ -183,13 +183,6 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
     Ok(dice.compute(&FileOpsKey()).await??.0)
 }
 
-fn panic_expected_parent(path: &CellPath) -> ! {
-    panic!(
-        "a file/dir in the repo must have a parent, but `{}` had none",
-        path
-    )
-}
-
 #[derive(Allocative)]
 pub struct FileChangeTracker {
     files_to_dirty: HashSet<ReadFileKey>,
@@ -221,12 +214,16 @@ impl FileChangeTracker {
     }
 
     pub fn file_added_or_removed(&mut self, path: CellPath) {
-        let parent = path
-            .parent()
-            .unwrap_or_else(|| panic_expected_parent(&path));
+        let parent = path.parent();
 
         self.file_contents_modify(path);
-        self.dirs_to_dirty.insert(ReadDirKey(parent));
+        if let Some(parent) = parent {
+            // The above can be None (validly!) if we have a cell we either create or delete.
+            // That never happens in established repos, but if you are setting one up, it's not uncommon.
+            // Since we don't include paths in different cells, the fact we don't dirty the parent
+            // (which is in an enclosing cell) doesn't matter.
+            self.dirs_to_dirty.insert(ReadDirKey(parent));
+        }
     }
 
     pub fn dir_added_or_removed(&mut self, path: CellPath) {
