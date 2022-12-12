@@ -9,7 +9,6 @@ load("@prelude//cxx:linker.bzl", "get_link_whole_args", "get_objects_as_library_
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
-    "value_or",
 )
 
 # Represents an archive (.a file)
@@ -118,6 +117,24 @@ LinkOrdering = enum(
     "topological",
 )
 
+def set_linkable_link_whole(
+        linkable: [ArchiveLinkable.type, ObjectsLinkable.type, SharedLibLinkable.type, FrameworksLinkable.type]) -> [ArchiveLinkable.type, ObjectsLinkable.type, SharedLibLinkable.type, FrameworksLinkable.type]:
+    if linkable._type == LinkableType("archive"):
+        return ArchiveLinkable(
+            archive = linkable.archive,
+            linker_type = linkable.linker_type,
+            link_whole = True,
+            _type = linkable._type,
+        )
+    elif linkable._type == LinkableType("objects"):
+        return ObjectsLinkable(
+            objects = linkable.objects,
+            linker_type = linkable.linker_type,
+            link_whole = True,
+            _type = linkable._type,
+        )
+    return linkable
+
 # Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
         inner: LinkInfo.type,
@@ -135,9 +152,9 @@ def wrap_link_info(
     )
 
 # Adds approprate args representing `linkable` to `args`
-def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type], use_link_groups: bool.type):
+def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]):
     if linkable._type == LinkableType("archive"):
-        if linkable.link_whole or (linkable.linker_type == "gnu" and use_link_groups):
+        if linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
         elif linkable.linker_type == "darwin":
             pass
@@ -161,7 +178,7 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
             # --whole-archive with --start-lib is undefined behavior in gnu linkers:
             # https://reviews.llvm.org/D120443. We need to export symbols from every
             # linkable in the link_info
-            if not linkable.link_whole and not use_link_groups:
+            if not linkable.link_whole:
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
@@ -174,11 +191,10 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
     else:
         fail("unreachable")
 
-def link_info_to_args(value: LinkInfo.type, is_shared: [bool.type, None] = None) -> "cmd_args":
+def link_info_to_args(value: LinkInfo.type) -> "cmd_args":
     args = cmd_args(value.pre_flags)
     for linkable in value.linkables:
-        # only use link_groups archive semantics when it's a shared link
-        append_linkable_args(args, linkable, value.use_link_groups and value_or(is_shared, False))
+        append_linkable_args(args, linkable)
     if value.post_flags != None:
         args.add(value.post_flags)
     return args
@@ -242,19 +258,19 @@ LinkedObject = record(
 
 def _link_info_default_args(infos: "LinkInfos"):
     info = infos.default
-    return link_info_to_args(info, is_shared = False)
+    return link_info_to_args(info)
 
 def _link_info_default_shared_link_args(infos: "LinkInfos"):
     info = infos.default
-    return link_info_to_args(info, is_shared = True)
+    return link_info_to_args(info)
 
 def _link_info_stripped_args(infos: "LinkInfos"):
     info = infos.stripped or infos.default
-    return link_info_to_args(info, is_shared = False)
+    return link_info_to_args(info)
 
 def _link_info_stripped_shared_link_args(infos: "LinkInfos"):
     info = infos.stripped or infos.default
-    return link_info_to_args(info, is_shared = True)
+    return link_info_to_args(info)
 
 def _link_info_default_filelist(infos: "LinkInfos"):
     info = infos.default
@@ -433,7 +449,7 @@ def unpack_link_args(args: LinkArgs.type, is_shared: [bool.type, None] = None, l
             return tset.project_as_args("default", ordering = ordering)
 
     if args.infos != None:
-        return cmd_args([link_info_to_args(info, is_shared) for info in args.infos])
+        return cmd_args([link_info_to_args(info) for info in args.infos])
 
     if args.flags != None:
         return args.flags

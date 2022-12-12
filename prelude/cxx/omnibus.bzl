@@ -228,7 +228,6 @@ def create_linkable_root(
                         node,
                         actual_link_style,
                         prefer_stripped = prefer_stripped_objects,
-                        force_no_link_groups = True,
                     ),
                 )
                 continue
@@ -423,7 +422,6 @@ def _create_root(
                 node,
                 actual_link_style,
                 prefer_stripped = prefer_stripped_objects,
-                force_no_link_groups = True,
             ))
             continue
 
@@ -444,7 +442,7 @@ def _create_root(
 
         # We should have already handled statically linked nodes above.
         expect(actual_link_style == LinkStyle("shared"))
-        inputs.append(get_link_info(node, actual_link_style, force_no_link_groups = True))
+        inputs.append(get_link_info(node, actual_link_style))
 
     output = ctx.actions.declare_output(value_or(root.name, get_default_shared_library_name(
         linker_info,
@@ -664,7 +662,6 @@ def _create_omnibus(
             node,
             actual_link_style,
             prefer_stripped = prefer_stripped_objects,
-            force_no_link_groups = True,
         )
         inputs.append(body_input)
         global_symbols_link_args.append(link_info_to_args(body_input))
@@ -686,7 +683,6 @@ def _create_omnibus(
             node,
             actual_link_style,
             prefer_stripped = prefer_stripped_objects,
-            force_no_link_groups = True,
         ))
 
     toolchain_info = get_cxx_toolchain_info(ctx)

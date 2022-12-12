@@ -302,8 +302,7 @@ def cxx_dist_link(
                 if idx in linkables_index:
                     object_link_arg = cmd_args()
                     for linkable in linkables_index[idx]:
-                        # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
-                        append_linkable_args(object_link_arg, linkable, use_link_groups = False)
+                        append_linkable_args(object_link_arg, linkable)
                     index_args.add(object_link_arg)
 
             # index link command args

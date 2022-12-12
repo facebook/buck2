@@ -18,6 +18,7 @@ load(
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "get_actual_link_style",
+    "set_linkable_link_whole",
     get_link_info_from_link_infos = "get_link_info",
 )
 load(
@@ -343,14 +344,14 @@ def get_filtered_links(
     for label, link_group_info in labels_to_links_map.items():
         info = link_group_info.link_info
         if public_link_group_nodes.contains(label):
+            linkables = [set_linkable_link_whole(linkable) for linkable in info.linkables]
             infos.append(
                 LinkInfo(
                     name = info.name,
                     pre_flags = info.pre_flags,
                     post_flags = info.post_flags,
-                    linkables = info.linkables,
-                    # TODO (@christylee): set link_whole in the LinkInfo linkables directly
-                    use_link_groups = True,
+                    linkables = linkables,
+                    external_debug_info = info.external_debug_info,
                 ),
             )
         else:
