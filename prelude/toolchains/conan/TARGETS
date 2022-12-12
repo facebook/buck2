@@ -18,6 +18,13 @@ native.python_bootstrap_binary(
 )
 
 native.python_bootstrap_binary(
+    name = "conan_generate",
+    main = "conan_generate.py",
+    deps = [":conan_common"],
+    visibility = ["PUBLIC"],
+)
+
+native.python_bootstrap_binary(
     name = "conan_update",
     main = "conan_update.py",
     visibility = ["PUBLIC"],
