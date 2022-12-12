@@ -145,7 +145,7 @@ conan_component(
     shared_libs = {shared_libs},
     system_libs = {system_libs},
     deps = {deps},
-    install = None,  # TODO[AH] Depend on prebuilt conan_install target.
+    package = {package},
 )
 """.format(
             name = repr(name),
@@ -165,7 +165,8 @@ conan_component(
                 if libs.shared
             }),
             system_libs = repr(self.system_libs),
-            deps = repr(deps))
+            deps = repr(deps),
+            package = repr(":_package_" + self.package_name))
 
 
 class _BucklerDepCpp(object):
