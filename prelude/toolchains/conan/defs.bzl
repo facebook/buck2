@@ -11,26 +11,40 @@ Provides a toolchain and rules to use the [Conan package manager][conan] to
 manage and install third-party C/C++ dependencies.
 """
 
-ConanToolchainInfo = provider(fields = ["conan"])
 ConanInitInfo = provider(fields = ["user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
+ConanToolchainInfo = provider(fields = ["conan"])
 
-def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
+def _conan_init_impl(ctx: "context") -> ["provider"]:
+    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+    conan_init = ctx.attrs._conan_init[RunInfo]
+
+    user_home = ctx.actions.declare_output("user-home")
+    trace_log = ctx.actions.declare_output("trace.log")
+
+    cmd = cmd_args([conan_init])
+    cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--user-home", user_home.as_output()])
+    cmd.add(["--trace-file", trace_log.as_output()])
+    ctx.actions.run(cmd, category = "conan_init")
+
     return [
-        DefaultInfo(),
-        ConanToolchainInfo(
-            conan = RunInfo(args = [ctx.attrs.conan_path]),
+        ConanInitInfo(
+            user_home = user_home,
         ),
+        DefaultInfo(default_outputs = [
+            user_home,
+            trace_log,
+        ]),
     ]
 
-system_conan_toolchain = rule(
-    impl = _system_conan_toolchain_impl,
+conan_init = rule(
+    impl = _conan_init_impl,
     attrs = {
-        "conan_path": attrs.string(doc = "Path to the Conan executable."),
+        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+        "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
     },
-    is_toolchain_rule = True,
-    doc = "Uses a globally installed Conan executable.",
 )
 
 def _conan_lock_impl(ctx: "context") -> ["provider"]:
@@ -71,37 +85,6 @@ conan_lock = rule(
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
         "_conan_lock": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_lock"),
-    },
-)
-
-def _conan_init_impl(ctx: "context") -> ["provider"]:
-    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
-    conan_init = ctx.attrs._conan_init[RunInfo]
-
-    user_home = ctx.actions.declare_output("user-home")
-    trace_log = ctx.actions.declare_output("trace.log")
-
-    cmd = cmd_args([conan_init])
-    cmd.add(["--conan", conan_toolchain.conan])
-    cmd.add(["--user-home", user_home.as_output()])
-    cmd.add(["--trace-file", trace_log.as_output()])
-    ctx.actions.run(cmd, category = "conan_init")
-
-    return [
-        ConanInitInfo(
-            user_home = user_home,
-        ),
-        DefaultInfo(default_outputs = [
-            user_home,
-            trace_log,
-        ]),
-    ]
-
-conan_init = rule(
-    impl = _conan_init_impl,
-    attrs = {
-        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
-        "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
     },
 )
 
@@ -195,4 +178,21 @@ conan_package = rule(
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
         "_buckler": attrs.source(default = "prelude//toolchains/conan:buckler"),
     },
+)
+
+def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
+    return [
+        DefaultInfo(),
+        ConanToolchainInfo(
+            conan = RunInfo(args = [ctx.attrs.conan_path]),
+        ),
+    ]
+
+system_conan_toolchain = rule(
+    impl = _system_conan_toolchain_impl,
+    attrs = {
+        "conan_path": attrs.string(doc = "Path to the Conan executable."),
+    },
+    is_toolchain_rule = True,
+    doc = "Uses a globally installed Conan executable.",
 )
