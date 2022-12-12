@@ -215,10 +215,7 @@ class BucklerGenerator(Generator):
 
     @property
     def content(self):
-        result = """\
-# @generated
-# Update with TODO
-"""
+        result = ""
 
         for dep_name, dep_cpp_info in self.deps_build_info.dependencies:
             buckler_dep = _BucklerDepCpp(dep_name, dep_cpp_info)
