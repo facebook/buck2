@@ -343,8 +343,9 @@ impl DaemonState {
             ))),
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
                 let defer_write_actions = root_config
-                    .parse("buck2", "defer_write_actions")?
-                    .unwrap_or(false);
+                    .parse::<RolloutPercentage>("buck2", "defer_write_actions")?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll();
 
                 // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
                 // < 1 hour.
