@@ -13,11 +13,11 @@ _REFS = {
     "arm64": "ovr_config//cpu/constraints:arm64",
     "armv7": "ovr_config//cpu/constraints:arm32",
     "build_only_native_code": "fbsource//xplat/buck2/platform/android:build_only_native_code",
-    "building_android_binary": "fbsource//xplat/buck2/platform/android:building_android_binary",
+    "building_android_binary": "prelude//os:building_android_binary",
     "cpu": "ovr_config//cpu/constraints:cpu",
     "do_not_build_only_native_code": "fbsource//xplat/buck2/platform/android:do_not_build_only_native_code",
     "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
-    "maybe_building_android_binary": "fbsource//xplat/buck2/platform/android:maybe_building_android_binary",
+    "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
     "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
     "x86": "ovr_config//cpu/constraints:x86_32",
     "x86_64": "ovr_config//cpu/constraints:x86_64",
@@ -182,7 +182,7 @@ def _is_building_android_binary() -> "selector":
     return select(
         {
             "DEFAULT": False,
-            "fbsource//xplat/buck2/platform/android:building_android_binary": True,
+            "prelude//os:building_android_binary": True,
         },
     )
 

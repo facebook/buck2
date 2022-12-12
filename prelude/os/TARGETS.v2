@@ -29,3 +29,14 @@ config_setting(
     ],
     visibility = ["PUBLIC"],
 )
+
+native.constraint_setting(
+    name = "maybe_building_android_binary",
+    visibility = ["prelude//..."],
+)
+
+native.constraint_value(
+    name = "building_android_binary",
+    constraint_setting = ":maybe_building_android_binary",
+    visibility = ["prelude//..."],
+)
