@@ -217,8 +217,18 @@ def get_no_as_needed_shared_libs_flags(linker_type: str.type) -> [str.type]:
 
     return args
 
-def get_output_flags(linker_type: str.type, output: "artifact") -> [""]:
+def get_output_flags(linker_type: str.type, output: "artifact") -> ["_argslike"]:
     if linker_type == "windows":
         return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
     else:
         return ["-o", output.as_output()]
+
+def get_import_library(
+        ctx: "context",
+        linker_type: str.type,
+        output_short_path: str.type) -> (["artifact", None], ["_argslike"]):
+    if linker_type == "windows":
+        import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
+        return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
+    else:
+        return None, []

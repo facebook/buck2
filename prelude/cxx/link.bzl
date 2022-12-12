@@ -37,6 +37,7 @@ load(":dwp.bzl", "dwp", "dwp_available")
 load(
     ":linker.bzl",
     "SharedLibraryFlagOverrides",  # @unused Used as a type
+    "get_import_library",
     "get_output_flags",
     "get_shared_library_flags",
     "get_shared_library_name_linker_flags",
@@ -65,7 +66,8 @@ def cxx_link(
         generate_dwp: bool.type = True,
         executable_link = False,
         link_postprocessor: ["cmd_args", None] = None,
-        force_full_hybrid_if_capable: bool.type = False) -> LinkedObject.type:
+        force_full_hybrid_if_capable: bool.type = False,
+        import_library: ["artifact", None] = None) -> LinkedObject.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -188,6 +190,7 @@ def cxx_link(
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
+        import_library = import_library,
     )
 
 def _link_libraries_locally(ctx: "context", prefer_local: bool.type) -> bool.type:
@@ -228,6 +231,13 @@ def cxx_link_shared_library(
     if name != None:
         extra_args.extend(get_shared_library_name_linker_flags(linker_type, name, shared_library_flags))
 
+    (import_library, import_library_args) = get_import_library(
+        ctx,
+        linker_type,
+        output.short_path,
+    )
+    extra_args.extend(import_library_args)
+
     prefer_local_value = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False))
 
     return cxx_link(
@@ -245,6 +255,7 @@ def cxx_link_shared_library(
         strip_args_factory = strip_args_factory,
         link_postprocessor = link_postprocessor,
         force_full_hybrid_if_capable = value_or(force_full_hybrid_if_capable, False),
+        import_library = import_library,
     )
 
 def cxx_link_into_shared_library(

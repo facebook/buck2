@@ -236,6 +236,9 @@ LinkedObject = record(
     linker_argsfile = field(["artifact", None], None),
     # This sub-target is only available for distributed thinLTO builds.
     index_argsfile = field(["artifact", None], None),
+    # Import library for linking with DLL on Windows.
+    # If not on Windows it's always None.
+    import_library = field(["artifact", None], None),
 )
 
 def _link_info_default_args(infos: "LinkInfos"):
