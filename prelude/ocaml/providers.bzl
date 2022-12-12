@@ -32,7 +32,6 @@ OCamlToolchainInfo = provider(fields = [
     "yacc_compiler",
     "menhir_compiler",
     "lex_compiler",
-    "libasmrun",  # The location of 'libasmrun.a'.
     "ocaml_bytecode_compiler",
     "debug",
     "interop_includes",
