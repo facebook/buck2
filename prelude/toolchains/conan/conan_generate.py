@@ -108,8 +108,9 @@ def main():
     conan_common.install_user_home(args.user_home, args.conan_init)
     conan_common.install_generator(args.user_home, args.buckler)
 
-    # TODO Do we need to pre-create these?
+    os.mkdir(args.install_folder)
     os.mkdir(args.output_folder)
+    os.mkdir(args.manifests)
 
     conan_install(
             args.conan,
