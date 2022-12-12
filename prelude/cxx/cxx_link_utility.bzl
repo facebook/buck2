@@ -72,7 +72,7 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [st
             linkables = link_info.linkables,
             pre_flags = [adjust_flag(x) for x in link_info.pre_flags],
             post_flags = [adjust_flag(x) for x in link_info.post_flags],
-            use_link_groups = link_info.use_link_groups,
+            external_debug_info = link_info.external_debug_info,
         )
 
     links = [
