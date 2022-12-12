@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
+
 mod serialize_duration {
     use serde::Deserialize;
     use serde::Deserializer;
@@ -153,5 +155,28 @@ impl ToProtoMessage for buck2_core::configuration::Configuration {
         crate::Configuration {
             full_name: self.full_name().to_owned(),
         }
+    }
+}
+
+/// Write out a human-readable description of the error tags
+/// that is printed out in the context stack when program fails.
+impl fmt::Display for ErrorCategory {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match &self {
+            ErrorCategory::Infra => "This error is an internal Buck2 error",
+            ErrorCategory::User => "This error was caused by the end user",
+        };
+
+        write!(f, "{}", msg)
+    }
+}
+
+impl fmt::Display for ErrorCause {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match &self {
+            ErrorCause::InvalidPackage => "The package is invalid",
+        };
+
+        write!(f, "{}", msg)
     }
 }

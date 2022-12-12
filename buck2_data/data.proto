@@ -594,8 +594,9 @@ message LoadPackageStart {
 }
 
 message LoadPackageEnd {
+  reserved 2;
   string path = 1;
-  optional string error = 2;
+  optional ErrorReport error = 3;
 }
 
 message LoadBuildFileStart {
@@ -1333,3 +1334,19 @@ message DiceEqualityCheck {
 }
 
 message NoActiveDiceState {}
+
+enum ErrorCategory {
+  USER = 0;
+  INFRA = 1;
+}
+
+enum ErrorCause {
+  INVALID_PACKAGE = 0;
+  // Add causes here as needed
+}
+
+message ErrorReport {
+  optional ErrorCategory category = 1;
+  optional ErrorCause cause = 2;
+  string error_message = 3;
+}

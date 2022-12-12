@@ -32,6 +32,7 @@ pub mod daemon_dir;
 pub mod dice;
 #[cfg(any(fbcode_build, cargo_internal_build))]
 pub mod eden;
+pub mod error_report;
 pub mod executor_config;
 pub mod external_symlink;
 pub mod file_ops;

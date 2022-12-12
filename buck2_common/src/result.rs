@@ -159,6 +159,53 @@ pub fn shared_downcast_ref<'a, E: std::error::Error + Display + Debug + Send + S
     }
 }
 
+/// Traverse `anyhow::Error` in `SharedError` recursively until the context `E` is found.
+pub fn recursive_shared_downcast_ref<E>(error: &anyhow::Error) -> Option<&E>
+where
+    E: Display + Debug + Send + Sync + 'static,
+{
+    let mut err = error;
+    loop {
+        match err.downcast_ref::<E>() {
+            Some(e) => return Some(e),
+            None => match err.downcast_ref::<SharedError>() {
+                Some(shared_err) => {
+                    err = shared_err.inner();
+                }
+                None => return None,
+            },
+        }
+    }
+}
+
+pub trait MayProvideAnyhowError {
+    fn as_anyhow(&self) -> Option<&anyhow::Error>;
+}
+
+impl<T> MayProvideAnyhowError for Result<T, SharedError> {
+    fn as_anyhow(&self) -> Option<&anyhow::Error> {
+        self.as_ref().err().map(|e| e.inner())
+    }
+}
+
+impl<T> MayProvideAnyhowError for anyhow::Result<T> {
+    fn as_anyhow(&self) -> Option<&anyhow::Error> {
+        self.as_ref().err()
+    }
+}
+
+impl MayProvideAnyhowError for SharedError {
+    fn as_anyhow(&self) -> Option<&anyhow::Error> {
+        Some(self.inner())
+    }
+}
+
+impl MayProvideAnyhowError for anyhow::Error {
+    fn as_anyhow(&self) -> Option<&anyhow::Error> {
+        Some(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -232,5 +279,50 @@ mod tests {
             .chain()
             .find_map(|e| shared_downcast_ref::<TestInnerError>(e));
         assert!(found_err.is_some());
+    }
+
+    #[test]
+    fn test_anyhow_recursive_downcast() {
+        #[derive(thiserror::Error, Debug)]
+        #[error("Bottom")]
+        struct ContextBottom;
+
+        #[derive(thiserror::Error, Debug)]
+        #[error("Middle")]
+        struct ContextMiddle;
+
+        #[derive(thiserror::Error, Debug)]
+        #[error("Top")]
+        struct ContextTop;
+
+        #[derive(thiserror::Error, Debug)]
+        #[error("None")]
+        struct ContextNone;
+
+        // Construct an error stack such that
+        //
+        // anyhow::Error - ContextTop
+        //     v
+        // SharedError
+        //     v
+        // anyhow::Error - ContextMiddle
+        //     v
+        // SharedError
+        //     v
+        // SharedError
+        //     v
+        // anyhow::Error - ContextBottom
+        let error_stack = anyhow::Error::from(SharedError::new(
+            anyhow::Error::from(SharedError::new(SharedError::from(
+                anyhow::anyhow!("bottom").context(ContextBottom {}),
+            )))
+            .context(ContextMiddle {}),
+        ))
+        .context(ContextTop {});
+
+        assert!(recursive_shared_downcast_ref::<ContextBottom>(&error_stack).is_some());
+        assert!(recursive_shared_downcast_ref::<ContextMiddle>(&error_stack).is_some());
+        assert!(recursive_shared_downcast_ref::<ContextTop>(&error_stack).is_some());
+        assert!(recursive_shared_downcast_ref::<ContextNone>(&error_stack).is_none());
     }
 }

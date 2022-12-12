@@ -15,6 +15,7 @@ use anyhow::Context;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::error_report::CreateErrorReport;
 use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
@@ -361,7 +362,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             },
             async {
                 let result = self.resolve_package_listing(package).await;
-                let error = result.as_ref().err().map(|e| format!("{:#}", e));
+                let error = result.create_error_report();
                 (
                     result,
                     buck2_data::LoadPackageEnd {

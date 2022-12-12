@@ -62,6 +62,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
         "//buck2/dice/dice:dice",
         "//buck2/facebook/allocator-stats:allocator-stats",
         "//buck2/gazebo/gazebo:gazebo",

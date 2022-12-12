@@ -43,6 +43,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         Ok(self
             .gather_package_listing(package)
             .await
+            .context(buck2_data::ErrorCause::InvalidPackage)
             .with_context(|| format!("when gathering package listing for `{}`", package))?)
     }
 
@@ -117,13 +118,19 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         let mut dirs = Vec::new();
         let mut subpackages = Vec::new();
 
-        let root_entries = self.fs.read_dir(root.as_cell_path()).await?;
-        let buildfile = find_buildfile(buildfile_candidates, &root_entries).ok_or_else(|| {
-            PackageListingError::NoBuildFile(
-                root.as_cell_path().clone(),
-                buildfile_candidates.to_vec(),
-            )
-        })?;
+        let root_entries = self
+            .fs
+            .read_dir(root.as_cell_path())
+            .await
+            .context(buck2_data::ErrorCategory::User)?;
+        let buildfile = find_buildfile(buildfile_candidates, &root_entries)
+            .ok_or_else(|| {
+                PackageListingError::NoBuildFile(
+                    root.as_cell_path().clone(),
+                    buildfile_candidates.to_vec(),
+                )
+            })
+            .context(buck2_data::ErrorCategory::User)?;
 
         let mut work = FuturesUnordered::new();
 
