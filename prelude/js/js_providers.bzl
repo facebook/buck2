@@ -34,12 +34,6 @@ JsBundleInfo = provider(
     ],
 )
 
-JsToolchainInfo = provider(
-    fields = [
-        "command_args_fixup",  # RunInfo.
-    ],
-)
-
 def get_transitive_outputs(
         actions: "actions",
         value: ["artifact", None] = None,

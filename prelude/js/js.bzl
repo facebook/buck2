@@ -9,7 +9,6 @@ load("@prelude//android:android.bzl", "android_toolchain")
 load("@prelude//js:js_bundle.bzl", "js_bundle_impl")
 load("@prelude//js:js_bundle_genrule.bzl", "js_bundle_genrule_impl")
 load("@prelude//js:js_library.bzl", "js_library_impl")
-load("@prelude//js:js_providers.bzl", "JsToolchainInfo")
 load("@prelude//genrule.bzl", "genrule_attributes")
 
 def _select_platform():
@@ -25,10 +24,6 @@ def _is_release():
         "DEFAULT": False,
         "ovr_config//build_mode/constraints:release": True,
     })
-
-def _select_js_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return "fbsource//xplat/buck2/platform/js:js"
 
 def _is_build_only_native_code():
     return select(
@@ -51,12 +46,6 @@ extra_attributes = {
         "_is_release": attrs.bool(
             default = _is_release(),
         ),
-        "_js_toolchain": attrs.exec_dep(
-            default = _select_js_toolchain(),
-            providers = [
-                JsToolchainInfo,
-            ],
-        ),
         "_platform": attrs.string(
             default = _select_platform(),
         ),
@@ -77,12 +66,6 @@ extra_attributes = {
         "_build_only_native_code": attrs.bool(default = _is_build_only_native_code()),
         "_is_release": attrs.bool(
             default = _is_release(),
-        ),
-        "_js_toolchain": attrs.exec_dep(
-            default = _select_js_toolchain(),
-            providers = [
-                JsToolchainInfo,
-            ],
         ),
         "_platform": attrs.string(
             default = _select_platform(),
