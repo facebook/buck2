@@ -27,6 +27,7 @@ def _conan_generate_impl(ctx: "context") -> ["provider"]:
     manifests = ctx.actions.declare_output("manifests")
     install_info = ctx.actions.declare_output("install-info.json")
     trace_log = ctx.actions.declare_output("trace.log")
+    targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl")
 
     cmd = cmd_args([conan_generate])
     cmd.add(["--conan", conan_toolchain.conan])
@@ -40,18 +41,22 @@ def _conan_generate_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--trace-file", trace_log.as_output()])
     cmd.add(["--conanfile", ctx.attrs.conanfile])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
+    cmd.add(["--targets-out", targets_out.as_output()])
     ctx.actions.run(cmd, category = "conan_build")
 
     return [
         # TODO[AH] ConanGenerateInfo with the generated targets file
-        DefaultInfo(default_outputs = [
-            install_folder,
-            output_folder,
-            user_home,
-            manifests,
-            install_info,
-            trace_log,
-        ]),
+        DefaultInfo(
+            default_outputs = [targets_out],
+            other_outputs = [
+                install_folder,
+                output_folder,
+                user_home,
+                manifests,
+                install_info,
+                trace_log,
+            ],
+        ),
     ]
 
 conan_generate = rule(

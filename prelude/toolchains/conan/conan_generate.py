@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
-import json
 import os
+import shutil
 import subprocess
 
 import conan_common
@@ -31,6 +31,12 @@ def conan_install(
     args.append(conanfile)
 
     conan_common.run_conan(conan, *args, env=env)
+
+
+def extract_generated(install_folder, targets_out):
+    src = os.path.join(install_folder, "conan-imports.bzl")
+    dst = targets_out
+    shutil.copy(src, dst)
 
 
 def main():
@@ -101,8 +107,14 @@ def main():
             "--lockfile",
             metavar="FILE",
             type=str,
-            required=False,
+            required=True,
             help="Path to the Conan lock-file.")
+    parser.add_argument(
+            "--targets-out",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Write the generated targets to this file.")
     args = parser.parse_args()
 
     conan_common.install_user_home(args.user_home, args.conan_init)
@@ -122,7 +134,7 @@ def main():
             args.manifests,
             args.install_info,
             args.trace_file)
-    # TODO[AH] Copy the generated bindings to a dedicated output file.
+    extract_generated(args.install_folder, args.targets_out)
 
 
 if __name__ == "__main__":
