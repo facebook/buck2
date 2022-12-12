@@ -13,6 +13,7 @@ manage and install third-party C/C++ dependencies.
 
 ConanToolchainInfo = provider(fields = ["conan"])
 ConanInitInfo = provider(fields = ["user_home"])
+ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
 
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
@@ -30,6 +31,47 @@ system_conan_toolchain = rule(
     },
     is_toolchain_rule = True,
     doc = "Uses a globally installed Conan executable.",
+)
+
+def _conan_lock_impl(ctx: "context") -> ["provider"]:
+    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+    conan_init = ctx.attrs._conan_init[ConanInitInfo]
+    conan_lock = ctx.attrs._conan_lock[RunInfo]
+
+    lockfile_out = ctx.actions.declare_output("conan.lock")
+    user_home = ctx.actions.declare_output("user-home")
+    trace_log = ctx.actions.declare_output("trace.log")
+
+    cmd = cmd_args([conan_lock])
+    cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--conan-init", conan_init.user_home])
+    cmd.add(["--user-home", user_home.as_output()])
+    cmd.add(["--trace-file", trace_log.as_output()])
+    cmd.add(["--conanfile", ctx.attrs.conanfile])
+    cmd.add(["--lockfile-out", lockfile_out.as_output()])
+    if ctx.attrs.lockfile:
+        cmd.add(["--lockfile", ctx.attrs.lockfile])
+    ctx.actions.run(cmd, category = "conan_lock")
+
+    return [
+        ConanLockInfo(
+            lockfile = lockfile_out,
+        ),
+        DefaultInfo(
+            default_outputs = [lockfile_out],
+            other_outputs = [user_home, trace_log],
+        ),
+    ]
+
+conan_lock = rule(
+    impl = _conan_lock_impl,
+    attrs = {
+        "conanfile": attrs.source(doc = "The conanfile defining the project dependencies."),
+        "lockfile": attrs.option(attrs.source(doc = "A pre-existing lockfile to base the dependency resolution on."), default = None),
+        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+        "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
+        "_conan_lock": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_lock"),
+    },
 )
 
 def _conan_init_impl(ctx: "context") -> ["provider"]:
