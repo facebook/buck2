@@ -171,8 +171,9 @@ conan_component(
 class _BucklerDepCpp(object):
     """A Conan package."""
 
-    def __init__(self, dep_name, dep_cpp_info):
+    def __init__(self, dep_name, dep_cpp_info, public=False):
         self.name = dep_name
+        self.public = public
         self.rootpath = dep_cpp_info.rootpath
         rootpath = self.rootpath
         if dep_cpp_info.components:
@@ -193,14 +194,15 @@ class _BucklerDepCpp(object):
 conan_dep(
     name = {name},
     components = {components},
-    visibility = [],  # TODO[AH] Make direct dependencies according to the top-level conanfile public.
+    visibility = {visibility},
 )
 """.format(
             name = repr(self.name),
             components = repr({
                 name: _Requirement(None, name).to_label(self.name)
                 for name in self.components.keys()
-            }))
+            }),
+            visibility = repr(["PUBLIC"]) if self.public else repr([]))
 
         for component in getattr(self, "components", {}).values():
             result += component.generate()
@@ -218,7 +220,8 @@ class BucklerGenerator(Generator):
         result = ""
 
         for dep_name, dep_cpp_info in self.deps_build_info.dependencies:
-            buckler_dep = _BucklerDepCpp(dep_name, dep_cpp_info)
+            direct_dep = dep_name in self.conanfile.requires
+            buckler_dep = _BucklerDepCpp(dep_name, dep_cpp_info, public=direct_dep)
             result += buckler_dep.generate()
 
         return result
