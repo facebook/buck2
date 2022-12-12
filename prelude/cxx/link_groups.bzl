@@ -37,6 +37,11 @@ load(
     "breadth_first_traversal_by",
 )
 load(
+    "@prelude//utils:set.bzl",
+    "set",
+    "set_record",
+)
+load(
     "@prelude//utils:utils.bzl",
     "expect",
 )
@@ -262,8 +267,95 @@ def get_filtered_labels_to_links_map(
 
     return linkable_map
 
-def get_filtered_links(labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
-    return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
+# Find all link group libraries that are first order deps or exported deps of
+# the exectuble or another link group's libs
+def get_public_link_group_nodes(
+        linkable_graph_node_map: {"label": LinkableNode.type},
+        link_group_mappings: [{"label": str.type}, None],
+        executable_deps: ["label"],
+        root_link_group: [str.type, None]) -> set_record.type:
+    external_link_group_nodes = set()
+
+    # TODO(@christylee): do we need to traverse root link group and NO_MATCH_LABEL exported deps?
+    # buildifier: disable=uninitialized
+    def crosses_link_group_boundary(current_group: [str.type, None], new_group: [str.type, None]):
+        # belongs to root binary
+        if new_group == root_link_group:
+            return False
+
+        if new_group == NO_MATCH_LABEL:
+            # Using NO_MATCH with an explicitly defined root_link_group is undefined behavior
+            expect(root_link_group == None or root_link_group == NO_MATCH_LABEL)
+            return False
+
+        # private node in link group
+        if new_group == current_group:
+            return False
+        return True
+
+    # Check the direct deps of the executable since the executable is not in linkable_graph_node_map
+    for label in executable_deps:
+        group = link_group_mappings.get(label)
+        if crosses_link_group_boundary(root_link_group, group):
+            external_link_group_nodes.add(label)
+
+    # get all nodes that cross function boundaries
+    # TODO(@christylee): dlopen-able libs that depend on the main executable does not have a
+    # linkable internal edge to the main executable. Symbols that are not referenced during the
+    # executable link might be dropped unless the dlopen-able libs are linked against the main
+    # executable. We need to force export those symbols to avoid undefined symbls.
+    for label, node in linkable_graph_node_map.items():
+        current_group = link_group_mappings.get(label)
+
+        for dep in node.deps + node.exported_deps:
+            new_group = link_group_mappings.get(dep)
+            if crosses_link_group_boundary(current_group, new_group):
+                external_link_group_nodes.add(dep)
+
+    SPECIAL_LINK_GROUPS = [MATCH_ALL_LABEL, NO_MATCH_LABEL]
+
+    # buildifier: disable=uninitialized
+    def get_traversed_deps(node: "label") -> ["label"]:
+        exported_deps = []
+        for exported_dep in linkable_graph_node_map[node].exported_deps:
+            group = link_group_mappings.get(exported_dep)
+            if group != root_link_group and group not in SPECIAL_LINK_GROUPS:
+                exported_deps.append(exported_dep)
+        return exported_deps
+
+    external_link_group_nodes.update(
+        # get transitive exported deps
+        breadth_first_traversal_by(
+            linkable_graph_node_map,
+            external_link_group_nodes.list(),
+            get_traversed_deps,
+        ),
+    )
+
+    return external_link_group_nodes
+
+def get_filtered_links(
+        labels_to_links_map: {"label": LinkGroupLinkInfo.type},
+        public_link_group_nodes: [set_record.type, None] = None):
+    if public_link_group_nodes == None:
+        return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
+    infos = []
+    for label, link_group_info in labels_to_links_map.items():
+        info = link_group_info.link_info
+        if public_link_group_nodes.contains(label):
+            infos.append(
+                LinkInfo(
+                    name = info.name,
+                    pre_flags = info.pre_flags,
+                    post_flags = info.post_flags,
+                    linkables = info.linkables,
+                    # TODO (@christylee): set link_whole in the LinkInfo linkables directly
+                    use_link_groups = True,
+                ),
+            )
+        else:
+            infos.append(info)
+    return infos
 
 def get_filtered_targets(labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
     return [label.raw_target() for label in labels_to_links_map.keys()]
@@ -277,6 +369,7 @@ def create_link_group(
         spec: LinkGroupLibSpec.type,
         # The deps of the top-level executable.
         executable_deps: ["label"] = [],
+        root_link_group = [str.type, None],
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         linker_flags: [""] = [],
         link_group_mappings: {"label": str.type} = {},
@@ -319,7 +412,13 @@ def create_link_group(
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )
-    inputs.extend(get_filtered_links(filtered_labels_to_links_map))
+    public_nodes = get_public_link_group_nodes(
+        linkable_graph_node_map,
+        link_group_mappings,
+        executable_deps,
+        root_link_group,
+    )
+    inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
 
     # link the rule
     return cxx_link_shared_library(

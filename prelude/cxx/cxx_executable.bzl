@@ -206,7 +206,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
         # If we're using auto-link-groups, where we generate the link group links
-        # in the prelude, the link group map will give use the link group libs.
+        # in the prelude, the link group map will give us the link group libs.
         # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
         if impl_params.auto_link_group_specs != None:
             for link_group_spec in impl_params.auto_link_group_specs:
@@ -220,6 +220,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                         dep.linkable_graph.nodes.value.label
                         for dep in link_deps
                     ],
+                    root_link_group = link_group,
                     linkable_graph_node_map = linkable_graph_node_map,
                     linker_flags = own_link_flags,
                     link_group_mappings = link_group_mappings,

@@ -159,9 +159,8 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
         if linkable.linker_type != "darwin":
             # We need to export every symbol when link groups are used, but enabling
             # --whole-archive with --start-lib is undefined behavior in gnu linkers:
-            # https://reviews.llvm.org/D120443. Since we are exporting every symbol,
-            # we cannot drop the object file even if it is unused, so there is no
-            # reason to wrap the object file with archive semantics.
+            # https://reviews.llvm.org/D120443. We need to export symbols from every
+            # linkable in the link_info
             if not linkable.link_whole and not use_link_groups:
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:

@@ -932,7 +932,6 @@ def _static_library(
             # Extra linkables are propogated here so they are available to link_groups
             # when they are deducing linker args.
             linkables = [linkable] + extra_linkables,
-            use_link_groups = cxx_use_link_groups(ctx),
             external_debug_info = all_external_debug_info,
         ),
     )
