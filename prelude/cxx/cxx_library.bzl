@@ -1029,6 +1029,10 @@ def _shared_library(
 
         exported_shlib = shlib_interface
 
+    # Link against import library on Windows.
+    if shlib.import_library:
+        exported_shlib = shlib.import_library
+
     return (
         soname,
         shlib,
