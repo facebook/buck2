@@ -16,6 +16,7 @@ def conan_profile(
             trace_log=trace_log)
 
     # TODO[AH] Do we need to support multiple profiles for cross-compilation?
+    #          Consider adding dedicated rules to define profiles.
     profile_name = "default"
     # TODO[AH] Configure the compiler according to the Buck2 provided C++ toolchain.
     settings = [
@@ -28,10 +29,16 @@ def conan_profile(
         ("settings.os", "Linux"),
         ("settings.os_build", "Linux"),
     ]
+    # TODO[AH] Allow users to define additional remotes.
+    remotes = [
+        ("conancenter", "https://center.conan.io"),
+    ]
 
     conan_common.run_conan(conan, "profile", "new", profile_name, env=env)
     for key, value in settings:
         conan_common.run_conan(conan, "profile", "update", "{}={}".format(key, value), profile_name, env=env)
+    for name, url in remotes:
+        conan_common.run_conan(conan, "remote", "add", "-f", name, url, env=env)
 
 
 def main():
