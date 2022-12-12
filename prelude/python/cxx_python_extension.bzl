@@ -37,8 +37,6 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkInfo",
-    "LinkInfos",
     "LinkStyle",
     "Linkage",
     "create_merged_link_info",
@@ -67,7 +65,7 @@ load(":manifest.bzl", "create_manifest_for_source_map")
 load(
     ":native_python_util.bzl",
     "merge_cxx_extension_info",
-    "suffix_symbols",
+    "rewrite_static_symbols",
 )
 load(":python.bzl", "PythonLibraryInfo")
 load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather_dep_libraries", "qualify_srcs")
@@ -140,27 +138,23 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     static_output = None
     if ctx.attrs.allow_embedding:
         static_output = libraries.outputs[LinkStyle("static")]
+
     if static_output != None:
         qualified_name = dest_prefix(ctx.label, ctx.attrs.base_module)
-        static_info = libraries.libraries[LinkStyle("static")].default
         if not ctx.attrs.allow_suffixing:
-            static_link_info = static_info
+            link_infos = libraries.libraries
             pyinit_symbol = "PyInit_{}".format(module_name)
         else:
             suffix = qualified_name.replace("/", "_") + module_name
+            static_pic_output = libraries.outputs[LinkStyle("static_pic")]
             cxx_toolchain = get_cxx_toolchain_info(ctx)
-            new_linkable = suffix_symbols(
+            link_infos = rewrite_static_symbols(
                 ctx,
                 suffix,
-                static_output.object_files,
-                cxx_toolchain,
-            )
-            static_link_info = LinkInfo(
-                name = static_info.name,
-                pre_flags = static_info.pre_flags,
-                post_flags = static_info.post_flags,
-                linkables = [new_linkable],
-                use_link_groups = static_info.use_link_groups,
+                pic_objects = static_pic_output.object_files,
+                non_pic_objects = static_output.object_files,
+                libraries = libraries.libraries,
+                cxx_toolchain = cxx_toolchain,
             )
             pyinit_symbol = "PyInit_{}_{}".format(module_name, suffix)
 
@@ -170,17 +164,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
             extension_artifacts.update(qualify_srcs(ctx.label, ctx.attrs.base_module, {stub_name: ctx.actions.write(stub_name, lines)}))
 
         python_module_names[qualified_name.replace("/", ".") + module_name] = pyinit_symbol
-
-        # We need to dynamically export the modules PyInit function so that we
-        # can find and import it with dlsym. TODO (T129253406) Remove this when
-        # we statically register symbols
-
         link_deps = linkables(cxx_deps)
-        link_infos = {
-            # TODO(agallagher): Support stripped.
-            LinkStyle("static"): LinkInfos(default = static_link_info),
-            LinkStyle("static_pic"): LinkInfos(default = static_link_info),
-        }
         linkable_providers = LinkableProviders(
             link_group_lib_info = merge_link_group_lib_info(deps = cxx_deps),
             linkable_graph = create_linkable_graph(

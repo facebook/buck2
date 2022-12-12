@@ -7,6 +7,9 @@
 
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkInfo",
+    "LinkInfos",
+    "LinkStyle",
     "ObjectsLinkable",
 )
 load(
@@ -57,20 +60,51 @@ def merge_cxx_extension_info(
         python_module_names = python_module_names,
     )
 
-def suffix_symbols(
+def rewrite_static_symbols(
         ctx: "context",
         suffix: str.type,
+        pic_objects: ["artifact"],
+        non_pic_objects: ["artifact"],
+        libraries: {LinkStyle.type: LinkInfos.type},
+        cxx_toolchain: "CxxToolchainInfo") -> {LinkStyle.type: LinkInfos.type}:
+    symbols_file = write_syms_file(ctx, pic_objects + non_pic_objects, suffix, cxx_toolchain)
+    rewritten_static_linkable = suffix_symbols(ctx, suffix, non_pic_objects, symbols_file, cxx_toolchain)
+    rewritten_static_pic_linkable = suffix_symbols(ctx, suffix, pic_objects, symbols_file, cxx_toolchain)
+
+    static_info = libraries[LinkStyle("static")].default
+    updated_static_info = LinkInfo(
+        name = static_info.name,
+        pre_flags = static_info.pre_flags,
+        post_flags = static_info.post_flags,
+        linkables = [rewritten_static_linkable],
+        use_link_groups = static_info.use_link_groups,
+    )
+
+    static_pic_info = libraries[LinkStyle("static")].default
+    updated_static_pic_info = LinkInfo(
+        name = static_pic_info.name,
+        pre_flags = static_pic_info.pre_flags,
+        post_flags = static_pic_info.post_flags,
+        linkables = [rewritten_static_pic_linkable],
+        use_link_groups = static_pic_info.use_link_groups,
+    )
+    updated_libraries = {
+        LinkStyle("static"): LinkInfos(default = updated_static_info),
+        LinkStyle("static_pic"): LinkInfos(default = updated_static_pic_info),
+    }
+    return updated_libraries
+
+def write_syms_file(
+        ctx: "context",
         objects: ["artifact"],
-        cxx_toolchain: "CxxToolchainInfo") -> ObjectsLinkable.type:
+        suffix: str.type,
+        cxx_toolchain: "CxxToolchainInfo") -> "artifact":
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
-    objcopy = cxx_toolchain.binary_utilities_info.objcopy
     nm = cxx_toolchain.binary_utilities_info.nm
-    artifacts = []
     symbols_file = ctx.actions.declare_output(ctx.label.name + "_renamed_syms")
     objects_args = cmd_args()
-
     for obj in objects:
         objects_args.add(cmd_args(obj, format = "{}"))
 
@@ -103,13 +137,27 @@ def suffix_symbols(
         category = "write_syms_file",
         identifier = "{}_write_syms_file".format(symbols_file.basename),
     )
-    for original in objects:
-        updated_name = suffix + "_" + original.short_path
+    return symbols_file
+
+def suffix_symbols(
+        ctx: "context",
+        suffix: str.type,
+        objects: ["artifact"],
+        symbols_file: "artifact",
+        cxx_toolchain: "CxxToolchainInfo") -> ObjectsLinkable.type:
+    """
+    Take a list of objects and append a suffix to all  defined symbols.
+    """
+    objcopy = cxx_toolchain.binary_utilities_info.objcopy
+
+    artifacts = []
+    for obj in objects:
+        updated_name = suffix + "_" + obj.short_path
         artifact = ctx.actions.declare_output(updated_name)
 
         script_env = {
             "OBJCOPY": objcopy,
-            "ORIGINAL": original,
+            "ORIGINAL": obj,
             "OUT": artifact.as_output(),
             "SYMSFILE": symbols_file,
         }
@@ -131,6 +179,7 @@ def suffix_symbols(
             identifier = updated_name,
         )
         artifacts.append(artifact)
+
     return ObjectsLinkable(
         objects = artifacts,
         linker_type = cxx_toolchain.linker_info.type,
