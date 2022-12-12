@@ -16,6 +16,56 @@ ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
 ConanToolchainInfo = provider(fields = ["conan"])
 
+def _conan_generate_impl(ctx: "context") -> ["provider"]:
+    conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
+    conan_init = ctx.attrs._conan_init[ConanInitInfo]
+    conan_generate = ctx.attrs._conan_generate[RunInfo]
+
+    install_folder = ctx.actions.declare_output("install-folder")
+    output_folder = ctx.actions.declare_output("output-folder")
+    user_home = ctx.actions.declare_output("user-home")
+    manifests = ctx.actions.declare_output("manifests")
+    install_info = ctx.actions.declare_output("install-info.json")
+    trace_log = ctx.actions.declare_output("trace.log")
+
+    cmd = cmd_args([conan_generate])
+    cmd.add(["--conan", conan_toolchain.conan])
+    cmd.add(["--conan-init", conan_init.user_home])
+    cmd.add(["--buckler", ctx.attrs._buckler])
+    cmd.add(["--install-folder", install_folder.as_output()])
+    cmd.add(["--output-folder", output_folder.as_output()])
+    cmd.add(["--user-home", user_home.as_output()])
+    cmd.add(["--manifests", manifests.as_output()])
+    cmd.add(["--install-info", install_info.as_output()])
+    cmd.add(["--trace-file", trace_log.as_output()])
+    cmd.add(["--conanfile", ctx.attrs.conanfile])
+    cmd.add(["--lockfile", ctx.attrs.lockfile])
+    ctx.actions.run(cmd, category = "conan_build")
+
+    return [
+        # TODO[AH] ConanGenerateInfo with the generated targets file
+        DefaultInfo(default_outputs = [
+            install_folder,
+            output_folder,
+            user_home,
+            manifests,
+            install_info,
+            trace_log,
+        ]),
+    ]
+
+conan_generate = rule(
+    impl = _conan_generate_impl,
+    attrs = {
+        "conanfile": attrs.source(doc = "The conanfile defining the project dependencies."),
+        "lockfile": attrs.source(doc = "The Conan lockfile pinning the package versions."),
+        "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
+        "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
+        "_buckler": attrs.source(default = "prelude//toolchains/conan:buckler"),
+        "_conan_generate": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_generate"),
+    },
+)
+
 def _conan_init_impl(ctx: "context") -> ["provider"]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
     conan_init = ctx.attrs._conan_init[RunInfo]
