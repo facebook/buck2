@@ -413,8 +413,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] prefix: &str,
         #[starlark(require = pos)] filename: Option<&str>,
+        #[starlark(require = named, default = false)] dir: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        let _ = dir;
+
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
         // The prefix argument is optional, but first, so we pretend the filename is optional
         // and fix them up here.
