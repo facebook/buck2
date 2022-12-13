@@ -20,49 +20,16 @@ load(
     "to_list",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params")
 load("@prelude//java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
 _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
-
-def _get_java_version_attributes(ctx: "context") -> (int.type, int.type):
-    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
-    java_version = ctx.attrs.java_version
-    java_source = ctx.attrs.source
-    java_target = ctx.attrs.target
-
-    if java_version:
-        if java_source or java_target:
-            fail("No need to set 'source' and/or 'target' attributes when 'java_version' is present")
-        java_version = _to_java_version(java_version)
-        return (java_version, java_version)
-
-    source = java_source or java_toolchain.source_level
-    target = java_target or java_toolchain.target_level
-
-    expect(bool(source) and bool(target), "Java source level and target level must be set!")
-
-    source = _to_java_version(source)
-    target = _to_java_version(target)
-
-    expect(source <= target, "java library source level {} is higher than target {} ", source, target)
-
-    return (source, target)
-
-def _to_java_version(java_version: str.type) -> int.type:
-    if java_version.startswith("1."):
-        expect(len(java_version) == 3, "Supported java version number format is 1.X, where X is a single digit numnber, but it was set to {}", java_version)
-        java_version_number = int(java_version[2:])
-        expect(java_version_number < 9, "Supported java version number format is 1.X, where X is a single digit numnber that is less than 9, but it was set to {}", java_version)
-        return java_version_number
-    else:
-        return int(java_version)
 
 def _process_classpath(
         actions: "actions",
@@ -305,7 +272,7 @@ def compile_to_jar(
         ctx: "context",
         srcs: ["artifact"],
         *,
-        abi_generation_mode: [AbiGenerationMode.type, None] = None,
+        abi_generation_mode: ["AbiGenerationMode", None] = None,
         output: ["artifact", None] = None,
         actions_prefix: [str.type, None] = None,
         javac_tool: ["", None] = None,
@@ -347,9 +314,9 @@ def compile_to_jar(
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     if not source_level:
-        source_level = _to_java_version(java_toolchain.source_level)
+        source_level = to_java_version(java_toolchain.source_level)
     if not target_level:
-        target_level = _to_java_version(java_toolchain.target_level)
+        target_level = to_java_version(java_toolchain.target_level)
 
     is_building_android_binary = ctx.attrs._is_building_android_binary
 
@@ -383,7 +350,7 @@ def compile_to_jar(
 def _create_jar_artifact(
         actions: "actions",
         actions_prefix: str.type,
-        _abi_generation_mode: [AbiGenerationMode.type, None],
+        _abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,
         label: "label",
         output: ["artifact", None],
@@ -574,20 +541,14 @@ def build_java_library(
     ) if run_annotation_processors else None
     plugin_params = create_plugin_params(ctx, ctx.attrs.plugins) if run_annotation_processors else None
     manifest_file = ctx.attrs.manifest_file
-    source_level, target_level = _get_java_version_attributes(ctx)
+    source_level, target_level = get_java_version_attributes(ctx)
     javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
 
     outputs = None
     common_compile_kwargs = None
     sub_targets = {}
     if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
-        abi_generation_mode = {
-            None: None,
-            "class": AbiGenerationMode("class"),
-            "migrating_to_source_only": AbiGenerationMode("source"),
-            "source": AbiGenerationMode("source"),
-            "source_only": AbiGenerationMode("source_only"),
-        }[ctx.attrs.abi_generation_mode]
+        abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode)
 
         common_compile_kwargs = {
             "abi_generation_mode": abi_generation_mode,
@@ -666,21 +627,7 @@ def build_java_library(
         generated_sources = generated_sources + [outputs.annotation_processor_output] if outputs and outputs.annotation_processor_output else [],
     )
 
-    default_info = DefaultInfo()
-    if outputs:
-        abis = [
-            ("class-abi", outputs.class_abi),
-            ("source-abi", outputs.source_abi),
-            ("source-only-abi", outputs.source_only_abi),
-        ]
-        for (name, artifact) in abis:
-            if artifact != None:
-                sub_targets[name] = [DefaultInfo(default_outputs = [artifact])]
-        default_info = DefaultInfo(
-            default_outputs = [outputs.full_library],
-            sub_targets = sub_targets,
-        )
-
+    default_info = get_default_info(outputs, sub_targets)
     return JavaProviders(
         java_library_info = java_library_info,
         java_library_intellij_info = intellij_info,
