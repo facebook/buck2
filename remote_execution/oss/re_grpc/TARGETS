@@ -15,6 +15,7 @@ rust_library(
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tonic",
+        "//buck2/app/buck2_core:buck2_core",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/remote_execution/oss/re_grpc_proto:re_grpc_proto",
     ],
