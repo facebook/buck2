@@ -17,15 +17,18 @@ def write_lockfile(lockfile, lockfile_out):
     shutil.copy(lockfile, lockfile_out)
 
 
-def write_targets(lock_generate, conan_generate, targets_out):
+def write_targets(update_label, lock_generate, conan_generate, targets_out):
     header = """\
+# @generated
+# Update using `buck2 run {update_label}`
+
 load(
     "@prelude//toolchains/conan:defs.bzl",
     "conan_component",
     "conan_dep",
     "conan_package",
 )
-"""
+""".format(update_label = update_label)
     os.makedirs(os.path.dirname(targets_out), exist_ok=True)
     with open(targets_out, "w") as outf:
         outf.write(header)
@@ -41,6 +44,12 @@ def main():
     parser = argparse.ArgumentParser(
             prog = "conan_update",
             description = "Update the Conan lock-file and the Buck2 package imports.")
+    parser.add_argument(
+            "--update-label",
+            metavar="LABEL",
+            type=str,
+            required=True,
+            help="The label to the target to run this program.")
     parser.add_argument(
             "--lockfile",
             metavar="FILE",
@@ -87,7 +96,7 @@ def main():
     targets_out = os.path.join(package, args.targets_out)
 
     write_lockfile(args.lockfile, lockfile_out)
-    write_targets(args.lock_targets, args.conan_targets, targets_out)
+    write_targets(args.update_label, args.lock_targets, args.conan_targets, targets_out)
 
 
 if __name__ == "__main__":

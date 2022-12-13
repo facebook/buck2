@@ -209,6 +209,7 @@ def _conan_update_impl(ctx: "context") -> ["provider"]:
     conan_update = ctx.attrs._conan_update[RunInfo]
 
     cmd = cmd_args([conan_update])
+    cmd.add(["--update-label", str(ctx.label.raw_target())])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--lock-targets", ctx.attrs.lock_generate])
     cmd.add(["--conan-targets", ctx.attrs.conan_generate])
