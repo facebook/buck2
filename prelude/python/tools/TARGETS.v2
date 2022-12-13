@@ -65,14 +65,8 @@ prelude.export_file(
     visibility = ["PUBLIC"],
 )
 
-prelude.export_file(
-    name = "generate_static_extension_info.py",
-    src = "generate_static_extension_info.py",
-    visibility = ["PUBLIC"],
-)
-
-prelude.command_alias(
+prelude.python_bootstrap_binary(
     name = "generate_static_extension_info",
-    exe = ":generate_static_extension_info.py",
+    main = "generate_static_extension_info.py",
     visibility = ["PUBLIC"],
 )
