@@ -22,6 +22,7 @@ use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::soft_error;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::directory::expand_selector_for_dependencies;
@@ -173,7 +174,7 @@ impl DepFileState {
             .read(fs)
             .context("Error reading dep files, verify that the action produced valid output")?;
 
-        Ok(Some(dep_files))
+        Ok(dep_files)
     }
 
     fn has_signatures(&self) -> bool {
@@ -622,7 +623,7 @@ impl DeclaredDepFiles {
 
     /// Read this set of dep files, producing ConcreteDepFiles. This can then be used to compute
     /// signatures for the input set that was used, and for future input sets.
-    fn read(&self, fs: &ArtifactFs) -> anyhow::Result<ConcreteDepFiles> {
+    fn read(&self, fs: &ArtifactFs) -> anyhow::Result<Option<ConcreteDepFiles>> {
         let mut contents = HashMap::with_capacity(self.tagged.len());
 
         for declared_dep_file in self.tagged.values() {
@@ -631,8 +632,19 @@ impl DeclaredDepFiles {
             let dep_file = fs.resolve(declared_dep_file.output.get_path())?;
 
             let read_dep_file: anyhow::Result<()> = try {
-                let dep_file = fs.fs().resolve(&dep_file);
-                let dep_file = fs_util::read_to_string(&dep_file)?;
+                let dep_file_path = fs.fs().resolve(&dep_file);
+                let dep_file = fs_util::read_to_string_opt(&dep_file_path)?;
+
+                let dep_file = match dep_file {
+                    Some(dep_file) => dep_file,
+                    None => {
+                        soft_error!(
+                            "missing_dep_file",
+                            anyhow::anyhow!("Dep file is missing at {}", dep_file_path)
+                        )?;
+                        return Ok(None);
+                    }
+                };
 
                 for line in dep_file.split('\n') {
                     let line = line.trim();
@@ -656,7 +668,7 @@ impl DeclaredDepFiles {
             contents.insert(declared_dep_file.label.dupe(), selector);
         }
 
-        Ok(ConcreteDepFiles { contents })
+        Ok(Some(ConcreteDepFiles { contents }))
     }
 
     /// Returns whether two DeclaredDepFile instances have the same dep files. This ignores the tag
