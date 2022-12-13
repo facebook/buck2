@@ -81,6 +81,10 @@ impl REClientBuilder {
         REClientBuilder::default()
     }
 
+    pub async fn build_and_connect(self) -> anyhow::Result<REClient> {
+        Ok(self.build())
+    }
+
     pub fn build(self) -> REClient {
         let cfg = self.cfg.unwrap_or_default();
         // TODO(aloiscochard) we ignore self.logger as it's discarded
