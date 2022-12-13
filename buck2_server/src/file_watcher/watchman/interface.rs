@@ -20,6 +20,7 @@ use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransaction;
 use tracing::info;
@@ -39,6 +40,7 @@ use crate::file_watcher::FileWatcher;
 struct WatchmanQueryProcessor {
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
+    retain_dep_files_on_watchman_fresh_instance: bool,
 }
 
 /// Used in process_one_change
@@ -219,7 +221,9 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
         eprintln!("watchman fresh instance event, clearing cache");
 
-        buck2_build_api::actions::impls::run::dep_files::flush_dep_files();
+        if !self.retain_dep_files_on_watchman_fresh_instance {
+            buck2_build_api::actions::impls::run::dep_files::flush_dep_files();
+        }
 
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
         // Dropping the entire DICE map can be somewhat computationally expensive as there
@@ -264,6 +268,11 @@ impl WatchmanFileWatcher {
             .get("project", "watchman_merge_base")
             .map(|s| s.to_owned());
 
+        let retain_dep_files_on_watchman_fresh_instance = root_config
+            .parse::<RolloutPercentage>("buck2", "retain_dep_files_on_watchman_fresh_instance")?
+            .unwrap_or_else(RolloutPercentage::always)
+            .roll();
+
         let query = SyncableQuery::new(
             Connector::new(),
             project_root,
@@ -275,6 +284,7 @@ impl WatchmanFileWatcher {
             box WatchmanQueryProcessor {
                 cells,
                 ignore_specs,
+                retain_dep_files_on_watchman_fresh_instance,
             },
             watchman_merge_base,
         )?;
