@@ -10,8 +10,11 @@ load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo
 
 RDotJavaSourceCode = record(
     r_dot_java_source_code_dir = "artifact",
+    r_dot_java_source_code_dir_listing = "artifact",
     strings_source_code_dir = ["artifact", None],
+    strings_source_code_dir_listing = ["artifact", None],
     ids_source_code_dir = ["artifact", None],
+    ids_source_code_dir_listing = ["artifact", None],
 )
 
 def get_dummy_r_dot_java(
@@ -21,7 +24,13 @@ def get_dummy_r_dot_java(
         android_resources: ["AndroidResourceInfo"],
         union_package: [str.type, None]) -> "JavaLibraryInfo":
     r_dot_java_source_code = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
-    library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.r_dot_java_source_code_dir, java_toolchain, "dummy_r_dot_java")
+    library_output = _generate_and_compile_r_dot_java(
+        ctx,
+        r_dot_java_source_code.r_dot_java_source_code_dir,
+        r_dot_java_source_code.r_dot_java_source_code_dir_listing,
+        java_toolchain,
+        "dummy_r_dot_java",
+    )
     return JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
         library_output = library_output,
@@ -54,9 +63,29 @@ def generate_r_dot_javas(
         referenced_resources_lists = referenced_resources_lists,
     )
 
-    main_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.r_dot_java_source_code_dir, java_toolchain, "main_r_dot_java")
-    strings_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.strings_source_code_dir, java_toolchain, "strings_r_dot_java", remove_classes = [".R$"])
-    ids_library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code.ids_source_code_dir, java_toolchain, "ids_r_dot_java", remove_classes = [".R$"])
+    main_library_output = _generate_and_compile_r_dot_java(
+        ctx,
+        r_dot_java_source_code.r_dot_java_source_code_dir,
+        r_dot_java_source_code.r_dot_java_source_code_dir_listing,
+        java_toolchain,
+        "main_r_dot_java",
+    )
+    strings_library_output = _generate_and_compile_r_dot_java(
+        ctx,
+        r_dot_java_source_code.strings_source_code_dir,
+        r_dot_java_source_code.strings_source_code_dir_listing,
+        java_toolchain,
+        "strings_r_dot_java",
+        remove_classes = [".R$"],
+    )
+    ids_library_output = _generate_and_compile_r_dot_java(
+        ctx,
+        r_dot_java_source_code.ids_source_code_dir,
+        r_dot_java_source_code.ids_source_code_dir_listing,
+        java_toolchain,
+        "ids_r_dot_java",
+        remove_classes = [".R$"],
+    )
 
     return [JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
@@ -90,15 +119,23 @@ def _generate_r_dot_java_source_code(
 
     output_dir = ctx.actions.declare_output("{}_source_code".format(identifier))
     merge_resources_cmd.add(["--output-dir", output_dir.as_output()])
+    output_dir_listing = ctx.actions.declare_output("{}_source_code_listing".format(identifier))
+    merge_resources_cmd.add(["--output-dir-listing", output_dir_listing.as_output()])
 
     if generate_strings_and_ids_separately:
         strings_output_dir = ctx.actions.declare_output("strings_source_code")
         merge_resources_cmd.add(["--strings-output-dir", strings_output_dir.as_output()])
+        strings_output_dir_listing = ctx.actions.declare_output("strings_source_code_listing")
+        merge_resources_cmd.add(["--strings-output-dir-listing", strings_output_dir_listing.as_output()])
         ids_output_dir = ctx.actions.declare_output("ids_source_code")
         merge_resources_cmd.add(["--ids-output-dir", ids_output_dir.as_output()])
+        ids_output_dir_listing = ctx.actions.declare_output("ids_source_code_listing")
+        merge_resources_cmd.add(["--ids-output-dir-listing", ids_output_dir_listing.as_output()])
     else:
         strings_output_dir = None
+        strings_output_dir_listing = None
         ids_output_dir = None
+        ids_output_dir_listing = None
 
     if force_final_resources_ids:
         merge_resources_cmd.add("--force-final-resource-ids")
@@ -132,35 +169,26 @@ def _generate_r_dot_java_source_code(
 
     return RDotJavaSourceCode(
         r_dot_java_source_code_dir = output_dir,
+        r_dot_java_source_code_dir_listing = output_dir_listing,
         strings_source_code_dir = strings_output_dir,
+        strings_source_code_dir_listing = strings_output_dir_listing,
         ids_source_code_dir = ids_output_dir,
+        ids_source_code_dir_listing = ids_output_dir_listing,
     )
 
 def _generate_and_compile_r_dot_java(
         ctx: "context",
         r_dot_java_source_code_dir: "artifact",
+        r_dot_java_src_listing: "artifact",
         java_toolchain: "JavaToolchainInfo",
         identifier: str.type,
         remove_classes: [str.type] = []) -> JavaClasspathEntry.type:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
-    r_dot_java_src_listing = ctx.actions.declare_output("{}.srclist".format(identifier))
-    ctx.actions.run(
-        [
-            java_toolchain.src_dir_helper[RunInfo],
-            "list",
-            "--dir",
-            r_dot_java_source_code_dir,
-            "--output",
-            r_dot_java_src_listing.as_output(),
-        ],
-        category = "list_r_dot_java_srcs",
-        identifier = identifier,
-    )
 
     # @lint-ignore-every BUILDIFIERLINT
     def compile_r_dot_java_srcs(ctx, artifacts, outputs):
         src_listing_string = artifacts[r_dot_java_src_listing].read_string()
-        src_listing = src_listing_string.split("\n") if src_listing_string else []
+        src_listing = src_listing_string.split("\n")[:-1] if src_listing_string else []
         r_dot_java_srcs = []
         copied_root = ctx.actions.declare_output("copied_{}".format(identifier))
         for path in src_listing:
