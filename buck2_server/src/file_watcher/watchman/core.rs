@@ -12,9 +12,11 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::env_helper::EnvHelper;
 use futures::future::Future;
 use gazebo::prelude::*;
 use serde::Deserialize;
@@ -140,7 +142,15 @@ impl WatchmanClient {
         &self,
         query: QueryRequestCommon,
     ) -> anyhow::Result<QueryResult<F>> {
-        Ok(self.client().query(self.root(), query).await?)
+        static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
+        let fut = self.client().query(self.root(), query);
+
+        Ok(match WATCHMAN_TIMEOUT.get_copied()? {
+            Some(timeout) => tokio::time::timeout(Duration::from_secs(timeout), fut)
+                .await
+                .context("Watchman request timed out")?,
+            None => fut.await,
+        }?)
     }
 
     fn root(&self) -> &ResolvedRoot {
