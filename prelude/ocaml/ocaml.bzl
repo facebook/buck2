@@ -178,7 +178,7 @@ def _mk_env(ctx: "context") -> {str.type: "cmd_args"}:
 
     if links:
         # A local `bin` dir of soft links.
-        bin = ctx.actions.symlinked_dir("bin/", links)
+        bin = ctx.actions.symlinked_dir("bin", links)
 
         # An environment in which `bin` is at the head of `$PATH`.
         return {"PATH": cmd_args(bin, format = "{}:\"$PATH\"")}
