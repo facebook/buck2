@@ -162,7 +162,6 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--buckler", ctx.attrs._buckler])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
-    cmd.add([cmd_args(ctx.attrs.options, prepend = "--option")])
     cmd.add(["--install-folder", install_folder.as_output()])
     cmd.add(["--output-folder", output_folder.as_output()])
     cmd.add(["--user-home", user_home.as_output()])
@@ -196,7 +195,6 @@ conan_package = rule(
     attrs = {
         "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
         "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
-        "options": attrs.list(attrs.string(doc = "Conan build options.")),
         "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan Package dependencies.")),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
