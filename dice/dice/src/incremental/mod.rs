@@ -421,6 +421,7 @@ where
 
                 Some(box move || {
                     if let Some(engine) = engine.upgrade() {
+                        debug!(msg = "cancelling", k = %k, v = %v);
                         match engine.currently_running.read().get(&v) {
                             None => {}
                             Some(map) => {
@@ -543,6 +544,11 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
     }
 
     /// Synchronously evaluate projection key without recording dependencies.
+    #[instrument(
+             level = "debug",
+             skip(self, transaction_ctx, extra, derive_from),
+             fields(k = %k, v = %transaction_ctx.get_version()),
+    )]
     fn eval_projection_versioned(
         self: &Arc<Self>,
         k: &ProjectionKeyAsKey<P>,
@@ -560,6 +566,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
 
             let res = match running_map.entry(k.clone()) {
                 Entry::Occupied(occupied) => {
+                    debug!(msg = "polling an existing sync projection task");
                     let shared = occupied.get().dupe();
                     // Release table lock.
                     drop(occupied);
@@ -602,6 +609,8 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         drop(vacant.insert(SyncDiceTaskHandle { rx: rx.shared() }));
 
+        debug!(msg = "evaluating sync projection task");
+
         let node = match self.versioned_cache.get(
             VersionedGraphKeyRef::new(transaction_ctx.get_version(), k),
             transaction_ctx.get_minor_version(),
@@ -641,6 +650,8 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         let sent = tx.send(node.dupe());
         assert!(sent.is_ok(), "receiver is still alive");
 
+        debug!(msg = "projection task completed");
+
         if let Some(running_map) = self
             .currently_running
             .read()
@@ -649,6 +660,8 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             let removed = running_map.remove(k);
             assert!(removed.is_some());
         }
+
+        debug!(msg = "currently_running cleared");
 
         node
     }
