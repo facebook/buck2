@@ -169,6 +169,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--install-info", install_info.as_output()])
     cmd.add(["--trace-file", trace_log.as_output()])
     cmd.add(["--cache-out", cache_out.as_output()])
+    # TODO[AH] Track transitive dependencies.
     for dep in ctx.attrs.deps:
         info = dep[ConanPackageInfo]
         cmd.add(["--dep-reference", info.reference, "--dep-cache-out", info.cache_out])
