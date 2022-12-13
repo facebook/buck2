@@ -274,7 +274,9 @@ def encode_base_jar_command(
         resources_map: {str.type: "artifact"},
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
-        extra_arguments: ["string"]) -> struct.type:
+        extra_arguments: ["string"],
+        track_class_usage: bool.type,
+        build_target_value_extra_params: [struct.type, None]) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
     compiling_classpath = get_compiling_classpath(actions, deps, additional_classpath_entries, target_type, source_only_abi_deps)
@@ -282,8 +284,8 @@ def encode_base_jar_command(
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
         type = encode_target_type(target_type),
+        extraParams = build_target_value_extra_params,
     )
-
     resolved_java_options = struct(
         bootclasspathList = [
             encode_path(v)
@@ -309,7 +311,7 @@ def encode_base_jar_command(
         # We use "class" abi compatibility to match buck1 (other compatibility modes are used for abi verification.
         abiCompatibilityMode = encode_abi_generation_mode(AbiGenerationMode("class")),
         abiGenerationMode = encode_abi_generation_mode(command_abi_generation_mode(target_type, abi_generation_mode)),
-        trackClassUsage = True,
+        trackClassUsage = track_class_usage,
         filesystemParams = filesystem_params,
         buildTargetValue = build_target_value,
         # TODO(cjhopman): Populate this or remove it.
