@@ -653,7 +653,8 @@ impl RemoteExecutionClientImpl {
             let client = REClientBuilder::new(fb)
                 .with_config(re_client_config)
                 .with_logger(logger)
-                .build();
+                .build_and_connect()
+                .await?;
             Self {
                 client: Some(client),
                 skip_remote_cache,
