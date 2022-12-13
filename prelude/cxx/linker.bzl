@@ -160,6 +160,10 @@ def get_link_whole_args(linker_type: str.type, inputs: ["artifact"]) -> [""]:
             args.append("-force_load")
             args.append("-Xlinker")
             args.append(inp)
+    elif linker_type == "windows":
+        for inp in inputs:
+            args.append(inp)
+            args.append("/WHOLEARCHIVE:" + inp.short_path)
     else:
         fail("Linker type {} not supported".format(linker_type))
 
