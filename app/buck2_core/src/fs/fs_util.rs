@@ -345,6 +345,19 @@ pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
         .with_context(|| format!("read_to_string({})", P::as_ref(&path).display()))
 }
 
+/// Read a file, if it exists. Returns `None` when the file does not exist.
+pub fn read_to_string_opt<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<String>> {
+    let _guard = IoCounterKey::Read.guard();
+    match fs::read_to_string(&path) {
+        Ok(d) => Ok(Some(d)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(anyhow::Error::from(e).context(format!(
+            "read_to_string_opt({})",
+            P::as_ref(&path).display()
+        ))),
+    }
+}
+
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
     let _guard = IoCounterKey::Canonicalize.guard();
     fs::canonicalize(&path).with_context(|| format!("canonicalize({})", P::as_ref(&path).display()))
@@ -611,5 +624,18 @@ mod tests {
 
         fs_util::write(tempdir.path().join("file"), b"rrr").unwrap();
         assert!(fs_util::create_dir_if_not_exists(tempdir.path().join("file")).is_err());
+    }
+
+    #[test]
+    fn test_read_to_string_opt() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let f1 = tempdir.path().join("f1");
+        let f2 = tempdir.path().join("f2");
+
+        fs_util::write(&f1, b"data")?;
+        assert_eq!(fs_util::read_to_string_opt(&f1)?.as_deref(), Some("data"));
+        assert_eq!(fs_util::read_to_string_opt(&f2)?, None);
+
+        Ok(())
     }
 }
