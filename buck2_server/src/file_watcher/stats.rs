@@ -50,7 +50,7 @@ impl FileWatcherStats {
 
     /// I have seen an event that I am ignoring
     pub(crate) fn add_ignored(&mut self) {
-        self.add_common();
+        // Nothing to do
     }
 
     /// I have seen an event that I am processing
