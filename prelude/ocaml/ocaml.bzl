@@ -682,7 +682,10 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
     ocamlc = _mk_ocaml_compiler(ctx, env, BuildMode("bytecode"))
 
-    link_infos = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
+    link_infos = merge_link_infos(
+        ctx,
+        _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
+    )
     link_info = get_link_args(link_infos, LinkStyle("static"))
     ld_args = unpack_link_args(link_info)
     ld_nat = _mk_ld(ctx, [ld_args], "ld_native.sh")

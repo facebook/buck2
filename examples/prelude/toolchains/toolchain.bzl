@@ -172,6 +172,7 @@ def _ocaml_toolchain(_ctx):
             # These are choices for CircleCI ubuntu. The right values vary from
             # platform to platform.
             interop_includes = "/usr/lib/ocaml",
+            libc = None,
             ocaml_bytecode_compiler = RunInfo(args = ["ocamlc.opt"]),
             debug = RunInfo(args = ["ocamldebug"]),
             warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",

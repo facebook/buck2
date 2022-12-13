@@ -32,6 +32,7 @@ OCamlToolchainInfo = provider(fields = [
     "yacc_compiler",
     "menhir_compiler",
     "lex_compiler",
+    "libc",  # MergedLinkInfo of libc
     "ocaml_bytecode_compiler",
     "debug",
     "interop_includes",
