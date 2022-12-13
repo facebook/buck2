@@ -77,6 +77,7 @@ def rewrite_static_symbols(
         pre_flags = static_info.pre_flags,
         post_flags = static_info.post_flags,
         linkables = [rewritten_static_linkable],
+        use_link_groups = static_info.use_link_groups,
     )
 
     static_pic_info = libraries[LinkStyle("static")].default
@@ -85,6 +86,7 @@ def rewrite_static_symbols(
         pre_flags = static_pic_info.pre_flags,
         post_flags = static_pic_info.post_flags,
         linkables = [rewritten_static_pic_linkable],
+        use_link_groups = static_pic_info.use_link_groups,
     )
     updated_libraries = {
         LinkStyle("static"): LinkInfos(default = updated_static_info),

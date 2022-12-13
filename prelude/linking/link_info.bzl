@@ -101,6 +101,7 @@ LinkInfo = record(
     post_flags = field([""], []),
     # Primary input to the linker, one of the Linkable types above.
     linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]], []),
+    use_link_groups = field(bool.type, False),
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
@@ -146,6 +147,7 @@ def wrap_link_info(
         pre_flags = pre_flags,
         post_flags = post_flags,
         linkables = inner.linkables,
+        use_link_groups = inner.use_link_groups,
         external_debug_info = inner.external_debug_info,
     )
 

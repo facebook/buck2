@@ -18,6 +18,7 @@ load(
     "expect",
     "flatten",
     "from_named_set",
+    "value_or",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
@@ -134,6 +135,10 @@ def cxx_mk_shlib_intf(
 
 def cxx_is_gnu(ctx: "context") -> bool.type:
     return get_cxx_toolchain_info(ctx).linker_info.type == "gnu"
+
+def cxx_use_link_groups(ctx: "context") -> bool.type:
+    # Link groups is enabled by default in darwin
+    return cxx_is_gnu(ctx) and value_or(ctx.attrs.use_link_groups, False)
 
 def cxx_use_shlib_intfs(ctx: "context") -> bool.type:
     """
