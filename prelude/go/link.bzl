@@ -78,7 +78,7 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
     # Add inherited Go pkgs to library search path.
     all_pkgs = merge_pkgs([pkgs, get_inherited_link_pkgs(deps)])
     pkgs_dir = ctx.actions.symlinked_dir(
-        "__link_pkgs__/",
+        "__link_pkgs__",
         {name + path.extension: path for name, path in all_pkgs.items()},
     )
     cmd.add("-L", pkgs_dir)

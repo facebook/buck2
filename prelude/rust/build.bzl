@@ -80,7 +80,7 @@ def compile_context(ctx: "context") -> CompileContext.type:
     mapped_srcs = ctx.attrs.mapped_srcs
     symlinks = {src.short_path: src for src in srcs}
     symlinks.update({k: v for v, k in mapped_srcs.items()})
-    symlinked_srcs = ctx.actions.symlinked_dir("__srcs/", symlinks)
+    symlinked_srcs = ctx.actions.symlinked_dir("__srcs", symlinks)
 
     linker = _linker_args(ctx)
     clippy_wrapper = _clippy_wrapper(ctx)
@@ -391,7 +391,7 @@ def _dependency_args(
         deps_dirs[-1][name] = dep
 
     for idx, srcs in enumerate(deps_dirs):
-        deps_dir = "{}-deps{}-{}/".format(subdir, ("-check" if is_check else ""), idx)
+        deps_dir = "{}-deps{}-{}".format(subdir, ("-check" if is_check else ""), idx)
         dep_link_dir = ctx.actions.symlinked_dir(deps_dir, srcs)
         args.add(cmd_args(dep_link_dir, format = "-Ldependency={}"))
 

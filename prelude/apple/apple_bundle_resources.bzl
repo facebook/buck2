@@ -63,7 +63,7 @@ def get_apple_bundle_resource_part_list(ctx: "context") -> AppleBundleResourcePa
     ).values())
     if cxx_resources:
         cxx_res_dir = ctx.actions.copied_dir(
-            "CxxResources/",
+            "CxxResources",
             {
                 name: resource
                 for name, (resource, _) in cxx_resources.items()

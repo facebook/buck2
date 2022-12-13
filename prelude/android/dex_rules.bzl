@@ -451,7 +451,7 @@ def merge_to_split_dex(
                 secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
                 metadata_dot_txt_files_by_module[module] = metadata_dot_txt_file
             else:
-                raw_secondary_dexes_dir = ctx.actions.symlinked_dir("raw_secondary_dexes_dir_for_module_{}/".format(module), raw_secondary_dexes_for_compressing)
+                raw_secondary_dexes_dir = ctx.actions.symlinked_dir("raw_secondary_dexes_dir_for_module_{}".format(module), raw_secondary_dexes_for_compressing)
                 secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dexes_dir_for_{}".format(module))
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
 

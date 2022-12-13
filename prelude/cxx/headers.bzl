@@ -187,7 +187,7 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
         return Headers(
             include_path = cmd_args(hmap).hidden(srcs.values()),
         )
-    symlink_dir = ctx.actions.symlinked_dir(name + "/", _normalize_header_srcs(srcs))
+    symlink_dir = ctx.actions.symlinked_dir(name, _normalize_header_srcs(srcs))
     if header_mode == HeaderMode("symlink_tree_only"):
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):

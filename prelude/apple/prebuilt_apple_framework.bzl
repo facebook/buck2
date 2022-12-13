@@ -53,7 +53,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
         # Sandbox the framework, to avoid leaking other frameworks via search paths.
         framework_name = to_framework_name(framework_directory_artifact.basename)
         framework_dir = ctx.actions.symlinked_dir(
-            "Frameworks/",
+            "Frameworks",
             {framework_name + ".framework": framework_directory_artifact},
         )
 

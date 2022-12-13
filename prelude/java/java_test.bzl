@@ -131,6 +131,6 @@ def _get_native_libs_env(ctx: "context") -> dict.type:
 
     native_linkables = traverse_shared_library_info(shared_library_info)
     cxx_library_symlink_tree_dict = {so_name: shared_lib.lib.output for so_name, shared_lib in native_linkables.items()}
-    cxx_library_symlink_tree = ctx.actions.symlinked_dir("cxx_library_symlink_tree/", cxx_library_symlink_tree_dict)
+    cxx_library_symlink_tree = ctx.actions.symlinked_dir("cxx_library_symlink_tree", cxx_library_symlink_tree_dict)
 
     return {"BUCK_LD_SYMLINK_TREE": cxx_library_symlink_tree}
