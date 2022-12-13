@@ -25,7 +25,6 @@ pub(crate) mod transaction_ctx;
 pub(crate) mod versions;
 
 use std::borrow::Cow;
-use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -37,7 +36,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use dashmap::mapref::entry::Entry;
-use dashmap::mapref::entry::VacantEntry;
 use dashmap::DashMap;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
@@ -562,32 +560,45 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         ) {
             entry.dupe()
         } else {
-            let running_map = self.get_running_map(transaction_ctx);
+            enum Val<P: ProjectionKey> {
+                Occupied(SyncDiceTaskHandle<ProjectionKeyProperties<P>>),
+                Vacant(tokio::sync::oneshot::Sender<GraphNode<ProjectionKeyProperties<P>>>),
+            }
 
-            let res = match running_map.entry(k.clone()) {
-                Entry::Occupied(occupied) => {
-                    debug!(msg = "polling an existing sync projection task");
-                    let shared = occupied.get().dupe();
-                    // Release table lock.
-                    drop(occupied);
+            let val = {
+                let running_map = self.get_running_map(transaction_ctx);
+
+                let val = match running_map.entry(k.clone()) {
+                    Entry::Occupied(occupied) => Val::Occupied(occupied.get().dupe()),
+                    Entry::Vacant(vacant) => {
+                        let (tx, rx) = tokio::sync::oneshot::channel();
+                        vacant.insert(SyncDiceTaskHandle { rx: rx.shared() });
+                        Val::Vacant(tx)
+                    }
+                };
+
+                val
+            };
+
+            match val {
+                Val::Occupied(o) => {
                     // It is safe to block here because projection computation is synchronous.
                     // Here is some explanation why we need unconstrained:
                     // https://gist.github.com/stepancheg/0c1e6ed4b45a334a9a222e7db38537f2
-                    futures::executor::block_on(tokio::task::unconstrained(shared.rx))
+                    debug!(msg = "polling an existing sync projection task");
+                    futures::executor::block_on(tokio::task::unconstrained(o.rx))
                         .expect("sync task don't fail")
                         .dupe()
                 }
-                Entry::Vacant(vacant) => self.eval_projection_task(
+                Val::Vacant(v) => self.eval_projection_task(
                     k,
                     &derive_from.value,
                     derive_from.as_both_deps(),
                     transaction_ctx,
                     extra,
-                    vacant,
+                    v,
                 ),
-            };
-
-            res
+            }
         }
     }
 
@@ -600,15 +611,8 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         derive_from_as_deps: BothDeps,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-        vacant: VacantEntry<
-            ProjectionKeyAsKey<P>,
-            SyncDiceTaskHandle<ProjectionKeyProperties<P>>,
-            RandomState,
-        >,
+        tx: tokio::sync::oneshot::Sender<GraphNode<ProjectionKeyProperties<P>>>,
     ) -> GraphNode<ProjectionKeyProperties<P>> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        drop(vacant.insert(SyncDiceTaskHandle { rx: rx.shared() }));
-
         debug!(msg = "evaluating sync projection task");
 
         let node = match self.versioned_cache.get(
@@ -786,28 +790,37 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         let derive_from_both_deps =
             BothDeps::only_one_dep(transaction_ctx.get_version(), value.dupe(), &cache);
 
-        let running_map = self.get_running_map(transaction_ctx);
+        enum Val<P: ProjectionKey> {
+            Occupied(SyncDiceTaskHandle<ProjectionKeyProperties<P>>),
+            Vacant(tokio::sync::oneshot::Sender<GraphNode<ProjectionKeyProperties<P>>>),
+        }
 
-        let res = match running_map.entry(k.clone()) {
-            Entry::Occupied(occupied) => {
-                debug!("found a task that is currently running. polling on existing task");
-                let existing = occupied.get().rx.clone();
-                // Release table lock.
-                drop(occupied);
+        let val = {
+            let running_map = self.get_running_map(transaction_ctx);
 
-                existing.await.expect("sync task cannot fail")
-            }
-            Entry::Vacant(vacant) => self.eval_projection_task(
+            let val = match running_map.entry(k.clone()) {
+                Entry::Occupied(occupied) => Val::Occupied(occupied.get().dupe()),
+                Entry::Vacant(vacant) => {
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    vacant.insert(SyncDiceTaskHandle { rx: rx.shared() });
+                    Val::Vacant(tx)
+                }
+            };
+
+            val
+        };
+
+        Ok(match val {
+            Val::Occupied(o) => o.rx.await.expect("sync task cannot fail"),
+            Val::Vacant(v) => self.eval_projection_task(
                 k,
                 &value,
                 derive_from_both_deps,
                 transaction_ctx,
                 extra,
-                vacant,
+                v,
             ),
-        };
-
-        Ok(res)
+        })
     }
 }
 
