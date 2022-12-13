@@ -235,6 +235,51 @@ conan_package = rule(
     },
 )
 
+def _relative_label(lbl: "label", relto: "label") -> "string":
+    """Return a string representation of `lbl` relative to `relto`.
+
+    E.g. `root//some/package:here` is `:here` relative to `root//some/package:there`.
+    """
+    if lbl.cell != relto.cell:
+        tpl = "{cell}//{package}:{name}"
+    elif lbl.package != relto.package:
+        tpl = "//{package}:{name}"
+    else:
+        tpl = ":{name}"
+    if lbl.sub_target:
+        tpl += "[{sub_target}]"
+    return tpl.format(
+        cell = lbl.cell,
+        package = lbl.package,
+        name = lbl.name,
+        sub_target = lbl.sub_target,
+    )
+
+def _lock_generate_impl(ctx: "context") -> ["provider"]:
+    lock_generate = ctx.attrs._lock_generate[RunInfo]
+
+    targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl")
+
+    cmd = cmd_args([lock_generate])
+    cmd.add(["--lockfile", ctx.attrs.lockfile])
+    cmd.add(["--lockfile-label", _relative_label(ctx.attrs.lockfile.owner, ctx.label)])
+    cmd.add(["--targets-out", targets_out.as_output()])
+    ctx.actions.run(cmd, category = "conan_generate")
+
+    return [
+        DefaultInfo(
+            default_outputs = [targets_out],
+        ),
+    ]
+
+lock_generate = rule(
+    impl = _lock_generate_impl,
+    attrs = {
+        "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
+        "_lock_generate": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:lock_generate"),
+    },
+)
+
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),

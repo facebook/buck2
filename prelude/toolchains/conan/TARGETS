@@ -42,3 +42,10 @@ native.python_bootstrap_binary(
     main = "conan_update.py",
     visibility = ["PUBLIC"],
 )
+
+native.python_bootstrap_binary(
+    name = "lock_generate",
+    main = "lock_generate.py",
+    deps = [":conan_common"],
+    visibility = ["PUBLIC"],
+)
