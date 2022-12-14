@@ -531,9 +531,7 @@ impl MaterializerStateSqliteDb {
                 // Initialize a new db
                 let db = Self::open(&db_path)?;
                 db.create_all_tables()?;
-                for (key, value) in versions.into_iter() {
-                    db.versions_table.insert(key, value)?;
-                }
+                db.versions_table.insert_all(versions)?;
 
                 Ok((db, Err(e)))
             }

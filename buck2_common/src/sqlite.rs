@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
+use itertools::Itertools;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 
@@ -44,16 +45,22 @@ impl KeyValueSqliteTable {
         Ok(())
     }
 
-    pub fn insert(&self, key: String, value: String) -> anyhow::Result<()> {
-        // TODO(scottcao): Make this an `insert_all` for batch inserts.
+    pub fn insert_all(&self, map: HashMap<String, String>) -> anyhow::Result<()> {
         let sql = format!(
-            "INSERT INTO {} (key, value) VALUES (?1, ?2)",
-            self.table_name
+            "INSERT INTO {} (key, value) VALUES {}",
+            self.table_name,
+            // According to rusqlite docs this is the recommended way to generate the right
+            // number of query placeholders for multi-row insertions.
+            map.iter().map(|_| "(?, ?)").join(", ")
         );
-        tracing::trace!(sql = %sql, key = %key, value = %value, "inserting into table");
+        tracing::trace!(sql = %sql, map = ?map, "inserting into table");
+
         self.connection
             .lock()
-            .execute(&sql, rusqlite::params![key, value])
+            .execute(
+                &sql,
+                rusqlite::params_from_iter(map.into_iter().flat_map(|(k, v)| [k, v])),
+            )
             .with_context(|| format!("inserting into sqlite table {}", self.table_name))?;
         Ok(())
     }
@@ -93,9 +100,13 @@ mod tests {
 
         table.create_table().unwrap();
 
-        table.insert("foo".to_owned(), "bar".to_owned()).unwrap();
+        let expected = HashMap::from([
+            ("foo".to_owned(), "foo".to_owned()),
+            ("bar".to_owned(), "bar".to_owned()),
+        ]);
+        table.insert_all(expected.clone()).unwrap();
 
-        let map = table.read_all().unwrap();
-        assert_eq!(map, HashMap::from([("foo".to_owned(), "bar".to_owned())]));
+        let actual = table.read_all().unwrap();
+        assert_eq!(expected, actual);
     }
 }
