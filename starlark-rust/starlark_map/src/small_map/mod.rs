@@ -826,6 +826,17 @@ impl<K: Eq, V: PartialEq> PartialEq for SmallMap<K, V> {
 
 impl<K: Eq, V: Eq> Eq for SmallMap<K, V> {}
 
+impl<K, V> Extend<(K, V)> for SmallMap<K, V>
+where
+    K: Hash + Eq,
+{
+    fn extend<T: IntoIterator<Item = (K, V)>>(&mut self, iter: T) {
+        for (k, v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
+
 /// Create a [`SmallMap`](SmallMap) from a list of key-value pairs.
 ///
 /// ## Example

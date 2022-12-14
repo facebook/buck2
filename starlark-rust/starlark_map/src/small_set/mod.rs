@@ -362,6 +362,15 @@ impl<T> IntoIterator for SmallSet<T> {
     }
 }
 
+impl<T> Extend<T> for SmallSet<T>
+where
+    T: Eq + Hash,
+{
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        self.0.extend(iter.into_iter().map(|v| (v, ())));
+    }
+}
+
 /// Iterator over the difference of two sets.
 pub struct Difference<'a, T: 'a> {
     iter: Iter<'a, T>,
