@@ -486,7 +486,6 @@ mod test {
     struct TestSpan {
         span_id: i64,
         parent_id: Option<i64>,
-        shown: bool,
         boring: bool,
     }
 
@@ -517,7 +516,6 @@ mod test {
             Self {
                 span_id: CURR.fetch_add(1, Ordering::Relaxed),
                 parent_id: None,
-                shown: false,
                 boring: false,
             }
         }
