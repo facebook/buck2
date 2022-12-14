@@ -21,7 +21,7 @@ use starlark::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
 enum ValueAsTargetLabelError {
-    #[error("Expected a single target like ite, but was `{0}`")]
+    #[error("Expected a single target like item, but was `{0}`")]
     NotATarget(String),
 }
 

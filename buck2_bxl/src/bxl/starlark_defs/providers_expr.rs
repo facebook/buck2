@@ -40,7 +40,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 enum ProviderExprError {
     #[error("Expected a list of target like items, but was `{0}`")]
     NotAListOfTargets(String),
-    #[error("Expected a single target like ite, but was `{0}`")]
+    #[error("Expected a single target like item, but was `{0}`")]
     NotATarget(String),
 }
 
