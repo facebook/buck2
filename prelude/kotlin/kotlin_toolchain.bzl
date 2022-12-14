@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+KotlincProtocol = enum("classic", "kotlincd")
+
 KotlinToolchainInfo = provider(
     "Kotlin toolchain info",
     fields = [
@@ -13,6 +15,8 @@ KotlinToolchainInfo = provider(
         "kapt_base64_encoder",
         "kotlinc",
         "kotlinc_classpath",
+        "kotlinc_protocol",
         "kotlin_stdlib",
+        "kotlin_home_libraries",
     ],
 )

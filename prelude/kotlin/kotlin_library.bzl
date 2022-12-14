@@ -16,6 +16,8 @@ load(
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
+    "JavaProviders",
+    "create_java_library_providers",
     "create_native_providers",
     "derive_compiling_deps",
     "to_list",
@@ -25,11 +27,13 @@ load(
     "JavaToolchainInfo",
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
+load("@prelude//java/utils:java_utils.bzl", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
+load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
 load("@prelude//utils:utils.bzl", "map_idx")
 
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
@@ -295,27 +299,82 @@ def build_kotlin_library(
         )
         ksp_annotation_processor_params = create_ksp_ap_params(ctx, ctx.attrs.plugins)
 
-        kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
-            ctx,
-            ctx.attrs.srcs,
-            deps,
-            annotation_processor_params,
-            ksp_annotation_processor_params,
-            # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
-            additional_classpath_entries + bootclasspath_entries,
-        )
-        srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
-        if kapt_generated_sources:
-            srcs.append(kapt_generated_sources)
-        if ksp_generated_sources:
-            srcs.append(ksp_generated_sources)
-        java_lib = build_java_library(
-            ctx,
-            srcs,
-            run_annotation_processors = False,
-            bootclasspath_entries = bootclasspath_entries,
-            additional_classpath_entries = [kotlinc_classes] + additional_classpath_entries,
-            additional_compiled_srcs = kotlinc_classes,
-            generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
-        )
-        return java_lib
+        kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
+        if kotlin_toolchain.kotlinc_protocol == "classic":
+            kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
+                ctx,
+                ctx.attrs.srcs,
+                deps,
+                annotation_processor_params,
+                ksp_annotation_processor_params,
+                # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
+                additional_classpath_entries + bootclasspath_entries,
+            )
+            srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
+            if kapt_generated_sources:
+                srcs.append(kapt_generated_sources)
+            if ksp_generated_sources:
+                srcs.append(ksp_generated_sources)
+            java_lib = build_java_library(
+                ctx,
+                srcs,
+                run_annotation_processors = False,
+                bootclasspath_entries = bootclasspath_entries,
+                additional_classpath_entries = [kotlinc_classes] + additional_classpath_entries,
+                additional_compiled_srcs = kotlinc_classes,
+                generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
+            )
+            return java_lib
+        elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
+            source_level, target_level = get_java_version_attributes(ctx)
+            outputs = create_jar_artifact_kotlincd(
+                actions = ctx.actions,
+                actions_prefix = "",
+                abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode),
+                java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+                kotlin_toolchain = kotlin_toolchain,
+                label = ctx.label,
+                srcs = srcs,
+                remove_classes = ctx.attrs.remove_classes,
+                resources = ctx.attrs.resources,
+                resources_root = ctx.attrs.resources_root,
+                ap_params = annotation_processor_params + ([ksp_annotation_processor_params] if ksp_annotation_processor_params else []),
+                plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
+                source_level = source_level,
+                target_level = target_level,
+                deps = deps,
+                required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
+                source_only_abi_deps = ctx.attrs.source_only_abi_deps,
+                extra_arguments = ctx.attrs.extra_arguments,
+                additional_classpath_entries = additional_classpath_entries,
+                bootclasspath_entries = bootclasspath_entries,
+                is_building_android_binary = ctx.attrs._is_building_android_binary,
+                friend_paths = ctx.attrs.friend_paths,
+                kotlin_compiler_plugins = ctx.attrs.kotlin_compiler_plugins,
+                extra_kotlinc_arguments = ctx.attrs.extra_kotlinc_arguments,
+            )
+
+            java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
+                ctx,
+                library_output = outputs.classpath_entry if outputs else None,
+                declared_deps = ctx.attrs.deps + deps_query,
+                exported_deps = ctx.attrs.exported_deps,
+                provided_deps = ctx.attrs.provided_deps + provided_deps_query,
+                exported_provided_deps = ctx.attrs.exported_provided_deps,
+                runtime_deps = ctx.attrs.runtime_deps,
+                needs_desugar = source_level > 7 or target_level > 7,
+                generated_sources = [outputs.annotation_processor_output] if outputs and outputs.annotation_processor_output else [],
+            )
+
+            default_info = get_default_info(outputs)
+            return JavaProviders(
+                java_library_info = java_library_info,
+                java_library_intellij_info = intellij_info,
+                java_packaging_info = java_packaging_info,
+                shared_library_info = shared_library_info,
+                cxx_resource_info = cxx_resource_info,
+                template_placeholder_info = template_placeholder_info,
+                default_info = default_info,
+            )
+        else:
+            fail("unrecognized kotlinc protocol `{}`".format(kotlin_toolchain.kotlinc_protocol))
