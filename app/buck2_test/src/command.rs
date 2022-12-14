@@ -33,6 +33,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::compatibility::MaybeCompatible;
@@ -237,6 +238,10 @@ async fn test(
         cwd,
     )?;
     server_ctx.log_target_pattern(&parsed_patterns);
+
+    ctx.per_transaction_data()
+        .get_materializer()
+        .log_materializer_state(server_ctx.events());
 
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;

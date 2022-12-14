@@ -129,6 +129,9 @@ pub struct DeferredMaterializer {
     /// To be removed, used to implement write for now.
     fs: ProjectRoot,
     io_executor: Arc<dyn BlockingExecutor>,
+
+    /// Tracked for logging purposes.
+    materializer_state_info: buck2_data::MaterializerStateInfo,
 }
 
 impl Drop for DeferredMaterializer {
@@ -670,6 +673,10 @@ impl Materializer for DeferredMaterializer {
     fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
         Some(self as _)
     }
+
+    fn log_materializer_state(&self, events: &EventDispatcher) {
+        events.instant_event(self.materializer_state_info.clone())
+    }
 }
 
 impl DeferredMaterializer {
@@ -708,6 +715,11 @@ impl DeferredMaterializer {
             }),
             sqlite_db,
             rt: Handle::current(),
+        };
+
+        let num_entries_from_sqlite = sqlite_state.as_ref().map_or(0, |s| s.len()) as u64;
+        let materializer_state_info = buck2_data::MaterializerStateInfo {
+            num_entries_from_sqlite,
         };
 
         let mut tree = ArtifactTree::new();
@@ -755,6 +767,7 @@ impl DeferredMaterializer {
             defer_write_actions: configs.defer_write_actions,
             fs,
             io_executor,
+            materializer_state_info,
         })
     }
 }

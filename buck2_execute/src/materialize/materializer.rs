@@ -18,6 +18,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_events::dispatch::EventDispatcher;
 use chrono::DateTime;
 use chrono::Utc;
 use derive_more::Display;
@@ -249,6 +250,9 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
         None
     }
+
+    /// Currently no-op for all materializers except deferred materializer
+    fn log_materializer_state(&self, _events: &EventDispatcher) {}
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]

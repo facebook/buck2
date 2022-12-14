@@ -150,6 +150,9 @@ message InstantEvent {
     // When we can execute DICE ops immediately since there was no active
     // state
     NoActiveDiceState no_active_dice_state = 17;
+
+    // Info about materializer state
+    MaterializerStateInfo materializer_state_info = 18;
   }
 
   reserved 12; // Log
@@ -1349,4 +1352,9 @@ message ErrorReport {
   optional ErrorCategory category = 1;
   optional ErrorCause cause = 2;
   string error_message = 3;
+}
+
+message MaterializerStateInfo {
+  // Number of entries loaded from sqlite
+  uint64 num_entries_from_sqlite = 1;
 }

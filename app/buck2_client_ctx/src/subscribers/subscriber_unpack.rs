@@ -271,6 +271,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::NoActiveDiceState(no_active_dice_state) => {
                 self.handle_no_active_dice_state(no_active_dice_state)
             }
+            buck2_data::instant_event::Data::MaterializerStateInfo(materializer_state) => {
+                self.handle_materializer_state_info(materializer_state)
+            }
         }
         .await
     }
@@ -668,6 +671,12 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_no_active_dice_state(
         &mut self,
         _no_active_dice_state: &buck2_data::NoActiveDiceState,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_materializer_state_info(
+        &mut self,
+        _materializer_state_info: &buck2_data::MaterializerStateInfo,
     ) -> anyhow::Result<()> {
         Ok(())
     }

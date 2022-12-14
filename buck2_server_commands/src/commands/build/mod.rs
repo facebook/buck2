@@ -37,6 +37,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_events::dispatch::span_async;
+use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -140,6 +141,10 @@ async fn build(
         cwd,
     )?;
     server_ctx.log_target_pattern(&parsed_patterns);
+
+    ctx.per_transaction_data()
+        .get_materializer()
+        .log_materializer_state(server_ctx.events());
 
     let resolved_pattern: ResolvedPattern<ProvidersPattern> =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;

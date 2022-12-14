@@ -53,6 +53,7 @@ use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
@@ -192,6 +193,10 @@ async fn install(
         cwd,
     )?;
     server_ctx.log_target_pattern(&parsed_patterns);
+
+    ctx.per_transaction_data()
+        .get_materializer()
+        .log_materializer_state(server_ctx.events());
 
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
