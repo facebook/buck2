@@ -312,12 +312,16 @@ where
                         let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra);
                         occupied.insert(task);
 
+                        debug!(k=%k, msg = "new task inserted into running map");
+
                         fut
                     }
                 }
                 Entry::Vacant(vacant) => {
                     let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra);
                     vacant.insert(task);
+
+                    debug!(k=%k, msg = "new task inserted into running map");
 
                     fut
                 }
