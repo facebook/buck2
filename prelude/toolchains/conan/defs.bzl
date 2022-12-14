@@ -32,17 +32,16 @@ def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
         cmd.add(["--file-from", filename, "--file-to", output.as_output()])
         if filename in sub_targets:
             fail("File-name collision: " + filename)
-        sub_targets[filename] = DefaultInfo(default_outputs = [output])
+        sub_targets[filename] = [DefaultInfo(default_outputs = [output])]
 
     for dirname in ctx.attrs.directories:
         output = ctx.actions.declare_output(dirname)
-        cmd.add(["--dir-from", dirname, "--dir-to", output.as_output()])
+        cmd.add(["--directory-from", dirname, "--directory-to", output.as_output()])
         if dirname in sub_targets:
             fail("Directory-name collision: " + dirname)
-        sub_targets[dirname] = DefaultInfo(default_outputs = [output])
+        sub_targets[dirname] = [DefaultInfo(default_outputs = [output])]
 
-    # TODO[AH] Use package_out instead
-    cmd.add(["--package", ctx.attrs.package[ConanPackageInfo].cache_out])
+    cmd.add(["--package", ctx.attrs.package[ConanPackageInfo].package_out])
     ctx.actions.run(cmd, category = "conan_extract")
 
     return [DefaultInfo(default_outputs = [], sub_targets = sub_targets)]
@@ -73,8 +72,8 @@ def conan_component(
     extract_name = name + "_extract"
     extract_tpl = ":" + extract_name + "[{}]"
     extract_include_paths = [extract_tpl.format(p) for p in include_paths]
-    extract_shared_libs = { n: extract_tpl.format(l) for n, l in shared_libs.items() }
-    extract_static_libs = { n: extract_tpl.format(l) for n, l in static_libs.items() }
+    extract_shared_libs = { name: [extract_tpl.format(lib) for lib in libs] for name, libs in shared_libs.items() }
+    extract_static_libs = { name: [extract_tpl.format(lib) for lib in libs] for name, libs in static_libs.items() }
 
     _conan_package_extract(
         name = extract_name,
@@ -86,6 +85,15 @@ def conan_component(
     # TODO[AH] Handle system_libs.
 
     if len(libs) == 1:
+        lib = libs[0]
+        if lib in shared_libs:
+            shared_lib = extract_shared_libs[lib][0]
+        else:
+            shared_lib = None
+        if lib in static_libs:
+            static_lib = extract_static_libs[lib][0]
+        else:
+            static_lib = None
         native.prebuilt_cxx_library(
             name = name,
             deps = deps,  # TODO[AH] Do we need exported_deps?
@@ -95,8 +103,8 @@ def conan_component(
                 "c": cflags,
                 "cxx": cppflags,
             },
-            shared_lib = extract_shared_libs.get(libs[0]),
-            static_lib = extract_static_libs.get(libs[0]),
+            shared_lib = shared_lib,
+            static_lib = static_lib,
             # TODO[AH] Can we set static_pic_lib, some libs seem to end on _pic?
             # TODO[AH] Do we need supports_merged_linking?
             # TODO[AH] Do we need supports_shared_library_interface?
@@ -124,13 +132,14 @@ def conan_component(
         #"supported_platforms_regex": attrs.option(attrs.regex(), default = None),
         #"within_view": attrs.option(attrs.list(attrs.string())),
 
-def _conan_cxx_libraries_impl(ctx: "context") -> ["providers"]:
+def _conan_cxx_libraries_impl(ctx: "context") -> list.type:
     default_info = DefaultInfo(
-        default_outputs = ctx.attrs.main[DefaultInfo].default_outputs,
-        sub_targets = { n: c.providers for n, c in ctx.attrs.components },
+        default_outputs = ctx.attrs.main[DefaultInfo].default_outputs + flatten([c[DefaultInfo].default_outputs for c in ctx.attrs.components.values()]),
+        sub_targets = { n: c.providers for n, c in ctx.attrs.components.items() },
     )
-    providers = ctx.attrs.main.providers
-    providers[DefaultInfo] = default_info
+    providers = [p for p in ctx.attrs.main.providers if type(p) != "DefaultInfo"]
+    providers.append(default_info)
+    # TODO[AH] This doesn't satisfy the return type annotation ["provider"], why?
     return providers
 
 _conan_cxx_libraries = rule(
