@@ -79,7 +79,7 @@ def reference_dir(user_home, name, version, user, channel):
 
 def package_dir(user_home, name, version, user, channel, package_id):
     """Package directory under the Conan store folder."""
-    return os.path.join(reference_dir(user_home, name, version, channel), package_subtree(package_id))
+    return os.path.join(reference_dir(user_home, name, version, user, channel), package_subtree(package_id))
 
 
 def install_user_home(user_home, base_user_home):
