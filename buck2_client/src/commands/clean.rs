@@ -18,6 +18,7 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_common::daemon_dir::DaemonDir;
@@ -64,7 +65,7 @@ the specified duration, without killing the daemon",
 }
 
 impl CleanCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
                 console_opts: self.console_opts,
@@ -73,8 +74,7 @@ impl CleanCommand {
                 keep_since_arg,
                 dry_run: self.dry_run,
             };
-            cmd.exec(matches, ctx);
-            return Ok(());
+            return cmd.exec(matches, ctx);
         }
 
         ctx.with_runtime(async move |ctx| {
@@ -104,7 +104,8 @@ impl CleanCommand {
                     .await?;
             }
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
-        })
+        })?;
+        ExitResult::success()
     }
 }
 

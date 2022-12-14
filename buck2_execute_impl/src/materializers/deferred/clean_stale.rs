@@ -80,6 +80,9 @@ fn gather_clean_futures_for_stale_artifacts(
         .buck_out_path
         .join(&ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
     let gen_dir = io.fs.resolve(gen_path);
+    if !fs_util::try_exists(&gen_dir)? {
+        return Ok((vec![], "Nothing to clean".to_owned()));
+    }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
     let result = find_stale_recursive(
