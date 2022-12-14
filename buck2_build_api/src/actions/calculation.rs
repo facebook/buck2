@@ -662,7 +662,7 @@ mod tests {
                 args: vec!["foo".to_owned(), "cmd".to_owned()],
                 outputs: vec![CommandExecutionOutput::BuildArtifact {
                     path: build_artifact.get_path().dupe(),
-                    output_type: OutputType::FileOrDirectory,
+                    output_type: OutputType::File,
                 }],
                 env: hashmap![]
             }
@@ -709,7 +709,7 @@ mod tests {
                 args: vec!["bar".to_owned(), "cmd".to_owned()],
                 outputs: vec![CommandExecutionOutput::BuildArtifact {
                     path: build_artifact.get_path().dupe(),
-                    output_type: OutputType::FileOrDirectory,
+                    output_type: OutputType::File,
                 }],
                 env: hashmap![]
             }
@@ -756,7 +756,7 @@ mod tests {
                 args: vec!["ensure".to_owned(), "cmd".to_owned()],
                 outputs: vec![CommandExecutionOutput::BuildArtifact {
                     path: build_artifact.get_path().dupe(),
-                    output_type: OutputType::FileOrDirectory,
+                    output_type: OutputType::File,
                 }],
                 env: hashmap![]
             }

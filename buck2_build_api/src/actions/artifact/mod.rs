@@ -479,7 +479,7 @@ pub mod testing {
                     BaseDeferredKey::TargetLabel(target),
                     id,
                 ))),
-                OutputType::FileOrDirectory,
+                OutputType::File,
             )
         }
     }
@@ -537,7 +537,7 @@ mod tests {
                 BaseDeferredKey::TargetLabel(target.dupe()),
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
             ),
-            OutputType::FileOrDirectory,
+            OutputType::File,
         );
         let key = ActionKey::testing_new(DeferredKey::Base(
             BaseDeferredKey::TargetLabel(target.dupe()),

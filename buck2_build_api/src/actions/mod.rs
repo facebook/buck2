@@ -449,7 +449,7 @@ pub(crate) mod testings {
                 Vec::new(),
                 self.outputs
                     .iter()
-                    .map(|b| (b.get_path().dupe(), OutputType::FileOrDirectory))
+                    .map(|b| (b.get_path().dupe(), OutputType::File))
                     .collect(),
                 hashmap![],
             );

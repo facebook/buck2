@@ -156,7 +156,7 @@ pub mod testing {
             let artifact = registry.declare_artifact(
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
-                OutputType::FileOrDirectory,
+                OutputType::File,
             )?;
             Ok(StarlarkDeclaredArtifact::new(
                 None,
@@ -181,7 +181,7 @@ pub mod testing {
             let artifact = registry.declare_artifact(
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
-                OutputType::FileOrDirectory,
+                OutputType::File,
             )?;
             let outputs = indexset![artifact.as_output()];
             registry.register(
@@ -256,7 +256,7 @@ pub mod testing {
                 eval,
                 artifact,
                 "param_name",
-                OutputType::FileOrDirectory,
+                OutputType::File,
             )?;
 
             actions_registry.register(

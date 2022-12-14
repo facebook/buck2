@@ -296,21 +296,20 @@ mod tests {
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
         let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
-        let declared1 =
-            actions.declare_artifact(None, out1.clone(), OutputType::FileOrDirectory)?;
+        let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File)?;
         declared1
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
         let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
         let buckout2 = BuckOutPath::new(base, out2.clone());
-        let declared2 = actions.declare_artifact(None, out2, OutputType::FileOrDirectory)?;
+        let declared2 = actions.declare_artifact(None, out2, OutputType::File)?;
         declared2
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout2.path()));
 
         if actions
-            .declare_artifact(None, out1, OutputType::FileOrDirectory)
+            .declare_artifact(None, out1, OutputType::File)
             .is_ok()
         {
             panic!("should error due to duplicate artifact")
@@ -396,7 +395,7 @@ mod tests {
         let mut actions =
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let declared = actions.declare_artifact(None, out, OutputType::FileOrDirectory)?;
+        let declared = actions.declare_artifact(None, out, OutputType::File)?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(
@@ -447,7 +446,7 @@ mod tests {
             ),
         );
         let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let declared = actions.declare_artifact(None, out, OutputType::FileOrDirectory)?;
+        let declared = actions.declare_artifact(None, out, OutputType::File)?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(
