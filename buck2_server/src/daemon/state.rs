@@ -377,6 +377,7 @@ impl DaemonState {
 
                 Ok(Arc::new(DeferredMaterializer::new(
                     fs,
+                    buck_out_path,
                     re_client_manager,
                     blocking_executor,
                     config,

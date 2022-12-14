@@ -678,6 +678,7 @@ impl DeferredMaterializer {
     /// threads when dropped.
     pub fn new(
         fs: ProjectRoot,
+        buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
         configs: DeferredMaterializerConfigs,
@@ -701,6 +702,7 @@ impl DeferredMaterializer {
         let command_processor = DeferredMaterializerCommandProcessor {
             io: Arc::new(DefaultIoHandler {
                 fs: fs.dupe(),
+                buck_out_path,
                 re_client_manager,
                 io_executor: io_executor.dupe(),
             }),

@@ -10,9 +10,11 @@
 use std::fmt::Write;
 use std::sync::Arc;
 
-use anyhow::Context;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_common::file_ops::FileType;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
@@ -74,47 +76,35 @@ fn gather_clean_futures_for_stale_artifacts(
     io: &Arc<DefaultIoHandler>,
     rt: &Handle,
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
+    let gen_path = &io
+        .buck_out_path
+        .join(&ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
+    let gen_dir = io.fs.resolve(gen_path);
+    tracing::trace!(gen_dir = %gen_dir, "Scanning");
+
+    let result = find_stale_recursive(
+        &io.fs,
+        tree,
+        gen_dir,
+        keep_since_time,
+        StaleFinderResult::new(),
+    )?;
+
     let mut output = String::new();
-    let mut stale_count = 0;
-    let mut retained_count = 0;
-    let mut paths_to_clean: Vec<ProjectRelativePathBuf> = Vec::new();
-
-    for (k, v) in tree.iter() {
-        if let ArtifactMaterializationStage::Materialized {
-            last_access_time,
-            active,
-            ..
-        } = &v.stage
-        {
-            let f_path = k
-                .iter()
-                .map(|f| f.as_ref())
-                .collect::<Option<ForwardRelativePathBuf>>()
-                .context("Invalid path key.")?;
-
-            let path = ProjectRelativePathBuf::from(f_path);
-            if *last_access_time < keep_since_time && !active {
-                stale_count += 1;
-                tracing::trace!(path = %path, "stale artifact");
-                paths_to_clean.push(path);
-            } else {
-                tracing::trace!(path = %path, "retaining artifact");
-                retained_count += 1;
-            }
-        }
-    }
-    // TODO(ctolliday) clean untracked file that are not inside of retained dirs or referenced by retained symlinks
-
     writeln!(
         output,
-        "Found {} stale artifacts and {} recent artifacts",
-        stale_count, retained_count,
+        "Found {} stale artifacts {} recent artifacts and {} untracked artifacts",
+        result.stale_count, result.retained_count, result.untracked_count
     )?;
     let mut cleaning_futs = Vec::new();
     if !dry_run {
-        writeln!(output, "Cleaning {} artifacts.", paths_to_clean.len())?;
+        writeln!(
+            output,
+            "Cleaning {} artifacts.",
+            result.paths_to_clean.len()
+        )?;
 
-        for path in paths_to_clean {
+        for path in result.paths_to_clean {
             let existing_futs =
                 tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_mut());
 
@@ -123,4 +113,63 @@ fn gather_clean_futures_for_stale_artifacts(
     }
 
     Ok((cleaning_futs, output))
+}
+
+struct StaleFinderResult {
+    stale_count: u64,
+    retained_count: u64,
+    untracked_count: u64,
+    paths_to_clean: Vec<ProjectRelativePathBuf>,
+}
+
+impl StaleFinderResult {
+    fn new() -> Self {
+        Self {
+            stale_count: 0,
+            retained_count: 0,
+            untracked_count: 0,
+            paths_to_clean: Vec::new(),
+        }
+    }
+}
+
+fn find_stale_recursive(
+    fs: &ProjectRoot,
+    tree: &ArtifactTree,
+    path: AbsNormPathBuf,
+    keep_since_time: DateTime<Utc>,
+    mut result: StaleFinderResult,
+) -> anyhow::Result<StaleFinderResult> {
+    let rel_path: ProjectRelativePathBuf = fs.relativize(&path)?.into_owned();
+    let metadata = &tree.prefix_get(&mut rel_path.iter());
+    let stage = metadata.map(|m| &m.stage);
+
+    // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
+    let path_type = FileType::from(fs_util::symlink_metadata(&path)?.file_type());
+    if let Some(ArtifactMaterializationStage::Materialized {
+        last_access_time,
+        active,
+        ..
+    }) = stage
+    {
+        if *last_access_time < keep_since_time && !active {
+            result.stale_count += 1;
+            result.paths_to_clean.push(rel_path);
+            tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
+        } else {
+            result.retained_count += 1;
+            tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
+        }
+    } else if path_type.is_dir() {
+        for file in fs_util::read_dir(path)? {
+            let file = file?;
+            result = find_stale_recursive(fs, tree, file.path(), keep_since_time, result)?;
+        }
+    } else {
+        result.untracked_count += 1;
+        result.paths_to_clean.push(rel_path);
+        tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
+    }
+
+    Ok(result)
 }

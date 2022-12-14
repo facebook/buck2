@@ -64,6 +64,7 @@ use crate::materializers::io::MaterializeTreeStructure;
 
 pub(super) struct DefaultIoHandler {
     pub(super) fs: ProjectRoot,
+    pub(super) buck_out_path: ProjectRelativePathBuf,
     pub(super) re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
     pub(super) io_executor: Arc<dyn BlockingExecutor>,
