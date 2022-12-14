@@ -475,7 +475,7 @@ impl MaterializerStateSqliteDb {
     /// The outer `Result` captures any failure encountered when trying to delete the existing DB and
     /// create a new one.
     /// TODO(scottcao): pull this method into a shared trait once we add a another sqlite DB
-    pub async fn load_or_initialize(
+    pub async fn initialize(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
         current_instance_metadata: HashMap<String, String>,
@@ -485,16 +485,12 @@ impl MaterializerStateSqliteDb {
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         io_executor
             .execute_io_inline(|| {
-                Self::load_or_initialize_impl(
-                    materializer_state_dir,
-                    versions,
-                    current_instance_metadata,
-                )
+                Self::initialize_impl(materializer_state_dir, versions, current_instance_metadata)
             })
             .await
     }
 
-    pub fn load_or_initialize_impl(
+    pub fn initialize_impl(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
         current_instance_metadata: HashMap<String, String>,
@@ -730,7 +726,7 @@ mod tests {
         versions: HashMap<String, String>,
         metadata: HashMap<String, String>,
     ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
-        MaterializerStateSqliteDb::load_or_initialize_impl(
+        MaterializerStateSqliteDb::initialize_impl(
             fs.resolve(ProjectRelativePath::unchecked_new(
                 "buck-out/v2/cache/materializer_state",
             )),
@@ -740,7 +736,7 @@ mod tests {
     }
 
     #[test]
-    fn test_load_or_initialize_sqlite_db() -> anyhow::Result<()> {
+    fn test_initialize_sqlite_db() -> anyhow::Result<()> {
         fn testing_metadatas() -> Vec<HashMap<String, String>> {
             let metadata = buck2_events::metadata::collect();
             let mut metadatas = vec![metadata; 4];

@@ -47,7 +47,7 @@ impl DiskStateOptions {
     }
 }
 
-pub(crate) async fn maybe_load_or_initialize_materializer_sqlite_db(
+pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     options: &DiskStateOptions,
     paths: &InvocationPaths,
     io_executor: Arc<dyn BlockingExecutor>,
@@ -84,7 +84,7 @@ pub(crate) async fn maybe_load_or_initialize_materializer_sqlite_db(
     // Most things in the rest of `metadata` should go in the metadata sqlite table.
     // TODO(scottcao): Narrow down what metadata we need and and insert them into the
     // metadata table before a feature rollout.
-    let (db, load_result) = MaterializerStateSqliteDb::load_or_initialize(
+    let (db, load_result) = MaterializerStateSqliteDb::initialize(
         paths.materializer_state_path(),
         versions,
         metadata,

@@ -60,7 +60,7 @@ use crate::active_commands::ActiveCommandDropGuard;
 use crate::ctx::BaseServerCommandContext;
 use crate::daemon::check_working_dir;
 use crate::daemon::disk_state::delete_unknown_disk_state;
-use crate::daemon::disk_state::maybe_load_or_initialize_materializer_sqlite_db;
+use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
@@ -236,7 +236,7 @@ impl DaemonState {
                     // operations on daemon startup
                     delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
                 }),
-                maybe_load_or_initialize_materializer_sqlite_db(
+                maybe_initialize_materializer_sqlite_db(
                     &disk_state_options,
                     paths,
                     blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
