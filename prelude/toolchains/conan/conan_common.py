@@ -44,6 +44,7 @@ def parse_reference(ref):
 CONAN_DIR = ".conan"
 GENERATORS_DIR = "generators"
 STORE_DIR = "data"
+PACKAGE_DIR = "package"
 
 
 def conan_dir(user_home):
@@ -66,9 +67,19 @@ def reference_subtree(name, version, user, channel):
     return os.path.join(name or "_", version or "_", user or "_", channel or "_")
 
 
+def package_subtree(package_id):
+    """Package directory subtree under the package base directory."""
+    return os.path.join(PACKAGE_DIR, package_id)
+
+
 def reference_dir(user_home, name, version, user, channel):
     """Package base directory under the Conan store folder."""
     return os.path.join(store_dir(user_home), reference_subtree(name, version, user, channel))
+
+
+def package_dir(user_home, name, version, user, channel, package_id):
+    """Package directory under the Conan store folder."""
+    return os.path.join(reference_dir(user_home, name, version, channel), package_subtree(package_id))
 
 
 def install_user_home(user_home, base_user_home):
@@ -102,6 +113,14 @@ def extract_reference(user_home, reference, output):
     """Copy the cache directory of the given package reference out of the store."""
     name, version, user, channel, _ = parse_reference(reference)
     src = reference_dir(user_home, name, version, user, channel)
+    dst = output
+    shutil.copytree(src, dst)
+
+
+def extract_package(user_home, reference, package_id, output):
+    """Copy the package directory of the given package out of the store."""
+    name, version, user, channel, _ = parse_reference(reference)
+    src = package_dir(user_home, name, version, user, channel, package_id)
     dst = output
     shutil.copytree(src, dst)
 

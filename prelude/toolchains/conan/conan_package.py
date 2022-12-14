@@ -72,6 +72,12 @@ def main():
             required=True,
             help="Reference of the Conan package to build.")
     parser.add_argument(
+            "--package-id",
+            metavar="STRING",
+            type=str,
+            required=True,
+            help="Package ID of the Conan package to build.")
+    parser.add_argument(
             "--option",
             metavar="STRING",
             type=str,
@@ -120,6 +126,12 @@ def main():
             type=str,
             required=True,
             help="Copy the package's cache directory to this path.")
+    parser.add_argument(
+            "--package-out",
+            metavar="PATH",
+            type=str,
+            required=True,
+            help="Copy the package directory to this path.")
     parser.add_argument(
             "--dep-reference",
             metavar="STRING",
@@ -178,6 +190,11 @@ def main():
             args.user_home,
             args.reference,
             args.cache_out)
+    conan_common.extract_package(
+            args.user_home,
+            args.reference,
+            args.package_id,
+            args.package_out)
 
 
 if __name__ == "__main__":
