@@ -14,11 +14,50 @@ manage and install third-party C/C++ dependencies.
 # TODO[AH] Not sure if this self-reference within the prelude is acceptable.
 #   If not, consider a custom rule implementation using the C++ API.
 load("@prelude//:prelude.bzl", "native")
+load("@prelude//utils:utils.bzl", "flatten")
 
 ConanInitInfo = provider(fields = ["user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
+# TODO[AH] Add package_id and package_out for package directory
+# ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out"])
 ConanToolchainInfo = provider(fields = ["conan"])
+
+def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
+    conan_package_extract = ctx.attrs._conan_package_extract[RunInfo]
+
+    cmd = cmd_args([conan_package_extract])
+    sub_targets = {}
+
+    for filename in ctx.attrs.files:
+        output = ctx.actions.declare_output(filename)
+        cmd.add(["--file-from", filename, "--file-to", output.as_output()])
+        if filename in sub_targets:
+            fail("File-name collision: " + filename)
+        sub_targets[filename] = DefaultInfo(default_outputs = [output])
+
+    for dirname in ctx.attrs.directories:
+        output = ctx.actions.declare_output(dirname)
+        cmd.add(["--dir-from", dirname, "--dir-to", output.as_output()])
+        if dirname in sub_targets:
+            fail("Directory-name collision: " + dirname)
+        sub_targets[dirname] = DefaultInfo(default_outputs = [output])
+
+    # TODO[AH] Use package_out instead
+    cmd.add(["--package", ctx.attrs.package[ConanPackageInfo].cache_out])
+    ctx.actions.run(cmd, category = "conan_extract")
+
+    return [DefaultInfo(default_outputs = [], sub_targets = sub_targets)]
+
+_conan_package_extract = rule(
+    impl = _conan_package_extract_impl,
+    attrs = {
+        "package": attrs.dep(providers = [ConanPackageInfo]),
+        "files": attrs.list(attrs.string()),
+        "directories": attrs.list(attrs.string()),
+        "_conan_package_extract": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package_extract"),
+    },
+)
 
 def conan_component(
         name: "string",
@@ -39,7 +78,14 @@ def conan_component(
     extract_shared_libs = { n: extract_tpl.format(l) for n, l in shared_libs.items() }
     extract_static_libs = { n: extract_tpl.format(l) for n, l in static_libs.items() }
 
-    # TODO[AH] Extract the required files and directories
+    _conan_package_extract(
+        name = extract_name,
+        package = package,
+        files = flatten(static_libs.values() + shared_libs.values()),
+        directories = include_paths,
+    )
+
+    # TODO[AH] Handle system_libs.
 
     if len(libs) == 1:
         native.prebuilt_cxx_library(
