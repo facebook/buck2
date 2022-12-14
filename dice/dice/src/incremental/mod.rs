@@ -296,7 +296,7 @@ where
             VersionedGraphKeyRef::new(transaction_ctx.get_version(), k),
             transaction_ctx.get_minor_version(),
         ) {
-            debug!("found existing entry with matching version in cache. reusing result.");
+            debug!( k = %k ,msg = "found existing entry with matching version in cache. reusing result.",);
             DiceFuture::Ready(Some(Ok(entry)))
         } else {
             let this = self.dupe();
@@ -306,7 +306,7 @@ where
             let res = match running_map.entry(k.clone()) {
                 Entry::Occupied(mut occupied) => {
                     if let Some(existing) = occupied.get().pollable() {
-                        debug!("found a task that is currently running. polling on existing task");
+                        debug!(k=%k, msg = "found a task that is currently running. polling on existing task");
                         existing
                     } else {
                         let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra);
