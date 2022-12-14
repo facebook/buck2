@@ -11,10 +11,88 @@ Provides a toolchain and rules to use the [Conan package manager][conan] to
 manage and install third-party C/C++ dependencies.
 """
 
+# TODO[AH] Not sure if this self-reference within the prelude is acceptable.
+#   If not, consider a custom rule implementation using the C++ API.
+load("@prelude//:prelude.bzl", "native")
+
 ConanInitInfo = provider(fields = ["user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "cache_out"])
 ConanToolchainInfo = provider(fields = ["conan"])
+
+def conan_component(
+        name: "string",
+        defines: ["string"],
+        cflags: ["string"],
+        cppflags: ["string"],
+        include_paths: ["string"],
+        libs: ["string"],
+        static_libs: {"string": ["string"]},
+        shared_libs: {"string": ["string"]},
+        system_libs: ["string"],
+        deps: ["string"],
+        package: "string"):
+
+    extract_name = name + "_extract"
+    extract_tpl = ":" + extract_name + "[{}]"
+    extract_include_paths = [extract_tpl.format(p) for p in include_paths]
+    extract_shared_libs = { n: extract_tpl.format(l) for n, l in shared_libs.items() }
+    extract_static_libs = { n: extract_tpl.format(l) for n, l in static_libs.items() }
+
+    # TODO[AH] Extract the required files and directories
+
+    if len(libs) == 1:
+        native.prebuilt_cxx_library(
+            name = name,
+            deps = deps,  # TODO[AH] Do we need exported_deps?
+            exported_headers = extract_include_paths,  # TODO[AH] Should we use header_dirs? Should we list individual files here?
+            exported_preprocessor_flags = ["-D" + d for d in defines],
+            exported_lang_preprocessor_flags = {
+                "c": cflags,
+                "cxx": cppflags,
+            },
+            shared_lib = extract_shared_libs.get(libs[0]),
+            static_lib = extract_static_libs.get(libs[0]),
+            # TODO[AH] Can we set static_pic_lib, some libs seem to end on _pic?
+            # TODO[AH] Do we need supports_merged_linking?
+            # TODO[AH] Do we need supports_shared_library_interface?
+        )
+    else:
+        fail("Implement prebuilt_cxx_library_group")
+        #"contacts": attrs.list(attrs.string(), default = []),
+        #"default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+        #"deps": attrs.list(attrs.dep(), default = []),
+        #"exported_deps": attrs.list(attrs.dep(), default = []),
+        #"exported_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+        #"exported_preprocessor_flags": attrs.list(attrs.string(), default = []),
+        #"import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        #"include_dirs": attrs.list(attrs.source(), default = []),
+        #"include_in_android_merge_map_output": attrs.bool(),
+        #"labels": attrs.list(attrs.string(), default = []),
+        #"licenses": attrs.list(attrs.source(), default = []),
+        #"provided_shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        #"shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        #"shared_link": attrs.list(attrs.string(), default = []),
+        #"static_libs": attrs.list(attrs.source(), default = []),
+        #"static_link": attrs.list(attrs.string(), default = []),
+        #"static_pic_libs": attrs.list(attrs.source(), default = []),
+        #"static_pic_link": attrs.list(attrs.string(), default = []),
+        #"supported_platforms_regex": attrs.option(attrs.regex(), default = None),
+        #"within_view": attrs.option(attrs.list(attrs.string())),
+
+def _conan_dep_impl(ctx: "context") -> ["provider"]:
+    # TODO[AH] Exponse components as sub-targets.
+    # TODO[AH] Exponse a top-level target that bundles and exports all components
+    return [
+        DefaultInfo(),
+    ]
+
+conan_dep = rule(
+    impl = _conan_dep_impl,
+    attrs = {
+        "components": attrs.dict(key = attrs.string(), value = attrs.dep(providers = [])),
+    },
+)
 
 def _conan_generate_impl(ctx: "context") -> ["provider"]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
