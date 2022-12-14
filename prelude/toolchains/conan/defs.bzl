@@ -380,26 +380,6 @@ conan_update = rule(
     doc = "Defines a runnable target that will update the Conan lockfile and import targets.",
 )
 
-def _relative_label(lbl: "label", relto: "label") -> "string":
-    """Return a string representation of `lbl` relative to `relto`.
-
-    E.g. `root//some/package:here` is `:here` relative to `root//some/package:there`.
-    """
-    if lbl.cell != relto.cell:
-        tpl = "{cell}//{package}:{name}"
-    elif lbl.package != relto.package:
-        tpl = "//{package}:{name}"
-    else:
-        tpl = ":{name}"
-    if lbl.sub_target:
-        tpl += "[{sub_target}]"
-    return tpl.format(
-        cell = lbl.cell,
-        package = lbl.package,
-        name = lbl.name,
-        sub_target = lbl.sub_target,
-    )
-
 def _lock_generate_impl(ctx: "context") -> ["provider"]:
     lock_generate = ctx.attrs._lock_generate[RunInfo]
 
@@ -407,7 +387,7 @@ def _lock_generate_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args([lock_generate])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
-    cmd.add(["--lockfile-label", _relative_label(ctx.attrs.lockfile.owner, ctx.label)])
+    cmd.add(["--lockfile-label", str(ctx.attrs.lockfile.owner.raw_target())])
     cmd.add(["--targets-out", targets_out.as_output()])
     ctx.actions.run(cmd, category = "conan_generate")
 
