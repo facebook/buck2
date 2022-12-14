@@ -52,7 +52,7 @@ pub fn parse_clean_stale_args(
             let duration = chrono::Duration::from_std(human_duration.into())?;
             Some(KeepSinceArg::Duration(duration))
         }
-        (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(7))),
+        (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(1))),
         (None, Some(time)) => Some(KeepSinceArg::Time(time)),
         (Some(_), Some(_)) => unreachable!("keep-since-time conflicts_with stale"),
         (None, None) => None,
