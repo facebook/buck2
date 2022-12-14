@@ -181,7 +181,7 @@ def process_genrule(
     if is_windows:
         # Replace $OUT and ${OUT}
         cmd.replace_regex("\\$(OUT\\b|\\{OUT\\})", "%OUT%")
-        cmd.replace_regex("\\$(SRCSDIR\\b|\\{SRCDIR\\})", "%SRCDIR%")
+        cmd.replace_regex("\\$(SRCDIR\\b|\\{SRCDIR\\})", "%SRCDIR%")
         cmd.replace_regex("\\$(SRCS\\b|\\{SRCS\\})", "%SRCS%")
         cmd.replace_regex("\\$(TMP\\b|\\{TMP\\})", "%TMP%")
 
