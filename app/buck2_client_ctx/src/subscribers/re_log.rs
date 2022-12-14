@@ -96,7 +96,8 @@ async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyh
         return Ok(());
     }
 
-    let child = buck2_core::process::async_background_command(std::env::current_exe().unwrap())
+    let mut buck = buck2_core::process::async_background_command(std::env::current_exe()?);
+    let command = buck
         .arg("--isolation-dir")
         .arg(isolation_dir.as_str())
         .arg("debug")
@@ -104,18 +105,19 @@ async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyh
         .arg("--session-id")
         .arg(session_id)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stdout(Stdio::null());
 
     let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
     if block_on_upload {
+        let child = command.stderr(Stdio::piped()).spawn()?;
         match blocking_upload(child).await {
             Ok(_) => {}
             Err(e) => {
                 tracing::warn!("Error uploading RE logs: {:#}", e);
             }
         }
+    } else {
+        command.stderr(Stdio::null()).spawn()?;
     };
 
     Ok(())
