@@ -10,12 +10,18 @@
 use std::str::FromStr;
 
 use gazebo::prelude::*;
+use os_str_bytes::OsStrBytes;
 use rand::Rng;
 
-/// This can produce random rolls driven by configuration. This does not (currently) support
-/// per-host or per-user seeds: it's just pure random. We could perhaps extend this by allowing the
-/// config to specify the seed as well, e.g. `user=0.5` to indicate that the seed should be the
-/// username and the rollout should be enabled for 50% of users.
+/// Returns true or false for percentage-based feature rollouts based on a configuration string.
+/// Configurations supported today are random and hostname.
+/// - Random: Enabled by directly setting a decimal value.
+///     Checks whether to enable feature based on a random roll
+/// - Hostname: Set by "hostname=<value>", ex. "hostname=0.5". Checks whether to roll out feature
+///     based on hash of hostname. Useful when you want the same host to consistently get the
+///     same feature enabled/disabled.
+/// It's possible to extend this system to support per-username rollout as well in addition to
+/// per-host rollout.
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct RolloutPercentage {
     inner: Inner,
@@ -24,6 +30,18 @@ pub struct RolloutPercentage {
 impl RolloutPercentage {
     pub fn roll(&self) -> bool {
         match self.inner {
+            Inner::Hostname(pct) => {
+                if let Ok(hostname) = hostname::get() {
+                    let hash = blake3::hash(&hostname.to_raw_bytes());
+                    // For simplicity, we just divide the value of the first byte by 255
+                    // to get a decimal value to compare against our percentage.
+                    // TODO(scottcao): Use get_shard internally
+                    (hash.as_bytes()[0] as f64 / std::u8::MAX as f64) < pct
+                } else {
+                    tracing::warn!("Unable to obtain hostname");
+                    false
+                }
+            }
             Inner::Rate(pct) => rand::thread_rng().gen::<f64>() < pct,
             Inner::Bool(b) => b,
         }
@@ -57,6 +75,7 @@ impl FromStr for RolloutPercentage {
 #[derive(Copy, Clone, Dupe, Debug)]
 enum Inner {
     Rate(f64),
+    Hostname(f64),
     Bool(bool),
 }
 
@@ -64,13 +83,14 @@ impl FromStr for Inner {
     type Err = anyhow::Error;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
+        if let Some(val) = val.strip_prefix("hostname:") {
+            let val = val.parse()?;
+            let val = rate(val)?;
+            return Ok(Inner::Hostname(val));
+        }
+
         if let Ok(val) = val.parse() {
-            if !(0.0..=1.0).contains(&val) {
-                return Err(anyhow::anyhow!(
-                    "RolloutPercentage floats must be within [0,1] (got: {})",
-                    val
-                ));
-            }
+            let val = rate(val)?;
             return Ok(Inner::Rate(val));
         }
 
@@ -80,6 +100,17 @@ impl FromStr for Inner {
 
         Err(anyhow::anyhow!(
             "RolloutPercentage must be either a float or a bool"
+        ))
+    }
+}
+
+fn rate(val: f64) -> anyhow::Result<f64> {
+    if (0.0..=1.0).contains(&val) {
+        Ok(val)
+    } else {
+        Err(anyhow::anyhow!(
+            "RolloutPercentage floats must be within [0,1] (got: {})",
+            val
         ))
     }
 }
@@ -125,6 +156,21 @@ mod tests {
             assert!(
                 !RolloutPercentage {
                     inner: Inner::Rate(0.0)
+                }
+                .roll()
+            );
+        }
+
+        for _ in 0..1000 {
+            assert!(
+                RolloutPercentage {
+                    inner: Inner::Hostname(1.0)
+                }
+                .roll()
+            );
+            assert!(
+                !RolloutPercentage {
+                    inner: Inner::Hostname(0.0)
                 }
                 .roll()
             );
