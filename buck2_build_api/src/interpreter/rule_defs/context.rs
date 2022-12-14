@@ -663,6 +663,31 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )
     }
 
+    fn copy_dir<'v>(
+        this: &AnalysisActions<'v>,
+        #[starlark(require = pos)] dest: Value<'v>,
+        #[starlark(require = pos)] src: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        copy_file(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
+    }
+
+    fn symlink_dir<'v>(
+        this: &AnalysisActions<'v>,
+        #[starlark(require = pos)] dest: Value<'v>,
+        #[starlark(require = pos)] src: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        copy_file(
+            eval,
+            this,
+            dest,
+            src,
+            CopyMode::Symlink,
+            OutputType::Directory,
+        )
+    }
+
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
