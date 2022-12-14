@@ -38,6 +38,12 @@ native.python_bootstrap_binary(
 )
 
 native.python_bootstrap_binary(
+    name = "conan_package_extract",
+    main = "conan_package_extract.py",
+    visibility = ["PUBLIC"],
+)
+
+native.python_bootstrap_binary(
     name = "conan_update",
     main = "conan_update.py",
     visibility = ["PUBLIC"],
