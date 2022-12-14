@@ -13,7 +13,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -27,6 +28,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::clean_output_paths;
 use crate::materializers::deferred::extension::ExtensionCommand;
+use crate::materializers::deferred::file_tree::DataTree;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::CleaningFuture;
@@ -93,10 +95,13 @@ fn gather_clean_futures_for_stale_artifacts(
     let result = if tracked_only {
         find_stale_tracked_only(tree, keep_since_time)?
     } else {
+        let subtree = tree
+            .get_subtree(&mut io.fs.relativize(&gen_dir)?.iter())
+            .context("Found a file where gen dir expected")?;
         find_stale_recursive(
             &io.fs,
-            tree,
-            gen_dir,
+            subtree,
+            &gen_dir,
             keep_since_time,
             StaleFinderResult::new(),
         )?
@@ -147,43 +152,59 @@ impl StaleFinderResult {
 
 fn find_stale_recursive(
     fs: &ProjectRoot,
-    tree: &ArtifactTree,
-    path: AbsNormPathBuf,
+    subtree: Option<&ArtifactTree>,
+    path: &AbsNormPath,
     keep_since_time: DateTime<Utc>,
     mut result: StaleFinderResult,
 ) -> anyhow::Result<StaleFinderResult> {
-    let rel_path: ProjectRelativePathBuf = fs.relativize(&path)?.into_owned();
-    let metadata = &tree.prefix_get(&mut rel_path.iter());
-    let stage = metadata.map(|m| &m.stage);
-
     // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
     let path_type = FileType::from(fs_util::symlink_metadata(&path)?.file_type());
-    if let Some(ArtifactMaterializationStage::Materialized {
-        last_access_time,
-        active,
-        ..
-    }) = stage
-    {
-        if *last_access_time < keep_since_time && !active {
-            result.stale_count += 1;
-            result.paths_to_clean.push(rel_path);
-            tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
+    let rel_path = fs.relativize(&path)?;
+
+    let clean_untracked = |mut result: StaleFinderResult| {
+        result.untracked_count += 1;
+        result.paths_to_clean.push(rel_path.clone().into_owned());
+        tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
+        Ok(result)
+    };
+
+    if let Some(DataTree::Data(metadata)) = subtree {
+        if let ArtifactMaterializationStage::Materialized {
+            last_access_time,
+            active,
+            ..
+        } = metadata.stage
+        {
+            if last_access_time < keep_since_time && !active {
+                result.stale_count += 1;
+                result.paths_to_clean.push(rel_path.clone().into_owned());
+                tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
+            } else {
+                result.retained_count += 1;
+                tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
+            }
+            Ok(result)
         } else {
-            result.retained_count += 1;
-            tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
+            // Artifact was declared but never materialized, should not be a file here.
+            clean_untracked(result)
         }
     } else if path_type.is_dir() {
+        let children = subtree.and_then(|t| t.children());
         for file in fs_util::read_dir(path)? {
-            let file = file?;
-            result = find_stale_recursive(fs, tree, file.path(), keep_since_time, result)?;
+            let child_path = file?.path();
+            // If a file or dir exists here but the name not valid utf-8 it must be untracked.
+            // Make subtree None to mark it untracked instead of throwing an error.
+            let file_name = child_path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .and_then(|f| FileName::new(f).ok());
+            let subtree = children.and_then(|c| file_name.and_then(|f| c.get(f)));
+            result = find_stale_recursive(fs, subtree, &child_path, keep_since_time, result)?;
         }
+        Ok(result)
     } else {
-        result.untracked_count += 1;
-        result.paths_to_clean.push(rel_path);
-        tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
+        clean_untracked(result)
     }
-
-    Ok(result)
 }
 
 fn find_stale_tracked_only(

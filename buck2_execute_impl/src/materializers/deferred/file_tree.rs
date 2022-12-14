@@ -102,6 +102,29 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         None
     }
 
+    /// Get the subtree at `key`, if the entry exists and is a tree.
+    /// Return an error if there is an entry but it is not a tree.
+    pub fn get_subtree<'a, I, Q>(&self, key: &mut I) -> anyhow::Result<Option<&Self>>
+    where
+        K: 'a + Borrow<Q>,
+        Q: 'a + Hash + Eq + ?Sized,
+        I: Iterator<Item = &'a Q>,
+    {
+        let mut node = self;
+        for k in key {
+            node = match node.children().unwrap().get(k) {
+                None => return Ok(None),
+                Some(node) => match node {
+                    Self::Tree(_) => node,
+                    Self::Data(_) => {
+                        return Err(anyhow::anyhow!("Data found where tree expected"));
+                    }
+                },
+            };
+        }
+        Ok(Some(node))
+    }
+
     /// Inserts a key-value pair into the tree.
     ///
     /// If there is already a key in the map that is a prefix of the inserted
@@ -157,7 +180,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         }
     }
 
-    fn children(&self) -> Option<&HashMap<K, DataTree<K, V>>> {
+    pub fn children(&self) -> Option<&HashMap<K, DataTree<K, V>>> {
         match self {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,
