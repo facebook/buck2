@@ -328,7 +328,12 @@ struct ConfigurationNodeKey {
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "ResolvedConfigurationKey")]
+#[display(
+    fmt = "ResolvedConfigurationKey(target_cfg: {}, cell: {}, configuration_deps size {})",
+    target_cfg,
+    target_cell,
+    "configuration_deps.len()"
+)]
 struct ResolvedConfigurationKey {
     target_cfg: Configuration,
     target_cell: CellName,
