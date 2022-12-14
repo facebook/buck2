@@ -83,6 +83,71 @@ def conan_component(
 def _conan_dep_impl(ctx: "context") -> ["provider"]:
     # TODO[AH] Exponse components as sub-targets.
     # TODO[AH] Exponse a top-level target that bundles and exports all components
+
+    # cxx_merge_cpreprocessors(
+    #     ctx,
+    #     [generic_exported_pre, specific_exportd_pre],
+    #     inherited_pp_infos,
+    # )
+
+    # create_merged_link_info(
+    #     ctx,
+    #     # Add link info for each link style,
+    #     libraries,
+    #     preferred_linkage = preferred_linkage,
+    #     # Export link info from non-exported deps (when necessary).
+    #     deps = [inherited_link],
+    #     # Export link info from out (exported) deps.
+    #     exported_deps = [inherited_exported_link],
+    # )
+
+    # merge_shared_libraries(
+    #     ctx.actions,
+    #     create_shared_libraries(ctx, solibs),
+    #     filter(None, [x.get(SharedLibraryInfo) for x in exported_first_order_deps]),
+    # )
+
+    # If static-pic
+    #
+    # create_linkable_root(
+    #     ctx,
+    #     name = soname,
+    #     link_infos = LinkInfos(default = LinkInfo(
+    #         name = soname,
+    #         pre_flags = cxx_attr_exported_linker_flags(ctx),
+    #         linkables = [ArchiveLinkable(
+    #             archive = Archive(
+    #                 artifact = static_pic_lib or static_lib,
+    #             ),
+    #             linker_type = linker_type,
+    #             link_whole = True,
+    #         )],
+    #         post_flags = cxx_attr_exported_post_linker_flags(ctx),
+    #     )),
+    #     deps = exported_first_order_deps,
+    #     graph = deps_linkable_graph,
+    #     create_shared_root = known_omnibus_root,
+    # )
+
+    # create_linkable_graph(
+    #     ctx,
+    #     node = create_linkable_graph_node(
+    #         ctx,
+    #         linkable_node = create_linkable_node(
+    #             ctx = ctx,
+    #             preferred_linkage = preferred_linkage,
+    #             exported_deps = exported_first_order_deps,
+    #             # If we don't have link input for this link style, we pass in `None` so
+    #             # that omnibus knows to avoid it.
+    #             link_infos = libraries,
+    #             shared_libs = solibs,
+    #         ),
+    #         roots = roots,
+    #         excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
+    #     ),
+    #     children = [deps_linkable_graph],
+    # )
+
     return [
         DefaultInfo(),
     ]
