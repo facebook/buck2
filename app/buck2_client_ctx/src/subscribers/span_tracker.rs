@@ -25,16 +25,10 @@ use crate::what_ran::WhatRanState;
 
 #[derive(Debug, thiserror::Error)]
 enum SpanTrackerError<T: SpanTrackable> {
-    #[error("Tried to end an unstarted event: `{0:#?}`.\nStarted events: `{1:?}`.")]
-    InvalidRemoval(T, Vec<T>),
     #[error(
         "Tried to end a child (`{child:#?}`) that did not exist for its parent (`{parent:#?}`)."
     )]
     InvalidChildRemoval { child: T, parent: T },
-    #[error(
-        "Tried to register with a parent span that had not started: `{0:#?}`.\nStarted events: `{1:?}`."
-    )]
-    InvalidParent(T, Vec<T>),
     #[error("Tried to start an event not associated with a span: `{0:?}.")]
     NonSpanEvent(T),
 }
@@ -254,16 +248,11 @@ impl<T: SpanTrackable> SpanTracker<T> {
         }
     }
 
-    /// Used for rendering errors.
-    fn debug_known_events(&self) -> Vec<T> {
-        self.all
-            .values()
-            .map(|span| span.info.event.dupe())
-            .collect()
-    }
-
     pub(crate) fn start_at(&mut self, event: &T, at: Instant) -> anyhow::Result<()> {
-        let is_root = event.is_root();
+        if !event.is_shown() {
+            return Ok(());
+        }
+
         let is_boring = event.is_boring();
 
         let span_id = event
@@ -280,22 +269,16 @@ impl<T: SpanTrackable> SpanTracker<T> {
             children: LinkedHashMap::new(),
         });
 
-        if is_root {
-            self.roots.insert(span_id, is_boring);
-        } else if let Some(parent_id) = event.parent_id() {
-            let parent = match self.all.get_mut(&parent_id) {
-                Some(parent) => parent,
-                None => {
-                    return Err(SpanTrackerError::InvalidParent(
-                        event.dupe(),
-                        self.debug_known_events(),
-                    )
-                    .into());
-                }
-            };
+        let parent = event.parent_id().and_then(|id| self.all.get_mut(&id));
 
-            parent.add_child(span_id, is_boring, &mut self.roots);
-        }
+        match parent {
+            Some(parent) => {
+                parent.add_child(span_id, is_boring, &mut self.roots);
+            }
+            None => {
+                self.roots.insert(span_id, is_boring);
+            }
+        };
 
         Ok(())
     }
@@ -311,11 +294,7 @@ impl<T: SpanTrackable> SpanTracker<T> {
         let removed = match self.all.remove(&span_id) {
             Some(removed) => removed,
             None => {
-                return Err(SpanTrackerError::InvalidRemoval(
-                    event.dupe(),
-                    self.debug_known_events(),
-                )
-                .into());
+                return Ok(());
             }
         };
 
@@ -324,19 +303,17 @@ impl<T: SpanTrackable> SpanTracker<T> {
         // find out if it was indeed a root to track roots_completed.
         if self.roots.remove(span_id).is_some() {
             self.roots_completed += 1;
-        } else if let Some(parent_id) = event.parent_id() {
-            let parent = match self.all.get_mut(&parent_id) {
-                Some(parent) => parent,
+        } else {
+            let parent = event.parent_id().and_then(|id| self.all.get_mut(&id));
+            match parent {
+                Some(parent) => {
+                    parent.remove_child(removed, &mut self.roots)?;
+                }
                 None => {
-                    return Err(SpanTrackerError::InvalidParent(
-                        event.clone(),
-                        self.debug_known_events(),
-                    )
-                    .into());
+                    // Likely a bug: if this node was shown (meaning it was in `all`), but didn't
+                    // have a parent or its parent wasn't shown, then it should have been a root.
                 }
             };
-
-            parent.remove_child(removed, &mut self.roots)?;
         }
 
         Ok(())
@@ -379,9 +356,9 @@ pub(crate) trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
 
     fn parent_id(&self) -> Option<Self::Id>;
 
-    /// Determine whether this Span should be rendered as root (i.e. show on its own line, potentially
-    /// including its chldren).
-    fn is_root(&self) -> bool;
+    /// Determine whether this Span should be rendered. If this span's parent isn't shown (if any
+    /// exists), then it'll be rendered as a root. Otherwise, it'll be rendered as a child.
+    fn is_shown(&self) -> bool;
 
     fn is_boring(&self) -> bool;
 }
@@ -397,17 +374,13 @@ impl SpanTrackable for Arc<BuckEvent> {
         BuckEvent::parent_id(self)
     }
 
-    fn is_root(&self) -> bool {
+    fn is_shown(&self) -> bool {
         use buck2_data::span_start_event::Data;
 
         match self.span_start_event().and_then(|span| span.data.as_ref()) {
             Some(
                 Data::Command(..)
                 | Data::CommandCritical(..)
-                | Data::AnalysisStage(..)
-                | Data::ExecutorStage(..)
-                | Data::MatchDepFiles(..)
-                | Data::CacheUpload(..)
                 | Data::Materialization(..)
                 | Data::DiceCriticalSection(..)
                 | Data::DiceBlockConcurrentCommand(..),
@@ -425,7 +398,11 @@ impl SpanTrackable for Arc<BuckEvent> {
                 | Data::CreateOutputSymlinks(..)
                 | Data::InstallEventInfo(..)
                 | Data::DiceStateUpdate(..)
-                | Data::Fake(..),
+                | Data::Fake(..)
+                | Data::AnalysisStage(..)
+                | Data::ExecutorStage(..)
+                | Data::MatchDepFiles(..)
+                | Data::CacheUpload(..),
             ) => true,
             None => false,
         }
@@ -509,7 +486,7 @@ mod test {
     struct TestSpan {
         span_id: i64,
         parent_id: Option<i64>,
-        root: bool,
+        shown: bool,
         boring: bool,
     }
 
@@ -524,8 +501,8 @@ mod test {
             self.parent_id
         }
 
-        fn is_root(&self) -> bool {
-            self.root
+        fn is_shown(&self) -> bool {
+            true
         }
 
         fn is_boring(&self) -> bool {
@@ -540,18 +517,13 @@ mod test {
             Self {
                 span_id: CURR.fetch_add(1, Ordering::Relaxed),
                 parent_id: None,
-                root: false,
+                shown: false,
                 boring: false,
             }
         }
 
         fn parent(mut self, parent: TestSpan) -> Self {
             self.parent_id = Some(parent.span_id);
-            self
-        }
-
-        fn root(mut self) -> Self {
-            self.root = true;
             self
         }
 
@@ -565,8 +537,8 @@ mod test {
     fn test_boring_via_self() -> anyhow::Result<()> {
         let t0 = Instant::now();
 
-        let boring = TestSpan::new().root().boring();
-        let not_boring = TestSpan::new().root();
+        let boring = TestSpan::new().boring();
+        let not_boring = TestSpan::new();
 
         let mut tracker = SpanTracker::new();
         tracker.start_at(&boring, t0)?;
@@ -589,11 +561,11 @@ mod test {
     fn test_boring_via_child() -> anyhow::Result<()> {
         let t0 = Instant::now();
 
-        let parent = TestSpan::new().root();
+        let parent = TestSpan::new();
         let child = TestSpan::new().parent(parent).boring();
 
-        let other = TestSpan::new().root();
-        let other2 = TestSpan::new().root();
+        let other = TestSpan::new();
+        let other2 = TestSpan::new();
 
         let mut tracker = SpanTracker::new();
         tracker.start_at(&parent, t0)?;
@@ -650,9 +622,9 @@ mod test {
     fn test_iter_roots_len() -> anyhow::Result<()> {
         let t0 = Instant::now();
 
-        let e1 = TestSpan::new().root();
-        let e2 = TestSpan::new().root().boring();
-        let e3 = TestSpan::new().root();
+        let e1 = TestSpan::new();
+        let e2 = TestSpan::new().boring();
+        let e3 = TestSpan::new();
 
         let mut tracker = SpanTracker::new();
         tracker.start_at(&e1, t0)?;
