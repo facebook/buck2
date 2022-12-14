@@ -18,5 +18,8 @@ KotlinToolchainInfo = provider(
         "kotlinc_protocol",
         "kotlin_stdlib",
         "kotlin_home_libraries",
+        "kosabi_stubs_gen_plugin",
+        "kosabi_applicability_plugin",
+        "kosabi_jvm_abi_gen_plugin",
     ],
 )
