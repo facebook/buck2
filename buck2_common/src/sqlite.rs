@@ -47,7 +47,7 @@ impl KeyValueSqliteTable {
 
     pub fn insert_all(&self, map: HashMap<String, String>) -> anyhow::Result<()> {
         let sql = format!(
-            "INSERT INTO {} (key, value) VALUES {}",
+            "INSERT OR REPLACE INTO {} (key, value) VALUES {}",
             self.table_name,
             // According to rusqlite docs this is the recommended way to generate the right
             // number of query placeholders for multi-row insertions.

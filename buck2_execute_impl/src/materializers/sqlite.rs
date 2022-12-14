@@ -43,7 +43,7 @@ use crate::materializers::deferred::ArtifactMetadata;
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const DB_SCHEMA_VERSION: u64 = 2;
+pub const DB_SCHEMA_VERSION: u64 = 3;
 
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
@@ -417,9 +417,10 @@ pub struct MaterializerStateSqliteDb {
     /// away the entire db and initialize a new one. If versions do match, then
     /// we try to read all state from `materializer_state_table`.
     versions_table: KeyValueSqliteTable,
-    /// Table for logging any metadata not used to check version match, generally
-    /// just for debugging purposes.
-    metadata_table: KeyValueSqliteTable,
+    /// Table for logging metadata associated with the buck2 that created the db.
+    created_by_table: KeyValueSqliteTable,
+    /// Table for logging metadata associated with the buck2 that last updated the db.
+    last_read_by_table: KeyValueSqliteTable,
 }
 
 impl MaterializerStateSqliteDb {
@@ -454,11 +455,13 @@ impl MaterializerStateSqliteDb {
         let connection = Arc::new(Mutex::new(connection));
         let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
         let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
-        let metadata_table = KeyValueSqliteTable::new("metadata".to_owned(), connection);
+        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
+        let last_read_by_table = KeyValueSqliteTable::new("last_read_by".to_owned(), connection);
         Ok(Self {
             materializer_state_table,
             versions_table,
-            metadata_table,
+            created_by_table,
+            last_read_by_table,
         })
     }
 
@@ -477,18 +480,26 @@ impl MaterializerStateSqliteDb {
     pub async fn load_or_initialize(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
+        current_instance_metadata: HashMap<String, String>,
         // Using `BlockingExecutor` out of convenience. This function should be called during startup
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         io_executor
-            .execute_io_inline(|| Self::load_or_initialize_impl(materializer_state_dir, versions))
+            .execute_io_inline(|| {
+                Self::load_or_initialize_impl(
+                    materializer_state_dir,
+                    versions,
+                    current_instance_metadata,
+                )
+            })
             .await
     }
 
     pub fn load_or_initialize_impl(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
+        current_instance_metadata: HashMap<String, String>,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
 
@@ -512,6 +523,11 @@ impl MaterializerStateSqliteDb {
                 })?;
             }
 
+            // Update "last_read_by" inside of the try block so that
+            // just in case it fails, we can create a new db and start over
+            db.last_read_by_table
+                .insert_all(current_instance_metadata.clone())?;
+
             let state = db.materializer_state_table().read_all()?;
             (db, state)
         };
@@ -532,6 +548,11 @@ impl MaterializerStateSqliteDb {
                 let db = Self::open(&db_path)?;
                 db.create_all_tables()?;
                 db.versions_table.insert_all(versions)?;
+                // Update both "last_read_by" and "created_by"
+                db.created_by_table
+                    .insert_all(current_instance_metadata.clone())?;
+                db.last_read_by_table
+                    .insert_all(current_instance_metadata)?;
 
                 Ok((db, Err(e)))
             }
@@ -545,7 +566,8 @@ impl MaterializerStateSqliteDb {
     pub(crate) fn create_all_tables(&self) -> anyhow::Result<()> {
         self.materializer_state_table.create_table()?;
         self.versions_table.create_table()?;
-        self.metadata_table.create_table()?;
+        self.created_by_table.create_table()?;
+        self.last_read_by_table.create_table()?;
         Ok(())
     }
 }
@@ -708,17 +730,28 @@ mod tests {
     fn testing_materializer_state_sqlite_db(
         fs: &ProjectRoot,
         versions: HashMap<String, String>,
+        metadata: HashMap<String, String>,
     ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
         MaterializerStateSqliteDb::load_or_initialize_impl(
             fs.resolve(ProjectRelativePath::unchecked_new(
                 "buck-out/v2/cache/materializer_state",
             )),
             versions,
+            metadata,
         )
     }
 
     #[test]
     fn test_load_or_initialize_sqlite_db() -> anyhow::Result<()> {
+        fn testing_metadatas() -> Vec<HashMap<String, String>> {
+            let metadata = buck2_events::metadata::collect();
+            let mut metadatas = vec![metadata; 4];
+            for (i, metadata) in metadatas.iter_mut().enumerate() {
+                metadata.insert("version".to_owned(), i.to_string());
+            }
+            metadatas
+        }
+
         let fs = ProjectRootTemp::new()?;
 
         let path = ProjectRelativePath::unchecked_new("foo").to_owned();
@@ -726,10 +759,13 @@ mod tests {
             FileDigest::from_bytes_sha1(b"directory"),
         )));
         let timestamp = now_seconds();
+        let metadatas = testing_metadatas();
+
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
                 HashMap::from([("version".to_owned(), "0".to_owned())]),
+                metadatas[0].clone(),
             )
             .unwrap();
             assert_matches!(
@@ -740,6 +776,8 @@ mod tests {
                         Some(MaterializerStateSqliteDbError::PathDoesNotExist(_path)));
                 }
             );
+            assert_eq!(&db.created_by_table.read_all()?, &metadatas[0]);
+            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[0]);
 
             db.materializer_state_table()
                 .insert(path.clone(), artifact_metadata.clone(), timestamp)
@@ -747,9 +785,10 @@ mod tests {
         }
 
         {
-            let (_db, loaded_state) = testing_materializer_state_sqlite_db(
+            let (db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
                 HashMap::from([("version".to_owned(), "0".to_owned())]),
+                metadatas[1].clone(),
             )
             .unwrap();
             assert_matches!(
@@ -758,12 +797,15 @@ mod tests {
                     assert_eq!(v, vec![(path.clone(), (artifact_metadata.clone(), timestamp))]);
                 }
             );
+            assert_eq!(&db.created_by_table.read_all()?, &metadatas[0]);
+            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[1]);
         }
 
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
                 HashMap::from([("version".to_owned(), "1".to_owned())]),
+                metadatas[2].clone(),
             )
             .unwrap();
             assert_matches!(
@@ -778,6 +820,8 @@ mod tests {
                     }));
                 }
             );
+            assert_eq!(&db.created_by_table.read_all()?, &metadatas[2]);
+            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[2]);
 
             db.materializer_state_table()
                 .insert(path.clone(), artifact_metadata.clone(), timestamp)
@@ -785,9 +829,10 @@ mod tests {
         }
 
         {
-            let (_db, loaded_state) = testing_materializer_state_sqlite_db(
+            let (db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
                 HashMap::from([("version".to_owned(), "1".to_owned())]),
+                metadatas[3].clone(),
             )
             .unwrap();
             assert_matches!(
@@ -796,6 +841,8 @@ mod tests {
                     assert_eq!(v, vec![(path, (artifact_metadata, timestamp))]);
                 }
             );
+            assert_eq!(&db.created_by_table.read_all()?, &metadatas[2]);
+            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[3]);
         }
 
         Ok(())

@@ -22,6 +22,7 @@ use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
+use chrono::Utc;
 
 pub(crate) struct DiskStateOptions {
     sqlite_materializer_state: bool,
@@ -62,14 +63,19 @@ pub(crate) async fn maybe_load_or_initialize_materializer_sqlite_db(
         return Ok((None, None));
     }
 
-    let metadata = buck2_events::metadata::collect();
-    let buckconfig_version: Option<String> =
-        root_config.parse("buck2", "sqlite_materializer_state_version")?;
+    let mut metadata = buck2_events::metadata::collect();
+    let timestamp_on_initialization = Utc::now().to_rfc3339();
+    metadata.insert(
+        "timestamp_on_initialization".to_owned(),
+        timestamp_on_initialization,
+    );
 
     let mut versions =
         HashMap::from([("schema_version".to_owned(), DB_SCHEMA_VERSION.to_string())]);
-    if let Some(v) = buckconfig_version {
-        versions.insert("buckconfig_version".to_owned(), v);
+    if let Some(buckconfig_version) =
+        root_config.parse("buck2", "sqlite_materializer_state_version")?
+    {
+        versions.insert("buckconfig_version".to_owned(), buckconfig_version);
     }
     if let Some(hostname) = metadata.get("hostname") {
         versions.insert("hostname".to_owned(), hostname.to_owned());
@@ -81,6 +87,7 @@ pub(crate) async fn maybe_load_or_initialize_materializer_sqlite_db(
     let (db, load_result) = MaterializerStateSqliteDb::load_or_initialize(
         paths.materializer_state_path(),
         versions,
+        metadata,
         io_executor,
     )
     .await?;
