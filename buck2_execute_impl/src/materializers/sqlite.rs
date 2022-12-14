@@ -43,7 +43,7 @@ use crate::materializers::deferred::ArtifactMetadata;
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const DB_SCHEMA_VERSION: u64 = 1;
+pub const DB_SCHEMA_VERSION: u64 = 2;
 
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
@@ -400,8 +400,8 @@ enum MaterializerStateSqliteDbError {
 
     #[error("Expected versions {:?}. Found versions {:?} in sqlite db at {}", .expected, .found, .path)]
     VersionMismatch {
-        expected: HashMap<String, Option<String>>,
-        found: HashMap<String, Option<String>>,
+        expected: HashMap<String, String>,
+        found: HashMap<String, String>,
         path: AbsNormPathBuf,
     },
 }
@@ -476,7 +476,7 @@ impl MaterializerStateSqliteDb {
     /// TODO(scottcao): pull this method into a shared trait once we add a another sqlite DB
     pub async fn load_or_initialize(
         materializer_state_dir: AbsNormPathBuf,
-        versions: HashMap<String, Option<String>>,
+        versions: HashMap<String, String>,
         // Using `BlockingExecutor` out of convenience. This function should be called during startup
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
@@ -488,7 +488,7 @@ impl MaterializerStateSqliteDb {
 
     pub fn load_or_initialize_impl(
         materializer_state_dir: AbsNormPathBuf,
-        versions: HashMap<String, Option<String>>,
+        versions: HashMap<String, String>,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
 
@@ -709,7 +709,7 @@ mod tests {
 
     fn testing_materializer_state_sqlite_db(
         fs: &ProjectRoot,
-        versions: HashMap<String, Option<String>>,
+        versions: HashMap<String, String>,
     ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
         MaterializerStateSqliteDb::load_or_initialize_impl(
             fs.resolve(ProjectRelativePath::unchecked_new(
@@ -731,7 +731,7 @@ mod tests {
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
+                HashMap::from([("version".to_owned(), "0".to_owned())]),
             )
             .unwrap();
             assert_matches!(
@@ -751,7 +751,7 @@ mod tests {
         {
             let (_db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), Some("0".to_owned()))]),
+                HashMap::from([("version".to_owned(), "0".to_owned())]),
             )
             .unwrap();
             assert_matches!(
@@ -765,7 +765,7 @@ mod tests {
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
+                HashMap::from([("version".to_owned(), "1".to_owned())]),
             )
             .unwrap();
             assert_matches!(
@@ -789,7 +789,7 @@ mod tests {
         {
             let (_db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), Some("1".to_owned()))]),
+                HashMap::from([("version".to_owned(), "1".to_owned())]),
             )
             .unwrap();
             assert_matches!(

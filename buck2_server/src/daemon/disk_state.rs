@@ -65,14 +65,16 @@ pub(crate) async fn maybe_load_or_initialize_materializer_sqlite_db(
     let metadata = buck2_events::metadata::collect();
     let buckconfig_version: Option<String> =
         root_config.parse("buck2", "sqlite_materializer_state_version")?;
-    let versions = HashMap::from([
-        (
-            "schema_version".to_owned(),
-            Some(DB_SCHEMA_VERSION.to_string()),
-        ),
-        ("buckconfig_version".to_owned(), buckconfig_version),
-        ("hostname".to_owned(), metadata.get("hostname").cloned()),
-    ]);
+
+    let mut versions =
+        HashMap::from([("schema_version".to_owned(), DB_SCHEMA_VERSION.to_string())]);
+    if let Some(v) = buckconfig_version {
+        versions.insert("buckconfig_version".to_owned(), v);
+    }
+    if let Some(hostname) = metadata.get("hostname") {
+        versions.insert("hostname".to_owned(), hostname.to_owned());
+    }
+
     // Most things in the rest of `metadata` should go in the metadata sqlite table.
     // TODO(scottcao): Narrow down what metadata we need and and insert them into the
     // metadata table before a feature rollout.

@@ -32,7 +32,7 @@ impl KeyValueSqliteTable {
         let sql = format!(
             "CREATE TABLE {} (
                 key     TEXT PRIMARY KEY NOT NULL,
-                value   TEXT NULL
+                value   TEXT NOT NULL
             )",
             self.table_name
         );
@@ -44,13 +44,13 @@ impl KeyValueSqliteTable {
         Ok(())
     }
 
-    pub fn insert(&self, key: String, value: Option<String>) -> anyhow::Result<()> {
+    pub fn insert(&self, key: String, value: String) -> anyhow::Result<()> {
         // TODO(scottcao): Make this an `insert_all` for batch inserts.
         let sql = format!(
             "INSERT INTO {} (key, value) VALUES (?1, ?2)",
             self.table_name
         );
-        tracing::trace!(sql = %sql, key = %key, value = ?value, "inserting into table");
+        tracing::trace!(sql = %sql, key = %key, value = %value, "inserting into table");
         self.connection
             .lock()
             .execute(&sql, rusqlite::params![key, value])
@@ -58,14 +58,14 @@ impl KeyValueSqliteTable {
         Ok(())
     }
 
-    pub fn read_all(&self) -> anyhow::Result<HashMap<String, Option<String>>> {
+    pub fn read_all(&self) -> anyhow::Result<HashMap<String, String>> {
         let sql = format!("SELECT key, value FROM {}", self.table_name);
         tracing::trace!(sql = %sql, "read all from table");
         let connection = self.connection.lock();
         let mut stmt = connection.prepare(&sql)?;
         let map = stmt
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<Result<HashMap<String, Option<String>>, _>>()
+            .collect::<Result<HashMap<String, String>, _>>()
             .with_context(|| format!("reading from sqlite table {}", self.table_name))?;
         Ok(map)
     }
@@ -93,14 +93,9 @@ mod tests {
 
         table.create_table().unwrap();
 
-        table
-            .insert("foo".to_owned(), Some("bar".to_owned()))
-            .unwrap();
+        table.insert("foo".to_owned(), "bar".to_owned()).unwrap();
 
         let map = table.read_all().unwrap();
-        assert_eq!(
-            map,
-            HashMap::from([("foo".to_owned(), Some("bar".to_owned()))])
-        );
+        assert_eq!(map, HashMap::from([("foo".to_owned(), "bar".to_owned())]));
     }
 }
