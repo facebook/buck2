@@ -28,7 +28,7 @@ pub(crate) async fn clean_stale_command(
         .single()
         .context("Invalid timestamp")?;
     deferred_materializer
-        .clean_stale_artifacts(keep_since_time, req.dry_run)
+        .clean_stale_artifacts(keep_since_time, req.dry_run, req.tracked_only)
         .await
         .map(|s| cli_proto::CleanStaleResponse { response: s })
         .context("Failed to clean stale artifacts.")

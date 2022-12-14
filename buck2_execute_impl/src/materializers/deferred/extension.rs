@@ -156,12 +156,14 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         &self,
         keep_since_time: DateTime<Utc>,
         dry_run: bool,
+        tracked_only: bool,
     ) -> anyhow::Result<String> {
         let (sender, recv) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(box CleanStaleArtifacts {
                 keep_since_time,
                 dry_run,
+                tracked_only,
                 sender,
             }))?;
         recv.await?.await

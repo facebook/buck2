@@ -566,6 +566,7 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         &self,
         keep_since_time: DateTime<Utc>,
         dry_run: bool,
+        tracked_only: bool,
     ) -> anyhow::Result<String>;
 
     fn queue_size(&self) -> usize;

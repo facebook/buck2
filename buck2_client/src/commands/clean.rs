@@ -62,6 +62,9 @@ the specified duration, without killing the daemon",
     // Like stale but since a specific timestamp, for testing
     #[clap(long = "keep-since-time", conflicts_with = "stale", hidden = true)]
     keep_since_time: Option<i64>,
+
+    #[clap(long = "tracked-only", requires = "stale")]
+    tracked_only: bool,
 }
 
 impl CleanCommand {
@@ -73,6 +76,7 @@ impl CleanCommand {
                 event_log_opts: self.event_log_opts,
                 keep_since_arg,
                 dry_run: self.dry_run,
+                tracked_only: self.tracked_only,
             };
             return cmd.exec(matches, ctx);
         }

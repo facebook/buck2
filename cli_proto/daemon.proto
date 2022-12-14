@@ -603,6 +603,7 @@ message CleanStaleRequest {
   ClientContext context = 1;
   int64 keep_since_time = 2;
   bool dry_run = 3;
+  bool tracked_only = 4;
 }
 
 message CleanStaleResponse {

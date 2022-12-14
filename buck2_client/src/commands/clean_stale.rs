@@ -35,6 +35,7 @@ pub struct CleanStaleCommand {
     pub event_log_opts: CommonDaemonCommandOptions,
     pub keep_since_arg: KeepSinceArg,
     pub dry_run: bool,
+    pub tracked_only: bool,
 }
 
 /// Specifies the maximum age of artifacts to keep
@@ -98,6 +99,7 @@ impl StreamingCommand for CleanStaleCommand {
                     context: Some(context),
                     keep_since_time: keep_since_time.timestamp(),
                     dry_run: self.dry_run,
+                    tracked_only: self.tracked_only,
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
             )

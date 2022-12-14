@@ -10,9 +10,11 @@
 use std::fmt::Write;
 use std::sync::Arc;
 
+use anyhow::Context;
 use buck2_common::file_ops::FileType;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use chrono::DateTime;
@@ -37,6 +39,7 @@ use crate::materializers::sqlite::MaterializerStateSqliteDb;
 pub struct CleanStaleArtifacts {
     pub keep_since_time: DateTime<Utc>,
     pub dry_run: bool,
+    pub tracked_only: bool,
     #[derivative(Debug = "ignore")]
     pub sender: Sender<BoxFuture<'static, anyhow::Result<String>>>,
 }
@@ -51,6 +54,7 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
             tree,
             self.keep_since_time,
             self.dry_run,
+            self.tracked_only,
             &mut processor.sqlite_db,
             &processor.io,
             &processor.rt,
@@ -72,6 +76,7 @@ fn gather_clean_futures_for_stale_artifacts(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
+    tracked_only: bool,
     sqlite_db: &mut Option<MaterializerStateSqliteDb>,
     io: &Arc<DefaultIoHandler>,
     rt: &Handle,
@@ -85,13 +90,17 @@ fn gather_clean_futures_for_stale_artifacts(
     }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
-    let result = find_stale_recursive(
-        &io.fs,
-        tree,
-        gen_dir,
-        keep_since_time,
-        StaleFinderResult::new(),
-    )?;
+    let result = if tracked_only {
+        find_stale_tracked_only(tree, keep_since_time)?
+    } else {
+        find_stale_recursive(
+            &io.fs,
+            tree,
+            gen_dir,
+            keep_since_time,
+            StaleFinderResult::new(),
+        )?
+    };
 
     let mut output = String::new();
     writeln!(
@@ -174,5 +183,36 @@ fn find_stale_recursive(
         tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
     }
 
+    Ok(result)
+}
+
+fn find_stale_tracked_only(
+    tree: &ArtifactTree,
+    keep_since_time: DateTime<Utc>,
+) -> anyhow::Result<StaleFinderResult> {
+    let mut result = StaleFinderResult::new();
+    for (k, v) in tree.iter() {
+        if let ArtifactMaterializationStage::Materialized {
+            last_access_time,
+            active,
+            ..
+        } = &v.stage
+        {
+            let f_path = k
+                .iter()
+                .map(|f| f.as_ref())
+                .collect::<Option<ForwardRelativePathBuf>>()
+                .context("Invalid path key.")?;
+            let path = ProjectRelativePathBuf::from(f_path);
+            if *last_access_time < keep_since_time && !active {
+                tracing::trace!(path = %path, "stale artifact");
+                result.stale_count += 1;
+                result.paths_to_clean.push(path);
+            } else {
+                tracing::trace!(path = %path, "retaining artifact");
+                result.retained_count += 1;
+            }
+        }
+    }
     Ok(result)
 }
