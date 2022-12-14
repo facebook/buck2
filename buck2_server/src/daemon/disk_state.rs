@@ -17,6 +17,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
@@ -39,8 +40,9 @@ impl DiskStateOptions {
             materialization_method,
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts
         ) && root_config
-            .parse("buck2", "sqlite_materializer_state")?
-            .unwrap_or(false);
+            .parse::<RolloutPercentage>("buck2", "sqlite_materializer_state")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
         Ok(Self {
             sqlite_materializer_state,
         })
